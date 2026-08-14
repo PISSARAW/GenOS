@@ -119,9 +119,7 @@ impl FileCollector {
     }
 }
 
-pub(crate) fn collect_files_with_hashes(
-    root: &Path,
-) -> anyhow::Result<HashMap<PathBuf, String>> {
+pub(crate) fn collect_files_with_hashes(root: &Path) -> anyhow::Result<HashMap<PathBuf, String>> {
     let mut collector = FileCollector::new(root.to_path_buf());
     collector.collect(root)?;
     Ok(collector.into_map())

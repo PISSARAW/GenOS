@@ -227,7 +227,13 @@ fn compute_restored_fields(target: &AgentSnapshot, source: &AgentSnapshot) -> Ve
     LOGICAL_STATE_FIELDS
         .iter()
         .zip(equalities.iter())
-        .filter_map(|(field, equal)| if *equal { None } else { Some((*field).to_string()) })
+        .filter_map(|(field, equal)| {
+            if *equal {
+                None
+            } else {
+                Some((*field).to_string())
+            }
+        })
         .collect()
 }
 

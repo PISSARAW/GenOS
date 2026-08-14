@@ -26,7 +26,10 @@ use serde_json::json;
 impl AgentSnapshot {
     /// The tool output record behind a `ToolOutputId` on this branch, if any.
     pub fn tool_output(&self, id: &ToolOutputId) -> Option<&ToolOutputRecord> {
-        self.state.tool_outputs.iter().find(|record| &record.id == id)
+        self.state
+            .tool_outputs
+            .iter()
+            .find(|record| &record.id == id)
     }
 
     /// Tool output records on this branch, in insertion order.

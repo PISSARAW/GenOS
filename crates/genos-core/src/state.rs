@@ -1,7 +1,7 @@
 use crate::artifact::ArtifactRef;
 use crate::beliefs::evidence::EvidenceRef;
-use crate::ids::{BeliefId, BranchId, EventId, MemoryId, ToolOutputId, WorldId};
 use crate::ids::GenomeId;
+use crate::ids::{BeliefId, BranchId, EventId, MemoryId, ToolOutputId, WorldId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 

@@ -2,7 +2,7 @@
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{
-    check_file_isolation, GitWorktreeWorldProvider, WorldFileExpectation, WorldProvider, run_git,
+    check_file_isolation, run_git, GitWorktreeWorldProvider, WorldFileExpectation, WorldProvider,
 };
 use std::fs;
 use std::path::Path;
@@ -94,7 +94,9 @@ async fn git_worktree_forked_worlds_write_the_same_file_differently() -> anyhow:
     let snapshot = provider.snapshot(parent.clone()).await?;
     let forks = provider.fork_many(snapshot, 2).await?;
 
-    provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+    provider
+        .write_file(&forks[0], "hello.txt", "bonjour")
+        .await?;
     provider.write_file(&forks[1], "hello.txt", "hola").await?;
 
     let report = check_file_isolation(

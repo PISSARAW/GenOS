@@ -1,19 +1,12 @@
-use crate::args::{
-    AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInspectArgs, OutputFormat,
-};
-use crate::output::{
-    print_serialized, write_serialized, AgentForkOutput, ForkEntry,
-};
-use crate::resolve::{
-    event_store_from, read_genome, resolve_snapshot_ref, snapshot_store_from,
-};
+use crate::args::{AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInspectArgs, OutputFormat};
+use crate::output::{print_serialized, write_serialized, AgentForkOutput, ForkEntry};
+use crate::resolve::{event_store_from, read_genome, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
 use chrono::Utc;
 use genos_core::{
     fork_first_event_sequence, fork_snapshot, AgentEvent, AgentEventType, AgentGenome,
-    AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId,
-    GenomeId, GenomeVersion, Identity, MemoryPolicy, ModelPolicy, Objective, Policy,
-    ToolPermission, ToolPolicy,
+    AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId, GenomeId, GenomeVersion,
+    Identity, MemoryPolicy, ModelPolicy, Objective, Policy, ToolPermission, ToolPolicy,
 };
 use genos_store::{EventStore, LocalEventStore, LocalSnapshotStore, SnapshotStore};
 use serde_json::json;

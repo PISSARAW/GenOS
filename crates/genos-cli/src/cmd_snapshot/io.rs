@@ -1,6 +1,6 @@
 use crate::args::{
-    OutputFormat, SnapshotCheckpointArgs, SnapshotCompareArgs, SnapshotGetArgs,
-    SnapshotListArgs, SnapshotRestoreArgs, SnapshotSaveArgs,
+    OutputFormat, SnapshotCheckpointArgs, SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs,
+    SnapshotRestoreArgs, SnapshotSaveArgs,
 };
 use crate::output::{
     print_serialized, snapshot_path_or_none, write_serialized, SnapshotCheckpointOutput,
@@ -126,7 +126,10 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
 
     // The rewound target replaces the file the target was loaded from by
     // default — that's where the user's "current" working snapshot lives.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &write.snapshot, OutputFormat::Json)?;
     }

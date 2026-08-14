@@ -97,8 +97,14 @@ fn writing_a_new_key_leaves_siblings_without_it() {
 fn set_variable_returns_the_previous_value() {
     let mut snapshot = snapshot_with_variable("counter", INITIAL);
 
-    assert_eq!(snapshot.set_variable("counter", "10"), Some(INITIAL.to_string()));
-    assert_eq!(snapshot.set_variable("counter", "20"), Some("10".to_string()));
+    assert_eq!(
+        snapshot.set_variable("counter", "10"),
+        Some(INITIAL.to_string())
+    );
+    assert_eq!(
+        snapshot.set_variable("counter", "20"),
+        Some("10".to_string())
+    );
     assert_eq!(snapshot.variable("counter"), Some("20"));
     assert_eq!(
         snapshot
@@ -185,8 +191,14 @@ fn each_write_event_stays_on_its_own_branch() {
 
     // The cursor follows the write, and the parent is untouched by both.
     assert_eq!(a1.state.event_cursor.sequence, 1);
-    assert_eq!(a1.state.event_cursor.last_event_id, Some(w1.event.event_id.clone()));
-    assert_eq!(a2.state.event_cursor.last_event_id, Some(w2.event.event_id.clone()));
+    assert_eq!(
+        a1.state.event_cursor.last_event_id,
+        Some(w1.event.event_id.clone())
+    );
+    assert_eq!(
+        a2.state.event_cursor.last_event_id,
+        Some(w2.event.event_id.clone())
+    );
     assert_eq!(parent.state.event_cursor.sequence, 0);
     assert_eq!(parent.variable("counter"), Some(INITIAL));
 }
@@ -201,7 +213,10 @@ fn first_write_of_a_key_is_recorded_as_a_creation() {
     assert_eq!(write.previous_value, None);
     assert_eq!(write.event.event_type, AgentEventType::MemoryCreated);
     assert_eq!(write.event.payload["key"], "attempts");
-    assert_eq!(write.event.payload["previous_value"], serde_json::Value::Null);
+    assert_eq!(
+        write.event.payload["previous_value"],
+        serde_json::Value::Null
+    );
     assert_eq!(write.event.payload["value"], "3");
 }
 

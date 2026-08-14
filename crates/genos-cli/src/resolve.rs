@@ -25,12 +25,12 @@ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldPr
     fs::create_dir_all(&root)?;
 
     match kind {
-        WorldProviderKind::Directory => Ok(Box::new(DirectoryWorldProvider::new(root, seed)?)
-            as Box<dyn WorldProvider>),
+        WorldProviderKind::Directory => {
+            Ok(Box::new(DirectoryWorldProvider::new(root, seed)?) as Box<dyn WorldProvider>)
+        }
         WorldProviderKind::GitWorktree => {
             let repo = repo.context("--repo is required for provider git-worktree")?;
-            Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?)
-                as Box<dyn WorldProvider>)
+            Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?) as Box<dyn WorldProvider>)
         }
     }
 }
@@ -59,10 +59,7 @@ pub fn event_store_from(events: Option<PathBuf>, root: &Path) -> LocalEventStore
 /// Resolve a snapshot reference given either as a file path or as a snapshot id
 /// held in `store`, so callers can chain commands without knowing which form the
 /// caller happens to have at hand.
-pub async fn resolve_snapshot_ref(
-    spec: &str,
-    store: &LocalSnapshotStore,
-) -> Result<AgentSnapshot> {
+pub async fn resolve_snapshot_ref(spec: &str, store: &LocalSnapshotStore) -> Result<AgentSnapshot> {
     let path = Path::new(spec);
     if path.is_file() {
         return read_snapshot(path);

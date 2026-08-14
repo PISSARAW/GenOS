@@ -41,9 +41,7 @@ pub async fn cmd_snapshot_lineage(args: SnapshotLineageArgs) -> Result<()> {
             let dag = build_lineage_dag(&events);
             match dag.auto_root() {
                 Some(root) => (root, None),
-                None => bail!(
-                    "no anchor given and the event stream has no parent-less snapshots"
-                ),
+                None => bail!("no anchor given and the event stream has no parent-less snapshots"),
             }
         }
     };

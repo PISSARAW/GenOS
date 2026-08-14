@@ -11,8 +11,8 @@ use crate::{DestroyOutcome, ExecuteResult, WorldDiff, WorldError, WorldProvider}
 use async_trait::async_trait;
 use genos_core::{AgentId, BranchId, SnapshotId, WorldId};
 use std::collections::HashSet;
+use std::fs;
 use std::path::PathBuf;
-use std::{fs};
 
 #[derive(Clone, Debug)]
 pub struct DirectoryWorldProvider {

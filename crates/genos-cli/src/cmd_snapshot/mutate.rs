@@ -63,7 +63,10 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
 
     // The genome id and version are left alone on purpose: this tunes a value
     // on one branch, it does not publish a new genome version.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }
@@ -94,7 +97,10 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
 
     // A write advances the branch it happened on, so by default it lands back in
     // the file that snapshot came from.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }
@@ -143,16 +149,14 @@ pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> 
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
 
     let kind: MemoryKind = args.kind.into();
-    let write = add_memory_on_branch(
-        &mut snapshot,
-        kind,
-        &args.content,
-        args.source.as_deref(),
-    );
+    let write = add_memory_on_branch(&mut snapshot, kind, &args.content, args.source.as_deref());
 
     // Recording a memory advances the branch it happened on, so by default it
     // lands back in the file that snapshot came from.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }

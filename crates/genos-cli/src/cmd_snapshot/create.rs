@@ -4,9 +4,8 @@ use crate::resolve::{parse_working_memory_items, read_genome};
 use anyhow::Result;
 use chrono::Utc;
 use genos_core::{
-    AgentId, AgentSnapshot, BranchId, EpisodicMemory, EventCursor, ExecutionMetadata, Goal,
-    GenomeRef, MemoryId, RuntimeMetadata, SemanticMemory, SnapshotId, ToolState, WorkingMemory,
-    WorldId,
+    AgentId, AgentSnapshot, BranchId, EpisodicMemory, EventCursor, ExecutionMetadata, GenomeRef,
+    Goal, MemoryId, RuntimeMetadata, SemanticMemory, SnapshotId, ToolState, WorkingMemory, WorldId,
 };
 use std::path::PathBuf;
 
@@ -67,7 +66,9 @@ pub fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
         genome,
         state,
         world_id,
-        tool_state: ToolState { active_tools: vec![] },
+        tool_state: ToolState {
+            active_tools: vec![],
+        },
         runtime_metadata: RuntimeMetadata {
             runtime_version: "0.0.1".to_string(),
             budget_steps_remaining: 0,

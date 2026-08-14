@@ -144,9 +144,7 @@ fn render(value: &Value) -> Option<String> {
 /// what the diff shows. Integers and genuine `f64` values are untouched.
 fn render_number(number: &Number) -> String {
     match number.as_f64() {
-        Some(wide)
-            if number.is_f64() && wide.is_finite() && f64::from(wide as f32) == wide =>
-        {
+        Some(wide) if number.is_f64() && wide.is_finite() && f64::from(wide as f32) == wide => {
             (wide as f32).to_string()
         }
         _ => number.to_string(),

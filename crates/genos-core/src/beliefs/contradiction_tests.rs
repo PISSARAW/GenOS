@@ -14,23 +14,11 @@ use crate::{fork_snapshot, upsert_belief};
 fn opposing_objects_on_the_same_predicate_flag_a_contradiction() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
-    let first = upsert_belief(
-        &mut snapshot,
-        "api",
-        "is_bottleneck",
-        "true",
-        0.8,
-    );
+    let first = upsert_belief(&mut snapshot, "api", "is_bottleneck", "true", 0.8);
     assert!(first.contradictions.is_empty());
     assert_eq!(first.status, BeliefStatus::Observation);
 
-    let second = upsert_belief(
-        &mut snapshot,
-        "api",
-        "is_bottleneck",
-        "false",
-        0.7,
-    );
+    let second = upsert_belief(&mut snapshot, "api", "is_bottleneck", "false", 0.7);
 
     // The new belief flagged the older one as its contradiction.
     assert_eq!(second.contradictions, vec![first.belief_id.clone()]);
@@ -119,7 +107,10 @@ fn contradiction_event_carries_the_opposing_id_and_kind_marker() {
     assert_eq!(marker.payload["with"][0], first.belief_id.to_string());
     assert_eq!(marker.payload["subject"], "api");
     assert_eq!(marker.payload["predicate"], "is_bottleneck");
-    assert_eq!(marker.payload["new_belief_id"], second.belief_id.to_string());
+    assert_eq!(
+        marker.payload["new_belief_id"],
+        second.belief_id.to_string()
+    );
     assert_eq!(marker.payload["new_object_value"], "false");
     assert!(marker.causation_id.is_some());
     // The marker is on the same branch, one sequence after the believer.

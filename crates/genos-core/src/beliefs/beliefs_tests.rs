@@ -15,13 +15,7 @@ const UPDATED_CONFIDENCE: f32 = 0.4;
 fn upsert_belief_creates_then_updates_on_a_branch() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
-    let first = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        INITIAL_CONFIDENCE,
-    );
+    let first = upsert_belief(&mut snapshot, "api", "uses", "postgres", INITIAL_CONFIDENCE);
     assert_eq!(first.kind, BeliefWriteKind::Added);
     assert_eq!(first.previous_confidence, None);
     assert_eq!(first.confidence, INITIAL_CONFIDENCE);
@@ -29,13 +23,7 @@ fn upsert_belief_creates_then_updates_on_a_branch() {
     assert_eq!(snapshot.beliefs().len(), 1);
     assert_eq!(snapshot.beliefs()[0].confidence, INITIAL_CONFIDENCE);
 
-    let second = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        UPDATED_CONFIDENCE,
-    );
+    let second = upsert_belief(&mut snapshot, "api", "uses", "postgres", UPDATED_CONFIDENCE);
     assert_eq!(second.kind, BeliefWriteKind::Updated);
     assert_eq!(second.previous_confidence, Some(INITIAL_CONFIDENCE));
     assert_eq!(second.confidence, UPDATED_CONFIDENCE);
@@ -51,24 +39,12 @@ fn upsert_belief_creates_then_updates_on_a_branch() {
 #[test]
 fn confidence_update_on_one_branch_is_invisible_to_siblings_and_parent() {
     let mut parent = snapshot_with_variable("placeholder", "0");
-    let add = upsert_belief(
-        &mut parent,
-        "api",
-        "uses",
-        "postgres",
-        INITIAL_CONFIDENCE,
-    );
+    let add = upsert_belief(&mut parent, "api", "uses", "postgres", INITIAL_CONFIDENCE);
 
     let mut a1 = fork_snapshot(&parent);
     let a2 = fork_snapshot(&parent);
 
-    let update_a1 = upsert_belief(
-        &mut a1,
-        "api",
-        "uses",
-        "postgres",
-        UPDATED_CONFIDENCE,
-    );
+    let update_a1 = upsert_belief(&mut a1, "api", "uses", "postgres", UPDATED_CONFIDENCE);
 
     // The branch that wrote the update sees the new value and the old one.
     assert_eq!(update_a1.previous_confidence, Some(INITIAL_CONFIDENCE));
@@ -98,13 +74,7 @@ fn confidence_update_on_one_branch_is_invisible_to_siblings_and_parent() {
 fn first_event_of_a_new_belief_is_memory_created() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
-    let write = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        INITIAL_CONFIDENCE,
-    );
+    let write = upsert_belief(&mut snapshot, "api", "uses", "postgres", INITIAL_CONFIDENCE);
 
     assert_eq!(write.event.event_type, AgentEventType::MemoryCreated);
     assert_eq!(write.event.branch_id.as_ref(), Some(&snapshot.branch_id));
@@ -114,52 +84,34 @@ fn first_event_of_a_new_belief_is_memory_created() {
     assert_eq!(write.event.payload["predicate"], "uses");
     assert_eq!(write.event.payload["object_value"], "postgres");
     assert_eq!(write.event.payload["confidence"], INITIAL_CONFIDENCE);
-    assert_eq!(write.event.payload["previous_confidence"], serde_json::Value::Null);
+    assert_eq!(
+        write.event.payload["previous_confidence"],
+        serde_json::Value::Null
+    );
 }
 
 #[test]
 fn update_event_is_memory_updated_with_previous_confidence() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
-    upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        INITIAL_CONFIDENCE,
-    );
+    upsert_belief(&mut snapshot, "api", "uses", "postgres", INITIAL_CONFIDENCE);
 
-    let write = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        UPDATED_CONFIDENCE,
-    );
+    let write = upsert_belief(&mut snapshot, "api", "uses", "postgres", UPDATED_CONFIDENCE);
 
     assert_eq!(write.event.event_type, AgentEventType::MemoryUpdated);
     assert_eq!(write.event.sequence, 2);
     assert_eq!(write.event.payload["confidence"], UPDATED_CONFIDENCE);
-    assert_eq!(write.event.payload["previous_confidence"], INITIAL_CONFIDENCE);
+    assert_eq!(
+        write.event.payload["previous_confidence"],
+        INITIAL_CONFIDENCE
+    );
 }
 
 #[test]
 fn update_event_carries_the_previous_confidence_in_its_payload() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
-    upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        INITIAL_CONFIDENCE,
-    );
+    upsert_belief(&mut snapshot, "api", "uses", "postgres", INITIAL_CONFIDENCE);
 
-    let write = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        UPDATED_CONFIDENCE,
-    );
+    let write = upsert_belief(&mut snapshot, "api", "uses", "postgres", UPDATED_CONFIDENCE);
 
     let previous = write
         .event
@@ -222,13 +174,7 @@ fn confidence_must_be_a_unit_interval() {
 #[test]
 fn add_belief_refuses_to_overwrite_an_existing_triple() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
-    upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        0.9,
-    );
+    upsert_belief(&mut snapshot, "api", "uses", "postgres", 0.9);
 
     let err = add_belief(
         &mut snapshot,
@@ -239,10 +185,7 @@ fn add_belief_refuses_to_overwrite_an_existing_triple() {
         BeliefStatus::Observation,
     );
 
-    assert!(matches!(
-        err,
-        Err(BeliefError::AlreadyExists { .. })
-    ));
+    assert!(matches!(err, Err(BeliefError::AlreadyExists { .. })));
     // The existing belief is left at its original confidence.
     assert_eq!(snapshot.beliefs()[0].confidence, 0.9);
 }
@@ -251,20 +194,8 @@ fn add_belief_refuses_to_overwrite_an_existing_triple() {
 fn distinct_triples_on_one_branch_each_get_their_own_belief() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
-    let api_postgres = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        0.9,
-    );
-    let api_redis = upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "redis",
-        0.7,
-    );
+    let api_postgres = upsert_belief(&mut snapshot, "api", "uses", "postgres", 0.9);
+    let api_redis = upsert_belief(&mut snapshot, "api", "uses", "redis", 0.7);
 
     assert_eq!(snapshot.beliefs().len(), 2);
     assert_ne!(api_postgres.belief_id, api_redis.belief_id);
@@ -276,13 +207,7 @@ fn distinct_triples_on_one_branch_each_get_their_own_belief() {
 fn belief_record_carries_created_in_branch_and_creation_time() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
-    upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        0.9,
-    );
+    upsert_belief(&mut snapshot, "api", "uses", "postgres", 0.9);
 
     let belief = &snapshot.beliefs()[0];
     assert_eq!(belief.created_in, snapshot.branch_id);
@@ -294,17 +219,9 @@ fn belief_record_carries_created_in_branch_and_creation_time() {
 #[test]
 fn find_belief_returns_none_for_unknown_triples_and_some_for_known_ones() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
-    upsert_belief(
-        &mut snapshot,
-        "api",
-        "uses",
-        "postgres",
-        0.9,
-    );
+    upsert_belief(&mut snapshot, "api", "uses", "postgres", 0.9);
 
-    assert!(snapshot
-        .find_belief("api", "uses", "postgres")
-        .is_some());
+    assert!(snapshot.find_belief("api", "uses", "postgres").is_some());
     assert!(snapshot.find_belief("api", "uses", "mysql").is_none());
     assert!(snapshot.find_belief("api", "prefers", "postgres").is_none());
 }

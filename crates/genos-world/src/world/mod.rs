@@ -56,7 +56,9 @@ pub enum WorldError {
     UnknownWorld(WorldId),
     #[error("unknown snapshot id {0}")]
     UnknownSnapshot(SnapshotId),
-    #[error("partial fork failure: requested={requested}, created={created}, last_error={last_error}")]
+    #[error(
+        "partial fork failure: requested={requested}, created={created}, last_error={last_error}"
+    )]
     PartialFork {
         requested: u32,
         created: usize,

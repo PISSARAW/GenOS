@@ -62,15 +62,11 @@ pub fn upsert_belief_at(
 ) -> BeliefWrite {
     assert_unit_confidence(confidence);
 
-    let existing = snapshot
-        .state
-        .beliefs
-        .iter_mut()
-        .find(|belief| {
-            belief.subject == subject
-                && belief.predicate == predicate
-                && belief.object_value == object_value
-        });
+    let existing = snapshot.state.beliefs.iter_mut().find(|belief| {
+        belief.subject == subject
+            && belief.predicate == predicate
+            && belief.object_value == object_value
+    });
 
     let (kind, belief_id, previous_confidence) = match existing {
         Some(belief) => {
@@ -198,8 +194,7 @@ pub fn upsert_belief_at(
             };
 
             snapshot.state.event_cursor.sequence = contradiction_sequence;
-            snapshot.state.event_cursor.last_event_id =
-                Some(contradiction_marker.event_id.clone());
+            snapshot.state.event_cursor.last_event_id = Some(contradiction_marker.event_id.clone());
 
             // The believer's status on the response mirrors its persisted
             // status: `Disputed` when this write triggered a contradiction,

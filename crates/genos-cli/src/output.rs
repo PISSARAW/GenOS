@@ -277,7 +277,11 @@ pub struct SnapshotCompareOutput {
 
 // ---------- helpers ----------
 
-pub fn write_serialized<T: Serialize>(path: &Path, value: &T, format: OutputFormat) -> anyhow::Result<()> {
+pub fn write_serialized<T: Serialize>(
+    path: &Path,
+    value: &T,
+    format: OutputFormat,
+) -> anyhow::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -350,14 +354,11 @@ pub fn print_contradiction_notice(
 ) {
     eprintln!("CONTRADICTION DETECTED");
     for opposing in contradictions {
-        eprintln!(
-            "  belief {} contradicts belief {}:",
-            belief_id, opposing.0
-        );
+        eprintln!("  belief {} contradicts belief {}:", belief_id, opposing.0);
         eprintln!("    subject={subject} predicate={predicate}");
         eprintln!("    object_value={object_value}   <-->   object_value=<opposing>");
     }
 }
 
-pub use provenance::print_provenance_tree;
 pub use lineage::print_lineage_tree;
+pub use provenance::print_provenance_tree;

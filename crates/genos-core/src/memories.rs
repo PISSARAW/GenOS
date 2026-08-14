@@ -21,7 +21,9 @@ impl AgentState {
 
     /// Memories of one kind, in the order they were recorded.
     pub fn memories_of_kind(&self, kind: MemoryKind) -> impl Iterator<Item = &MemoryRecord> {
-        self.memories.iter().filter(move |record| record.kind == kind)
+        self.memories
+            .iter()
+            .filter(move |record| record.kind == kind)
     }
 
     /// Ids indexing memories of one kind: `semantic_memory.refs` or
@@ -116,8 +118,8 @@ pub fn add_memory_on_branch_at(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::snapshot::tests::snapshot_with_variable;
     use crate::fork_snapshot;
+    use crate::snapshot::tests::snapshot_with_variable;
 
     const FACT: &str = "The API uses PostgreSQL";
 
@@ -134,7 +136,10 @@ mod tests {
         let write = add_memory_on_branch(&mut a, MemoryKind::Semantic, FACT, Some("schema-probe"));
 
         assert_eq!(a.state.memories.len(), 1);
-        assert_eq!(a.memory(&write.record.id).map(|m| m.content.as_str()), Some(FACT));
+        assert_eq!(
+            a.memory(&write.record.id).map(|m| m.content.as_str()),
+            Some(FACT)
+        );
         assert!(b.state.memories.is_empty());
         assert!(parent.state.memories.is_empty());
         assert!(b.memory(&write.record.id).is_none());
@@ -164,7 +169,10 @@ mod tests {
 
         assert_eq!(a.state.memories.len(), 2);
         assert!(a.state.semantic_memory.refs.contains(&semantic.record.id));
-        assert_eq!(a.state.episodic_memory.refs, vec![episodic.record.id.clone()]);
+        assert_eq!(
+            a.state.episodic_memory.refs,
+            vec![episodic.record.id.clone()]
+        );
 
         // Every record this branch holds is indexed by the ref list for its
         // kind. The converse does not hold: a ref may point at a memory whose
@@ -188,7 +196,8 @@ mod tests {
         let mut a = fork_snapshot(&parent);
         let mut b = fork_snapshot(&parent);
 
-        let write_a = add_memory_on_branch(&mut a, MemoryKind::Semantic, FACT, Some("schema-probe"));
+        let write_a =
+            add_memory_on_branch(&mut a, MemoryKind::Semantic, FACT, Some("schema-probe"));
         let write_b = add_memory_on_branch(&mut b, MemoryKind::Semantic, "Something else", None);
 
         assert_eq!(write_a.event.event_type, AgentEventType::MemoryCreated);

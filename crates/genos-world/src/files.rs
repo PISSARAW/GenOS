@@ -155,7 +155,9 @@ impl<'a> FileIsolationCheck<'a> {
             parent_preserved,
             branches_hold_expected_contents,
             branch_contents_distinct,
-            isolated: parent_preserved && branches_hold_expected_contents && branch_contents_distinct,
+            isolated: parent_preserved
+                && branches_hold_expected_contents
+                && branch_contents_distinct,
             violations,
         })
     }
