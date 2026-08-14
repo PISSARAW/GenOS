@@ -1,0 +1,140 @@
+name: compression-research-v1
+question: Trouver une meilleure strategie de compression pour des donnees repetitives et incrementales.
+snapshot_ref: research/compression@H0
+records:
+  - AAAAAAAAAAAAAAAAAAAAAAAABBBBBBBBBBBBBBBB
+  - sensor-001|sensor-002|sensor-003|sensor-004
+  - ABCDABCDABCDABCDABCDABCDABCDABCD
+  - 00000000111111112222222233333333
+
+hypotheses:
+  - id: H0
+    claim: La representation brute fournit la baseline falsifiable.
+    strategy: { kind: raw }
+    implementation_source: |
+      fn compress(input: &[u8]) -> Vec<u8> { input.to_vec() }
+    protocol: &baseline_protocol
+      repetitions: 3
+      metric: compression_ratio
+      holdout_records:
+        - ZZZZZZZZYYYYYYYYXXXXXXXX
+    prior_confidence: 0.95
+
+  - id: H1
+    parent: H0
+    claim: Le run-length encoding domine sur les longues repetitions.
+    strategy: { kind: run_length }
+    implementation_source: |
+      fn compress(input: &[u8]) -> Vec<(u8, u8)> { encode_runs(input) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.55
+    critiques:
+      - target: H0
+        concern: La baseline ignore toute redondance locale.
+
+  - id: H2
+    parent: H0
+    claim: Encoder les deltas avant les runs favorise les series incrementales.
+    strategy: { kind: delta_run_length }
+    implementation_source: |
+      fn compress(input: &[u8]) -> Runs { rle(delta_encode(input)) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.45
+    critiques:
+      - target: H1
+        concern: RLE seul peut doubler les donnees sans longues repetitions.
+
+  - id: H3
+    parent: H0
+    claim: Un dictionnaire de chunks exploite les motifs repetes non contigus.
+    strategy:
+      kind: chunk_dedup
+      chunk_size: 4
+    implementation_source: |
+      fn compress(input: &[u8]) -> ChunkTable { deduplicate_chunks(input, 4) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.60
+    critiques:
+      - target: H1
+        concern: Les motifs ABCD repetes ne sont pas des runs.
+
+  - id: H3a
+    parent: H3
+    claim: Des chunks courts generalisent mieux aux petits enregistrements.
+    strategy:
+      kind: chunk_dedup
+      chunk_size: 2
+    implementation_source: |
+      fn compress(input: &[u8]) -> ChunkTable { deduplicate_chunks(input, 2) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.50
+    critiques:
+      - target: H3
+        concern: La taille quatre peut masquer des alignements utiles.
+
+  - id: H3b
+    parent: H3
+    claim: Des chunks longs reduisent le cout de la table d'index.
+    strategy:
+      kind: chunk_dedup
+      chunk_size: 8
+    implementation_source: |
+      fn compress(input: &[u8]) -> ChunkTable { deduplicate_chunks(input, 8) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.50
+    critiques:
+      - target: H3a
+        concern: Les index de chunks courts peuvent annuler le gain.
+
+  - id: H3c
+    parent: H3
+    claim: Une taille intermediaire preserve motifs et cout d'index.
+    strategy:
+      kind: chunk_dedup
+      chunk_size: 6
+    implementation_source: |
+      fn compress(input: &[u8]) -> ChunkTable { deduplicate_chunks(input, 6) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.50
+    critiques:
+      - target: H3b
+        concern: Les chunks longs sont fragiles aux decalages.
+
+  - id: H4
+    parent: H0
+    claim: Choisir adaptativement entre brut, RLE et delta-RLE limite les regressions.
+    strategy: { kind: adaptive }
+    implementation_source: |
+      fn compress(input: &[u8]) -> Frame { choose_smallest(raw(input), rle(input), delta_rle(input)) }
+    protocol: *baseline_protocol
+    prior_confidence: 0.65
+    critiques:
+      - target: H3
+        concern: Le resultat H3 depend peut-etre excessivement de l'alignement du corpus.
+
+reproductions:
+  - researcher_id: reproduce-H1
+    target_hypothesis: H1
+    tolerance: 0.0
+  - researcher_id: audit-H3
+    target_hypothesis: H3
+    records:
+      - aucun-motif-identique-dans-ce-corpus-de-controle
+      - qwertyuiopasdfghjklzxcvbnm
+    tolerance: 0.05
+
+rewinds:
+  - id: H3-recheck
+    suspicious_hypothesis: H3
+    restore_snapshot: H0
+    reason: Le resultat de H3 semble sensible au corpus; repartir avant sa conclusion.
+    strategy: { kind: adaptive }
+    implementation_source: |
+      fn compress(input: &[u8]) -> Frame { choose_with_holdout_validation(input) }
+    protocol:
+      repetitions: 5
+      metric: compression_ratio
+      holdout_records:
+        - corpus-sans-repetition-abcdefghijklmnopqrstuvwxyz
+        - ABCDABCDABCDABCD
+    prior_confidence: 0.40

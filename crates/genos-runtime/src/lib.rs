@@ -9,6 +9,8 @@ mod experiment;
 pub use experiment::*;
 mod incident;
 pub use incident::*;
+mod scientific;
+pub use scientific::*;
 
 #[derive(Clone, Debug)]
 pub struct StepResult {

@@ -15,6 +15,8 @@ pub enum ExperimentSubcommands {
     Temporal(TemporalExperimentArgs),
     /// Adaptively search mutated universes for a rare incident reproduction.
     Incident(IncidentExperimentArgs),
+    /// Version hypotheses, protocols, evidence, peer review and reproductions.
+    Scientific(ScientificExperimentArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -43,6 +45,18 @@ pub struct IncidentExperimentArgs {
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
     /// Print counts and perfect branch ids while keeping the full persisted report.
+    #[arg(long)]
+    pub summary: bool,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct ScientificExperimentArgs {
+    pub manifest: PathBuf,
+    #[arg(long, default_value = ".genos/experiments")]
+    pub root: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+    /// Print the scientific graph totals while retaining the complete report.
     #[arg(long)]
     pub summary: bool,
 }
