@@ -33,8 +33,11 @@ sibling or the parent. No LLM call is required for this flow.
    so the divergence is proven on the persisted state and not only on the files
    the previous command happened to write.
 6. Assert with `snapshot compare` and `genos diff` that the two branches differ
-   on exactly the two paths they should, then replay each branch to confirm the
-   write events stayed on separate streams.
+   on exactly the two paths they should.
+7. Record a memory on A1 only — `"The API uses PostgreSQL"` — and assert the
+   diff reports it as one added memory, with the branch it came from.
+8. Replay each branch to confirm the events stayed on separate streams: two on
+   A1, one on A2.
 
 Every step is a `genos` command: the demo never edits snapshot or event JSON by
 hand, so the invariants it proves are the ones the CLI actually enforces.
@@ -61,9 +64,10 @@ hand, so the invariants it proves are the ones the CLI actually enforces.
   plus the store and fork paths.
 - Generated files live under:
   - `.genos/demo/divergent-writes/agent-snapshots.jsonl` (S0, then A1/A2 before
-    and after their write — the store is append-only, so a snapshot id resolves
-    to its latest line)
-  - `.genos/demo/divergent-writes/agent-events.jsonl` (one write event per branch)
+    and after their write, then A1 again after its memory — the store is
+    append-only, so a snapshot id resolves to its latest line)
+  - `.genos/demo/divergent-writes/agent-events.jsonl` (one write event per
+    branch, plus A1's `memory_created`)
   - `.genos/demo/divergent-writes/forks/fork-1.json`, `fork-2.json`
 
 Run [`../counterfactual-demo`](../counterfactual-demo) first if you want the
@@ -149,6 +153,42 @@ genos diff fork-1.json fork-2.json \
 Run [`../counterfactual-demo`](../counterfactual-demo) for the other half of the
 definition: the same command on two forks nobody wrote to returns an empty diff,
 identity differences included.
+
+### `snapshot add-memory`
+
+Records a memory on a snapshot's own branch. Unlike a working-memory variable, a
+memory carries provenance: the branch that created it, when, and what it came
+from.
+
+```bash
+genos snapshot add-memory --snapshot fork-1.json \
+  --kind semantic --content "The API uses PostgreSQL" --source schema-probe \
+  --snapshots agent-snapshots.jsonl --save \
+  --events agent-events.jsonl --emit-events
+```
+
+The record lands in `state.memories` and its id in `semantic_memory.refs` (or
+`episodic_memory.refs` with `--kind episodic`), so the index and the content
+stay in step. `--emit-events` appends the `memory_created` event on that branch.
+
+Diffing the branch that recorded nothing against the branch that did shows:
+
+```text
+MemoryDiff
+  state.memories.01a0…152c (added)
+    old: <absent>
+    new: The API uses PostgreSQL
+    provenance: created in branch 01a0…7d92 at 2026-08-14T15:26:30.973845200Z, source=schema-probe
+  state.semantic_memory.refs.01a0…152c (added)
+    old: <absent>
+    new: 01a0…152c
+```
+
+One added memory is one entry, not one entry per field of the record — the
+second line is its id appearing in the ref index. `(added)` is relative to the
+diff's direction: `genos diff A2 A1` reads A1's side as the new one, so the
+memory reads as added there. Reverse the arguments and the same memory reads as
+`(removed)`.
 
 ## Continuous integration
 

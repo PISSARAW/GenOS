@@ -29,11 +29,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Number, Value};
 use std::fmt::Write;
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiffEntry {
     pub path: String,
     pub before: Option<String>,
     pub after: Option<String>,
+    /// Where the changed record came from, when it carries provenance: the
+    /// branch that created it, when, and on what basis. Set for records that
+    /// appear on one side only, such as a memory recorded on one branch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -56,6 +61,34 @@ impl DiffEntry {
     /// Value on the right side, or `<absent>` when the path carries none.
     pub fn after_display(&self) -> &str {
         self.after.as_deref().unwrap_or(ABSENT)
+    }
+
+    /// `added` when the path exists only on the right, `removed` when it exists
+    /// only on the left, `changed` when both sides carry a value.
+    pub fn kind(&self) -> DiffKind {
+        match (&self.before, &self.after) {
+            (None, Some(_)) => DiffKind::Added,
+            (Some(_), None) => DiffKind::Removed,
+            _ => DiffKind::Changed,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiffKind {
+    Added,
+    Removed,
+    Changed,
+}
+
+impl DiffKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            DiffKind::Added => "added",
+            DiffKind::Removed => "removed",
+            DiffKind::Changed => "changed",
+        }
     }
 }
 
@@ -96,9 +129,19 @@ impl AgentDiff {
             }
             let _ = writeln!(out, "{label}");
             for entry in entries {
-                let _ = writeln!(out, "  {}", entry.path);
+                match entry.kind() {
+                    DiffKind::Changed => {
+                        let _ = writeln!(out, "  {}", entry.path);
+                    }
+                    kind => {
+                        let _ = writeln!(out, "  {} ({})", entry.path, kind.label());
+                    }
+                }
                 let _ = writeln!(out, "    old: {}", entry.before_display());
                 let _ = writeln!(out, "    new: {}", entry.after_display());
+                if let Some(provenance) = &entry.provenance {
+                    let _ = writeln!(out, "    provenance: {provenance}");
+                }
             }
         }
         out
@@ -169,15 +212,23 @@ pub fn diff_snapshots(a: &AgentSnapshot, b: &AgentSnapshot) -> AgentDiff {
                 keyed_values(json_of(&a.state.working_memory.items), "key", "value"),
                 keyed_values(json_of(&b.state.working_memory.items), "key", "value"),
             ),
+            // Records first: a memory that appears on one side is reported as
+            // one added memory, and its id in `refs` is the index catching up.
+            root_summarized(
+                "state.memories",
+                keyed_by(json_of(&a.state.memories), "id"),
+                keyed_by(json_of(&b.state.memories), "id"),
+                "content",
+            ),
             root(
                 "state.semantic_memory.refs",
-                sorted(json_of(&a.state.semantic_memory.refs)),
-                sorted(json_of(&b.state.semantic_memory.refs)),
+                keyed_set(json_of(&a.state.semantic_memory.refs)),
+                keyed_set(json_of(&b.state.semantic_memory.refs)),
             ),
             root(
                 "state.episodic_memory.refs",
-                sorted(json_of(&a.state.episodic_memory.refs)),
-                sorted(json_of(&b.state.episodic_memory.refs)),
+                keyed_set(json_of(&a.state.episodic_memory.refs)),
+                keyed_set(json_of(&b.state.episodic_memory.refs)),
             ),
         ]),
         belief_diff: diff_roots(&[root(
@@ -223,20 +274,52 @@ fn genome_value(snapshot: &AgentSnapshot) -> Value {
     value
 }
 
-fn root(path: &str, a: Value, b: Value) -> (String, Value, Value) {
-    (path.to_string(), a, b)
+/// One pair of values to walk, with the field that stands for a whole record
+/// when that record appears on one side only.
+struct Root {
+    path: String,
+    a: Value,
+    b: Value,
+    summary_field: Option<&'static str>,
 }
 
-fn diff_roots(roots: &[(String, Value, Value)]) -> Vec<DiffEntry> {
+fn root(path: &str, a: Value, b: Value) -> Root {
+    Root {
+        path: path.to_string(),
+        a,
+        b,
+        summary_field: None,
+    }
+}
+
+/// A root whose records are summarized by `summary_field` when they appear on
+/// one side only: a memory added on one branch reports its content, not the
+/// whole record.
+fn root_summarized(path: &str, a: Value, b: Value, summary_field: &'static str) -> Root {
+    Root {
+        summary_field: Some(summary_field),
+        ..root(path, a, b)
+    }
+}
+
+fn diff_roots(roots: &[Root]) -> Vec<DiffEntry> {
     let mut out = Vec::new();
-    for (path, a, b) in roots {
-        diff_values(path, a, b, &mut out);
+    for root in roots {
+        diff_values(&root.path, &root.a, &root.b, root.summary_field, &mut out);
     }
     out
 }
 
-/// Walk two values in parallel, emitting one entry per differing leaf.
-fn diff_values(path: &str, a: &Value, b: &Value, out: &mut Vec<DiffEntry>) {
+/// Walk two values in parallel, emitting one entry per differing leaf — except
+/// for a record present on one side only, which is one change, not one change
+/// per field it happens to carry.
+fn diff_values(
+    path: &str,
+    a: &Value,
+    b: &Value,
+    summary_field: Option<&'static str>,
+    out: &mut Vec<DiffEntry>,
+) {
     if a == b {
         return;
     }
@@ -252,6 +335,7 @@ fn diff_values(path: &str, a: &Value, b: &Value, out: &mut Vec<DiffEntry>) {
                     &format!("{path}.{key}"),
                     map_a.get(key).unwrap_or(&Value::Null),
                     map_b.get(key).unwrap_or(&Value::Null),
+                    summary_field,
                     out,
                 );
             }
@@ -262,16 +346,47 @@ fn diff_values(path: &str, a: &Value, b: &Value, out: &mut Vec<DiffEntry>) {
                     &format!("{path}[{index}]"),
                     items_a.get(index).unwrap_or(&Value::Null),
                     items_b.get(index).unwrap_or(&Value::Null),
+                    summary_field,
                     out,
                 );
             }
         }
         _ => out.push(DiffEntry {
             path: path.to_string(),
-            before: render(a),
-            after: render(b),
+            before: summarize(a, summary_field),
+            after: summarize(b, summary_field),
+            provenance: provenance_of(a).or_else(|| provenance_of(b)),
         }),
     }
+}
+
+/// Render a value for a diff entry: a record standing on its own is reduced to
+/// its summary field when the root declared one, and to compact JSON otherwise.
+fn summarize(value: &Value, summary_field: Option<&str>) -> Option<String> {
+    match (value, summary_field) {
+        (Value::Object(map), Some(field)) => match map.get(field) {
+            Some(summary) => render(summary),
+            None => render(value),
+        },
+        _ => render(value),
+    }
+}
+
+/// Provenance of a record that carries it: which branch created it, when, and
+/// on what basis. Records without `created_in` have none to report.
+fn provenance_of(value: &Value) -> Option<String> {
+    let map = value.as_object()?;
+    let created_in = map.get("created_in").and_then(Value::as_str)?;
+
+    let mut provenance = format!("created in branch {created_in}");
+    if let Some(created_at) = map.get("created_at").and_then(Value::as_str) {
+        let _ = write!(provenance, " at {created_at}");
+    }
+    if let Some(source) = map.get("source").and_then(Value::as_str) {
+        let _ = write!(provenance, ", source={source}");
+    }
+
+    Some(provenance)
 }
 
 /// `None` means "no value on this side": either absent, or explicitly null.
@@ -343,13 +458,27 @@ fn keyed_values(value: Value, key_field: &str, value_field: &str) -> Value {
     )
 }
 
-/// Compare reference lists as sets: reordering them is not a change.
-fn sorted(value: Value) -> Value {
-    let Value::Array(mut items) = value else {
+/// Compare reference lists as sets by keying each element on itself.
+///
+/// Reordering a list is then not a change, and adding one reference is one
+/// entry rather than a positional cascade through everything after it.
+fn keyed_set(value: Value) -> Value {
+    let Value::Array(items) = value else {
         return value;
     };
-    items.sort_by_key(|item| item.to_string());
-    Value::Array(items)
+
+    Value::Object(
+        items
+            .into_iter()
+            .map(|item| {
+                let key = match &item {
+                    Value::String(text) => text.clone(),
+                    other => other.to_string(),
+                };
+                (key, item)
+            })
+            .collect(),
+    )
 }
 
 /// Replace the value at `path` inside `value` by `f(value_at_path)`.
@@ -376,10 +505,11 @@ mod tests {
     use super::*;
     use crate::snapshot::tests::snapshot_with_variable;
     use crate::{
-        compare_snapshots, fork_snapshot, write_variable_on_branch, Belief, BeliefId, BeliefStatus,
-        Capability, Goal, MemoryId,
+        add_memory_on_branch, add_memory_on_branch_at, compare_snapshots, fork_snapshot,
+        write_variable_on_branch, Belief, BeliefId, BeliefStatus, Capability, Goal, MemoryId,
+        MemoryKind,
     };
-    use chrono::Utc;
+    use chrono::{TimeZone, Utc};
 
     /// The case this diff exists to pin down: two untouched forks of one
     /// snapshot are semantically identical, however much their ids differ.
@@ -497,6 +627,7 @@ mod tests {
                 path: "state.working_memory.counter".to_string(),
                 before: Some("10".to_string()),
                 after: Some("20".to_string()),
+                provenance: None,
             }
         );
     }
@@ -515,6 +646,7 @@ mod tests {
                 path: "state.working_memory.attempts".to_string(),
                 before: None,
                 after: Some("3".to_string()),
+                provenance: None,
             }]
         );
 
@@ -526,6 +658,7 @@ mod tests {
                 path: "state.working_memory.attempts".to_string(),
                 before: Some("3".to_string()),
                 after: None,
+                provenance: None,
             }]
         );
     }
@@ -624,6 +757,7 @@ mod tests {
                 path: "genome.cognition.exploration".to_string(),
                 before: Some("0.7".to_string()),
                 after: Some("0.8".to_string()),
+                provenance: None,
             }]
         );
 
@@ -682,7 +816,7 @@ mod tests {
 
         assert_eq!(
             diff_snapshots(&a1, &a2).to_text(),
-            "MemoryDiff\n  state.working_memory.attempts\n    old: <absent>\n    new: 3\n"
+            "MemoryDiff\n  state.working_memory.attempts (added)\n    old: <absent>\n    new: 3\n"
         );
     }
 
@@ -711,6 +845,7 @@ mod tests {
                 path: "genome.cognition.planning_depth".to_string(),
                 before: Some("6".to_string()),
                 after: Some("7".to_string()),
+                provenance: None,
             }
         );
         assert_eq!(
@@ -718,6 +853,155 @@ mod tests {
             "runtime_metadata.budget_steps_remaining"
         );
         assert_eq!(diff.state_diff[0].after_display(), "12");
+    }
+
+    /// A memory recorded on one branch is one added memory, reported with the
+    /// branch it came from — not one entry per field of the record.
+    #[test]
+    fn a_memory_added_on_one_branch_is_one_entry_with_provenance() {
+        let parent = snapshot_with_variable("counter", "0");
+        let mut a = fork_snapshot(&parent);
+        let b = fork_snapshot(&parent);
+
+        let write = add_memory_on_branch_at(
+            &mut a,
+            MemoryKind::Semantic,
+            "The API uses PostgreSQL",
+            Some("schema-probe"),
+            Utc.with_ymd_and_hms(2026, 8, 14, 12, 0, 0).unwrap(),
+        );
+
+        // b -> a: the memory is on the right-hand side, so it reads as added.
+        let diff = diff_snapshots(&b, &a);
+
+        let memory_entry = diff
+            .memory_diff
+            .iter()
+            .find(|entry| entry.path.starts_with("state.memories."))
+            .expect("no entry for the added memory");
+
+        assert_eq!(memory_entry.path, format!("state.memories.{}", write.record.id.0));
+        assert_eq!(memory_entry.kind(), DiffKind::Added);
+        assert_eq!(memory_entry.before, None);
+        assert_eq!(memory_entry.after.as_deref(), Some("The API uses PostgreSQL"));
+        assert_eq!(
+            memory_entry.provenance.as_deref(),
+            Some(
+                format!(
+                    "created in branch {} at 2026-08-14T12:00:00Z, source=schema-probe",
+                    a.branch_id.0
+                )
+                .as_str()
+            )
+        );
+
+        // One record added, so one entry for it — the id showing up in the ref
+        // index is the only other memory-side change.
+        assert_eq!(
+            diff.memory_diff
+                .iter()
+                .filter(|entry| entry.path.starts_with("state.memories."))
+                .count(),
+            1
+        );
+        assert_eq!(
+            diff.memory_diff
+                .iter()
+                .filter(|entry| entry.path.starts_with("state.semantic_memory.refs"))
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn the_text_report_says_a_memory_was_added_and_where_it_came_from() {
+        let parent = snapshot_with_variable("counter", "0");
+        let mut a = fork_snapshot(&parent);
+        let b = fork_snapshot(&parent);
+
+        let write = add_memory_on_branch_at(
+            &mut a,
+            MemoryKind::Semantic,
+            "The API uses PostgreSQL",
+            Some("schema-probe"),
+            Utc.with_ymd_and_hms(2026, 8, 14, 12, 0, 0).unwrap(),
+        );
+
+        let text = diff_snapshots(&b, &a).to_text();
+
+        assert!(text.starts_with("MemoryDiff\n"), "{text}");
+        assert!(
+            text.contains(&format!(
+                "  state.memories.{} (added)\n    old: <absent>\n    new: The API uses PostgreSQL\n    provenance: created in branch {} at 2026-08-14T12:00:00Z, source=schema-probe\n",
+                write.record.id.0, a.branch_id.0
+            )),
+            "{text}"
+        );
+    }
+
+    /// The same change seen from the other side.
+    #[test]
+    fn dropping_a_memory_reads_as_removed() {
+        let parent = snapshot_with_variable("counter", "0");
+        let mut a = fork_snapshot(&parent);
+        let b = fork_snapshot(&parent);
+
+        add_memory_on_branch(&mut a, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+
+        let entry = diff_snapshots(&a, &b)
+            .memory_diff
+            .into_iter()
+            .find(|entry| entry.path.starts_with("state.memories."))
+            .expect("no entry for the removed memory");
+
+        assert_eq!(entry.kind(), DiffKind::Removed);
+        assert_eq!(entry.before.as_deref(), Some("The API uses PostgreSQL"));
+        assert_eq!(entry.after, None);
+        assert!(entry.provenance.is_some());
+    }
+
+    #[test]
+    fn editing_an_existing_memory_reports_the_edited_field_only() {
+        let parent = snapshot_with_variable("counter", "0");
+        let mut base = fork_snapshot(&parent);
+        add_memory_on_branch(&mut base, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+
+        let mut edited = base.clone();
+        edited.state.memories[0].content = "The API uses SQLite".to_string();
+
+        let diff = diff_snapshots(&base, &edited);
+
+        assert_eq!(diff.len(), 1);
+        assert_eq!(
+            diff.memory_diff[0].path,
+            format!("state.memories.{}.content", base.state.memories[0].id.0)
+        );
+        assert_eq!(diff.memory_diff[0].kind(), DiffKind::Changed);
+        assert_eq!(diff.memory_diff[0].provenance, None);
+    }
+
+    #[test]
+    fn a_memory_recorded_on_both_branches_is_still_two_distinct_memories() {
+        let parent = snapshot_with_variable("counter", "0");
+        let mut a = fork_snapshot(&parent);
+        let mut b = fork_snapshot(&parent);
+
+        // Same content, recorded independently: distinct ids, distinct
+        // provenance, so the diff shows one added and one removed.
+        add_memory_on_branch(&mut a, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+        add_memory_on_branch(&mut b, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+
+        let diff = diff_snapshots(&a, &b);
+        let kinds: Vec<DiffKind> = diff
+            .memory_diff
+            .iter()
+            .filter(|entry| entry.path.starts_with("state.memories."))
+            .map(|entry| entry.kind())
+            .collect();
+
+        assert_eq!(kinds.len(), 2);
+        assert!(kinds.contains(&DiffKind::Added));
+        assert!(kinds.contains(&DiffKind::Removed));
     }
 
     #[test]

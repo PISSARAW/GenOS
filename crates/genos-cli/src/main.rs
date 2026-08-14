@@ -2,13 +2,14 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use genos_core::{
-    check_variable_isolation, compare_snapshots, diff_snapshots, fork_first_event_sequence,
-    fork_snapshot, write_variable_on_branch, AgentDiff, AgentEvent, AgentEventType, AgentGenome,
-    AgentId, AgentSnapshot, AgentState, BranchId, Capability, CognitionConfig, CorrelationId,
-    EpisodicMemory, EventCursor, EventId, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion,
-    Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, Objective, Policy, RuntimeMetadata,
-    SemanticMemory, SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy, ToolState,
-    VariableExpectation, VariableIsolationReport, WorkingMemory, WorkingMemoryItem, WorldId,
+    add_memory_on_branch, check_variable_isolation, compare_snapshots, diff_snapshots,
+    fork_first_event_sequence, fork_snapshot, write_variable_on_branch, AgentDiff, AgentEvent,
+    AgentEventType, AgentGenome, AgentId, AgentSnapshot, AgentState, BranchId, Capability,
+    CognitionConfig, CorrelationId, EpisodicMemory, EventCursor, EventId, ExecutionMetadata,
+    GenomeId, GenomeRef, GenomeVersion, Goal, Identity, MemoryId, MemoryKind, MemoryPolicy,
+    ModelPolicy, Objective, Policy, RuntimeMetadata, SemanticMemory, SnapshotComparison,
+    SnapshotId, ToolPermission, ToolPolicy, ToolState, VariableExpectation,
+    VariableIsolationReport, WorkingMemory, WorkingMemoryItem, WorldId,
 };
 use genos_store::{
     basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
@@ -162,6 +163,55 @@ enum SnapshotSubcommands {
     CheckVar(SnapshotCheckVarArgs),
     /// Tune the genome's cognition values on one snapshot.
     SetCognition(SnapshotSetCognitionArgs),
+    /// Record a memory on a snapshot's own branch.
+    AddMemory(SnapshotAddMemoryArgs),
+}
+
+#[derive(Args, Debug)]
+struct SnapshotAddMemoryArgs {
+    /// Snapshot to record on: file path or snapshot id resolved in the store.
+    #[arg(long)]
+    snapshot: String,
+    #[arg(long, value_enum, default_value_t = MemoryKindArg::Semantic)]
+    kind: MemoryKindArg,
+    #[arg(long)]
+    content: String,
+    /// Where the content came from: a tool, an observation, a document.
+    #[arg(long)]
+    source: Option<String>,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file.
+    #[arg(long)]
+    out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    save: bool,
+    /// Event store receiving the `memory_created` event with `--emit-events`.
+    #[arg(long)]
+    events: Option<PathBuf>,
+    /// Append the `memory_created` event on the snapshot's own branch.
+    #[arg(long)]
+    emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum MemoryKindArg {
+    Semantic,
+    Episodic,
+}
+
+impl From<MemoryKindArg> for MemoryKind {
+    fn from(kind: MemoryKindArg) -> Self {
+        match kind {
+            MemoryKindArg::Semantic => MemoryKind::Semantic,
+            MemoryKindArg::Episodic => MemoryKind::Episodic,
+        }
+    }
 }
 
 #[derive(Args, Debug)]
@@ -695,6 +745,28 @@ struct SnapshotSetCognitionOutput {
 }
 
 #[derive(Serialize)]
+struct SnapshotAddMemoryOutput {
+    snapshot_id: String,
+    agent_id: String,
+    branch_id: String,
+    memory_id: String,
+    kind: MemoryKind,
+    content: String,
+    /// Provenance recorded with the memory: the branch it was created on, when,
+    /// and what it came from.
+    created_in: String,
+    created_at: String,
+    source: Option<String>,
+    semantic_ref_count: usize,
+    episodic_ref_count: usize,
+    out_path: Option<String>,
+    snapshot_store_path: Option<String>,
+    event_store_path: Option<String>,
+    event_id: Option<String>,
+    event_sequence: u64,
+}
+
+#[derive(Serialize)]
 struct SnapshotCheckVarOutput {
     parent_snapshot_id: String,
     branch_count: usize,
@@ -781,6 +853,7 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::SetVar(args) => cmd_snapshot_set_var(args).await,
             SnapshotSubcommands::CheckVar(args) => cmd_snapshot_check_var(args).await,
             SnapshotSubcommands::SetCognition(args) => cmd_snapshot_set_cognition(args).await,
+            SnapshotSubcommands::AddMemory(args) => cmd_snapshot_add_memory(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -960,6 +1033,9 @@ fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
                 .map(|r| MemoryId(r.clone()))
                 .collect(),
         },
+        // Seeded refs index memories held elsewhere; records are recorded on a
+        // branch with `snapshot add-memory`.
+        memories: vec![],
         beliefs: vec![],
         active_goals: vec![Goal {
             key: "bootstrap".to_string(),
@@ -1227,6 +1303,71 @@ async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
         key: write.key,
         previous_value: write.previous_value,
         value: write.value,
+        out_path: out_path.map(|path| path.display().to_string()),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|store| store.file_path().display().to_string()),
+        event_id,
+        event_sequence: write.event.sequence,
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(snapshot).await?;
+    }
+
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let write = add_memory_on_branch(
+        &mut snapshot,
+        args.kind.into(),
+        &args.content,
+        args.source.as_deref(),
+    );
+
+    // Recording a memory advances the branch it happened on, so by default it
+    // lands back in the file that snapshot came from.
+    let out_path = args.out.or_else(|| {
+        let path = PathBuf::from(&args.snapshot);
+        path.is_file().then_some(path)
+    });
+    if let Some(path) = &out_path {
+        write_serialized(path, &snapshot, OutputFormat::Json)?;
+    }
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events, &args.root))
+    } else {
+        None
+    };
+    let event_id = match &event_store {
+        Some(store) => {
+            let event_id = write.event.event_id.0.clone();
+            store.append(write.event.clone()).await?;
+            Some(event_id)
+        }
+        None => None,
+    };
+
+    let out = SnapshotAddMemoryOutput {
+        snapshot_id: snapshot.snapshot_id.0.clone(),
+        agent_id: snapshot.agent_id.0.clone(),
+        branch_id: snapshot.branch_id.0.clone(),
+        memory_id: write.record.id.0.clone(),
+        kind: write.record.kind,
+        content: write.record.content.clone(),
+        created_in: write.record.created_in.0.clone(),
+        created_at: write.record.created_at.to_rfc3339(),
+        source: write.record.source.clone(),
+        semantic_ref_count: snapshot.state.semantic_memory.refs.len(),
+        episodic_ref_count: snapshot.state.episodic_memory.refs.len(),
         out_path: out_path.map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
