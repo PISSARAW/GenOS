@@ -209,6 +209,14 @@ pub enum AgentLifecycle {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BranchStatus {
+    Active,
+    Completed,
+    Interrupted,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BasicReplayState {
     pub agent_id: Option<AgentId>,
     pub branch_id: Option<BranchId>,
@@ -223,6 +231,7 @@ pub struct BasicReplayState {
     /// Variables reconstructed from memory events, independently of a snapshot.
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
+    pub branch_status: BranchStatus,
 }
 
 impl Default for BasicReplayState {
@@ -239,6 +248,7 @@ impl Default for BasicReplayState {
             tool_failures: 0,
             snapshots_created: 0,
             variables: BTreeMap::new(),
+            branch_status: BranchStatus::Active,
         }
     }
 }
@@ -266,6 +276,7 @@ pub fn basic_state_from_snapshot(snapshot: &AgentSnapshot) -> BasicReplayState {
             .iter()
             .map(|item| (item.key.clone(), item.value.clone()))
             .collect(),
+        branch_status: BranchStatus::Active,
     }
 }
 
@@ -280,6 +291,17 @@ pub fn replay_basic_state_from(
         state.last_sequence = event.sequence;
 
         match event.event_type {
+            AgentEventType::ForkCompleted => {
+                state.branch_status = BranchStatus::Completed;
+            }
+            AgentEventType::ForkCreated
+            | AgentEventType::ForkStarted
+            | AgentEventType::WorldCreated => {
+                state.branch_status = BranchStatus::Active;
+            }
+            AgentEventType::ToolRequested => {
+                state.branch_status = BranchStatus::Active;
+            }
             AgentEventType::AgentCreated => {
                 state.lifecycle = AgentLifecycle::Created;
             }
@@ -313,6 +335,15 @@ pub fn replay_basic_state_from(
             }
             _ => {}
         }
+    }
+
+    // A restart can only observe the durable prefix. An outstanding request
+    // means the branch did not complete and must remain visible as interrupted.
+    if events
+        .last()
+        .is_some_and(|event| event.event_type == AgentEventType::ToolRequested)
+    {
+        state.branch_status = BranchStatus::Interrupted;
     }
 
     state
@@ -525,6 +556,26 @@ mod tests {
             replay.variables.get("counter").map(String::as_str),
             Some("7")
         );
+        assert_eq!(replay.last_sequence, 4);
+    }
+
+    #[test]
+    fn replay_marks_crashed_branch_as_interrupted() {
+        let events = [
+            AgentEventType::ForkCreated,
+            AgentEventType::WorldCreated,
+            AgentEventType::AgentStarted,
+            AgentEventType::ToolRequested,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, event_type)| make_event(event_type, index as u64 + 1, "branch-a"))
+        .collect::<Vec<_>>();
+
+        // Simulate restart: only the durable event prefix is available and
+        // there is no completion event after the tool request.
+        let replay = replay_basic_state(&events);
+        assert_eq!(replay.branch_status, BranchStatus::Interrupted);
         assert_eq!(replay.last_sequence, 4);
     }
 

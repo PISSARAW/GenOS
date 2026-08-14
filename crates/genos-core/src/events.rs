@@ -21,6 +21,7 @@ pub enum AgentEventType {
     ForkStarted,
     ForkCompleted,
     ForkFailed,
+    WorldCreated,
     EvaluationStarted,
     EvaluationCompleted,
     BranchSelected,
