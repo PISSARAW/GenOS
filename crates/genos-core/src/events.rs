@@ -14,6 +14,9 @@ pub enum AgentEventType {
     ToolRequested,
     ToolCompleted,
     ToolFailed,
+    ProcessStarted,
+    ProcessStdout,
+    ProcessCompleted,
     MemoryCreated,
     MemoryUpdated,
     SnapshotCreated,
@@ -21,6 +24,7 @@ pub enum AgentEventType {
     ForkStarted,
     ForkCompleted,
     ForkFailed,
+    EvaluationCreated,
     WorldCreated,
     EvaluationStarted,
     EvaluationCompleted,
@@ -45,4 +49,47 @@ pub struct AgentEvent {
     pub payload: Value,
     pub causation_id: Option<EventId>,
     pub correlation_id: Option<CorrelationId>,
+}
+
+/// Bind every event emitted by one logical action to the same correlation id.
+pub fn correlate_events(events: &mut [AgentEvent], correlation_id: CorrelationId) {
+    for event in events {
+        event.correlation_id = Some(correlation_id.clone());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+    use serde_json::json;
+
+    fn event(event_type: AgentEventType, sequence: u64) -> AgentEvent {
+        AgentEvent {
+            event_id: EventId::new(),
+            agent_id: AgentId::new(),
+            branch_id: Some(BranchId::new()),
+            sequence,
+            timestamp: Utc::now(),
+            event_type,
+            payload: json!({ "action": "run tests" }),
+            causation_id: None,
+            correlation_id: None,
+        }
+    }
+
+    #[test]
+    fn run_tests_action_events_share_a_correlation_id() {
+        let correlation_id = CorrelationId::new();
+        let mut events = vec![
+            event(AgentEventType::ToolRequested, 1),
+            event(AgentEventType::ProcessStarted, 2),
+            event(AgentEventType::ProcessStdout, 3),
+            event(AgentEventType::ProcessCompleted, 4),
+            event(AgentEventType::EvaluationCreated, 5),
+        ];
+
+        correlate_events(&mut events, correlation_id.clone());
+        assert!(events.iter().all(|event| event.correlation_id == Some(correlation_id.clone())));
+    }
 }
