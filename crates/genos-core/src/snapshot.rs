@@ -40,11 +40,19 @@ pub struct ToolState {
     pub active_tools: Vec<String>,
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BranchMetadata {
+    pub label: Option<String>,
+    pub hypothesis: Option<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentSnapshot {
     pub snapshot_id: SnapshotId,
     pub agent_id: AgentId,
     pub branch_id: BranchId,
+    #[serde(default)]
+    pub branch_metadata: BranchMetadata,
     pub genome: AgentGenome,
     pub state: AgentState,
     pub world_id: WorldId,
@@ -93,6 +101,20 @@ pub fn fork_snapshot(parent: &AgentSnapshot) -> AgentSnapshot {
     fork_snapshot_at(parent, Utc::now())
 }
 
+/// Fork with a human-readable branch label and experimental hypothesis.
+pub fn fork_snapshot_with_hypothesis(
+    parent: &AgentSnapshot,
+    label: impl Into<String>,
+    hypothesis: impl Into<String>,
+) -> AgentSnapshot {
+    let mut fork = fork_snapshot(parent);
+    fork.branch_metadata = BranchMetadata {
+        label: Some(label.into()),
+        hypothesis: Some(hypothesis.into()),
+    };
+    fork
+}
+
 /// [`fork_snapshot`] with an explicit creation timestamp, for deterministic tests.
 pub fn fork_snapshot_at(parent: &AgentSnapshot, created_at: DateTime<Utc>) -> AgentSnapshot {
     let branch_id = BranchId::new();
@@ -105,6 +127,7 @@ pub fn fork_snapshot_at(parent: &AgentSnapshot, created_at: DateTime<Utc>) -> Ag
         snapshot_id: SnapshotId::new(),
         agent_id: AgentId::new(),
         branch_id,
+        branch_metadata: parent.branch_metadata.clone(),
         genome: parent.genome.clone(),
         state,
         world_id: parent.world_id.clone(),
@@ -185,6 +208,7 @@ pub fn restore_snapshot_at(
         snapshot_id: target.snapshot_id.clone(),
         agent_id: target.agent_id.clone(),
         branch_id: target.branch_id.clone(),
+        branch_metadata: target.branch_metadata.clone(),
         genome: source.genome.clone(),
         state: new_state,
         world_id: source.world_id.clone(),
@@ -361,6 +385,7 @@ pub(crate) mod tests {
             snapshot_id: SnapshotId::new(),
             agent_id: AgentId::new(),
             branch_id: branch_id.clone(),
+            branch_metadata: BranchMetadata::default(),
             genome: AgentGenome {
                 id: genome_id.clone(),
                 parent_genome: None,
@@ -502,6 +527,19 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn fork_branches_keep_human_readable_hypotheses() {
+        let parent = parent_snapshot(0);
+        let a = fork_snapshot_with_hypothesis(&parent, "A", "database");
+        let b = fork_snapshot_with_hypothesis(&parent, "B", "cache");
+        let c = fork_snapshot_with_hypothesis(&parent, "C", "concurrency");
+
+        assert_eq!(a.branch_metadata.hypothesis.as_deref(), Some("database"));
+        assert_eq!(b.branch_metadata.hypothesis.as_deref(), Some("cache"));
+        assert_eq!(c.branch_metadata.hypothesis.as_deref(), Some("concurrency"));
+        assert_ne!(a.branch_id, b.branch_id);
+    }
+
+    #[test]
     fn compare_reports_the_field_that_diverged() {
         let parent = parent_snapshot(0);
         let a1 = fork_snapshot(&parent);
@@ -580,6 +618,7 @@ pub fn checkpoint_snapshot_at(
         snapshot_id: SnapshotId::new(),
         agent_id: current.agent_id.clone(),
         branch_id: current.branch_id.clone(),
+        branch_metadata: current.branch_metadata.clone(),
         genome: current.genome.clone(),
         state: new_state,
         world_id: current.world_id.clone(),
