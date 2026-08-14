@@ -1,34 +1,68 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "[1/6] init"
-cargo run -p genos-cli -- init
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$script_dir/../.." && pwd)"
+cd "$repo_root"
 
-echo "[2/6] world create"
-world_json="$(cargo run -p genos-cli -- world create --provider directory --format json)"
-world_id="$(printf '%s' "$world_json" | jq -r '.world_id')"
-echo "world_id=$world_id"
+demo_dir=".genos/demo/clone-without-llm"
+snapshot_store="$demo_dir/agent-snapshots.jsonl"
+event_store="$demo_dir/agent-events.jsonl"
+agent_path="$demo_dir/agent-a.json"
+s0_path="$demo_dir/snapshot-s0.json"
+fork_dir="$demo_dir/forks"
+a1_path="$fork_dir/fork-1.json"
+a2_path="$fork_dir/fork-2.json"
 
-echo "[3/6] mutate base world"
-printf 'candidate base\n' > ".genos/world/worlds/$world_id/result.txt"
+genos() {
+	cargo run --quiet -p genos-cli -- "$@"
+}
 
-echo "[4/6] snapshot + fork"
-snapshot_json="$(cargo run -p genos-cli -- world snapshot --provider directory --world-id "$world_id" --format json)"
-snapshot_id="$(printf '%s' "$snapshot_json" | jq -r '.snapshot_id')"
-echo "snapshot_id=$snapshot_id"
+rm -rf "$demo_dir"
+mkdir -p "$demo_dir"
 
-forks_json="$(cargo run -p genos-cli -- world fork --provider directory --snapshot-id "$snapshot_id" --count 2 --format json)"
-world_a="$(printf '%s' "$forks_json" | jq -r '.world_ids[0]')"
-world_b="$(printf '%s' "$forks_json" | jq -r '.world_ids[1]')"
-echo "world_a=$world_a"
-echo "world_b=$world_b"
+echo "[0/5] build the genos CLI"
+cargo build -p genos-cli
 
-echo "[5/6] mutate forks"
-printf 'branch A\n' > ".genos/world/worlds/$world_a/outcome.txt"
-printf 'branch B with extra change\n' > ".genos/world/worlds/$world_b/outcome.txt"
+echo "[1/5] init + create agent A"
+genos init
+genos agent create --name clone-no-llm --role tester --out "$agent_path" --format json
 
-echo "[6/6] diff"
-diff_json="$(cargo run -p genos-cli -- world diff --provider directory --world-a "$world_a" --world-b "$world_b" --format json)"
-printf '%s\n' "$diff_json"
+echo "[2/5] create snapshot S0 with a minimal seeded memory"
+genos snapshot create \
+	--agent "$agent_path" \
+	--out "$s0_path" \
+	--memory seed_note=minimal-memory \
+	--semantic-ref memory-minimal-1 \
+	--format json
+genos snapshot save --snapshot "$s0_path" --store "$snapshot_store" --format json
 
-echo "Done. files_changed=$(printf '%s' "$diff_json" | jq -r '.files_changed')"
+echo "[3/5] fork A1 and A2 from S0 (no LLM call, no JSON editing)"
+genos agent fork-from-snapshot \
+	--snapshot "$s0_path" \
+	--count 2 \
+	--out-dir "$fork_dir" \
+	--snapshots "$snapshot_store" \
+	--save \
+	--events "$event_store" \
+	--emit-events \
+	--format json
+
+echo "[4/5] assert same logical state and distinct identity"
+genos snapshot compare \
+	--a "$a1_path" \
+	--b "$a2_path" \
+	--expect-same-state \
+	--expect-distinct-identity \
+	--format json
+
+echo "[5/5] assert isolated event streams via replay"
+genos replay basic --events "$event_store" --snapshot "$a1_path" --expect-last-sequence 1 --format json
+genos replay basic --events "$event_store" --snapshot "$a2_path" --expect-last-sequence 1 --format json
+
+echo
+echo "Demo OK: Agent A -> snapshot S0 -> forks A1/A2"
+echo "snapshot_store=$snapshot_store"
+echo "event_store=$event_store"
+echo "fork_a1=$a1_path"
+echo "fork_a2=$a2_path"

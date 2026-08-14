@@ -1,5 +1,7 @@
 target/
 **/*.rs.bk
+.genos/
+demo-output.txt
 Cargo.lock
 .env
 .venv/

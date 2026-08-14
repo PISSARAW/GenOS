@@ -1,11 +1,13 @@
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use genos_core::{
+    compare_snapshots, fork_first_event_sequence, fork_snapshot, AgentEvent, AgentEventType,
     AgentGenome, AgentId, AgentSnapshot, AgentState, BranchId, Capability, CognitionConfig,
-    EventCursor, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion, Goal, Identity,
-    MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
-    ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
+    CorrelationId, EpisodicMemory, EventCursor, EventId, ExecutionMetadata, GenomeId, GenomeRef,
+    GenomeVersion, Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, Objective, Policy,
+    RuntimeMetadata, SemanticMemory, SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy,
+    ToolState, WorkingMemory, WorkingMemoryItem, WorldId,
 };
 use genos_store::{
     basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
@@ -13,6 +15,7 @@ use genos_store::{
 };
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use serde::Serialize;
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -43,6 +46,8 @@ struct AgentCommand {
 enum AgentSubcommands {
     Create(AgentCreateArgs),
     Inspect(AgentInspectArgs),
+    /// Derive counterfactual forks from an existing snapshot, without any model call.
+    ForkFromSnapshot(AgentForkFromSnapshotArgs),
 }
 
 #[derive(Args, Debug)]
@@ -65,6 +70,37 @@ struct AgentInspectArgs {
 }
 
 #[derive(Args, Debug)]
+struct AgentForkFromSnapshotArgs {
+    /// Parent snapshot: either a file path or a snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    snapshot: String,
+    /// Number of sibling forks to derive.
+    #[arg(long, default_value_t = 2)]
+    count: u32,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist forks with `--save`.
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    /// Append each fork to the snapshot store.
+    #[arg(long)]
+    save: bool,
+    /// Event store receiving one `fork_created` event per fork with `--emit-events`.
+    #[arg(long)]
+    events: Option<PathBuf>,
+    /// Append one `fork_created` event per fork, on the fork's own branch.
+    #[arg(long)]
+    emit_events: bool,
+    /// Write each fork as `<out-prefix>-<n>.json` into this directory.
+    #[arg(long)]
+    out_dir: Option<PathBuf>,
+    #[arg(long, default_value = "fork")]
+    out_prefix: String,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
 struct SnapshotCommand {
     #[command(subcommand)]
     command: SnapshotSubcommands,
@@ -76,6 +112,8 @@ enum SnapshotSubcommands {
     Save(SnapshotSaveArgs),
     Get(SnapshotGetArgs),
     List(SnapshotListArgs),
+    /// Compare two snapshots as counterfactual siblings.
+    Compare(SnapshotCompareArgs),
 }
 
 #[derive(Args, Debug)]
@@ -84,6 +122,37 @@ struct SnapshotCreateArgs {
     agent: PathBuf,
     #[arg(long)]
     out: Option<PathBuf>,
+    /// Seed a working memory item, as `key=value`. Repeatable.
+    #[arg(long, value_name = "KEY=VALUE")]
+    memory: Vec<String>,
+    /// Seed a semantic memory reference. Repeatable.
+    #[arg(long, value_name = "MEMORY_ID")]
+    semantic_ref: Vec<String>,
+    /// Seed an episodic memory reference. Repeatable.
+    #[arg(long, value_name = "MEMORY_ID")]
+    episodic_ref: Vec<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct SnapshotCompareArgs {
+    /// First snapshot: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    a: String,
+    /// Second snapshot: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    b: String,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
+    /// Exit non-zero unless every logical state field is identical.
+    #[arg(long)]
+    expect_same_state: bool,
+    /// Exit non-zero unless snapshot, agent and branch ids all differ.
+    #[arg(long)]
+    expect_distinct_identity: bool,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -140,8 +209,24 @@ struct ReplayBasicArgs {
     root: PathBuf,
     #[arg(long)]
     events: Option<PathBuf>,
-    #[arg(long)]
+    #[arg(long, conflicts_with = "snapshot")]
     branch_id: Option<String>,
+    /// Replay the branch owned by this snapshot (file path or snapshot id) and
+    /// assert the replayed stream stays bound to that snapshot's agent.
+    #[arg(long)]
+    snapshot: Option<String>,
+    /// Snapshot store used to resolve `--snapshot` by id.
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    /// Exit non-zero unless the replayed state ends on this agent id.
+    #[arg(long)]
+    expect_agent_id: Option<String>,
+    /// Exit non-zero unless the replayed state ends on this branch id.
+    #[arg(long)]
+    expect_branch_id: Option<String>,
+    /// Exit non-zero unless the replayed state ends on this sequence number.
+    #[arg(long)]
+    expect_last_sequence: Option<u64>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -300,7 +385,38 @@ struct WorldDestroyOutput {
 struct ReplayBasicOutput {
     store_path: String,
     branch_id: Option<String>,
+    anchor_snapshot_id: Option<String>,
     state: genos_store::BasicReplayState,
+}
+
+#[derive(Serialize)]
+struct AgentForkOutput {
+    parent_snapshot_id: String,
+    parent_agent_id: String,
+    parent_branch_id: String,
+    count: usize,
+    saved_to_store: bool,
+    snapshot_store_path: Option<String>,
+    event_store_path: Option<String>,
+    forks: Vec<ForkEntry>,
+}
+
+#[derive(Serialize)]
+struct ForkEntry {
+    index: u32,
+    snapshot_id: String,
+    agent_id: String,
+    branch_id: String,
+    first_event_sequence: u64,
+    path: Option<String>,
+    fork_event_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SnapshotCompareOutput {
+    a_snapshot_id: String,
+    b_snapshot_id: String,
+    comparison: SnapshotComparison,
 }
 
 #[derive(Serialize)]
@@ -344,12 +460,14 @@ async fn main() -> Result<()> {
         Commands::Agent(agent) => match agent.command {
             AgentSubcommands::Create(args) => cmd_agent_create(args),
             AgentSubcommands::Inspect(args) => cmd_agent_inspect(args),
+            AgentSubcommands::ForkFromSnapshot(args) => cmd_agent_fork_from_snapshot(args).await,
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),
             SnapshotSubcommands::Save(args) => cmd_snapshot_save(args).await,
             SnapshotSubcommands::Get(args) => cmd_snapshot_get(args).await,
             SnapshotSubcommands::List(args) => cmd_snapshot_list(args).await,
+            SnapshotSubcommands::Compare(args) => cmd_snapshot_compare(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -453,9 +571,23 @@ fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
             genome_id: genome.id.clone(),
             version: genome.version.0.clone(),
         },
-        working_memory: WorkingMemory { items: vec![] },
-        semantic_memory: SemanticMemory { refs: vec![] },
-        episodic_memory: EpisodicMemory { refs: vec![] },
+        working_memory: WorkingMemory {
+            items: parse_working_memory_items(&args.memory)?,
+        },
+        semantic_memory: SemanticMemory {
+            refs: args
+                .semantic_ref
+                .iter()
+                .map(|r| MemoryId(r.clone()))
+                .collect(),
+        },
+        episodic_memory: EpisodicMemory {
+            refs: args
+                .episodic_ref
+                .iter()
+                .map(|r| MemoryId(r.clone()))
+                .collect(),
+        },
         beliefs: vec![],
         active_goals: vec![Goal {
             key: "bootstrap".to_string(),
@@ -499,11 +631,7 @@ fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
 
 async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
     let snapshot = read_snapshot(&args.snapshot)?;
-    let store = if let Some(path) = args.store {
-        LocalSnapshotStore::new(path)
-    } else {
-        LocalSnapshotStore::from_root(args.root)
-    };
+    let store = snapshot_store_from(args.store, &args.root);
 
     let snapshot_id = snapshot.snapshot_id.0.clone();
     store.save_snapshot(snapshot).await?;
@@ -516,11 +644,7 @@ async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
 }
 
 async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
-    let store = if let Some(path) = args.store {
-        LocalSnapshotStore::new(path)
-    } else {
-        LocalSnapshotStore::from_root(args.root)
-    };
+    let store = snapshot_store_from(args.store, &args.root);
 
     let snapshot = store.get_snapshot(args.snapshot_id.clone()).await?;
     let out = SnapshotGetOutput {
@@ -534,17 +658,135 @@ async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
 }
 
 async fn cmd_snapshot_list(args: SnapshotListArgs) -> Result<()> {
-    let store = if let Some(path) = args.store {
-        LocalSnapshotStore::new(path)
-    } else {
-        LocalSnapshotStore::from_root(args.root)
-    };
+    let store = snapshot_store_from(args.store, &args.root);
 
     let snapshot_ids = store.list_snapshot_ids().await?;
     let out = SnapshotListOutput {
         store_path: store.file_path().display().to_string(),
         count: snapshot_ids.len(),
         snapshot_ids,
+    };
+
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
+    let store = snapshot_store_from(args.store, &args.root);
+    let a = resolve_snapshot_ref(&args.a, &store).await?;
+    let b = resolve_snapshot_ref(&args.b, &store).await?;
+
+    let comparison = compare_snapshots(&a, &b);
+    let out = SnapshotCompareOutput {
+        a_snapshot_id: a.snapshot_id.0.clone(),
+        b_snapshot_id: b.snapshot_id.0.clone(),
+        comparison,
+    };
+    print_serialized(&out, args.format)?;
+
+    if args.expect_same_state && !out.comparison.same_logical_state {
+        bail!(
+            "expected identical logical state, but these fields differ: {}",
+            out.comparison.differing_fields.join(", ")
+        );
+    }
+
+    if args.expect_distinct_identity && !out.comparison.distinct_identity {
+        bail!(
+            "expected distinct identity, but snapshot_id_distinct={}, agent_id_distinct={}, branch_id_distinct={}",
+            out.comparison.distinct_snapshot_id,
+            out.comparison.distinct_agent_id,
+            out.comparison.distinct_branch_id
+        );
+    }
+
+    Ok(())
+}
+
+async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Result<()> {
+    if args.count == 0 {
+        bail!("--count must be at least 1");
+    }
+
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let parent = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events, &args.root))
+    } else {
+        None
+    };
+
+    // One correlation id ties the whole fan-out together across the sibling branches.
+    let correlation_id = CorrelationId::new();
+    let mut forks = Vec::with_capacity(args.count as usize);
+
+    for index in 1..=args.count {
+        let fork = fork_snapshot(&parent);
+        let first_event_sequence = fork_first_event_sequence(&fork);
+
+        let path = match &args.out_dir {
+            Some(dir) => {
+                let path = dir.join(format!("{}-{index}.json", args.out_prefix));
+                write_serialized(&path, &fork, OutputFormat::Json)?;
+                Some(path.display().to_string())
+            }
+            None => None,
+        };
+
+        let fork_event_id = match &event_store {
+            Some(store) => {
+                let event = AgentEvent {
+                    event_id: EventId::new(),
+                    agent_id: fork.agent_id.clone(),
+                    branch_id: Some(fork.branch_id.clone()),
+                    sequence: first_event_sequence,
+                    timestamp: Utc::now(),
+                    event_type: AgentEventType::ForkCreated,
+                    payload: json!({
+                        "parent_snapshot_id": parent.snapshot_id.0,
+                        "parent_agent_id": parent.agent_id.0,
+                        "parent_branch_id": parent.branch_id.0,
+                        "fork_index": index,
+                        "fork_snapshot_id": fork.snapshot_id.0,
+                    }),
+                    causation_id: None,
+                    correlation_id: Some(correlation_id.clone()),
+                };
+                let event_id = event.event_id.0.clone();
+                store.append(event).await?;
+                Some(event_id)
+            }
+            None => None,
+        };
+
+        forks.push(ForkEntry {
+            index,
+            snapshot_id: fork.snapshot_id.0.clone(),
+            agent_id: fork.agent_id.0.clone(),
+            branch_id: fork.branch_id.0.clone(),
+            first_event_sequence,
+            path,
+            fork_event_id,
+        });
+
+        if args.save {
+            snapshot_store.save_snapshot(fork).await?;
+        }
+    }
+
+    let out = AgentForkOutput {
+        parent_snapshot_id: parent.snapshot_id.0.clone(),
+        parent_agent_id: parent.agent_id.0.clone(),
+        parent_branch_id: parent.branch_id.0.clone(),
+        count: forks.len(),
+        saved_to_store: args.save,
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|store| store.file_path().display().to_string()),
+        forks,
     };
 
     print_serialized(&out, args.format)
@@ -621,35 +863,82 @@ async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
 }
 
 async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
-    let store = if let Some(path) = args.events {
-        LocalEventStore::new(path)
-    } else {
-        LocalEventStore::from_root(args.root)
+    let anchor = match &args.snapshot {
+        Some(spec) => {
+            let store = snapshot_store_from(args.snapshots, &args.root);
+            Some(resolve_snapshot_ref(spec, &store).await?)
+        }
+        None => None,
     };
 
-    let replay_state = store.replay_basic_state(args.branch_id.clone()).await?;
+    let branch_id = match &anchor {
+        Some(snapshot) => Some(snapshot.branch_id.0.clone()),
+        None => args.branch_id.clone(),
+    };
+
+    let store = event_store_from(args.events, &args.root);
+    let replay_state = store.replay_basic_state(branch_id.clone()).await?;
 
     let out = ReplayBasicOutput {
         store_path: store.file_path().display().to_string(),
-        branch_id: args.branch_id,
+        branch_id,
+        anchor_snapshot_id: anchor
+            .as_ref()
+            .map(|snapshot| snapshot.snapshot_id.0.clone()),
         state: replay_state,
     };
 
-    print_serialized(&out, args.format)
+    print_serialized(&out, args.format)?;
+
+    // A branch replayed from its own snapshot must never surface another agent:
+    // that would mean the sibling streams converged.
+    if let (Some(snapshot), Some(replayed)) = (&anchor, &out.state.agent_id) {
+        if *replayed != snapshot.agent_id {
+            bail!(
+                "branch {} replayed to agent {} but is owned by agent {} in snapshot {}",
+                snapshot.branch_id,
+                replayed,
+                snapshot.agent_id,
+                snapshot.snapshot_id
+            );
+        }
+    }
+
+    if let Some(expected) = &args.expect_agent_id {
+        let actual = out.state.agent_id.as_ref().map(|id| id.0.as_str());
+        if actual != Some(expected.as_str()) {
+            bail!(
+                "expected replayed agent_id {expected}, got {}",
+                actual.unwrap_or("none")
+            );
+        }
+    }
+
+    if let Some(expected) = &args.expect_branch_id {
+        let actual = out.state.branch_id.as_ref().map(|id| id.0.as_str());
+        if actual != Some(expected.as_str()) {
+            bail!(
+                "expected replayed branch_id {expected}, got {}",
+                actual.unwrap_or("none")
+            );
+        }
+    }
+
+    if let Some(expected) = args.expect_last_sequence {
+        if out.state.last_sequence != expected {
+            bail!(
+                "expected replayed last_sequence {expected}, got {}",
+                out.state.last_sequence
+            );
+        }
+    }
+
+    Ok(())
 }
 
 async fn cmd_replay_from_snapshot(args: ReplayFromSnapshotArgs) -> Result<()> {
-    let snapshot_store = if let Some(path) = args.snapshots {
-        LocalSnapshotStore::new(path)
-    } else {
-        LocalSnapshotStore::from_root(&args.root)
-    };
-
-    let event_store = if let Some(path) = args.events {
-        LocalEventStore::new(path)
-    } else {
-        LocalEventStore::from_root(&args.root)
-    };
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let event_store = event_store_from(args.events, &args.root);
 
     let snapshot = snapshot_store
         .get_snapshot(args.snapshot_id.clone())
@@ -703,6 +992,58 @@ fn provider_from_args(
             Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?) as Box<dyn WorldProvider>)
         }
     }
+}
+
+fn snapshot_store_from(store: Option<PathBuf>, root: &Path) -> LocalSnapshotStore {
+    match store {
+        Some(path) => LocalSnapshotStore::new(path),
+        None => LocalSnapshotStore::from_root(root),
+    }
+}
+
+fn event_store_from(events: Option<PathBuf>, root: &Path) -> LocalEventStore {
+    match events {
+        Some(path) => LocalEventStore::new(path),
+        None => LocalEventStore::from_root(root),
+    }
+}
+
+/// Resolve a snapshot reference given either as a file path or as a snapshot id
+/// held in `store`, so callers can chain commands without knowing which form the
+/// caller happens to have at hand.
+async fn resolve_snapshot_ref(spec: &str, store: &LocalSnapshotStore) -> Result<AgentSnapshot> {
+    let path = Path::new(spec);
+    if path.is_file() {
+        return read_snapshot(path);
+    }
+
+    store
+        .get_snapshot(spec.to_string())
+        .await?
+        .with_context(|| {
+            format!(
+                "snapshot '{spec}' is neither an existing file nor a snapshot id in {}",
+                store.file_path().display()
+            )
+        })
+}
+
+fn parse_working_memory_items(entries: &[String]) -> Result<Vec<WorkingMemoryItem>> {
+    entries
+        .iter()
+        .map(|entry| {
+            let (key, value) = entry
+                .split_once('=')
+                .with_context(|| format!("--memory expects KEY=VALUE, got '{entry}'"))?;
+            if key.is_empty() {
+                bail!("--memory expects a non-empty key, got '{entry}'");
+            }
+            Ok(WorkingMemoryItem {
+                key: key.to_string(),
+                value: value.to_string(),
+            })
+        })
+        .collect()
 }
 
 fn read_genome(path: &Path) -> Result<AgentGenome> {
