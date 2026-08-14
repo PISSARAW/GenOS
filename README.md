@@ -52,15 +52,14 @@ Implemented:
 	- `genos init`
 	- `genos agent create`
 	- `genos agent inspect`
-	- `genos snapshot create`
+	- `genos snapshot create/save/get/list`
+	- `genos world create/snapshot/fork/diff/destroy`
+	- `genos replay basic/from-snapshot`
 
 Not implemented yet:
 
-- Real world provider execution and isolation runtime
-- Event store backend
-- Fork engine
-- Replay engine
-- Counterfactual experiment orchestration
+- Full counterfactual experiment orchestration pipeline
+- Cognitive merge policy and automated winner promotion
 
 ## Quickstart
 
@@ -69,6 +68,12 @@ cargo run -p genos-cli -- init
 cargo run -p genos-cli -- agent create --name atlas --role software_engineer
 cargo run -p genos-cli -- agent inspect .genos/agents/atlas.yaml --format json
 cargo run -p genos-cli -- snapshot create --agent .genos/agents/atlas.yaml
+
+# world flow (directory provider)
+cargo run -p genos-cli -- world create --provider directory --format json
+cargo run -p genos-cli -- world snapshot --provider directory --world-id <WORLD_ID> --format json
+cargo run -p genos-cli -- world fork --provider directory --snapshot-id <SNAPSHOT_ID> --count 2 --format json
+cargo run -p genos-cli -- world diff --provider directory --world-a <WORLD_ID_A> --world-b <WORLD_ID_B> --format json
 ```
 
 ## Principles
