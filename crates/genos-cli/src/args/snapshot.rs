@@ -1,0 +1,231 @@
+use super::{ArgsMacro, MemoryKindArg, OutputFormat};
+use std::path::PathBuf;
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotCommand {
+    #[command(subcommand)]
+    pub command: SnapshotSubcommands,
+}
+
+#[derive(clap::Subcommand, Debug)]
+pub enum SnapshotSubcommands {
+    Create(SnapshotCreateArgs),
+    Save(SnapshotSaveArgs),
+    Get(SnapshotGetArgs),
+    List(SnapshotListArgs),
+    /// Compare two snapshots as counterfactual siblings.
+    Compare(SnapshotCompareArgs),
+    /// Write a branch-local variable on a snapshot's own branch.
+    SetVar(SnapshotSetVarArgs),
+    /// Check that sibling branches wrote the same variable differently and that
+    /// no write escaped its branch.
+    CheckVar(SnapshotCheckVarArgs),
+    /// Tune the genome's cognition values on one snapshot.
+    SetCognition(SnapshotSetCognitionArgs),
+    /// Record a memory on a snapshot's own branch.
+    AddMemory(SnapshotAddMemoryArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotAddMemoryArgs {
+    /// Snapshot to record on: file path or snapshot id resolved in the store.
+    #[arg(long)]
+    pub snapshot: String,
+    #[arg(long, value_enum, default_value_t = MemoryKindArg::Semantic)]
+    pub kind: MemoryKindArg,
+    #[arg(long)]
+    pub content: String,
+    /// Where the content came from: a tool, an observation, a document.
+    #[arg(long)]
+    pub source: Option<String>,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    /// Event store receiving the `memory_created` event with `--emit-events`.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the `memory_created` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotSetCognitionArgs {
+    /// Snapshot to change: file path or snapshot id resolved in the store.
+    #[arg(long)]
+    pub snapshot: String,
+    #[arg(long, value_parser = crate::resolve::unit_interval)]
+    pub exploration: Option<f32>,
+    #[arg(long, value_parser = crate::resolve::unit_interval)]
+    pub verification_threshold: Option<f32>,
+    #[arg(long)]
+    pub planning_depth: Option<u32>,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotSetVarArgs {
+    /// Snapshot to write on: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    pub snapshot: String,
+    #[arg(long)]
+    pub key: String,
+    #[arg(long)]
+    pub value: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist with `--save`.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file itself,
+    /// since the write advances that branch's own state.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    /// Event store receiving the write event with `--emit-events`.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the `memory_created`/`memory_updated` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotCheckVarArgs {
+    /// Variable the branches are expected to have written.
+    #[arg(long)]
+    pub key: String,
+    /// Snapshot the branches were forked from: file path or snapshot id.
+    #[arg(long)]
+    pub parent: String,
+    /// Value the parent held before the branches wrote. Defaults to the value it
+    /// currently holds, which only checks the branches against each other.
+    #[arg(long)]
+    pub expect_parent: Option<String>,
+    /// Expect the variable to be absent from the parent.
+    #[arg(long, conflicts_with = "expect_parent")]
+    pub expect_parent_absent: bool,
+    /// Branch snapshot: file path or snapshot id. Repeatable.
+    #[arg(long = "branch", value_name = "SNAPSHOT")]
+    pub branches: Vec<String>,
+    /// Value the matching `--branch` wrote, in the same order. Repeatable.
+    #[arg(long = "expect", value_name = "VALUE")]
+    pub expects: Vec<String>,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub store: Option<PathBuf>,
+    /// Exit non-zero unless every branch kept its own write, the parent kept its
+    /// pre-fork value, and no two branches ended on the same value.
+    #[arg(long)]
+    pub expect_isolated: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotCreateArgs {
+    #[arg(long)]
+    pub agent: PathBuf,
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Seed a working memory item, as `key=value`. Repeatable.
+    #[arg(long, value_name = "KEY=VALUE")]
+    pub memory: Vec<String>,
+    /// Seed a semantic memory reference. Repeatable.
+    #[arg(long, value_name = "MEMORY_ID")]
+    pub semantic_ref: Vec<String>,
+    /// Seed an episodic memory reference. Repeatable.
+    #[arg(long, value_name = "MEMORY_ID")]
+    pub episodic_ref: Vec<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotCompareArgs {
+    /// First snapshot: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    pub a: String,
+    /// Second snapshot: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    pub b: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub store: Option<PathBuf>,
+    /// Exit non-zero unless every logical state field is identical.
+    #[arg(long)]
+    pub expect_same_state: bool,
+    /// Exit non-zero unless snapshot, agent and branch ids all differ.
+    #[arg(long)]
+    pub expect_distinct_identity: bool,
+    /// Exit non-zero unless the logical state fields that differ are exactly
+    /// these. Repeatable, and mutually exclusive with `--expect-same-state`.
+    #[arg(
+        long = "expect-differing-field",
+        value_name = "FIELD",
+        conflicts_with = "expect_same_state"
+    )]
+    pub expect_differing_fields: Vec<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotSaveArgs {
+    #[arg(long)]
+    pub snapshot: PathBuf,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub store: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotGetArgs {
+    #[arg(long)]
+    pub snapshot_id: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub store: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotListArgs {
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub store: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
