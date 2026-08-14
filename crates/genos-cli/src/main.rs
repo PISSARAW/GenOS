@@ -2,13 +2,13 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use genos_core::{
-    check_variable_isolation, compare_snapshots, fork_first_event_sequence, fork_snapshot,
-    write_variable_on_branch, AgentEvent, AgentEventType, AgentGenome, AgentId, AgentSnapshot,
-    AgentState, BranchId, Capability, CognitionConfig, CorrelationId, EpisodicMemory, EventCursor,
-    EventId, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion, Goal, Identity, MemoryId,
-    MemoryPolicy, ModelPolicy, Objective, Policy, RuntimeMetadata, SemanticMemory,
-    SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy, ToolState, VariableExpectation,
-    VariableIsolationReport, WorkingMemory, WorkingMemoryItem, WorldId,
+    check_variable_isolation, compare_snapshots, diff_snapshots, fork_first_event_sequence,
+    fork_snapshot, write_variable_on_branch, AgentDiff, AgentEvent, AgentEventType, AgentGenome,
+    AgentId, AgentSnapshot, AgentState, BranchId, Capability, CognitionConfig, CorrelationId,
+    EpisodicMemory, EventCursor, EventId, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion,
+    Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, Objective, Policy, RuntimeMetadata,
+    SemanticMemory, SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy, ToolState,
+    VariableExpectation, VariableIsolationReport, WorkingMemory, WorkingMemoryItem, WorldId,
 };
 use genos_store::{
     basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
@@ -38,6 +38,34 @@ enum Commands {
     Snapshot(SnapshotCommand),
     World(WorldCommand),
     Replay(ReplayCommand),
+    /// Diff the logical state of two snapshots. Identity fields are excluded,
+    /// so two untouched forks of one snapshot diff to nothing.
+    Diff(DiffArgs),
+}
+
+#[derive(Args, Debug)]
+struct DiffArgs {
+    /// Left side: file path or snapshot id resolved in the snapshot store.
+    a: String,
+    /// Right side: file path or snapshot id resolved in the snapshot store.
+    b: String,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
+    /// Exit non-zero unless the two snapshots are semantically identical.
+    #[arg(long)]
+    expect_empty: bool,
+    /// Exit non-zero unless the changed paths are exactly these. Repeatable,
+    /// and mutually exclusive with `--expect-empty`.
+    #[arg(
+        long = "expect-changed-path",
+        value_name = "PATH",
+        conflicts_with = "expect_empty"
+    )]
+    expect_changed_paths: Vec<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
 }
 
 #[derive(Args, Debug)]
@@ -621,6 +649,27 @@ struct SnapshotCheckVarOutput {
 }
 
 #[derive(Serialize)]
+struct DiffOutput {
+    a_snapshot_id: String,
+    b_snapshot_id: String,
+    /// True when the two snapshots carry the same logical state.
+    empty: bool,
+    entry_count: usize,
+    changed_paths: Vec<String>,
+    /// Reported for context only: identity is never part of the diff.
+    identity: DiffIdentity,
+    diff: AgentDiff,
+}
+
+#[derive(Serialize)]
+struct DiffIdentity {
+    distinct_snapshot_id: bool,
+    distinct_agent_id: bool,
+    distinct_branch_id: bool,
+    distinct_identity: bool,
+}
+
+#[derive(Serialize)]
 struct SnapshotCompareOutput {
     a_snapshot_id: String,
     b_snapshot_id: String,
@@ -693,7 +742,58 @@ async fn main() -> Result<()> {
             ReplaySubcommands::Basic(args) => cmd_replay_basic(args).await,
             ReplaySubcommands::FromSnapshot(args) => cmd_replay_from_snapshot(args).await,
         },
+        Commands::Diff(args) => cmd_diff(args).await,
     }
+}
+
+async fn cmd_diff(args: DiffArgs) -> Result<()> {
+    let store = snapshot_store_from(args.store, &args.root);
+    let a = resolve_snapshot_ref(&args.a, &store).await?;
+    let b = resolve_snapshot_ref(&args.b, &store).await?;
+
+    let diff = diff_snapshots(&a, &b);
+    let comparison = compare_snapshots(&a, &b);
+
+    let out = DiffOutput {
+        a_snapshot_id: a.snapshot_id.0.clone(),
+        b_snapshot_id: b.snapshot_id.0.clone(),
+        empty: diff.is_empty(),
+        entry_count: diff.len(),
+        changed_paths: diff.changed_paths(),
+        identity: DiffIdentity {
+            distinct_snapshot_id: comparison.distinct_snapshot_id,
+            distinct_agent_id: comparison.distinct_agent_id,
+            distinct_branch_id: comparison.distinct_branch_id,
+            distinct_identity: comparison.distinct_identity,
+        },
+        diff,
+    };
+    print_serialized(&out, args.format)?;
+
+    if args.expect_empty && !out.empty {
+        bail!(
+            "expected an empty diff, but these paths changed: {}",
+            out.changed_paths.join(", ")
+        );
+    }
+
+    if !args.expect_changed_paths.is_empty() {
+        let mut expected = args.expect_changed_paths.clone();
+        expected.sort();
+        expected.dedup();
+        let mut actual = out.changed_paths.clone();
+        actual.sort();
+
+        if expected != actual {
+            bail!(
+                "expected exactly these paths to change: [{}], got [{}]",
+                expected.join(", "),
+                actual.join(", ")
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn cmd_init() -> Result<()> {

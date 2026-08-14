@@ -32,9 +32,9 @@ sibling or the parent. No LLM call is required for this flow.
 5. Repeat that assertion against the snapshots resolved **by id in the store**,
    so the divergence is proven on the persisted state and not only on the files
    the previous command happened to write.
-6. Assert with `snapshot compare` that the two branches differ on exactly the
-   two fields they should, then replay each branch to confirm the write events
-   stayed on separate streams.
+6. Assert with `snapshot compare` and `genos diff` that the two branches differ
+   on exactly the two paths they should, then replay each branch to confirm the
+   write events stayed on separate streams.
 
 Every step is a `genos` command: the demo never edits snapshot or event JSON by
 hand, so the invariants it proves are the ones the CLI actually enforces.
@@ -128,6 +128,27 @@ genos snapshot compare --a fork-1.json --b fork-2.json \
 
 The second field is not incidental: each branch's cursor now points at its own
 write event, which is what makes the streams independently replayable.
+
+### `genos diff --expect-changed-path`
+
+The same divergence through the structural diff, which reports the variable by
+key instead of dumping working memory as a blob:
+
+```bash
+genos diff fork-1.json fork-2.json \
+  --expect-changed-path state.working_memory.counter \
+  --expect-changed-path state.event_cursor.last_event_id
+```
+
+```json
+"memory_diff": [
+  { "path": "state.working_memory.counter", "before": "10", "after": "20" }
+]
+```
+
+Run [`../counterfactual-demo`](../counterfactual-demo) for the other half of the
+definition: the same command on two forks nobody wrote to returns an empty diff,
+identity differences included.
 
 ## Continuous integration
 

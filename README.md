@@ -58,6 +58,7 @@ Implemented:
 	- `genos world create/snapshot/fork/diff/destroy`
 	- `genos world read-file/write-file/check-file`
 	- `genos replay basic/from-snapshot`
+	- `genos diff` — structural diff of two snapshots, empty for untouched forks
 - Runnable proofs of fork isolation in `examples/`:
 	- `counterfactual-demo` — two forks start logically identical with distinct identity
 	- `divergent-writes-demo` — two branches write the same variable differently

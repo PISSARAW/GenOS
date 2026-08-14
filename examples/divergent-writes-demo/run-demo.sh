@@ -103,6 +103,13 @@ genos snapshot compare \
 	--expect-differing-field state.event_cursor.last_event_id \
 	--expect-distinct-identity \
 	--format json
+# Same two fields, seen through the structural diff: the variable that diverged
+# is reported by key, not as an opaque blob. Untouched forks diff to nothing —
+# see ../counterfactual-demo.
+genos diff "$a1_path" "$a2_path" \
+	--expect-changed-path state.working_memory.counter \
+	--expect-changed-path state.event_cursor.last_event_id \
+	--format json
 genos replay basic --events "$event_store" --snapshot "$a1_path" --expect-last-sequence 1 --format json
 genos replay basic --events "$event_store" --snapshot "$a2_path" --expect-last-sequence 1 --format json
 
