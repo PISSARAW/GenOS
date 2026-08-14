@@ -24,6 +24,11 @@ pub enum SnapshotSubcommands {
     SetCognition(SnapshotSetCognitionArgs),
     /// Record a memory on a snapshot's own branch.
     AddMemory(SnapshotAddMemoryArgs),
+    /// Insert-or-update a (subject, predicate, object) belief on a snapshot's
+    /// own branch. A belief whose triple already exists on this branch has its
+    /// `confidence` overwritten in place rather than appended as a parallel
+    /// record.
+    SetBelief(SnapshotSetBeliefArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -105,6 +110,46 @@ pub struct SnapshotSetVarArgs {
     #[arg(long)]
     pub save: bool,
     /// Event store receiving the write event with `--emit-events`.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the `memory_created`/`memory_updated` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotSetBeliefArgs {
+    /// Snapshot to write on: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    pub snapshot: String,
+    /// Subject of the belief — what the claim is *about*.
+    #[arg(long)]
+    pub subject: String,
+    /// Predicate of the belief — what relation is being asserted.
+    #[arg(long)]
+    pub predicate: String,
+    /// Object of the belief — what the subject is claimed to relate to.
+    #[arg(long = "object")]
+    pub object_value: String,
+    /// Confidence in [0.0, 1.0]. A later call with the same triple overwrites
+    /// the previous confidence and emits a `memory_updated` event.
+    #[arg(long, value_parser = crate::resolve::unit_interval)]
+    pub confidence: f32,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist with `--save`.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file itself,
+    /// since the write advances that branch's own state.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    /// Event store receiving the belief event with `--emit-events`.
     #[arg(long)]
     pub events: Option<PathBuf>,
     /// Append the `memory_created`/`memory_updated` event on the snapshot's own branch.

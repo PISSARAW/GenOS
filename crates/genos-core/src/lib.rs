@@ -1,4 +1,5 @@
 pub mod artifact;
+pub mod beliefs;
 pub mod diff;
 pub mod events;
 pub mod genome;
@@ -10,6 +11,7 @@ pub mod state;
 pub mod variables;
 
 pub use artifact::*;
+pub use beliefs::*;
 pub use diff::*;
 pub use events::*;
 pub use genome::*;

@@ -1,5 +1,8 @@
 use crate::args::OutputFormat;
-use genos_core::{AgentDiff, AgentSnapshot, MemoryKind, SnapshotComparison, VariableIsolationReport};
+use genos_core::{
+    AgentDiff, AgentSnapshot, BeliefStatus, BeliefWriteKind, MemoryKind, SnapshotComparison,
+    VariableIsolationReport,
+};
 use genos_store::BasicReplayState;
 use genos_world::FileIsolationReport;
 use serde::Serialize;
@@ -120,6 +123,27 @@ pub struct SnapshotSetVarOutput {
     pub key: String,
     pub previous_value: Option<String>,
     pub value: String,
+    pub out_path: Option<String>,
+    pub snapshot_store_path: Option<String>,
+    pub event_store_path: Option<String>,
+    pub event_id: Option<String>,
+    pub event_sequence: u64,
+}
+
+#[derive(Serialize)]
+pub struct SnapshotSetBeliefOutput {
+    pub snapshot_id: String,
+    pub agent_id: String,
+    pub branch_id: String,
+    pub subject: String,
+    pub predicate: String,
+    pub object_value: String,
+    pub confidence: f32,
+    pub previous_confidence: Option<f32>,
+    pub belief_id: String,
+    /// Whether the write created the belief or updated an existing triple.
+    pub kind: BeliefWriteKind,
+    pub status: BeliefStatus,
     pub out_path: Option<String>,
     pub snapshot_store_path: Option<String>,
     pub event_store_path: Option<String>,
