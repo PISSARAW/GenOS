@@ -22,6 +22,36 @@ pub struct CounterfactualAnswer {
     pub answer: i64,
 }
 
+/// Scores independently measured for one branch. No scalarisation or winner
+/// selection is implied: callers retain the full trade-off surface.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MultiObjectiveBranchScore {
+    pub branch_id: BranchId,
+    pub objectives: Vec<ObjectiveScore>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ObjectiveScore {
+    pub objective: String,
+    pub score: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MultiObjectiveEvaluation {
+    pub experiment_id: ExperimentId,
+    pub branches: Vec<MultiObjectiveBranchScore>,
+}
+
+pub fn record_multi_objective_evaluation(
+    experiment_id: ExperimentId,
+    branches: impl IntoIterator<Item = MultiObjectiveBranchScore>,
+) -> MultiObjectiveEvaluation {
+    MultiObjectiveEvaluation {
+        experiment_id,
+        branches: branches.into_iter().collect(),
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BranchSelection {
     pub active_branch: BranchId,
@@ -134,5 +164,34 @@ mod tests {
         );
         assert_eq!(selection.active_branch, BranchId("C".to_string()));
         assert_eq!(selection.inspectable_branches.len(), 3);
+    }
+
+    #[test]
+    fn multi_objective_evaluation_retains_tradeoffs_without_selecting_a_winner() {
+        let evaluation = record_multi_objective_evaluation(
+            ExperimentId("pareto-preparation".to_string()),
+            [
+                MultiObjectiveBranchScore {
+                    branch_id: BranchId("A".to_string()),
+                    objectives: vec![
+                        ObjectiveScore { objective: "correctness".to_string(), score: 0.9 },
+                        ObjectiveScore { objective: "speed".to_string(), score: 0.6 },
+                        ObjectiveScore { objective: "cost".to_string(), score: 0.8 },
+                    ],
+                },
+                MultiObjectiveBranchScore {
+                    branch_id: BranchId("B".to_string()),
+                    objectives: vec![
+                        ObjectiveScore { objective: "correctness".to_string(), score: 0.8 },
+                        ObjectiveScore { objective: "speed".to_string(), score: 0.95 },
+                        ObjectiveScore { objective: "cost".to_string(), score: 0.5 },
+                    ],
+                },
+            ],
+        );
+
+        assert_eq!(evaluation.branches.len(), 2);
+        assert_eq!(evaluation.branches[0].objectives.len(), 3);
+        assert_eq!(evaluation.branches[1].objectives[1].score, 0.95);
     }
 }
