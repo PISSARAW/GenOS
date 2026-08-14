@@ -7,12 +7,13 @@ use serde::{Deserialize, Serialize};
 /// unchanged from its parent. Identity fields (`snapshot_id`, `agent_id`,
 /// `branch_id`, `state.event_cursor.branch_id`) and `created_at` are excluded on
 /// purpose: two sibling forks must differ there.
-pub const LOGICAL_STATE_FIELDS: [&str; 15] = [
+pub const LOGICAL_STATE_FIELDS: [&str; 16] = [
     "genome",
     "state.genome",
     "state.working_memory",
     "state.semantic_memory",
     "state.episodic_memory",
+    "state.memories",
     "state.beliefs",
     "state.active_goals",
     "state.world_id",
@@ -111,6 +112,7 @@ pub fn compare_snapshots(a: &AgentSnapshot, b: &AgentSnapshot) -> SnapshotCompar
         a.state.working_memory == b.state.working_memory,
         a.state.semantic_memory == b.state.semantic_memory,
         a.state.episodic_memory == b.state.episodic_memory,
+        a.state.memories == b.state.memories,
         a.state.beliefs == b.state.beliefs,
         a.state.active_goals == b.state.active_goals,
         a.state.world_id == b.state.world_id,
@@ -223,6 +225,7 @@ pub(crate) mod tests {
                     refs: vec![MemoryId("memory-minimal-1".to_string())],
                 },
                 episodic_memory: EpisodicMemory { refs: vec![] },
+                memories: vec![],
                 beliefs: vec![],
                 active_goals: vec![Goal {
                     key: "bootstrap".to_string(),

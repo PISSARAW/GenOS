@@ -34,6 +34,23 @@ function Invoke-Genos {
 	Invoke-Cargo run --quiet -p genos-cli -- @GenosArgs
 }
 
+# Same call, but the JSON is echoed *and* returned so ids can feed the next step.
+function Invoke-GenosJson {
+	param(
+		[Parameter(ValueFromRemainingArguments = $true)]
+		[string[]]$GenosArgs
+	)
+
+	$output = & cargo run --quiet -p genos-cli -- @GenosArgs
+	if ($LASTEXITCODE -ne 0) {
+		throw "genos command failed: genos $($GenosArgs -join ' ')"
+	}
+
+	$text = $output -join "`n"
+	Write-Host $text
+	$text | ConvertFrom-Json
+}
+
 function Get-SnapshotId {
 	param([string]$Path)
 
@@ -58,14 +75,14 @@ try {
 	}
 	New-Item -ItemType Directory -Path $demoDir | Out-Null
 
-	Write-Host "[0/6] build the genos CLI"
+	Write-Host "[0/8] build the genos CLI"
 	Invoke-Cargo build -p genos-cli
 
-	Write-Host "[1/6] init + create agent A"
+	Write-Host "[1/8] init + create agent A"
 	Invoke-Genos init
 	Invoke-Genos agent create --name divergent-writes --role tester --out $agentPath --format json
 
-	Write-Host "[2/6] create snapshot S0 with counter=0"
+	Write-Host "[2/8] create snapshot S0 with counter=0"
 	Invoke-Genos snapshot create `
 		--agent $agentPath `
 		--out $s0Path `
@@ -73,7 +90,7 @@ try {
 		--format json
 	Invoke-Genos snapshot save --snapshot $s0Path --store $snapshotStore --format json
 
-	Write-Host "[3/6] fork A1 and A2 from S0 (no LLM call, no JSON editing)"
+	Write-Host "[3/8] fork A1 and A2 from S0 (no LLM call, no JSON editing)"
 	Invoke-Genos agent fork-from-snapshot `
 		--snapshot $s0Path `
 		--count 2 `
@@ -82,7 +99,7 @@ try {
 		--save `
 		--format json
 
-	Write-Host "[4/6] each branch writes counter differently"
+	Write-Host "[4/8] each branch writes counter differently"
 	Invoke-Genos snapshot set-var `
 		--snapshot $a1Path `
 		--key counter `
@@ -102,7 +119,7 @@ try {
 		--emit-events `
 		--format json
 
-	Write-Host "[5/6] assert A1.counter=10, A2.counter=20, S0.counter=0"
+	Write-Host "[5/8] assert A1.counter=10, A2.counter=20, S0.counter=0"
 	Invoke-Genos snapshot check-var `
 		--key counter `
 		--parent $s0Path --expect-parent 0 `
@@ -128,7 +145,7 @@ try {
 
 	# The two branches now differ on exactly two logical fields: the variable
 	# they wrote, and the cursor pointing at their own write event.
-	Write-Host "[6/6] assert the divergence is the only difference, on isolated streams"
+	Write-Host "[6/8] assert the diverging write is the only difference"
 	Invoke-Genos snapshot compare `
 		--a $a1Path `
 		--b $a2Path `
@@ -143,11 +160,41 @@ try {
 		--expect-changed-path state.working_memory.counter `
 		--expect-changed-path state.event_cursor.last_event_id `
 		--format json
-	Invoke-Genos replay basic --events $eventStore --snapshot $a1Path --expect-last-sequence 1 --format json
+	# A1 learns something A2 never sees. The memory carries provenance — the
+	# branch that recorded it, when, and what it came from — so the diff can
+	# report where it appeared instead of only that the branches disagree.
+	Write-Host "[7/8] A1 records a memory, A2 records nothing"
+	$memoryId = (Invoke-GenosJson snapshot add-memory `
+		--snapshot $a1Path `
+		--kind semantic `
+		--content "The API uses PostgreSQL" `
+		--source schema-probe `
+		--snapshots $snapshotStore `
+		--save `
+		--events $eventStore `
+		--emit-events `
+		--format json).memory_id
+
+	# A2 -> A1, so the memory reads as added on A1's side. The record is one
+	# entry, not one per field it carries; its id showing up in the ref index is
+	# the other.
+	Invoke-Genos diff $a2Path $a1Path `
+		--expect-changed-path state.working_memory.counter `
+		--expect-changed-path "state.memories.$memoryId" `
+		--expect-changed-path "state.semantic_memory.refs.$memoryId" `
+		--expect-changed-path state.event_cursor.sequence `
+		--expect-changed-path state.event_cursor.last_event_id `
+		--format text
+
+	# A1 now carries two events (its write, then its memory) and A2 still one,
+	# on streams that never crossed.
+	Write-Host "[8/8] assert isolated event streams via replay"
+	Invoke-Genos replay basic --events $eventStore --snapshot $a1Path --expect-last-sequence 2 --format json
 	Invoke-Genos replay basic --events $eventStore --snapshot $a2Path --expect-last-sequence 1 --format json
 
 	Write-Host ""
 	Write-Host "Demo OK: S0(counter=0) -> A1(counter=10) | A2(counter=20)"
+	Write-Host "memory_added_in_a1=$memoryId"
 	Write-Host "snapshot_store=$snapshotStore"
 	Write-Host "event_store=$eventStore"
 	Write-Host "parent_s0=$s0Path"

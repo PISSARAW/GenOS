@@ -376,6 +376,7 @@ mod tests {
                 working_memory: genos_core::WorkingMemory { items: vec![] },
                 semantic_memory: genos_core::SemanticMemory { refs: vec![] },
                 episodic_memory: genos_core::EpisodicMemory { refs: vec![] },
+                memories: vec![],
                 beliefs: vec![],
                 active_goals: vec![],
                 world_id: world_id.clone(),
@@ -674,6 +675,122 @@ mod tests {
             &clone_a2.branch_id
         );
         assert_ne!(stream_a1[0].event_id, stream_a2[0].event_id);
+
+        if fs::try_exists(&events_path)
+            .await
+            .expect("try_exists events failed")
+        {
+            fs::remove_file(events_path)
+                .await
+                .expect("cleanup events failed");
+        }
+        if fs::try_exists(&snapshots_path)
+            .await
+            .expect("try_exists snapshots failed")
+        {
+            fs::remove_file(snapshots_path)
+                .await
+                .expect("cleanup snapshots failed");
+        }
+    }
+
+    /// A memory recorded on one branch is held by that branch only, and the
+    /// provenance travels with it through the store.
+    #[tokio::test]
+    async fn a_memory_recorded_on_one_branch_survives_a_store_round_trip() {
+        let events_path = temp_store_path();
+        let snapshots_path = temp_store_path();
+        let event_store = LocalEventStore::new(&events_path);
+        let snapshot_store = LocalSnapshotStore::new(&snapshots_path);
+
+        const FACT: &str = "The API uses PostgreSQL";
+
+        let parent = make_snapshot(0);
+        assert!(parent.state.memories.is_empty());
+        snapshot_store
+            .save_snapshot(parent.clone())
+            .await
+            .expect("save parent snapshot failed");
+
+        let mut a = genos_core::fork_snapshot(&parent);
+        let b = genos_core::fork_snapshot(&parent);
+
+        let write = genos_core::add_memory_on_branch(
+            &mut a,
+            genos_core::MemoryKind::Semantic,
+            FACT,
+            Some("schema-probe"),
+        );
+        event_store
+            .append(write.event)
+            .await
+            .expect("append memory event failed");
+        snapshot_store
+            .save_snapshot(a.clone())
+            .await
+            .expect("save a snapshot failed");
+        snapshot_store
+            .save_snapshot(b.clone())
+            .await
+            .expect("save b snapshot failed");
+
+        let stored_parent = snapshot_store
+            .get_snapshot(parent.snapshot_id.0.clone())
+            .await
+            .expect("get parent failed")
+            .expect("parent missing");
+        let stored_a = snapshot_store
+            .get_snapshot(a.snapshot_id.0.clone())
+            .await
+            .expect("get a failed")
+            .expect("a missing");
+        let stored_b = snapshot_store
+            .get_snapshot(b.snapshot_id.0.clone())
+            .await
+            .expect("get b failed")
+            .expect("b missing");
+
+        let recorded = stored_a
+            .memory(&write.record.id)
+            .expect("memory missing from its own branch");
+        assert_eq!(recorded.content, FACT);
+        assert_eq!(recorded.created_in, stored_a.branch_id);
+        assert_eq!(recorded.source.as_deref(), Some("schema-probe"));
+        assert!(stored_a.state.semantic_memory.refs.contains(&write.record.id));
+
+        assert!(stored_b.state.memories.is_empty());
+        assert!(stored_b.state.semantic_memory.refs.is_empty());
+        assert!(stored_parent.state.memories.is_empty());
+
+        // The diff between the two branches names the added memory, on the side
+        // that recorded it, with where it came from.
+        let diff = genos_core::diff_snapshots(&stored_b, &stored_a);
+        let entry = diff
+            .memory_diff
+            .iter()
+            .find(|entry| entry.path == format!("state.memories.{}", write.record.id.0))
+            .expect("no entry for the added memory");
+        assert_eq!(entry.kind(), genos_core::DiffKind::Added);
+        assert_eq!(entry.after.as_deref(), Some(FACT));
+        assert!(entry
+            .provenance
+            .as_deref()
+            .expect("no provenance")
+            .contains(&stored_a.branch_id.0));
+
+        let stream_a = event_store
+            .stream(Some(stored_a.branch_id.0.clone()))
+            .await
+            .expect("stream a failed");
+        let stream_b = event_store
+            .stream(Some(stored_b.branch_id.0.clone()))
+            .await
+            .expect("stream b failed");
+        assert_eq!(stream_a.len(), 1);
+        assert!(stream_b.is_empty());
+        assert_eq!(stream_a[0].event_type, AgentEventType::MemoryCreated);
+        assert_eq!(stream_a[0].payload["content"], FACT);
+        assert_eq!(stream_a[0].payload["created_in"], stored_a.branch_id.0);
 
         if fs::try_exists(&events_path)
             .await

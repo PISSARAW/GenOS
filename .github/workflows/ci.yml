@@ -217,10 +217,25 @@ jobs:
             fi
           done
 
-          # S0, the two forks, and the two forks again after their write; one
-          # write event per branch.
-          assert_lines "$demo_dir/agent-snapshots.jsonl" 5
-          assert_lines "$demo_dir/agent-events.jsonl" 2
+          # A memory recorded on A1 only, reported as one added record with the
+          # branch it came from.
+          assert_output '(added)'
+          assert_output '    new: The API uses PostgreSQL'
+          assert_output '    provenance: created in branch '
+          assert_output 'source=schema-probe'
+          assert_output '5 changed paths'
+
+          # S0, the two forks, the two forks again after their write, and A1
+          # again after its memory; one write event per branch plus A1's memory.
+          assert_lines "$demo_dir/agent-snapshots.jsonl" 6
+          assert_lines "$demo_dir/agent-events.jsonl" 3
+
+          # The memory event is on A1's branch and nowhere else.
+          memory_events="$(grep -c '"event_type":"memory_created"' "$demo_dir/agent-events.jsonl")"
+          if [ "$memory_events" -ne 1 ]; then
+            echo "Assertion failed: expected 1 memory_created event, got $memory_events" >&2
+            exit 1
+          fi
 
           assert_file "$demo_dir/agent-events.jsonl" '"key":"counter","previous_value":"0","value":"10"'
           assert_file "$demo_dir/agent-events.jsonl" '"key":"counter","previous_value":"0","value":"20"'
