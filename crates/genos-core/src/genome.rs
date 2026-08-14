@@ -87,6 +87,9 @@ pub struct GenomeMutationMetadata {
 }
 
 /// Derive a genome by changing only its exploration configuration.
+///
+/// This is genetic lineage, not execution history: the parent genome is never
+/// modified and may be used later to start an independent mutation lineage.
 pub fn mutate_exploration(parent: &AgentGenome, exploration: f32) -> AgentGenome {
     let mut child = parent.clone();
     child.id = GenomeId::new();
@@ -127,5 +130,23 @@ mod tests {
         assert_eq!(g1.cognition.exploration, 0.6);
         assert_eq!(g2.cognition.exploration, 0.4);
         assert_eq!(g1.mutation.as_ref().unwrap().previous_value, 0.5);
+    }
+
+    #[test]
+    fn mutation_is_reversible_by_restarting_from_the_original_genome() {
+        let g0 = genome(0.5);
+        let g1 = mutate_exploration(&g0, 0.6);
+        let g2 = mutate_exploration(&g1, 0.7);
+
+        // Restarting from G0 does not rewind an execution timeline; it creates
+        // a distinct genetic sibling of G1 with G0 as its own parent.
+        let restarted = mutate_exploration(&g0, 0.4);
+
+        assert_eq!(g1.parent_genome, Some(g0.id.clone()));
+        assert_eq!(g2.parent_genome, Some(g1.id.clone()));
+        assert_eq!(restarted.parent_genome, Some(g0.id.clone()));
+        assert_eq!(g0.cognition.exploration, 0.5);
+        assert_eq!(restarted.cognition.exploration, 0.4);
+        assert_ne!(restarted.id, g1.id);
     }
 }
