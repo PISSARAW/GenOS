@@ -1,10 +1,13 @@
-use crate::args::{IncidentExperimentArgs, TemporalExperimentArgs, WorkspaceExperimentArgs};
+use crate::args::{
+    IncidentExperimentArgs, ScientificExperimentArgs, TemporalExperimentArgs,
+    WorkspaceExperimentArgs,
+};
 use crate::output::print_serialized;
 use anyhow::Context;
 use genos_runtime::{
-    persist_experiment_report, run_temporal_experiment, run_workspace_experiment,
-    TemporalExperimentManifest, WorkspaceExperimentManifest,
-    IncidentSearchManifest, run_incident_search,
+    persist_experiment_report, run_incident_search, run_scientific_experiment,
+    run_temporal_experiment, run_workspace_experiment, IncidentSearchManifest,
+    ScientificExperimentManifest, TemporalExperimentManifest, WorkspaceExperimentManifest,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
@@ -24,6 +27,19 @@ struct IncidentSummaryOutput {
     recursive_descendants: usize,
     perfect_reproductions: usize,
     perfect_branch_ids: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct ScientificSummaryOutput {
+    report_path: String,
+    question: String,
+    hypotheses: usize,
+    recursive_hypotheses: usize,
+    critiques: usize,
+    reproductions: usize,
+    reproduction_mismatches: usize,
+    rewinds: usize,
+    artifacts: usize,
 }
 
 fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
@@ -46,7 +62,10 @@ pub async fn cmd_experiment_workspace(args: WorkspaceExperimentArgs) -> anyhow::
     let report = run_workspace_experiment(manifest, &experiment_root).await?;
     let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
     print_serialized(
-        &ExperimentRunOutput { report_path: report_path.display().to_string(), report },
+        &ExperimentRunOutput {
+            report_path: report_path.display().to_string(),
+            report,
+        },
         args.format,
     )
 }
@@ -58,7 +77,10 @@ pub fn cmd_experiment_temporal(args: TemporalExperimentArgs) -> anyhow::Result<(
     let report = run_temporal_experiment(manifest);
     let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
     print_serialized(
-        &ExperimentRunOutput { report_path: report_path.display().to_string(), report },
+        &ExperimentRunOutput {
+            report_path: report_path.display().to_string(),
+            report,
+        },
         args.format,
     )
 }
@@ -78,13 +100,64 @@ pub fn cmd_experiment_incident(args: IncidentExperimentArgs) -> anyhow::Result<(
                 partial_reproductions: report.partial_survivor_ids.len(),
                 recursive_descendants: report.descendants.len(),
                 perfect_reproductions: report.perfect_reproduction_ids.len(),
-                perfect_branch_ids: report.perfect_reproduction_ids.into_iter().map(|id| id.0).collect(),
+                perfect_branch_ids: report
+                    .perfect_reproduction_ids
+                    .into_iter()
+                    .map(|id| id.0)
+                    .collect(),
             },
             args.format,
         )
     } else {
         print_serialized(
-            &ExperimentRunOutput { report_path: report_path.display().to_string(), report },
+            &ExperimentRunOutput {
+                report_path: report_path.display().to_string(),
+                report,
+            },
+            args.format,
+        )
+    }
+}
+
+pub fn cmd_experiment_scientific(args: ScientificExperimentArgs) -> anyhow::Result<()> {
+    let manifest: ScientificExperimentManifest = read_manifest(&args.manifest)?;
+    let name = manifest.name.clone();
+    let experiment_root = args.root.join(&name);
+    let report = run_scientific_experiment(manifest)?;
+    let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
+    if args.summary {
+        print_serialized(
+            &ScientificSummaryOutput {
+                report_path: report_path.display().to_string(),
+                question: report.question,
+                hypotheses: report.hypotheses.len(),
+                recursive_hypotheses: report
+                    .hypotheses
+                    .iter()
+                    .filter(|hypothesis| hypothesis.parent_hypothesis_id.as_deref() == Some("H3"))
+                    .count(),
+                critiques: report
+                    .hypotheses
+                    .iter()
+                    .map(|hypothesis| hypothesis.critiques.len())
+                    .sum(),
+                reproductions: report.reproductions.len(),
+                reproduction_mismatches: report
+                    .reproductions
+                    .iter()
+                    .filter(|reproduction| !reproduction.consistent)
+                    .count(),
+                rewinds: report.rewinds.len(),
+                artifacts: report.artifacts.len(),
+            },
+            args.format,
+        )
+    } else {
+        print_serialized(
+            &ExperimentRunOutput {
+                report_path: report_path.display().to_string(),
+                report,
+            },
             args.format,
         )
     }

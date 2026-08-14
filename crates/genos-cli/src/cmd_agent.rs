@@ -115,16 +115,16 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
     let save = args.save;
     for index in 1..=args.count {
         match build_fork_entry(
-                index,
-                &parent,
-                out_dir.as_ref(),
-                &out_prefix,
-                save,
-                &snapshot_store,
-                event_store.as_ref(),
-                &correlation_id,
-            )
-            .await
+            index,
+            &parent,
+            out_dir.as_ref(),
+            &out_prefix,
+            save,
+            &snapshot_store,
+            event_store.as_ref(),
+            &correlation_id,
+        )
+        .await
         {
             Ok(mut entry) => {
                 entry.status = "success".to_string();
