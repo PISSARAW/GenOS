@@ -1,6 +1,10 @@
 use async_trait::async_trait;
-use genos_core::{AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId};
+use genos_core::{
+    AgentEvent, AgentEventType, AgentId, AgentSnapshot, ArtifactRef, BranchId, DigestAlgorithm,
+    EventId,
+};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, OpenOptions};
@@ -17,6 +21,41 @@ pub trait EventStore: Send + Sync {
 pub trait SnapshotStore: Send + Sync {
     async fn save_snapshot(&self, snapshot: AgentSnapshot) -> anyhow::Result<()>;
     async fn get_snapshot(&self, snapshot_id: String) -> anyhow::Result<Option<AgentSnapshot>>;
+}
+
+/// Content-addressed local artifact store. The SHA-256 digest is the physical
+/// identity, so identical artifacts across branches share one stored blob.
+pub struct LocalArtifactStore {
+    root: PathBuf,
+    write_lock: Mutex<()>,
+}
+
+impl LocalArtifactStore {
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into(), write_lock: Mutex::new(()) }
+    }
+
+    pub fn blob_path(&self, digest: &str) -> PathBuf {
+        self.root.join("sha256").join(digest)
+    }
+
+    pub async fn put(&self, bytes: &[u8], media_type: impl Into<String>) -> anyhow::Result<ArtifactRef> {
+        let digest = format!("{:x}", Sha256::digest(bytes));
+        let path = self.blob_path(&digest);
+        let _guard = self.write_lock.lock().await;
+        if !fs::try_exists(&path).await? {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent).await?;
+            }
+            fs::write(&path, bytes).await?;
+        }
+        Ok(ArtifactRef {
+            algorithm: DigestAlgorithm::Sha256,
+            digest,
+            media_type: media_type.into(),
+            size: bytes.len() as u64,
+        })
+    }
 }
 
 pub struct LocalEventStore {
@@ -408,6 +447,25 @@ mod tests {
             .expect("system time is before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("genos-store-test-{nanos}.jsonl"))
+    }
+
+    #[tokio::test]
+    async fn identical_branch_artifacts_share_one_physical_blob() {
+        let root = temp_store_path().with_extension("artifacts");
+        let store = LocalArtifactStore::new(&root);
+        let bytes = b"same generated file";
+
+        let reference_a = store.put(bytes, "text/plain").await.expect("store A failed");
+        let reference_b = store.put(bytes, "text/plain").await.expect("store B failed");
+
+        assert_eq!(reference_a.digest, reference_b.digest);
+        assert_eq!(reference_a.digest, format!("{:x}", Sha256::digest(bytes)));
+        assert!(fs::try_exists(store.blob_path(&reference_a.digest)).await.expect("blob lookup failed"));
+        let mut entries = fs::read_dir(root.join("sha256")).await.expect("artifact directory missing");
+        assert!(entries.next_entry().await.expect("read entry failed").is_some());
+        assert!(entries.next_entry().await.expect("read entry failed").is_none());
+
+        fs::remove_dir_all(&root).await.expect("artifact cleanup failed");
     }
 
     fn make_snapshot(sequence: u64) -> AgentSnapshot {
