@@ -216,6 +216,46 @@ fn denied_network_tool_is_audited_without_execution() {
 }
 
 #[test]
+fn sibling_branches_can_use_different_environment_permissions() {
+    let mut branch_a = snapshot_with_variable("counter", "0");
+    let mut branch_b = crate::fork_snapshot(&branch_a);
+    let policy_a = crate::ToolPolicy {
+        permissions: vec![crate::ToolPermission {
+            tool: "http".to_string(),
+            scope: "network".to_string(),
+            enabled: true,
+        }],
+    };
+    let policy_b = crate::ToolPolicy {
+        permissions: vec![crate::ToolPermission {
+            tool: "http".to_string(),
+            scope: "network".to_string(),
+            enabled: false,
+        }],
+    };
+
+    let allowed = record_checked_tool_call_on_branch(
+        &mut branch_a,
+        &policy_a,
+        "http",
+        "network",
+        json!({ "url": "https://example.com" }),
+    );
+    let denied = record_checked_tool_call_on_branch(
+        &mut branch_b,
+        &policy_b,
+        "http",
+        "network",
+        json!({ "url": "https://example.com" }),
+    );
+
+    assert_eq!(allowed.completed_event.event_type, AgentEventType::ToolCompleted);
+    assert_eq!(denied.completed_event.event_type, AgentEventType::ToolFailed);
+    assert_eq!(denied.record.output["error"], "permission_denied");
+    assert_ne!(branch_a.branch_id, branch_b.branch_id);
+}
+
+#[test]
 fn tool_output_ids_are_unique() {
     let mut snapshot = snapshot_with_variable("counter", "0");
     let a = record_tool_call_on_branch(
