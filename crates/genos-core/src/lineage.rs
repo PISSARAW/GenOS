@@ -3,6 +3,7 @@ use crate::ids::{BranchId, SnapshotId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::{HashMap, VecDeque};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -44,6 +45,45 @@ impl LineageDag {
             .filter(|e| &e.parent_snapshot == snapshot)
             .map(|e| &e.child_snapshot)
             .collect()
+    }
+
+    /// Find the closest shared ancestor of two snapshots. For a DAG, ties are
+    /// resolved deterministically by the combined parent distance, then id.
+    pub fn nearest_common_ancestor(
+        &self,
+        left: &SnapshotId,
+        right: &SnapshotId,
+    ) -> Option<SnapshotId> {
+        let left_ancestors = self.ancestor_distances(left);
+        let right_ancestors = self.ancestor_distances(right);
+
+        left_ancestors
+            .iter()
+            .filter_map(|(candidate, left_distance)| {
+                right_ancestors.get(candidate).map(|right_distance| {
+                    (
+                        candidate.clone(),
+                        (*left_distance).max(*right_distance),
+                        left_distance + right_distance,
+                    )
+                })
+            })
+            .min_by(|a, b| a.1.cmp(&b.1).then(a.2.cmp(&b.2)).then(a.0.0.cmp(&b.0.0)))
+            .map(|(candidate, _, _)| candidate)
+    }
+
+    fn ancestor_distances(&self, start: &SnapshotId) -> HashMap<SnapshotId, u64> {
+        let mut distances = HashMap::new();
+        let mut queue = VecDeque::from([(start.clone(), 0)]);
+        while let Some((snapshot, distance)) = queue.pop_front() {
+            if distances.insert(snapshot.clone(), distance).is_some() {
+                continue;
+            }
+            for parent in self.parents_of(&snapshot) {
+                queue.push_back((parent.clone(), distance + 1));
+            }
+        }
+        distances
     }
 }
 
@@ -402,6 +442,34 @@ mod tests {
         assert_eq!(tree.children.len(), 2);
         assert_eq!(a.children.iter().map(|child| child.snapshot_id.as_str()).collect::<Vec<_>>(), vec!["A1", "A2"]);
         assert!(tree.children.iter().any(|child| child.snapshot_id == "B"));
+    }
+
+    #[test]
+    fn nearest_common_ancestor_finds_a_for_a1x_and_a2() {
+        let branch = BranchId::new();
+        let events = vec![
+            evt(AgentEventType::ForkCreated, json!({
+                "parent_snapshot_id": "S0", "fork_snapshot_id": "A"
+            }), 100, branch.clone()),
+            evt(AgentEventType::ForkCreated, json!({
+                "parent_snapshot_id": "A", "fork_snapshot_id": "A1"
+            }), 200, branch.clone()),
+            evt(AgentEventType::ForkCreated, json!({
+                "parent_snapshot_id": "A1", "fork_snapshot_id": "A1x"
+            }), 300, branch.clone()),
+            evt(AgentEventType::ForkCreated, json!({
+                "parent_snapshot_id": "A", "fork_snapshot_id": "A2"
+            }), 400, branch),
+        ];
+        let dag = build_lineage_dag(&events);
+
+        assert_eq!(
+            dag.nearest_common_ancestor(
+                &SnapshotId("A1x".to_string()),
+                &SnapshotId("A2".to_string()),
+            ),
+            Some(SnapshotId("A".to_string()))
+        );
     }
 
     #[test]
