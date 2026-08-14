@@ -1,5 +1,16 @@
 use super::{ArgsMacro, MemoryKindArg, OutputFormat};
+use clap::ValueEnum;
 use std::path::PathBuf;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+pub enum LineageFormat {
+    /// Pretty-printed JSON: the structured tree, suitable for scripts.
+    Json,
+    /// YAML form of the same tree.
+    Yaml,
+    /// Plain text rendered with `├──` / `└──` connectors.
+    Text,
+}
 
 #[derive(ArgsMacro, Debug)]
 pub struct SnapshotCommand {
@@ -40,6 +51,16 @@ pub enum SnapshotSubcommands {
     /// event is stamped on the branch so the audit trail records the
     /// rewind. History stays visible because the event store is append-only.
     Restore(SnapshotRestoreArgs),
+    /// Mint a fresh `snapshot_id` carrying the current logical state on the
+    /// same branch. Unlike `snapshot save` (id-stable round-trip), `checkpoint`
+    /// advances the timeline so a series of writes can be recorded as
+    /// distinct snapshots `S0 → S1 → S2 → ...` on one branch. Emits a
+    /// `snapshot_created` event whose payload references the prior id.
+    Checkpoint(SnapshotCheckpointArgs),
+    /// Build a lineage tree of snapshots and the relations between them by
+    /// walking the event store. Renders as text or JSON; the JSON form lets
+    /// scripts assert tree shape.
+    Lineage(SnapshotLineageArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -367,4 +388,70 @@ pub struct SnapshotListArgs {
     pub store: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotCheckpointArgs {
+    /// Snapshot to checkpoint: file path or snapshot id resolved in the
+    /// store. Its logical state will be copied into a fresh `snapshot_id`;
+    /// its `branch_id` and `agent_id` are preserved (this is *not* a fork).
+    #[arg(long)]
+    pub snapshot: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist
+    /// the new checkpoint with `--save`.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the checkpoint here. Defaults to the file the source snapshot
+    /// was loaded from when `--snapshot` is a file path.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the new checkpoint to the snapshot store (default: on).
+    #[arg(long, default_value_t = true)]
+    pub save: bool,
+    /// Event store receiving the `snapshot_created` event with
+    /// `--emit-events`.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the `snapshot_created` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    /// Exit non-zero unless the new snapshot has a different `snapshot_id`
+    /// than the source.
+    #[arg(long)]
+    pub expect_fresh_id: bool,
+    /// Exit non-zero unless the new snapshot shares `branch_id` with the
+    /// source.
+    #[arg(long)]
+    pub expect_same_branch: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotLineageArgs {
+    /// Anchor the tree at this snapshot file or id. When given as a file
+    /// path, the file's `snapshot_id` is used; when given as an id, the
+    /// snapshot store resolves it. Children include only nodes reachable
+    /// from here via the lineage dag. Mutually exclusive with `--root`.
+    #[arg(long, conflicts_with = "root")]
+    pub snapshot: Option<String>,
+    /// Anchor the tree at this snapshot id (the id form of `--snapshot`).
+    /// Mutually exclusive with `--snapshot`.
+    #[arg(long)]
+    pub root: Option<String>,
+    /// Event store to walk. Defaults to the per-root event store.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Snapshot store used to resolve `--snapshot` / `--root` by id.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    #[arg(long, default_value = ".genos")]
+    pub root_dir: PathBuf,
+    #[arg(long, value_enum, default_value_t = LineageFormat::Json)]
+    pub format: LineageFormat,
+    /// Print the full `snapshot_id` instead of the first 8 chars.
+    #[arg(long)]
+    pub full_id: bool,
 }

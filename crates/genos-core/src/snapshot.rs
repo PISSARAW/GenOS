@@ -457,6 +457,103 @@ pub(crate) mod tests {
     }
 }
 
+/// What a [`checkpoint_snapshot`] call produced: the new snapshot on the
+/// same branch with a fresh `snapshot_id`, plus the audit event the call
+/// stamped. Mirrors [`RestoreWrite`] so a future unified event pipeline
+/// treats every mutation uniformly.
+#[derive(Clone, Debug)]
+pub struct CheckpointWrite {
+    /// The new snapshot: fresh `snapshot_id`, same `agent_id` and
+    /// `branch_id` as `current`. Logical state copied verbatim — a
+    /// checkpoint does not rewrite any `LOGICAL_STATE_FIELDS`.
+    pub snapshot: AgentSnapshot,
+    /// `SnapshotCreated` event bound to `current`'s branch, sequence
+    /// `N + 1` where `N` was the cursor sequence before the checkpoint.
+    /// Payload references the prior snapshot id so a replay can
+    /// reconstruct the edge.
+    pub event: AgentEvent,
+    /// The prior snapshot id the new one was forked from — duplicated in
+    /// `event.payload["parent_snapshot_id"]` for downstream readers.
+    pub parent_snapshot_id: SnapshotId,
+}
+
+/// Mint a fresh `snapshot_id` carrying the current logical state on the
+/// same branch.
+///
+/// Distinct from [`fork_snapshot`]: a fork changes `branch_id` and
+/// starts on an empty event stream; a checkpoint stays on the same
+/// branch and inherits the prior cursor (advanced past the new event).
+/// Distinct from `snapshot save`: save is *id-stable* — calling it on
+/// the same snapshot twice appends the same id twice — so a series of
+/// save calls cannot express `S0 → S1 → S2 → S3` as distinct
+/// `snapshot_id`s. Checkpoint is the primitive that does.
+pub fn checkpoint_snapshot(current: &AgentSnapshot) -> CheckpointWrite {
+    checkpoint_snapshot_at(current, Utc::now())
+}
+
+/// [`checkpoint_snapshot`] with an explicit creation timestamp, for
+/// deterministic tests.
+pub fn checkpoint_snapshot_at(
+    current: &AgentSnapshot,
+    timestamp: DateTime<Utc>,
+) -> CheckpointWrite {
+    let previous_sequence = current.state.event_cursor.sequence;
+    let sequence = previous_sequence + 1;
+
+    // Carry current's logical state verbatim, but rebind the cursor's
+    // branch to the current branch (it already equals current.branch_id,
+    // but a defensive rebind keeps the lineage invariants honest). The
+    // cursor's `last_event_id` clears first; we'll overwrite it with the
+    // upcoming SnapshotCreated event id after the event is built.
+    let mut new_state = current.state.clone();
+    new_state.event_cursor.branch_id = current.branch_id.clone();
+    new_state.event_cursor.last_event_id = None;
+
+    let new_snapshot = AgentSnapshot {
+        snapshot_id: SnapshotId::new(),
+        agent_id: current.agent_id.clone(),
+        branch_id: current.branch_id.clone(),
+        genome: current.genome.clone(),
+        state: new_state,
+        world_id: current.world_id.clone(),
+        tool_state: current.tool_state.clone(),
+        runtime_metadata: current.runtime_metadata.clone(),
+        created_at: timestamp,
+    };
+
+    let payload = json!({
+        "kind": "snapshot_created",
+        "parent_snapshot_id": current.snapshot_id.0,
+        "child_snapshot_id": new_snapshot.snapshot_id.0,
+        "previous_sequence": previous_sequence,
+    });
+    let event = AgentEvent {
+        event_id: EventId::new(),
+        agent_id: current.agent_id.clone(),
+        branch_id: Some(current.branch_id.clone()),
+        sequence,
+        timestamp,
+        event_type: AgentEventType::SnapshotCreated,
+        payload,
+        causation_id: current.state.event_cursor.last_event_id.clone(),
+        correlation_id: None,
+    };
+
+    let mut new_snapshot = new_snapshot;
+    new_snapshot.state.event_cursor.sequence = sequence;
+    new_snapshot.state.event_cursor.last_event_id = Some(event.event_id.clone());
+
+    CheckpointWrite {
+        snapshot: new_snapshot,
+        event,
+        parent_snapshot_id: current.snapshot_id.clone(),
+    }
+}
+
 #[cfg(test)]
 #[path = "snapshot_restore_tests.rs"]
 mod snapshot_restore_tests;
+
+#[cfg(test)]
+#[path = "snapshot_checkpoint_tests.rs"]
+mod snapshot_checkpoint_tests;

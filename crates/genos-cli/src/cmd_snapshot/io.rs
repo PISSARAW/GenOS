@@ -1,15 +1,17 @@
 use crate::args::{
-    OutputFormat, SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs, SnapshotRestoreArgs,
-    SnapshotSaveArgs,
+    OutputFormat, SnapshotCheckpointArgs, SnapshotCompareArgs, SnapshotGetArgs,
+    SnapshotListArgs, SnapshotRestoreArgs, SnapshotSaveArgs,
 };
 use crate::output::{
-    print_serialized, snapshot_path_or_none, write_serialized, SnapshotCompareOutput,
-    SnapshotGetOutput, SnapshotListOutput, SnapshotRestoreOutput, SnapshotSaveOutput,
+    print_serialized, snapshot_path_or_none, write_serialized, SnapshotCheckpointOutput,
+    SnapshotCompareOutput, SnapshotGetOutput, SnapshotListOutput, SnapshotRestoreOutput,
+    SnapshotSaveOutput,
 };
 use crate::resolve::{event_store_from, read_snapshot, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
-use genos_core::{compare_snapshots, restore_snapshot};
+use genos_core::{checkpoint_snapshot, compare_snapshots, restore_snapshot};
 use genos_store::{EventStore, SnapshotStore};
+use std::path::PathBuf;
 
 pub async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
     let snapshot = read_snapshot(&args.snapshot)?;
@@ -195,6 +197,77 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
                 unexpected.join(", ")
             );
         }
+    }
+
+    Ok(())
+}
+
+pub async fn cmd_snapshot_checkpoint(args: SnapshotCheckpointArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots.clone(), &args.root);
+
+    // Resolve the source snapshot — same shape as `cmd_snapshot_restore`.
+    let source = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let write = checkpoint_snapshot(&source);
+
+    // Where does the new snapshot go? Default to the file the source was
+    // loaded from (so the working file is replaced in place), or fall
+    // back to `.genos/snapshots/checkpoint.json` when the source was
+    // referenced only by id.
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot))
+        .unwrap_or_else(|| PathBuf::from(".genos/snapshots/checkpoint.json"));
+    write_serialized(&out_path, &write.snapshot, OutputFormat::Json)?;
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events.clone(), &args.root))
+    } else {
+        None
+    };
+    let event_id = match &event_store {
+        Some(store) => {
+            let id = write.event.event_id.0.clone();
+            store.append(write.event.clone()).await?;
+            Some(id)
+        }
+        None => None,
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(write.snapshot.clone()).await?;
+    }
+
+    let out = SnapshotCheckpointOutput {
+        source_snapshot_id: source.snapshot_id.0.clone(),
+        snapshot_id: write.snapshot.snapshot_id.0.clone(),
+        agent_id: write.snapshot.agent_id.0.clone(),
+        branch_id: write.snapshot.branch_id.0.clone(),
+        event_id,
+        event_sequence: write.event.sequence,
+        out_path: out_path.display().to_string(),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|s| s.file_path().display().to_string()),
+    };
+    print_serialized(&out, args.format)?;
+
+    if args.expect_fresh_id && source.snapshot_id == write.snapshot.snapshot_id {
+        bail!(
+            "expected checkpoint to mint a fresh snapshot_id, got {}",
+            source.snapshot_id.0
+        );
+    }
+    if args.expect_same_branch && source.branch_id != write.snapshot.branch_id {
+        bail!(
+            "expected checkpoint to share branch_id ({}), got {}",
+            source.branch_id.0,
+            write.snapshot.branch_id.0
+        );
     }
 
     Ok(())

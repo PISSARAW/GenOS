@@ -9,13 +9,15 @@ use serde::Serialize;
 use std::path::Path;
 use std::{fs, path::PathBuf};
 
+pub mod lineage;
 pub mod provenance;
 pub mod snapshot_outputs;
 
 // Re-export the snapshot-only output structs so callers can keep importing
 // them from `crate::output` (and don't have to learn the submodule).
 pub use snapshot_outputs::{
-    SnapshotGetOutput, SnapshotListOutput, SnapshotRestoreOutput, SnapshotSaveOutput,
+    SnapshotCheckpointOutput, SnapshotGetOutput, SnapshotLineageOutput, SnapshotListOutput,
+    SnapshotRestoreOutput, SnapshotSaveOutput,
 };
 
 // ---------- output structs ----------
@@ -358,3 +360,4 @@ pub fn print_contradiction_notice(
 }
 
 pub use provenance::print_provenance_tree;
+pub use lineage::print_lineage_tree;
