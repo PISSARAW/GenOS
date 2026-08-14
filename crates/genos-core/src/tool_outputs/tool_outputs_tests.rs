@@ -172,6 +172,27 @@ fn read_file_result_is_attached_as_a_provenance_artifact() {
 }
 
 #[test]
+fn failed_tool_call_is_recorded_without_failing_the_runtime() {
+    let mut snapshot = snapshot_with_variable("counter", "0");
+    let write = record_tool_call_on_branch(
+        &mut snapshot,
+        ToolCallRequest {
+            tool_name: "read_file",
+            input: json!({ "path": "missing.txt" }),
+            output: json!({ "error": "file not found" }),
+            success: false,
+        },
+    );
+
+    assert_eq!(write.requested_event.event_type, AgentEventType::ToolRequested);
+    assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
+    assert_eq!(write.record.success, false);
+    assert_eq!(write.record.output, json!({ "error": "file not found" }));
+    assert_eq!(snapshot.state.event_cursor.sequence, 2);
+    assert_eq!(snapshot.state.tool_outputs.len(), 1);
+}
+
+#[test]
 fn tool_output_ids_are_unique() {
     let mut snapshot = snapshot_with_variable("counter", "0");
     let a = record_tool_call_on_branch(
