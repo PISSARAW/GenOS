@@ -19,8 +19,8 @@ use crate::cmd_agent::{
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_compare, cmd_snapshot_create,
-    cmd_snapshot_get, cmd_snapshot_list, cmd_snapshot_save, cmd_snapshot_set_cognition,
-    cmd_snapshot_set_var,
+    cmd_snapshot_get, cmd_snapshot_list, cmd_snapshot_save, cmd_snapshot_set_belief,
+    cmd_snapshot_set_cognition, cmd_snapshot_set_var,
 };
 use crate::cmd_world::{
     cmd_world_check_file, cmd_world_create, cmd_world_destroy, cmd_world_diff, cmd_world_fork,
@@ -48,6 +48,7 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::CheckVar(args) => cmd_snapshot_check_var(args).await,
             SnapshotSubcommands::SetCognition(args) => cmd_snapshot_set_cognition(args).await,
             SnapshotSubcommands::AddMemory(args) => cmd_snapshot_add_memory(args).await,
+            SnapshotSubcommands::SetBelief(args) => cmd_snapshot_set_belief(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,

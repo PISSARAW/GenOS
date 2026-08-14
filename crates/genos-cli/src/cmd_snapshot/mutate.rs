@@ -1,17 +1,17 @@
 use crate::args::{
-    OutputFormat, SnapshotAddMemoryArgs, SnapshotCheckVarArgs, SnapshotSetCognitionArgs,
-    SnapshotSetVarArgs,
+    OutputFormat, SnapshotAddMemoryArgs, SnapshotCheckVarArgs, SnapshotSetBeliefArgs,
+    SnapshotSetCognitionArgs, SnapshotSetVarArgs,
 };
 use crate::output::{
     print_serialized, snapshot_path_or_none, write_serialized, CognitionChange,
-    SnapshotAddMemoryOutput, SnapshotCheckVarOutput, SnapshotSetCognitionOutput,
-    SnapshotSetVarOutput,
+    SnapshotAddMemoryOutput, SnapshotCheckVarOutput, SnapshotSetBeliefOutput,
+    SnapshotSetCognitionOutput, SnapshotSetVarOutput,
 };
 use crate::resolve::{event_store_from, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
 use genos_core::{
-    add_memory_on_branch, check_variable_isolation, write_variable_on_branch, MemoryKind,
-    VariableExpectation,
+    add_memory_on_branch, check_variable_isolation, upsert_belief, write_variable_on_branch,
+    MemoryKind, VariableExpectation,
 };
 use genos_store::{EventStore, SnapshotStore};
 
@@ -113,6 +113,69 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
         key: write.key,
         previous_value: write.previous_value,
         value: write.value,
+        out_path: out_path.as_ref().map(|path| path.display().to_string()),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|store| store.file_path().display().to_string()),
+        event_id,
+        event_sequence: write.event.sequence,
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(snapshot).await?;
+    }
+
+    print_serialized(&out, args.format)
+}
+
+pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let write = upsert_belief(
+        &mut snapshot,
+        &args.subject,
+        &args.predicate,
+        &args.object_value,
+        args.confidence,
+    );
+
+    // A belief write advances the branch it happened on, so by default it lands
+    // back in the file that snapshot came from.
+    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    if let Some(path) = &out_path {
+        write_serialized(path, &snapshot, OutputFormat::Json)?;
+    }
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events, &args.root))
+    } else {
+        None
+    };
+    let event_id = match &event_store {
+        Some(store) => {
+            let event_id = write.event.event_id.0.clone();
+            store.append(write.event.clone()).await?;
+            Some(event_id)
+        }
+        None => None,
+    };
+
+    let out = SnapshotSetBeliefOutput {
+        snapshot_id: snapshot.snapshot_id.0.clone(),
+        agent_id: snapshot.agent_id.0.clone(),
+        branch_id: snapshot.branch_id.0.clone(),
+        subject: write.subject,
+        predicate: write.predicate,
+        object_value: write.object_value,
+        confidence: write.confidence,
+        previous_confidence: write.previous_confidence,
+        belief_id: write.belief_id.0.clone(),
+        kind: write.kind,
+        status: write.status,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
