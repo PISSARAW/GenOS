@@ -17,9 +17,11 @@
 mod tool_outputs_tests;
 
 use crate::events::{AgentEvent, AgentEventType};
+use crate::artifact::{ArtifactRef, DigestAlgorithm};
 use crate::ids::{EventId, ToolOutputId};
 use crate::snapshot::AgentSnapshot;
 use crate::state::ToolOutputRecord;
+use sha2::{Digest, Sha256};
 use chrono::{DateTime, Utc};
 use serde_json::json;
 
@@ -86,6 +88,7 @@ pub fn record_tool_call_on_branch_at(
     created_at: DateTime<Utc>,
 ) -> ToolOutputWrite {
     let id = ToolOutputId::new();
+    let artifact_bytes = serde_json::to_vec(&req.output).expect("tool output must be serializable");
 
     let requested_sequence = snapshot.state.event_cursor.sequence + 1;
     let requested_event = AgentEvent {
@@ -140,6 +143,14 @@ pub fn record_tool_call_on_branch_at(
     };
 
     snapshot.state.tool_outputs.push(record.clone());
+
+    let digest = format!("{:x}", Sha256::digest(&artifact_bytes));
+    snapshot.state.artifact_refs.push(ArtifactRef {
+        algorithm: DigestAlgorithm::Sha256,
+        digest,
+        media_type: "application/json".to_string(),
+        size: artifact_bytes.len() as u64,
+    });
 
     // The cursor advances to the completion event — that is, the latest
     // event on the branch's stream.
