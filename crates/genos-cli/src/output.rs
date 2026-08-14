@@ -144,11 +144,20 @@ pub struct SnapshotSetBeliefOutput {
     /// Whether the write created the belief or updated an existing triple.
     pub kind: BeliefWriteKind,
     pub status: BeliefStatus,
+    /// Belief ids on the same branch that contradict this one — same
+    /// `(subject, predicate)`, opposite `object_value`. Empty when the new
+    /// belief agrees with everything else on the branch, or when the write
+    /// was an update of an existing triple (a confidence change isn't a
+    /// contradiction).
+    pub contradictions: Vec<String>,
     pub out_path: Option<String>,
     pub snapshot_store_path: Option<String>,
     pub event_store_path: Option<String>,
     pub event_id: Option<String>,
     pub event_sequence: u64,
+    /// Event id of the contradiction marker event on the same branch. Present
+    /// only when `contradictions` is non-empty.
+    pub contradiction_event_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -306,4 +315,26 @@ pub fn print_diff_text(out: &DiffOutput) {
 pub fn snapshot_path_or_none(spec: &str) -> Option<PathBuf> {
     let path = PathBuf::from(spec);
     path.is_file().then_some(path)
+}
+
+/// Print a human-readable "CONTRADICTION DETECTED" block to stderr when a
+/// belief write found opposing beliefs on the same branch. Stays out of the
+/// stdout JSON/YAML output, which remains machine-parseable; the structured
+/// `contradictions` field on the output already carries the same data.
+pub fn print_contradiction_notice(
+    belief_id: &str,
+    object_value: &str,
+    subject: &str,
+    predicate: &str,
+    contradictions: &[genos_core::ids::BeliefId],
+) {
+    eprintln!("CONTRADICTION DETECTED");
+    for opposing in contradictions {
+        eprintln!(
+            "  belief {} contradicts belief {}:",
+            belief_id, opposing.0
+        );
+        eprintln!("    subject={subject} predicate={predicate}");
+        eprintln!("    object_value={object_value}   <-->   object_value=<opposing>");
+    }
 }
