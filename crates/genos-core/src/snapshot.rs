@@ -487,6 +487,21 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn different_genomes_can_start_with_identical_phenotype_state() {
+        let base = parent_snapshot(0);
+        let mut agent_a = base.clone();
+        let mut agent_b = base;
+        agent_a.genome = crate::mutate_exploration(&agent_a.genome, 0.4);
+        agent_b.genome = crate::mutate_exploration(&agent_b.genome, 0.9);
+
+        let comparison = compare_genome_and_state(&agent_a, &agent_b);
+        assert!(!comparison.same_genome);
+        assert!(comparison.same_phenotype_state);
+        assert_eq!(agent_a.genome.cognition.exploration, 0.4);
+        assert_eq!(agent_b.genome.cognition.exploration, 0.9);
+    }
+
+    #[test]
     fn compare_reports_the_field_that_diverged() {
         let parent = parent_snapshot(0);
         let a1 = fork_snapshot(&parent);
