@@ -124,6 +124,8 @@ pub struct ForkEntry {
     pub first_event_sequence: u64,
     pub path: Option<String>,
     pub fork_event_id: Option<String>,
+    pub status: String,
+    pub error: Option<String>,
 }
 
 #[derive(Serialize)]
