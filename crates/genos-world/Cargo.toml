@@ -9,4 +9,8 @@ anyhow.workspace = true
 async-trait.workspace = true
 genos-core = { path = "../genos-core" }
 serde.workspace = true
+sha2.workspace = true
 tokio.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
