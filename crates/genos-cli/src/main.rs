@@ -7,6 +7,7 @@ use genos_core::{
     MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
     ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
 };
+use genos_store::LocalEventStore;
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use serde::Serialize;
 use std::fs;
@@ -26,6 +27,7 @@ enum Commands {
     Agent(AgentCommand),
     Snapshot(SnapshotCommand),
     World(WorldCommand),
+    Replay(ReplayCommand),
 }
 
 #[derive(Args, Debug)]
@@ -76,6 +78,29 @@ struct SnapshotCreateArgs {
     agent: PathBuf,
     #[arg(long)]
     out: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct ReplayCommand {
+    #[command(subcommand)]
+    command: ReplaySubcommands,
+}
+
+#[derive(Subcommand, Debug)]
+enum ReplaySubcommands {
+    Basic(ReplayBasicArgs),
+}
+
+#[derive(Args, Debug)]
+struct ReplayBasicArgs {
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    events: Option<PathBuf>,
+    #[arg(long)]
+    branch_id: Option<String>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -216,6 +241,13 @@ struct WorldDestroyOutput {
     status: String,
 }
 
+#[derive(Serialize)]
+struct ReplayBasicOutput {
+    store_path: String,
+    branch_id: Option<String>,
+    state: genos_store::BasicReplayState,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -235,6 +267,9 @@ async fn main() -> Result<()> {
             WorldSubcommands::Fork(args) => cmd_world_fork(args).await,
             WorldSubcommands::Diff(args) => cmd_world_diff(args).await,
             WorldSubcommands::Destroy(args) => cmd_world_destroy(args).await,
+        },
+        Commands::Replay(replay) => match replay.command {
+            ReplaySubcommands::Basic(args) => cmd_replay_basic(args).await,
         },
     }
 }
@@ -438,6 +473,24 @@ async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
         world_id: args.world_id,
         status: status.to_string(),
     };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
+    let store = if let Some(path) = args.events {
+        LocalEventStore::new(path)
+    } else {
+        LocalEventStore::from_root(args.root)
+    };
+
+    let replay_state = store.replay_basic_state(args.branch_id.clone()).await?;
+
+    let out = ReplayBasicOutput {
+        store_path: store.file_path().display().to_string(),
+        branch_id: args.branch_id,
+        state: replay_state,
+    };
+
     print_serialized(&out, args.format)
 }
 

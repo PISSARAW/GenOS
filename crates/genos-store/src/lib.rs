@@ -103,6 +103,79 @@ impl EventStore for LocalEventStore {
     }
 }
 
+pub struct LocalSnapshotStore {
+    file_path: PathBuf,
+    write_lock: Mutex<()>,
+}
+
+impl LocalSnapshotStore {
+    pub fn new(file_path: impl Into<PathBuf>) -> Self {
+        Self {
+            file_path: file_path.into(),
+            write_lock: Mutex::new(()),
+        }
+    }
+
+    pub fn from_root(root: impl AsRef<Path>) -> Self {
+        let file_path = root
+            .as_ref()
+            .join("snapshots")
+            .join("agent-snapshots.jsonl");
+        Self::new(file_path)
+    }
+
+    pub fn file_path(&self) -> &Path {
+        &self.file_path
+    }
+}
+
+#[async_trait]
+impl SnapshotStore for LocalSnapshotStore {
+    async fn save_snapshot(&self, snapshot: AgentSnapshot) -> anyhow::Result<()> {
+        let _guard = self.write_lock.lock().await;
+
+        if let Some(parent) = self.file_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.file_path)
+            .await?;
+
+        let mut line = serde_json::to_vec(&snapshot)?;
+        line.push(b'\n');
+        file.write_all(&line).await?;
+        file.flush().await?;
+        Ok(())
+    }
+
+    async fn get_snapshot(&self, snapshot_id: String) -> anyhow::Result<Option<AgentSnapshot>> {
+        if !fs::try_exists(&self.file_path).await? {
+            return Ok(None);
+        }
+
+        let raw = fs::read_to_string(&self.file_path).await?;
+        let mut found: Option<AgentSnapshot> = None;
+
+        for (idx, line) in raw.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let snapshot: AgentSnapshot = serde_json::from_str(line)
+                .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
+
+            if snapshot.snapshot_id.0 == snapshot_id {
+                found = Some(snapshot);
+            }
+        }
+
+        Ok(found)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AgentLifecycle {
@@ -186,7 +259,10 @@ pub fn replay_basic_state(events: &[AgentEvent]) -> BasicReplayState {
 mod tests {
     use super::*;
     use chrono::Utc;
-    use genos_core::{CorrelationId, EventId};
+    use genos_core::{
+        CorrelationId, EventCursor, ExecutionMetadata, GenomeId, GenomeRef, RuntimeMetadata,
+        SnapshotId, ToolState, WorldId,
+    };
     use serde_json::json;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -210,6 +286,74 @@ mod tests {
             .expect("system time is before unix epoch")
             .as_nanos();
         std::env::temp_dir().join(format!("genos-store-test-{nanos}.jsonl"))
+    }
+
+    fn make_snapshot(sequence: u64) -> AgentSnapshot {
+        let genome_id = GenomeId::new();
+        let branch_id = BranchId::new();
+        let world_id = WorldId::new();
+
+        AgentSnapshot {
+            snapshot_id: SnapshotId::new(),
+            agent_id: AgentId::new(),
+            branch_id: branch_id.clone(),
+            genome: genos_core::AgentGenome {
+                id: genome_id.clone(),
+                version: genos_core::GenomeVersion("0.1.0".to_string()),
+                identity: genos_core::Identity {
+                    name: "test-agent".to_string(),
+                    role: "tester".to_string(),
+                },
+                cognition: genos_core::CognitionConfig {
+                    exploration: 0.5,
+                    verification_threshold: 0.8,
+                    planning_depth: 2,
+                },
+                objectives: vec![],
+                policies: vec![],
+                capabilities: vec![],
+                memory_policy: genos_core::MemoryPolicy {
+                    working_max_items: 16,
+                    episodic_enabled: true,
+                    semantic_enabled: true,
+                },
+                model_policy: genos_core::ModelPolicy {
+                    strategy: "provider-agnostic".to_string(),
+                    preferred_providers: vec![],
+                    allow_local: true,
+                },
+                tool_policy: genos_core::ToolPolicy { permissions: vec![] },
+            },
+            state: genos_core::AgentState {
+                genome: GenomeRef {
+                    genome_id,
+                    version: "0.1.0".to_string(),
+                },
+                working_memory: genos_core::WorkingMemory { items: vec![] },
+                semantic_memory: genos_core::SemanticMemory { refs: vec![] },
+                episodic_memory: genos_core::EpisodicMemory { refs: vec![] },
+                beliefs: vec![],
+                active_goals: vec![],
+                world_id: world_id.clone(),
+                event_cursor: EventCursor {
+                    branch_id,
+                    sequence,
+                    last_event_id: None,
+                },
+                execution: ExecutionMetadata {
+                    step: sequence,
+                    last_model_provider: None,
+                },
+                artifact_refs: vec![],
+            },
+            world_id,
+            tool_state: ToolState { active_tools: vec![] },
+            runtime_metadata: RuntimeMetadata {
+                runtime_version: "0.0.1".to_string(),
+                budget_steps_remaining: 10,
+            },
+            created_at: Utc::now(),
+        }
     }
 
     #[tokio::test]
@@ -280,5 +424,46 @@ mod tests {
         assert_eq!(replay.snapshots_created, 1);
         assert_eq!(replay.last_sequence, 7);
         assert!(replay.last_event_id.is_some());
+    }
+
+    #[tokio::test]
+    async fn local_snapshot_store_save_and_get() {
+        let path = temp_store_path();
+        let store = LocalSnapshotStore::new(&path);
+        let snapshot = make_snapshot(3);
+        let snapshot_id = snapshot.snapshot_id.0.clone();
+
+        store
+            .save_snapshot(snapshot)
+            .await
+            .expect("save snapshot failed");
+
+        let loaded = store
+            .get_snapshot(snapshot_id)
+            .await
+            .expect("get snapshot failed");
+
+        assert!(loaded.is_some());
+        assert_eq!(
+            loaded.expect("snapshot missing").state.execution.step,
+            3
+        );
+
+        if fs::try_exists(&path).await.expect("try_exists failed") {
+            fs::remove_file(path).await.expect("cleanup failed");
+        }
+    }
+
+    #[tokio::test]
+    async fn local_snapshot_store_returns_none_when_missing() {
+        let path = temp_store_path();
+        let store = LocalSnapshotStore::new(&path);
+
+        let loaded = store
+            .get_snapshot("does-not-exist".to_string())
+            .await
+            .expect("get snapshot failed");
+
+        assert!(loaded.is_none());
     }
 }
