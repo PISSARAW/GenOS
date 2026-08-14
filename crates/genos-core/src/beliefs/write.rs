@@ -96,7 +96,7 @@ pub fn upsert_belief_at(
 
     let sequence = snapshot.state.event_cursor.sequence + 1;
     let event_type = match kind {
-        BeliefWriteKind::Added => AgentEventType::MemoryCreated,
+        BeliefWriteKind::Added => AgentEventType::BeliefCreated,
         BeliefWriteKind::Updated => AgentEventType::MemoryUpdated,
     };
 

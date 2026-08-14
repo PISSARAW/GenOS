@@ -19,7 +19,7 @@ fn upsert_belief_creates_then_updates_on_a_branch() {
     assert_eq!(first.kind, BeliefWriteKind::Added);
     assert_eq!(first.previous_confidence, None);
     assert_eq!(first.confidence, INITIAL_CONFIDENCE);
-    assert_eq!(first.event.event_type, AgentEventType::MemoryCreated);
+    assert_eq!(first.event.event_type, AgentEventType::BeliefCreated);
     assert_eq!(snapshot.beliefs().len(), 1);
     assert_eq!(snapshot.beliefs()[0].confidence, INITIAL_CONFIDENCE);
 
@@ -71,12 +71,12 @@ fn confidence_update_on_one_branch_is_invisible_to_siblings_and_parent() {
 }
 
 #[test]
-fn first_event_of_a_new_belief_is_memory_created() {
+fn first_event_of_a_new_belief_is_belief_created() {
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 
     let write = upsert_belief(&mut snapshot, "api", "uses", "postgres", INITIAL_CONFIDENCE);
 
-    assert_eq!(write.event.event_type, AgentEventType::MemoryCreated);
+    assert_eq!(write.event.event_type, AgentEventType::BeliefCreated);
     assert_eq!(write.event.branch_id.as_ref(), Some(&snapshot.branch_id));
     assert_eq!(write.event.agent_id, snapshot.agent_id);
     assert_eq!(write.event.sequence, 1);
