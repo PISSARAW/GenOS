@@ -7,7 +7,10 @@ use genos_core::{
     MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
     ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
 };
-use genos_store::{LocalEventStore, LocalSnapshotStore, SnapshotStore};
+use genos_store::{
+    basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
+    LocalSnapshotStore, SnapshotStore,
+};
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use serde::Serialize;
 use std::fs;
@@ -72,6 +75,7 @@ enum SnapshotSubcommands {
     Create(SnapshotCreateArgs),
     Save(SnapshotSaveArgs),
     Get(SnapshotGetArgs),
+    List(SnapshotListArgs),
 }
 
 #[derive(Args, Debug)]
@@ -109,6 +113,16 @@ struct SnapshotGetArgs {
 }
 
 #[derive(Args, Debug)]
+struct SnapshotListArgs {
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
 struct ReplayCommand {
     #[command(subcommand)]
     command: ReplaySubcommands,
@@ -117,6 +131,7 @@ struct ReplayCommand {
 #[derive(Subcommand, Debug)]
 enum ReplaySubcommands {
     Basic(ReplayBasicArgs),
+    FromSnapshot(ReplayFromSnapshotArgs),
 }
 
 #[derive(Args, Debug)]
@@ -127,6 +142,20 @@ struct ReplayBasicArgs {
     events: Option<PathBuf>,
     #[arg(long)]
     branch_id: Option<String>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct ReplayFromSnapshotArgs {
+    #[arg(long)]
+    snapshot_id: String,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    #[arg(long)]
+    events: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -275,6 +304,17 @@ struct ReplayBasicOutput {
 }
 
 #[derive(Serialize)]
+struct ReplayFromSnapshotOutput {
+    snapshot_store_path: String,
+    event_store_path: String,
+    snapshot_id: String,
+    branch_id: String,
+    from_sequence_exclusive: u64,
+    replayed_events: usize,
+    state: genos_store::BasicReplayState,
+}
+
+#[derive(Serialize)]
 struct SnapshotSaveOutput {
     store_path: String,
     snapshot_id: String,
@@ -286,6 +326,13 @@ struct SnapshotGetOutput {
     snapshot_id: String,
     found: bool,
     snapshot: Option<AgentSnapshot>,
+}
+
+#[derive(Serialize)]
+struct SnapshotListOutput {
+    store_path: String,
+    count: usize,
+    snapshot_ids: Vec<String>,
 }
 
 #[tokio::main]
@@ -302,6 +349,7 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),
             SnapshotSubcommands::Save(args) => cmd_snapshot_save(args).await,
             SnapshotSubcommands::Get(args) => cmd_snapshot_get(args).await,
+            SnapshotSubcommands::List(args) => cmd_snapshot_list(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -312,6 +360,7 @@ async fn main() -> Result<()> {
         },
         Commands::Replay(replay) => match replay.command {
             ReplaySubcommands::Basic(args) => cmd_replay_basic(args).await,
+            ReplaySubcommands::FromSnapshot(args) => cmd_replay_from_snapshot(args).await,
         },
     }
 }
@@ -484,6 +533,23 @@ async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
     print_serialized(&out, args.format)
 }
 
+async fn cmd_snapshot_list(args: SnapshotListArgs) -> Result<()> {
+    let store = if let Some(path) = args.store {
+        LocalSnapshotStore::new(path)
+    } else {
+        LocalSnapshotStore::from_root(args.root)
+    };
+
+    let snapshot_ids = store.list_snapshot_ids().await?;
+    let out = SnapshotListOutput {
+        store_path: store.file_path().display().to_string(),
+        count: snapshot_ids.len(),
+        snapshot_ids,
+    };
+
+    print_serialized(&out, args.format)
+}
+
 async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
     let provider = provider_from_args(args.provider, args.root, args.seed, args.repo)?;
     let world_id = provider.create(AgentId::new(), BranchId::new()).await?;
@@ -567,6 +633,47 @@ async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
         store_path: store.file_path().display().to_string(),
         branch_id: args.branch_id,
         state: replay_state,
+    };
+
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_replay_from_snapshot(args: ReplayFromSnapshotArgs) -> Result<()> {
+    let snapshot_store = if let Some(path) = args.snapshots {
+        LocalSnapshotStore::new(path)
+    } else {
+        LocalSnapshotStore::from_root(&args.root)
+    };
+
+    let event_store = if let Some(path) = args.events {
+        LocalEventStore::new(path)
+    } else {
+        LocalEventStore::from_root(&args.root)
+    };
+
+    let snapshot = snapshot_store
+        .get_snapshot(args.snapshot_id.clone())
+        .await?
+        .with_context(|| format!("snapshot {} not found", args.snapshot_id))?;
+
+    let branch_id = snapshot.branch_id.0.clone();
+    let base = basic_state_from_snapshot(&snapshot);
+    let from_sequence = base.last_sequence;
+
+    let mut events = event_store.stream(Some(branch_id.clone())).await?;
+    events.retain(|e| e.sequence > from_sequence);
+    events.sort_by_key(|e| e.sequence);
+
+    let state = replay_basic_state_from(base, &events);
+
+    let out = ReplayFromSnapshotOutput {
+        snapshot_store_path: snapshot_store.file_path().display().to_string(),
+        event_store_path: event_store.file_path().display().to_string(),
+        snapshot_id: args.snapshot_id,
+        branch_id,
+        from_sequence_exclusive: from_sequence,
+        replayed_events: events.len(),
+        state,
     };
 
     print_serialized(&out, args.format)

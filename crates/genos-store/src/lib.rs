@@ -3,6 +3,7 @@ use genos_core::{
     AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId,
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
@@ -127,6 +128,31 @@ impl LocalSnapshotStore {
     pub fn file_path(&self) -> &Path {
         &self.file_path
     }
+
+    pub async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>> {
+        if !fs::try_exists(&self.file_path).await? {
+            return Ok(Vec::new());
+        }
+
+        let raw = fs::read_to_string(&self.file_path).await?;
+        let mut ids = Vec::new();
+        let mut seen = HashSet::new();
+
+        for (idx, line) in raw.lines().enumerate() {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let snapshot: AgentSnapshot = serde_json::from_str(line)
+                .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
+
+            if seen.insert(snapshot.snapshot_id.0.clone()) {
+                ids.push(snapshot.snapshot_id.0);
+            }
+        }
+
+        Ok(ids)
+    }
 }
 
 #[async_trait]
@@ -216,7 +242,25 @@ impl Default for BasicReplayState {
 }
 
 pub fn replay_basic_state(events: &[AgentEvent]) -> BasicReplayState {
-    let mut state = BasicReplayState::default();
+    replay_basic_state_from(BasicReplayState::default(), events)
+}
+
+pub fn basic_state_from_snapshot(snapshot: &AgentSnapshot) -> BasicReplayState {
+    BasicReplayState {
+        agent_id: Some(snapshot.agent_id.clone()),
+        branch_id: Some(snapshot.branch_id.clone()),
+        lifecycle: AgentLifecycle::Created,
+        last_event_id: snapshot.state.event_cursor.last_event_id.clone(),
+        last_sequence: snapshot.state.event_cursor.sequence,
+        steps: snapshot.state.execution.step,
+        model_calls: 0,
+        tool_calls: 0,
+        tool_failures: 0,
+        snapshots_created: 0,
+    }
+}
+
+pub fn replay_basic_state_from(mut state: BasicReplayState, events: &[AgentEvent]) -> BasicReplayState {
 
     for event in events {
         state.agent_id = Some(event.agent_id.clone());
@@ -426,6 +470,25 @@ mod tests {
         assert!(replay.last_event_id.is_some());
     }
 
+    #[test]
+    fn replay_basic_state_from_snapshot_cursor() {
+        let snapshot = make_snapshot(5);
+        let base = basic_state_from_snapshot(&snapshot);
+        assert_eq!(base.last_sequence, 5);
+        assert_eq!(base.steps, 5);
+
+        let events = vec![
+            make_event(AgentEventType::ModelResponded, 6, &snapshot.branch_id.0),
+            make_event(AgentEventType::ToolFailed, 7, &snapshot.branch_id.0),
+        ];
+
+        let replay = replay_basic_state_from(base, &events);
+        assert_eq!(replay.last_sequence, 7);
+        assert_eq!(replay.steps, 6);
+        assert_eq!(replay.tool_calls, 1);
+        assert_eq!(replay.tool_failures, 1);
+    }
+
     #[tokio::test]
     async fn local_snapshot_store_save_and_get() {
         let path = temp_store_path();
@@ -465,5 +528,42 @@ mod tests {
             .expect("get snapshot failed");
 
         assert!(loaded.is_none());
+    }
+
+    #[tokio::test]
+    async fn local_snapshot_store_lists_unique_ids() {
+        let path = temp_store_path();
+        let store = LocalSnapshotStore::new(&path);
+
+        let snapshot1 = make_snapshot(1);
+        let mut snapshot2 = make_snapshot(2);
+        snapshot2.snapshot_id = snapshot1.snapshot_id.clone();
+        let snapshot3 = make_snapshot(3);
+
+        store
+            .save_snapshot(snapshot1.clone())
+            .await
+            .expect("save snapshot1 failed");
+        store
+            .save_snapshot(snapshot2)
+            .await
+            .expect("save snapshot2 failed");
+        store
+            .save_snapshot(snapshot3.clone())
+            .await
+            .expect("save snapshot3 failed");
+
+        let ids = store
+            .list_snapshot_ids()
+            .await
+            .expect("list snapshot ids failed");
+
+        assert_eq!(ids.len(), 2);
+        assert_eq!(ids[0], snapshot1.snapshot_id.0);
+        assert_eq!(ids[1], snapshot3.snapshot_id.0);
+
+        if fs::try_exists(&path).await.expect("try_exists failed") {
+            fs::remove_file(path).await.expect("cleanup failed");
+        }
     }
 }
