@@ -64,8 +64,17 @@ struct DiffArgs {
         conflicts_with = "expect_empty"
     )]
     expect_changed_paths: Vec<String>,
-    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
-    format: OutputFormat,
+    /// `text` prints one section header per changed area, then each path with
+    /// its old and new value.
+    #[arg(long, value_enum, default_value_t = DiffFormat::Json)]
+    format: DiffFormat,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum DiffFormat {
+    Json,
+    Yaml,
+    Text,
 }
 
 #[derive(Args, Debug)]
@@ -151,6 +160,33 @@ enum SnapshotSubcommands {
     /// Check that sibling branches wrote the same variable differently and that
     /// no write escaped its branch.
     CheckVar(SnapshotCheckVarArgs),
+    /// Tune the genome's cognition values on one snapshot.
+    SetCognition(SnapshotSetCognitionArgs),
+}
+
+#[derive(Args, Debug)]
+struct SnapshotSetCognitionArgs {
+    /// Snapshot to change: file path or snapshot id resolved in the store.
+    #[arg(long)]
+    snapshot: String,
+    #[arg(long, value_parser = unit_interval)]
+    exploration: Option<f32>,
+    #[arg(long, value_parser = unit_interval)]
+    verification_threshold: Option<f32>,
+    #[arg(long)]
+    planning_depth: Option<u32>,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file.
+    #[arg(long)]
+    out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    save: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
 }
 
 #[derive(Args, Debug)]
@@ -642,6 +678,23 @@ struct SnapshotSetVarOutput {
 }
 
 #[derive(Serialize)]
+struct CognitionChange {
+    field: String,
+    previous: String,
+    value: String,
+}
+
+#[derive(Serialize)]
+struct SnapshotSetCognitionOutput {
+    snapshot_id: String,
+    branch_id: String,
+    genome_id: String,
+    changed: Vec<CognitionChange>,
+    out_path: Option<String>,
+    snapshot_store_path: Option<String>,
+}
+
+#[derive(Serialize)]
 struct SnapshotCheckVarOutput {
     parent_snapshot_id: String,
     branch_count: usize,
@@ -727,6 +780,7 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::Compare(args) => cmd_snapshot_compare(args).await,
             SnapshotSubcommands::SetVar(args) => cmd_snapshot_set_var(args).await,
             SnapshotSubcommands::CheckVar(args) => cmd_snapshot_check_var(args).await,
+            SnapshotSubcommands::SetCognition(args) => cmd_snapshot_set_cognition(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -768,7 +822,12 @@ async fn cmd_diff(args: DiffArgs) -> Result<()> {
         },
         diff,
     };
-    print_serialized(&out, args.format)?;
+
+    match args.format {
+        DiffFormat::Json => print_serialized(&out, OutputFormat::Json)?,
+        DiffFormat::Yaml => print_serialized(&out, OutputFormat::Yaml)?,
+        DiffFormat::Text => print_diff_text(&out),
+    }
 
     if args.expect_empty && !out.empty {
         bail!(
@@ -1029,6 +1088,106 @@ async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn print_diff_text(out: &DiffOutput) {
+    println!("diff a={} b={}", out.a_snapshot_id, out.b_snapshot_id);
+
+    if out.empty {
+        println!("no logical difference");
+
+        // Worth saying out loud: the diff is empty even though these two are
+        // different agents on different branches.
+        let distinct: Vec<&str> = [
+            ("snapshot_id", out.identity.distinct_snapshot_id),
+            ("agent_id", out.identity.distinct_agent_id),
+            ("branch_id", out.identity.distinct_branch_id),
+        ]
+        .into_iter()
+        .filter_map(|(name, differs)| differs.then_some(name))
+        .collect();
+
+        if distinct.is_empty() {
+            println!("identity: same snapshot on both sides");
+        } else {
+            println!("identity differs: {}", distinct.join(", "));
+        }
+        return;
+    }
+
+    print!("{}", out.diff.to_text());
+    println!(
+        "{} changed path{}",
+        out.entry_count,
+        if out.entry_count == 1 { "" } else { "s" }
+    );
+}
+
+async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let mut changed = Vec::new();
+
+    if let Some(exploration) = args.exploration {
+        changed.push(CognitionChange {
+            field: "genome.cognition.exploration".to_string(),
+            previous: snapshot.genome.cognition.exploration.to_string(),
+            value: exploration.to_string(),
+        });
+        snapshot.genome.cognition.exploration = exploration;
+    }
+
+    if let Some(threshold) = args.verification_threshold {
+        changed.push(CognitionChange {
+            field: "genome.cognition.verification_threshold".to_string(),
+            previous: snapshot.genome.cognition.verification_threshold.to_string(),
+            value: threshold.to_string(),
+        });
+        snapshot.genome.cognition.verification_threshold = threshold;
+    }
+
+    if let Some(depth) = args.planning_depth {
+        changed.push(CognitionChange {
+            field: "genome.cognition.planning_depth".to_string(),
+            previous: snapshot.genome.cognition.planning_depth.to_string(),
+            value: depth.to_string(),
+        });
+        snapshot.genome.cognition.planning_depth = depth;
+    }
+
+    if changed.is_empty() {
+        bail!(
+            "nothing to change: pass at least one of --exploration, --verification-threshold, --planning-depth"
+        );
+    }
+
+    // The genome id and version are left alone on purpose: this tunes a value
+    // on one branch, it does not publish a new genome version.
+    let out_path = args.out.or_else(|| {
+        let path = PathBuf::from(&args.snapshot);
+        path.is_file().then_some(path)
+    });
+    if let Some(path) = &out_path {
+        write_serialized(path, &snapshot, OutputFormat::Json)?;
+    }
+
+    let out = SnapshotSetCognitionOutput {
+        snapshot_id: snapshot.snapshot_id.0.clone(),
+        branch_id: snapshot.branch_id.0.clone(),
+        genome_id: snapshot.genome.id.0.clone(),
+        changed,
+        out_path: out_path.map(|path| path.display().to_string()),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(snapshot).await?;
+    }
+
+    print_serialized(&out, args.format)
 }
 
 async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
@@ -1585,6 +1744,20 @@ async fn resolve_snapshot_ref(spec: &str, store: &LocalSnapshotStore) -> Result<
                 store.file_path().display()
             )
         })
+}
+
+/// Cognition weights are probabilities, so anything outside `0..=1` is a typo
+/// rather than a decision.
+fn unit_interval(raw: &str) -> Result<f32, String> {
+    let value: f32 = raw
+        .parse()
+        .map_err(|_| format!("'{raw}' is not a number"))?;
+
+    if !(0.0..=1.0).contains(&value) {
+        return Err(format!("'{raw}' is outside 0..=1"));
+    }
+
+    Ok(value)
 }
 
 fn parse_working_memory_items(entries: &[String]) -> Result<Vec<WorkingMemoryItem>> {
