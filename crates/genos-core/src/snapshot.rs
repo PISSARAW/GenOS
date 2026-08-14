@@ -151,13 +151,24 @@ pub fn compare_snapshots(a: &AgentSnapshot, b: &AgentSnapshot) -> SnapshotCompar
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{
         CognitionConfig, EpisodicMemory, EventCursor, ExecutionMetadata, GenomeId, GenomeRef,
         GenomeVersion, Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, SemanticMemory,
         ToolPolicy, WorkingMemory, WorkingMemoryItem,
     };
+
+    /// Parent snapshot holding a single branch-local variable, for the
+    /// divergence checks in [`crate::variables`].
+    pub(crate) fn snapshot_with_variable(key: &str, value: &str) -> AgentSnapshot {
+        let mut snapshot = parent_snapshot(0);
+        snapshot.state.working_memory.items.push(WorkingMemoryItem {
+            key: key.to_string(),
+            value: value.to_string(),
+        });
+        snapshot
+    }
 
     fn parent_snapshot(sequence: u64) -> AgentSnapshot {
         let genome_id = GenomeId::new();

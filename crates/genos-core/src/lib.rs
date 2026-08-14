@@ -6,6 +6,7 @@ pub mod ids;
 pub mod lineage;
 pub mod snapshot;
 pub mod state;
+pub mod variables;
 
 pub use artifact::*;
 pub use diff::*;
@@ -15,3 +16,4 @@ pub use ids::*;
 pub use lineage::*;
 pub use snapshot::*;
 pub use state::*;
+pub use variables::*;

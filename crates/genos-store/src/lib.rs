@@ -692,4 +692,118 @@ mod tests {
                 .expect("cleanup snapshots failed");
         }
     }
+
+    /// Two branches write the same variable differently from one snapshot, and
+    /// the divergence still holds after a store round-trip: nothing here relies
+    /// on the in-memory copies staying alive.
+    #[tokio::test]
+    async fn diverging_branch_writes_survive_a_store_round_trip() {
+        let events_path = temp_store_path();
+        let snapshots_path = temp_store_path();
+        let event_store = LocalEventStore::new(&events_path);
+        let snapshot_store = LocalSnapshotStore::new(&snapshots_path);
+
+        const INITIAL: &str = "0";
+
+        let mut parent = make_snapshot(0);
+        parent.set_variable("counter", INITIAL);
+        snapshot_store
+            .save_snapshot(parent.clone())
+            .await
+            .expect("save parent snapshot failed");
+
+        let mut a1 = genos_core::fork_snapshot(&parent);
+        let mut a2 = genos_core::fork_snapshot(&parent);
+
+        let w1 = genos_core::write_variable_on_branch(&mut a1, "counter", "10");
+        let w2 = genos_core::write_variable_on_branch(&mut a2, "counter", "20");
+
+        event_store.append(w1.event).await.expect("append a1 write failed");
+        event_store.append(w2.event).await.expect("append a2 write failed");
+        snapshot_store
+            .save_snapshot(a1.clone())
+            .await
+            .expect("save a1 snapshot failed");
+        snapshot_store
+            .save_snapshot(a2.clone())
+            .await
+            .expect("save a2 snapshot failed");
+
+        let stored_parent = snapshot_store
+            .get_snapshot(parent.snapshot_id.0.clone())
+            .await
+            .expect("get parent snapshot failed")
+            .expect("parent snapshot missing");
+        let stored_a1 = snapshot_store
+            .get_snapshot(a1.snapshot_id.0.clone())
+            .await
+            .expect("get a1 snapshot failed")
+            .expect("a1 snapshot missing");
+        let stored_a2 = snapshot_store
+            .get_snapshot(a2.snapshot_id.0.clone())
+            .await
+            .expect("get a2 snapshot failed")
+            .expect("a2 snapshot missing");
+
+        let report = genos_core::check_variable_isolation(
+            "counter",
+            genos_core::VariableExpectation::holds(&stored_parent, INITIAL),
+            &[
+                genos_core::VariableExpectation::holds(&stored_a1, "10"),
+                genos_core::VariableExpectation::holds(&stored_a2, "20"),
+            ],
+        );
+        assert!(report.isolated, "{report:?}");
+        assert!(report.violations.is_empty());
+
+        // Each write is the first event of its own branch, and replaying one
+        // branch never surfaces the other's value.
+        let stream_a1 = event_store
+            .stream(Some(stored_a1.branch_id.0.clone()))
+            .await
+            .expect("stream a1 failed");
+        let stream_a2 = event_store
+            .stream(Some(stored_a2.branch_id.0.clone()))
+            .await
+            .expect("stream a2 failed");
+
+        assert_eq!(stream_a1.len(), 1);
+        assert_eq!(stream_a2.len(), 1);
+        assert_eq!(stream_a1[0].payload["value"], "10");
+        assert_eq!(stream_a2[0].payload["value"], "20");
+        assert_eq!(stream_a1[0].payload["previous_value"], INITIAL);
+        assert_eq!(stream_a1[0].agent_id, stored_a1.agent_id);
+        assert_eq!(stream_a2[0].agent_id, stored_a2.agent_id);
+
+        let replay_a1 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a1);
+        let replay_a2 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a2);
+        assert_eq!(replay_a1.branch_id.as_ref(), Some(&stored_a1.branch_id));
+        assert_eq!(replay_a2.branch_id.as_ref(), Some(&stored_a2.branch_id));
+        assert_eq!(replay_a1.last_sequence, 1);
+        assert_eq!(replay_a2.last_sequence, 1);
+
+        // The parent branch itself recorded nothing.
+        let stream_parent = event_store
+            .stream(Some(stored_parent.branch_id.0.clone()))
+            .await
+            .expect("stream parent failed");
+        assert!(stream_parent.is_empty());
+
+        if fs::try_exists(&events_path)
+            .await
+            .expect("try_exists events failed")
+        {
+            fs::remove_file(events_path)
+                .await
+                .expect("cleanup events failed");
+        }
+        if fs::try_exists(&snapshots_path)
+            .await
+            .expect("try_exists snapshots failed")
+        {
+            fs::remove_file(snapshots_path)
+                .await
+                .expect("cleanup snapshots failed");
+        }
+    }
 }

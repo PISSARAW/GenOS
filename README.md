@@ -52,9 +52,15 @@ Implemented:
 	- `genos init`
 	- `genos agent create`
 	- `genos agent inspect`
-	- `genos snapshot create/save/get/list`
+	- `genos agent fork-from-snapshot`
+	- `genos snapshot create/save/get/list/compare`
+	- `genos snapshot set-var/check-var`
 	- `genos world create/snapshot/fork/diff/destroy`
 	- `genos replay basic/from-snapshot`
+- Runnable proofs of fork isolation in `examples/`:
+	- `counterfactual-demo` — two forks start logically identical with distinct identity
+	- `divergent-writes-demo` — two branches write the same variable differently
+	  while the parent keeps its pre-fork value
 
 Not implemented yet:
 
