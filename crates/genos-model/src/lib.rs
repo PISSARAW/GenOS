@@ -95,4 +95,26 @@ mod tests {
         assert_eq!(first.response_hash, second.response_hash);
         assert_eq!(first.usage.latency_ms, 0);
     }
+
+    #[tokio::test]
+    async fn identical_sibling_branches_have_identical_replay_baseline() {
+        let model = FakeModel::new();
+        let request = ModelRequest {
+            provider: "fake".to_string(),
+            model: "fake-v1".to_string(),
+            prompt: "INPUT A".to_string(),
+            temperature: Some(0.0),
+        };
+
+        // A and B are sibling branches of the same snapshot. Branch identity
+        // is deliberately not part of the model request: same state + same
+        // input must establish the reproducibility baseline.
+        let branch_a = model.infer(request.clone()).await.expect("branch A failed");
+        let branch_b = model.infer(request).await.expect("branch B failed");
+
+        assert_eq!(branch_a.content, branch_b.content);
+        assert_eq!(branch_a.request_hash, branch_b.request_hash);
+        assert_eq!(branch_a.response_hash, branch_b.response_hash);
+        assert_eq!(branch_a.usage.total_tokens, branch_b.usage.total_tokens);
+    }
 }
