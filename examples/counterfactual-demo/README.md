@@ -53,7 +53,10 @@ hand, so the invariants it proves are the ones the CLI actually enforces.
   - `.genos/demo/clone-without-llm/forks/fork-2.json`
 
 Use this as the minimal reproducible proof for clone identity isolation before
-adding evaluation/scoring logic.
+adding evaluation/scoring logic. Once the clones exist,
+[`../divergent-writes-demo`](../divergent-writes-demo) takes the next step and
+proves state isolation: the two branches write the same variable differently
+without either write reaching the sibling or the parent.
 
 ## CLI commands behind the demo
 

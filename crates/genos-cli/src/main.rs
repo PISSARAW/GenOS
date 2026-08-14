@@ -2,12 +2,13 @@ use anyhow::{bail, Context, Result};
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use genos_core::{
-    compare_snapshots, fork_first_event_sequence, fork_snapshot, AgentEvent, AgentEventType,
-    AgentGenome, AgentId, AgentSnapshot, AgentState, BranchId, Capability, CognitionConfig,
-    CorrelationId, EpisodicMemory, EventCursor, EventId, ExecutionMetadata, GenomeId, GenomeRef,
-    GenomeVersion, Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, Objective, Policy,
-    RuntimeMetadata, SemanticMemory, SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy,
-    ToolState, WorkingMemory, WorkingMemoryItem, WorldId,
+    check_variable_isolation, compare_snapshots, fork_first_event_sequence, fork_snapshot,
+    write_variable_on_branch, AgentEvent, AgentEventType, AgentGenome, AgentId, AgentSnapshot,
+    AgentState, BranchId, Capability, CognitionConfig, CorrelationId, EpisodicMemory, EventCursor,
+    EventId, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion, Goal, Identity, MemoryId,
+    MemoryPolicy, ModelPolicy, Objective, Policy, RuntimeMetadata, SemanticMemory,
+    SnapshotComparison, SnapshotId, ToolPermission, ToolPolicy, ToolState, VariableExpectation,
+    VariableIsolationReport, WorkingMemory, WorkingMemoryItem, WorldId,
 };
 use genos_store::{
     basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
@@ -114,6 +115,75 @@ enum SnapshotSubcommands {
     List(SnapshotListArgs),
     /// Compare two snapshots as counterfactual siblings.
     Compare(SnapshotCompareArgs),
+    /// Write a branch-local variable on a snapshot's own branch.
+    SetVar(SnapshotSetVarArgs),
+    /// Check that sibling branches wrote the same variable differently and that
+    /// no write escaped its branch.
+    CheckVar(SnapshotCheckVarArgs),
+}
+
+#[derive(Args, Debug)]
+struct SnapshotSetVarArgs {
+    /// Snapshot to write on: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    snapshot: String,
+    #[arg(long)]
+    key: String,
+    #[arg(long)]
+    value: String,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist with `--save`.
+    #[arg(long)]
+    snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file itself,
+    /// since the write advances that branch's own state.
+    #[arg(long)]
+    out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    save: bool,
+    /// Event store receiving the write event with `--emit-events`.
+    #[arg(long)]
+    events: Option<PathBuf>,
+    /// Append the `memory_created`/`memory_updated` event on the snapshot's own branch.
+    #[arg(long)]
+    emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct SnapshotCheckVarArgs {
+    /// Variable the branches are expected to have written.
+    #[arg(long)]
+    key: String,
+    /// Snapshot the branches were forked from: file path or snapshot id.
+    #[arg(long)]
+    parent: String,
+    /// Value the parent held before the branches wrote. Defaults to the value it
+    /// currently holds, which only checks the branches against each other.
+    #[arg(long)]
+    expect_parent: Option<String>,
+    /// Expect the variable to be absent from the parent.
+    #[arg(long, conflicts_with = "expect_parent")]
+    expect_parent_absent: bool,
+    /// Branch snapshot: file path or snapshot id. Repeatable.
+    #[arg(long = "branch", value_name = "SNAPSHOT")]
+    branches: Vec<String>,
+    /// Value the matching `--branch` wrote, in the same order. Repeatable.
+    #[arg(long = "expect", value_name = "VALUE")]
+    expects: Vec<String>,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
+    /// Exit non-zero unless every branch kept its own write, the parent kept its
+    /// pre-fork value, and no two branches ended on the same value.
+    #[arg(long)]
+    expect_isolated: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
 }
 
 #[derive(Args, Debug)]
@@ -153,6 +223,14 @@ struct SnapshotCompareArgs {
     /// Exit non-zero unless snapshot, agent and branch ids all differ.
     #[arg(long)]
     expect_distinct_identity: bool,
+    /// Exit non-zero unless the logical state fields that differ are exactly
+    /// these. Repeatable, and mutually exclusive with `--expect-same-state`.
+    #[arg(
+        long = "expect-differing-field",
+        value_name = "FIELD",
+        conflicts_with = "expect_same_state"
+    )]
+    expect_differing_fields: Vec<String>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -413,6 +491,28 @@ struct ForkEntry {
 }
 
 #[derive(Serialize)]
+struct SnapshotSetVarOutput {
+    snapshot_id: String,
+    agent_id: String,
+    branch_id: String,
+    key: String,
+    previous_value: Option<String>,
+    value: String,
+    out_path: Option<String>,
+    snapshot_store_path: Option<String>,
+    event_store_path: Option<String>,
+    event_id: Option<String>,
+    event_sequence: u64,
+}
+
+#[derive(Serialize)]
+struct SnapshotCheckVarOutput {
+    parent_snapshot_id: String,
+    branch_count: usize,
+    report: VariableIsolationReport,
+}
+
+#[derive(Serialize)]
 struct SnapshotCompareOutput {
     a_snapshot_id: String,
     b_snapshot_id: String,
@@ -468,6 +568,8 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::Get(args) => cmd_snapshot_get(args).await,
             SnapshotSubcommands::List(args) => cmd_snapshot_list(args).await,
             SnapshotSubcommands::Compare(args) => cmd_snapshot_compare(args).await,
+            SnapshotSubcommands::SetVar(args) => cmd_snapshot_set_var(args).await,
+            SnapshotSubcommands::CheckVar(args) => cmd_snapshot_check_var(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -696,6 +798,151 @@ async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
             out.comparison.distinct_snapshot_id,
             out.comparison.distinct_agent_id,
             out.comparison.distinct_branch_id
+        );
+    }
+
+    if !args.expect_differing_fields.is_empty() {
+        let mut expected = args.expect_differing_fields.clone();
+        expected.sort();
+        expected.dedup();
+        let mut actual = out.comparison.differing_fields.clone();
+        actual.sort();
+
+        if expected != actual {
+            bail!(
+                "expected exactly these fields to differ: [{}], got [{}]",
+                expected.join(", "),
+                actual.join(", ")
+            );
+        }
+    }
+
+    Ok(())
+}
+
+async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+
+    let write = write_variable_on_branch(&mut snapshot, &args.key, &args.value);
+
+    // A write advances the branch it happened on, so by default it lands back in
+    // the file that snapshot came from.
+    let out_path = args.out.or_else(|| {
+        let path = PathBuf::from(&args.snapshot);
+        path.is_file().then_some(path)
+    });
+    if let Some(path) = &out_path {
+        write_serialized(path, &snapshot, OutputFormat::Json)?;
+    }
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events, &args.root))
+    } else {
+        None
+    };
+    let event_id = match &event_store {
+        Some(store) => {
+            let event_id = write.event.event_id.0.clone();
+            store.append(write.event.clone()).await?;
+            Some(event_id)
+        }
+        None => None,
+    };
+
+    let out = SnapshotSetVarOutput {
+        snapshot_id: snapshot.snapshot_id.0.clone(),
+        agent_id: snapshot.agent_id.0.clone(),
+        branch_id: snapshot.branch_id.0.clone(),
+        key: write.key,
+        previous_value: write.previous_value,
+        value: write.value,
+        out_path: out_path.map(|path| path.display().to_string()),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|store| store.file_path().display().to_string()),
+        event_id,
+        event_sequence: write.event.sequence,
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(snapshot).await?;
+    }
+
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_snapshot_check_var(args: SnapshotCheckVarArgs) -> Result<()> {
+    if args.branches.is_empty() {
+        bail!("--branch is required at least once");
+    }
+    if !args.expects.is_empty() && args.expects.len() != args.branches.len() {
+        bail!(
+            "--expect must be given once per --branch, in the same order: got {} --branch and {} --expect",
+            args.branches.len(),
+            args.expects.len()
+        );
+    }
+
+    let store = snapshot_store_from(args.store, &args.root);
+    let parent = resolve_snapshot_ref(&args.parent, &store).await?;
+
+    let mut branches = Vec::with_capacity(args.branches.len());
+    for spec in &args.branches {
+        branches.push(resolve_snapshot_ref(spec, &store).await?);
+    }
+
+    // Without an explicit expectation, a snapshot is expected to hold what it
+    // already holds: the check then only proves the branches diverged.
+    let parent_expected: Option<String> = if args.expect_parent_absent {
+        None
+    } else {
+        args.expect_parent
+            .clone()
+            .or_else(|| parent.variable(&args.key).map(str::to_string))
+    };
+    let branch_expected: Vec<Option<String>> = branches
+        .iter()
+        .enumerate()
+        .map(|(index, branch)| match args.expects.get(index) {
+            Some(expected) => Some(expected.clone()),
+            None => branch.variable(&args.key).map(str::to_string),
+        })
+        .collect();
+
+    let expectations: Vec<VariableExpectation<'_>> = branches
+        .iter()
+        .zip(branch_expected.iter())
+        .map(|(branch, expected)| VariableExpectation {
+            snapshot: branch,
+            expected: expected.as_deref(),
+        })
+        .collect();
+
+    let report = check_variable_isolation(
+        &args.key,
+        VariableExpectation {
+            snapshot: &parent,
+            expected: parent_expected.as_deref(),
+        },
+        &expectations,
+    );
+
+    let out = SnapshotCheckVarOutput {
+        parent_snapshot_id: parent.snapshot_id.0.clone(),
+        branch_count: branches.len(),
+        report,
+    };
+    print_serialized(&out, args.format)?;
+
+    if args.expect_isolated && !out.report.isolated {
+        bail!(
+            "variable '{}' is not isolated across branches: {}",
+            args.key,
+            out.report.violations.join("; ")
         );
     }
 
