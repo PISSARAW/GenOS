@@ -30,6 +30,56 @@ pub struct LocalArtifactStore {
     write_lock: Mutex<()>,
 }
 
+/// Content-addressed manifest for the reusable parts of a snapshot. Branch
+/// identity and event cursor remain per-snapshot; equal components share blobs.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SnapshotComponentManifest {
+    pub snapshot_id: String,
+    pub genome: ArtifactRef,
+    pub working_memory: ArtifactRef,
+    pub memories: ArtifactRef,
+    pub beliefs: ArtifactRef,
+    pub tool_outputs: ArtifactRef,
+    pub tool_state: ArtifactRef,
+    pub runtime_metadata: ArtifactRef,
+}
+
+pub struct LocalSnapshotComponentStore {
+    artifacts: LocalArtifactStore,
+}
+
+impl LocalSnapshotComponentStore {
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { artifacts: LocalArtifactStore::new(root) }
+    }
+
+    async fn put_json<T: Serialize>(&self, value: &T) -> anyhow::Result<ArtifactRef> {
+        self.artifacts
+            .put(&serde_json::to_vec(value)?, "application/json")
+            .await
+    }
+
+    pub async fn store_components(
+        &self,
+        snapshot: &AgentSnapshot,
+    ) -> anyhow::Result<SnapshotComponentManifest> {
+        Ok(SnapshotComponentManifest {
+            snapshot_id: snapshot.snapshot_id.0.clone(),
+            genome: self.put_json(&snapshot.genome).await?,
+            working_memory: self.put_json(&snapshot.state.working_memory).await?,
+            memories: self.put_json(&snapshot.state.memories).await?,
+            beliefs: self.put_json(&snapshot.state.beliefs).await?,
+            tool_outputs: self.put_json(&snapshot.state.tool_outputs).await?,
+            tool_state: self.put_json(&snapshot.tool_state).await?,
+            runtime_metadata: self.put_json(&snapshot.runtime_metadata).await?,
+        })
+    }
+
+    pub fn component_path(&self, digest: &str) -> PathBuf {
+        self.artifacts.blob_path(digest)
+    }
+}
+
 impl LocalArtifactStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self { root: root.into(), write_lock: Mutex::new(()) }
@@ -466,6 +516,27 @@ mod tests {
         assert!(entries.next_entry().await.expect("read entry failed").is_none());
 
         fs::remove_dir_all(&root).await.expect("artifact cleanup failed");
+    }
+
+    #[tokio::test]
+    async fn similar_snapshots_share_identical_components() {
+        let root = temp_store_path().with_extension("snapshot-components");
+        let store = LocalSnapshotComponentStore::new(&root);
+        let parent = make_snapshot(0);
+        let s1 = genos_core::fork_snapshot(&parent);
+        let s2 = genos_core::fork_snapshot(&parent);
+
+        let manifest_1 = store.store_components(&s1).await.expect("store S1 failed");
+        let manifest_2 = store.store_components(&s2).await.expect("store S2 failed");
+
+        assert_ne!(manifest_1.snapshot_id, manifest_2.snapshot_id);
+        assert_eq!(manifest_1.genome.digest, manifest_2.genome.digest);
+        assert_eq!(manifest_1.working_memory.digest, manifest_2.working_memory.digest);
+        assert_eq!(manifest_1.memories.digest, manifest_2.memories.digest);
+        assert_eq!(manifest_1.runtime_metadata.digest, manifest_2.runtime_metadata.digest);
+        assert!(fs::try_exists(store.component_path(&manifest_1.genome.digest)).await.expect("genome blob missing"));
+
+        fs::remove_dir_all(&root).await.expect("component cleanup failed");
     }
 
     fn make_snapshot(sequence: u64) -> AgentSnapshot {
