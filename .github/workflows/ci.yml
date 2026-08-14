@@ -221,3 +221,95 @@ jobs:
             demo-output.txt
             .genos/demo/divergent-writes/
           if-no-files-found: warn
+
+  divergent-worlds-demo:
+    name: divergent worlds demo (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: bash examples/divergent-worlds-demo/run-demo.sh
+          - os: windows-latest
+            script: pwsh -NoProfile -File examples/divergent-worlds-demo/run-demo.ps1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The script asserts on its own via `--expect-isolated`, so a failed
+      # invariant already fails this step. The next step re-checks the observable
+      # output so a silently gutted script cannot pass.
+      - name: Run the demo
+        shell: bash
+        run: ${{ matrix.script }} 2>&1 | tee demo-output.txt
+
+      - name: Assert demo output
+        shell: bash
+        run: |
+          demo_dir=".genos/demo/divergent-worlds"
+
+          assert_output() {
+            if ! grep -qF "$1" demo-output.txt; then
+              echo "Assertion failed: demo output is missing '$1'" >&2
+              exit 1
+            fi
+          }
+
+          assert_count() {
+            local needle="$1" expected="$2" actual
+            actual="$(grep -cF "$needle" demo-output.txt)"
+            if [ "$actual" -ne "$expected" ]; then
+              echo "Assertion failed: expected '$needle' $expected times, got $actual" >&2
+              exit 1
+            fi
+          }
+
+          assert_output 'Demo OK: W0(hello) -> A(bonjour) | B(hola)'
+          assert_output '"isolated": true'
+          assert_output '"parent_preserved": true'
+          assert_output '"branches_hold_expected_contents": true'
+          assert_output '"branch_contents_distinct": true'
+          assert_output '"violations": []'
+          assert_output '"files_changed": 1'
+
+          # The two isolation checks: against the parent world, then against a
+          # world re-forked from the snapshot after both writes.
+          assert_count '"isolated": true' 2
+          assert_count '"actual_contents": "hello"' 2
+          assert_count '"actual_contents": "bonjour"' 2
+          assert_count '"actual_contents": "hola"' 2
+
+          # W0, A, B and the late fork, each materialized as its own directory.
+          world_count="$(find "$demo_dir/world/worlds" -mindepth 1 -maxdepth 1 -type d | grep -c '')"
+          if [ "$world_count" -ne 4 ]; then
+            echo "Assertion failed: expected 4 worlds on disk, got $world_count" >&2
+            exit 1
+          fi
+
+          # Exactly one world holds each value, and the parent kept "hello".
+          for value in hello bonjour hola; do
+            matches="$(grep -rlx "$value" "$demo_dir/world/worlds" | grep -c '')"
+            expected=1
+            # "hello" survives in the parent world and in the late fork.
+            if [ "$value" = "hello" ]; then expected=2; fi
+            if [ "$matches" -ne "$expected" ]; then
+              echo "Assertion failed: expected $expected world(s) holding '$value', got $matches" >&2
+              exit 1
+            fi
+          done
+
+          echo "Divergent worlds demo assertions passed."
+
+      - name: Upload demo artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: divergent-worlds-demo-${{ matrix.os }}
+          path: |
+            demo-output.txt
+            .genos/demo/divergent-worlds/
+          if-no-files-found: warn

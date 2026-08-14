@@ -1,10 +1,14 @@
+pub mod files;
+
+pub use files::*;
+
 use async_trait::async_trait;
 use genos_core::{AgentId, BranchId, SnapshotId, WorldId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
 use tokio::process::Command;
 
@@ -39,6 +43,8 @@ pub enum WorldError {
         created: usize,
         last_error: String,
     },
+    #[error("'{path}' is not a world-relative path: {reason}")]
+    InvalidWorldPath { path: String, reason: String },
 }
 
 #[async_trait]
@@ -46,6 +52,41 @@ pub trait WorldProvider: Send + Sync {
     async fn create(&self, agent_id: AgentId, branch_id: BranchId) -> anyhow::Result<WorldId>;
     async fn snapshot(&self, world_id: WorldId) -> anyhow::Result<SnapshotId>;
     async fn fork(&self, snapshot_id: SnapshotId) -> anyhow::Result<WorldId>;
+
+    /// Filesystem root of a live world, or [`WorldError::UnknownWorld`].
+    fn world_path(&self, world_id: &WorldId) -> anyhow::Result<PathBuf>;
+
+    /// Read a world-relative file, or `None` when it does not exist in that
+    /// world. Reads never cross the world boundary: see
+    /// [`resolve_world_relative_path`].
+    async fn read_file(
+        &self,
+        world_id: &WorldId,
+        relative_path: &str,
+    ) -> anyhow::Result<Option<String>> {
+        let path = resolve_world_relative_path(&self.world_path(world_id)?, relative_path)?;
+        if !path.is_file() {
+            return Ok(None);
+        }
+        Ok(Some(fs::read_to_string(path)?))
+    }
+
+    /// Write a world-relative file, creating parent directories as needed. The
+    /// write lands in that world only: forked worlds are separate copies, so
+    /// neither the sibling nor the world it was forked from can observe it.
+    async fn write_file(
+        &self,
+        world_id: &WorldId,
+        relative_path: &str,
+        contents: &str,
+    ) -> anyhow::Result<()> {
+        let path = resolve_world_relative_path(&self.world_path(world_id)?, relative_path)?;
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, contents)?;
+        Ok(())
+    }
 
     async fn fork_many(&self, snapshot_id: SnapshotId, count: u32) -> anyhow::Result<Vec<WorldId>> {
         let mut created = Vec::new();
@@ -82,15 +123,6 @@ impl DirectoryWorldProvider {
         fs::create_dir_all(root_dir.join("worlds"))?;
         fs::create_dir_all(root_dir.join("snapshots"))?;
         Ok(Self { root_dir, seed_dir })
-    }
-
-    pub fn world_path(&self, world_id: &WorldId) -> anyhow::Result<PathBuf> {
-        let path = self.root_dir.join("worlds").join(&world_id.0);
-        if path.exists() {
-            Ok(path)
-        } else {
-            Err(WorldError::UnknownWorld(world_id.clone()).into())
-        }
     }
 
     fn snapshot_path(&self, snapshot_id: &SnapshotId) -> anyhow::Result<PathBuf> {
@@ -134,6 +166,15 @@ impl WorldProvider for DirectoryWorldProvider {
         fs::create_dir_all(&world_path)?;
         copy_directory_recursive(&snapshot_path, &world_path)?;
         Ok(world_id)
+    }
+
+    fn world_path(&self, world_id: &WorldId) -> anyhow::Result<PathBuf> {
+        let path = self.root_dir.join("worlds").join(&world_id.0);
+        if path.exists() {
+            Ok(path)
+        } else {
+            Err(WorldError::UnknownWorld(world_id.clone()).into())
+        }
     }
 
     async fn diff(&self, a: WorldId, b: WorldId) -> anyhow::Result<WorldDiff> {
@@ -197,15 +238,6 @@ impl GitWorktreeWorldProvider {
         })
     }
 
-    pub fn world_path(&self, world_id: &WorldId) -> anyhow::Result<PathBuf> {
-        let path = self.root_dir.join("worlds").join(&world_id.0);
-        if path.exists() {
-            Ok(path)
-        } else {
-            Err(WorldError::UnknownWorld(world_id.clone()).into())
-        }
-    }
-
     fn snapshot_file(&self, snapshot_id: &SnapshotId) -> PathBuf {
         self.root_dir
             .join("snapshots")
@@ -262,6 +294,15 @@ impl WorldProvider for GitWorktreeWorldProvider {
         Ok(world_id)
     }
 
+    fn world_path(&self, world_id: &WorldId) -> anyhow::Result<PathBuf> {
+        let path = self.root_dir.join("worlds").join(&world_id.0);
+        if path.exists() {
+            Ok(path)
+        } else {
+            Err(WorldError::UnknownWorld(world_id.clone()).into())
+        }
+    }
+
     async fn diff(&self, a: WorldId, b: WorldId) -> anyhow::Result<WorldDiff> {
         let a_path = self.world_path(&a)?;
         let b_path = self.world_path(&b)?;
@@ -312,6 +353,43 @@ impl WorldProvider for GitWorktreeWorldProvider {
             Ok(DestroyOutcome::AlreadyAbsent)
         }
     }
+}
+
+/// Join `relative_path` onto `world_path`, refusing anything that would leave
+/// the world: absolute paths, drive prefixes and `..` components.
+///
+/// World isolation is the invariant the whole system rests on, so a path coming
+/// from a caller is never allowed to address a sibling world by walking up.
+pub fn resolve_world_relative_path(
+    world_path: &Path,
+    relative_path: &str,
+) -> anyhow::Result<PathBuf> {
+    let invalid = |reason: &str| WorldError::InvalidWorldPath {
+        path: relative_path.to_string(),
+        reason: reason.to_string(),
+    };
+
+    if relative_path.trim().is_empty() {
+        return Err(invalid("path is empty").into());
+    }
+
+    let mut has_name = false;
+    for component in Path::new(relative_path).components() {
+        match component {
+            Component::Normal(_) => has_name = true,
+            Component::CurDir => {}
+            Component::ParentDir => return Err(invalid("'..' escapes the world").into()),
+            Component::RootDir | Component::Prefix(_) => {
+                return Err(invalid("path is absolute").into())
+            }
+        }
+    }
+
+    if !has_name {
+        return Err(invalid("path names no file").into());
+    }
+
+    Ok(world_path.join(relative_path))
 }
 
 fn copy_directory_recursive(from: &Path, to: &Path) -> anyhow::Result<()> {
@@ -570,6 +648,247 @@ mod tests {
         assert_eq!(a, "world-a");
         assert_eq!(b, "world-b");
         assert_ne!(a, b);
+
+        Ok(())
+    }
+
+    /// The case this file-level check exists for: one world holding
+    /// `hello.txt = "hello"`, forked twice, each fork rewriting the file.
+    #[tokio::test]
+    async fn forked_worlds_write_the_same_file_differently() -> anyhow::Result<()> {
+        let root = tempdir()?;
+        let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+
+        let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+        provider.write_file(&parent, "hello.txt", "hello").await?;
+
+        let snapshot = provider.snapshot(parent.clone()).await?;
+        let forks = provider.fork_many(snapshot.clone(), 2).await?;
+        let (world_a, world_b) = (forks[0].clone(), forks[1].clone());
+
+        // Both forks start from the parent's contents.
+        assert_eq!(
+            provider.read_file(&world_a, "hello.txt").await?.as_deref(),
+            Some("hello")
+        );
+        assert_eq!(
+            provider.read_file(&world_b, "hello.txt").await?.as_deref(),
+            Some("hello")
+        );
+
+        provider.write_file(&world_a, "hello.txt", "bonjour").await?;
+        provider.write_file(&world_b, "hello.txt", "hola").await?;
+
+        assert_eq!(
+            provider.read_file(&world_a, "hello.txt").await?.as_deref(),
+            Some("bonjour")
+        );
+        assert_eq!(
+            provider.read_file(&world_b, "hello.txt").await?.as_deref(),
+            Some("hola")
+        );
+        assert_eq!(
+            provider.read_file(&parent, "hello.txt").await?.as_deref(),
+            Some("hello")
+        );
+
+        let report = check_file_isolation(
+            &provider,
+            "hello.txt",
+            &WorldFileExpectation::holds(&parent, "hello"),
+            &[
+                WorldFileExpectation::holds(&world_a, "bonjour"),
+                WorldFileExpectation::holds(&world_b, "hola"),
+            ],
+        )
+        .await?;
+
+        assert!(report.isolated, "{report:?}");
+        assert!(report.parent_preserved);
+        assert!(report.branches_hold_expected_contents);
+        assert!(report.branch_contents_distinct);
+        assert!(report.violations.is_empty());
+
+        // The snapshot the forks came from is untouched too: a fork taken after
+        // both writes still reads the original contents.
+        let late_fork = provider.fork(snapshot).await?;
+        assert_eq!(
+            provider.read_file(&late_fork, "hello.txt").await?.as_deref(),
+            Some("hello")
+        );
+
+        // Each pair differs by exactly the one file that diverged.
+        assert_eq!(
+            provider.diff(world_a.clone(), world_b.clone()).await?.files_changed,
+            1
+        );
+        assert_eq!(provider.diff(parent, world_a).await?.files_changed, 1);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_new_file_in_one_world_does_not_appear_in_the_others() -> anyhow::Result<()> {
+        let root = tempdir()?;
+        let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+
+        let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+        provider.write_file(&parent, "hello.txt", "hello").await?;
+        let snapshot = provider.snapshot(parent.clone()).await?;
+        let forks = provider.fork_many(snapshot, 2).await?;
+
+        provider
+            .write_file(&forks[0], "notes/draft.txt", "only in A")
+            .await?;
+
+        let report = check_file_isolation(
+            &provider,
+            "notes/draft.txt",
+            &WorldFileExpectation::absent(&parent),
+            &[
+                WorldFileExpectation::holds(&forks[0], "only in A"),
+                WorldFileExpectation::absent(&forks[1]),
+            ],
+        )
+        .await?;
+
+        assert!(report.isolated, "{report:?}");
+        assert_eq!(report.parent.actual_contents, None);
+        assert_eq!(report.branches[1].actual_contents, None);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn report_flags_a_write_that_reached_the_parent() -> anyhow::Result<()> {
+        let root = tempdir()?;
+        let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+
+        let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+        provider.write_file(&parent, "hello.txt", "hello").await?;
+        let snapshot = provider.snapshot(parent.clone()).await?;
+        let forks = provider.fork_many(snapshot, 2).await?;
+
+        provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+        provider.write_file(&forks[1], "hello.txt", "hola").await?;
+        // Stand-in for a leak: the parent ends up with a branch's contents.
+        provider.write_file(&parent, "hello.txt", "bonjour").await?;
+
+        let report = check_file_isolation(
+            &provider,
+            "hello.txt",
+            &WorldFileExpectation::holds(&parent, "hello"),
+            &[
+                WorldFileExpectation::holds(&forks[0], "bonjour"),
+                WorldFileExpectation::holds(&forks[1], "hola"),
+            ],
+        )
+        .await?;
+
+        assert!(!report.isolated);
+        assert!(!report.parent_preserved);
+        assert!(report.branches_hold_expected_contents);
+        assert_eq!(report.violations.len(), 1);
+        assert!(report.violations[0].contains("\"hello\""));
+        assert!(report.violations[0].contains("holds \"bonjour\""));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn report_flags_worlds_that_did_not_diverge() -> anyhow::Result<()> {
+        let root = tempdir()?;
+        let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+
+        let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+        provider.write_file(&parent, "hello.txt", "hello").await?;
+        let snapshot = provider.snapshot(parent.clone()).await?;
+        let forks = provider.fork_many(snapshot, 2).await?;
+
+        provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+        provider.write_file(&forks[1], "hello.txt", "bonjour").await?;
+
+        let report = check_file_isolation(
+            &provider,
+            "hello.txt",
+            &WorldFileExpectation::holds(&parent, "hello"),
+            &[
+                WorldFileExpectation::holds(&forks[0], "bonjour"),
+                WorldFileExpectation::holds(&forks[1], "hola"),
+            ],
+        )
+        .await?;
+
+        assert!(!report.isolated);
+        assert!(report.parent_preserved);
+        assert!(!report.branches_hold_expected_contents);
+        assert!(!report.branch_contents_distinct);
+        assert_eq!(report.violations.len(), 2);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn world_relative_paths_cannot_address_another_world() -> anyhow::Result<()> {
+        let root = tempdir()?;
+        let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+
+        let victim = provider.create(AgentId::new(), BranchId::new()).await?;
+        provider.write_file(&victim, "hello.txt", "hello").await?;
+        let attacker = provider.create(AgentId::new(), BranchId::new()).await?;
+
+        let escape = format!("../{}/hello.txt", victim.0);
+        assert!(provider.write_file(&attacker, &escape, "owned").await.is_err());
+        assert!(provider.read_file(&attacker, &escape).await.is_err());
+        assert!(provider.write_file(&attacker, "", "owned").await.is_err());
+
+        // The neighbouring world is intact, and nothing was written next to it.
+        assert_eq!(
+            provider.read_file(&victim, "hello.txt").await?.as_deref(),
+            Some("hello")
+        );
+        assert_eq!(provider.read_file(&attacker, "hello.txt").await?, None);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn git_worktree_forked_worlds_write_the_same_file_differently() -> anyhow::Result<()> {
+        if !git_available().await {
+            return Ok(());
+        }
+
+        let root = tempdir()?;
+        let repo = root.path().join("repo");
+        fs::create_dir_all(&repo)?;
+        write_file(&repo.join("hello.txt"), "hello")?;
+
+        run_git(&repo, &["init"]).await?;
+        run_git(&repo, &["config", "user.email", "genos@example.local"]).await?;
+        run_git(&repo, &["config", "user.name", "GenOS Test"]).await?;
+        run_git(&repo, &["add", "."]).await?;
+        run_git(&repo, &["commit", "-m", "initial"]).await?;
+
+        let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo)?;
+        let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+        let snapshot = provider.snapshot(parent.clone()).await?;
+        let forks = provider.fork_many(snapshot, 2).await?;
+
+        provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+        provider.write_file(&forks[1], "hello.txt", "hola").await?;
+
+        let report = check_file_isolation(
+            &provider,
+            "hello.txt",
+            &WorldFileExpectation::holds(&parent, "hello"),
+            &[
+                WorldFileExpectation::holds(&forks[0], "bonjour"),
+                WorldFileExpectation::holds(&forks[1], "hola"),
+            ],
+        )
+        .await?;
+
+        assert!(report.isolated, "{report:?}");
 
         Ok(())
     }

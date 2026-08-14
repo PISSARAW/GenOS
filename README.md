@@ -56,11 +56,14 @@ Implemented:
 	- `genos snapshot create/save/get/list/compare`
 	- `genos snapshot set-var/check-var`
 	- `genos world create/snapshot/fork/diff/destroy`
+	- `genos world read-file/write-file/check-file`
 	- `genos replay basic/from-snapshot`
 - Runnable proofs of fork isolation in `examples/`:
 	- `counterfactual-demo` — two forks start logically identical with distinct identity
 	- `divergent-writes-demo` — two branches write the same variable differently
 	  while the parent keeps its pre-fork value
+	- `divergent-worlds-demo` — two forked worlds write the same file differently
+	  while the parent world keeps its pre-fork contents
 
 Not implemented yet:
 
