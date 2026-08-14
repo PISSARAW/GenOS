@@ -214,6 +214,7 @@ pub enum BranchStatus {
     Active,
     Completed,
     Interrupted,
+    BudgetExhausted,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -314,6 +315,15 @@ pub fn replay_basic_state_from(
             AgentEventType::ModelResponded => {
                 state.steps += 1;
                 state.model_calls += 1;
+                if event
+                    .payload
+                    .get("max_steps")
+                    .and_then(|value| value.as_u64())
+                    .is_some_and(|max_steps| state.steps >= max_steps)
+                {
+                    state.branch_status = BranchStatus::BudgetExhausted;
+                    state.lifecycle = AgentLifecycle::Stopped;
+                }
             }
             AgentEventType::ToolCompleted => {
                 state.tool_calls += 1;
@@ -339,7 +349,8 @@ pub fn replay_basic_state_from(
 
     // A restart can only observe the durable prefix. An outstanding request
     // means the branch did not complete and must remain visible as interrupted.
-    if events
+    if state.branch_status != BranchStatus::BudgetExhausted
+        && events
         .last()
         .is_some_and(|event| event.event_type == AgentEventType::ToolRequested)
     {
@@ -577,6 +588,31 @@ mod tests {
         let replay = replay_basic_state(&events);
         assert_eq!(replay.branch_status, BranchStatus::Interrupted);
         assert_eq!(replay.last_sequence, 4);
+    }
+
+    #[test]
+    fn branch_stops_cleanly_when_its_step_budget_is_exhausted() {
+        fn model_steps(branch: &str, count: u64, max_steps: u64) -> Vec<AgentEvent> {
+            (1..=count)
+                .map(|sequence| {
+                    let mut event = make_event(
+                        AgentEventType::ModelResponded,
+                        sequence,
+                        branch,
+                    );
+                    event.payload = json!({ "max_steps": max_steps });
+                    event
+                })
+                .collect()
+        }
+
+        let branch_a = replay_basic_state(&model_steps("branch-a", 5, 5));
+        let branch_b = replay_basic_state(&model_steps("branch-b", 5, 10));
+
+        assert_eq!(branch_a.steps, 5);
+        assert_eq!(branch_a.branch_status, BranchStatus::BudgetExhausted);
+        assert_eq!(branch_a.lifecycle, AgentLifecycle::Stopped);
+        assert_eq!(branch_b.branch_status, BranchStatus::Active);
     }
 
     #[test]
