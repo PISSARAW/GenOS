@@ -421,6 +421,8 @@ mod tests {
             branch_id: branch_id.clone(),
             genome: genos_core::AgentGenome {
                 id: genome_id.clone(),
+                parent_genome: None,
+                mutation: None,
                 version: genos_core::GenomeVersion("0.1.0".to_string()),
                 identity: genos_core::Identity {
                     name: "test-agent".to_string(),

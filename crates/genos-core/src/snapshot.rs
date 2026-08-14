@@ -333,6 +333,8 @@ pub(crate) mod tests {
             branch_id: branch_id.clone(),
             genome: AgentGenome {
                 id: genome_id.clone(),
+                parent_genome: None,
+                mutation: None,
                 version: GenomeVersion("0.1.0".to_string()),
                 identity: Identity {
                     name: "clone-no-llm".to_string(),

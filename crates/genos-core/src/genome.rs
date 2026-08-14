@@ -64,6 +64,10 @@ pub struct ToolPolicy {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentGenome {
     pub id: GenomeId,
+    #[serde(default)]
+    pub parent_genome: Option<GenomeId>,
+    #[serde(default)]
+    pub mutation: Option<GenomeMutationMetadata>,
     pub version: GenomeVersion,
     pub identity: Identity,
     pub cognition: CognitionConfig,
@@ -73,4 +77,55 @@ pub struct AgentGenome {
     pub memory_policy: MemoryPolicy,
     pub model_policy: ModelPolicy,
     pub tool_policy: ToolPolicy,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GenomeMutationMetadata {
+    pub field: String,
+    pub previous_value: f32,
+    pub new_value: f32,
+}
+
+/// Derive a genome by changing only its exploration configuration.
+pub fn mutate_exploration(parent: &AgentGenome, exploration: f32) -> AgentGenome {
+    let mut child = parent.clone();
+    child.id = GenomeId::new();
+    child.parent_genome = Some(parent.id.clone());
+    child.mutation = Some(GenomeMutationMetadata {
+        field: "cognition.exploration".to_string(),
+        previous_value: parent.cognition.exploration,
+        new_value: exploration,
+    });
+    child.cognition.exploration = exploration;
+    child
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn genome(exploration: f32) -> AgentGenome {
+        AgentGenome {
+            id: GenomeId("G0".to_string()), parent_genome: None, mutation: None,
+            version: GenomeVersion("v0".to_string()),
+            identity: Identity { name: "test".to_string(), role: "agent".to_string() },
+            cognition: CognitionConfig { exploration, verification_threshold: 0.5, planning_depth: 1 },
+            objectives: vec![], policies: vec![], capabilities: vec![],
+            memory_policy: MemoryPolicy { working_max_items: 1, episodic_enabled: false, semantic_enabled: false },
+            model_policy: ModelPolicy { strategy: "test".to_string(), preferred_providers: vec![], allow_local: true },
+            tool_policy: ToolPolicy { permissions: vec![] },
+        }
+    }
+
+    #[test]
+    fn exploration_mutations_keep_parent_and_metadata() {
+        let parent = genome(0.5);
+        let g1 = mutate_exploration(&parent, 0.6);
+        let g2 = mutate_exploration(&parent, 0.4);
+        assert_eq!(g1.parent_genome, Some(parent.id.clone()));
+        assert_eq!(g2.parent_genome, Some(parent.id.clone()));
+        assert_eq!(g1.cognition.exploration, 0.6);
+        assert_eq!(g2.cognition.exploration, 0.4);
+        assert_eq!(g1.mutation.as_ref().unwrap().previous_value, 0.5);
+    }
 }

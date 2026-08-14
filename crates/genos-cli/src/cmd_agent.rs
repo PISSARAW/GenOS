@@ -24,6 +24,8 @@ pub fn cmd_init() -> Result<()> {
 pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
     let genome = AgentGenome {
         id: GenomeId::new(),
+        parent_genome: None,
+        mutation: None,
         version: GenomeVersion("0.1.0".to_string()),
         identity: Identity {
             name: args.name.clone(),
