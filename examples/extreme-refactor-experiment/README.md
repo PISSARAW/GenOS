@@ -35,8 +35,11 @@ it does not silently merge source code or state.
 Run the complete public scenario:
 
 ```powershell
-cargo test -p genos-runtime --test extreme_refactor_experiment -- --nocapture
+cargo run -p genos-cli -- experiment workspace examples/extreme-refactor-experiment/experiment.yaml
 ```
+
+The full report, lineage, rejected hypotheses, and cognitive merge are persisted
+under `.genos/experiments/extreme-refactor/reports/`.
 
 Expected winner: `DB outbox`. Findings from every lineage remain available for
 the final implementation.

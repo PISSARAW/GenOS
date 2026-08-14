@@ -13,6 +13,8 @@ anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true
 genos-core = { path = "../genos-core" }
+genos-eval = { path = "../genos-eval" }
+genos-runtime = { path = "../genos-runtime" }
 genos-store = { path = "../genos-store" }
 genos-world = { path = "../genos-world" }
 serde.workspace = true

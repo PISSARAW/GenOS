@@ -38,6 +38,7 @@ pub enum HistoricalObservationKind {
 pub struct HistoricalObservation {
     pub event_id: String,
     pub observed_at: DateTime<Utc>,
+    #[serde(flatten)]
     pub kind: HistoricalObservationKind,
 }
 

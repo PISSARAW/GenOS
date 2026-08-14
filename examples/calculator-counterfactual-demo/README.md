@@ -15,5 +15,7 @@ its workspace diff and score. No LLM or external provider is used.
 Run the public demo/test:
 
 ```powershell
-cargo test -p genos-runtime --test calculator_experiment -- --nocapture
+cargo run -p genos-cli -- experiment workspace examples/calculator-counterfactual-demo/experiment.yaml
 ```
+
+The report and lineage are persisted under `.genos/experiments/calculator-counterfactual/reports/`.
