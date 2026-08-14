@@ -548,6 +548,7 @@ mod tests {
             snapshot_id: SnapshotId::new(),
             agent_id: AgentId::new(),
             branch_id: branch_id.clone(),
+            branch_metadata: genos_core::BranchMetadata::default(),
             genome: genos_core::AgentGenome {
                 id: genome_id.clone(),
                 parent_genome: None,

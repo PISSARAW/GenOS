@@ -63,6 +63,7 @@ pub fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
         snapshot_id: SnapshotId::new(),
         agent_id,
         branch_id,
+        branch_metadata: genos_core::BranchMetadata::default(),
         genome,
         state,
         world_id,
