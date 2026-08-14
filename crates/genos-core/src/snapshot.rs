@@ -4,6 +4,7 @@ use crate::{AgentGenome, AgentState};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 /// Snapshot fields that carry logical state, i.e. everything a fork inherits
 /// unchanged from its parent. Identity fields (`snapshot_id`, `agent_id`,
@@ -50,6 +51,35 @@ pub struct AgentSnapshot {
     pub tool_state: ToolState,
     pub runtime_metadata: RuntimeMetadata,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GenomeStateComparison {
+    pub left_genome_hash: String,
+    pub right_genome_hash: String,
+    pub same_genome: bool,
+    pub same_phenotype_state: bool,
+}
+
+/// Compare the inherited genome separately from the branch-local state.
+pub fn compare_genome_and_state(
+    left: &AgentSnapshot,
+    right: &AgentSnapshot,
+) -> GenomeStateComparison {
+    let left_genome_hash = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&left.genome).expect("genome must serialize"))
+    );
+    let right_genome_hash = format!(
+        "{:x}",
+        Sha256::digest(serde_json::to_vec(&right.genome).expect("genome must serialize"))
+    );
+    GenomeStateComparison {
+        same_genome: left_genome_hash == right_genome_hash,
+        same_phenotype_state: left.state == right.state,
+        left_genome_hash,
+        right_genome_hash,
+    }
 }
 
 /// Derive a counterfactual fork from `parent` without invoking a model.
@@ -440,6 +470,20 @@ pub(crate) mod tests {
         );
         assert!(comparison.distinct_identity);
         assert!(comparison.event_cursors_bound_to_own_branch);
+    }
+
+    #[test]
+    fn same_genome_can_have_different_phenotype_state() {
+        let parent = parent_snapshot(0);
+        let mut agent_a = fork_snapshot(&parent);
+        let mut agent_b = fork_snapshot(&parent);
+        agent_a.state.set_variable("memory", "alpha");
+        agent_b.state.set_variable("memory", "beta");
+
+        let comparison = compare_genome_and_state(&agent_a, &agent_b);
+        assert!(comparison.same_genome);
+        assert_ne!(comparison.left_genome_hash, "");
+        assert!(!comparison.same_phenotype_state);
     }
 
     #[test]
