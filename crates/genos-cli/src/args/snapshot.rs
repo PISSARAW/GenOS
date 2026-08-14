@@ -34,6 +34,12 @@ pub enum SnapshotSubcommands {
     /// makes the call's output available as evidence for a subsequent
     /// `set-belief --evidence`.
     RecordToolCall(SnapshotRecordToolCallArgs),
+    /// Rewind a snapshot's logical state to match a previously saved snapshot
+    /// on the same branch. The target keeps its `snapshot_id`, `agent_id`,
+    /// and `branch_id`; only the logical state is replaced. A `restored`
+    /// event is stamped on the branch so the audit trail records the
+    /// rewind. History stays visible because the event store is append-only.
+    Restore(SnapshotRestoreArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -238,6 +244,44 @@ pub struct SnapshotCheckVarArgs {
     /// pre-fork value, and no two branches ended on the same value.
     #[arg(long)]
     pub expect_isolated: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotRestoreArgs {
+    /// Snapshot to rewind: file path or snapshot id resolved in the store.
+    /// Its logical state will be replaced by the source's; its identity
+    /// (snapshot_id, agent_id, branch_id) is preserved.
+    #[arg(long)]
+    pub snapshot: String,
+    /// Saved snapshot whose state the target will be rewound to. Must live
+    /// on the same branch as `--snapshot`.
+    #[arg(long)]
+    pub source: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` and `--source` by id and
+    /// to persist the rewritten target with `--save`.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the rewound target here. Defaults to the file the target was
+    /// loaded from.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the rewound target to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    /// Event store receiving the `restored` event with `--emit-events`.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the `restored` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    /// Exit non-zero unless the rewound target's logical state matches the
+    /// source's (counter == 10 in the demo).
+    #[arg(long)]
+    pub expect_same_state: bool,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
 }

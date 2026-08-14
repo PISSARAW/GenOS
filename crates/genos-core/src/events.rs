@@ -24,6 +24,13 @@ pub enum AgentEventType {
     EvaluationStarted,
     EvaluationCompleted,
     BranchSelected,
+    /// Logical state was rewound to a previously saved snapshot on the same
+    /// branch. Payload carries `source_snapshot_id`, `restored_state_fields`
+    /// (list of fields overwritten), and `event_cursor_sequence_before`. The
+    /// event cursor advances past this event; the events emitted *before*
+    /// restore remain on the branch stream — history is preserved by
+    /// construction because the event store is append-only.
+    Restored,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

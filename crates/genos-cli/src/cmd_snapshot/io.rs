@@ -1,12 +1,15 @@
-use crate::args::{SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs, SnapshotSaveArgs};
-use crate::output::{
-    print_serialized, SnapshotCompareOutput, SnapshotGetOutput, SnapshotListOutput,
-    SnapshotSaveOutput,
+use crate::args::{
+    OutputFormat, SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs, SnapshotRestoreArgs,
+    SnapshotSaveArgs,
 };
-use crate::resolve::{read_snapshot, resolve_snapshot_ref, snapshot_store_from};
+use crate::output::{
+    print_serialized, snapshot_path_or_none, write_serialized, SnapshotCompareOutput,
+    SnapshotGetOutput, SnapshotListOutput, SnapshotRestoreOutput, SnapshotSaveOutput,
+};
+use crate::resolve::{event_store_from, read_snapshot, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
-use genos_core::compare_snapshots;
-use genos_store::SnapshotStore;
+use genos_core::{compare_snapshots, restore_snapshot};
+use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
     let snapshot = read_snapshot(&args.snapshot)?;
@@ -90,6 +93,106 @@ pub async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
                 "expected exactly these fields to differ: [{}], got [{}]",
                 expected.join(", "),
                 actual.join(", ")
+            );
+        }
+    }
+
+    Ok(())
+}
+
+pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
+    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+
+    // Resolve both ends. The target is the working snapshot whose logical
+    // state we're rewinding; the source is the saved snapshot we're rewinding
+    // *to*.
+    let target = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let source = resolve_snapshot_ref(&args.source, &snapshot_store).await?;
+
+    // Cross-branch restore is rejected by `restore_snapshot` (panic in
+    // debug builds, assertion-failure in release). Catch it here and turn
+    // it into a clean CLI error.
+    if target.branch_id != source.branch_id {
+        bail!(
+            "cannot restore across branches: target branch_id={}, source branch_id={}",
+            target.branch_id.0,
+            source.branch_id.0
+        );
+    }
+
+    let write = restore_snapshot(&target, &source);
+
+    // The rewound target replaces the file the target was loaded from by
+    // default — that's where the user's "current" working snapshot lives.
+    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    if let Some(path) = &out_path {
+        write_serialized(path, &write.snapshot, OutputFormat::Json)?;
+    }
+
+    let event_store = if args.emit_events {
+        Some(event_store_from(args.events, &args.root))
+    } else {
+        None
+    };
+    let event_id = match &event_store {
+        Some(store) => {
+            let id = write.event.event_id.0.clone();
+            store.append(write.event.clone()).await?;
+            Some(id)
+        }
+        None => None,
+    };
+
+    let out = SnapshotRestoreOutput {
+        target_snapshot_id: write.snapshot.snapshot_id.0.clone(),
+        agent_id: write.snapshot.agent_id.0.clone(),
+        branch_id: write.snapshot.branch_id.0.clone(),
+        source_snapshot_id: source.snapshot_id.0.clone(),
+        restored_fields: write.restored_fields.clone(),
+        event_id,
+        event_sequence: write.event.sequence,
+        previous_sequence: write
+            .event
+            .payload
+            .get("previous_sequence")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(0),
+        out_path: out_path.as_ref().map(|path| path.display().to_string()),
+        snapshot_store_path: args
+            .save
+            .then(|| snapshot_store.file_path().display().to_string()),
+        event_store_path: event_store
+            .as_ref()
+            .map(|store| store.file_path().display().to_string()),
+    };
+
+    if args.save {
+        snapshot_store.save_snapshot(write.snapshot.clone()).await?;
+    }
+
+    print_serialized(&out, args.format)?;
+
+    if args.expect_same_state {
+        let cmp = compare_snapshots(&write.snapshot, &source);
+        // The cursor legitimately advances past the Restored event, so the
+        // two cursor fields always differ. Filter them out: `expect_same_state`
+        // for restore means "working memory, beliefs, etc. all match" — the
+        // cursor bookkeeping is part of the rewind itself.
+        let unexpected: Vec<&str> = cmp
+            .differing_fields
+            .iter()
+            .map(String::as_str)
+            .filter(|field| {
+                !matches!(
+                    *field,
+                    "state.event_cursor.sequence" | "state.event_cursor.last_event_id"
+                )
+            })
+            .collect();
+        if !unexpected.is_empty() {
+            bail!(
+                "expected logical state to match after restore, but these fields differ: [{}]",
+                unexpected.join(", ")
             );
         }
     }
