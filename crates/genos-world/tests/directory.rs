@@ -1,7 +1,7 @@
 //! Directory-backed world provider tests.
 
 use genos_core::{AgentId, BranchId};
-use genos_world::{DirectoryWorldProvider, DestroyOutcome, WorldProvider};
+use genos_world::{DestroyOutcome, DirectoryWorldProvider, WorldProvider};
 use std::fs;
 use std::path::Path;
 use tempfile::tempdir;

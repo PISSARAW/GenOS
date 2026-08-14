@@ -79,8 +79,8 @@ impl LocalEventLookup {
             if line.is_empty() {
                 continue;
             }
-            let event: AgentEvent = serde_json::from_str(line)
-                .with_context(|| format!("parsing event {}", line))?;
+            let event: AgentEvent =
+                serde_json::from_str(line).with_context(|| format!("parsing event {}", line))?;
             if event.branch_id.as_ref() == Some(&branch_id) {
                 events.insert(event.event_id.clone(), event);
             }

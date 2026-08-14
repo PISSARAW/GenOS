@@ -34,7 +34,9 @@ async fn forked_worlds_write_the_same_file_differently() -> anyhow::Result<()> {
         Some("hello")
     );
 
-    provider.write_file(&world_a, "hello.txt", "bonjour").await?;
+    provider
+        .write_file(&world_a, "hello.txt", "bonjour")
+        .await?;
     provider.write_file(&world_b, "hello.txt", "hola").await?;
 
     assert_eq!(
@@ -71,13 +73,19 @@ async fn forked_worlds_write_the_same_file_differently() -> anyhow::Result<()> {
     // both writes still reads the original contents.
     let late_fork = provider.fork(snapshot).await?;
     assert_eq!(
-        provider.read_file(&late_fork, "hello.txt").await?.as_deref(),
+        provider
+            .read_file(&late_fork, "hello.txt")
+            .await?
+            .as_deref(),
         Some("hello")
     );
 
     // Each pair differs by exactly the one file that diverged.
     assert_eq!(
-        provider.diff(world_a.clone(), world_b.clone()).await?.files_changed,
+        provider
+            .diff(world_a.clone(), world_b.clone())
+            .await?
+            .files_changed,
         1
     );
     assert_eq!(provider.diff(parent, world_a).await?.files_changed, 1);
@@ -127,7 +135,9 @@ async fn report_flags_a_write_that_reached_the_parent() -> anyhow::Result<()> {
     let snapshot = provider.snapshot(parent.clone()).await?;
     let forks = provider.fork_many(snapshot, 2).await?;
 
-    provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+    provider
+        .write_file(&forks[0], "hello.txt", "bonjour")
+        .await?;
     provider.write_file(&forks[1], "hello.txt", "hola").await?;
     // Stand-in for a leak: the parent ends up with a branch's contents.
     provider.write_file(&parent, "hello.txt", "bonjour").await?;
@@ -163,8 +173,12 @@ async fn report_flags_worlds_that_did_not_diverge() -> anyhow::Result<()> {
     let snapshot = provider.snapshot(parent.clone()).await?;
     let forks = provider.fork_many(snapshot, 2).await?;
 
-    provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
-    provider.write_file(&forks[1], "hello.txt", "bonjour").await?;
+    provider
+        .write_file(&forks[0], "hello.txt", "bonjour")
+        .await?;
+    provider
+        .write_file(&forks[1], "hello.txt", "bonjour")
+        .await?;
 
     let report = check_file_isolation(
         &provider,
@@ -196,7 +210,9 @@ async fn file_isolation_check_struct_works() -> anyhow::Result<()> {
     let snapshot = provider.snapshot(parent.clone()).await?;
     let forks = provider.fork_many(snapshot, 2).await?;
 
-    provider.write_file(&forks[0], "hello.txt", "bonjour").await?;
+    provider
+        .write_file(&forks[0], "hello.txt", "bonjour")
+        .await?;
     provider.write_file(&forks[1], "hello.txt", "hola").await?;
 
     let report = FileIsolationCheck::new(

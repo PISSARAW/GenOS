@@ -6,9 +6,7 @@
 
 use super::*;
 use crate::snapshot::tests::snapshot_with_variable;
-use crate::{
-    add_memory_on_branch, add_memory_on_branch_at, fork_snapshot, MemoryKind,
-};
+use crate::{add_memory_on_branch, add_memory_on_branch_at, fork_snapshot, MemoryKind};
 use chrono::{TimeZone, Utc};
 
 /// A memory recorded on one branch is one added memory, reported with the
@@ -36,10 +34,16 @@ fn a_memory_added_on_one_branch_is_one_entry_with_provenance() {
         .find(|entry| entry.path.starts_with("state.memories."))
         .expect("no entry for the added memory");
 
-    assert_eq!(memory_entry.path, format!("state.memories.{}", write.record.id.0));
+    assert_eq!(
+        memory_entry.path,
+        format!("state.memories.{}", write.record.id.0)
+    );
     assert_eq!(memory_entry.kind(), DiffKind::Added);
     assert_eq!(memory_entry.before, None);
-    assert_eq!(memory_entry.after.as_deref(), Some("The API uses PostgreSQL"));
+    assert_eq!(
+        memory_entry.after.as_deref(),
+        Some("The API uses PostgreSQL")
+    );
     assert_eq!(
         memory_entry.provenance.as_deref(),
         Some(
@@ -102,7 +106,12 @@ fn dropping_a_memory_reads_as_removed() {
     let mut a = fork_snapshot(&parent);
     let b = fork_snapshot(&parent);
 
-    add_memory_on_branch(&mut a, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+    add_memory_on_branch(
+        &mut a,
+        MemoryKind::Semantic,
+        "The API uses PostgreSQL",
+        None,
+    );
 
     let entry = diff_snapshots(&a, &b)
         .memory_diff
@@ -120,7 +129,12 @@ fn dropping_a_memory_reads_as_removed() {
 fn editing_an_existing_memory_reports_the_edited_field_only() {
     let parent = snapshot_with_variable("counter", "0");
     let mut base = fork_snapshot(&parent);
-    add_memory_on_branch(&mut base, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+    add_memory_on_branch(
+        &mut base,
+        MemoryKind::Semantic,
+        "The API uses PostgreSQL",
+        None,
+    );
 
     let mut edited = base.clone();
     edited.state.memories[0].content = "The API uses SQLite".to_string();
@@ -144,8 +158,18 @@ fn a_memory_recorded_on_both_branches_is_still_two_distinct_memories() {
 
     // Same content, recorded independently: distinct ids, distinct
     // provenance, so the diff shows one added and one removed.
-    add_memory_on_branch(&mut a, MemoryKind::Semantic, "The API uses PostgreSQL", None);
-    add_memory_on_branch(&mut b, MemoryKind::Semantic, "The API uses PostgreSQL", None);
+    add_memory_on_branch(
+        &mut a,
+        MemoryKind::Semantic,
+        "The API uses PostgreSQL",
+        None,
+    );
+    add_memory_on_branch(
+        &mut b,
+        MemoryKind::Semantic,
+        "The API uses PostgreSQL",
+        None,
+    );
 
     let diff = diff_snapshots(&a, &b);
     let kinds: Vec<DiffKind> = diff

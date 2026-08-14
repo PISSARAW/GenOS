@@ -32,9 +32,7 @@ mod diff_tests_basic;
 mod diff_tests_memory;
 
 use crate::snapshot::AgentSnapshot;
-use diff_helpers::{
-    diff_roots, genome_value, json_of, keyed_by, keyed_set, keyed_values, Root,
-};
+use diff_helpers::{diff_roots, genome_value, json_of, keyed_by, keyed_set, keyed_values, Root};
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
@@ -230,8 +228,12 @@ pub fn diff_snapshots(a: &AgentSnapshot, b: &AgentSnapshot) -> AgentDiff {
             ),
             // Records first: a memory that appears on one side is reported as
             // one added memory, and its id in `refs` is the index catching up.
-            root("state.memories", keyed_by(json_of(&a.state.memories), "id"), keyed_by(json_of(&b.state.memories), "id"))
-                .with_summary("content"),
+            root(
+                "state.memories",
+                keyed_by(json_of(&a.state.memories), "id"),
+                keyed_by(json_of(&b.state.memories), "id"),
+            )
+            .with_summary("content"),
             root(
                 "state.semantic_memory.refs",
                 keyed_set(json_of(&a.state.semantic_memory.refs)),

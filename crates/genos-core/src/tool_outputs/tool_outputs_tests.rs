@@ -1,10 +1,10 @@
 //! Tests for branch-local tool output records.
 
 use crate::events::AgentEventType;
+use crate::fork_snapshot;
 use crate::ids::ToolOutputId;
 use crate::snapshot::tests::snapshot_with_variable;
 use crate::tool_outputs::{record_tool_call_on_branch, ToolCallRequest};
-use crate::fork_snapshot;
 use serde_json::json;
 
 #[test]
@@ -23,8 +23,14 @@ fn tool_output_records_carry_generating_event_id() {
     // The record's `generating_event_id` is the *completion* event, not the
     // request — that's the link the inspect walker follows from a belief's
     // evidence back through the tool output to the event.
-    assert_eq!(write.record.generating_event_id, write.completed_event.event_id);
-    assert_ne!(write.record.generating_event_id, write.requested_event.event_id);
+    assert_eq!(
+        write.record.generating_event_id,
+        write.completed_event.event_id
+    );
+    assert_ne!(
+        write.record.generating_event_id,
+        write.requested_event.event_id
+    );
 
     // And the completion event's `causation_id` is the request event's id.
     assert_eq!(
@@ -115,9 +121,15 @@ fn record_tool_call_appends_two_events_in_order() {
     // First write: request at sequence 1, completion at sequence 2. Cursor
     // ends at the completion event.
     assert_eq!(write.requested_event.sequence, 1);
-    assert_eq!(write.requested_event.event_type, AgentEventType::ToolRequested);
+    assert_eq!(
+        write.requested_event.event_type,
+        AgentEventType::ToolRequested
+    );
     assert_eq!(write.completed_event.sequence, 2);
-    assert_eq!(write.completed_event.event_type, AgentEventType::ToolCompleted);
+    assert_eq!(
+        write.completed_event.event_type,
+        AgentEventType::ToolCompleted
+    );
     assert_eq!(snapshot.state.event_cursor.sequence, 2);
     assert_eq!(
         snapshot.state.event_cursor.last_event_id,

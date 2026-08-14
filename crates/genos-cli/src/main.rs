@@ -20,9 +20,9 @@ use crate::cmd_agent::{
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_snapshot::{
-    cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint,
-    cmd_snapshot_compare, cmd_snapshot_create, cmd_snapshot_get, cmd_snapshot_lineage,
-    cmd_snapshot_list, cmd_snapshot_record_tool_call, cmd_snapshot_restore, cmd_snapshot_save,
+    cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
+    cmd_snapshot_create, cmd_snapshot_get, cmd_snapshot_lineage, cmd_snapshot_list,
+    cmd_snapshot_record_tool_call, cmd_snapshot_restore, cmd_snapshot_save,
     cmd_snapshot_set_belief, cmd_snapshot_set_cognition, cmd_snapshot_set_var,
 };
 use crate::cmd_world::{

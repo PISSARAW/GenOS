@@ -41,9 +41,10 @@ fn inspect_belief_walks_evidence_to_tool_output_to_event() {
 
     // Stand up an EventLookup that knows about the completion event.
     let mut lookup = InMemoryEventLookup::default();
-    lookup
-        .events
-        .insert(tool_write.completed_event.event_id.clone(), tool_write.completed_event.clone());
+    lookup.events.insert(
+        tool_write.completed_event.event_id.clone(),
+        tool_write.completed_event.clone(),
+    );
 
     let tree = provenance_for_belief(&snapshot, &belief_write.belief_id, &lookup);
 

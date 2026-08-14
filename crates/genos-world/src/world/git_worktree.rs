@@ -4,15 +4,13 @@
 //! A snapshot is the commit the worktree's HEAD points at, and forking means
 //! checking out that commit as a detached worktree.
 
-use crate::utils::{
-    collect_files_with_hashes, count_files, execute_command_in_dir, run_git,
-};
+use crate::utils::{collect_files_with_hashes, count_files, execute_command_in_dir, run_git};
 use crate::{DestroyOutcome, ExecuteResult, WorldDiff, WorldError, WorldProvider};
 use async_trait::async_trait;
 use genos_core::{AgentId, BranchId, SnapshotId, WorldId};
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::fs;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub struct GitWorktreeWorldProvider {
@@ -79,7 +77,13 @@ impl WorldProvider for GitWorktreeWorldProvider {
 
         run_git(
             &self.source_repo,
-            &["worktree", "add", "--detach", &world_path_s, commit.as_str()],
+            &[
+                "worktree",
+                "add",
+                "--detach",
+                &world_path_s,
+                commit.as_str(),
+            ],
         )
         .await?;
 

@@ -42,9 +42,7 @@ use thiserror::Error;
 pub enum BeliefError {
     #[error("confidence {0} is not in the unit interval [0.0, 1.0]")]
     ConfidenceOutOfRange(f32),
-    #[error(
-        "belief ({subject}, {predicate}, {object_value}) already exists on this branch"
-    )]
+    #[error("belief ({subject}, {predicate}, {object_value}) already exists on this branch")]
     AlreadyExists {
         subject: String,
         predicate: String,

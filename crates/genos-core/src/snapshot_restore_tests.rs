@@ -10,7 +10,8 @@ use crate::WorkingMemoryItem;
 use chrono::TimeZone;
 
 fn at(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> chrono::DateTime<Utc> {
-    Utc.with_ymd_and_hms(year, month, day, hour, min, sec).unwrap()
+    Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
+        .unwrap()
 }
 
 /// Build a snapshot with a working-memory counter and a known cursor.
@@ -41,8 +42,7 @@ fn restore_rewinds_a_counter_variable() {
 
     // The restored snapshot carries the saved value (counter = 10) ...
     assert_eq!(
-        write.snapshot.state.working_memory.items[COUNTER_INDEX].value,
-        "10",
+        write.snapshot.state.working_memory.items[COUNTER_INDEX].value, "10",
         "counter should be rewound to 10 after restore"
     );
     // ... but the same snapshot_id as `current`.
@@ -80,14 +80,22 @@ fn restore_keeps_event_history_visible() {
     // branch from sequence 0 to 6 still sees events 1..=5 unchanged.
     assert_eq!(write.event.sequence, 6);
     assert_eq!(
-        write.event.payload.get("previous_sequence").and_then(|v| v.as_u64()),
+        write
+            .event
+            .payload
+            .get("previous_sequence")
+            .and_then(|v| v.as_u64()),
         Some(5)
     );
 
     // The event references the source snapshot id so a replay can
     // reconstruct the edge.
     assert_eq!(
-        write.event.payload.get("source_snapshot_id").and_then(|v| v.as_str()),
+        write
+            .event
+            .payload
+            .get("source_snapshot_id")
+            .and_then(|v| v.as_str()),
         Some(saved.snapshot_id.0.as_str())
     );
 }
@@ -95,14 +103,10 @@ fn restore_keeps_event_history_visible() {
 #[test]
 fn restore_records_only_fields_that_actually_diverged() {
     let mut saved = tests::parent_snapshot(0);
-    saved
-        .state
-        .working_memory
-        .items
-        .push(WorkingMemoryItem {
-            key: "counter".to_string(),
-            value: "10".to_string(),
-        });
+    saved.state.working_memory.items.push(WorkingMemoryItem {
+        key: "counter".to_string(),
+        value: "10".to_string(),
+    });
     saved.state.execution.step = 0;
 
     // Drift only the counter and the cursor sequence — everything else
@@ -145,14 +149,10 @@ fn restore_at_explicit_timestamp_uses_it_for_event_and_snapshot() {
 #[test]
 fn restore_rejects_cross_branch_sources() {
     let mut saved = tests::parent_snapshot(0);
-    saved
-        .state
-        .working_memory
-        .items
-        .push(WorkingMemoryItem {
-            key: "counter".to_string(),
-            value: "10".to_string(),
-        });
+    saved.state.working_memory.items.push(WorkingMemoryItem {
+        key: "counter".to_string(),
+        value: "10".to_string(),
+    });
 
     // Current snapshot is on a different branch than saved.
     let mut current = saved.clone();

@@ -1,9 +1,7 @@
 use async_trait::async_trait;
-use genos_core::{
-    AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId,
-};
+use genos_core::{AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, OpenOptions};
 use tokio::io::AsyncWriteExt;
@@ -222,6 +220,9 @@ pub struct BasicReplayState {
     pub tool_calls: u64,
     pub tool_failures: u64,
     pub snapshots_created: u64,
+    /// Variables reconstructed from memory events, independently of a snapshot.
+    #[serde(default)]
+    pub variables: BTreeMap<String, String>,
 }
 
 impl Default for BasicReplayState {
@@ -237,6 +238,7 @@ impl Default for BasicReplayState {
             tool_calls: 0,
             tool_failures: 0,
             snapshots_created: 0,
+            variables: BTreeMap::new(),
         }
     }
 }
@@ -257,11 +259,20 @@ pub fn basic_state_from_snapshot(snapshot: &AgentSnapshot) -> BasicReplayState {
         tool_calls: 0,
         tool_failures: 0,
         snapshots_created: 0,
+        variables: snapshot
+            .state
+            .working_memory
+            .items
+            .iter()
+            .map(|item| (item.key.clone(), item.value.clone()))
+            .collect(),
     }
 }
 
-pub fn replay_basic_state_from(mut state: BasicReplayState, events: &[AgentEvent]) -> BasicReplayState {
-
+pub fn replay_basic_state_from(
+    mut state: BasicReplayState,
+    events: &[AgentEvent],
+) -> BasicReplayState {
     for event in events {
         state.agent_id = Some(event.agent_id.clone());
         state.branch_id = event.branch_id.clone();
@@ -291,6 +302,14 @@ pub fn replay_basic_state_from(mut state: BasicReplayState, events: &[AgentEvent
             }
             AgentEventType::SnapshotCreated => {
                 state.snapshots_created += 1;
+            }
+            AgentEventType::MemoryCreated | AgentEventType::MemoryUpdated => {
+                if let (Some(key), Some(value)) = (
+                    event.payload.get("key").and_then(|value| value.as_str()),
+                    event.payload.get("value").and_then(|value| value.as_str()),
+                ) {
+                    state.variables.insert(key.to_string(), value.to_string());
+                }
             }
             _ => {}
         }
@@ -366,7 +385,9 @@ mod tests {
                     preferred_providers: vec![],
                     allow_local: true,
                 },
-                tool_policy: genos_core::ToolPolicy { permissions: vec![] },
+                tool_policy: genos_core::ToolPolicy {
+                    permissions: vec![],
+                },
             },
             state: genos_core::AgentState {
                 genome: GenomeRef {
@@ -393,7 +414,9 @@ mod tests {
                 artifact_refs: vec![],
             },
             world_id,
-            tool_state: ToolState { active_tools: vec![] },
+            tool_state: ToolState {
+                active_tools: vec![],
+            },
             runtime_metadata: RuntimeMetadata {
                 runtime_version: "0.0.1".to_string(),
                 budget_steps_remaining: 10,
@@ -442,7 +465,10 @@ mod tests {
             .await
             .expect("stream branch-a failed");
         assert_eq!(only_a.len(), 1);
-        assert_eq!(only_a[0].branch_id.as_ref().expect("missing branch").0, "branch-a");
+        assert_eq!(
+            only_a[0].branch_id.as_ref().expect("missing branch").0,
+            "branch-a"
+        );
 
         if fs::try_exists(&path).await.expect("try_exists failed") {
             fs::remove_file(path).await.expect("cleanup failed");
@@ -470,6 +496,36 @@ mod tests {
         assert_eq!(replay.snapshots_created, 1);
         assert_eq!(replay.last_sequence, 7);
         assert!(replay.last_event_id.is_some());
+    }
+
+    #[test]
+    fn replay_rebuilds_materialized_state_without_reexecution() {
+        let mut events = Vec::new();
+        for (sequence, (event_type, value)) in [
+            (AgentEventType::MemoryCreated, "0"),
+            (AgentEventType::MemoryUpdated, "1"),
+            (AgentEventType::MemoryUpdated, "2"),
+            (AgentEventType::MemoryUpdated, "7"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let mut event = make_event(event_type, sequence as u64 + 1, "branch-a");
+            event.payload = json!({
+                "key": "counter",
+                "value": value,
+            });
+            events.push(event);
+        }
+
+        // The materialized snapshot is gone: replay starts from an empty state
+        // and applies only the recorded state transitions.
+        let replay = replay_basic_state(&events);
+        assert_eq!(
+            replay.variables.get("counter").map(String::as_str),
+            Some("7")
+        );
+        assert_eq!(replay.last_sequence, 4);
     }
 
     #[test]
@@ -509,10 +565,7 @@ mod tests {
             .expect("get snapshot failed");
 
         assert!(loaded.is_some());
-        assert_eq!(
-            loaded.expect("snapshot missing").state.execution.step,
-            3
-        );
+        assert_eq!(loaded.expect("snapshot missing").state.execution.step, 3);
 
         if fs::try_exists(&path).await.expect("try_exists failed") {
             fs::remove_file(path).await.expect("cleanup failed");
@@ -577,11 +630,19 @@ mod tests {
         let snapshot_store = LocalSnapshotStore::new(&snapshots_path);
 
         let mut parent = make_snapshot(0);
-        parent.state.working_memory.items.push(genos_core::WorkingMemoryItem {
-            key: "seed_note".to_string(),
-            value: "minimal-memory".to_string(),
-        });
-        parent.state.semantic_memory.refs.push(genos_core::MemoryId::new());
+        parent
+            .state
+            .working_memory
+            .items
+            .push(genos_core::WorkingMemoryItem {
+                key: "seed_note".to_string(),
+                value: "minimal-memory".to_string(),
+            });
+        parent
+            .state
+            .semantic_memory
+            .refs
+            .push(genos_core::MemoryId::new());
 
         snapshot_store
             .save_snapshot(parent.clone())
@@ -602,8 +663,14 @@ mod tests {
 
         assert_eq!(clone_a1.genome, clone_a2.genome);
         assert_eq!(clone_a1.state.working_memory, clone_a2.state.working_memory);
-        assert_eq!(clone_a1.state.semantic_memory, clone_a2.state.semantic_memory);
-        assert_eq!(clone_a1.state.episodic_memory, clone_a2.state.episodic_memory);
+        assert_eq!(
+            clone_a1.state.semantic_memory,
+            clone_a2.state.semantic_memory
+        );
+        assert_eq!(
+            clone_a1.state.episodic_memory,
+            clone_a2.state.episodic_memory
+        );
         assert_eq!(clone_a1.state.beliefs, clone_a2.state.beliefs);
         assert_eq!(clone_a1.state.active_goals, clone_a2.state.active_goals);
         assert_eq!(clone_a1.state.execution, clone_a2.state.execution);
@@ -668,11 +735,17 @@ mod tests {
         assert_eq!(stream_a1[0].agent_id, clone_a1.agent_id);
         assert_eq!(stream_a2[0].agent_id, clone_a2.agent_id);
         assert_eq!(
-            stream_a1[0].branch_id.as_ref().expect("missing branch for a1"),
+            stream_a1[0]
+                .branch_id
+                .as_ref()
+                .expect("missing branch for a1"),
             &clone_a1.branch_id
         );
         assert_eq!(
-            stream_a2[0].branch_id.as_ref().expect("missing branch for a2"),
+            stream_a2[0]
+                .branch_id
+                .as_ref()
+                .expect("missing branch for a2"),
             &clone_a2.branch_id
         );
         assert_ne!(stream_a1[0].event_id, stream_a2[0].event_id);
@@ -757,7 +830,11 @@ mod tests {
         assert_eq!(recorded.content, FACT);
         assert_eq!(recorded.created_in, stored_a.branch_id);
         assert_eq!(recorded.source.as_deref(), Some("schema-probe"));
-        assert!(stored_a.state.semantic_memory.refs.contains(&write.record.id));
+        assert!(stored_a
+            .state
+            .semantic_memory
+            .refs
+            .contains(&write.record.id));
 
         assert!(stored_b.state.memories.is_empty());
         assert!(stored_b.state.semantic_memory.refs.is_empty());
@@ -836,8 +913,14 @@ mod tests {
         let w1 = genos_core::write_variable_on_branch(&mut a1, "counter", "10");
         let w2 = genos_core::write_variable_on_branch(&mut a2, "counter", "20");
 
-        event_store.append(w1.event).await.expect("append a1 write failed");
-        event_store.append(w2.event).await.expect("append a2 write failed");
+        event_store
+            .append(w1.event)
+            .await
+            .expect("append a1 write failed");
+        event_store
+            .append(w2.event)
+            .await
+            .expect("append a2 write failed");
         snapshot_store
             .save_snapshot(a1.clone())
             .await
@@ -893,8 +976,10 @@ mod tests {
         assert_eq!(stream_a1[0].agent_id, stored_a1.agent_id);
         assert_eq!(stream_a2[0].agent_id, stored_a2.agent_id);
 
-        let replay_a1 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a1);
-        let replay_a2 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a2);
+        let replay_a1 =
+            replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a1);
+        let replay_a2 =
+            replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a2);
         assert_eq!(replay_a1.branch_id.as_ref(), Some(&stored_a1.branch_id));
         assert_eq!(replay_a2.branch_id.as_ref(), Some(&stored_a2.branch_id));
         assert_eq!(replay_a1.last_sequence, 1);

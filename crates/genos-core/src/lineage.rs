@@ -119,7 +119,10 @@ fn read_parent_child(
 ) -> Option<(SnapshotId, SnapshotId)> {
     let parent = payload.get(parent_key).and_then(|v| v.as_str())?;
     let child = payload.get(child_key).and_then(|v| v.as_str())?;
-    Some((SnapshotId(parent.to_string()), SnapshotId(child.to_string())))
+    Some((
+        SnapshotId(parent.to_string()),
+        SnapshotId(child.to_string()),
+    ))
 }
 
 /// Tree node the `snapshot lineage` command renders, mirroring the
@@ -200,7 +203,10 @@ impl LineageDag {
                 (child, e.created_at)
             })
             .collect();
-        out.sort_by(|a, b| a.1.cmp(&b.1).then_with(|| a.0.snapshot_id.cmp(&b.0.snapshot_id)));
+        out.sort_by(|a, b| {
+            a.1.cmp(&b.1)
+                .then_with(|| a.0.snapshot_id.cmp(&b.0.snapshot_id))
+        });
         out.into_iter().map(|(c, _)| c).collect()
     }
 
@@ -246,7 +252,9 @@ fn short_id(id: &str) -> String {
 /// incoming edge. The tree builder uses this to decide which parent
 /// "owns" a child when the dag has multiple incoming edges to the same
 /// node.
-fn earliest_parent_index(edges: &[LineageEdge]) -> std::collections::HashMap<SnapshotId, SnapshotId> {
+fn earliest_parent_index(
+    edges: &[LineageEdge],
+) -> std::collections::HashMap<SnapshotId, SnapshotId> {
     let mut index: std::collections::HashMap<SnapshotId, SnapshotId> =
         std::collections::HashMap::new();
     for edge in edges {
@@ -260,8 +268,10 @@ fn earliest_parent_index(edges: &[LineageEdge]) -> std::collections::HashMap<Sna
                 // fine for the shallow dags we render.
                 let existing_ts = edges
                     .iter()
-                    .find(|e| e.child_snapshot == edge.child_snapshot
-                        && &e.parent_snapshot == existing_parent)
+                    .find(|e| {
+                        e.child_snapshot == edge.child_snapshot
+                            && &e.parent_snapshot == existing_parent
+                    })
                     .map(|e| e.created_at);
                 if existing_ts.is_none_or(|t| edge.created_at < t) {
                     index.insert(edge.child_snapshot.clone(), edge.parent_snapshot.clone());
@@ -360,7 +370,11 @@ mod tests {
         relations.sort();
         assert_eq!(
             relations,
-            vec![("F", "snap-1", "snap-x1"), ("M", "snap-0", "snap-1"), ("R", "snap-1", "snap-3")]
+            vec![
+                ("F", "snap-1", "snap-x1"),
+                ("M", "snap-0", "snap-1"),
+                ("R", "snap-1", "snap-3")
+            ]
         );
     }
 

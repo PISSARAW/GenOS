@@ -5,9 +5,7 @@
 //! flow shape mirrors `cmd_snapshot_add_memory`: load snapshot, run the core
 //! write, persist the snapshot, optionally append to the event store.
 
-use crate::args::{
-    OutputFormat, SnapshotRecordToolCallArgs, SnapshotSetBeliefArgs,
-};
+use crate::args::{OutputFormat, SnapshotRecordToolCallArgs, SnapshotSetBeliefArgs};
 use crate::output::{
     print_serialized, snapshot_path_or_none, write_serialized, SnapshotRecordToolCallOutput,
     SnapshotSetBeliefOutput,
@@ -59,7 +57,10 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
 
     // A belief write advances the branch it happened on, so by default it lands
     // back in the file that snapshot came from.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }
@@ -163,13 +164,15 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
     // the spirit of the rest of the CLI: structured when possible, string
     // when not.
     let input_json = match args.input.as_deref() {
-        Some(raw) => serde_json::from_str(raw)
-            .unwrap_or_else(|_| serde_json::Value::String(raw.to_string())),
+        Some(raw) => {
+            serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::String(raw.to_string()))
+        }
         None => serde_json::Value::Null,
     };
     let output_json = match args.output.as_deref() {
-        Some(raw) => serde_json::from_str(raw)
-            .unwrap_or_else(|_| serde_json::Value::String(raw.to_string())),
+        Some(raw) => {
+            serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::String(raw.to_string()))
+        }
         None => serde_json::Value::Null,
     };
 
@@ -185,7 +188,10 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
 
     // Recording a tool call advances the branch it happened on, so by default
     // it lands back in the file that snapshot came from.
-    let out_path = args.out.clone().or_else(|| snapshot_path_or_none(&args.snapshot));
+    let out_path = args
+        .out
+        .clone()
+        .or_else(|| snapshot_path_or_none(&args.snapshot));
     if let Some(path) = &out_path {
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }

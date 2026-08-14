@@ -34,7 +34,9 @@ fn set_belief_with_evidence_marks_status_as_inferred() {
         "returns_one",
         "yes",
         0.9,
-        vec![EvidenceRef::ToolOutput { tool_output_id: tool_output_id.clone() }],
+        vec![EvidenceRef::ToolOutput {
+            tool_output_id: tool_output_id.clone(),
+        }],
         None,
     )
     .expect("evidence points at a recorded tool output");
@@ -53,10 +55,7 @@ fn set_belief_with_evidence_marks_status_as_inferred() {
         .expect("just-written belief");
     assert_eq!(belief.evidence.len(), 1);
     assert!(matches!(belief.evidence[0], EvidenceRef::ToolOutput { .. }));
-    assert_eq!(
-        belief.evidence[0].tool_output_id(),
-        Some(&tool_output_id)
-    );
+    assert_eq!(belief.evidence[0].tool_output_id(), Some(&tool_output_id));
     assert_eq!(belief.status, BeliefStatus::Inferred);
 }
 
@@ -91,7 +90,9 @@ fn set_belief_with_unknown_evidence_fails() {
         "returns_one",
         "yes",
         0.9,
-        vec![EvidenceRef::ToolOutput { tool_output_id: bogus.clone() }],
+        vec![EvidenceRef::ToolOutput {
+            tool_output_id: bogus.clone(),
+        }],
         None,
     )
     .unwrap_err();
@@ -113,7 +114,9 @@ fn evidence_appended_dedups_existing_refs() {
         "returns_one",
         "yes",
         0.9,
-        vec![EvidenceRef::ToolOutput { tool_output_id: tool_output_id.clone() }],
+        vec![EvidenceRef::ToolOutput {
+            tool_output_id: tool_output_id.clone(),
+        }],
         None,
     )
     .expect("ok");
@@ -127,7 +130,9 @@ fn evidence_appended_dedups_existing_refs() {
         "returns_one",
         "yes",
         0.7,
-        vec![EvidenceRef::ToolOutput { tool_output_id: tool_output_id.clone() }],
+        vec![EvidenceRef::ToolOutput {
+            tool_output_id: tool_output_id.clone(),
+        }],
         None,
     )
     .expect("ok");
@@ -172,7 +177,9 @@ fn fork_inherits_the_tool_outputs_an_evidence_ref_points_at() {
         "returns_one",
         "yes",
         0.9,
-        vec![EvidenceRef::ToolOutput { tool_output_id: tool_output_id.clone() }],
+        vec![EvidenceRef::ToolOutput {
+            tool_output_id: tool_output_id.clone(),
+        }],
         None,
     )
     .expect("ok");
@@ -182,9 +189,11 @@ fn fork_inherits_the_tool_outputs_an_evidence_ref_points_at() {
     // by fork_snapshot). The evidence ref still resolves.
     assert!(fork.tool_output(&tool_output_id).is_some());
     assert_eq!(fork.beliefs().len(), 1);
-    assert!(fork.beliefs()[0].evidence.contains(
-        &EvidenceRef::ToolOutput { tool_output_id: tool_output_id.clone() }
-    ));
+    assert!(fork.beliefs()[0]
+        .evidence
+        .contains(&EvidenceRef::ToolOutput {
+            tool_output_id: tool_output_id.clone()
+        }));
 
     // An update on the fork is also visible — the same evidence remains on
     // the fork-local copy of the belief.
@@ -203,7 +212,9 @@ fn note_evidence_does_not_require_existence_check() {
         "returns_one",
         "yes",
         0.9,
-        vec![EvidenceRef::Note { text: "from the README".to_string() }],
+        vec![EvidenceRef::Note {
+            text: "from the README".to_string(),
+        }],
         None,
     )
     .expect("note evidence needs no tool output");

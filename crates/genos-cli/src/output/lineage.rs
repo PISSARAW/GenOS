@@ -34,7 +34,10 @@ fn print_children(children: &[LineageChild], prefix: &str) {
         let last = index + 1 == count;
         let connector = if last { "└── " } else { "├── " };
         let next_prefix = format!("{prefix}{}", if last { "    " } else { "│   " });
-        println!("{prefix}{connector}{} {}", child.relation, child.snapshot_id);
+        println!(
+            "{prefix}{connector}{} {}",
+            child.relation, child.snapshot_id
+        );
         print_children(&child.children, &next_prefix);
     }
 }

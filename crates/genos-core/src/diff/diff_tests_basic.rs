@@ -35,7 +35,10 @@ fn untouched_sibling_forks_diff_to_nothing() {
     assert_ne!(a1.snapshot_id, a2.snapshot_id);
     assert_ne!(a1.agent_id, a2.agent_id);
     assert_ne!(a1.branch_id, a2.branch_id);
-    assert_ne!(a1.state.event_cursor.branch_id, a2.state.event_cursor.branch_id);
+    assert_ne!(
+        a1.state.event_cursor.branch_id,
+        a2.state.event_cursor.branch_id
+    );
 }
 
 #[test]
@@ -231,7 +234,10 @@ fn changes_land_in_the_section_that_owns_them() {
     write_variable_on_branch(&mut wrote, "counter", "10");
     let diff = diff_snapshots(&a1, &wrote);
     assert_eq!(
-        diff.event_summary.iter().map(|e| e.path.as_str()).collect::<Vec<_>>(),
+        diff.event_summary
+            .iter()
+            .map(|e| e.path.as_str())
+            .collect::<Vec<_>>(),
         vec![
             "state.event_cursor.sequence",
             "state.event_cursor.last_event_id"

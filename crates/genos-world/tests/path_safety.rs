@@ -14,7 +14,10 @@ async fn world_relative_paths_cannot_address_another_world() -> anyhow::Result<(
     let attacker = provider.create(AgentId::new(), BranchId::new()).await?;
 
     let escape = format!("../{}/hello.txt", victim.0);
-    assert!(provider.write_file(&attacker, &escape, "owned").await.is_err());
+    assert!(provider
+        .write_file(&attacker, &escape, "owned")
+        .await
+        .is_err());
     assert!(provider.read_file(&attacker, &escape).await.is_err());
     assert!(provider.write_file(&attacker, "", "owned").await.is_err());
 

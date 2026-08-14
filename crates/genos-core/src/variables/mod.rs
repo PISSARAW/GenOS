@@ -210,8 +210,10 @@ pub fn check_variable_isolation(
     branches: &[VariableExpectation<'_>],
 ) -> VariableIsolationReport {
     let parent_observation = observe(key, parent);
-    let branch_observations: Vec<VariableObservation> =
-        branches.iter().map(|branch| observe(key, *branch)).collect();
+    let branch_observations: Vec<VariableObservation> = branches
+        .iter()
+        .map(|branch| observe(key, *branch))
+        .collect();
 
     let mut violations = Vec::new();
 
