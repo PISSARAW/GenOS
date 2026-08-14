@@ -1,7 +1,7 @@
 use crate::args::OutputFormat;
 use genos_core::{
-    AgentDiff, AgentSnapshot, BeliefStatus, BeliefWriteKind, MemoryKind, ProvenanceNode,
-    SnapshotComparison, VariableIsolationReport,
+    AgentDiff, BeliefStatus, BeliefWriteKind, MemoryKind, ProvenanceNode, SnapshotComparison,
+    VariableIsolationReport,
 };
 use genos_store::BasicReplayState;
 use genos_world::FileIsolationReport;
@@ -10,6 +10,13 @@ use std::path::Path;
 use std::{fs, path::PathBuf};
 
 pub mod provenance;
+pub mod snapshot_outputs;
+
+// Re-export the snapshot-only output structs so callers can keep importing
+// them from `crate::output` (and don't have to learn the submodule).
+pub use snapshot_outputs::{
+    SnapshotGetOutput, SnapshotListOutput, SnapshotRestoreOutput, SnapshotSaveOutput,
+};
 
 // ---------- output structs ----------
 
@@ -264,27 +271,6 @@ pub struct SnapshotCompareOutput {
     pub a_snapshot_id: String,
     pub b_snapshot_id: String,
     pub comparison: SnapshotComparison,
-}
-
-#[derive(Serialize)]
-pub struct SnapshotSaveOutput {
-    pub store_path: String,
-    pub snapshot_id: String,
-}
-
-#[derive(Serialize)]
-pub struct SnapshotGetOutput {
-    pub store_path: String,
-    pub snapshot_id: String,
-    pub found: bool,
-    pub snapshot: Option<AgentSnapshot>,
-}
-
-#[derive(Serialize)]
-pub struct SnapshotListOutput {
-    pub store_path: String,
-    pub count: usize,
-    pub snapshot_ids: Vec<String>,
 }
 
 // ---------- helpers ----------
