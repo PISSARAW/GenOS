@@ -215,6 +215,7 @@ pub enum BranchStatus {
     Completed,
     Interrupted,
     BudgetExhausted,
+    TimedOut,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -357,13 +358,29 @@ pub fn replay_basic_state_from(
         state.branch_status = BranchStatus::Interrupted;
     }
 
+    if let (Some(first), Some(last), Some(max_duration)) = (
+        events.first().map(|event| event.timestamp),
+        events.last().map(|event| event.timestamp),
+        events.iter().find_map(|event| {
+            event
+                .payload
+                .get("max_duration_seconds")
+                .and_then(|value| value.as_i64())
+        }),
+    ) {
+        if (last - first).num_seconds() >= max_duration {
+            state.branch_status = BranchStatus::TimedOut;
+            state.lifecycle = AgentLifecycle::Stopped;
+        }
+    }
+
     state
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
+    use chrono::{Duration, Utc};
     use genos_core::{
         CorrelationId, EventCursor, ExecutionMetadata, GenomeId, GenomeRef, RuntimeMetadata,
         SnapshotId, ToolState, WorldId,
@@ -613,6 +630,22 @@ mod tests {
         assert_eq!(branch_a.branch_status, BranchStatus::BudgetExhausted);
         assert_eq!(branch_a.lifecycle, AgentLifecycle::Stopped);
         assert_eq!(branch_b.branch_status, BranchStatus::Active);
+    }
+
+    #[test]
+    fn branch_stops_cleanly_when_its_duration_budget_expires() {
+        let started_at = Utc::now();
+        let mut start = make_event(AgentEventType::AgentStarted, 1, "branch-a");
+        start.timestamp = started_at;
+        start.payload = json!({ "max_duration_seconds": 10 });
+
+        let mut after_timeout = make_event(AgentEventType::ModelResponded, 2, "branch-a");
+        after_timeout.timestamp = started_at + Duration::seconds(10);
+        after_timeout.payload = json!({ "max_duration_seconds": 10 });
+
+        let replay = replay_basic_state(&[start, after_timeout]);
+        assert_eq!(replay.branch_status, BranchStatus::TimedOut);
+        assert_eq!(replay.lifecycle, AgentLifecycle::Stopped);
     }
 
     #[test]
