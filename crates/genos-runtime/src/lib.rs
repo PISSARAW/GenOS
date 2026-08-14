@@ -82,3 +82,89 @@ pub async fn run_code_experiment<P: WorldProvider>(
     }
     Ok(outcomes)
 }
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationKind {
+    Tests,
+    Benchmark,
+    Fuzzing,
+    DataMigration,
+}
+
+#[derive(Clone, Debug)]
+pub struct VerificationPlan {
+    pub kind: VerificationKind,
+    pub command: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct LongRunningBranchPlan {
+    pub branch_id: BranchId,
+    pub label: String,
+    pub hypothesis: String,
+    pub edits: Vec<WorkspaceEdit>,
+    pub verifications: Vec<VerificationPlan>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VerificationOutcome {
+    pub kind: VerificationKind,
+    pub exit_code: i32,
+    pub passed: bool,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LongRunningBranchOutcome {
+    pub branch_id: BranchId,
+    pub label: String,
+    pub hypothesis: String,
+    pub world_id: WorldId,
+    pub verifications: Vec<VerificationOutcome>,
+    pub files_changed: usize,
+}
+
+/// Run a full verification pipeline in an already-selected lineage snapshot.
+/// Every stage is recorded; failure remains branch-local and stops only that
+/// branch's remaining stages.
+pub async fn run_long_branch<P: WorldProvider>(
+    provider: &P,
+    base_world: &WorldId,
+    parent_snapshot: &SnapshotId,
+    plan: LongRunningBranchPlan,
+) -> anyhow::Result<LongRunningBranchOutcome> {
+    let world_id = provider.fork(parent_snapshot.clone()).await?;
+    for edit in &plan.edits {
+        provider
+            .write_file(&world_id, &edit.relative_path, &edit.contents)
+            .await?;
+    }
+    let mut verifications = Vec::new();
+    for verification in plan.verifications {
+        let execution = provider
+            .execute(world_id.clone(), &verification.command)
+            .await?;
+        let passed = execution.exit_code == 0;
+        verifications.push(VerificationOutcome {
+            kind: verification.kind,
+            exit_code: execution.exit_code,
+            passed,
+            stdout: execution.stdout,
+            stderr: execution.stderr,
+        });
+        if !passed {
+            break;
+        }
+    }
+    let diff = provider.diff(base_world.clone(), world_id.clone()).await?;
+    Ok(LongRunningBranchOutcome {
+        branch_id: plan.branch_id,
+        label: plan.label,
+        hypothesis: plan.hypothesis,
+        world_id,
+        verifications,
+        files_changed: diff.files_changed,
+    })
+}
