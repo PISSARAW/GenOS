@@ -67,77 +67,98 @@ pub struct FileIsolationReport {
     pub violations: Vec<String>,
 }
 
-/// Check that each branch world kept its own write to `path` while the parent
-/// world kept its pre-fork contents.
-///
-/// Forking a world holding `hello.txt = "hello"` twice and writing `"bonjour"`
-/// in one fork and `"hola"` in the other must leave the two forks on their own
-/// values and the parent on `"hello"`.
-pub async fn check_file_isolation(
-    provider: &dyn WorldProvider,
-    path: &str,
-    parent: &WorldFileExpectation,
-    branches: &[WorldFileExpectation],
-) -> anyhow::Result<FileIsolationReport> {
-    let parent_observation = observe(provider, path, parent).await?;
+/// Configuration for a file-isolation check. Bundling these into a struct
+/// keeps the check below the 3-parameter rule and makes the call site
+/// self-documenting.
+pub struct FileIsolationCheck<'a> {
+    pub provider: &'a dyn WorldProvider,
+    pub path: &'a str,
+    pub parent: &'a WorldFileExpectation,
+    pub branches: &'a [WorldFileExpectation],
+}
 
-    let mut branch_observations = Vec::with_capacity(branches.len());
-    for branch in branches {
-        branch_observations.push(observe(provider, path, branch).await?);
-    }
-
-    let mut violations = Vec::new();
-
-    if !parent_observation.matches_expected {
-        violations.push(format!(
-            "parent world {} expected {path}={} but holds {}",
-            parent_observation.world_id,
-            render(&parent_observation.expected_contents),
-            render(&parent_observation.actual_contents),
-        ));
-    }
-
-    for observation in &branch_observations {
-        if !observation.matches_expected {
-            violations.push(format!(
-                "world {} expected {path}={} but holds {}",
-                observation.world_id,
-                render(&observation.expected_contents),
-                render(&observation.actual_contents),
-            ));
+impl<'a> FileIsolationCheck<'a> {
+    pub fn new(
+        provider: &'a dyn WorldProvider,
+        path: &'a str,
+        parent: &'a WorldFileExpectation,
+        branches: &'a [WorldFileExpectation],
+    ) -> Self {
+        Self {
+            provider,
+            path,
+            parent,
+            branches,
         }
     }
 
-    let mut seen = HashSet::new();
-    let branch_contents_distinct = branch_observations
-        .iter()
-        .all(|observation| seen.insert(observation.actual_contents.clone()));
-    if !branch_contents_distinct {
-        violations.push(format!(
-            "two worlds ended on the same contents for {path}: {}",
-            branch_observations
-                .iter()
-                .map(|observation| render(&observation.actual_contents))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
+    /// Run the check. Forking a world holding `hello.txt = "hello"` twice and
+    /// writing `"bonjour"` in one fork and `"hola"` in the other must leave
+    /// the two forks on their own values and the parent on `"hello"`.
+    pub async fn run(&self) -> anyhow::Result<FileIsolationReport> {
+        let parent_observation = observe(self.provider, self.path, self.parent).await?;
+
+        let mut branch_observations = Vec::with_capacity(self.branches.len());
+        for branch in self.branches {
+            branch_observations.push(observe(self.provider, self.path, branch).await?);
+        }
+
+        let mut violations = Vec::new();
+
+        if !parent_observation.matches_expected {
+            violations.push(format!(
+                "parent world {} expected {}={} but holds {}",
+                parent_observation.world_id,
+                self.path,
+                render(&parent_observation.expected_contents),
+                render(&parent_observation.actual_contents),
+            ));
+        }
+
+        for observation in &branch_observations {
+            if !observation.matches_expected {
+                violations.push(format!(
+                    "world {} expected {}={} but holds {}",
+                    observation.world_id,
+                    self.path,
+                    render(&observation.expected_contents),
+                    render(&observation.actual_contents),
+                ));
+            }
+        }
+
+        let mut seen = HashSet::new();
+        let branch_contents_distinct = branch_observations
+            .iter()
+            .all(|observation| seen.insert(observation.actual_contents.clone()));
+        if !branch_contents_distinct {
+            violations.push(format!(
+                "two worlds ended on the same contents for {}: {}",
+                self.path,
+                branch_observations
+                    .iter()
+                    .map(|observation| render(&observation.actual_contents))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+
+        let parent_preserved = parent_observation.matches_expected;
+        let branches_hold_expected_contents = branch_observations
+            .iter()
+            .all(|observation| observation.matches_expected);
+
+        Ok(FileIsolationReport {
+            path: self.path.to_string(),
+            parent: parent_observation,
+            branches: branch_observations,
+            parent_preserved,
+            branches_hold_expected_contents,
+            branch_contents_distinct,
+            isolated: parent_preserved && branches_hold_expected_contents && branch_contents_distinct,
+            violations,
+        })
     }
-
-    let parent_preserved = parent_observation.matches_expected;
-    let branches_hold_expected_contents = branch_observations
-        .iter()
-        .all(|observation| observation.matches_expected);
-
-    Ok(FileIsolationReport {
-        path: path.to_string(),
-        parent: parent_observation,
-        branches: branch_observations,
-        parent_preserved,
-        branches_hold_expected_contents,
-        branch_contents_distinct,
-        isolated: parent_preserved && branches_hold_expected_contents && branch_contents_distinct,
-        violations,
-    })
 }
 
 async fn observe(
@@ -160,4 +181,17 @@ fn render(contents: &Option<String>) -> String {
         Some(contents) => format!("\"{contents}\""),
         None => "<absent>".to_string(),
     }
+}
+
+/// Free-function wrapper kept for backward compatibility with call sites
+/// that have not been migrated to the [`FileIsolationCheck`] builder yet.
+pub async fn check_file_isolation(
+    provider: &dyn WorldProvider,
+    path: &str,
+    parent: &WorldFileExpectation,
+    branches: &[WorldFileExpectation],
+) -> anyhow::Result<FileIsolationReport> {
+    FileIsolationCheck::new(provider, path, parent, branches)
+        .run()
+        .await
 }
