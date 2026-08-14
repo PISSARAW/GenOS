@@ -30,6 +30,23 @@ pub struct BranchSelection {
     pub inspectable_branches: Vec<BranchScore>,
 }
 
+impl BranchSelection {
+    /// Resume any retained branch, including a branch that previously lost.
+    /// No branch is deleted or merged as a side effect.
+    pub fn resume(&mut self, branch_id: &BranchId) -> Option<BranchId> {
+        if self
+            .inspectable_branches
+            .iter()
+            .any(|branch| &branch.branch_id == branch_id)
+        {
+            self.active_branch = branch_id.clone();
+            Some(self.active_branch.clone())
+        } else {
+            None
+        }
+    }
+}
+
 pub fn select_winner(result: &EvaluationResult) -> Option<BranchSelection> {
     result.winner.clone().map(|active_branch| BranchSelection {
         active_branch,
@@ -97,5 +114,25 @@ mod tests {
             .inspectable_branches
             .iter()
             .any(|branch| branch.branch_id == BranchId("C".to_string())));
+    }
+
+    #[test]
+    fn a_losing_branch_can_be_resumed_later() {
+        let result = evaluate_answers(
+            ExperimentId("exploration-retroactive".to_string()),
+            [
+                CounterfactualAnswer { branch_id: BranchId("A".to_string()), answer: 4 },
+                CounterfactualAnswer { branch_id: BranchId("B".to_string()), answer: 8 },
+                CounterfactualAnswer { branch_id: BranchId("C".to_string()), answer: 6 },
+            ],
+        );
+        let mut selection = select_winner(&result).expect("winner must be selectable");
+        assert_eq!(selection.active_branch, BranchId("B".to_string()));
+        assert_eq!(
+            selection.resume(&BranchId("C".to_string())),
+            Some(BranchId("C".to_string()))
+        );
+        assert_eq!(selection.active_branch, BranchId("C".to_string()));
+        assert_eq!(selection.inspectable_branches.len(), 3);
     }
 }
