@@ -159,23 +159,48 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
         Some(store) => {
             let event_id = write.event.event_id.0.clone();
             store.append(write.event.clone()).await?;
+            // The contradiction marker event is part of the same branch's audit
+            // trail — append it right after, so a replay of the branch sees
+            // both the belief write and the contradiction in order.
+            if let Some(marker) = &write.contradiction_event {
+                store.append(marker.clone()).await?;
+            }
             Some(event_id)
         }
         None => None,
     };
 
+    // Capture the move-only fields before constructing the output, so the
+    // `print_contradiction_notice` call below still owns a complete `write`.
+    let subject = write.subject.clone();
+    let predicate = write.predicate.clone();
+    let object_value = write.object_value.clone();
+    let confidence = write.confidence;
+    let previous_confidence = write.previous_confidence;
+    let belief_id_str: String = write.belief_id.0.clone();
+    let kind = write.kind;
+    let status = write.status.clone();
+    let contradictions_str: Vec<String> =
+        write.contradictions.iter().map(|id| id.0.clone()).collect();
+    let event_sequence = write.event.sequence;
+    let contradiction_event_id = write
+        .contradiction_event
+        .as_ref()
+        .map(|marker| marker.event_id.0.clone());
+
     let out = SnapshotSetBeliefOutput {
         snapshot_id: snapshot.snapshot_id.0.clone(),
         agent_id: snapshot.agent_id.0.clone(),
         branch_id: snapshot.branch_id.0.clone(),
-        subject: write.subject,
-        predicate: write.predicate,
-        object_value: write.object_value,
-        confidence: write.confidence,
-        previous_confidence: write.previous_confidence,
-        belief_id: write.belief_id.0.clone(),
-        kind: write.kind,
-        status: write.status,
+        subject: subject.clone(),
+        predicate: predicate.clone(),
+        object_value: object_value.clone(),
+        confidence,
+        previous_confidence,
+        belief_id: belief_id_str.clone(),
+        kind,
+        status,
+        contradictions: contradictions_str,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
@@ -184,14 +209,27 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
         event_id,
-        event_sequence: write.event.sequence,
+        event_sequence,
+        contradiction_event_id: contradiction_event_id.clone(),
     };
 
     if args.save {
         snapshot_store.save_snapshot(snapshot).await?;
     }
 
-    print_serialized(&out, args.format)
+    print_serialized(&out, args.format)?;
+
+    if !write.contradictions.is_empty() {
+        crate::output::print_contradiction_notice(
+            &belief_id_str,
+            &object_value,
+            &subject,
+            &predicate,
+            &write.contradictions,
+        );
+    }
+
+    Ok(())
 }
 
 pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> {

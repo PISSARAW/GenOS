@@ -14,6 +14,8 @@
 
 #[cfg(test)]
 mod beliefs_tests;
+#[cfg(test)]
+mod contradiction_tests;
 
 use crate::events::{AgentEvent, AgentEventType};
 use crate::ids::{BeliefId, EventId};
@@ -61,9 +63,19 @@ pub struct BeliefWrite {
     pub previous_confidence: Option<f32>,
     pub status: BeliefStatus,
     pub kind: BeliefWriteKind,
+    /// Belief ids on the same branch that contradict this one — same
+    /// `(subject, predicate)`, opposite `object_value`. Empty when the new
+    /// belief agrees with everything already recorded, or when the call was an
+    /// update of an existing triple (a confidence change isn't a contradiction).
+    pub contradictions: Vec<BeliefId>,
     /// Event carrying the write, already bound to the writer's branch and
     /// numbered at the branch's next sequence.
     pub event: AgentEvent,
+    /// Optional contradiction marker event. Present only when
+    /// [`BeliefWrite::contradictions`] is non-empty — a second
+    /// [`AgentEventType::MemoryUpdated`] event whose payload carries
+    /// `kind: "contradiction"` plus the opposing ids.
+    pub contradiction_event: Option<AgentEvent>,
 }
 
 impl AgentSnapshot {
@@ -85,6 +97,28 @@ impl AgentSnapshot {
                 && belief.predicate == predicate
                 && belief.object_value == object_value
         })
+    }
+
+    /// Find beliefs on this branch that disagree with `(subject, predicate,
+    /// object_value)`: same `subject` and `predicate`, different `object_value`.
+    /// Used by contradiction detection — the rules are "same `(subject,
+    /// predicate)`, opposite objects on the same branch" only.
+    pub fn find_opposing_beliefs(
+        &self,
+        subject: &str,
+        predicate: &str,
+        object_value: &str,
+    ) -> Vec<BeliefId> {
+        self.state
+            .beliefs
+            .iter()
+            .filter(|belief| {
+                belief.subject == subject
+                    && belief.predicate == predicate
+                    && belief.object_value != object_value
+            })
+            .map(|belief| belief.id.clone())
+            .collect()
     }
 }
 
@@ -195,6 +229,94 @@ pub fn upsert_belief_at(
     snapshot.state.event_cursor.sequence = sequence;
     snapshot.state.event_cursor.last_event_id = Some(event.event_id.clone());
 
+    // Contradiction detection runs only on `Added`: same `(subject, predicate)`
+    // with a different `object_value` is the disagreement signal. A confidence
+    // update on an existing triple is not a contradiction — the existing rule
+    // stays tight.
+    let (contradictions, contradiction_event) = if kind == BeliefWriteKind::Added {
+        let opposing: Vec<BeliefId> = snapshot
+            .state
+            .beliefs
+            .iter()
+            .filter(|belief| {
+                belief.subject == subject
+                    && belief.predicate == predicate
+                    && belief.object_value != object_value
+            })
+            .map(|belief| belief.id.clone())
+            .collect();
+
+        if opposing.is_empty() {
+            (vec![], None)
+        } else {
+            // Link the new belief to each opposing id, flip its status to
+            // `Disputed`, and flip the existing beliefs' status the same way.
+            // Both records go `Disputed` because each disproves the other.
+            let new_belief_index = snapshot
+                .state
+                .beliefs
+                .iter()
+                .position(|belief| belief.id == belief_id)
+                .expect("just-added belief must be in state");
+            snapshot.state.beliefs[new_belief_index].status = BeliefStatus::Disputed;
+            snapshot.state.beliefs[new_belief_index]
+                .contradicts
+                .extend(opposing.iter().cloned());
+
+            for opposing_id in &opposing {
+                if let Some(existing) = snapshot
+                    .state
+                    .beliefs
+                    .iter_mut()
+                    .find(|belief| &belief.id == opposing_id)
+                {
+                    existing.status = BeliefStatus::Disputed;
+                    if !existing.contradicts.contains(&belief_id) {
+                        existing.contradicts.push(belief_id.clone());
+                    }
+                }
+            }
+
+            let contradiction_sequence = snapshot.state.event_cursor.sequence + 1;
+            let contradiction_payload = json!({
+                "kind": "contradiction",
+                "with": opposing,
+                "subject": subject,
+                "predicate": predicate,
+                "new_belief_id": belief_id,
+                "new_object_value": object_value,
+            });
+            let contradiction_marker = AgentEvent {
+                event_id: EventId::new(),
+                agent_id: snapshot.agent_id.clone(),
+                branch_id: Some(snapshot.branch_id.clone()),
+                sequence: contradiction_sequence,
+                timestamp,
+                event_type: AgentEventType::MemoryUpdated,
+                payload: contradiction_payload,
+                causation_id: Some(event.event_id.clone()),
+                correlation_id: None,
+            };
+
+            snapshot.state.event_cursor.sequence = contradiction_sequence;
+            snapshot.state.event_cursor.last_event_id =
+                Some(contradiction_marker.event_id.clone());
+
+            // The believer's status on the response mirrors its persisted
+            // status: `Disputed` when this write triggered a contradiction,
+            // whatever the caller passed otherwise.
+            (opposing, Some(contradiction_marker))
+        }
+    } else {
+        (vec![], None)
+    };
+
+    let written_status = if contradictions.is_empty() {
+        status
+    } else {
+        BeliefStatus::Disputed
+    };
+
     BeliefWrite {
         belief_id,
         subject: subject.to_string(),
@@ -202,9 +324,11 @@ pub fn upsert_belief_at(
         object_value: object_value.to_string(),
         confidence,
         previous_confidence,
-        status,
+        status: written_status,
         kind,
+        contradictions,
         event,
+        contradiction_event,
     }
 }
 
