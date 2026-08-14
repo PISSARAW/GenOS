@@ -75,7 +75,7 @@ pub struct ExecutionMetadata {
     pub last_model_provider: Option<String>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentState {
     pub genome: GenomeRef,
     pub working_memory: WorkingMemory,
