@@ -112,8 +112,7 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
     let out_prefix = args.out_prefix.clone();
     let save = args.save;
     for index in 1..=args.count {
-        forks.push(
-            build_fork_entry(
+        match build_fork_entry(
                 index,
                 &parent,
                 out_dir.as_ref(),
@@ -123,8 +122,24 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
                 event_store.as_ref(),
                 &correlation_id,
             )
-            .await?,
-        );
+            .await
+        {
+            Ok(mut entry) => {
+                entry.status = "success".to_string();
+                forks.push(entry);
+            }
+            Err(error) => forks.push(ForkEntry {
+                index,
+                snapshot_id: String::new(),
+                agent_id: String::new(),
+                branch_id: String::new(),
+                first_event_sequence: 0,
+                path: None,
+                fork_event_id: None,
+                status: "failed".to_string(),
+                error: Some(error.to_string()),
+            }),
+        }
     }
 
     let out = AgentForkOutput {
@@ -208,5 +223,7 @@ async fn build_fork_entry(
         first_event_sequence,
         path,
         fork_event_id,
+        status: "success".to_string(),
+        error: None,
     })
 }
