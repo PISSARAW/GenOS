@@ -1,13 +1,15 @@
 use crate::args::OutputFormat;
 use genos_core::{
-    AgentDiff, AgentSnapshot, BeliefStatus, BeliefWriteKind, MemoryKind, SnapshotComparison,
-    VariableIsolationReport,
+    AgentDiff, AgentSnapshot, BeliefStatus, BeliefWriteKind, MemoryKind, ProvenanceNode,
+    SnapshotComparison, VariableIsolationReport,
 };
 use genos_store::BasicReplayState;
 use genos_world::FileIsolationReport;
 use serde::Serialize;
 use std::path::Path;
 use std::{fs, path::PathBuf};
+
+pub mod provenance;
 
 // ---------- output structs ----------
 
@@ -150,6 +152,12 @@ pub struct SnapshotSetBeliefOutput {
     /// was an update of an existing triple (a confidence change isn't a
     /// contradiction).
     pub contradictions: Vec<String>,
+    /// Evidence refs actually appended by this write. Empty when no
+    /// `--evidence` was supplied, or when every ref was already linked.
+    pub added_evidence: Vec<String>,
+    /// First `ToolOutputId` linked on this write, if any. Surfaced as a
+    /// convenience; the full list is on `added_evidence`.
+    pub tool_output_id: Option<String>,
     pub out_path: Option<String>,
     pub snapshot_store_path: Option<String>,
     pub event_store_path: Option<String>,
@@ -158,6 +166,30 @@ pub struct SnapshotSetBeliefOutput {
     /// Event id of the contradiction marker event on the same branch. Present
     /// only when `contradictions` is non-empty.
     pub contradiction_event_id: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct SnapshotRecordToolCallOutput {
+    pub snapshot_id: String,
+    pub agent_id: String,
+    pub branch_id: String,
+    pub tool_output_id: String,
+    pub tool_name: String,
+    pub success: bool,
+    pub requested_event_id: String,
+    pub completed_event_id: String,
+    pub event_sequence: u64,
+    pub out_path: Option<String>,
+    pub snapshot_store_path: Option<String>,
+    pub event_store_path: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct InspectBeliefOutput {
+    pub snapshot_id: String,
+    pub branch_id: String,
+    pub belief_id: String,
+    pub tree: ProvenanceNode,
 }
 
 #[derive(Serialize)]
@@ -338,3 +370,5 @@ pub fn print_contradiction_notice(
         eprintln!("    object_value={object_value}   <-->   object_value=<opposing>");
     }
 }
+
+pub use provenance::print_provenance_tree;

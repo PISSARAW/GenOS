@@ -41,6 +41,7 @@ pub fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
         // Seeded refs index memories held elsewhere; records are recorded on a
         // branch with `snapshot add-memory`.
         memories: vec![],
+        tool_outputs: vec![],
         beliefs: vec![],
         active_goals: vec![Goal {
             key: "bootstrap".to_string(),

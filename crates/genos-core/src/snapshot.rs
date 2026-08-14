@@ -226,6 +226,7 @@ pub(crate) mod tests {
                 },
                 episodic_memory: EpisodicMemory { refs: vec![] },
                 memories: vec![],
+                tool_outputs: vec![],
                 beliefs: vec![],
                 active_goals: vec![Goal {
                     key: "bootstrap".to_string(),

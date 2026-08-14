@@ -3,11 +3,13 @@ use genos_core::MemoryKind;
 use std::path::PathBuf;
 
 pub mod agent;
+pub mod inspect;
 pub mod replay;
 pub mod snapshot;
 pub mod world;
 
 pub use agent::*;
+pub use inspect::*;
 pub use replay::*;
 pub use snapshot::*;
 pub use world::*;
@@ -27,6 +29,8 @@ pub enum Commands {
     Snapshot(SnapshotCommand),
     World(WorldCommand),
     Replay(ReplayCommand),
+    /// Inspect typed entities on a snapshot — belief provenance trees, etc.
+    Inspect(InspectCommand),
     /// Diff the logical state of two snapshots. Identity fields are excluded,
     /// so two untouched forks of one snapshot diff to nothing.
     Diff(DiffArgs),

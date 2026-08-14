@@ -29,6 +29,11 @@ pub enum SnapshotSubcommands {
     /// `confidence` overwritten in place rather than appended as a parallel
     /// record.
     SetBelief(SnapshotSetBeliefArgs),
+    /// Record a tool call on a snapshot's own branch. Emits a `ToolRequested`
+    /// and then a `ToolCompleted` (or `ToolFailed`) event for the call, and
+    /// makes the call's output available as evidence for a subsequent
+    /// `set-belief --evidence`.
+    RecordToolCall(SnapshotRecordToolCallArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -137,6 +142,12 @@ pub struct SnapshotSetBeliefArgs {
     /// the previous confidence and emits a `memory_updated` event.
     #[arg(long, value_parser = crate::resolve::unit_interval)]
     pub confidence: f32,
+    /// Evidence link to a `ToolOutputId` recorded on this branch. Repeatable.
+    /// Supplying evidence flips the new belief's status to `inferred` unless
+    /// an explicit `--status` is provided. The evidence must resolve to a
+    /// record on the snapshot's own branch.
+    #[arg(long = "evidence", value_name = "TOOL_OUTPUT_ID")]
+    pub evidence: Vec<String>,
     #[arg(long, default_value = ".genos")]
     pub root: PathBuf,
     /// Snapshot store used to resolve `--snapshot` by id and to persist with `--save`.
@@ -153,6 +164,45 @@ pub struct SnapshotSetBeliefArgs {
     #[arg(long)]
     pub events: Option<PathBuf>,
     /// Append the `memory_created`/`memory_updated` event on the snapshot's own branch.
+    #[arg(long)]
+    pub emit_events: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SnapshotRecordToolCallArgs {
+    /// Snapshot to record on: file path or snapshot id resolved in the snapshot store.
+    #[arg(long)]
+    pub snapshot: String,
+    /// Name of the tool invoked (e.g. `db_query`).
+    #[arg(long = "tool-name")]
+    pub tool_name: String,
+    /// Tool input, encoded as JSON. Falls back to a JSON string when parsing fails.
+    #[arg(long)]
+    pub input: Option<String>,
+    /// Tool output, encoded as JSON. Falls back to a JSON string when parsing fails.
+    #[arg(long)]
+    pub output: Option<String>,
+    /// Whether the tool call succeeded. Defaults to `true`. `false` flips the
+    /// completion event to `tool_failed` and the record's `success` field.
+    #[arg(long, default_value_t = true)]
+    pub success: bool,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Snapshot store used to resolve `--snapshot` by id and to persist with `--save`.
+    #[arg(long)]
+    pub snapshots: Option<PathBuf>,
+    /// Write the updated snapshot here. Defaults to the `--snapshot` file.
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    /// Append the updated snapshot to the snapshot store.
+    #[arg(long)]
+    pub save: bool,
+    /// Event store receiving the `tool_requested` and `tool_completed` events.
+    #[arg(long)]
+    pub events: Option<PathBuf>,
+    /// Append the tool-call events on the snapshot's own branch.
     #[arg(long)]
     pub emit_events: bool,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
