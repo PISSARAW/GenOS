@@ -7,7 +7,7 @@ use genos_core::{
     MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
     ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
 };
-use genos_store::LocalEventStore;
+use genos_store::{LocalEventStore, LocalSnapshotStore, SnapshotStore};
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use serde::Serialize;
 use std::fs;
@@ -70,6 +70,8 @@ struct SnapshotCommand {
 #[derive(Subcommand, Debug)]
 enum SnapshotSubcommands {
     Create(SnapshotCreateArgs),
+    Save(SnapshotSaveArgs),
+    Get(SnapshotGetArgs),
 }
 
 #[derive(Args, Debug)]
@@ -78,6 +80,30 @@ struct SnapshotCreateArgs {
     agent: PathBuf,
     #[arg(long)]
     out: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct SnapshotSaveArgs {
+    #[arg(long)]
+    snapshot: PathBuf,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct SnapshotGetArgs {
+    #[arg(long)]
+    snapshot_id: String,
+    #[arg(long, default_value = ".genos")]
+    root: PathBuf,
+    #[arg(long)]
+    store: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
 }
@@ -248,6 +274,20 @@ struct ReplayBasicOutput {
     state: genos_store::BasicReplayState,
 }
 
+#[derive(Serialize)]
+struct SnapshotSaveOutput {
+    store_path: String,
+    snapshot_id: String,
+}
+
+#[derive(Serialize)]
+struct SnapshotGetOutput {
+    store_path: String,
+    snapshot_id: String,
+    found: bool,
+    snapshot: Option<AgentSnapshot>,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -260,6 +300,8 @@ async fn main() -> Result<()> {
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),
+            SnapshotSubcommands::Save(args) => cmd_snapshot_save(args).await,
+            SnapshotSubcommands::Get(args) => cmd_snapshot_get(args).await,
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,
@@ -406,6 +448,42 @@ fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
     Ok(())
 }
 
+async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
+    let snapshot = read_snapshot(&args.snapshot)?;
+    let store = if let Some(path) = args.store {
+        LocalSnapshotStore::new(path)
+    } else {
+        LocalSnapshotStore::from_root(args.root)
+    };
+
+    let snapshot_id = snapshot.snapshot_id.0.clone();
+    store.save_snapshot(snapshot).await?;
+
+    let out = SnapshotSaveOutput {
+        store_path: store.file_path().display().to_string(),
+        snapshot_id,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
+    let store = if let Some(path) = args.store {
+        LocalSnapshotStore::new(path)
+    } else {
+        LocalSnapshotStore::from_root(args.root)
+    };
+
+    let snapshot = store.get_snapshot(args.snapshot_id.clone()).await?;
+    let out = SnapshotGetOutput {
+        store_path: store.file_path().display().to_string(),
+        snapshot_id: args.snapshot_id,
+        found: snapshot.is_some(),
+        snapshot,
+    };
+
+    print_serialized(&out, args.format)
+}
+
 async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
     let provider = provider_from_args(args.provider, args.root, args.seed, args.repo)?;
     let world_id = provider.create(AgentId::new(), BranchId::new()).await?;
@@ -523,6 +601,16 @@ fn provider_from_args(
 fn read_genome(path: &Path) -> Result<AgentGenome> {
     let raw = fs::read_to_string(path)
         .with_context(|| format!("failed reading genome file {}", path.display()))?;
+    if path.extension().and_then(|s| s.to_str()) == Some("json") {
+        Ok(serde_json::from_str(&raw)?)
+    } else {
+        Ok(serde_yaml::from_str(&raw)?)
+    }
+}
+
+fn read_snapshot(path: &Path) -> Result<AgentSnapshot> {
+    let raw = fs::read_to_string(path)
+        .with_context(|| format!("failed reading snapshot file {}", path.display()))?;
     if path.extension().and_then(|s| s.to_str()) == Some("json") {
         Ok(serde_json::from_str(&raw)?)
     } else {
