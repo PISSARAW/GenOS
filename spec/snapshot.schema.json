@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/snapshot.schema.json",
+  "title": "AgentSnapshot",
+  "type": "object",
+  "required": ["snapshot_id", "agent_id", "branch_id", "genome", "state", "world_id", "created_at"],
+  "properties": {
+    "snapshot_id": { "type": "string" },
+    "agent_id": { "type": "string" },
+    "branch_id": { "type": "string" },
+    "genome": { "type": "object" },
+    "state": { "type": "object" },
+    "world_id": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}

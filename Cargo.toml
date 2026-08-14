@@ -1,0 +1,35 @@
+[workspace]
+members = [
+  "crates/genos-core",
+  "crates/genos-runtime",
+  "crates/genos-world",
+  "crates/genos-store",
+  "crates/genos-model",
+  "crates/genos-tools",
+  "crates/genos-eval",
+  "crates/genos-api",
+  "crates/genos-cli",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/example/genos"
+
+[workspace.dependencies]
+anyhow = "1"
+async-trait = "0.1"
+axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
+sqlx = { version = "0.8", default-features = false, features = ["postgres", "runtime-tokio-rustls", "macros", "chrono", "uuid"] }
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+uuid = { version = "1", features = ["v4", "v7", "serde"] }

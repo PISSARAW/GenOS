@@ -1,0 +1,11 @@
+[package]
+name = "genos-model"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+async-trait.workspace = true
+genos-core = { path = "../genos-core" }
+serde.workspace = true
