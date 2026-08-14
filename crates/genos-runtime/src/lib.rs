@@ -7,6 +7,8 @@ mod temporal;
 pub use temporal::*;
 mod experiment;
 pub use experiment::*;
+mod incident;
+pub use incident::*;
 
 #[derive(Clone, Debug)]
 pub struct StepResult {

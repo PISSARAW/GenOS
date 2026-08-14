@@ -19,7 +19,7 @@ use crate::cmd_agent::{
     cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_inspect, cmd_init,
 };
 use crate::cmd_inspect::cmd_inspect_belief;
-use crate::cmd_experiment::{cmd_experiment_temporal, cmd_experiment_workspace};
+use crate::cmd_experiment::{cmd_experiment_incident, cmd_experiment_temporal, cmd_experiment_workspace};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
@@ -46,6 +46,7 @@ async fn main() -> Result<()> {
         Commands::Experiment(experiment) => match experiment.command {
             ExperimentSubcommands::Workspace(args) => cmd_experiment_workspace(args).await,
             ExperimentSubcommands::Temporal(args) => cmd_experiment_temporal(args),
+            ExperimentSubcommands::Incident(args) => cmd_experiment_incident(args),
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),

@@ -13,6 +13,8 @@ pub enum ExperimentSubcommands {
     Workspace(WorkspaceExperimentArgs),
     /// Replay one historical event stream through several causal universes.
     Temporal(TemporalExperimentArgs),
+    /// Adaptively search mutated universes for a rare incident reproduction.
+    Incident(IncidentExperimentArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -31,4 +33,16 @@ pub struct TemporalExperimentArgs {
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct IncidentExperimentArgs {
+    pub manifest: PathBuf,
+    #[arg(long, default_value = ".genos/experiments")]
+    pub root: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+    /// Print counts and perfect branch ids while keeping the full persisted report.
+    #[arg(long)]
+    pub summary: bool,
 }
