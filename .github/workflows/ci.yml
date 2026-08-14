@@ -96,6 +96,18 @@ jobs:
           assert_output '"entry_count": 0'
           assert_output '"changed_paths": []'
 
+          # One genome value changed -> exactly one entry, reported by path and
+          # at the precision the f32 field actually holds.
+          assert_output 'GenomeDiff'
+          assert_output '  genome.cognition.exploration'
+          assert_output '    old: 0.7'
+          assert_output '    new: 0.8'
+          assert_output '1 changed path'
+          if grep -q '0.699999' demo-output.txt; then
+            echo "Assertion failed: a widened f32 leaked into the diff report" >&2
+            exit 1
+          fi
+
           # S0 plus the two forks, and one fork_created event per fork.
           assert_lines "$demo_dir/agent-snapshots.jsonl" 3
           assert_lines "$demo_dir/agent-events.jsonl" 2

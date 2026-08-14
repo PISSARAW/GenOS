@@ -24,7 +24,9 @@ No LLM call is required for this flow.
    and differ on every identity field.
 5. Assert with `genos diff --expect-empty` that the structural diff between the
    two untouched forks is empty.
-6. Replay each branch with `replay basic` and assert the streams stay isolated.
+6. Change exactly one genome value on A2 with `snapshot set-cognition`
+   (`exploration` 0.7 → 0.8) and assert the diff reports exactly that path.
+7. Replay each branch with `replay basic` and assert the streams stay isolated.
 
 Every step is a `genos` command: the demo never edits snapshot or event JSON by
 hand, so the invariants it proves are the ones the CLI actually enforces.
@@ -45,8 +47,8 @@ hand, so the invariants it proves are the ones the CLI actually enforces.
 
 - The script stops immediately on any assertion failure: the assertions live in
   the CLI itself (`--expect-same-state`, `--expect-distinct-identity`,
-  `--expect-empty`, `--expect-last-sequence`), which exits non-zero when an
-  invariant breaks.
+  `--expect-empty`, `--expect-changed-path`, `--expect-last-sequence`), which
+  exits non-zero when an invariant breaks.
 - Final output prints `Demo OK` plus the store and fork file paths. The fork ids
   are in the `agent fork-from-snapshot` JSON output above it.
 - Snapshot store, event store and fork snapshots are generated under:
@@ -127,10 +129,46 @@ genos diff fork-1.json fork-2.json --expect-empty
 Both sides accept a file path or a snapshot id resolved in the store. The
 `identity` block is reported for context only: it shows the two snapshots really
 are distinct agents on distinct branches, so the empty diff means "same logical
-state", not "same object compared twice". This is the baseline the diff
-semantics are defined against — see
-[`../divergent-writes-demo`](../divergent-writes-demo) for the non-empty side,
-where `--expect-changed-path` asserts exactly which paths moved.
+state", not "same object compared twice".
+
+`--format text` prints the same result as a report rather than a document:
+
+```bash
+genos snapshot set-cognition --snapshot fork-2.json --exploration 0.8 \
+  --out fork-2-explore.json
+genos diff fork-1.json fork-2-explore.json \
+  --expect-changed-path genome.cognition.exploration --format text
+```
+
+```text
+diff a=01a0…4236 b=01a0…0bd5
+GenomeDiff
+  genome.cognition.exploration
+    old: 0.7
+    new: 0.8
+1 changed path
+```
+
+One field changed, one line changed. Paths are keyed rather than positional, so
+the report names the value that moved instead of re-printing the genome around
+it. See [`../divergent-writes-demo`](../divergent-writes-demo) for the same
+command over a diverged working-memory variable.
+
+### `snapshot set-cognition`
+
+Tunes the genome's cognition values on one snapshot, so a single-field change
+can be made without hand-editing JSON:
+
+```bash
+genos snapshot set-cognition --snapshot fork-2.json --exploration 0.8
+```
+
+`--exploration` and `--verification-threshold` are probabilities and are
+rejected outside `0..=1`; `--planning-depth` is a count. The updated snapshot is
+written back to the `--snapshot` file unless `--out` says otherwise, and `--save`
+appends it to the store. The genome's `id` and `version` are deliberately left
+alone: this tunes a value on one branch, it does not publish a new genome
+version — which is also why the diff above has exactly one entry.
 
 ### `replay basic --snapshot`
 

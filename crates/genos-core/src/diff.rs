@@ -26,7 +26,8 @@
 
 use crate::snapshot::AgentSnapshot;
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
+use std::fmt::Write;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DiffEntry {
@@ -46,18 +47,61 @@ pub struct AgentDiff {
     pub evaluation_diff: Vec<DiffEntry>,
 }
 
+impl DiffEntry {
+    /// Value on the left side, or `<absent>` when the path carries none.
+    pub fn before_display(&self) -> &str {
+        self.before.as_deref().unwrap_or(ABSENT)
+    }
+
+    /// Value on the right side, or `<absent>` when the path carries none.
+    pub fn after_display(&self) -> &str {
+        self.after.as_deref().unwrap_or(ABSENT)
+    }
+}
+
+/// Shown for a path that exists on only one side.
+pub const ABSENT: &str = "<absent>";
+
 impl AgentDiff {
-    /// Every section, in report order.
+    /// Every section, in report order, with the label used in the text report.
     pub fn sections(&self) -> [(&'static str, &Vec<DiffEntry>); 7] {
         [
-            ("genome_diff", &self.genome_diff),
-            ("state_diff", &self.state_diff),
-            ("memory_diff", &self.memory_diff),
-            ("belief_diff", &self.belief_diff),
-            ("world_diff", &self.world_diff),
-            ("event_summary", &self.event_summary),
-            ("evaluation_diff", &self.evaluation_diff),
+            ("GenomeDiff", &self.genome_diff),
+            ("StateDiff", &self.state_diff),
+            ("MemoryDiff", &self.memory_diff),
+            ("BeliefDiff", &self.belief_diff),
+            ("WorldDiff", &self.world_diff),
+            ("EventSummary", &self.event_summary),
+            ("EvaluationDiff", &self.evaluation_diff),
         ]
+    }
+
+    /// Render the changed paths as a report, one section header per non-empty
+    /// section and one `old`/`new` pair per path:
+    ///
+    /// ```text
+    /// GenomeDiff
+    ///   genome.cognition.exploration
+    ///     old: 0.7
+    ///     new: 0.8
+    /// ```
+    ///
+    /// Empty diffs render as an empty string; the caller decides what to say
+    /// about them.
+    pub fn to_text(&self) -> String {
+        let mut out = String::new();
+        for (label, entries) in self.sections() {
+            if entries.is_empty() {
+                continue;
+            }
+            let _ = writeln!(out, "{label}");
+            for entry in entries {
+                let _ = writeln!(out, "  {}", entry.path);
+                let _ = writeln!(out, "    old: {}", entry.before_display());
+                let _ = writeln!(out, "    new: {}", entry.after_display());
+            }
+        }
+        out
     }
 
     /// Every entry across all sections.
@@ -235,7 +279,25 @@ fn render(value: &Value) -> Option<String> {
     match value {
         Value::Null => None,
         Value::String(text) => Some(text.clone()),
+        Value::Number(number) => Some(render_number(number)),
         other => Some(other.to_string()),
+    }
+}
+
+/// Report a number the way the field holds it.
+///
+/// Serialization widens `f32` to `f64`, which turns an `exploration` of `0.7`
+/// into `0.699999988079071`. When the widened value round-trips through `f32`
+/// exactly, the narrow form is the one the field actually carries, so that is
+/// what the diff shows. Integers and genuine `f64` values are untouched.
+fn render_number(number: &Number) -> String {
+    match number.as_f64() {
+        Some(wide)
+            if number.is_f64() && wide.is_finite() && f64::from(wide as f32) == wide =>
+        {
+            (wide as f32).to_string()
+        }
+        _ => number.to_string(),
     }
 }
 
@@ -541,6 +603,121 @@ mod tests {
                 "state.event_cursor.last_event_id"
             ]
         );
+    }
+
+    /// One field changed, one entry reported — not a re-dump of the genome.
+    #[test]
+    fn a_single_cognition_change_is_reported_as_a_single_entry() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let mut a2 = fork_snapshot(&parent);
+
+        assert_eq!(a1.genome.cognition.exploration, 0.7);
+        a2.genome.cognition.exploration = 0.8;
+
+        let diff = diff_snapshots(&a1, &a2);
+
+        assert_eq!(diff.len(), 1);
+        assert_eq!(
+            diff.genome_diff,
+            vec![DiffEntry {
+                path: "genome.cognition.exploration".to_string(),
+                before: Some("0.7".to_string()),
+                after: Some("0.8".to_string()),
+            }]
+        );
+
+        // The neighbouring cognition fields, and every other section, stay out
+        // of the report.
+        for (label, entries) in diff.sections() {
+            if label != "GenomeDiff" {
+                assert!(entries.is_empty(), "{label} should be empty: {entries:?}");
+            }
+        }
+    }
+
+    /// `f32` widens to `f64` on serialization; the report must not leak that.
+    #[test]
+    fn float_fields_are_reported_at_their_own_precision() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let mut a2 = fork_snapshot(&parent);
+
+        a2.genome.cognition.exploration = 0.8;
+        a2.genome.cognition.verification_threshold = 0.55;
+
+        let diff = diff_snapshots(&a1, &a2);
+        let rendered: Vec<(&str, &str)> = diff
+            .entries()
+            .map(|entry| (entry.before_display(), entry.after_display()))
+            .collect();
+
+        assert_eq!(rendered, vec![("0.7", "0.8"), ("0.8", "0.55")]);
+        assert!(
+            !diff.to_text().contains("0.699999"),
+            "widened f32 leaked into the report:\n{}",
+            diff.to_text()
+        );
+    }
+
+    #[test]
+    fn the_text_report_names_the_section_the_path_and_both_values() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let mut a2 = fork_snapshot(&parent);
+        a2.genome.cognition.exploration = 0.8;
+
+        assert_eq!(
+            diff_snapshots(&a1, &a2).to_text(),
+            "GenomeDiff\n  genome.cognition.exploration\n    old: 0.7\n    new: 0.8\n"
+        );
+    }
+
+    #[test]
+    fn the_text_report_marks_a_value_that_exists_on_one_side_only() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let mut a2 = fork_snapshot(&parent);
+        a2.set_variable("attempts", "3");
+
+        assert_eq!(
+            diff_snapshots(&a1, &a2).to_text(),
+            "MemoryDiff\n  state.working_memory.attempts\n    old: <absent>\n    new: 3\n"
+        );
+    }
+
+    #[test]
+    fn an_empty_diff_renders_as_an_empty_report() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let a2 = fork_snapshot(&parent);
+
+        assert_eq!(diff_snapshots(&a1, &a2).to_text(), "");
+    }
+
+    #[test]
+    fn integers_are_not_reformatted_as_floats() {
+        let parent = snapshot_with_variable("counter", "0");
+        let a1 = fork_snapshot(&parent);
+        let mut a2 = fork_snapshot(&parent);
+
+        a2.genome.cognition.planning_depth = 7;
+        a2.runtime_metadata.budget_steps_remaining = 12;
+
+        let diff = diff_snapshots(&a1, &a2);
+        assert_eq!(
+            diff.genome_diff[0],
+            DiffEntry {
+                path: "genome.cognition.planning_depth".to_string(),
+                before: Some("6".to_string()),
+                after: Some("7".to_string()),
+            }
+        );
+        assert_eq!(
+            diff.state_diff[0].path,
+            "runtime_metadata.budget_steps_remaining"
+        );
+        assert_eq!(diff.state_diff[0].after_display(), "12");
     }
 
     #[test]

@@ -54,11 +54,12 @@ Implemented:
 	- `genos agent inspect`
 	- `genos agent fork-from-snapshot`
 	- `genos snapshot create/save/get/list/compare`
-	- `genos snapshot set-var/check-var`
+	- `genos snapshot set-var/check-var/set-cognition`
 	- `genos world create/snapshot/fork/diff/destroy`
 	- `genos world read-file/write-file/check-file`
 	- `genos replay basic/from-snapshot`
-	- `genos diff` — structural diff of two snapshots, empty for untouched forks
+	- `genos diff` — structural diff of two snapshots: empty for untouched forks,
+	  one entry per changed path otherwise (`--format text` for a report)
 - Runnable proofs of fork isolation in `examples/`:
 	- `counterfactual-demo` — two forks start logically identical with distinct identity
 	- `divergent-writes-demo` — two branches write the same variable differently
