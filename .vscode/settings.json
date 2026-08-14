@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^cargo test -p genos-store$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
