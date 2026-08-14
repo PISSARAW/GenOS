@@ -2,11 +2,13 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use genos_core::{
-    AgentGenome, AgentId, AgentSnapshot, AgentState, BranchId, CognitionConfig, EventCursor,
-    ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion, Goal, Identity, MemoryPolicy,
-    ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission, ToolPolicy,
-    ToolState, WorkingMemory, WorldId, EpisodicMemory, Capability, RuntimeMetadata,
+    AgentGenome, AgentId, AgentSnapshot, AgentState, BranchId, Capability, CognitionConfig,
+    EventCursor, ExecutionMetadata, GenomeId, GenomeRef, GenomeVersion, Goal, Identity,
+    MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
+    ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
 };
+use genos_world::{DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
+use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -23,6 +25,7 @@ enum Commands {
     Init,
     Agent(AgentCommand),
     Snapshot(SnapshotCommand),
+    World(WorldCommand),
 }
 
 #[derive(Args, Debug)]
@@ -77,13 +80,122 @@ struct SnapshotCreateArgs {
     format: OutputFormat,
 }
 
+#[derive(Args, Debug)]
+struct WorldCommand {
+    #[command(subcommand)]
+    command: WorldSubcommands,
+}
+
+#[derive(Subcommand, Debug)]
+enum WorldSubcommands {
+    Create(WorldCreateArgs),
+    Snapshot(WorldSnapshotArgs),
+    Fork(WorldForkArgs),
+    Diff(WorldDiffArgs),
+}
+
+#[derive(Args, Debug)]
+struct WorldCreateArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    seed: Option<PathBuf>,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct WorldSnapshotArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    world_id: String,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct WorldForkArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    snapshot_id: String,
+    #[arg(long, default_value_t = 1)]
+    count: u32,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct WorldDiffArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    world_a: String,
+    #[arg(long)]
+    world_b: String,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
+enum WorldProviderKind {
+    Directory,
+    GitWorktree,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum OutputFormat {
     Json,
     Yaml,
 }
 
-fn main() -> Result<()> {
+#[derive(Serialize)]
+struct WorldCreateOutput {
+    provider: String,
+    world_id: String,
+}
+
+#[derive(Serialize)]
+struct WorldSnapshotOutput {
+    provider: String,
+    world_id: String,
+    snapshot_id: String,
+}
+
+#[derive(Serialize)]
+struct WorldForkOutput {
+    provider: String,
+    parent_snapshot_id: String,
+    world_ids: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct WorldDiffOutput {
+    provider: String,
+    world_a: String,
+    world_b: String,
+    files_changed: usize,
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -95,12 +207,19 @@ fn main() -> Result<()> {
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),
         },
+        Commands::World(world) => match world.command {
+            WorldSubcommands::Create(args) => cmd_world_create(args).await,
+            WorldSubcommands::Snapshot(args) => cmd_world_snapshot(args).await,
+            WorldSubcommands::Fork(args) => cmd_world_fork(args).await,
+            WorldSubcommands::Diff(args) => cmd_world_diff(args).await,
+        },
     }
 }
 
 fn cmd_init() -> Result<()> {
     fs::create_dir_all(".genos/agents")?;
     fs::create_dir_all(".genos/snapshots")?;
+    fs::create_dir_all(".genos/world")?;
     println!("initialized .genos workspace");
     Ok(())
 }
@@ -227,6 +346,84 @@ fn cmd_snapshot_create(args: SnapshotCreateArgs) -> Result<()> {
     write_serialized(&path, &snapshot, args.format)?;
     println!("snapshot written to {}", path.display());
     Ok(())
+}
+
+async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, args.seed, args.repo)?;
+    let world_id = provider.create(AgentId::new(), BranchId::new()).await?;
+
+    let out = WorldCreateOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: world_id.0,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_snapshot(args: WorldSnapshotArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let world_id = WorldId(args.world_id.clone());
+    let snapshot_id = provider.snapshot(world_id).await?;
+
+    let out = WorldSnapshotOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: args.world_id,
+        snapshot_id: snapshot_id.0,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_fork(args: WorldForkArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let snapshot_id = SnapshotId(args.snapshot_id.clone());
+    let worlds = provider.fork_many(snapshot_id, args.count).await?;
+
+    let out = WorldForkOutput {
+        provider: provider_name(args.provider).to_string(),
+        parent_snapshot_id: args.snapshot_id,
+        world_ids: worlds.into_iter().map(|w| w.0).collect(),
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_diff(args: WorldDiffArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let world_a = WorldId(args.world_a.clone());
+    let world_b = WorldId(args.world_b.clone());
+    let diff = provider.diff(world_a, world_b).await?;
+
+    let out = WorldDiffOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_a: args.world_a,
+        world_b: args.world_b,
+        files_changed: diff.files_changed,
+    };
+    print_serialized(&out, args.format)
+}
+
+fn provider_name(kind: WorldProviderKind) -> &'static str {
+    match kind {
+        WorldProviderKind::Directory => "directory",
+        WorldProviderKind::GitWorktree => "git_worktree",
+    }
+}
+
+fn provider_from_args(
+    kind: WorldProviderKind,
+    root: PathBuf,
+    seed: Option<PathBuf>,
+    repo: Option<PathBuf>,
+) -> Result<Box<dyn WorldProvider>> {
+    fs::create_dir_all(&root)?;
+
+    match kind {
+        WorldProviderKind::Directory => {
+            Ok(Box::new(DirectoryWorldProvider::new(root, seed)?) as Box<dyn WorldProvider>)
+        }
+        WorldProviderKind::GitWorktree => {
+            let repo = repo.context("--repo is required for provider git-worktree")?;
+            Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?) as Box<dyn WorldProvider>)
+        }
+    }
 }
 
 fn read_genome(path: &Path) -> Result<AgentGenome> {
