@@ -7,7 +7,7 @@ use genos_core::{
     MemoryPolicy, ModelPolicy, Objective, Policy, SemanticMemory, SnapshotId, ToolPermission,
     ToolPolicy, ToolState, WorkingMemory, WorldId, EpisodicMemory, RuntimeMetadata,
 };
-use genos_world::{DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
+use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -92,6 +92,7 @@ enum WorldSubcommands {
     Snapshot(WorldSnapshotArgs),
     Fork(WorldForkArgs),
     Diff(WorldDiffArgs),
+    Destroy(WorldDestroyArgs),
 }
 
 #[derive(Args, Debug)]
@@ -154,6 +155,20 @@ struct WorldDiffArgs {
     format: OutputFormat,
 }
 
+#[derive(Args, Debug)]
+struct WorldDestroyArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    world_id: String,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 enum WorldProviderKind {
     Directory,
@@ -194,6 +209,13 @@ struct WorldDiffOutput {
     files_changed: usize,
 }
 
+#[derive(Serialize)]
+struct WorldDestroyOutput {
+    provider: String,
+    world_id: String,
+    status: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -212,6 +234,7 @@ async fn main() -> Result<()> {
             WorldSubcommands::Snapshot(args) => cmd_world_snapshot(args).await,
             WorldSubcommands::Fork(args) => cmd_world_fork(args).await,
             WorldSubcommands::Diff(args) => cmd_world_diff(args).await,
+            WorldSubcommands::Destroy(args) => cmd_world_destroy(args).await,
         },
     }
 }
@@ -396,6 +419,24 @@ async fn cmd_world_diff(args: WorldDiffArgs) -> Result<()> {
         world_a: args.world_a,
         world_b: args.world_b,
         files_changed: diff.files_changed,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let world_id = WorldId(args.world_id.clone());
+    let outcome = provider.destroy(world_id).await?;
+
+    let status = match outcome {
+        DestroyOutcome::Destroyed => "destroyed",
+        DestroyOutcome::AlreadyAbsent => "already_absent",
+    };
+
+    let out = WorldDestroyOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: args.world_id,
+        status: status.to_string(),
     };
     print_serialized(&out, args.format)
 }
