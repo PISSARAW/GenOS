@@ -91,6 +91,11 @@ jobs:
           assert_output '"event_cursors_bound_to_own_branch": true'
           assert_output '"last_sequence": 1'
 
+          # Untouched forks diff to nothing, despite distinct identity.
+          assert_output '"empty": true'
+          assert_output '"entry_count": 0'
+          assert_output '"changed_paths": []'
+
           # S0 plus the two forks, and one fork_created event per fork.
           assert_lines "$demo_dir/agent-snapshots.jsonl" 3
           assert_lines "$demo_dir/agent-events.jsonl" 2
@@ -180,6 +185,12 @@ jobs:
           assert_output '"branch_values_distinct": true'
           assert_output '"violations": []'
           assert_output '"distinct_identity": true'
+
+          # The structural diff names the diverged variable by key.
+          assert_output '"empty": false'
+          assert_output '"path": "state.working_memory.counter"'
+          assert_output '"before": "10"'
+          assert_output '"after": "20"'
 
           # The parent kept its pre-fork value while each branch kept its own,
           # both on the snapshot files and on the ids resolved in the store.

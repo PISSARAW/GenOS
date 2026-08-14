@@ -22,7 +22,9 @@ No LLM call is required for this flow.
    both forks to the snapshot store and appends one `fork_created` event per fork.
 4. Assert with `snapshot compare` that A1 and A2 share every logical state field
    and differ on every identity field.
-5. Replay each branch with `replay basic` and assert the streams stay isolated.
+5. Assert with `genos diff --expect-empty` that the structural diff between the
+   two untouched forks is empty.
+6. Replay each branch with `replay basic` and assert the streams stay isolated.
 
 Every step is a `genos` command: the demo never edits snapshot or event JSON by
 hand, so the invariants it proves are the ones the CLI actually enforces.
@@ -43,7 +45,8 @@ hand, so the invariants it proves are the ones the CLI actually enforces.
 
 - The script stops immediately on any assertion failure: the assertions live in
   the CLI itself (`--expect-same-state`, `--expect-distinct-identity`,
-  `--expect-last-sequence`), which exits non-zero when an invariant breaks.
+  `--expect-empty`, `--expect-last-sequence`), which exits non-zero when an
+  invariant breaks.
 - Final output prints `Demo OK` plus the store and fork file paths. The fork ids
   are in the `agent fork-from-snapshot` JSON output above it.
 - Snapshot store, event store and fork snapshots are generated under:
@@ -101,6 +104,33 @@ Seeds working, semantic and episodic memory at snapshot creation time:
 genos snapshot create --agent agent-a.json --out snapshot-s0.json \
   --memory seed_note=minimal-memory --semantic-ref memory-minimal-1
 ```
+
+### `genos diff`
+
+Diffs the logical state of two snapshots and reports one entry per changed
+path. Identity fields are excluded on purpose, which is what makes the diff
+between two untouched forks empty:
+
+```bash
+genos diff fork-1.json fork-2.json --expect-empty
+```
+
+```json
+{
+  "empty": true,
+  "entry_count": 0,
+  "changed_paths": [],
+  "identity": { "distinct_identity": true, "...": "..." }
+}
+```
+
+Both sides accept a file path or a snapshot id resolved in the store. The
+`identity` block is reported for context only: it shows the two snapshots really
+are distinct agents on distinct branches, so the empty diff means "same logical
+state", not "same object compared twice". This is the baseline the diff
+semantics are defined against — see
+[`../divergent-writes-demo`](../divergent-writes-demo) for the non-empty side,
+where `--expect-changed-path` asserts exactly which paths moved.
 
 ### `replay basic --snapshot`
 
