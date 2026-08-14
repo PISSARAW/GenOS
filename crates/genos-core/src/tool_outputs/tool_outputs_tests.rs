@@ -4,7 +4,7 @@ use crate::events::AgentEventType;
 use crate::fork_snapshot;
 use crate::ids::ToolOutputId;
 use crate::snapshot::tests::snapshot_with_variable;
-use crate::tool_outputs::{record_tool_call_on_branch, ToolCallRequest};
+use crate::tool_outputs::{record_checked_tool_call_on_branch, record_tool_call_on_branch, ToolCallRequest};
 use serde_json::json;
 
 #[test]
@@ -190,6 +190,29 @@ fn failed_tool_call_is_recorded_without_failing_the_runtime() {
     assert_eq!(write.record.output, json!({ "error": "file not found" }));
     assert_eq!(snapshot.state.event_cursor.sequence, 2);
     assert_eq!(snapshot.state.tool_outputs.len(), 1);
+}
+
+#[test]
+fn denied_network_tool_is_audited_without_execution() {
+    let mut snapshot = snapshot_with_variable("counter", "0");
+    let policy = crate::ToolPolicy { permissions: vec![crate::ToolPermission {
+        tool: "http".to_string(),
+        scope: "network".to_string(),
+        enabled: false,
+    }] };
+
+    let write = record_checked_tool_call_on_branch(
+        &mut snapshot,
+        &policy,
+        "http",
+        "network",
+        json!({ "url": "https://example.com" }),
+    );
+
+    assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
+    assert_eq!(write.record.output["error"], "permission_denied");
+    assert_eq!(snapshot.state.tool_outputs.len(), 1);
+    assert_eq!(snapshot.state.event_cursor.sequence, 2);
 }
 
 #[test]

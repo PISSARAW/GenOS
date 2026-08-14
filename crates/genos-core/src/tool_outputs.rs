@@ -21,6 +21,7 @@ use crate::artifact::{ArtifactRef, DigestAlgorithm};
 use crate::ids::{EventId, ToolOutputId};
 use crate::snapshot::AgentSnapshot;
 use crate::state::ToolOutputRecord;
+use crate::genome::ToolPolicy;
 use sha2::{Digest, Sha256};
 use chrono::{DateTime, Utc};
 use serde_json::json;
@@ -37,6 +38,16 @@ impl AgentSnapshot {
     /// Tool output records on this branch, in insertion order.
     pub fn tool_outputs(&self) -> &[ToolOutputRecord] {
         &self.state.tool_outputs
+    }
+
+    /// Returns whether the genome explicitly enables this tool and scope.
+    pub fn tool_is_allowed(&self, policy: &ToolPolicy, tool: &str, scope: &str) -> bool {
+        policy
+            .permissions
+            .iter()
+            .any(|permission| {
+                permission.tool == tool && permission.scope == scope && permission.enabled
+            })
     }
 }
 
@@ -78,6 +89,32 @@ pub fn record_tool_call_on_branch(
     req: ToolCallRequest<'_>,
 ) -> ToolOutputWrite {
     record_tool_call_on_branch_at(snapshot, req, Utc::now())
+}
+
+/// Record a tool request after enforcing the branch genome policy. Denied
+/// requests are never executed, but remain auditable as `ToolFailed`.
+pub fn record_checked_tool_call_on_branch(
+    snapshot: &mut AgentSnapshot,
+    policy: &ToolPolicy,
+    tool_name: &str,
+    scope: &str,
+    input: serde_json::Value,
+) -> ToolOutputWrite {
+    if snapshot.tool_is_allowed(policy, tool_name, scope) {
+        record_tool_call_on_branch(snapshot, ToolCallRequest {
+            tool_name,
+            input,
+            output: json!({ "status": "allowed" }),
+            success: true,
+        })
+    } else {
+        record_tool_call_on_branch(snapshot, ToolCallRequest {
+            tool_name,
+            input,
+            output: json!({ "error": "permission_denied", "scope": scope }),
+            success: false,
+        })
+    }
 }
 
 /// [`record_tool_call_on_branch`] with an explicit timestamp, for deterministic
