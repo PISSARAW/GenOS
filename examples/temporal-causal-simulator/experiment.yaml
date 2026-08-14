@@ -1,0 +1,47 @@
+name: temporal-causal-simulator
+checkpoint:
+  agent_ref: agent@2026-03-12
+  replayed_at: 2026-03-12T00:00:00Z
+history_end: 2026-08-31T23:59:59Z
+observations:
+  - event_id: april-traffic
+    observed_at: 2026-04-10T00:00:00Z
+    kind: traffic_growth
+    multiplier: 1.8
+  - event_id: june-dataset
+    observed_at: 2026-06-03T00:00:00Z
+    kind: dataset_growth
+    multiplier: 2.2
+  - event_id: july-writes
+    observed_at: 2026-07-08T00:00:00Z
+    kind: write_growth
+    multiplier: 2.0
+  - event_id: august-regions
+    observed_at: 2026-08-02T00:00:00Z
+    kind: cross_region_traffic
+    regions: 3
+  - event_id: august-invalidation-storm
+    observed_at: 2026-08-17T00:00:00Z
+    kind: cache_invalidation_spike
+    invalidations_per_second: 1500
+universes:
+  - branch_id: reality
+    hypothesis: historical decision
+    architecture: postgres_redis
+    factual: true
+  - branch_id: counterfactual-A
+    hypothesis: remove cache coordination
+    architecture: postgres_only
+    factual: false
+  - branch_id: counterfactual-B
+    hypothesis: distribute SQL storage
+    architecture: cockroach_db
+    factual: false
+  - branch_id: counterfactual-C
+    hypothesis: model changes as events
+    architecture: event_sourcing
+    factual: false
+  - branch_id: counterfactual-D
+    hypothesis: change access patterns before infrastructure
+    architecture: different_data_model
+    factual: false

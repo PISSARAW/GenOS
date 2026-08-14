@@ -1,5 +1,6 @@
 mod args;
 mod cmd_agent;
+mod cmd_experiment;
 mod cmd_inspect;
 mod cmd_replay;
 mod cmd_snapshot;
@@ -11,13 +12,14 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::args::{
-    AgentSubcommands, Cli, Commands, InspectSubcommands, ReplaySubcommands, SnapshotSubcommands,
-    WorldSubcommands,
+    AgentSubcommands, Cli, Commands, ExperimentSubcommands, InspectSubcommands, ReplaySubcommands,
+    SnapshotSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_inspect, cmd_init,
 };
 use crate::cmd_inspect::cmd_inspect_belief;
+use crate::cmd_experiment::{cmd_experiment_temporal, cmd_experiment_workspace};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
@@ -40,6 +42,10 @@ async fn main() -> Result<()> {
             AgentSubcommands::Create(args) => cmd_agent_create(args),
             AgentSubcommands::Inspect(args) => cmd_agent_inspect(args),
             AgentSubcommands::ForkFromSnapshot(args) => cmd_agent_fork_from_snapshot(args).await,
+        },
+        Commands::Experiment(experiment) => match experiment.command {
+            ExperimentSubcommands::Workspace(args) => cmd_experiment_workspace(args).await,
+            ExperimentSubcommands::Temporal(args) => cmd_experiment_temporal(args),
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),

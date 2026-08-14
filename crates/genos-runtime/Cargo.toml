@@ -9,13 +9,12 @@ anyhow.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 genos-core = { path = "../genos-core" }
+genos-eval = { path = "../genos-eval" }
 genos-world = { path = "../genos-world" }
 serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-chrono.workspace = true
-genos-eval = { path = "../genos-eval" }
-serde_json.workspace = true
 tempfile = "3"

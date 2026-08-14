@@ -3,12 +3,14 @@ use genos_core::MemoryKind;
 use std::path::PathBuf;
 
 pub mod agent;
+pub mod experiment;
 pub mod inspect;
 pub mod replay;
 pub mod snapshot;
 pub mod world;
 
 pub use agent::*;
+pub use experiment::*;
 pub use inspect::*;
 pub use replay::*;
 pub use snapshot::*;
@@ -26,6 +28,8 @@ pub struct Cli {
 pub enum Commands {
     Init,
     Agent(AgentCommand),
+    /// Run persisted counterfactual experiments from reusable manifests.
+    Experiment(ExperimentCommand),
     Snapshot(SnapshotCommand),
     World(WorldCommand),
     Replay(ReplayCommand),

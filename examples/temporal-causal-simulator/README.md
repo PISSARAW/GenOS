@@ -22,5 +22,7 @@ domain simulators later.
 Run the public scenario:
 
 ```powershell
-cargo test -p genos-runtime --test temporal_causal_simulation -- --nocapture
+cargo run -p genos-cli -- experiment temporal examples/temporal-causal-simulator/experiment.yaml
 ```
+
+The report is persisted under `.genos/experiments/temporal-causal-simulator/reports/`.
