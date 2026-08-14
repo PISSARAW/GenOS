@@ -38,3 +38,4 @@ define_id!(ArtifactId);
 define_id!(MemoryId);
 define_id!(BeliefId);
 define_id!(CorrelationId);
+define_id!(ToolOutputId);

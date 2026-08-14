@@ -8,6 +8,7 @@ pub mod lineage;
 pub mod memories;
 pub mod snapshot;
 pub mod state;
+pub mod tool_outputs;
 pub mod variables;
 
 pub use artifact::*;
@@ -20,4 +21,5 @@ pub use lineage::*;
 pub use memories::*;
 pub use snapshot::*;
 pub use state::*;
+pub use tool_outputs::*;
 pub use variables::*;
