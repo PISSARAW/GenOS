@@ -148,6 +148,30 @@ fn record_tool_call_appends_two_events_in_order() {
 }
 
 #[test]
+fn read_file_result_is_attached_as_a_provenance_artifact() {
+    let mut snapshot = snapshot_with_variable("counter", "0");
+    let write = record_tool_call_on_branch(
+        &mut snapshot,
+        ToolCallRequest {
+            tool_name: "read_file",
+            input: json!({ "path": "README.md" }),
+            output: json!({ "content": "hello" }),
+            success: true,
+        },
+    );
+
+    assert_eq!(write.requested_event.event_type, AgentEventType::ToolRequested);
+    assert_eq!(write.completed_event.event_type, AgentEventType::ToolCompleted);
+    assert_eq!(snapshot.state.tool_outputs.len(), 1);
+    assert_eq!(snapshot.state.artifact_refs.len(), 1);
+    assert_eq!(snapshot.state.artifact_refs[0].media_type, "application/json");
+    assert_eq!(
+        snapshot.state.tool_outputs[0].generating_event_id,
+        write.completed_event.event_id
+    );
+}
+
+#[test]
 fn tool_output_ids_are_unique() {
     let mut snapshot = snapshot_with_variable("counter", "0");
     let a = record_tool_call_on_branch(
