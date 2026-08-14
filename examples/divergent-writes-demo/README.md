@@ -69,6 +69,9 @@ hand, so the invariants it proves are the ones the CLI actually enforces.
 Run [`../counterfactual-demo`](../counterfactual-demo) first if you want the
 step before this one: two forks that start out logically identical. This demo
 picks up where that one stops, at the moment the two branches stop agreeing.
+[`../divergent-worlds-demo`](../divergent-worlds-demo) proves the same property
+one layer down, where the diverging state is a file inside a forked world
+instead of a variable in working memory.
 
 ## CLI commands behind the demo
 

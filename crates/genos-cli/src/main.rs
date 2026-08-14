@@ -14,7 +14,10 @@ use genos_store::{
     basic_state_from_snapshot, replay_basic_state_from, EventStore, LocalEventStore,
     LocalSnapshotStore, SnapshotStore,
 };
-use genos_world::{DestroyOutcome, DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
+use genos_world::{
+    check_file_isolation, DestroyOutcome, DirectoryWorldProvider, FileIsolationReport,
+    GitWorktreeWorldProvider, WorldFileExpectation, WorldProvider,
+};
 use serde::Serialize;
 use serde_json::json;
 use std::fs;
@@ -336,6 +339,84 @@ enum WorldSubcommands {
     Fork(WorldForkArgs),
     Diff(WorldDiffArgs),
     Destroy(WorldDestroyArgs),
+    /// Read a world-relative file from inside a world.
+    ReadFile(WorldReadFileArgs),
+    /// Write a world-relative file inside a world.
+    WriteFile(WorldWriteFileArgs),
+    /// Check that forked worlds wrote the same file differently and that no
+    /// write escaped its world.
+    CheckFile(WorldCheckFileArgs),
+}
+
+#[derive(Args, Debug)]
+struct WorldReadFileArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    world_id: String,
+    /// World-relative path, for example `hello.txt`.
+    #[arg(long)]
+    path: String,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct WorldWriteFileArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    #[arg(long)]
+    world_id: String,
+    /// World-relative path, for example `hello.txt`.
+    #[arg(long)]
+    path: String,
+    #[arg(long)]
+    contents: String,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
+#[derive(Args, Debug)]
+struct WorldCheckFileArgs {
+    #[arg(long, value_enum)]
+    provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    root: PathBuf,
+    /// World-relative path the forks are expected to have written.
+    #[arg(long)]
+    path: String,
+    /// World the branches were forked from.
+    #[arg(long)]
+    parent: String,
+    /// Contents the parent held before the forks were written to. Defaults to
+    /// what it currently holds, which only checks the forks against each other.
+    #[arg(long)]
+    expect_parent: Option<String>,
+    /// Expect the file to be absent from the parent world.
+    #[arg(long, conflicts_with = "expect_parent")]
+    expect_parent_absent: bool,
+    /// Forked world id. Repeatable.
+    #[arg(long = "branch", value_name = "WORLD_ID")]
+    branches: Vec<String>,
+    /// Contents the matching `--branch` wrote, in the same order. Repeatable.
+    #[arg(long = "expect", value_name = "CONTENTS")]
+    expects: Vec<String>,
+    /// Exit non-zero unless every world kept its own write, the parent kept its
+    /// pre-fork contents, and no two worlds ended on the same contents.
+    #[arg(long)]
+    expect_isolated: bool,
+    #[arg(long)]
+    repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
 }
 
 #[derive(Args, Debug)]
@@ -460,6 +541,33 @@ struct WorldDestroyOutput {
 }
 
 #[derive(Serialize)]
+struct WorldReadFileOutput {
+    provider: String,
+    world_id: String,
+    path: String,
+    found: bool,
+    contents: Option<String>,
+}
+
+#[derive(Serialize)]
+struct WorldWriteFileOutput {
+    provider: String,
+    world_id: String,
+    path: String,
+    previous_contents: Option<String>,
+    contents: String,
+    created: bool,
+}
+
+#[derive(Serialize)]
+struct WorldCheckFileOutput {
+    provider: String,
+    parent_world_id: String,
+    branch_count: usize,
+    report: FileIsolationReport,
+}
+
+#[derive(Serialize)]
 struct ReplayBasicOutput {
     store_path: String,
     branch_id: Option<String>,
@@ -577,6 +685,9 @@ async fn main() -> Result<()> {
             WorldSubcommands::Fork(args) => cmd_world_fork(args).await,
             WorldSubcommands::Diff(args) => cmd_world_diff(args).await,
             WorldSubcommands::Destroy(args) => cmd_world_destroy(args).await,
+            WorldSubcommands::ReadFile(args) => cmd_world_read_file(args).await,
+            WorldSubcommands::WriteFile(args) => cmd_world_write_file(args).await,
+            WorldSubcommands::CheckFile(args) => cmd_world_check_file(args).await,
         },
         Commands::Replay(replay) => match replay.command {
             ReplaySubcommands::Basic(args) => cmd_replay_basic(args).await,
@@ -1107,6 +1218,107 @@ async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
         status: status.to_string(),
     };
     print_serialized(&out, args.format)
+}
+
+async fn cmd_world_read_file(args: WorldReadFileArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let world_id = WorldId(args.world_id.clone());
+    let contents = provider.read_file(&world_id, &args.path).await?;
+
+    let out = WorldReadFileOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: args.world_id,
+        path: args.path,
+        found: contents.is_some(),
+        contents,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_write_file(args: WorldWriteFileArgs) -> Result<()> {
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let world_id = WorldId(args.world_id.clone());
+
+    let previous_contents = provider.read_file(&world_id, &args.path).await?;
+    provider
+        .write_file(&world_id, &args.path, &args.contents)
+        .await?;
+
+    let out = WorldWriteFileOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: args.world_id,
+        path: args.path,
+        created: previous_contents.is_none(),
+        previous_contents,
+        contents: args.contents,
+    };
+    print_serialized(&out, args.format)
+}
+
+async fn cmd_world_check_file(args: WorldCheckFileArgs) -> Result<()> {
+    if args.branches.is_empty() {
+        bail!("--branch is required at least once");
+    }
+    if !args.expects.is_empty() && args.expects.len() != args.branches.len() {
+        bail!(
+            "--expect must be given once per --branch, in the same order: got {} --branch and {} --expect",
+            args.branches.len(),
+            args.expects.len()
+        );
+    }
+
+    let provider = provider_from_args(args.provider, args.root, None, args.repo)?;
+    let parent_world = WorldId(args.parent.clone());
+
+    // Without an explicit expectation, a world is expected to hold what it
+    // already holds: the check then only proves the forks diverged.
+    let parent_expectation = WorldFileExpectation {
+        expected: if args.expect_parent_absent {
+            None
+        } else {
+            match &args.expect_parent {
+                Some(expected) => Some(expected.clone()),
+                None => provider.read_file(&parent_world, &args.path).await?,
+            }
+        },
+        world_id: parent_world,
+    };
+
+    let mut branch_expectations = Vec::with_capacity(args.branches.len());
+    for (index, branch) in args.branches.iter().enumerate() {
+        let world_id = WorldId(branch.clone());
+        let expected = match args.expects.get(index) {
+            Some(expected) => Some(expected.clone()),
+            None => provider.read_file(&world_id, &args.path).await?,
+        };
+        branch_expectations.push(WorldFileExpectation { world_id, expected });
+    }
+
+    let report = check_file_isolation(
+        provider.as_ref(),
+        &args.path,
+        &parent_expectation,
+        &branch_expectations,
+    )
+    .await?;
+
+    let out = WorldCheckFileOutput {
+        provider: provider_name(args.provider).to_string(),
+        parent_world_id: args.parent,
+        branch_count: branch_expectations.len(),
+        report,
+    };
+    print_serialized(&out, args.format)?;
+
+    if args.expect_isolated && !out.report.isolated {
+        bail!(
+            "file '{}' is not isolated across worlds: {}",
+            args.path,
+            out.report.violations.join("; ")
+        );
+    }
+
+    Ok(())
 }
 
 async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
