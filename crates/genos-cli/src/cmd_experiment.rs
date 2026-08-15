@@ -1,14 +1,15 @@
 use crate::args::{
-    IncidentExperimentArgs, ScientificExperimentArgs, SecurityCoevolutionArgs,
-    TemporalExperimentArgs, WorkspaceExperimentArgs,
+    BugInvestigationArgs, IncidentExperimentArgs, ScientificExperimentArgs,
+    SecurityCoevolutionArgs, TemporalExperimentArgs, WorkspaceExperimentArgs,
 };
 use crate::output::print_serialized;
 use anyhow::Context;
 use genos_runtime::{
-    persist_experiment_report, run_incident_search, run_scientific_experiment,
-    run_security_coevolution, run_temporal_experiment, run_workspace_experiment,
-    IncidentSearchManifest, ScientificExperimentManifest, SecurityCoevolutionManifest,
-    TemporalExperimentManifest, WorkspaceExperimentManifest,
+    persist_experiment_report, run_bug_investigation, run_incident_search,
+    run_scientific_experiment, run_security_coevolution, run_temporal_experiment,
+    run_workspace_experiment, BugInvestigationManifest, IncidentSearchManifest,
+    ScientificExperimentManifest, SecurityCoevolutionManifest, TemporalExperimentManifest,
+    WorkspaceExperimentManifest,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
@@ -54,6 +55,18 @@ struct SecurityCoevolutionSummaryOutput {
     observer_findings: usize,
     total_genomes_evaluated: usize,
     final_breach_probabilities: Vec<(String, f64)>,
+}
+
+#[derive(Serialize)]
+struct BugInvestigationSummaryOutput {
+    report_path: String,
+    bug: String,
+    hypotheses: usize,
+    supported: Vec<String>,
+    rejected: Vec<String>,
+    selected_fix: Option<String>,
+    evidence_records: usize,
+    selection_note: String,
 }
 
 fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
@@ -214,6 +227,58 @@ pub fn cmd_experiment_security_coevolution(args: SecurityCoevolutionArgs) -> any
                 observer_findings: report.evolution.len(),
                 total_genomes_evaluated: report.total_genomes_evaluated,
                 final_breach_probabilities,
+            },
+            args.format,
+        )
+    } else {
+        print_serialized(
+            &ExperimentRunOutput {
+                report_path: report_path.display().to_string(),
+                report,
+            },
+            args.format,
+        )
+    }
+}
+
+pub async fn cmd_experiment_bug_investigation(args: BugInvestigationArgs) -> anyhow::Result<()> {
+    let mut manifest: BugInvestigationManifest = read_manifest(&args.manifest)?;
+    if manifest.seed_dir.is_relative() {
+        let base = args.manifest.parent().unwrap_or_else(|| Path::new("."));
+        manifest.seed_dir = base.join(&manifest.seed_dir);
+    }
+    let name = manifest.name.clone();
+    let experiment_root = args.root.join(&name);
+    let report = run_bug_investigation(manifest, &experiment_root).await?;
+    let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
+    if args.summary {
+        let supported = report
+            .investigations
+            .iter()
+            .filter(|investigation| {
+                investigation.verdict == genos_runtime::HypothesisVerdict::Supported
+            })
+            .map(|investigation| investigation.hypothesis_id.clone())
+            .collect();
+        let selected_fix = report
+            .selected_fix
+            .as_ref()
+            .map(|fix| fix.hypothesis_id.clone());
+        print_serialized(
+            &BugInvestigationSummaryOutput {
+                report_path: report_path.display().to_string(),
+                bug: report.bug,
+                hypotheses: report.investigations.len(),
+                supported,
+                rejected: report.rejected_hypothesis_ids,
+                selected_fix,
+                evidence_records: report.baseline_evidence.len()
+                    + report
+                        .investigations
+                        .iter()
+                        .map(|investigation| investigation.evidence.len())
+                        .sum::<usize>(),
+                selection_note: report.selection_note,
             },
             args.format,
         )

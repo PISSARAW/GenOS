@@ -19,6 +19,8 @@ pub enum ExperimentSubcommands {
     Scientific(ScientificExperimentArgs),
     /// Co-evolve abstract Red and Blue genomes in isolated simulated worlds.
     SecurityCoevolution(SecurityCoevolutionArgs),
+    /// Falsify competing bug explanations in isolated code worlds.
+    BugInvestigation(BugInvestigationArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -71,6 +73,18 @@ pub struct SecurityCoevolutionArgs {
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
     /// Print population totals while retaining every generation in the report.
+    #[arg(long)]
+    pub summary: bool,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct BugInvestigationArgs {
+    pub manifest: PathBuf,
+    #[arg(long, default_value = ".genos/experiments")]
+    pub root: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+    /// Print surviving and rejected explanations while retaining full evidence.
     #[arg(long)]
     pub summary: bool,
 }
