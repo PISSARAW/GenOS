@@ -5,9 +5,9 @@ Accepted
 
 ## Implementation Status
 
-Not implemented. The portable cohort schema exists, but there is no cohort
-runner enforcing baselines, treatments, controls, or genome-by-experience
-analysis.
+Implemented. `genos-runtime::evolution` validates fixed-genome cohort baselines
+and controls, measures treatment effects, and analyzes genome, experience, and
+genome-by-experience interaction in complete factorial designs.
 
 ## Context
 

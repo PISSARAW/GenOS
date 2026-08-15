@@ -5,10 +5,10 @@ Accepted
 
 ## Implementation Status
 
-Partially implemented. Agent snapshots and worlds can be forked independently,
-and branch isolation has tests. They are not yet created and checkpointed as
-one atomic branch capsule; knowledge synthesis exists only for selected
-experiment paths.
+Implemented. `fork_counterfactual_capsules` binds each fresh agent clone to an
+isolated world, event stream, budget, hypothesis, and durable capsule, rolling
+back the world if capsule persistence fails. Selection and evidence-bearing
+knowledge synthesis with a mandatory validation branch are implemented.
 
 ## Context
 

@@ -5,9 +5,10 @@ Accepted
 
 ## Implementation Status
 
-Not implemented. The capsule schema and lifecycle contract are specified, but
-there is no capsule store, atomic checkpoint transaction, component restorer,
-or pause/resume orchestration.
+Implemented. `AgentWorldCapsule` has integrity sealing, checked lifecycle
+transitions, lineage, budgets, and restoration modes. `LocalCapsuleStore` is
+append-only and verifies integrity. Runtime checkpoint, pause, resume, world
+reconstruction, and pluggable component restoration are implemented.
 
 ## Context
 

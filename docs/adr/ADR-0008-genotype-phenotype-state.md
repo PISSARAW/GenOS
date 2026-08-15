@@ -5,9 +5,9 @@ Accepted
 
 ## Implementation Status
 
-Partially implemented. Genome and mutable state are separate in `genos-core`.
-The phenotype observation model and genome/phenotype divergence pipeline are
-specified but not yet represented as first-class runtime records.
+Implemented. `genos-core::phenotype` provides serializable phenotype records,
+observed traits, confidence/provenance, and explicit genome/phenotype
+divergence. Genome and mutable state remain separate.
 
 ## Context
 

@@ -5,9 +5,10 @@ Accepted
 
 ## Implementation Status
 
-Partially implemented. `genos-eval` can recombine comparable measured trait
-estimates and rejects incompatible suites. There is no `agent breed` command,
-genome recombination engine, or child-validation workflow yet.
+Implemented. `agent breed` consumes comparable measured trait evidence,
+constructs a two-parent child labelled `untested_candidate`, records targets
+and contributions, and the runtime validates or rejects the child from an
+independent phenotype observation.
 
 ## Context
 

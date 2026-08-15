@@ -5,9 +5,10 @@ Accepted
 
 ## Implementation Status
 
-Not implemented. A portable claim schema exists, but inferred claims are not
-stored by `AgentGenome`, replicated by an evaluator, or promoted through a
-runtime mutation workflow.
+Implemented. `AgentGenome` stores inferred claims. The core inference pipeline
+aggregates observations, detects cross-context replication, records descendant
+heritability evidence, and promotes only replicated claims through an explicit
+mutation. The CLI exposes inference and promotion.
 
 ## Context
 
