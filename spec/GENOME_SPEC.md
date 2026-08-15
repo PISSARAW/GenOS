@@ -55,6 +55,19 @@ between `0.0` and `1.0`.
 Recommended names include `curiosity`, `caution`, `completion`, `autonomy`,
 `verification`, and `novelty_seeking`.
 
+## Discovered characteristics
+
+A genome MAY reference inferred trait claims discovered through phenotype
+evaluation. These claims are annotations about the genome, not executable
+configuration and not copies of mutable phenotype state.
+
+An inferred claim MUST include evidence, an inference method, uncertainty or
+confidence, and an observation count. Claims of heritability MUST cite
+descendant cohorts. Repeated observations from one agent can demonstrate
+stability, but cannot by themselves demonstrate inheritance.
+
+The portable claim shape is defined by `spec/genome-trait-claim.schema.json`.
+
 ## Serialization
 
 Portable formats:

@@ -53,3 +53,25 @@ experience, model, environment, and evaluation suite.
 The two effects are not always additive. A complete design also measures the
 genome-by-experience interaction: the same experience may shape two genomes in
 different ways.
+
+## From observation to genomic knowledge
+
+Repeated phenotype observations may support a claim that a genome has a stable
+characteristic. The observation remains in the phenotype record. The genome
+may reference a separate inferred-trait claim with confidence, provenance, and
+replication status.
+
+```text
+declared genome trait -> expected behavior
+                              |
+                              v
+phenotype observations -> inferred genomic claim
+                              |
+                    explicit promotion only
+                              v
+                       genome mutation
+```
+
+This prevents an observed value from changing the agent merely because it was
+measured. It also distinguishes stability from heritability: inheritance needs
+evidence from descendants.

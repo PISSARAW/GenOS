@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/genome-trait-claim.schema.json",
+  "title": "InferredGenomeTraitClaim",
+  "type": "object",
+  "required": [
+    "trait",
+    "estimate",
+    "confidence",
+    "observations",
+    "status",
+    "inference_method",
+    "evidence"
+  ],
+  "properties": {
+    "trait": { "type": "string", "minLength": 1 },
+    "estimate": { "type": "number" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "observations": { "type": "integer", "minimum": 1 },
+    "status": {
+      "enum": ["candidate", "replicated", "disputed", "rejected"]
+    },
+    "inference_method": { "type": "string", "minLength": 1 },
+    "contexts": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "heritability": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": { "enum": ["unknown", "candidate", "supported", "rejected"] },
+        "estimate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "descendant_cohorts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
+
