@@ -1,8 +1,16 @@
 [package]
 name = "genos-eval"
+description = "Evaluation and selection primitives for counterfactual GenOS branches"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 genos-core = { path = "../genos-core" }

@@ -15,8 +15,14 @@ resolver = "2"
 [workspace.package]
 version = "0.0.1"
 edition = "2021"
+rust-version = "1.85"
 license = "Apache-2.0"
-repository = "https://github.com/example/genos"
+repository = "https://github.com/PISSARAW/GenOS"
+homepage = "https://github.com/PISSARAW/GenOS"
+documentation = "https://github.com/PISSARAW/GenOS/tree/main/docs"
+readme = "README.md"
+keywords = ["agents", "ai", "runtime", "reproducibility", "event-sourcing"]
+categories = ["development-tools", "simulation"]
 
 [workspace.dependencies]
 anyhow = "1"

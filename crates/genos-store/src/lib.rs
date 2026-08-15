@@ -592,7 +592,10 @@ mod tests {
         SnapshotId, ToolState, WorldId,
     };
     use serde_json::json;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEMP_STORE_ID: AtomicU64 = AtomicU64::new(0);
 
     fn make_event(event_type: AgentEventType, sequence: u64, branch: &str) -> AgentEvent {
         AgentEvent {
@@ -613,7 +616,11 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time is before unix epoch")
             .as_nanos();
-        std::env::temp_dir().join(format!("genos-store-test-{nanos}.jsonl"))
+        let sequence = NEXT_TEMP_STORE_ID.fetch_add(1, Ordering::Relaxed);
+        std::env::temp_dir().join(format!(
+            "genos-store-test-{}-{nanos}-{sequence}.jsonl",
+            std::process::id()
+        ))
     }
 
     #[tokio::test]

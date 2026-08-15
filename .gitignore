@@ -2,10 +2,12 @@ target/
 **/*.rs.bk
 .genos/
 demo-output.txt
-Cargo.lock
 .env
 .venv/
 __pycache__/
 *.pyc
 .DS_Store
 node_modules/
+coverage/
+*.profraw
+*.profdata

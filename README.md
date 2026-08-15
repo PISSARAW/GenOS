@@ -1,59 +1,77 @@
 # GenOS
 
-## The open source operating system for reproducible AI agents
+**A counterfactual runtime for reproducible AI agents.**
 
-GenOS is a provider-neutral runtime for building AI agents whose **state, memory, world, and history are explicit, versioned, forkable, and inspectable**.
+[![CI](https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml/badge.svg)](https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Rust](https://img.shields.io/badge/Rust-stable-orange.svg)](rust-toolchain.toml)
+[![Status](https://img.shields.io/badge/status-pre--alpha-yellow.svg)](docs/ROADMAP.md)
 
-An agent is more than a prompt:
+GenOS makes an agent's identity, state, memory, environment, and history explicit. It can checkpoint an agent and its world, fork that checkpoint into isolated branches, execute competing hypotheses, compare the outcomes, and replay how each result was produced.
 
 ```text
 Agent = Genome + State + World + Event History
 ```
 
-GenOS lets teams save an agent, fork it into counterfactual branches, compare outcomes, and replay what happened—without requiring an LLM call to create a clone.
+GenOS is provider-neutral and model calls are not required to snapshot, restore, fork, inspect, or diff an agent.
+
+> [!IMPORTANT]
+> GenOS is an experimental, pre-alpha project. Its core invariants are tested, but APIs, schemas, storage formats, and command names may change before `0.1.0`. It is not yet intended for production workloads.
 
 ## Why GenOS?
 
-Modern agents are difficult to reproduce because identity, memory, tools, environment, and execution history are often mixed together. GenOS separates these concerns so teams can:
+Most agent frameworks optimize the next model call. GenOS focuses on what happens around and between those calls: preserving state, isolating alternatives, tracing causality, and turning experiments into reproducible artifacts.
 
-- fork an agent from a snapshot without invoking a model;
-- preserve the same logical state while assigning new identities and branches;
-- isolate files and worlds between branches;
-- record events, tool calls, memories, beliefs, and provenance;
-- compare snapshots structurally;
-- replay branch history;
-- keep model and tool providers interchangeable.
+- **Reproduce:** checkpoint the complete logical state of an agent-world pair.
+- **Branch:** explore alternatives from the same starting point without state leakage.
+- **Inspect:** retain lineage, beliefs, memories, evidence, tool outputs, and provenance.
+- **Evaluate:** compare branches with constraints, multiple objectives, and Pareto selection.
+- **Replay:** reconstruct state or revisit a past decision in a controlled causal universe.
+- **Integrate:** swap model, tool, storage, and world providers behind neutral interfaces.
+
+## How it works
+
+```text
+                         +--> Branch A --> execute --> evidence --+
+Agent + World --> S0 ----+                                     +--> evaluate / merge --> S1
+                         +--> Branch B --> execute --> evidence --+
+```
+
+A snapshot is a reproducible checkpoint. A fork receives a new agent and branch identity while preserving the logical starting state. Each branch gets an isolated world and event stream. Results can then be diffed, evaluated, replayed, or reconciled through an explicit cognitive merge.
 
 ## Current capabilities
 
-- Strongly typed agent, genome, snapshot, branch, world, event, and memory identifiers
-- Agent snapshots, restoration, checkpoints, and lineage tracking
-- Counterfactual forks with isolated `AgentId`, `BranchId`, and event streams
-- Structural snapshot diffs
-- Event-sourced local persistence using JSONL
-- Variable, memory, belief, evidence, and tool-output tracking
-- Directory and Git worktree world providers
-- File isolation checks
-- CLI workflows for agents, snapshots, worlds, replay, inspection, and diff
-- Ten canonical `agent` primitives spanning initialization, snapshot/restore,
-  fork/mutation/run, diff/merge, lineage, and replay
-- Portable JSON Schemas in `spec/`
-- Runnable demonstrations in `examples/`
+| Area | Available today |
+| --- | --- |
+| Agent state | Typed genomes, state, memories, beliefs, evidence, tool outputs, and provenance |
+| Versioning | Snapshots, restoration, checkpoints, structural diffs, lineage DAGs, and replay |
+| Isolation | Directory and Git worktree worlds with path-safety and branch-isolation tests |
+| Experiments | Workspace, temporal, incident, scientific, security, heredity, selection, and bug-investigation workflows |
+| Evolution | Genome mutation, evidence-based breeding, trait inference, and budgeted branch evolution |
+| Evaluation | Multi-objective scoring, hard constraints, Pareto assessment, and winner selection |
+| Merge | Evidence packets, typed knowledge graphs, contextual synthesis, and reviewed parent updates |
+| Interfaces | Rust crates, a `genos` CLI, portable JSON Schemas, and an HTTP health endpoint |
 
-## Example: clone an agent without an LLM
+See the [implementation status](docs/adr/IMPLEMENTATION_STATUS.md) for the exact boundary between accepted design and executable coverage.
 
-```text
-Agent A
-  │
-  └── Snapshot S0
-        │
-        ├── Fork A1  (new AgentId, new BranchId, same logical state)
-        └── Fork A2  (new AgentId, new BranchId, same logical state)
+## Quick start
+
+### Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) stable, including Cargo
+- Git (required for Git worktree worlds)
+- Bash or PowerShell for the runnable demos
+
+### Build and inspect the CLI
+
+```bash
+git clone https://github.com/PISSARAW/GenOS.git
+cd GenOS
+cargo build --workspace
+cargo run -p genos-cli -- --help
 ```
 
-Both clones start from the same genome, state, world reference, and minimal memory. Their subsequent events remain isolated and independently replayable.
-
-## Quickstart
+Initialize a local GenOS workspace and create an agent:
 
 ```bash
 cargo run -p genos-cli -- init
@@ -62,7 +80,27 @@ cargo run -p genos-cli -- agent inspect .genos/agents/atlas.yaml --format json
 cargo run -p genos-cli -- snapshot create --agent .genos/agents/atlas.yaml
 ```
 
-The canonical lifecycle surface is deliberately small:
+Generated runtime data is stored under `.genos/` and is ignored by Git.
+
+### Run the isolation proof
+
+```bash
+./examples/counterfactual-demo/run-demo.sh
+```
+
+On Windows:
+
+```powershell
+./examples/counterfactual-demo/run-demo.ps1
+```
+
+The demo creates one snapshot, forks two logically identical agents without an LLM call, verifies distinct identities and isolated event streams, and proves that untouched forks have an empty logical diff.
+
+More runnable scenarios are catalogued in [examples/README.md](examples/README.md).
+
+## Canonical agent lifecycle
+
+GenOS exposes ten composable agent primitives:
 
 ```bash
 genos agent init
@@ -72,91 +110,67 @@ genos agent fork <CAPSULE_ID> --branch A=baseline --branch B=alternative
 genos agent mutate <GENOME> --exploration 0.15 --risk -0.10
 genos agent run <CAPSULE_ID> --command "cargo test"
 genos agent diff <SNAPSHOT_A> <SNAPSHOT_B>
-genos agent merge <COGNITIVE_MERGE_MANIFEST>
+genos agent merge <MERGE_MANIFEST>
 genos agent lineage --snapshot <SNAPSHOT_ID>
 genos agent replay --snapshot <SNAPSHOT_ID>
 ```
 
-See [`docs/AGENT_PRIMITIVES.md`](docs/AGENT_PRIMITIVES.md) for exact semantics
-and the bootstrap from a genome to an executable agent-world capsule.
-The migration of the runnable projects to this vocabulary is tracked in
-[`docs/PROJECT_PRIMITIVE_MATRIX.md`](docs/PROJECT_PRIMITIVE_MATRIX.md); project
-reports expose the ordered operations in `primitive_trace`.
+Read [Agent primitives](docs/AGENT_PRIMITIVES.md) for their exact semantics and [Counterfactual OS](docs/COUNTERFACTUAL_OS.md) for the integrated execution model.
 
-Create and fork snapshots:
+## Architecture
 
-```bash
-cargo run -p genos-cli -- snapshot create --agent .genos/agents/atlas.yaml
-cargo run -p genos-cli -- agent fork-from-snapshot \
-  --snapshot .genos/snapshots/<SNAPSHOT_ID>.json \
-  --count 2 --save --format json
-```
-
-Run the fork-isolation demonstrations:
-
-```bash
-./examples/counterfactual-demo/run-demo.sh
-./examples/divergent-writes-demo/run-demo.sh
-./examples/divergent-worlds-demo/run-demo.sh
-```
-
-On Windows, use the corresponding `run-demo.ps1` scripts.
-
-## Repository layout
+The runtime is split into narrow crates so domain invariants do not depend on a model vendor, database, API, or execution backend.
 
 ```text
 crates/
-  genos-core      # Pure domain model and invariants
-  genos-runtime   # Runtime lifecycle traits
-  genos-world     # World isolation providers
-  genos-store     # Event and snapshot persistence
-  genos-model     # Provider-neutral model interfaces
-  genos-tools     # Tool interfaces
-  genos-eval      # Evaluation primitives
-  genos-api       # HTTP API shell
-  genos-cli       # `genos` command-line interface
+  genos-core      Domain types and invariants
+  genos-runtime   Agent lifecycles and experiment orchestration
+  genos-world     Isolated directory and Git worktree worlds
+  genos-store     Events, snapshots, artifacts, and persistence
+  genos-model     Provider-neutral model interfaces
+  genos-tools     Provider-neutral tool interfaces
+  genos-eval      Evaluation and selection primitives
+  genos-api       HTTP API foundation
+  genos-cli       Command-line interface
 
-spec/             # Portable JSON Schemas and genome specification
-docs/             # Architecture decisions and roadmap
-examples/         # Runnable proofs and workflows
-python/           # SDK, providers, and experiments
-web/console       # Console foundations
+spec/             Portable JSON Schemas and genome specification
+docs/             Concepts, architecture decisions, and roadmap
+examples/         Runnable proofs and end-to-end experiments
+python/           SDK and provider placeholders
+web/console/      Web console placeholder
 ```
 
-## Architecture principles
+The core architectural commitments are provider neutrality, event-sourced history, fork isolation, explicit provenance, content-addressed artifacts, and reviewed cognitive merge. Design rationale is recorded in the [architecture decision records](docs/adr/).
 
-- **Provider neutrality:** models, tools, and worlds are replaceable.
-- **Event sourcing:** event history is the source of historical truth.
-- **Fork isolation:** branches must not leak state or writes into one another.
-- **Explicit provenance:** memories and beliefs retain their origin.
-- **Deferred cognitive merge:** branch results are compared before promotion or merge.
+## Project status and roadmap
 
-## Roadmap
+GenOS is at `0.0.1`. The repository contains substantial executable research prototypes, but distribution, remote providers, transactional orchestration, API coverage, and the web console remain early or incomplete.
 
-The project is currently in the early `0.0.x` phase. Upcoming milestones include end-to-end counterfactual experiments, durable transactional storage, provider integrations, branch evaluation, cognitive merge policies, and a richer API and web console.
+The path to `0.1.0` focuses on a stable end-to-end counterfactual experiment, hardened persistence, public integration contracts, and release packaging. See the [roadmap](docs/ROADMAP.md).
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) and the architecture decisions in [`docs/adr/`](docs/adr/).
+## Documentation
+
+- [Documentation index](docs/README.md)
+- [Agent primitives](docs/AGENT_PRIMITIVES.md)
+- [Counterfactual OS](docs/COUNTERFACTUAL_OS.md)
+- [Genome specification](spec/GENOME_SPEC.md)
+- [Phenotype and divergence](docs/phenotype.md)
+- [Architecture decisions](docs/adr/)
+- [Roadmap](docs/ROADMAP.md)
+- [Examples catalogue](examples/README.md)
 
 ## Contributing
 
-GenOS is open source and welcomes contributions. Good starting points include tests for fork invariants, new model/tool/world providers, CLI improvements, stronger schemas, and integration examples.
+Contributions are welcome, especially focused changes that strengthen an invariant, improve a public interface, add an integration, or turn an existing scenario into a reproducible test.
 
-Before opening a pull request, run:
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. By participating, you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md). Security issues should be reported through the process in [SECURITY.md](SECURITY.md), not through a public issue.
 
-```bash
-cargo fmt --all -- --check
-cargo test --workspace --all-targets
-cargo clippy --workspace --all-targets --all-features -- -D warnings
-```
+## Community and governance
+
+- Questions and usage help: [SUPPORT.md](SUPPORT.md)
+- Decision-making and maintainer responsibilities: [GOVERNANCE.md](GOVERNANCE.md)
+- Release history: [CHANGELOG.md](CHANGELOG.md)
 
 ## License
 
-The project is intended to be released under the Apache License, Version 2.0, as declared in the workspace metadata.
-
-## Keywords
-
-AI agents · agent runtime · agent memory · agent state · event sourcing · reproducible AI · autonomous agents · multi-agent systems · counterfactual AI · snapshots · branching · lineage · provenance · Rust · open source
-
-<!-- Suggested social tags: use selectively, not all at once. -->
-
-#AIAgents #OpenSourceAI #AgenticAI #AutonomousAgents #ReproducibleAI #MultiAgentSystems #EventSourcing #RustLang #LLM #MachineLearning
+Licensed under the [Apache License, Version 2.0](LICENSE).

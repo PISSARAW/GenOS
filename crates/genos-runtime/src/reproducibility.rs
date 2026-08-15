@@ -132,7 +132,8 @@ pub fn evaluate_paired_reproduction(
     if trials.len() < 2 {
         return Err("functional reproducibility requires at least two paired trials".to_string());
     }
-    let definitions: [(&str, f64, bool, fn(&BehaviorTrace, &BehaviorTrace) -> f64); 5] = [
+    type SimilarityMetric = fn(&BehaviorTrace, &BehaviorTrace) -> f64;
+    let definitions: [(&str, f64, bool, SimilarityMetric); 5] = [
         (
             "decision_similarity",
             thresholds.decision_similarity,

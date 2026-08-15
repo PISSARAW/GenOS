@@ -1,0 +1,7 @@
+* @PISSARAW
+
+/crates/genos-core/ @PISSARAW
+/crates/genos-runtime/ @PISSARAW
+/crates/genos-world/ @PISSARAW
+/spec/ @PISSARAW
+/docs/adr/ @PISSARAW
