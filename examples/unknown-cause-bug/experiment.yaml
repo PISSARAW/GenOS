@@ -1,0 +1,115 @@
+name: unknown-cause-pricing-bug
+bug: Une mise a jour de configuration ne modifie pas les prix calcules.
+seed_dir: buggy-service
+probes:
+  - evidence_id: test 18
+    kind: test
+    command: cargo test --quiet --test test_18
+  - evidence_id: trace 212
+    kind: trace
+    command: cargo run --quiet --bin trace_212
+  - evidence_id: production reproduction
+    kind: reproduction
+    command: cargo test --quiet --test reproduction
+
+hypotheses:
+  - id: race-condition
+    explanation: Une ecriture concurrente ecrase le nouveau taux.
+    candidate_fix: Serialiser les mises a jour avec un compteur de sequence.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64, sequence: u64 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate, sequence: 0 } }
+              pub fn update_configuration(&mut self, rate: f64) { self.sequence += 1; self.source_rate = rate; }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: invalid-cache
+    explanation: Une entree corrompue doit etre invalidee avant lecture.
+    candidate_fix: Ajouter une generation de cache, sans modifier sa synchronisation.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64, cache_generation: u64 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate, cache_generation: 0 } }
+              pub fn update_configuration(&mut self, rate: f64) { self.source_rate = rate; self.cache_generation += 1; }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: db-transaction
+    explanation: La transaction de configuration n'est peut-etre pas validee.
+    candidate_fix: Marquer la transaction locale comme validee.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64, committed: bool }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate, committed: true } }
+              pub fn update_configuration(&mut self, rate: f64) { self.source_rate = rate; self.committed = true; }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: clock-drift
+    explanation: Une horloge decalee pourrait rejeter la nouvelle configuration.
+    candidate_fix: Normaliser l'age local de la configuration.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64, clock_offset_ms: i64 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate, clock_offset_ms: 0 } }
+              pub fn update_configuration(&mut self, rate: f64) { self.clock_offset_ms = 0; self.source_rate = rate; }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: floating-point
+    explanation: Une erreur d'arrondi pourrait masquer le nouveau prix.
+    candidate_fix: Arrondir le resultat au centime.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate } }
+              pub fn update_configuration(&mut self, rate: f64) { self.source_rate = rate; }
+              pub fn quote(&self, base: f64) -> f64 { (base * self.cached_rate * 100.0).round() / 100.0 }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: stale-configuration
+    explanation: Le taux materialise n'est pas rafraichi apres la mise a jour.
+    candidate_fix: Mettre a jour la source et le taux materialise dans la meme operation.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate } }
+              pub fn update_configuration(&mut self, rate: f64) {
+                  self.source_rate = rate;
+                  self.cached_rate = rate;
+              }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }
+
+  - id: external-dependency
+    explanation: La source distante retourne peut-etre une ancienne valeur.
+    candidate_fix: Ajouter un compteur de tentatives de lecture distante.
+    edits:
+      - relative_path: src/lib.rs
+        contents: |
+          pub struct PricingEngine { source_rate: f64, cached_rate: f64, fetch_attempts: u32 }
+          impl PricingEngine {
+              pub fn new(rate: f64) -> Self { Self { source_rate: rate, cached_rate: rate, fetch_attempts: 0 } }
+              pub fn update_configuration(&mut self, rate: f64) { self.fetch_attempts += 1; self.source_rate = rate; }
+              pub fn quote(&self, base: f64) -> f64 { base * self.cached_rate }
+              pub fn trace_is_fresh(&self) -> bool { self.source_rate == self.cached_rate }
+          }

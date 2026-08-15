@@ -13,6 +13,8 @@ mod scientific;
 pub use scientific::*;
 mod security_coevolution;
 pub use security_coevolution::*;
+mod bug_investigation;
+pub use bug_investigation::*;
 
 #[derive(Clone, Debug)]
 pub struct StepResult {
