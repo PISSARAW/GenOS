@@ -23,6 +23,11 @@
       }
     },
     "cognition": { "type": "object" },
+    "drives": {
+      "type": "object",
+      "description": "Stable behavioral tendencies, distinct from objectives and policies.",
+      "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
     "memory": { "type": "object" },
     "models": { "type": "object" },
     "tools": { "type": "object" },
