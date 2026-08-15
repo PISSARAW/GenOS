@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Reframed the README around reproducible counterfactual agent execution and the project's current pre-alpha boundary.
+- Clarified the project's authorship, use of AI assistance, and maintainer responsibility.
 
 ## [0.0.1] - 2026-08-15
 

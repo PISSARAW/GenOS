@@ -171,6 +171,12 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. By partic
 - Decision-making and maintainer responsibilities: [GOVERNANCE.md](GOVERNANCE.md)
 - Release history: [CHANGELOG.md](CHANGELOG.md)
 
+## Authorship and AI assistance
+
+GenOS was conceived and is directed by [PISSARAW](https://github.com/PISSARAW). AI systems have been used extensively as implementation and writing tools during its development. The project's vision, underlying research, architectural decisions, feature design, priorities, and final technical judgments are the author's own.
+
+AI-assisted output is reviewed, tested, revised, or rejected before it becomes part of the project. Responsibility for the published code, documentation, and claims remains with the maintainer.
+
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
