@@ -30,6 +30,9 @@ The goal of `0.1.0` is one documented, reliable path from an agent-world checkpo
 
 - Stabilize the canonical agent primitives and manifest formats for the `0.1.x` line.
 - Expand the HTTP API beyond health checks.
+- Define versioned, provider-neutral tool schemas for the canonical lifecycle operations.
+- Expose those operations through an MCP server, with OpenAI Codex and Claude Code as the first native client targets.
+- Document local STDIO and remote streamable HTTP setup for Codex without coupling Codex configuration to the runtime.
 - Define provider contracts and add at least one documented external model integration.
 - Publish installation artifacts or a supported source-install workflow.
 
