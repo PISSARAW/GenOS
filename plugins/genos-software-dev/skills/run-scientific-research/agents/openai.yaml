@@ -1,0 +1,11 @@
+interface:
+  display_name: "Run Scientific Research"
+  short_description: "Version hypotheses and reproducible evidence."
+  default_prompt: "Use $run-scientific-research to evaluate competing hypotheses with versioned protocols and reproducible evidence."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "genos"
+      description: "GenOS scientific experiment orchestrator"
+policy:
+  allow_implicit_invocation: true

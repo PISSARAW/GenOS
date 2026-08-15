@@ -227,6 +227,111 @@ pub fn tool_specs() -> Vec<ToolSpec> {
             false,
             false,
         ),
+        spec(
+            "workspace_experiment",
+            "Run workspace experiment",
+            "Fork isolated code workspaces, apply planned alternatives, run verification, diff outcomes, evaluate them, and preserve lineage.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Optional complete workspace experiment manifest.")),
+                    ("repo", string_schema("Repository or workspace used as the direct seed.")),
+                    ("plan", string_schema("Workspace experiment plan path.")),
+                    ("root", experiment_root_schema()),
+                ],
+                &[],
+            ),
+            false,
+            true,
+            false,
+        ),
+        spec(
+            "causal_replay_experiment",
+            "Run causal replay experiment",
+            "Restore a historical decision point, fork alternative realities, replay known events, and explain causal divergence.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Causal replay experiment manifest path.")),
+                    ("root", experiment_root_schema()),
+                ],
+                &["manifest"],
+            ),
+            false,
+            false,
+            false,
+        ),
+        spec(
+            "incident_experiment",
+            "Reproduce production incident",
+            "Search and recursively refine mutated universes against production incident evidence.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Optional complete incident search manifest.")),
+                    ("snapshot", string_schema("Production snapshot reference.")),
+                    ("evidence", string_schema("Incident evidence YAML/JSON path.")),
+                    ("search_plan", string_schema("Adaptive search plan path.")),
+                    ("root", experiment_root_schema()),
+                    ("summary", json!({"type":"boolean","default":false})),
+                ],
+                &[],
+            ),
+            false,
+            false,
+            false,
+        ),
+        spec(
+            "scientific_experiment",
+            "Run scientific experiment",
+            "Version hypotheses, execute protocols, preserve evidence, critique results, reproduce findings, and rewind suspect conclusions.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Optional complete scientific experiment manifest.")),
+                    ("dataset", string_schema("Dataset path supplied at execution time.")),
+                    ("research_plan", string_schema("Scientific research plan path.")),
+                    ("root", experiment_root_schema()),
+                    ("summary", json!({"type":"boolean","default":false})),
+                ],
+                &[],
+            ),
+            false,
+            false,
+            false,
+        ),
+        spec(
+            "security_coevolution",
+            "Run security coevolution",
+            "Co-evolve abstract Red and Blue genomes in isolated simulated environments with neutral observations.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Optional complete security coevolution manifest.")),
+                    ("environment", string_schema("Security scenario environment path.")),
+                    ("evolution_plan", string_schema("Evolution plan path.")),
+                    ("root", experiment_root_schema()),
+                    ("summary", json!({"type":"boolean","default":false})),
+                ],
+                &[],
+            ),
+            false,
+            false,
+            false,
+        ),
+        spec(
+            "bug_investigation",
+            "Investigate unknown-cause bug",
+            "Falsify competing bug explanations in isolated code worlds while preserving rejected hypotheses and evidence.",
+            object_schema(
+                [
+                    ("manifest", string_schema("Optional complete bug investigation manifest.")),
+                    ("repo", string_schema("Repository used as the direct investigation seed.")),
+                    ("plan", string_schema("Hypothesis and probe plan path.")),
+                    ("root", experiment_root_schema()),
+                    ("summary", json!({"type":"boolean","default":false})),
+                ],
+                &[],
+            ),
+            false,
+            true,
+            false,
+        ),
         spec("diagnose", "Diagnose with hypotheses", "Create a falsification-oriented hypothesis tree before changing code.",
             object_schema([("problem", string_schema("Problem to diagnose.")), ("hypotheses", string_array_schema("Competing falsifiable hypotheses.")), ("root", root_schema())], &["problem", "hypotheses"]), false, false, false),
         spec("hypothesis_evidence", "Add hypothesis evidence", "Attach provenance-bearing evidence and update a hypothesis confidence/status.",
@@ -378,6 +483,67 @@ pub fn plan_tool_call(name: &str, arguments: &Value) -> Result<PlannedCommand, P
         "merge" => {
             args.push(required_string(object, operation, "manifest")?.to_string());
             push_flag(&mut args, "--format", "json");
+        }
+        "workspace_experiment" => {
+            args = vec!["experiment".into(), "workspace".into()];
+            push_manifest_or_pair(
+                &mut args, object, operation, "repo", "--repo", "plan", "--plan",
+            )?;
+            push_optional_experiment_root(&mut args, object, operation)?;
+            push_flag(&mut args, "--format", "json");
+        }
+        "causal_replay_experiment" => {
+            args = vec!["experiment".into(), "causal-replay".into()];
+            args.push(required_string(object, operation, "manifest")?.into());
+            push_optional_experiment_root(&mut args, object, operation)?;
+            push_flag(&mut args, "--format", "json");
+        }
+        "incident_experiment" => {
+            args = vec!["experiment".into(), "incident".into()];
+            push_manifest_or_triplet(
+                &mut args,
+                object,
+                operation,
+                [
+                    ("snapshot", "--snapshot"),
+                    ("evidence", "--evidence"),
+                    ("search_plan", "--search-plan"),
+                ],
+            )?;
+            push_experiment_tail(&mut args, object, operation)?;
+        }
+        "scientific_experiment" => {
+            args = vec!["experiment".into(), "scientific".into()];
+            push_manifest_or_pair(
+                &mut args,
+                object,
+                operation,
+                "dataset",
+                "--dataset",
+                "research_plan",
+                "--research-plan",
+            )?;
+            push_experiment_tail(&mut args, object, operation)?;
+        }
+        "security_coevolution" => {
+            args = vec!["experiment".into(), "security-coevolution".into()];
+            push_manifest_or_pair(
+                &mut args,
+                object,
+                operation,
+                "environment",
+                "--environment",
+                "evolution_plan",
+                "--evolution-plan",
+            )?;
+            push_experiment_tail(&mut args, object, operation)?;
+        }
+        "bug_investigation" => {
+            args = vec!["experiment".into(), "bug-investigation".into()];
+            push_manifest_or_pair(
+                &mut args, object, operation, "repo", "--repo", "plan", "--plan",
+            )?;
+            push_experiment_tail(&mut args, object, operation)?;
         }
         "diagnose" => {
             args[0] = "dev".into();
@@ -672,6 +838,10 @@ fn root_schema() -> Value {
     json!({"type": "string", "minLength": 1, "default": ".genos", "description": "GenOS data root."})
 }
 
+fn experiment_root_schema() -> Value {
+    json!({"type": "string", "minLength": 1, "default": ".genos/experiments", "description": "Experiment report and world root."})
+}
+
 fn result_schema() -> Value {
     json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -817,6 +987,102 @@ fn push_root(
     Ok(())
 }
 
+fn push_manifest_or_pair(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+    first_key: &str,
+    first_flag: &str,
+    second_key: &str,
+    second_flag: &str,
+) -> Result<(), ProtocolError> {
+    let manifest = optional_string(object, operation, "manifest")?;
+    let first = optional_string(object, operation, first_key)?;
+    let second = optional_string(object, operation, second_key)?;
+    match (manifest, first, second) {
+        (Some(path), None, None) => args.push(path.into()),
+        (None, Some(first), Some(second)) => {
+            push_flag(args, first_flag, first);
+            push_flag(args, second_flag, second);
+        }
+        (Some(_), _, _) => {
+            return Err(invalid(
+                operation,
+                &format!("'manifest' cannot be combined with '{first_key}' or '{second_key}'"),
+            ))
+        }
+        _ => {
+            return Err(invalid(
+                operation,
+                &format!("provide either 'manifest' or both '{first_key}' and '{second_key}'"),
+            ))
+        }
+    }
+    Ok(())
+}
+
+fn push_manifest_or_triplet(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+    direct: [(&str, &str); 3],
+) -> Result<(), ProtocolError> {
+    let manifest = optional_string(object, operation, "manifest")?;
+    let values = [
+        optional_string(object, operation, direct[0].0)?,
+        optional_string(object, operation, direct[1].0)?,
+        optional_string(object, operation, direct[2].0)?,
+    ];
+    if let Some(path) = manifest {
+        if values.iter().any(Option::is_some) {
+            return Err(invalid(
+                operation,
+                "'manifest' cannot be combined with direct experiment inputs",
+            ));
+        }
+        args.push(path.into());
+        return Ok(());
+    }
+    if values.iter().any(Option::is_none) {
+        return Err(invalid(
+            operation,
+            "provide either 'manifest' or all direct experiment inputs",
+        ));
+    }
+    for ((_, flag), value) in direct.into_iter().zip(values) {
+        push_flag(
+            args,
+            flag,
+            value.expect("validated direct experiment input"),
+        );
+    }
+    Ok(())
+}
+
+fn push_optional_experiment_root(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+) -> Result<(), ProtocolError> {
+    if let Some(root) = optional_string(object, operation, "root")? {
+        push_flag(args, "--root", root);
+    }
+    Ok(())
+}
+
+fn push_experiment_tail(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+) -> Result<(), ProtocolError> {
+    push_optional_experiment_root(args, object, operation)?;
+    if optional_bool(object, operation, "summary")?.unwrap_or(false) {
+        args.push("--summary".into());
+    }
+    push_flag(args, "--format", "json");
+    Ok(())
+}
+
 fn push_flag(args: &mut Vec<String>, flag: &str, value: &str) {
     args.push(flag.to_string());
     args.push(value.to_string());
@@ -837,7 +1103,7 @@ mod tests {
     #[test]
     fn catalog_contains_canonical_and_software_development_tools() {
         let specs = tool_specs();
-        assert_eq!(specs.len(), 26);
+        assert_eq!(specs.len(), 32);
         let names = specs
             .iter()
             .map(|tool| tool.name.as_str())
@@ -851,6 +1117,16 @@ mod tests {
         for expected in [
             "create", "snapshot", "restore", "fork", "run", "inspect", "diff", "lineage", "replay",
             "merge",
+        ] {
+            assert!(names.contains(format!("genos_{expected}").as_str()));
+        }
+        for expected in [
+            "workspace_experiment",
+            "causal_replay_experiment",
+            "incident_experiment",
+            "scientific_experiment",
+            "security_coevolution",
+            "bug_investigation",
         ] {
             assert!(names.contains(format!("genos_{expected}").as_str()));
         }
@@ -946,5 +1222,62 @@ mod tests {
         let error = plan_tool_call("genos_future_ci", &json!({"target":"patch-A", "worlds":[]}))
             .unwrap_err();
         assert!(error.to_string().contains("non-empty"));
+    }
+
+    #[test]
+    fn workspace_experiment_maps_direct_inputs_without_shell_interpolation() {
+        let planned = plan_tool_call(
+            "genos_workspace_experiment",
+            &json!({"repo":"repo; echo no", "plan":"plans/refactor.yaml", "root":"runs"}),
+        )
+        .unwrap();
+        assert_eq!(
+            planned.args,
+            [
+                "experiment",
+                "workspace",
+                "--repo",
+                "repo; echo no",
+                "--plan",
+                "plans/refactor.yaml",
+                "--root",
+                "runs",
+                "--format",
+                "json"
+            ]
+        );
+    }
+
+    #[test]
+    fn incident_experiment_requires_manifest_or_complete_direct_inputs() {
+        let error = plan_tool_call(
+            "genos_incident_experiment",
+            &json!({"snapshot":"production@incident-42", "evidence":"evidence.yaml"}),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("all direct experiment inputs"));
+
+        let planned = plan_tool_call(
+            "genos_incident_experiment",
+            &json!({
+                "snapshot":"production@incident-42",
+                "evidence":"evidence.yaml",
+                "search_plan":"search.yaml",
+                "summary":true
+            }),
+        )
+        .unwrap();
+        assert_eq!(planned.args[0..2], ["experiment", "incident"]);
+        assert!(planned.args.contains(&"--summary".to_string()));
+    }
+
+    #[test]
+    fn project_experiment_rejects_mixed_manifest_and_direct_inputs() {
+        let error = plan_tool_call(
+            "genos_bug_investigation",
+            &json!({"manifest":"all.yaml", "repo":"service", "plan":"bugs.yaml"}),
+        )
+        .unwrap_err();
+        assert!(error.to_string().contains("cannot be combined"));
     }
 }

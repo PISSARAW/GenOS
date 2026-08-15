@@ -15,6 +15,20 @@ The plugin adds tools for:
 - assumption invalidation, agent bisect, stuck/loop detection, automatic revert
   points, repository genomes, architecture invariants, and compiled context.
 
+It also ships seven task-oriented skills backed by six first-class MCP tools:
+
+- `compare-code-fixes` and `evolve-critical-refactor` use
+  `genos_workspace_experiment`;
+- `replay-causal-history` uses `genos_causal_replay_experiment`;
+- `reproduce-production-incident` uses `genos_incident_experiment`;
+- `run-scientific-research` uses `genos_scientific_experiment`;
+- `coevolve-security-strategies` uses `genos_security_coevolution`;
+- `investigate-unknown-cause-bug` uses `genos_bug_investigation`.
+
+Each project tool accepts a complete manifest. Where the CLI supports direct
+inputs, the MCP tool also accepts those inputs plus a reusable plan and rejects
+mixed or partial modes before execution.
+
 Build once before first use:
 
 ```powershell

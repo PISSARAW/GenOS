@@ -10,10 +10,11 @@
   "repository": "https://github.com/PISSARAW/GenOS",
   "license": "Apache-2.0",
   "keywords": ["agents", "debugging", "trajectory-engineering", "mcp", "software-development"],
+  "skills": "./skills/",
   "interface": {
     "displayName": "GenOS Software Dev",
     "shortDescription": "Explore, falsify, review, and remember coding trajectories.",
-    "longDescription": "Diagnose with hypothesis trees, explore adaptive solution branches, run adversarial reviews and future-CI plans, trace decisions to code and tests, and preserve negative knowledge.",
+    "longDescription": "Diagnose with hypothesis trees, run reproducible project experiments, explore adaptive solution branches, replay causal histories, reproduce incidents, version scientific research, simulate security coevolution, and preserve negative knowledge.",
     "developerName": "PISSARAW",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write"],
@@ -22,7 +23,8 @@
     "defaultPrompt": [
       "Diagnose this bug with falsifiable hypotheses.",
       "Explore diverse fixes and allocate compute adaptively.",
-      "Review this patch across adversarial future worlds."
+      "Review this patch across adversarial future worlds.",
+      "Run this project as an isolated counterfactual experiment."
     ]
   },
   "mcpServers": "./.mcp.json"

@@ -1,0 +1,11 @@
+interface:
+  display_name: "Investigate Unknown-Cause Bug"
+  short_description: "Falsify competing explanations for a bug."
+  default_prompt: "Use $investigate-unknown-cause-bug to preserve and test the full explanation space for this bug."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "genos"
+      description: "GenOS unknown-cause bug investigation orchestrator"
+policy:
+  allow_implicit_invocation: true

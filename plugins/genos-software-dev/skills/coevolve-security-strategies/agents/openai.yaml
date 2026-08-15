@@ -1,0 +1,11 @@
+interface:
+  display_name: "Coevolve Security Strategies"
+  short_description: "Simulate inheritable Red and Blue strategies."
+  default_prompt: "Use $coevolve-security-strategies to co-evolve abstract attack and defense strategies in isolated worlds."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "genos"
+      description: "GenOS security coevolution orchestrator"
+policy:
+  allow_implicit_invocation: true
