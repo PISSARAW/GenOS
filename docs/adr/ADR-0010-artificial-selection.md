@@ -5,10 +5,9 @@ Accepted
 
 ## Implementation Status
 
-Partially implemented. `agent mutate` creates traceable child genomes and
-`genos-eval` supports Pareto assessment. The controlled benchmark runner,
-canonical metric collection, hard constraints, and generation loop are not yet
-integrated end to end.
+Implemented. `agent mutate` creates traceable child genomes. Controlled repeated
+benchmark runs aggregate the canonical metrics, enforce hard constraints, and
+apply Pareto selection while preserving every candidate.
 
 ## Context
 

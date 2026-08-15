@@ -5,9 +5,10 @@ Accepted
 
 ## Implementation Status
 
-Partially implemented. `genos-eval` computes conservative equivalence verdicts
-from metric confidence intervals. The paired replay runner and behavioral
-similarity metric extractors are not implemented.
+Implemented. The runtime executes source and restored agents against the same
+digest-checked event stream through a `BehaviorExecutor`, extracts decision,
+tool, belief, plan, and risk similarities, computes confidence intervals, and
+applies critical equivalence thresholds under pinned manifests.
 
 ## Context
 

@@ -1,7 +1,9 @@
+use async_trait::async_trait;
 use genos_eval::{
     assess_functional_reproducibility, FunctionalReproducibilityReport, FunctionalSimilarityMetric,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -84,6 +86,43 @@ pub fn run_functional_reproducibility(
         protocol,
         behavioral,
     })
+}
+
+#[async_trait]
+pub trait BehaviorExecutor: Send + Sync {
+    async fn execute(
+        &self,
+        event_stream: &[serde_json::Value],
+        trial_index: usize,
+    ) -> anyhow::Result<BehaviorTrace>;
+}
+
+pub async fn execute_paired_reproduction(
+    protocol: ReproducibilityProtocol,
+    event_stream: &[serde_json::Value],
+    paired_trials: usize,
+    source: &dyn BehaviorExecutor,
+    restored: &dyn BehaviorExecutor,
+    thresholds: &ReproducibilityThresholds,
+) -> anyhow::Result<ExecutedReproducibilityReport> {
+    if paired_trials < 2 {
+        anyhow::bail!("functional reproducibility requires at least two paired trials");
+    }
+    let digest = format!(
+        "sha256:{:x}",
+        Sha256::digest(serde_json::to_vec(event_stream)?)
+    );
+    if digest != protocol.event_stream_digest {
+        anyhow::bail!("event stream digest does not match protocol");
+    }
+    let mut trials = Vec::with_capacity(paired_trials);
+    for trial_index in 0..paired_trials {
+        trials.push(PairedBehaviorTrial {
+            source: source.execute(event_stream, trial_index).await?,
+            restored: restored.execute(event_stream, trial_index).await?,
+        });
+    }
+    run_functional_reproducibility(protocol, &trials, thresholds).map_err(anyhow::Error::msg)
 }
 
 pub fn evaluate_paired_reproduction(
@@ -199,6 +238,19 @@ mod tests {
     use super::*;
     use genos_eval::ReproducibilityVerdict;
 
+    struct FakeExecutor;
+
+    #[async_trait]
+    impl BehaviorExecutor for FakeExecutor {
+        async fn execute(
+            &self,
+            _event_stream: &[serde_json::Value],
+            _trial_index: usize,
+        ) -> anyhow::Result<BehaviorTrace> {
+            Ok(trace("keep"))
+        }
+    }
+
     fn trace(decision: &str) -> BehaviorTrace {
         BehaviorTrace {
             decisions: vec![decision.to_string()],
@@ -278,5 +330,45 @@ mod tests {
             risk_behavior: 0.95,
         };
         assert!(run_functional_reproducibility(protocol, &trials, &thresholds).is_err());
+    }
+
+    #[tokio::test]
+    async fn paired_runner_executes_the_same_event_stream_for_both_agents() {
+        let events = vec![serde_json::json!({"event": "question"})];
+        let digest = format!(
+            "sha256:{:x}",
+            Sha256::digest(serde_json::to_vec(&events).unwrap())
+        );
+        let protocol = ReproducibilityProtocol {
+            event_stream_digest: digest,
+            source_runtime_manifest: "r".to_string(),
+            restored_runtime_manifest: "r".to_string(),
+            source_model_manifest: "m".to_string(),
+            restored_model_manifest: "m".to_string(),
+            source_environment_manifest: "e".to_string(),
+            restored_environment_manifest: "e".to_string(),
+            nondeterminism: vec!["sampling".to_string()],
+        };
+        let thresholds = ReproducibilityThresholds {
+            decision_similarity: 0.9,
+            tool_selection: 0.9,
+            belief_consistency: 0.95,
+            planning_similarity: 0.8,
+            risk_behavior: 0.95,
+        };
+        let report = execute_paired_reproduction(
+            protocol,
+            &events,
+            3,
+            &FakeExecutor,
+            &FakeExecutor,
+            &thresholds,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            report.behavioral.verdict,
+            ReproducibilityVerdict::Equivalent
+        );
     }
 }
