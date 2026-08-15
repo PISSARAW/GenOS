@@ -13,6 +13,8 @@ pub enum ExperimentSubcommands {
     Workspace(WorkspaceExperimentArgs),
     /// Replay one historical event stream through several causal universes.
     Temporal(TemporalExperimentArgs),
+    /// Replace a past agent decision and replay its available future.
+    CausalReplay(TemporalExperimentArgs),
     /// Adaptively search mutated universes for a rare incident reproduction.
     Incident(IncidentExperimentArgs),
     /// Version hypotheses, protocols, evidence, peer review and reproductions.

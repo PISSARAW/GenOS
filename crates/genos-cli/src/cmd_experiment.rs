@@ -7,14 +7,15 @@ use anyhow::Context;
 use genos_runtime::{
     analyze_fixed_genome_cohort, apply_cognitive_merge, artificial_select, cognitive_merge,
     evaluate_paired_reproduction, merge_experiences, persist_experiment_report,
-    run_branch_evolution, run_bug_investigation, run_incident_search, run_scientific_experiment,
-    run_security_coevolution, run_temporal_experiment, run_workspace_experiment,
-    BranchEvolutionConfig, BranchExperience, BugInvestigationManifest, ClaimRelation,
-    CognitiveClaim, CognitiveMergeApplication, CognitiveMergeConfig, CognitiveMergeReport,
-    CohortControls, EvolutionBranchSpec, HeredityCohortMember, IncidentSearchManifest,
-    PairedBehaviorTrial, ReproducibilityThresholds, ScientificExperimentManifest,
-    SecurityCoevolutionManifest, SelectionCandidate, SelectionConstraints,
-    TemporalExperimentManifest, WorkspaceExperimentManifest,
+    run_branch_evolution, run_bug_investigation, run_incident_search, run_personal_causal_replay,
+    run_scientific_experiment, run_security_coevolution, run_temporal_experiment,
+    run_workspace_experiment, BranchEvolutionConfig, BranchExperience, BugInvestigationManifest,
+    ClaimRelation, CognitiveClaim, CognitiveMergeApplication, CognitiveMergeConfig,
+    CognitiveMergeReport, CohortControls, EvolutionBranchSpec, HeredityCohortMember,
+    IncidentSearchManifest, PairedBehaviorTrial, PersonalCausalReplayManifest,
+    ReproducibilityThresholds, ScientificExperimentManifest, SecurityCoevolutionManifest,
+    SelectionCandidate, SelectionConstraints, TemporalExperimentManifest,
+    WorkspaceExperimentManifest,
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -203,6 +204,21 @@ pub fn cmd_experiment_temporal(args: TemporalExperimentArgs) -> anyhow::Result<(
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_temporal_experiment(manifest);
+    let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
+    print_serialized(
+        &ExperimentRunOutput {
+            report_path: report_path.display().to_string(),
+            report,
+        },
+        args.format,
+    )
+}
+
+pub fn cmd_experiment_causal_replay(args: TemporalExperimentArgs) -> anyhow::Result<()> {
+    let manifest: PersonalCausalReplayManifest = read_manifest(&args.manifest)?;
+    let name = manifest.name.clone();
+    let experiment_root = args.root.join(&name);
+    let report = run_personal_causal_replay(manifest).map_err(anyhow::Error::msg)?;
     let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
     print_serialized(
         &ExperimentRunOutput {

@@ -26,9 +26,10 @@ use crate::cmd_capsule::{
 };
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
-    cmd_experiment_cognitive_merge, cmd_experiment_heredity, cmd_experiment_incident,
-    cmd_experiment_reproducibility, cmd_experiment_scientific, cmd_experiment_security_coevolution,
-    cmd_experiment_select, cmd_experiment_temporal, cmd_experiment_workspace,
+    cmd_experiment_causal_replay, cmd_experiment_cognitive_merge, cmd_experiment_heredity,
+    cmd_experiment_incident, cmd_experiment_reproducibility, cmd_experiment_scientific,
+    cmd_experiment_security_coevolution, cmd_experiment_select, cmd_experiment_temporal,
+    cmd_experiment_workspace,
 };
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
@@ -69,6 +70,7 @@ async fn main() -> Result<()> {
         Commands::Experiment(experiment) => match experiment.command {
             ExperimentSubcommands::Workspace(args) => cmd_experiment_workspace(args).await,
             ExperimentSubcommands::Temporal(args) => cmd_experiment_temporal(args),
+            ExperimentSubcommands::CausalReplay(args) => cmd_experiment_causal_replay(args),
             ExperimentSubcommands::Incident(args) => cmd_experiment_incident(args),
             ExperimentSubcommands::Scientific(args) => cmd_experiment_scientific(args),
             ExperimentSubcommands::SecurityCoevolution(args) => {
