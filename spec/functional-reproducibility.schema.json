@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/functional-reproducibility.schema.json",
+  "title": "FunctionalReproducibilityReport",
+  "type": "object",
+  "required": ["source", "restored", "protocol", "metrics", "verdict"],
+  "properties": {
+    "source": { "$ref": "#/$defs/agentRun" },
+    "restored": { "$ref": "#/$defs/agentRun" },
+    "protocol": {
+      "type": "object",
+      "required": ["event_stream_digest", "paired_trials", "runtime_manifest", "nondeterminism"],
+      "properties": {
+        "event_stream_digest": { "type": "string", "pattern": "^sha256:" },
+        "paired_trials": { "type": "integer", "minimum": 2 },
+        "runtime_manifest": { "type": "string" },
+        "nondeterminism": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "similarity", "confidence_interval", "equivalence_threshold", "method", "critical"],
+        "properties": {
+          "name": { "type": "string" },
+          "similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+          "confidence_interval": {
+            "type": "object",
+            "required": ["lower", "upper", "level"],
+            "properties": {
+              "lower": { "type": "number", "minimum": 0, "maximum": 1 },
+              "upper": { "type": "number", "minimum": 0, "maximum": 1 },
+              "level": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1 }
+            }
+          },
+          "equivalence_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+          "method": { "type": "string" },
+          "critical": { "type": "boolean" }
+        }
+      }
+    },
+    "verdict": { "enum": ["equivalent", "not_equivalent", "inconclusive"] }
+  },
+  "$defs": {
+    "agentRun": {
+      "type": "object",
+      "required": ["agent_id", "snapshot_id", "genome_digest"],
+      "properties": {
+        "agent_id": { "type": "string" },
+        "snapshot_id": { "type": "string" },
+        "genome_digest": { "type": "string", "pattern": "^sha256:" }
+      }
+    }
+  },
+  "additionalProperties": true
+}
+
