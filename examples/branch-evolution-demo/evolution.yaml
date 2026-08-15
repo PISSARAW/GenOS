@@ -1,0 +1,45 @@
+config:
+  total_compute_units: 1000
+  minimum_evaluation_units: 10
+  survival_threshold: 0.60
+  max_depth: 2
+  max_children_per_branch: 3
+  max_survivors_per_generation: 0
+
+branches:
+  - branch_id: A
+    score: 0.82
+    children: [A1, A2, A3]
+  - branch_id: B
+    score: 0.21
+  - branch_id: C
+    score: 0.77
+    children: [C1, C2]
+  - branch_id: D
+    score: 0.05
+  - branch_id: E
+    score: 0.69
+
+  - branch_id: A1
+    parent_branch_id: A
+    score: 0.64
+  - branch_id: A2
+    parent_branch_id: A
+    score: 0.91
+    children: [A2.1, A2.2]
+  - branch_id: A3
+    parent_branch_id: A
+    score: 0.48
+  - branch_id: A2.1
+    parent_branch_id: A2
+    score: 0.88
+  - branch_id: A2.2
+    parent_branch_id: A2
+    score: 0.73
+
+  - branch_id: C1
+    parent_branch_id: C
+    score: 0.81
+  - branch_id: C2
+    parent_branch_id: C
+    score: 0.42

@@ -29,6 +29,8 @@ pub enum ExperimentSubcommands {
     Reproducibility(GenericExperimentArgs),
     /// Reconcile branch claims without unioning their memories.
     CognitiveMerge(GenericExperimentArgs),
+    /// Allocate compute, eliminate weak branches, and fork survivors recursively.
+    BranchEvolution(GenericExperimentArgs),
 }
 
 #[derive(ArgsMacro, Debug)]

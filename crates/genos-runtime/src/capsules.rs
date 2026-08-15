@@ -6,6 +6,8 @@ use genos_core::{
 use genos_store::CapsuleStore;
 use genos_world::WorldProvider;
 
+use crate::{BranchEvolutionReport, EvolutionBranchState};
+
 #[derive(Clone, Debug)]
 pub struct CounterfactualBranchSpec {
     pub label: String,
@@ -88,6 +90,62 @@ pub async fn pause_capsule(
     provider.destroy(world_id).await?;
     store.save_capsule(paused.clone()).await?;
     Ok(paused)
+}
+
+/// Checkpoint and physically stop a branch world selected for death by the
+/// evolution scheduler. The capsule remains durable and auditable.
+pub async fn terminate_capsule(
+    provider: &dyn WorldProvider,
+    store: &dyn CapsuleStore,
+    capsule: &AgentWorldCapsule,
+    lifecycle: CapsuleLifecycle,
+) -> anyhow::Result<AgentWorldCapsule> {
+    if !matches!(
+        lifecycle,
+        CapsuleLifecycle::Cancelled | CapsuleLifecycle::BudgetExhausted
+    ) {
+        anyhow::bail!("branch termination requires cancelled or budget_exhausted lifecycle");
+    }
+    let mut terminated = checkpoint_capsule(provider, store, capsule).await?;
+    let world_id = terminated
+        .live_world_id
+        .take()
+        .ok_or_else(|| anyhow::anyhow!("capsule has no live world"))?;
+    provider.destroy(world_id).await?;
+    terminated
+        .transition(lifecycle)
+        .map_err(anyhow::Error::msg)?;
+    store.save_capsule(terminated.clone()).await?;
+    Ok(terminated)
+}
+
+pub async fn terminate_evolution_branches(
+    provider: &dyn WorldProvider,
+    store: &dyn CapsuleStore,
+    capsules: &[AgentWorldCapsule],
+    report: &BranchEvolutionReport,
+) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+    let mut terminated = Vec::new();
+    for record in &report.branches {
+        let lifecycle = match record.state {
+            EvolutionBranchState::Eliminated | EvolutionBranchState::CapacityPruned => {
+                CapsuleLifecycle::Cancelled
+            }
+            EvolutionBranchState::BudgetExhausted => CapsuleLifecycle::BudgetExhausted,
+            EvolutionBranchState::Expanded | EvolutionBranchState::Survived => continue,
+        };
+        let capsule = capsules
+            .iter()
+            .find(|capsule| capsule.branch_id == record.branch_id)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "missing live capsule for dead branch {}",
+                    record.branch_id.0
+                )
+            })?;
+        terminated.push(terminate_capsule(provider, store, capsule, lifecycle).await?);
+    }
+    Ok(terminated)
 }
 
 pub async fn resume_capsule(
@@ -280,5 +338,35 @@ mod tests {
         assert!(reports
             .iter()
             .any(|report| report.status == ComponentRestoreStatus::ExternalUncontrolled));
+    }
+
+    #[tokio::test]
+    async fn eliminated_capsule_is_checkpointed_cancelled_and_its_world_destroyed() {
+        let temp = tempdir().unwrap();
+        let provider = DirectoryWorldProvider::new(temp.path().join("worlds"), None).unwrap();
+        let store = LocalCapsuleStore::new(temp.path().join("capsules.jsonl"));
+        let snapshot = crate::test_support::snapshot();
+        let world_id = provider
+            .create(snapshot.agent_id.clone(), snapshot.branch_id.clone())
+            .await
+            .unwrap();
+        let world_snapshot = provider.snapshot(world_id.clone()).await.unwrap();
+        let mut capsule = AgentWorldCapsule::new(
+            snapshot,
+            world_snapshot,
+            Some(world_id.clone()),
+            default_capsule_components(),
+            None,
+            CapsuleRelation::Genesis,
+        );
+        capsule.transition(CapsuleLifecycle::Running).unwrap();
+        let terminated =
+            terminate_capsule(&provider, &store, &capsule, CapsuleLifecycle::Cancelled)
+                .await
+                .unwrap();
+        assert_eq!(terminated.lifecycle, CapsuleLifecycle::Cancelled);
+        assert!(terminated.live_world_id.is_none());
+        assert!(terminated.verify_integrity());
+        assert!(provider.snapshot(world_id).await.is_err());
     }
 }
