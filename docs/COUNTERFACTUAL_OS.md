@@ -28,9 +28,31 @@ can fail or exhaust its budget without contaminating a sibling.
 Selection continues from one complete branch and preserves all others for
 inspection or later resumption.
 
-Knowledge synthesis extracts evidence-bearing findings from several branches
-into a proposal. The proposal is tested on a fresh validation branch before it
-can affect an active agent. This is not a raw merge of memories or files.
+The Cognitive Merge Engine converts branch experience packets into a typed
+knowledge graph. It preserves contextual contradictions, evidence, uncertainty,
+and provenance before applying reviewed beliefs to a fresh parent checkpoint.
+This is not a raw merge of memories or files.
+
+## Integrated generation cycle
+
+```text
+Agent Genome -> Runtime -> checkpoint S0
+                              |
+                    counterfactual fork
+                    /         |         \
+              agent+world A  B  agent+world C
+                    \         |         /
+                       experience packets
+                              |
+                       cognitive merge
+                              |
+                         checkpoint S1
+```
+
+Forks carry stable lineage addresses such as
+`agent://bruney-ai/generation/124/fork/124-A`. Temporary worlds are checkpointed
+and destroyed after their experience is collected. S1 keeps the checkpointed
+parent world and receives the merged agent state.
 
 ## The versioned object
 
@@ -56,8 +78,7 @@ pinned, or marked nondeterministic.
 
 ## Current implementation boundary
 
-GenOS currently implements real agent-snapshot forks and isolated world forks.
-The workspace experiment runner exercises isolated worlds, while the agent fork
-CLI exercises cloned agent snapshots. Binding both into one atomic branch
-capsule is the next orchestration milestone required for the complete
-Counterfactual OS contract.
+GenOS implements the complete local S0-to-S1 orchestration cycle, including
+agent-world checkpointing, lineaged isolated forks, experience collection,
+temporary-world termination, cognitive merge, and the final merge capsule.
+Cross-machine atomicity and distributed rollback remain future infrastructure.

@@ -14,6 +14,13 @@ pub struct CounterfactualBranchSpec {
     pub hypothesis: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct LineagedCounterfactualBranchSpec {
+    pub branch_id: genos_core::BranchId,
+    pub label: String,
+    pub hypothesis: String,
+}
+
 /// Atomically binds an agent clone and an isolated world into each durable
 /// branch capsule. If persistence fails, the newly forked world is destroyed.
 pub async fn fork_counterfactual_capsules(
@@ -27,7 +34,13 @@ pub async fn fork_counterfactual_capsules(
     }
     let mut capsules = Vec::with_capacity(specs.len());
     for spec in specs {
-        let world_id = provider.fork(parent.world_snapshot_id.clone()).await?;
+        let world_id = match provider.fork(parent.world_snapshot_id.clone()).await {
+            Ok(world_id) => world_id,
+            Err(error) => {
+                cancel_created_capsules(provider, store, &capsules).await;
+                return Err(error);
+            }
+        };
         let mut agent =
             fork_snapshot_with_hypothesis(&parent.agent_snapshot, &spec.label, &spec.hypothesis);
         agent.world_id = world_id.clone();
@@ -36,6 +49,7 @@ pub async fn fork_counterfactual_capsules(
             Ok(snapshot) => snapshot,
             Err(error) => {
                 let _ = provider.destroy(world_id).await;
+                cancel_created_capsules(provider, store, &capsules).await;
                 return Err(error);
             }
         };
@@ -47,11 +61,88 @@ pub async fn fork_counterfactual_capsules(
             Some(parent.capsule_id.clone()),
             CapsuleRelation::Fork,
         );
-        capsule
-            .transition(CapsuleLifecycle::Running)
-            .map_err(anyhow::Error::msg)?;
+        if let Err(error) = capsule.transition(CapsuleLifecycle::Running) {
+            let _ = provider.destroy(world_id).await;
+            cancel_created_capsules(provider, store, &capsules).await;
+            return Err(anyhow::Error::msg(error));
+        }
         if let Err(error) = store.save_capsule(capsule.clone()).await {
             let _ = provider.destroy(world_id).await;
+            cancel_created_capsules(provider, store, &capsules).await;
+            return Err(error);
+        }
+        capsules.push(capsule);
+    }
+    Ok(capsules)
+}
+
+async fn cancel_created_capsules(
+    provider: &dyn WorldProvider,
+    store: &dyn CapsuleStore,
+    capsules: &[AgentWorldCapsule],
+) {
+    for capsule in capsules {
+        let _ = terminate_capsule(provider, store, capsule, CapsuleLifecycle::Cancelled).await;
+    }
+}
+
+/// Fork capsules using caller-assigned lineage branch identifiers.
+pub async fn fork_lineaged_counterfactual_capsules(
+    provider: &dyn WorldProvider,
+    store: &dyn CapsuleStore,
+    parent: &AgentWorldCapsule,
+    specs: &[LineagedCounterfactualBranchSpec],
+) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+    if specs.is_empty() {
+        anyhow::bail!("at least one counterfactual branch is required");
+    }
+    let mut seen = std::collections::HashSet::new();
+    if specs
+        .iter()
+        .any(|spec| !seen.insert(spec.branch_id.0.clone()))
+    {
+        anyhow::bail!("lineaged branch ids must be unique");
+    }
+    let mut capsules = Vec::with_capacity(specs.len());
+    for spec in specs {
+        let world_id = match provider.fork(parent.world_snapshot_id.clone()).await {
+            Ok(world_id) => world_id,
+            Err(error) => {
+                cancel_created_capsules(provider, store, &capsules).await;
+                return Err(error);
+            }
+        };
+        let mut agent =
+            fork_snapshot_with_hypothesis(&parent.agent_snapshot, &spec.label, &spec.hypothesis);
+        agent.branch_id = spec.branch_id.clone();
+        agent.state.event_cursor.branch_id = spec.branch_id.clone();
+        agent.state.event_cursor.last_event_id = None;
+        agent.world_id = world_id.clone();
+        agent.state.world_id = world_id.clone();
+        let world_snapshot = match provider.snapshot(world_id.clone()).await {
+            Ok(snapshot) => snapshot,
+            Err(error) => {
+                let _ = provider.destroy(world_id).await;
+                cancel_created_capsules(provider, store, &capsules).await;
+                return Err(error);
+            }
+        };
+        let mut capsule = AgentWorldCapsule::new(
+            agent,
+            world_snapshot,
+            Some(world_id.clone()),
+            parent.components.clone(),
+            Some(parent.capsule_id.clone()),
+            CapsuleRelation::Fork,
+        );
+        if let Err(error) = capsule.transition(CapsuleLifecycle::Running) {
+            let _ = provider.destroy(world_id).await;
+            cancel_created_capsules(provider, store, &capsules).await;
+            return Err(anyhow::Error::msg(error));
+        }
+        if let Err(error) = store.save_capsule(capsule.clone()).await {
+            let _ = provider.destroy(world_id).await;
+            cancel_created_capsules(provider, store, &capsules).await;
             return Err(error);
         }
         capsules.push(capsule);

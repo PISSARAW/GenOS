@@ -9,6 +9,8 @@ mod branch_evolution;
 pub use branch_evolution::*;
 mod causal_replay;
 pub use causal_replay::*;
+mod genome_os;
+pub use genome_os::*;
 mod experiment;
 pub use experiment::*;
 mod incident;
