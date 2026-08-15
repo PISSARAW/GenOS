@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Not implemented. The portable cohort schema exists, but there is no cohort
+runner enforcing baselines, treatments, controls, or genome-by-experience
+analysis.
+
 ## Context
 
 Forking several agents from one snapshot creates a natural experiment. The
@@ -44,4 +50,3 @@ Three comparisons are distinguished:
   cohort or starts a separately identified descendant cohort.
 - Claims about nature versus experience require controlled comparisons and
   uncertainty, not a raw snapshot diff.
-

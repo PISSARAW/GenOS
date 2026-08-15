@@ -32,6 +32,7 @@ define_id!(GenomeId);
 define_id!(SnapshotId);
 define_id!(BranchId);
 define_id!(WorldId);
+define_id!(CapsuleId);
 define_id!(EventId);
 define_id!(ExperimentId);
 define_id!(ArtifactId);

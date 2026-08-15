@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Partially implemented. `genos-eval` computes conservative equivalence verdicts
+from metric confidence intervals. The paired replay runner and behavioral
+similarity metric extractors are not implemented.
+
 ## Context
 
 Exact output replay is generally unavailable when models, tools, schedulers, or
@@ -39,4 +45,3 @@ reported separately when every dependency supports deterministic execution.
 - Safety-critical behavior cannot be hidden by a high aggregate average.
 - A snapshot format is insufficient unless runtime and environmental manifests
   are also capturable.
-

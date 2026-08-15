@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Partially implemented. Genome and mutable state are separate in `genos-core`.
+The phenotype observation model and genome/phenotype divergence pipeline are
+specified but not yet represented as first-class runtime records.
+
 ## Context
 
 An agent's durable configuration, its measured behavioral expression, and its
@@ -34,4 +40,3 @@ but learning alone does not mutate a genome.
 - Measured behavior can be compared with declared genome traits through an
   explicit divergence report.
 - Telemetry and observations must not silently become heritable configuration.
-

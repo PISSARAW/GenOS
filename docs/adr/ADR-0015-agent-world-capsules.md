@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Not implemented. The capsule schema and lifecycle contract are specified, but
+there is no capsule store, atomic checkpoint transaction, component restorer,
+or pause/resume orchestration.
+
 ## Context
 
 Git versions a filesystem tree and its ancestry. A long-lived counterfactual
@@ -53,4 +59,3 @@ resuming creates auditable events. Checkpointing does not terminate a branch.
 - Content-addressed components can be deduplicated across sibling worlds.
 - Agent and world snapshots cannot be independently advanced inside one atomic
   capsule checkpoint.
-

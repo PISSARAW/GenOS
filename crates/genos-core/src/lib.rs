@@ -1,11 +1,13 @@
 pub mod artifact;
 pub mod beliefs;
+pub mod capsule;
 pub mod diff;
 pub mod events;
 pub mod genome;
 pub mod ids;
 pub mod lineage;
 pub mod memories;
+pub mod phenotype;
 pub mod snapshot;
 pub mod state;
 pub mod tool_outputs;
@@ -13,12 +15,14 @@ pub mod variables;
 
 pub use artifact::*;
 pub use beliefs::*;
+pub use capsule::*;
 pub use diff::*;
 pub use events::*;
 pub use genome::*;
 pub use ids::*;
 pub use lineage::*;
 pub use memories::*;
+pub use phenotype::*;
 pub use snapshot::*;
 pub use state::*;
 pub use tool_outputs::*;

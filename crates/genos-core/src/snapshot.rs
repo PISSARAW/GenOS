@@ -389,6 +389,7 @@ pub(crate) mod tests {
             genome: AgentGenome {
                 id: genome_id.clone(),
                 parent_genome: None,
+                parent_genomes: vec![],
                 mutation: None,
                 version: GenomeVersion("0.1.0".to_string()),
                 identity: Identity {
@@ -417,6 +418,7 @@ pub(crate) mod tests {
                 tool_policy: ToolPolicy {
                     permissions: vec![],
                 },
+                inferred_traits: vec![],
             },
             state: AgentState {
                 genome: GenomeRef {

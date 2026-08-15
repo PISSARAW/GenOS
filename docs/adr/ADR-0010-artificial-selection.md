@@ -3,6 +3,13 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Partially implemented. `agent mutate` creates traceable child genomes and
+`genos-eval` supports Pareto assessment. The controlled benchmark runner,
+canonical metric collection, hard constraints, and generation loop are not yet
+integrated end to end.
+
 ## Context
 
 A genome mutation can improve one behavioral metric while degrading another.
@@ -34,4 +41,3 @@ experiment. Every candidate remains addressable after selection.
 - Results distinguish measured metrics from declared genome traits.
 - Repeated mutation and selection form an auditable evolutionary lineage.
 - A selected child may become the parent of another generation.
-

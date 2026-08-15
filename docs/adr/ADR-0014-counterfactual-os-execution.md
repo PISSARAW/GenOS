@@ -3,6 +3,13 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Partially implemented. Agent snapshots and worlds can be forked independently,
+and branch isolation has tests. They are not yet created and checkpointed as
+one atomic branch capsule; knowledge synthesis exists only for selected
+experiment paths.
+
 ## Context
 
 Asking one model to describe several alternatives keeps every alternative in a
@@ -49,4 +56,3 @@ considered safe.
 - Partial failure does not invalidate successful siblings.
 - Synthesis cannot silently copy contradictory beliefs or incompatible world
   changes into the selected branch.
-

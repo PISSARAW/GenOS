@@ -1,4 +1,5 @@
 use crate::ids::GenomeId;
+use crate::phenotype::InferredGenomeTraitClaim;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,6 +74,8 @@ pub struct AgentGenome {
     #[serde(default)]
     pub parent_genome: Option<GenomeId>,
     #[serde(default)]
+    pub parent_genomes: Vec<GenomeId>,
+    #[serde(default)]
     pub mutation: Option<GenomeMutationMetadata>,
     pub version: GenomeVersion,
     pub identity: Identity,
@@ -83,6 +86,8 @@ pub struct AgentGenome {
     pub memory_policy: MemoryPolicy,
     pub model_policy: ModelPolicy,
     pub tool_policy: ToolPolicy,
+    #[serde(default)]
+    pub inferred_traits: Vec<InferredGenomeTraitClaim>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -113,6 +118,7 @@ pub fn mutate_cognition(
     let mut child = parent.clone();
     child.id = GenomeId::new();
     child.parent_genome = Some(parent.id.clone());
+    child.parent_genomes = vec![parent.id.clone()];
     let mut changes = Vec::new();
     if let Some(value) = exploration {
         changes.push(GenomeMutationChange {
@@ -142,6 +148,7 @@ mod tests {
         AgentGenome {
             id: GenomeId("G0".to_string()),
             parent_genome: None,
+            parent_genomes: vec![],
             mutation: None,
             version: GenomeVersion("v0".to_string()),
             identity: Identity {
@@ -170,6 +177,7 @@ mod tests {
             tool_policy: ToolPolicy {
                 permissions: vec![],
             },
+            inferred_traits: vec![],
         }
     }
 
