@@ -12,8 +12,23 @@ pub struct AgentCommand {
 pub enum AgentSubcommands {
     Create(AgentCreateArgs),
     Inspect(AgentInspectArgs),
+    /// Derive a new genome by applying relative cognition changes.
+    Mutate(AgentMutateArgs),
     /// Derive counterfactual forks from an existing snapshot, without any model call.
     ForkFromSnapshot(AgentForkFromSnapshotArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct AgentMutateArgs {
+    pub path: PathBuf,
+    #[arg(long, allow_hyphen_values = true)]
+    pub exploration: Option<f32>,
+    #[arg(long, allow_hyphen_values = true)]
+    pub risk: Option<f32>,
+    #[arg(long)]
+    pub out: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Yaml)]
+    pub format: OutputFormat,
 }
 
 #[derive(ArgsMacro, Debug)]

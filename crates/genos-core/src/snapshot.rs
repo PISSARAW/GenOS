@@ -397,6 +397,7 @@ pub(crate) mod tests {
                 },
                 cognition: CognitionConfig {
                     exploration: 0.7,
+                    risk_tolerance: 0.25,
                     verification_threshold: 0.8,
                     planning_depth: 6,
                 },

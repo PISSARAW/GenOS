@@ -1,12 +1,15 @@
-use crate::args::{AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInspectArgs, OutputFormat};
+use crate::args::{
+    AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInspectArgs, AgentMutateArgs, OutputFormat,
+};
 use crate::output::{print_serialized, write_serialized, AgentForkOutput, ForkEntry};
 use crate::resolve::{event_store_from, read_genome, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
 use chrono::Utc;
 use genos_core::{
-    fork_first_event_sequence, fork_snapshot, AgentEvent, AgentEventType, AgentGenome,
-    AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId, GenomeId, GenomeVersion,
-    Identity, MemoryPolicy, ModelPolicy, Objective, Policy, ToolPermission, ToolPolicy,
+    fork_first_event_sequence, fork_snapshot, mutate_cognition, AgentEvent, AgentEventType,
+    AgentGenome, AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId, GenomeId,
+    GenomeVersion, Identity, MemoryPolicy, ModelPolicy, Objective, Policy, ToolPermission,
+    ToolPolicy,
 };
 use genos_store::{EventStore, LocalEventStore, LocalSnapshotStore, SnapshotStore};
 use serde_json::json;
@@ -33,6 +36,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
         },
         cognition: CognitionConfig {
             exploration: 0.7,
+            risk_tolerance: 0.25,
             verification_threshold: 0.8,
             planning_depth: 6,
         },
@@ -90,6 +94,53 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
 pub fn cmd_agent_inspect(args: AgentInspectArgs) -> Result<()> {
     let genome: AgentGenome = read_genome(&args.path)?;
     print_serialized(&genome, args.format)
+}
+
+pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
+    if args.exploration.is_none() && args.risk.is_none() {
+        bail!("nothing to mutate: pass --exploration and/or --risk");
+    }
+    let parent: AgentGenome = read_genome(&args.path)?;
+    let exploration = args
+        .exploration
+        .map(|delta| bounded_delta("exploration", parent.cognition.exploration, delta))
+        .transpose()?;
+    let risk = args
+        .risk
+        .map(|delta| bounded_delta("risk", parent.cognition.risk_tolerance, delta))
+        .transpose()?;
+    let mut child = mutate_cognition(&parent, exploration, risk);
+    child.version = GenomeVersion(next_version(&parent.version.0));
+
+    let path = args.out.unwrap_or_else(|| {
+        let stem = args
+            .path
+            .file_stem()
+            .and_then(|value| value.to_str())
+            .unwrap_or("agent");
+        args.path.with_file_name(format!("{stem}-v2.agent"))
+    });
+    write_serialized(&path, &child, args.format)?;
+    println!("mutated agent genome written to {}", path.display());
+    Ok(())
+}
+
+fn bounded_delta(field: &str, value: f32, delta: f32) -> Result<f32> {
+    let next = value + delta;
+    if !(0.0..=1.0).contains(&next) {
+        bail!("{field} mutation produces {next}; expected a value between 0 and 1");
+    }
+    Ok(next)
+}
+
+fn next_version(version: &str) -> String {
+    let Some((prefix, patch)) = version.rsplit_once('.') else {
+        return format!("{version}+mutation");
+    };
+    patch
+        .parse::<u64>()
+        .map(|value| format!("{prefix}.{}", value + 1))
+        .unwrap_or_else(|_| format!("{version}+mutation"))
 }
 
 pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Result<()> {
