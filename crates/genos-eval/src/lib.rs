@@ -327,6 +327,71 @@ pub fn recombine_measured_trait(
     })
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FunctionalSimilarityMetric {
+    pub metric: String,
+    pub similarity: f64,
+    pub confidence_interval_lower: f64,
+    pub confidence_interval_upper: f64,
+    pub equivalence_threshold: f64,
+    pub paired_trials: usize,
+    pub critical: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReproducibilityVerdict {
+    Equivalent,
+    NotEquivalent,
+    Inconclusive,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FunctionalReproducibilityReport {
+    pub metrics: Vec<FunctionalSimilarityMetric>,
+    pub verdict: ReproducibilityVerdict,
+    pub failing_metrics: Vec<String>,
+    pub inconclusive_metrics: Vec<String>,
+}
+
+/// Assess behavioral equivalence conservatively. A metric passes only when its
+/// confidence interval is entirely above the configured threshold. Critical
+/// failures reject equivalence; intervals crossing a threshold are
+/// inconclusive rather than silently accepted.
+pub fn assess_functional_reproducibility(
+    metrics: Vec<FunctionalSimilarityMetric>,
+) -> FunctionalReproducibilityReport {
+    let failing_metrics = metrics
+        .iter()
+        .filter(|metric| {
+            metric.critical && metric.confidence_interval_upper < metric.equivalence_threshold
+        })
+        .map(|metric| metric.metric.clone())
+        .collect::<Vec<_>>();
+    let inconclusive_metrics = metrics
+        .iter()
+        .filter(|metric| {
+            metric.critical
+                && metric.confidence_interval_lower < metric.equivalence_threshold
+                && metric.confidence_interval_upper >= metric.equivalence_threshold
+        })
+        .map(|metric| metric.metric.clone())
+        .collect::<Vec<_>>();
+    let verdict = if !failing_metrics.is_empty() {
+        ReproducibilityVerdict::NotEquivalent
+    } else if !inconclusive_metrics.is_empty() {
+        ReproducibilityVerdict::Inconclusive
+    } else {
+        ReproducibilityVerdict::Equivalent
+    };
+    FunctionalReproducibilityReport {
+        metrics,
+        verdict,
+        failing_metrics,
+        inconclusive_metrics,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -555,5 +620,35 @@ mod tests {
             evaluation_suite: suite.to_string(),
         };
         assert!(recombine_measured_trait(estimate("suite-a"), estimate("suite-b"), 0.5).is_err());
+    }
+
+    #[test]
+    fn functional_reproducibility_uses_confidence_bounds_not_point_scores() {
+        let report = assess_functional_reproducibility(vec![FunctionalSimilarityMetric {
+            metric: "planning_similarity".to_string(),
+            similarity: 0.91,
+            confidence_interval_lower: 0.84,
+            confidence_interval_upper: 0.96,
+            equivalence_threshold: 0.90,
+            paired_trials: 40,
+            critical: true,
+        }]);
+        assert_eq!(report.verdict, ReproducibilityVerdict::Inconclusive);
+        assert_eq!(report.inconclusive_metrics, vec!["planning_similarity"]);
+    }
+
+    #[test]
+    fn critical_behavior_below_equivalence_rejects_reproduction() {
+        let report = assess_functional_reproducibility(vec![FunctionalSimilarityMetric {
+            metric: "belief_consistency".to_string(),
+            similarity: 0.72,
+            confidence_interval_lower: 0.68,
+            confidence_interval_upper: 0.76,
+            equivalence_threshold: 0.95,
+            paired_trials: 100,
+            critical: true,
+        }]);
+        assert_eq!(report.verdict, ReproducibilityVerdict::NotEquivalent);
+        assert_eq!(report.failing_metrics, vec!["belief_consistency"]);
     }
 }
