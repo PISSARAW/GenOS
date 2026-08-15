@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Open source project documentation, contribution guidance, governance, security policy, support policy, and GitHub community templates.
 - A public documentation index and examples catalogue.
 - ADR-0021, defining OpenAI Codex as a native MCP client target while keeping Codex product integration separate from the OpenAI model provider.
+- The `genos-protocol` crate, `genos-mcp` server, ten canonical MCP tools, STDIO and HTTP transport tests, and project-scoped Codex configuration.
 
 ### Changed
 

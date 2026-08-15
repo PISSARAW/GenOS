@@ -1,6 +1,6 @@
 # ADR-0021: Protocol Interoperability and OpenAI Codex Integration
 
-- Status: Accepted
+- Status: Accepted and implemented
 - Date: 2026-08-15
 
 ## Context
@@ -52,7 +52,8 @@ ChatGPT integration      -> product adapter   -> GenOS protocol
 ```
 
 Codex-specific installation may configure a project-scoped MCP server, but no
-configuration is shipped until an executable `genos-mcp` server exists.
+configuration is shipped until an executable `genos-mcp` server exists. The
+implementation now ships that server and a project-scoped Codex configuration.
 
 ## Compatibility contract
 
@@ -79,4 +80,3 @@ OpenAI Codex is a target for the GenOS-native level through MCP.
 - The protocol and MCP server require production code, schemas, tests, and
   installation documentation before compatibility can be advertised as
   implemented.
-

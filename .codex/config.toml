@@ -1,0 +1,13 @@
+[mcp_servers.genos]
+command = "cargo"
+args = ["run", "--quiet", "-p", "genos-mcp", "--", "stdio"]
+cwd = "."
+enabled = true
+required = false
+startup_timeout_sec = 120
+tool_timeout_sec = 300
+default_tools_approval_mode = "writes"
+
+[mcp_servers.genos.tools.genos_run]
+approval_mode = "prompt"
+

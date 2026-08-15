@@ -8,6 +8,8 @@ This index separates user-facing concepts, normative specifications, implementat
 - [Agent primitives](AGENT_PRIMITIVES.md) — the ten canonical lifecycle operations
 - [Counterfactual OS](COUNTERFACTUAL_OS.md) — integrated branch execution model
 - [Protocol interoperability and Codex](adr/ADR-0021-protocol-interoperability-codex.md) — MCP boundary and product/provider separation
+- [GenOS protocol](GENOS_PROTOCOL.md) — versioned operations, result envelope, and execution boundary
+- [OpenAI Codex MCP integration](integrations/CODEX_MCP.md) — local and HTTP setup, approvals, and troubleshooting
 - [Examples catalogue](../examples/README.md) — runnable demonstrations by topic
 
 ## Concepts and specifications
