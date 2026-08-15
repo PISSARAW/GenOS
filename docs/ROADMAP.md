@@ -15,3 +15,6 @@
 ## 0.1.0
 
 - First counterfactual experiment end-to-end
+- Atomic counterfactual branch capsule: agent snapshot + world + event stream + budget
+- Shared evaluation protocol with branch selection
+- Provenance-bearing knowledge synthesis validated on a fresh branch
