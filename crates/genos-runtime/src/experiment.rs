@@ -1,4 +1,7 @@
-use crate::{run_long_branch, LongRunningBranchOutcome, LongRunningBranchPlan, VerificationPlan, WorkspaceEdit};
+use crate::{
+    run_long_branch, LongRunningBranchOutcome, LongRunningBranchPlan, VerificationPlan,
+    WorkspaceEdit,
+};
 use anyhow::{bail, Context};
 use chrono::Utc;
 use genos_core::{
@@ -6,8 +9,7 @@ use genos_core::{
     LineageDag, SnapshotId,
 };
 use genos_eval::{
-    synthesize_refactor_experiment, CognitiveMergeResult, ObjectiveWeight,
-    RefactorBranchEvaluation,
+    synthesize_refactor_experiment, CognitiveMergeResult, ObjectiveWeight, RefactorBranchEvaluation,
 };
 use genos_world::{DirectoryWorldProvider, WorldProvider};
 use serde::{Deserialize, Serialize};
@@ -29,7 +31,9 @@ pub struct WorkspaceBranchSpec {
     pub verifications: Vec<VerificationPlanSpec>,
 }
 
-fn root_parent() -> String { "S0".to_string() }
+fn root_parent() -> String {
+    "S0".to_string()
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct WorkspaceEditSpec {
@@ -82,7 +86,10 @@ pub async fn run_workspace_experiment(
 
     for (index, spec) in manifest.branches.into_iter().enumerate() {
         let parent = snapshots.get(&spec.parent).cloned().with_context(|| {
-            format!("branch {} references unavailable parent {}; manifests must be parent-first", spec.id, spec.parent)
+            format!(
+                "branch {} references unavailable parent {}; manifests must be parent-first",
+                spec.id, spec.parent
+            )
         })?;
         if snapshots.contains_key(&spec.id) {
             bail!("duplicate branch id {}", spec.id);
@@ -91,28 +98,40 @@ pub async fn run_workspace_experiment(
             branch_id: BranchId(spec.id.clone()),
             label: spec.label.clone(),
             hypothesis: spec.hypothesis,
-            edits: spec.edits.into_iter().map(|edit| WorkspaceEdit {
-                relative_path: edit.relative_path,
-                contents: edit.contents,
-            }).collect(),
-            verifications: spec.verifications.into_iter().map(|stage| VerificationPlan {
-                kind: stage.kind,
-                command: stage.command,
-            }).collect(),
+            edits: spec
+                .edits
+                .into_iter()
+                .map(|edit| WorkspaceEdit {
+                    relative_path: edit.relative_path,
+                    contents: edit.contents,
+                })
+                .collect(),
+            verifications: spec
+                .verifications
+                .into_iter()
+                .map(|stage| VerificationPlan {
+                    kind: stage.kind,
+                    command: stage.command,
+                })
+                .collect(),
         };
         let outcome = run_long_branch(&provider, &root_world, &parent, plan).await?;
         let child_snapshot = provider.snapshot(outcome.world_id.clone()).await?;
         lineage_events.push(AgentEvent {
-            event_id: EventId::new(), agent_id: AgentId::new(),
-            branch_id: Some(BranchId(spec.id.clone())), sequence: index as u64 + 1,
-            timestamp: Utc::now(), event_type: AgentEventType::ForkCreated,
+            event_id: EventId::new(),
+            agent_id: AgentId::new(),
+            branch_id: Some(BranchId(spec.id.clone())),
+            sequence: index as u64 + 1,
+            timestamp: Utc::now(),
+            event_type: AgentEventType::ForkCreated,
             payload: json!({
                 "parent_snapshot_id": parent.0.clone(),
                 "fork_snapshot_id": child_snapshot.0.clone(),
                 "branch_id": spec.id.clone(),
                 "label": spec.label.clone(),
             }),
-            causation_id: None, correlation_id: Some(correlation_id.clone()),
+            causation_id: None,
+            correlation_id: Some(correlation_id.clone()),
         });
         snapshots.insert(spec.id, child_snapshot);
         outcomes.push(outcome);
@@ -122,7 +141,10 @@ pub async fn run_workspace_experiment(
         .iter()
         .filter(|outcome| {
             !outcome.verifications.is_empty()
-                && outcome.verifications.iter().all(|verification| verification.passed)
+                && outcome
+                    .verifications
+                    .iter()
+                    .all(|verification| verification.passed)
         })
         .map(|outcome| outcome.branch_id.clone())
         .collect::<HashSet<_>>();
@@ -155,7 +177,9 @@ pub struct TemporalExperimentManifest {
     pub universes: Vec<crate::CounterfactualUniverse>,
 }
 
-pub fn run_temporal_experiment(manifest: TemporalExperimentManifest) -> crate::TemporalCausalReport {
+pub fn run_temporal_experiment(
+    manifest: TemporalExperimentManifest,
+) -> crate::TemporalCausalReport {
     crate::replay_counterfactual_history(
         manifest.checkpoint,
         manifest.history_end,

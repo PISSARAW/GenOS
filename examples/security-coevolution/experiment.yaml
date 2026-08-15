@@ -1,0 +1,60 @@
+name: red-blue-coevolution-v1
+snapshot_ref: security-lab@world-0
+config:
+  seed: 42
+  generations: 200
+  mutations_per_parent: 3
+  mutation_scale: 0.08
+
+scenarios:
+  - id: phishing
+    attack_tactic: phishing
+    defense_tactic: defense-A-awareness-and-mail-controls
+    baseline_risk: 0.72
+    red_genes:
+      effectiveness: 0.58
+      adaptability: 0.52
+      precision: 0.64
+    blue_genes:
+      effectiveness: 0.55
+      adaptability: 0.45
+      precision: 0.70
+
+  - id: dependency-attack
+    attack_tactic: dependency_attack
+    defense_tactic: defense-B-supply-chain-verification
+    baseline_risk: 0.68
+    red_genes:
+      effectiveness: 0.62
+      adaptability: 0.57
+      precision: 0.60
+    blue_genes:
+      effectiveness: 0.58
+      adaptability: 0.50
+      precision: 0.74
+
+  - id: privilege-escalation
+    attack_tactic: privilege_escalation
+    defense_tactic: defense-C-least-privilege
+    baseline_risk: 0.76
+    red_genes:
+      effectiveness: 0.64
+      adaptability: 0.48
+      precision: 0.68
+    blue_genes:
+      effectiveness: 0.61
+      adaptability: 0.47
+      precision: 0.72
+
+  - id: lateral-movement
+    attack_tactic: lateral_movement
+    defense_tactic: defense-D-segmentation
+    baseline_risk: 0.74
+    red_genes:
+      effectiveness: 0.60
+      adaptability: 0.61
+      precision: 0.58
+    blue_genes:
+      effectiveness: 0.57
+      adaptability: 0.56
+      precision: 0.69

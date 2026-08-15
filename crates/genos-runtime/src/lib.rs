@@ -11,6 +11,8 @@ mod incident;
 pub use incident::*;
 mod scientific;
 pub use scientific::*;
+mod security_coevolution;
+pub use security_coevolution::*;
 
 #[derive(Clone, Debug)]
 pub struct StepResult {
@@ -86,7 +88,11 @@ pub async fn run_code_experiment<P: WorldProvider>(
             stderr: execution.stderr,
             files_changed: diff.files_changed,
             diff_summary: format!("{} file(s) changed", diff.files_changed),
-            score: if tests_passed { plan.score_on_success } else { 0.0 },
+            score: if tests_passed {
+                plan.score_on_success
+            } else {
+                0.0
+            },
         });
     }
     Ok(outcomes)
