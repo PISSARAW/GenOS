@@ -1,0 +1,41 @@
+claims:
+  - claim_id: A-no-redis
+    branch_id: A
+    subject: redis
+    predicate: necessary
+    object_value: "false"
+    confidence: 0.90
+    evidence: ["branch-A: load test succeeds without Redis"]
+  - claim_id: B-redis-contention
+    branch_id: B
+    subject: redis
+    predicate: resolves_contention
+    object_value: "true"
+    confidence: 0.95
+    evidence: ["branch-B: p99 lock wait falls after Redis introduction"]
+  - claim_id: C-postgres-root
+    branch_id: C
+    subject: contention
+    predicate: root_cause
+    object_value: postgresql
+    confidence: 0.92
+    evidence: ["branch-C: query plan and lock graph isolate PostgreSQL"]
+relations:
+  - from_claim: A-no-redis
+    to_claim: B-redis-contention
+    kind: contradicts
+    confidence: 0.88
+    evidence: ["Redis necessity and Redis mitigation are competing architectural conclusions"]
+  - from_claim: C-postgres-root
+    to_claim: A-no-redis
+    kind: explains
+    confidence: 0.91
+    evidence: ["fixing the PostgreSQL lock path removes the need for Redis"]
+  - from_claim: C-postgres-root
+    to_claim: B-redis-contention
+    kind: qualifies
+    confidence: 0.89
+    evidence: ["Redis mitigates symptoms without establishing the root cause"]
+config:
+  acceptance_threshold: 0.75
+  minimum_independent_branches: 1

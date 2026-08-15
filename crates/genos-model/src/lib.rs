@@ -133,7 +133,10 @@ mod tests {
             temperature: Some(0.9),
         };
 
-        let first = model.infer(request.clone()).await.expect("fake model failed");
+        let first = model
+            .infer(request.clone())
+            .await
+            .expect("fake model failed");
         let second = model.infer(request).await.expect("fake model failed");
         assert_eq!(first.content, "RESPONSE A");
         assert_eq!(first.content, second.content);

@@ -92,7 +92,11 @@ fn rewriting_a_past_decision_replays_shared_history_with_causal_explanations() {
         .iter()
         .all(|universe| universe.replayed_event_ids == *shared_history));
 
-    let reality = report.universes.iter().find(|universe| universe.factual).unwrap();
+    let reality = report
+        .universes
+        .iter()
+        .find(|universe| universe.factual)
+        .unwrap();
     assert!(reality.p95_latency_ms > 140.0);
     assert!(reality.consistency_risk > 0.5);
     let latency_causes = reality.explain_metric("p95_latency_ms");
@@ -108,7 +112,11 @@ fn rewriting_a_past_decision_replays_shared_history_with_causal_explanations() {
         .unwrap();
     assert!(changed_model.p95_latency_ms < reality.p95_latency_ms);
 
-    println!("replay {} → {} known events", report.checkpoint.agent_ref, shared_history.len());
+    println!(
+        "replay {} → {} known events",
+        report.checkpoint.agent_ref,
+        shared_history.len()
+    );
     for universe in &report.universes {
         println!(
             "{} architecture={} latency={:.1}ms consistency_risk={:.2} ops={:.2}",

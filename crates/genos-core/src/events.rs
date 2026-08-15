@@ -32,6 +32,8 @@ pub enum AgentEventType {
     EvaluationStarted,
     EvaluationCompleted,
     BranchSelected,
+    CognitiveMergeProposed,
+    CognitiveMergeApplied,
     /// Logical state was rewound to a previously saved snapshot on the same
     /// branch. Payload carries `source_snapshot_id`, `restored_state_fields`
     /// (list of fields overwritten), and `event_cursor_sequence_before`. The
@@ -65,11 +67,16 @@ pub fn correlate_events(events: &mut [AgentEvent], correlation_id: CorrelationId
 /// event exists. The returned order starts with the target and ends at its
 /// causal root; missing links and cycles stop the walk safely.
 pub fn causation_chain(events: &[AgentEvent], target: &EventId) -> Vec<AgentEvent> {
-    let by_id: HashMap<_, _> = events.iter().map(|event| (&event.event_id, event)).collect();
+    let by_id: HashMap<_, _> = events
+        .iter()
+        .map(|event| (&event.event_id, event))
+        .collect();
     let mut chain = Vec::new();
     let mut next = Some(target.clone());
     while let Some(event_id) = next {
-        let Some(event) = by_id.get(&event_id) else { break };
+        let Some(event) = by_id.get(&event_id) else {
+            break;
+        };
         chain.push((*event).clone());
         next = event.causation_id.clone();
         if chain
@@ -115,7 +122,9 @@ mod tests {
         ];
 
         correlate_events(&mut events, correlation_id.clone());
-        assert!(events.iter().all(|event| event.correlation_id == Some(correlation_id.clone())));
+        assert!(events
+            .iter()
+            .all(|event| event.correlation_id == Some(correlation_id.clone())));
     }
 
     #[test]
@@ -130,7 +139,10 @@ mod tests {
 
         let chain = causation_chain(&[step, tool, model, belief.clone()], &belief.event_id);
         assert_eq!(
-            chain.iter().map(|event| &event.event_type).collect::<Vec<_>>(),
+            chain
+                .iter()
+                .map(|event| &event.event_type)
+                .collect::<Vec<_>>(),
             vec![
                 &AgentEventType::BeliefCreated,
                 &AgentEventType::ModelResponded,

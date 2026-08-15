@@ -4,7 +4,9 @@ use crate::events::AgentEventType;
 use crate::fork_snapshot;
 use crate::ids::ToolOutputId;
 use crate::snapshot::tests::snapshot_with_variable;
-use crate::tool_outputs::{record_checked_tool_call_on_branch, record_tool_call_on_branch, ToolCallRequest};
+use crate::tool_outputs::{
+    record_checked_tool_call_on_branch, record_tool_call_on_branch, ToolCallRequest,
+};
 use serde_json::json;
 
 #[test]
@@ -160,11 +162,20 @@ fn read_file_result_is_attached_as_a_provenance_artifact() {
         },
     );
 
-    assert_eq!(write.requested_event.event_type, AgentEventType::ToolRequested);
-    assert_eq!(write.completed_event.event_type, AgentEventType::ToolCompleted);
+    assert_eq!(
+        write.requested_event.event_type,
+        AgentEventType::ToolRequested
+    );
+    assert_eq!(
+        write.completed_event.event_type,
+        AgentEventType::ToolCompleted
+    );
     assert_eq!(snapshot.state.tool_outputs.len(), 1);
     assert_eq!(snapshot.state.artifact_refs.len(), 1);
-    assert_eq!(snapshot.state.artifact_refs[0].media_type, "application/json");
+    assert_eq!(
+        snapshot.state.artifact_refs[0].media_type,
+        "application/json"
+    );
     assert_eq!(
         snapshot.state.tool_outputs[0].generating_event_id,
         write.completed_event.event_id
@@ -184,7 +195,10 @@ fn failed_tool_call_is_recorded_without_failing_the_runtime() {
         },
     );
 
-    assert_eq!(write.requested_event.event_type, AgentEventType::ToolRequested);
+    assert_eq!(
+        write.requested_event.event_type,
+        AgentEventType::ToolRequested
+    );
     assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
     assert_eq!(write.record.success, false);
     assert_eq!(write.record.output, json!({ "error": "file not found" }));
@@ -195,11 +209,13 @@ fn failed_tool_call_is_recorded_without_failing_the_runtime() {
 #[test]
 fn denied_network_tool_is_audited_without_execution() {
     let mut snapshot = snapshot_with_variable("counter", "0");
-    let policy = crate::ToolPolicy { permissions: vec![crate::ToolPermission {
-        tool: "http".to_string(),
-        scope: "network".to_string(),
-        enabled: false,
-    }] };
+    let policy = crate::ToolPolicy {
+        permissions: vec![crate::ToolPermission {
+            tool: "http".to_string(),
+            scope: "network".to_string(),
+            enabled: false,
+        }],
+    };
 
     let write = record_checked_tool_call_on_branch(
         &mut snapshot,
@@ -249,8 +265,14 @@ fn sibling_branches_can_use_different_environment_permissions() {
         json!({ "url": "https://example.com" }),
     );
 
-    assert_eq!(allowed.completed_event.event_type, AgentEventType::ToolCompleted);
-    assert_eq!(denied.completed_event.event_type, AgentEventType::ToolFailed);
+    assert_eq!(
+        allowed.completed_event.event_type,
+        AgentEventType::ToolCompleted
+    );
+    assert_eq!(
+        denied.completed_event.event_type,
+        AgentEventType::ToolFailed
+    );
     assert_eq!(denied.record.output["error"], "permission_denied");
     assert_ne!(branch_a.branch_id, branch_b.branch_id);
 }

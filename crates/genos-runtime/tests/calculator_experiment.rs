@@ -6,23 +6,40 @@ use std::path::Path;
 use tempfile::tempdir;
 
 fn write(path: &Path, contents: &str) -> anyhow::Result<()> {
-    if let Some(parent) = path.parent() { fs::create_dir_all(parent)?; }
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     fs::write(path, contents)?;
     Ok(())
 }
 
 fn edit(path: &str, contents: &str) -> WorkspaceEdit {
-    WorkspaceEdit { relative_path: path.to_string(), contents: contents.to_string() }
+    WorkspaceEdit {
+        relative_path: path.to_string(),
+        contents: contents.to_string(),
+    }
 }
 
 #[tokio::test]
 async fn calculator_branches_edit_test_diff_and_score_independently() -> anyhow::Result<()> {
     let temp = tempdir()?;
     let seed = temp.path().join("calculator");
-    write(&seed.join("Cargo.toml"), "[package]\nname='calculator'\nversion='0.1.0'\nedition='2021'\n")?;
-    write(&seed.join(".cargo/config.toml"), "[build]\ntarget-dir='../shared-target'\n")?;
-    write(&seed.join("src/lib.rs"), "pub fn divide(a: i32, b: i32) -> i32 { a / b }\n")?;
-    write(&seed.join("tests/divide.rs"), "use calculator::divide;\n#[test] fn divides() { assert_eq!(divide(8,2),4); }\n")?;
+    write(
+        &seed.join("Cargo.toml"),
+        "[package]\nname='calculator'\nversion='0.1.0'\nedition='2021'\n",
+    )?;
+    write(
+        &seed.join(".cargo/config.toml"),
+        "[build]\ntarget-dir='../shared-target'\n",
+    )?;
+    write(
+        &seed.join("src/lib.rs"),
+        "pub fn divide(a: i32, b: i32) -> i32 { a / b }\n",
+    )?;
+    write(
+        &seed.join("tests/divide.rs"),
+        "use calculator::divide;\n#[test] fn divides() { assert_eq!(divide(8,2),4); }\n",
+    )?;
 
     let provider = DirectoryWorldProvider::new(temp.path().join("genos"), Some(seed))?;
     let base = provider.create(AgentId::new(), BranchId::new()).await?;
@@ -60,7 +77,11 @@ async fn calculator_branches_edit_test_diff_and_score_independently() -> anyhow:
             "{} hypothesis={} tests={} diff={} score={:.1}",
             outcome.label,
             outcome.hypothesis,
-            if outcome.tests_passed { "passed" } else { "failed" },
+            if outcome.tests_passed {
+                "passed"
+            } else {
+                "failed"
+            },
             outcome.diff_summary,
             outcome.score,
         );
@@ -68,6 +89,12 @@ async fn calculator_branches_edit_test_diff_and_score_independently() -> anyhow:
     assert_eq!(outcomes.len(), 3);
     assert!(outcomes.iter().all(|outcome| outcome.tests_passed));
     assert!(outcomes.iter().all(|outcome| outcome.files_changed >= 2));
-    assert_eq!(outcomes.iter().map(|outcome| outcome.score).collect::<Vec<_>>(), vec![0.6, 0.9, 0.8]);
+    assert_eq!(
+        outcomes
+            .iter()
+            .map(|outcome| outcome.score)
+            .collect::<Vec<_>>(),
+        vec![0.6, 0.9, 0.8]
+    );
     Ok(())
 }
