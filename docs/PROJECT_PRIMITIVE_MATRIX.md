@@ -2,9 +2,24 @@
 
 Project runners and the canonical CLI now share the same ten-operation
 vocabulary. Every persisted project report contains `primitive_trace`, an
-ordered audit of the operations that actually occurred. `experiment ...`
-remains the manifest-driven orchestration layer; each trace entry maps directly
-to the equivalent `genos agent ...` primitive.
+ordered audit of the operations that actually occurred. `experiment ...` is
+the orchestration layer and accepts either a complete manifest or direct
+runtime inputs plus a reusable plan. Each trace entry maps directly to the
+equivalent `genos agent ...` primitive.
+
+| Orchestrator | Direct input mode |
+| --- | --- |
+| Workspace refactor | `workspace --repo PATH --plan PATH` |
+| Incident search | `incident --snapshot REF --evidence PATH --search-plan PATH` |
+| Scientific research | `scientific --dataset PATH --research-plan PATH` |
+| Security coevolution | `security-coevolution --environment PATH --evolution-plan PATH` |
+| Unknown-cause bug | `bug-investigation --repo PATH --plan PATH` |
+
+Manifest and direct modes are mutually exclusive. Partial direct input sets
+are rejected before the runtime creates any world. CLI inputs replace the
+corresponding plan fields (`seed_dir`, `evidence`, `records`, or `scenarios`),
+then the result is deserialized into the same typed runtime manifest used by
+the original mode.
 
 | Project | Canonical lifecycle |
 | --- | --- |

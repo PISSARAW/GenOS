@@ -9,6 +9,12 @@ defensifs dans des mondes GenOS isoles.
 cargo run -p genos-cli -- experiment security-coevolution examples/security-coevolution/experiment.yaml --summary
 ```
 
+L'environnement experimente peut etre injecte separement du plan evolutif :
+
+```powershell
+cargo run -p genos-cli -- experiment security-coevolution --environment examples/security-coevolution/environment.yaml --evolution-plan examples/security-coevolution/experiment.yaml --summary
+```
+
 La simulation cree quatre univers depuis `security-lab@world-0` : phishing,
 attaque de dependance, elevation de privileges et mouvement lateral. Dans
 chacun, les populations Red et Blue produisent trois descendants par

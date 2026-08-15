@@ -3,7 +3,7 @@ use crate::args::{
     SecurityCoevolutionArgs, TemporalExperimentArgs, WorkspaceExperimentArgs,
 };
 use crate::output::print_serialized;
-use anyhow::Context;
+use anyhow::{bail, Context};
 use genos_runtime::{
     analyze_fixed_genome_cohort, apply_cognitive_merge, artificial_select, cognitive_merge,
     evaluate_paired_reproduction, merge_experiences, persist_experiment_report,
@@ -19,6 +19,7 @@ use genos_runtime::{
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use std::path::Path;
 
 #[derive(Serialize)]
@@ -96,6 +97,169 @@ fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
     match path.extension().and_then(|extension| extension.to_str()) {
         Some("yaml" | "yml") => Ok(serde_yaml::from_slice(&bytes)?),
         _ => Ok(serde_json::from_slice(&bytes)?),
+    }
+}
+
+fn read_value(path: &Path) -> anyhow::Result<Value> {
+    read_manifest(path)
+}
+
+fn set_object_field(
+    value: &mut Value,
+    field: &str,
+    replacement: Value,
+    source: &Path,
+) -> anyhow::Result<()> {
+    let object = value.as_object_mut().with_context(|| {
+        format!(
+            "direct experiment plan {} must be a YAML/JSON object",
+            source.display()
+        )
+    })?;
+    object.insert(field.to_string(), replacement);
+    Ok(())
+}
+
+fn deserialize_plan<T: DeserializeOwned>(value: Value, source: &Path) -> anyhow::Result<T> {
+    serde_json::from_value(value)
+        .with_context(|| format!("validating direct experiment plan {}", source.display()))
+}
+
+fn path_value(path: &Path) -> Value {
+    Value::String(path.to_string_lossy().into_owned())
+}
+
+fn nested_or_whole(mut value: Value, field: &str) -> Value {
+    value
+        .as_object_mut()
+        .and_then(|object| object.remove(field))
+        .unwrap_or(value)
+}
+
+fn read_dataset(path: &Path) -> anyhow::Result<Vec<String>> {
+    match path.extension().and_then(|extension| extension.to_str()) {
+        Some("yaml" | "yml" | "json") => read_manifest(path),
+        _ => {
+            let contents = std::fs::read_to_string(path)
+                .with_context(|| format!("reading scientific dataset {}", path.display()))?;
+            let records: Vec<_> = contents
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+                .map(str::to_owned)
+                .collect();
+            if records.is_empty() {
+                bail!("scientific dataset {} contains no records", path.display());
+            }
+            Ok(records)
+        }
+    }
+}
+
+fn workspace_manifest(
+    args: &WorkspaceExperimentArgs,
+) -> anyhow::Result<WorkspaceExperimentManifest> {
+    match (&args.manifest, &args.repo, &args.plan) {
+        (Some(manifest_path), None, None) => {
+            let mut manifest: WorkspaceExperimentManifest = read_manifest(manifest_path)?;
+            if manifest.seed_dir.is_relative() {
+                let base = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+                manifest.seed_dir = base.join(&manifest.seed_dir);
+            }
+            Ok(manifest)
+        }
+        (None, Some(repo), Some(plan_path)) => {
+            let mut plan = read_value(plan_path)?;
+            set_object_field(&mut plan, "seed_dir", path_value(repo), plan_path)?;
+            deserialize_plan(plan, plan_path)
+        }
+        (Some(_), _, _) => bail!("MANIFEST cannot be combined with --repo or --plan"),
+        _ => bail!("provide either MANIFEST or both --repo PATH and --plan PATH"),
+    }
+}
+
+fn incident_manifest(args: &IncidentExperimentArgs) -> anyhow::Result<IncidentSearchManifest> {
+    match (
+        &args.manifest,
+        &args.snapshot,
+        &args.evidence,
+        &args.search_plan,
+    ) {
+        (Some(manifest_path), None, None, None) => read_manifest(manifest_path),
+        (None, Some(snapshot), Some(evidence_path), Some(plan_path)) => {
+            let mut evidence = nested_or_whole(read_value(evidence_path)?, "evidence");
+            set_object_field(
+                &mut evidence,
+                "snapshot_ref",
+                Value::String(snapshot.clone()),
+                evidence_path,
+            )?;
+            let mut plan = read_value(plan_path)?;
+            set_object_field(&mut plan, "evidence", evidence, plan_path)?;
+            deserialize_plan(plan, plan_path)
+        }
+        (Some(_), _, _, _) => {
+            bail!("MANIFEST cannot be combined with --snapshot, --evidence, or --search-plan")
+        }
+        _ => bail!(
+            "provide either MANIFEST or --snapshot REF, --evidence PATH, and --search-plan PATH"
+        ),
+    }
+}
+
+fn scientific_manifest(
+    args: &ScientificExperimentArgs,
+) -> anyhow::Result<ScientificExperimentManifest> {
+    match (&args.manifest, &args.dataset, &args.research_plan) {
+        (Some(manifest_path), None, None) => read_manifest(manifest_path),
+        (None, Some(dataset_path), Some(plan_path)) => {
+            let records = serde_json::to_value(read_dataset(dataset_path)?)?;
+            let mut plan = read_value(plan_path)?;
+            set_object_field(&mut plan, "records", records, plan_path)?;
+            deserialize_plan(plan, plan_path)
+        }
+        (Some(_), _, _) => {
+            bail!("MANIFEST cannot be combined with --dataset or --research-plan")
+        }
+        _ => bail!("provide either MANIFEST or both --dataset PATH and --research-plan PATH"),
+    }
+}
+
+fn security_manifest(
+    args: &SecurityCoevolutionArgs,
+) -> anyhow::Result<SecurityCoevolutionManifest> {
+    match (&args.manifest, &args.environment, &args.evolution_plan) {
+        (Some(manifest_path), None, None) => read_manifest(manifest_path),
+        (None, Some(environment_path), Some(plan_path)) => {
+            let scenarios = nested_or_whole(read_value(environment_path)?, "scenarios");
+            let mut plan = read_value(plan_path)?;
+            set_object_field(&mut plan, "scenarios", scenarios, plan_path)?;
+            deserialize_plan(plan, plan_path)
+        }
+        (Some(_), _, _) => {
+            bail!("MANIFEST cannot be combined with --environment or --evolution-plan")
+        }
+        _ => bail!("provide either MANIFEST or both --environment PATH and --evolution-plan PATH"),
+    }
+}
+
+fn bug_manifest(args: &BugInvestigationArgs) -> anyhow::Result<BugInvestigationManifest> {
+    match (&args.manifest, &args.repo, &args.plan) {
+        (Some(manifest_path), None, None) => {
+            let mut manifest: BugInvestigationManifest = read_manifest(manifest_path)?;
+            if manifest.seed_dir.is_relative() {
+                let base = manifest_path.parent().unwrap_or_else(|| Path::new("."));
+                manifest.seed_dir = base.join(&manifest.seed_dir);
+            }
+            Ok(manifest)
+        }
+        (None, Some(repo), Some(plan_path)) => {
+            let mut plan = read_value(plan_path)?;
+            set_object_field(&mut plan, "seed_dir", path_value(repo), plan_path)?;
+            deserialize_plan(plan, plan_path)
+        }
+        (Some(_), _, _) => bail!("MANIFEST cannot be combined with --repo or --plan"),
+        _ => bail!("provide either MANIFEST or both --repo PATH and --plan PATH"),
     }
 }
 
@@ -195,11 +359,7 @@ pub fn cmd_experiment_branch_evolution(args: GenericExperimentArgs) -> anyhow::R
 }
 
 pub async fn cmd_experiment_workspace(args: WorkspaceExperimentArgs) -> anyhow::Result<()> {
-    let mut manifest: WorkspaceExperimentManifest = read_manifest(&args.manifest)?;
-    if manifest.seed_dir.is_relative() {
-        let base = args.manifest.parent().unwrap_or_else(|| Path::new("."));
-        manifest.seed_dir = base.join(&manifest.seed_dir);
-    }
+    let manifest = workspace_manifest(&args)?;
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_workspace_experiment(manifest, &experiment_root).await?;
@@ -244,7 +404,7 @@ pub fn cmd_experiment_causal_replay(args: TemporalExperimentArgs) -> anyhow::Res
 }
 
 pub fn cmd_experiment_incident(args: IncidentExperimentArgs) -> anyhow::Result<()> {
-    let manifest: IncidentSearchManifest = read_manifest(&args.manifest)?;
+    let manifest = incident_manifest(&args)?;
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_incident_search(manifest)?;
@@ -279,7 +439,7 @@ pub fn cmd_experiment_incident(args: IncidentExperimentArgs) -> anyhow::Result<(
 }
 
 pub fn cmd_experiment_scientific(args: ScientificExperimentArgs) -> anyhow::Result<()> {
-    let manifest: ScientificExperimentManifest = read_manifest(&args.manifest)?;
+    let manifest = scientific_manifest(&args)?;
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_scientific_experiment(manifest)?;
@@ -324,7 +484,7 @@ pub fn cmd_experiment_scientific(args: ScientificExperimentArgs) -> anyhow::Resu
 }
 
 pub fn cmd_experiment_security_coevolution(args: SecurityCoevolutionArgs) -> anyhow::Result<()> {
-    let manifest: SecurityCoevolutionManifest = read_manifest(&args.manifest)?;
+    let manifest = security_manifest(&args)?;
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_security_coevolution(manifest)?;
@@ -376,11 +536,7 @@ pub fn cmd_experiment_security_coevolution(args: SecurityCoevolutionArgs) -> any
 }
 
 pub async fn cmd_experiment_bug_investigation(args: BugInvestigationArgs) -> anyhow::Result<()> {
-    let mut manifest: BugInvestigationManifest = read_manifest(&args.manifest)?;
-    if manifest.seed_dir.is_relative() {
-        let base = args.manifest.parent().unwrap_or_else(|| Path::new("."));
-        manifest.seed_dir = base.join(&manifest.seed_dir);
-    }
+    let manifest = bug_manifest(&args)?;
     let name = manifest.name.clone();
     let experiment_root = args.root.join(&name);
     let report = run_bug_investigation(manifest, &experiment_root).await?;
@@ -425,5 +581,51 @@ pub async fn cmd_experiment_bug_investigation(args: BugInvestigationArgs) -> any
             },
             args.format,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::args::OutputFormat;
+
+    #[test]
+    fn direct_workspace_mode_rejects_partial_and_mixed_inputs() {
+        let partial = WorkspaceExperimentArgs {
+            manifest: None,
+            repo: Some(Path::new("repo").to_path_buf()),
+            plan: None,
+            root: Path::new(".genos/experiments").to_path_buf(),
+            format: OutputFormat::Json,
+        };
+        assert!(workspace_manifest(&partial)
+            .unwrap_err()
+            .to_string()
+            .contains("both --repo PATH and --plan PATH"));
+
+        let mixed = WorkspaceExperimentArgs {
+            manifest: Some(Path::new("manifest.yaml").to_path_buf()),
+            repo: Some(Path::new("repo").to_path_buf()),
+            plan: None,
+            root: Path::new(".genos/experiments").to_path_buf(),
+            format: OutputFormat::Json,
+        };
+        assert!(workspace_manifest(&mixed)
+            .unwrap_err()
+            .to_string()
+            .contains("cannot be combined"));
+    }
+
+    #[test]
+    fn text_dataset_ignores_blank_lines() {
+        let path = std::env::temp_dir().join(format!(
+            "genos-dataset-{}-{}.txt",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        std::fs::write(&path, "alpha\n\n beta \n").unwrap();
+        let records = read_dataset(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(records, vec!["alpha", "beta"]);
     }
 }

@@ -9,6 +9,12 @@ reproductibles.
 cargo run -p genos-cli -- experiment scientific examples/scientific-compression-research/experiment.yaml --summary
 ```
 
+Le protocole peut aussi etre applique a un dataset fourni au lancement :
+
+```powershell
+cargo run -p genos-cli -- experiment scientific --dataset examples/scientific-compression-research/dataset.txt --research-plan examples/scientific-compression-research/experiment.yaml --summary
+```
+
 Le rapport complet est conserve dans
 `.genos/experiments/compression-research-v1/reports/compression-research-v1.json`.
 Il contient :

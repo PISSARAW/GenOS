@@ -18,6 +18,13 @@ Run the public demo/test:
 cargo run -p genos-cli -- experiment workspace examples/calculator-counterfactual-demo/experiment.yaml
 ```
 
+The same feature can run against a repository supplied at execution time. The
+CLI repository replaces `seed_dir` in the reusable plan:
+
+```powershell
+cargo run -p genos-cli -- experiment workspace --repo examples/calculator-counterfactual-demo/calculator --plan examples/calculator-counterfactual-demo/experiment.yaml
+```
+
 The report and lineage are persisted under `.genos/experiments/calculator-counterfactual/reports/`.
 
 The report's `primitive_trace` records the canonical lifecycle actually used:
