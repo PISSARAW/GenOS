@@ -16,3 +16,7 @@ leurs sorties et leurs snapshots restent inspectables.
 
 Le rapport complet est ecrit dans
 `.genos/experiments/unknown-cause-pricing-bug/reports/unknown-cause-pricing-bug.json`.
+
+Le rapport audite `agent init → agent snapshot → agent fork → agent run → agent
+diff → agent lineage`. `agent merge` est marque `deferred` : selectionner le
+seul correctif survivant ne doit pas etre confondu avec une fusion cognitive.

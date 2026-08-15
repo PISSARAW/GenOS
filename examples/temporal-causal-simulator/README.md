@@ -26,3 +26,6 @@ cargo run -p genos-cli -- experiment temporal examples/temporal-causal-simulator
 ```
 
 The report is persisted under `.genos/experiments/temporal-causal-simulator/reports/`.
+
+The temporal report now audits `agent snapshot → agent restore → agent fork →
+agent replay → agent diff → agent lineage` in `primitive_trace`.

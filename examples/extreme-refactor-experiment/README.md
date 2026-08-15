@@ -43,3 +43,6 @@ under `.genos/experiments/extreme-refactor/reports/`.
 
 Expected winner: `DB outbox`. Findings from every lineage remain available for
 the final implementation.
+
+`primitive_trace` exposes the same run through the new public vocabulary:
+`agent init → agent snapshot → recursive agent fork → agent run → agent diff → agent merge → agent lineage`.

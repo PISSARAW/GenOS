@@ -26,3 +26,6 @@ Avec 200 generations, la demo evalue 4 812 genomes et conserve :
 
 Le rapport complet est ecrit dans
 `.genos/experiments/red-blue-coevolution-v1/reports/red-blue-coevolution-v1.json`.
+
+`primitive_trace` relie cette simulation aux primitives canoniques : `agent
+snapshot → agent fork → agent mutate → agent run → agent diff → agent lineage`.

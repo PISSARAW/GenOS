@@ -1,4 +1,7 @@
-use genos_runtime::{run_bug_investigation, BugInvestigationManifest, HypothesisVerdict};
+use genos_runtime::{
+    run_bug_investigation, AgentPrimitive, BugInvestigationManifest, HypothesisVerdict,
+    PrimitiveStatus,
+};
 use std::collections::HashSet;
 use std::path::PathBuf;
 
@@ -67,4 +70,11 @@ async fn investigation_preserves_the_fix_and_every_eliminated_explanation() {
             .len(),
         7
     );
+    assert!(report.primitive_trace.contains(AgentPrimitive::Init));
+    assert_eq!(report.primitive_trace.count(AgentPrimitive::Fork), 7);
+    assert_eq!(report.primitive_trace.count(AgentPrimitive::Diff), 7);
+    assert!(report.primitive_trace.invocations.iter().any(|invocation| {
+        invocation.primitive == AgentPrimitive::Merge
+            && invocation.status == PrimitiveStatus::Deferred
+    }));
 }

@@ -91,6 +91,7 @@ pub struct TemporalCausalReport {
     pub checkpoint: TemporalCheckpoint,
     pub history_end: DateTime<Utc>,
     pub universes: Vec<TemporalUniverseResult>,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 /// Fork history at a checkpoint and replay one immutable observation stream in
@@ -108,14 +109,55 @@ pub fn replay_counterfactual_history(
             event.observed_at > checkpoint.replayed_at && event.observed_at <= history_end
         })
         .collect::<Vec<_>>();
-    let results = universes
+    let results: Vec<TemporalUniverseResult> = universes
         .into_iter()
         .map(|universe| replay_universe(&known_history, universe))
         .collect();
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "at": checkpoint.replayed_at }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Restore,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "checkpoint": checkpoint.replayed_at }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "universes": results.len() }),
+    );
+    for universe in &results {
+        primitive_trace.completed(
+            crate::AgentPrimitive::Replay,
+            universe.branch_id.0.clone(),
+            serde_json::json!({ "events": universe.replayed_event_ids.len() }),
+        );
+    }
+    if let Some(reality) = results.iter().find(|universe| universe.factual) {
+        for universe in results.iter().filter(|universe| !universe.factual) {
+            primitive_trace.completed(
+                crate::AgentPrimitive::Diff,
+                universe.branch_id.0.clone(),
+                serde_json::json!({
+                    "against": reality.branch_id.0.clone(),
+                    "latency_delta_ms": universe.p95_latency_ms - reality.p95_latency_ms,
+                }),
+            );
+        }
+    }
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "root": checkpoint.replayed_at, "children": results.len() }),
+    );
     TemporalCausalReport {
         checkpoint,
         history_end,
         universes: results,
+        primitive_trace,
     }
 }
 

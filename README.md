@@ -79,6 +79,9 @@ genos agent replay --snapshot <SNAPSHOT_ID>
 
 See [`docs/AGENT_PRIMITIVES.md`](docs/AGENT_PRIMITIVES.md) for exact semantics
 and the bootstrap from a genome to an executable agent-world capsule.
+The migration of the runnable projects to this vocabulary is tracked in
+[`docs/PROJECT_PRIMITIVE_MATRIX.md`](docs/PROJECT_PRIMITIVE_MATRIX.md); project
+reports expose the ordered operations in `primitive_trace`.
 
 Create and fork snapshots:
 

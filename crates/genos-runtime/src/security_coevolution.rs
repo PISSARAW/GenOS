@@ -120,6 +120,7 @@ pub struct SecurityCoevolutionReport {
     pub final_worlds: Vec<SecurityWorld>,
     pub world_lineage: LineageDag,
     pub total_genomes_evaluated: usize,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 /// Run an abstract, deterministic Red/Blue coevolution. It deliberately models
@@ -249,6 +250,49 @@ pub fn run_security_coevolution(
         }
     }
 
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        manifest.snapshot_ref.clone(),
+        json!({ "population": "world-0" }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        manifest.name.clone(),
+        json!({ "isolated_worlds": initial_worlds.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Mutate,
+        "red-blue-populations",
+        json!({
+            "red_mutations": evolution.iter().map(|item| item.red_candidates.len()).sum::<usize>(),
+            "blue_mutations": evolution.iter().map(|item| item.blue_candidates.len()).sum::<usize>(),
+        }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Run,
+        "coevolution-matchups",
+        json!({ "evaluated_genomes": total_genomes_evaluated, "observations": evolution.len() }),
+    );
+    for (scenario, final_world) in manifest.scenarios.iter().zip(&final_worlds) {
+        let initial_world = initial_worlds
+            .iter()
+            .find(|world| world.scenario_id == scenario.id)
+            .expect("scenario world exists");
+        primitive_trace.completed(
+            crate::AgentPrimitive::Diff,
+            scenario.id.clone(),
+            json!({
+                "initial_breach_probability": matchup(scenario, &initial_world.red.genes, &initial_world.blue.genes),
+                "final_breach_probability": matchup(scenario, &final_world.red.genes, &final_world.blue.genes),
+            }),
+        );
+    }
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        manifest.name.clone(),
+        json!({ "world_edges": world_lineage.edges.len(), "generations": evolution.len() }),
+    );
     Ok(SecurityCoevolutionReport {
         name: manifest.name,
         snapshot_ref: manifest.snapshot_ref,
@@ -258,6 +302,7 @@ pub fn run_security_coevolution(
         final_worlds,
         world_lineage,
         total_genomes_evaluated,
+        primitive_trace,
     })
 }
 

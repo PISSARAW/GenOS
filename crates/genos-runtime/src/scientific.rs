@@ -160,6 +160,7 @@ pub struct ScientificExperimentReport {
     pub final_beliefs: Vec<BeliefRevision>,
     pub artifacts: Vec<ScientificArtifact>,
     pub lineage: LineageDag,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 /// Execute a deterministic, provider-free scientific workflow. Compression is
@@ -423,6 +424,48 @@ pub fn run_scientific_experiment(
     }
     final_beliefs.extend(rewinds.iter().map(|rewind| rewind.belief.clone()));
 
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        manifest.snapshot_ref.clone(),
+        json!({ "question": manifest.question.clone() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        manifest.name.clone(),
+        json!({ "hypotheses": outcomes.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Run,
+        "experimental-protocols",
+        json!({ "executed": outcomes.len(), "artifacts": artifacts.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Replay,
+        "independent-reproductions",
+        json!({ "reproductions": reproductions.len() }),
+    );
+    for rewind in &rewinds {
+        primitive_trace.completed(
+            crate::AgentPrimitive::Restore,
+            rewind.investigation_id.clone(),
+            json!({
+                "from_snapshot": rewind.restored_from_snapshot.0.clone(),
+                "suspicious_hypothesis": rewind.suspicious_hypothesis.clone(),
+            }),
+        );
+    }
+    primitive_trace.completed(
+        crate::AgentPrimitive::Merge,
+        "scientific-belief-synthesis",
+        json!({ "beliefs": final_beliefs.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        manifest.name.clone(),
+        json!({ "edges": lineage.edges.len() }),
+    );
+
     Ok(ScientificExperimentReport {
         name: manifest.name,
         question: manifest.question,
@@ -433,6 +476,7 @@ pub fn run_scientific_experiment(
         final_beliefs,
         artifacts,
         lineage,
+        primitive_trace,
     })
 }
 
