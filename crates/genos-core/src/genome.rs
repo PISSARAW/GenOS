@@ -88,6 +88,31 @@ pub struct AgentGenome {
     pub tool_policy: ToolPolicy,
     #[serde(default)]
     pub inferred_traits: Vec<InferredGenomeTraitClaim>,
+    #[serde(default)]
+    pub breeding: Option<GenomeBreedingMetadata>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BreedingStatus {
+    UntestedCandidate,
+    Validated,
+    Rejected,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GenomeBreedingTarget {
+    pub trait_name: String,
+    pub genome_field: String,
+    pub target: f64,
+    pub parent_a_weight: f64,
+    pub evaluation_suite: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GenomeBreedingMetadata {
+    pub status: BreedingStatus,
+    pub targets: Vec<GenomeBreedingTarget>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -119,6 +144,7 @@ pub fn mutate_cognition(
     child.id = GenomeId::new();
     child.parent_genome = Some(parent.id.clone());
     child.parent_genomes = vec![parent.id.clone()];
+    child.breeding = None;
     let mut changes = Vec::new();
     if let Some(value) = exploration {
         changes.push(GenomeMutationChange {
@@ -178,6 +204,7 @@ mod tests {
                 permissions: vec![],
             },
             inferred_traits: vec![],
+            breeding: None,
         }
     }
 

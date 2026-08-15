@@ -28,12 +28,28 @@
       "description": "Stable behavioral tendencies, distinct from objectives and policies.",
       "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
     },
+    "parent_genomes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "uniqueItems": true
+    },
     "memory": { "type": "object" },
     "models": { "type": "object" },
     "tools": { "type": "object" },
     "policies": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "inferred_traits": {
+      "type": "array",
+      "items": { "$ref": "genome-trait-claim.schema.json" }
+    },
+    "breeding": {
+      "type": ["object", "null"],
+      "properties": {
+        "status": { "enum": ["untested_candidate", "validated", "rejected"] },
+        "targets": { "type": "array", "items": { "type": "object" } }
+      }
     }
   },
   "additionalProperties": true

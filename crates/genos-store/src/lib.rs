@@ -727,6 +727,7 @@ mod tests {
                     permissions: vec![],
                 },
                 inferred_traits: vec![],
+                breeding: None,
             },
             state: genos_core::AgentState {
                 genome: GenomeRef {

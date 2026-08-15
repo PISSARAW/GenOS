@@ -1,17 +1,22 @@
 use crate::args::{
-    AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInspectArgs, AgentMutateArgs, OutputFormat,
+    AgentBreedArgs, AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInferTraitsArgs,
+    AgentInspectArgs, AgentMutateArgs, AgentPromoteTraitArgs, OutputFormat,
 };
 use crate::output::{print_serialized, write_serialized, AgentForkOutput, ForkEntry};
 use crate::resolve::{event_store_from, read_genome, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Result};
 use chrono::Utc;
 use genos_core::{
-    fork_first_event_sequence, fork_snapshot, mutate_cognition, AgentEvent, AgentEventType,
-    AgentGenome, AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId, GenomeId,
-    GenomeVersion, Identity, MemoryPolicy, ModelPolicy, Objective, Policy, ToolPermission,
+    attach_inferred_trait, fork_first_event_sequence, fork_snapshot, infer_trait_claim,
+    mutate_cognition, promote_inferred_trait, AgentEvent, AgentEventType, AgentGenome,
+    AgentSnapshot, Capability, CognitionConfig, CorrelationId, EventId, GenomeId, GenomeVersion,
+    Identity, MemoryPolicy, ModelPolicy, Objective, PhenotypeObservation, Policy, ToolPermission,
     ToolPolicy,
 };
+use genos_eval::{recombine_measured_trait, TraitEstimate};
+use genos_runtime::{breed_genomes, BreedingTraitMapping};
 use genos_store::{EventStore, LocalEventStore, LocalSnapshotStore, SnapshotStore};
+use serde::Deserialize;
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
@@ -83,6 +88,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
             ],
         },
         inferred_traits: vec![],
+        breeding: None,
     };
 
     let path = args
@@ -124,6 +130,87 @@ pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
     });
     write_serialized(&path, &child, args.format)?;
     println!("mutated agent genome written to {}", path.display());
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct BreedEvidenceManifest {
+    child_name: String,
+    traits: Vec<BreedTraitEvidence>,
+}
+
+#[derive(Deserialize)]
+struct BreedTraitEvidence {
+    genome_field: String,
+    parent_a: TraitEstimate,
+    parent_b: TraitEstimate,
+    parent_a_weight: f64,
+}
+
+pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
+    let alice = read_genome(&args.alice)?;
+    let bob = read_genome(&args.bob)?;
+    let raw = fs::read(&args.evidence)?;
+    let manifest: BreedEvidenceManifest =
+        match args.evidence.extension().and_then(|value| value.to_str()) {
+            Some("yaml" | "yml") => serde_yaml::from_slice(&raw)?,
+            _ => serde_json::from_slice(&raw)?,
+        };
+    let mappings = manifest
+        .traits
+        .into_iter()
+        .map(|trait_evidence| {
+            let target = recombine_measured_trait(
+                trait_evidence.parent_a,
+                trait_evidence.parent_b,
+                trait_evidence.parent_a_weight,
+            )
+            .map_err(anyhow::Error::msg)?;
+            Ok(BreedingTraitMapping {
+                genome_field: trait_evidence.genome_field,
+                target,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let child =
+        breed_genomes(&alice, &bob, &manifest.child_name, &mappings).map_err(anyhow::Error::msg)?;
+    write_serialized(&args.out, &child, args.format)?;
+    println!("bred agent genome written to {}", args.out.display());
+    Ok(())
+}
+
+pub fn cmd_agent_infer_traits(args: AgentInferTraitsArgs) -> Result<()> {
+    let mut genome = read_genome(&args.genome)?;
+    let observations = args
+        .phenotypes
+        .iter()
+        .map(|path| {
+            let raw = fs::read(path)?;
+            match path.extension().and_then(|value| value.to_str()) {
+                Some("yaml" | "yml") => Ok(serde_yaml::from_slice::<PhenotypeObservation>(&raw)?),
+                _ => Ok(serde_json::from_slice::<PhenotypeObservation>(&raw)?),
+            }
+        })
+        .collect::<Result<Vec<_>>>()?;
+    for trait_name in &args.traits {
+        let claim = infer_trait_claim(&observations, trait_name)
+            .ok_or_else(|| anyhow::anyhow!("no observations found for trait {trait_name}"))?;
+        attach_inferred_trait(&mut genome, claim);
+    }
+    write_serialized(&args.out, &genome, args.format)?;
+    println!(
+        "genome with inferred traits written to {}",
+        args.out.display()
+    );
+    Ok(())
+}
+
+pub fn cmd_agent_promote_trait(args: AgentPromoteTraitArgs) -> Result<()> {
+    let genome = read_genome(&args.genome)?;
+    let child = promote_inferred_trait(&genome, &args.trait_name, &args.field)
+        .map_err(anyhow::Error::msg)?;
+    write_serialized(&args.out, &child, args.format)?;
+    println!("promoted trait genome written to {}", args.out.display());
     Ok(())
 }
 

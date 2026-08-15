@@ -1,6 +1,7 @@
 use genos_core::{
-    compare_genome_and_state, compare_snapshots, AgentGenome, AgentSnapshot, GenomeId,
-    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion, PhenotypeObservation,
+    compare_genome_and_state, compare_snapshots, AgentGenome, AgentSnapshot, BreedingStatus,
+    GenomeBreedingMetadata, GenomeBreedingTarget, GenomeId, GenomeMutationChange,
+    GenomeMutationMetadata, GenomeVersion, PhenotypeObservation,
 };
 use genos_eval::{
     pareto_select, MultiObjectiveBranchScore, ObjectiveDirection, ObjectiveScore, ParetoAssessment,
@@ -37,6 +38,94 @@ pub struct HeredityCohortReport {
     pub genome_id: GenomeId,
     pub controls: CohortControls,
     pub effects: Vec<ExperienceEffect>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FactorialTraitObservation {
+    pub genome_id: GenomeId,
+    pub treatment: String,
+    pub value: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct GenomeExperienceEffects {
+    pub genome_effect_range: f64,
+    pub experience_effect_range: f64,
+    pub maximum_interaction: f64,
+}
+
+pub fn analyze_genome_experience_interaction(
+    observations: &[FactorialTraitObservation],
+) -> Result<GenomeExperienceEffects, String> {
+    let mut genomes = observations
+        .iter()
+        .map(|value| value.genome_id.clone())
+        .collect::<Vec<_>>();
+    genomes.sort_by(|a, b| a.0.cmp(&b.0));
+    genomes.dedup();
+    let mut treatments = observations
+        .iter()
+        .map(|value| value.treatment.clone())
+        .collect::<Vec<_>>();
+    treatments.sort();
+    treatments.dedup();
+    if genomes.len() < 2
+        || treatments.len() < 2
+        || observations.len() != genomes.len() * treatments.len()
+    {
+        return Err("interaction analysis requires a complete design with at least two genomes and two treatments".to_string());
+    }
+    let mean = |values: Vec<f64>| values.iter().sum::<f64>() / values.len() as f64;
+    let genome_means = genomes
+        .iter()
+        .map(|genome| {
+            mean(
+                observations
+                    .iter()
+                    .filter(|value| &value.genome_id == genome)
+                    .map(|value| value.value)
+                    .collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let treatment_means = treatments
+        .iter()
+        .map(|treatment| {
+            mean(
+                observations
+                    .iter()
+                    .filter(|value| &value.treatment == treatment)
+                    .map(|value| value.value)
+                    .collect(),
+            )
+        })
+        .collect::<Vec<_>>();
+    let grand = mean(observations.iter().map(|value| value.value).collect());
+    let range = |values: &[f64]| {
+        values.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+            - values.iter().copied().fold(f64::INFINITY, f64::min)
+    };
+    let maximum_interaction = observations
+        .iter()
+        .map(|observation| {
+            let genome_index = genomes
+                .iter()
+                .position(|genome| genome == &observation.genome_id)
+                .unwrap();
+            let treatment_index = treatments
+                .iter()
+                .position(|treatment| treatment == &observation.treatment)
+                .unwrap();
+            (observation.value - genome_means[genome_index] - treatment_means[treatment_index]
+                + grand)
+                .abs()
+        })
+        .fold(0.0, f64::max);
+    Ok(GenomeExperienceEffects {
+        genome_effect_range: range(&genome_means),
+        experience_effect_range: range(&treatment_means),
+        maximum_interaction,
+    })
 }
 
 pub fn analyze_fixed_genome_cohort(
@@ -155,6 +244,63 @@ pub struct ArtificialSelectionReport {
     pub eligible: Vec<GenomeId>,
     pub rejected: Vec<GenomeId>,
     pub pareto: Vec<ParetoAssessment>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ControlledBenchmarkRun {
+    pub genome_id: GenomeId,
+    pub protocol_id: String,
+    pub repetition: u32,
+    pub metrics: CanonicalAgentMetrics,
+}
+
+pub fn select_controlled_generation(
+    runs: &[ControlledBenchmarkRun],
+    constraints: &SelectionConstraints,
+) -> Result<ArtificialSelectionReport, String> {
+    if runs.is_empty() {
+        return Err("selection generation has no benchmark runs".to_string());
+    }
+    let protocol = &runs[0].protocol_id;
+    if runs.iter().any(|run| &run.protocol_id != protocol) {
+        return Err("benchmark runs use different protocols".to_string());
+    }
+    let mut genomes = runs
+        .iter()
+        .map(|run| run.genome_id.clone())
+        .collect::<Vec<_>>();
+    genomes.sort_by(|a, b| a.0.cmp(&b.0));
+    genomes.dedup();
+    let average = |values: Vec<f64>| values.iter().sum::<f64>() / values.len() as f64;
+    let candidates = genomes
+        .into_iter()
+        .map(|genome_id| {
+            let samples = runs
+                .iter()
+                .filter(|run| run.genome_id == genome_id)
+                .collect::<Vec<_>>();
+            SelectionCandidate {
+                genome_id,
+                metrics: CanonicalAgentMetrics {
+                    accuracy: average(samples.iter().map(|run| run.metrics.accuracy).collect()),
+                    cost: average(samples.iter().map(|run| run.metrics.cost).collect()),
+                    tokens: average(samples.iter().map(|run| run.metrics.tokens).collect()),
+                    latency: average(samples.iter().map(|run| run.metrics.latency).collect()),
+                    tool_calls: average(samples.iter().map(|run| run.metrics.tool_calls).collect()),
+                    risk: average(samples.iter().map(|run| run.metrics.risk).collect()),
+                    hallucinations: average(
+                        samples
+                            .iter()
+                            .map(|run| run.metrics.hallucinations)
+                            .collect(),
+                    ),
+                    novelty: average(samples.iter().map(|run| run.metrics.novelty).collect()),
+                    success: average(samples.iter().map(|run| run.metrics.success).collect()),
+                },
+            }
+        })
+        .collect::<Vec<_>>();
+    Ok(artificial_select(&candidates, constraints))
 }
 
 pub fn artificial_select(
@@ -280,7 +426,115 @@ pub fn breed_genomes(
     }
     child.mutation = Some(GenomeMutationMetadata { changes });
     child.inferred_traits.clear();
+    child.breeding = Some(GenomeBreedingMetadata {
+        status: BreedingStatus::UntestedCandidate,
+        targets: mappings
+            .iter()
+            .map(|mapping| GenomeBreedingTarget {
+                trait_name: mapping.target.trait_name.clone(),
+                genome_field: mapping.genome_field.clone(),
+                target: mapping.target.target,
+                parent_a_weight: mapping.target.parent_a_weight,
+                evaluation_suite: mapping.target.parent_a_estimate.evaluation_suite.clone(),
+            })
+            .collect(),
+    });
     Ok(child)
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BreedingValidation {
+    pub genome: AgentGenome,
+    pub deviations: Vec<(String, f64)>,
+    pub tolerance: f64,
+}
+
+pub fn validate_bred_child(
+    child: &AgentGenome,
+    phenotype: &PhenotypeObservation,
+    tolerance: f64,
+) -> Result<BreedingValidation, String> {
+    let metadata = child
+        .breeding
+        .as_ref()
+        .ok_or_else(|| "genome has no breeding metadata".to_string())?;
+    if phenotype.genome_id != child.id {
+        return Err("phenotype does not belong to child genome".to_string());
+    }
+    let mut deviations = Vec::new();
+    for target in &metadata.targets {
+        let observed = phenotype
+            .traits
+            .iter()
+            .find(|value| value.name == target.trait_name)
+            .ok_or_else(|| format!("missing child observation for {}", target.trait_name))?;
+        deviations.push((
+            target.trait_name.clone(),
+            (observed.value - target.target).abs(),
+        ));
+    }
+    let mut genome = child.clone();
+    genome.breeding.as_mut().unwrap().status = if deviations
+        .iter()
+        .all(|(_, deviation)| *deviation <= tolerance)
+    {
+        BreedingStatus::Validated
+    } else {
+        BreedingStatus::Rejected
+    };
+    Ok(BreedingValidation {
+        genome,
+        deviations,
+        tolerance,
+    })
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BranchFinding {
+    pub branch_id: genos_core::BranchId,
+    pub claim: String,
+    pub evidence: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SynthesisStatus {
+    Proposed,
+    Validated,
+    Rejected,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct KnowledgeSynthesisProposal {
+    pub findings: Vec<BranchFinding>,
+    pub validation_branch: Option<genos_core::BranchId>,
+    pub status: SynthesisStatus,
+}
+
+pub fn synthesize_branch_knowledge(
+    findings: Vec<BranchFinding>,
+) -> Result<KnowledgeSynthesisProposal, String> {
+    if findings.is_empty() || findings.iter().any(|finding| finding.evidence.is_empty()) {
+        return Err("knowledge synthesis requires evidence-bearing findings".to_string());
+    }
+    Ok(KnowledgeSynthesisProposal {
+        findings,
+        validation_branch: None,
+        status: SynthesisStatus::Proposed,
+    })
+}
+
+pub fn validate_synthesis(
+    proposal: &mut KnowledgeSynthesisProposal,
+    validation_branch: genos_core::BranchId,
+    passed: bool,
+) {
+    proposal.validation_branch = Some(validation_branch);
+    proposal.status = if passed {
+        SynthesisStatus::Validated
+    } else {
+        SynthesisStatus::Rejected
+    };
 }
 
 #[cfg(test)]
@@ -390,5 +644,102 @@ mod tests {
         );
         assert_eq!(report.eligible, vec![GenomeId("safe".to_string())]);
         assert_eq!(report.rejected, vec![GenomeId("unsafe".to_string())]);
+    }
+
+    #[test]
+    fn factorial_design_separates_genome_experience_and_interaction() {
+        let observations = vec![
+            FactorialTraitObservation {
+                genome_id: GenomeId("g1".to_string()),
+                treatment: "dev".to_string(),
+                value: 0.9,
+            },
+            FactorialTraitObservation {
+                genome_id: GenomeId("g1".to_string()),
+                treatment: "research".to_string(),
+                value: 0.7,
+            },
+            FactorialTraitObservation {
+                genome_id: GenomeId("g2".to_string()),
+                treatment: "dev".to_string(),
+                value: 0.5,
+            },
+            FactorialTraitObservation {
+                genome_id: GenomeId("g2".to_string()),
+                treatment: "research".to_string(),
+                value: 0.6,
+            },
+        ];
+        let effects = analyze_genome_experience_interaction(&observations).unwrap();
+        assert!(effects.genome_effect_range > 0.2);
+        assert!(effects.maximum_interaction > 0.0);
+    }
+
+    #[test]
+    fn child_validation_updates_breeding_status_from_observed_traits() {
+        let alice = crate::test_support::snapshot().genome;
+        let mut bob = alice.clone();
+        bob.id = GenomeId::new();
+        let estimate = |mean| TraitEstimate {
+            trait_name: "exploration".to_string(),
+            mean,
+            standard_error: 0.02,
+            sample_size: 100,
+            evaluation_suite: "traits-v1".to_string(),
+        };
+        let target =
+            genos_eval::recombine_measured_trait(estimate(0.9), estimate(0.4), 0.5).unwrap();
+        let child = breed_genomes(
+            &alice,
+            &bob,
+            "charlie",
+            &[BreedingTraitMapping {
+                genome_field: "cognition.exploration".to_string(),
+                target,
+            }],
+        )
+        .unwrap();
+        assert_eq!(
+            child.breeding.as_ref().unwrap().status,
+            BreedingStatus::UntestedCandidate
+        );
+        let phenotype = PhenotypeObservation {
+            genome_id: child.id.clone(),
+            evaluation_suite: "traits-v1".to_string(),
+            model: "m".to_string(),
+            environment: "e".to_string(),
+            measured_at: chrono::Utc::now(),
+            traits: vec![ObservedTrait {
+                name: "exploration".to_string(),
+                value: 0.66,
+                confidence: 0.9,
+                observations: 100,
+                method: "tasks".to_string(),
+                evidence: vec!["eval:child".to_string()],
+            }],
+        };
+        let validation = validate_bred_child(&child, &phenotype, 0.05).unwrap();
+        assert_eq!(
+            validation.genome.breeding.unwrap().status,
+            BreedingStatus::Validated
+        );
+    }
+
+    #[test]
+    fn synthesis_requires_evidence_and_a_validation_branch() {
+        let mut proposal = synthesize_branch_knowledge(vec![BranchFinding {
+            branch_id: genos_core::BranchId("a".to_string()),
+            claim: "hybrid is safer".to_string(),
+            evidence: vec!["benchmark:1".to_string()],
+        }])
+        .unwrap();
+        assert_eq!(proposal.status, SynthesisStatus::Proposed);
+        validate_synthesis(
+            &mut proposal,
+            genos_core::BranchId("validation".to_string()),
+            true,
+        );
+        assert_eq!(proposal.status, SynthesisStatus::Validated);
+        assert!(proposal.validation_branch.is_some());
     }
 }

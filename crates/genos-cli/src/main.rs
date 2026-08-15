@@ -1,5 +1,6 @@
 mod args;
 mod cmd_agent;
+mod cmd_capsule;
 mod cmd_experiment;
 mod cmd_inspect;
 mod cmd_replay;
@@ -12,15 +13,21 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::args::{
-    AgentSubcommands, Cli, Commands, ExperimentSubcommands, InspectSubcommands, ReplaySubcommands,
-    SnapshotSubcommands, WorldSubcommands,
+    AgentSubcommands, CapsuleSubcommands, Cli, Commands, ExperimentSubcommands, InspectSubcommands,
+    ReplaySubcommands, SnapshotSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
-    cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_inspect, cmd_agent_mutate, cmd_init,
+    cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
+    cmd_agent_inspect, cmd_agent_mutate, cmd_agent_promote_trait, cmd_init,
+};
+use crate::cmd_capsule::{
+    cmd_capsule_checkpoint, cmd_capsule_create, cmd_capsule_fork, cmd_capsule_inspect,
+    cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_experiment::{
-    cmd_experiment_bug_investigation, cmd_experiment_incident, cmd_experiment_scientific,
-    cmd_experiment_security_coevolution, cmd_experiment_temporal, cmd_experiment_workspace,
+    cmd_experiment_bug_investigation, cmd_experiment_heredity, cmd_experiment_incident,
+    cmd_experiment_reproducibility, cmd_experiment_scientific, cmd_experiment_security_coevolution,
+    cmd_experiment_select, cmd_experiment_temporal, cmd_experiment_workspace,
 };
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
@@ -45,7 +52,18 @@ async fn main() -> Result<()> {
             AgentSubcommands::Create(args) => cmd_agent_create(args),
             AgentSubcommands::Inspect(args) => cmd_agent_inspect(args),
             AgentSubcommands::Mutate(args) => cmd_agent_mutate(args),
+            AgentSubcommands::Breed(args) => cmd_agent_breed(args),
+            AgentSubcommands::InferTraits(args) => cmd_agent_infer_traits(args),
+            AgentSubcommands::PromoteTrait(args) => cmd_agent_promote_trait(args),
             AgentSubcommands::ForkFromSnapshot(args) => cmd_agent_fork_from_snapshot(args).await,
+        },
+        Commands::Capsule(capsule) => match capsule.command {
+            CapsuleSubcommands::Create(args) => cmd_capsule_create(args).await,
+            CapsuleSubcommands::Fork(args) => cmd_capsule_fork(args).await,
+            CapsuleSubcommands::Checkpoint(args) => cmd_capsule_checkpoint(args).await,
+            CapsuleSubcommands::Pause(args) => cmd_capsule_pause(args).await,
+            CapsuleSubcommands::Resume(args) => cmd_capsule_resume(args).await,
+            CapsuleSubcommands::Inspect(args) => cmd_capsule_inspect(args).await,
         },
         Commands::Experiment(experiment) => match experiment.command {
             ExperimentSubcommands::Workspace(args) => cmd_experiment_workspace(args).await,
@@ -58,6 +76,9 @@ async fn main() -> Result<()> {
             ExperimentSubcommands::BugInvestigation(args) => {
                 cmd_experiment_bug_investigation(args).await
             }
+            ExperimentSubcommands::Heredity(args) => cmd_experiment_heredity(args),
+            ExperimentSubcommands::Select(args) => cmd_experiment_select(args),
+            ExperimentSubcommands::Reproducibility(args) => cmd_experiment_reproducibility(args),
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),

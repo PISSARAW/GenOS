@@ -29,6 +29,63 @@ pub struct ReproducibilityThresholds {
     pub risk_behavior: f64,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ReproducibilityProtocol {
+    pub event_stream_digest: String,
+    pub source_runtime_manifest: String,
+    pub restored_runtime_manifest: String,
+    pub source_model_manifest: String,
+    pub restored_model_manifest: String,
+    pub source_environment_manifest: String,
+    pub restored_environment_manifest: String,
+    #[serde(default)]
+    pub nondeterminism: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ExecutedReproducibilityReport {
+    pub protocol: ReproducibilityProtocol,
+    pub behavioral: FunctionalReproducibilityReport,
+}
+
+pub fn run_functional_reproducibility(
+    protocol: ReproducibilityProtocol,
+    trials: &[PairedBehaviorTrial],
+    thresholds: &ReproducibilityThresholds,
+) -> Result<ExecutedReproducibilityReport, String> {
+    if !protocol.event_stream_digest.starts_with("sha256:") {
+        return Err("event stream must have a sha256 digest".to_string());
+    }
+    let pairs = [
+        (
+            &protocol.source_runtime_manifest,
+            &protocol.restored_runtime_manifest,
+            "runtime",
+        ),
+        (
+            &protocol.source_model_manifest,
+            &protocol.restored_model_manifest,
+            "model",
+        ),
+        (
+            &protocol.source_environment_manifest,
+            &protocol.restored_environment_manifest,
+            "environment",
+        ),
+    ];
+    if let Some((_, _, name)) = pairs
+        .into_iter()
+        .find(|(source, restored, _)| source != restored)
+    {
+        return Err(format!("source and restored {name} manifests differ"));
+    }
+    let behavioral = evaluate_paired_reproduction(trials, thresholds)?;
+    Ok(ExecutedReproducibilityReport {
+        protocol,
+        behavioral,
+    })
+}
+
 pub fn evaluate_paired_reproduction(
     trials: &[PairedBehaviorTrial],
     thresholds: &ReproducibilityThresholds,
@@ -189,5 +246,37 @@ mod tests {
         };
         let report = evaluate_paired_reproduction(&trials, &thresholds).unwrap();
         assert_eq!(report.verdict, ReproducibilityVerdict::NotEquivalent);
+    }
+
+    #[test]
+    fn execution_rejects_unpinned_runtime_differences() {
+        let protocol = ReproducibilityProtocol {
+            event_stream_digest: "sha256:abc".to_string(),
+            source_runtime_manifest: "r1".to_string(),
+            restored_runtime_manifest: "r2".to_string(),
+            source_model_manifest: "m".to_string(),
+            restored_model_manifest: "m".to_string(),
+            source_environment_manifest: "e".to_string(),
+            restored_environment_manifest: "e".to_string(),
+            nondeterminism: vec![],
+        };
+        let trials = vec![
+            PairedBehaviorTrial {
+                source: trace("keep"),
+                restored: trace("keep"),
+            },
+            PairedBehaviorTrial {
+                source: trace("keep"),
+                restored: trace("keep"),
+            },
+        ];
+        let thresholds = ReproducibilityThresholds {
+            decision_similarity: 0.9,
+            tool_selection: 0.9,
+            belief_consistency: 0.95,
+            planning_similarity: 0.8,
+            risk_behavior: 0.95,
+        };
+        assert!(run_functional_reproducibility(protocol, &trials, &thresholds).is_err());
     }
 }

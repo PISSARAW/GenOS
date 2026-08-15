@@ -419,6 +419,7 @@ pub(crate) mod tests {
                     permissions: vec![],
                 },
                 inferred_traits: vec![],
+                breeding: None,
             },
             state: AgentState {
                 genome: GenomeRef {

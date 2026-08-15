@@ -67,6 +67,7 @@ pub(crate) mod test_support {
                     permissions: vec![],
                 },
                 inferred_traits: vec![],
+                breeding: None,
             },
             state: AgentState {
                 genome: GenomeRef {
