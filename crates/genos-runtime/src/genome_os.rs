@@ -87,6 +87,7 @@ pub struct GenomeOsCycleReport {
 /// Execute one complete Agent Genome + Counterfactual OS generation:
 /// checkpoint S0, fork isolated agent-world capsules, collect experiences,
 /// terminate temporary worlds, merge knowledge, and checkpoint S1.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_genome_os_cycle(
     provider: &dyn WorldProvider,
     store: &dyn CapsuleStore,

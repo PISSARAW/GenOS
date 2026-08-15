@@ -820,10 +820,12 @@ fn synthesize_contextual_knowledge(candidates: &[MergedClaim]) -> Vec<KnowledgeS
             .iter()
             .flat_map(|index| {
                 let from = candidate_name(&candidates[*index]);
+                let from_for_filter = from.clone();
                 candidates[*index]
                     .conflicts_with
                     .iter()
-                    .filter_map(move |to| (from < *to).then(|| format!("{from} <> {to}")))
+                    .filter(move |to| from_for_filter < **to)
+                    .map(move |to| format!("{from} <> {to}"))
             })
             .collect::<Vec<_>>();
         residual_conflicts.sort();
@@ -981,15 +983,9 @@ pub fn apply_cognitive_merge(
                 );
             belief
                 .evidence
-                .extend(
-                    candidate
-                        .evidence
-                        .iter()
-                        .cloned()
-                        .map(|text| EvidenceRef::Note {
-                            text: format!("cognitive_merge:{text}"),
-                        }),
-                );
+                .extend(candidate.evidence.iter().map(|text| EvidenceRef::Note {
+                    text: format!("cognitive_merge:{text}"),
+                }));
         }
         events.push(write.event);
         if let Some(event) = write.contradiction_event {

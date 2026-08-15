@@ -1,8 +1,16 @@
 [package]
 name = "genos-runtime"
+description = "Agent lifecycle and counterfactual experiment orchestration for GenOS"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 anyhow.workspace = true

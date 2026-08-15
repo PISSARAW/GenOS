@@ -1,8 +1,16 @@
 [package]
 name = "genos-core"
+description = "Provider-neutral domain model and invariants for GenOS agents"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme = "../../README.md"
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 chrono.workspace = true

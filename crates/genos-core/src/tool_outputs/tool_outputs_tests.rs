@@ -200,7 +200,7 @@ fn failed_tool_call_is_recorded_without_failing_the_runtime() {
         AgentEventType::ToolRequested
     );
     assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
-    assert_eq!(write.record.success, false);
+    assert!(!write.record.success);
     assert_eq!(write.record.output, json!({ "error": "file not found" }));
     assert_eq!(snapshot.state.event_cursor.sequence, 2);
     assert_eq!(snapshot.state.tool_outputs.len(), 1);
