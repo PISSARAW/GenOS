@@ -7,6 +7,8 @@ mod temporal;
 pub use temporal::*;
 mod branch_evolution;
 pub use branch_evolution::*;
+mod causal_replay;
+pub use causal_replay::*;
 mod experiment;
 pub use experiment::*;
 mod incident;

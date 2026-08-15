@@ -15,6 +15,7 @@ decision is fully implemented. This matrix tracks executable coverage.
 | 0015 | Implemented | Capsule store, integrity, checkpoint, pause/resume, restoration | — |
 | 0016 | Implemented | Experience packets, typed knowledge graph, contextual synthesis, reviewed parent application | Semantic claim extraction from raw prose |
 | 0017 | Implemented | Global compute budget, branch death, score-weighted allocation, recursive splitting | Live evaluator integration |
+| 0018 | Implemented | Dated checkpoint, decision intervention, conditional replay, causal comparison | Generic event-to-domain-effect adapters |
 
 An ADR moves to `Implemented` only when its normative behavior has production
 code and proportionate tests. Schema or documentation alone counts as `None`,
