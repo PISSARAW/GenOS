@@ -169,10 +169,9 @@ pub fn pareto_select(
         .iter()
         .map(|candidate| ParetoAssessment {
             branch_id: candidate.branch_id.clone(),
-            status: if branches
-                .iter()
-                .any(|other| other.branch_id != candidate.branch_id && dominates(other, candidate, objectives))
-            {
+            status: if branches.iter().any(|other| {
+                other.branch_id != candidate.branch_id && dominates(other, candidate, objectives)
+            }) {
                 ParetoStatus::Dominated
             } else {
                 ParetoStatus::NonDominated
@@ -188,8 +187,20 @@ fn dominates(
 ) -> bool {
     let mut strictly_better = false;
     for objective in objectives {
-        let Some(left_score) = left.objectives.iter().find(|score| score.objective == objective.objective) else { return false };
-        let Some(right_score) = right.objectives.iter().find(|score| score.objective == objective.objective) else { return false };
+        let Some(left_score) = left
+            .objectives
+            .iter()
+            .find(|score| score.objective == objective.objective)
+        else {
+            return false;
+        };
+        let Some(right_score) = right
+            .objectives
+            .iter()
+            .find(|score| score.objective == objective.objective)
+        else {
+            return false;
+        };
         let ordering = left_score.score.total_cmp(&right_score.score);
         let no_worse = match objective.direction {
             ObjectiveDirection::Maximize => ordering.is_ge(),
@@ -199,7 +210,9 @@ fn dominates(
             ObjectiveDirection::Maximize => ordering.is_gt(),
             ObjectiveDirection::Minimize => ordering.is_lt(),
         };
-        if !no_worse { return false; }
+        if !no_worse {
+            return false;
+        }
         strictly_better |= better;
     }
     strictly_better
@@ -267,6 +280,53 @@ pub fn evaluate_answers(
     }
 }
 
+/// Experimentally estimated expression of a trait. The estimate is evidence,
+/// not a field copied from the genome.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TraitEstimate {
+    pub trait_name: String,
+    pub mean: f64,
+    pub standard_error: f64,
+    pub sample_size: usize,
+    pub evaluation_suite: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RecombinedTraitTarget {
+    pub trait_name: String,
+    pub target: f64,
+    pub parent_a_estimate: TraitEstimate,
+    pub parent_b_estimate: TraitEstimate,
+    pub parent_a_weight: f64,
+}
+
+/// Produce a breeding target from measured parental phenotypes. This does not
+/// claim that the child expresses the target; a later evaluation must estimate
+/// the child's phenotype independently.
+pub fn recombine_measured_trait(
+    parent_a: TraitEstimate,
+    parent_b: TraitEstimate,
+    parent_a_weight: f64,
+) -> Result<RecombinedTraitTarget, String> {
+    if parent_a.trait_name != parent_b.trait_name {
+        return Err("parent estimates describe different traits".to_string());
+    }
+    if parent_a.evaluation_suite != parent_b.evaluation_suite {
+        return Err("parent estimates were produced by different evaluation suites".to_string());
+    }
+    if !(0.0..=1.0).contains(&parent_a_weight) {
+        return Err("parent_a_weight must be between 0 and 1".to_string());
+    }
+    let target = parent_a.mean * parent_a_weight + parent_b.mean * (1.0 - parent_a_weight);
+    Ok(RecombinedTraitTarget {
+        trait_name: parent_a.trait_name.clone(),
+        target,
+        parent_a_estimate: parent_a,
+        parent_b_estimate: parent_b,
+        parent_a_weight,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -276,9 +336,18 @@ mod tests {
         let result = evaluate_answers(
             ExperimentId("largest-value".to_string()),
             [
-                CounterfactualAnswer { branch_id: BranchId("A".to_string()), answer: 4 },
-                CounterfactualAnswer { branch_id: BranchId("B".to_string()), answer: 8 },
-                CounterfactualAnswer { branch_id: BranchId("C".to_string()), answer: 6 },
+                CounterfactualAnswer {
+                    branch_id: BranchId("A".to_string()),
+                    answer: 4,
+                },
+                CounterfactualAnswer {
+                    branch_id: BranchId("B".to_string()),
+                    answer: 8,
+                },
+                CounterfactualAnswer {
+                    branch_id: BranchId("C".to_string()),
+                    answer: 6,
+                },
             ],
         );
         assert_eq!(result.winner, Some(BranchId("B".to_string())));
@@ -290,9 +359,18 @@ mod tests {
         let result = EvaluationResult {
             experiment_id: ExperimentId("winner-takes-branch-v0".to_string()),
             ranking: vec![
-                BranchScore { branch_id: BranchId("B".to_string()), score: 0.9 },
-                BranchScore { branch_id: BranchId("C".to_string()), score: 0.7 },
-                BranchScore { branch_id: BranchId("A".to_string()), score: 0.4 },
+                BranchScore {
+                    branch_id: BranchId("B".to_string()),
+                    score: 0.9,
+                },
+                BranchScore {
+                    branch_id: BranchId("C".to_string()),
+                    score: 0.7,
+                },
+                BranchScore {
+                    branch_id: BranchId("A".to_string()),
+                    score: 0.4,
+                },
             ],
             winner: Some(BranchId("B".to_string())),
         };
@@ -314,9 +392,18 @@ mod tests {
         let result = evaluate_answers(
             ExperimentId("exploration-retroactive".to_string()),
             [
-                CounterfactualAnswer { branch_id: BranchId("A".to_string()), answer: 4 },
-                CounterfactualAnswer { branch_id: BranchId("B".to_string()), answer: 8 },
-                CounterfactualAnswer { branch_id: BranchId("C".to_string()), answer: 6 },
+                CounterfactualAnswer {
+                    branch_id: BranchId("A".to_string()),
+                    answer: 4,
+                },
+                CounterfactualAnswer {
+                    branch_id: BranchId("B".to_string()),
+                    answer: 8,
+                },
+                CounterfactualAnswer {
+                    branch_id: BranchId("C".to_string()),
+                    answer: 6,
+                },
             ],
         );
         let mut selection = select_winner(&result).expect("winner must be selectable");
@@ -337,17 +424,35 @@ mod tests {
                 MultiObjectiveBranchScore {
                     branch_id: BranchId("A".to_string()),
                     objectives: vec![
-                        ObjectiveScore { objective: "correctness".to_string(), score: 0.9 },
-                        ObjectiveScore { objective: "speed".to_string(), score: 0.6 },
-                        ObjectiveScore { objective: "cost".to_string(), score: 0.8 },
+                        ObjectiveScore {
+                            objective: "correctness".to_string(),
+                            score: 0.9,
+                        },
+                        ObjectiveScore {
+                            objective: "speed".to_string(),
+                            score: 0.6,
+                        },
+                        ObjectiveScore {
+                            objective: "cost".to_string(),
+                            score: 0.8,
+                        },
                     ],
                 },
                 MultiObjectiveBranchScore {
                     branch_id: BranchId("B".to_string()),
                     objectives: vec![
-                        ObjectiveScore { objective: "correctness".to_string(), score: 0.8 },
-                        ObjectiveScore { objective: "speed".to_string(), score: 0.95 },
-                        ObjectiveScore { objective: "cost".to_string(), score: 0.5 },
+                        ObjectiveScore {
+                            objective: "correctness".to_string(),
+                            score: 0.8,
+                        },
+                        ObjectiveScore {
+                            objective: "speed".to_string(),
+                            score: 0.95,
+                        },
+                        ObjectiveScore {
+                            objective: "cost".to_string(),
+                            score: 0.5,
+                        },
                     ],
                 },
             ],
@@ -361,24 +466,94 @@ mod tests {
     #[test]
     fn pareto_selection_marks_tradeoff_branches_as_non_dominated() {
         let branches = vec![
-            MultiObjectiveBranchScore { branch_id: BranchId("A".to_string()), objectives: vec![
-                ObjectiveScore { objective: "speed".to_string(), score: 0.9 },
-                ObjectiveScore { objective: "cost".to_string(), score: 0.9 },
-            ]},
-            MultiObjectiveBranchScore { branch_id: BranchId("B".to_string()), objectives: vec![
-                ObjectiveScore { objective: "speed".to_string(), score: 0.2 },
-                ObjectiveScore { objective: "cost".to_string(), score: 0.2 },
-            ]},
-            MultiObjectiveBranchScore { branch_id: BranchId("C".to_string()), objectives: vec![
-                ObjectiveScore { objective: "speed".to_string(), score: 0.5 },
-                ObjectiveScore { objective: "cost".to_string(), score: 0.5 },
-            ]},
+            MultiObjectiveBranchScore {
+                branch_id: BranchId("A".to_string()),
+                objectives: vec![
+                    ObjectiveScore {
+                        objective: "speed".to_string(),
+                        score: 0.9,
+                    },
+                    ObjectiveScore {
+                        objective: "cost".to_string(),
+                        score: 0.9,
+                    },
+                ],
+            },
+            MultiObjectiveBranchScore {
+                branch_id: BranchId("B".to_string()),
+                objectives: vec![
+                    ObjectiveScore {
+                        objective: "speed".to_string(),
+                        score: 0.2,
+                    },
+                    ObjectiveScore {
+                        objective: "cost".to_string(),
+                        score: 0.2,
+                    },
+                ],
+            },
+            MultiObjectiveBranchScore {
+                branch_id: BranchId("C".to_string()),
+                objectives: vec![
+                    ObjectiveScore {
+                        objective: "speed".to_string(),
+                        score: 0.5,
+                    },
+                    ObjectiveScore {
+                        objective: "cost".to_string(),
+                        score: 0.5,
+                    },
+                ],
+            },
         ];
-        let assessment = pareto_select(&branches, &[
-            ParetoObjective { objective: "speed".to_string(), direction: ObjectiveDirection::Maximize },
-            ParetoObjective { objective: "cost".to_string(), direction: ObjectiveDirection::Minimize },
-        ]);
+        let assessment = pareto_select(
+            &branches,
+            &[
+                ParetoObjective {
+                    objective: "speed".to_string(),
+                    direction: ObjectiveDirection::Maximize,
+                },
+                ParetoObjective {
+                    objective: "cost".to_string(),
+                    direction: ObjectiveDirection::Minimize,
+                },
+            ],
+        );
 
-        assert!(assessment.iter().all(|entry| entry.status == ParetoStatus::NonDominated));
+        assert!(assessment
+            .iter()
+            .all(|entry| entry.status == ParetoStatus::NonDominated));
+    }
+
+    #[test]
+    fn breeding_target_uses_measured_parental_phenotypes() {
+        let alice = TraitEstimate {
+            trait_name: "precision".to_string(),
+            mean: 0.50,
+            standard_error: 0.03,
+            sample_size: 100,
+            evaluation_suite: "traits-v1".to_string(),
+        };
+        let bob = TraitEstimate {
+            trait_name: "precision".to_string(),
+            mean: 0.95,
+            standard_error: 0.02,
+            sample_size: 100,
+            evaluation_suite: "traits-v1".to_string(),
+        };
+        let target = recombine_measured_trait(alice, bob, 1.0 / 3.0).unwrap();
+        assert!((target.target - 0.80).abs() < 1e-9);
+    }
+
+    #[test]
+    fn breeding_rejects_incomparable_parent_measurements() {
+        let estimate = |suite: &str| TraitEstimate {
+            trait_name: "creativity".to_string(),
+            mean: 0.7,
+            standard_error: 0.05,
+            sample_size: 50,
+            evaluation_suite: suite.to_string(),
+        };
+        assert!(recombine_measured_trait(estimate("suite-a"), estimate("suite-b"), 0.5).is_err());
     }
 }
