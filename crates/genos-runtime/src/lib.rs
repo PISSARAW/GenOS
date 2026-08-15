@@ -21,6 +21,8 @@ mod reproducibility;
 pub use reproducibility::*;
 mod capsules;
 pub use capsules::*;
+mod cognitive_merge;
+pub use cognitive_merge::*;
 
 #[cfg(test)]
 pub(crate) mod test_support {

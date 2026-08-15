@@ -68,7 +68,7 @@ impl LineageDag {
                     )
                 })
             })
-            .min_by(|a, b| a.1.cmp(&b.1).then(a.2.cmp(&b.2)).then(a.0.0.cmp(&b.0.0)))
+            .min_by(|a, b| a.1.cmp(&b.1).then(a.2.cmp(&b.2)).then(a.0 .0.cmp(&b.0 .0)))
             .map(|(candidate, _, _)| candidate)
     }
 
@@ -422,25 +422,55 @@ mod tests {
     fn manual_recursive_forks_render_at_multiple_lineage_levels() {
         let branch = BranchId::new();
         let events = vec![
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "S0", "fork_snapshot_id": "A"
-            }), 100, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "S0", "fork_snapshot_id": "B"
-            }), 200, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "A", "fork_snapshot_id": "A1"
-            }), 300, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "A", "fork_snapshot_id": "A2"
-            }), 400, branch),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "S0", "fork_snapshot_id": "A"
+                }),
+                100,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "S0", "fork_snapshot_id": "B"
+                }),
+                200,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "A", "fork_snapshot_id": "A1"
+                }),
+                300,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "A", "fork_snapshot_id": "A2"
+                }),
+                400,
+                branch,
+            ),
         ];
 
         let dag = build_lineage_dag(&events);
         let tree = dag.tree_at(&SnapshotId("S0".to_string()));
-        let a = tree.children.iter().find(|child| child.snapshot_id == "A").unwrap();
+        let a = tree
+            .children
+            .iter()
+            .find(|child| child.snapshot_id == "A")
+            .unwrap();
         assert_eq!(tree.children.len(), 2);
-        assert_eq!(a.children.iter().map(|child| child.snapshot_id.as_str()).collect::<Vec<_>>(), vec!["A1", "A2"]);
+        assert_eq!(
+            a.children
+                .iter()
+                .map(|child| child.snapshot_id.as_str())
+                .collect::<Vec<_>>(),
+            vec!["A1", "A2"]
+        );
         assert!(tree.children.iter().any(|child| child.snapshot_id == "B"));
     }
 
@@ -448,18 +478,38 @@ mod tests {
     fn nearest_common_ancestor_finds_a_for_a1x_and_a2() {
         let branch = BranchId::new();
         let events = vec![
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "S0", "fork_snapshot_id": "A"
-            }), 100, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "A", "fork_snapshot_id": "A1"
-            }), 200, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "A1", "fork_snapshot_id": "A1x"
-            }), 300, branch.clone()),
-            evt(AgentEventType::ForkCreated, json!({
-                "parent_snapshot_id": "A", "fork_snapshot_id": "A2"
-            }), 400, branch),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "S0", "fork_snapshot_id": "A"
+                }),
+                100,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "A", "fork_snapshot_id": "A1"
+                }),
+                200,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "A1", "fork_snapshot_id": "A1x"
+                }),
+                300,
+                branch.clone(),
+            ),
+            evt(
+                AgentEventType::ForkCreated,
+                json!({
+                    "parent_snapshot_id": "A", "fork_snapshot_id": "A2"
+                }),
+                400,
+                branch,
+            ),
         ];
         let dag = build_lineage_dag(&events);
 

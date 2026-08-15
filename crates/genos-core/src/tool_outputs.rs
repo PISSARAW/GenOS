@@ -16,15 +16,15 @@
 #[cfg(test)]
 mod tool_outputs_tests;
 
-use crate::events::{AgentEvent, AgentEventType};
 use crate::artifact::{ArtifactRef, DigestAlgorithm};
+use crate::events::{AgentEvent, AgentEventType};
+use crate::genome::ToolPolicy;
 use crate::ids::{EventId, ToolOutputId};
 use crate::snapshot::AgentSnapshot;
 use crate::state::ToolOutputRecord;
-use crate::genome::ToolPolicy;
-use sha2::{Digest, Sha256};
 use chrono::{DateTime, Utc};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 
 impl AgentSnapshot {
     /// The tool output record behind a `ToolOutputId` on this branch, if any.
@@ -42,12 +42,9 @@ impl AgentSnapshot {
 
     /// Returns whether the genome explicitly enables this tool and scope.
     pub fn tool_is_allowed(&self, policy: &ToolPolicy, tool: &str, scope: &str) -> bool {
-        policy
-            .permissions
-            .iter()
-            .any(|permission| {
-                permission.tool == tool && permission.scope == scope && permission.enabled
-            })
+        policy.permissions.iter().any(|permission| {
+            permission.tool == tool && permission.scope == scope && permission.enabled
+        })
     }
 }
 
@@ -101,19 +98,25 @@ pub fn record_checked_tool_call_on_branch(
     input: serde_json::Value,
 ) -> ToolOutputWrite {
     if snapshot.tool_is_allowed(policy, tool_name, scope) {
-        record_tool_call_on_branch(snapshot, ToolCallRequest {
-            tool_name,
-            input,
-            output: json!({ "status": "allowed" }),
-            success: true,
-        })
+        record_tool_call_on_branch(
+            snapshot,
+            ToolCallRequest {
+                tool_name,
+                input,
+                output: json!({ "status": "allowed" }),
+                success: true,
+            },
+        )
     } else {
-        record_tool_call_on_branch(snapshot, ToolCallRequest {
-            tool_name,
-            input,
-            output: json!({ "error": "permission_denied", "scope": scope }),
-            success: false,
-        })
+        record_tool_call_on_branch(
+            snapshot,
+            ToolCallRequest {
+                tool_name,
+                input,
+                output: json!({ "error": "permission_denied", "scope": scope }),
+                success: false,
+            },
+        )
     }
 }
 

@@ -27,6 +27,8 @@ pub enum ExperimentSubcommands {
     Select(GenericExperimentArgs),
     /// Evaluate functional reproducibility from paired behavior traces.
     Reproducibility(GenericExperimentArgs),
+    /// Reconcile branch claims without unioning their memories.
+    CognitiveMerge(GenericExperimentArgs),
 }
 
 #[derive(ArgsMacro, Debug)]

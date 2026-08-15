@@ -5,13 +5,15 @@ use crate::args::{
 use crate::output::print_serialized;
 use anyhow::Context;
 use genos_runtime::{
-    analyze_fixed_genome_cohort, artificial_select, evaluate_paired_reproduction,
-    persist_experiment_report, run_bug_investigation, run_incident_search,
-    run_scientific_experiment, run_security_coevolution, run_temporal_experiment,
-    run_workspace_experiment, BugInvestigationManifest, CohortControls, HeredityCohortMember,
-    IncidentSearchManifest, PairedBehaviorTrial, ReproducibilityThresholds,
-    ScientificExperimentManifest, SecurityCoevolutionManifest, SelectionCandidate,
-    SelectionConstraints, TemporalExperimentManifest, WorkspaceExperimentManifest,
+    analyze_fixed_genome_cohort, apply_cognitive_merge, artificial_select, cognitive_merge,
+    evaluate_paired_reproduction, persist_experiment_report, run_bug_investigation,
+    run_incident_search, run_scientific_experiment, run_security_coevolution,
+    run_temporal_experiment, run_workspace_experiment, BugInvestigationManifest, ClaimRelation,
+    CognitiveClaim, CognitiveMergeApplication, CognitiveMergeConfig, CognitiveMergeReport,
+    CohortControls, HeredityCohortMember, IncidentSearchManifest, PairedBehaviorTrial,
+    ReproducibilityThresholds, ScientificExperimentManifest, SecurityCoevolutionManifest,
+    SelectionCandidate, SelectionConstraints, TemporalExperimentManifest,
+    WorkspaceExperimentManifest,
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -99,6 +101,22 @@ struct ReproducibilityManifest {
     trials: Vec<PairedBehaviorTrial>,
 }
 
+#[derive(Deserialize)]
+struct CognitiveMergeManifest {
+    claims: Vec<CognitiveClaim>,
+    #[serde(default)]
+    relations: Vec<ClaimRelation>,
+    #[serde(default)]
+    config: CognitiveMergeConfig,
+    parent_snapshot: Option<genos_core::AgentSnapshot>,
+}
+
+#[derive(Serialize)]
+struct CognitiveMergeOutput {
+    report: CognitiveMergeReport,
+    application: Option<CognitiveMergeApplication>,
+}
+
 pub fn cmd_experiment_heredity(args: GenericExperimentArgs) -> anyhow::Result<()> {
     let manifest: HeredityManifest = read_manifest(&args.manifest)?;
     let report = analyze_fixed_genome_cohort(manifest.controls, &manifest.members)
@@ -119,6 +137,23 @@ pub fn cmd_experiment_reproducibility(args: GenericExperimentArgs) -> anyhow::Re
     let report = evaluate_paired_reproduction(&manifest.trials, &manifest.thresholds)
         .map_err(anyhow::Error::msg)?;
     print_serialized(&report, args.format)
+}
+
+pub fn cmd_experiment_cognitive_merge(args: GenericExperimentArgs) -> anyhow::Result<()> {
+    let manifest: CognitiveMergeManifest = read_manifest(&args.manifest)?;
+    let report = cognitive_merge(&manifest.claims, &manifest.relations, &manifest.config)
+        .map_err(anyhow::Error::msg)?;
+    let application = manifest
+        .parent_snapshot
+        .as_ref()
+        .map(|parent| apply_cognitive_merge(parent, &report));
+    print_serialized(
+        &CognitiveMergeOutput {
+            report,
+            application,
+        },
+        args.format,
+    )
 }
 
 pub async fn cmd_experiment_workspace(args: WorkspaceExperimentArgs) -> anyhow::Result<()> {

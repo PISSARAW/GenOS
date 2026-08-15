@@ -13,6 +13,7 @@ decision is fully implemented. This matrix tracks executable coverage.
 | 0013 | Implemented | Paired execution, similarity extraction, equivalence verdict | — |
 | 0014 | Implemented | Atomic agent-world forks and validated synthesis | — |
 | 0015 | Implemented | Capsule store, integrity, checkpoint, pause/resume, restoration | — |
+| 0016 | Implemented | Typed claim graph, conflict preservation, reviewed parent application | Semantic claim extraction from raw prose |
 
 An ADR moves to `Implemented` only when its normative behavior has production
 code and proportionate tests. Schema or documentation alone counts as `None`,
