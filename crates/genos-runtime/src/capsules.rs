@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use genos_core::{
     fork_snapshot_with_hypothesis, AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation,
     RestorableComponent,
@@ -136,6 +137,53 @@ pub fn default_capsule_components() -> Vec<RestorableComponent> {
     ]
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ComponentRestoreStatus {
+    Restored,
+    Reconstructed,
+    ExternalUncontrolled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ComponentRestoreReport {
+    pub name: String,
+    pub status: ComponentRestoreStatus,
+}
+
+#[async_trait]
+pub trait ComponentRestorer: Send + Sync {
+    async fn reconstruct(&self, component: &RestorableComponent) -> anyhow::Result<()>;
+}
+
+pub async fn restore_capsule_components(
+    capsule: &AgentWorldCapsule,
+    restorer: &dyn ComponentRestorer,
+) -> anyhow::Result<Vec<ComponentRestoreReport>> {
+    use genos_core::RestorationMode;
+    let mut reports = Vec::new();
+    for component in &capsule.components {
+        let status = match component.mode {
+            RestorationMode::Snapshot => ComponentRestoreStatus::Restored,
+            RestorationMode::Reconstruct => {
+                if component.manifest.is_none() {
+                    anyhow::bail!(
+                        "component {} has no reconstruction manifest",
+                        component.name
+                    );
+                }
+                restorer.reconstruct(component).await?;
+                ComponentRestoreStatus::Reconstructed
+            }
+            RestorationMode::External => ComponentRestoreStatus::ExternalUncontrolled,
+        };
+        reports.push(ComponentRestoreReport {
+            name: component.name.clone(),
+            status,
+        });
+    }
+    Ok(reports)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +191,15 @@ mod tests {
     use genos_store::{CapsuleStore, LocalCapsuleStore};
     use genos_world::{DirectoryWorldProvider, WorldProvider};
     use tempfile::tempdir;
+
+    struct ManifestRestorer;
+
+    #[async_trait]
+    impl ComponentRestorer for ManifestRestorer {
+        async fn reconstruct(&self, _component: &RestorableComponent) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
 
     #[tokio::test]
     async fn forks_bind_distinct_agents_worlds_streams_and_budgets() {
@@ -214,5 +271,14 @@ mod tests {
         let resumed = resume_capsule(&provider, &store, &paused).await.unwrap();
         assert_eq!(resumed.lifecycle, CapsuleLifecycle::Running);
         assert!(resumed.live_world_id.is_some());
+        let reports = restore_capsule_components(&resumed, &ManifestRestorer)
+            .await
+            .unwrap();
+        assert!(reports
+            .iter()
+            .any(|report| report.status == ComponentRestoreStatus::Reconstructed));
+        assert!(reports
+            .iter()
+            .any(|report| report.status == ComponentRestoreStatus::ExternalUncontrolled));
     }
 }

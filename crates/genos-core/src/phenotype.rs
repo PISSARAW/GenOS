@@ -1,4 +1,4 @@
-use crate::{AgentGenome, GenomeId};
+use crate::{AgentGenome, GenomeId, GenomeMutationChange, GenomeMutationMetadata};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -171,6 +171,68 @@ pub fn attach_inferred_trait(genome: &mut AgentGenome, claim: InferredGenomeTrai
     }
 }
 
+pub fn record_heritability(
+    claim: &mut InferredGenomeTraitClaim,
+    estimate: f64,
+    descendant_cohorts: Vec<String>,
+) -> Result<(), String> {
+    if !(0.0..=1.0).contains(&estimate) {
+        return Err("heritability estimate must be between 0 and 1".to_string());
+    }
+    if descendant_cohorts.is_empty() {
+        return Err("heritability requires descendant cohort evidence".to_string());
+    }
+    claim.heritability = HeritabilityEvidence {
+        status: HeritabilityStatus::Supported,
+        estimate: Some(estimate),
+        descendant_cohorts,
+    };
+    Ok(())
+}
+
+/// Promote a replicated inferred claim into executable configuration by
+/// creating a new genome. The explicit field mapping prevents semantic guesses
+/// such as treating risk aversion as risk tolerance without author intent.
+pub fn promote_inferred_trait(
+    genome: &AgentGenome,
+    trait_name: &str,
+    genome_field: &str,
+) -> Result<AgentGenome, String> {
+    let claim = genome
+        .inferred_traits
+        .iter()
+        .find(|claim| claim.trait_name == trait_name)
+        .ok_or_else(|| format!("unknown inferred trait {trait_name}"))?;
+    if claim.status != TraitClaimStatus::Replicated {
+        return Err(format!("trait {trait_name} is not replicated"));
+    }
+    let value = claim.estimate as f32;
+    if !(0.0..=1.0).contains(&value) {
+        return Err(format!("trait estimate {value} is outside 0..=1"));
+    }
+    let mut child = genome.clone();
+    child.id = GenomeId::new();
+    child.parent_genome = Some(genome.id.clone());
+    child.parent_genomes = vec![genome.id.clone()];
+    child.breeding = None;
+    let previous_value = match genome_field {
+        "cognition.exploration" => std::mem::replace(&mut child.cognition.exploration, value),
+        "cognition.risk_tolerance" => std::mem::replace(&mut child.cognition.risk_tolerance, value),
+        "cognition.verification_threshold" => {
+            std::mem::replace(&mut child.cognition.verification_threshold, value)
+        }
+        field => return Err(format!("unsupported promotion target {field}")),
+    };
+    child.mutation = Some(GenomeMutationMetadata {
+        changes: vec![GenomeMutationChange {
+            field: genome_field.to_string(),
+            previous_value,
+            new_value: value,
+        }],
+    });
+    Ok(child)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -208,5 +270,27 @@ mod tests {
     fn divergence_uses_an_explicit_tolerance() {
         let report = measure_divergence("verification", 0.95, 0.82, 0.05);
         assert!(report.diverged);
+    }
+
+    #[test]
+    fn heritability_requires_descendant_evidence() {
+        let mut claim = InferredGenomeTraitClaim {
+            trait_name: "verification".to_string(),
+            estimate: 0.8,
+            confidence: 0.9,
+            observations: 200,
+            inference_method: "test".to_string(),
+            status: TraitClaimStatus::Replicated,
+            contexts: vec!["a".to_string(), "b".to_string()],
+            evidence: vec!["eval:1".to_string()],
+            heritability: HeritabilityEvidence {
+                status: HeritabilityStatus::Unknown,
+                estimate: None,
+                descendant_cohorts: vec![],
+            },
+        };
+        assert!(record_heritability(&mut claim, 0.7, vec![]).is_err());
+        record_heritability(&mut claim, 0.7, vec!["cohort:children".to_string()]).unwrap();
+        assert_eq!(claim.heritability.status, HeritabilityStatus::Supported);
     }
 }

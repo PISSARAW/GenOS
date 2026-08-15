@@ -14,8 +14,52 @@ pub enum AgentSubcommands {
     Inspect(AgentInspectArgs),
     /// Derive a new genome by applying relative cognition changes.
     Mutate(AgentMutateArgs),
+    /// Recombine two genomes from comparable measured phenotype evidence.
+    Breed(AgentBreedArgs),
+    /// Infer evidence-backed genome trait claims from phenotype observations.
+    InferTraits(AgentInferTraitsArgs),
+    /// Promote a replicated inferred trait through an explicit genome mutation.
+    PromoteTrait(AgentPromoteTraitArgs),
     /// Derive counterfactual forks from an existing snapshot, without any model call.
     ForkFromSnapshot(AgentForkFromSnapshotArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct AgentPromoteTraitArgs {
+    pub genome: PathBuf,
+    #[arg(long = "trait")]
+    pub trait_name: String,
+    #[arg(long)]
+    pub field: String,
+    #[arg(long)]
+    pub out: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Yaml)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct AgentBreedArgs {
+    pub alice: PathBuf,
+    pub bob: PathBuf,
+    #[arg(long)]
+    pub evidence: PathBuf,
+    #[arg(long)]
+    pub out: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Yaml)]
+    pub format: OutputFormat,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct AgentInferTraitsArgs {
+    pub genome: PathBuf,
+    #[arg(long = "phenotype", required = true)]
+    pub phenotypes: Vec<PathBuf>,
+    #[arg(long = "trait", required = true)]
+    pub traits: Vec<String>,
+    #[arg(long)]
+    pub out: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Yaml)]
+    pub format: OutputFormat,
 }
 
 #[derive(ArgsMacro, Debug)]

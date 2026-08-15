@@ -21,6 +21,19 @@ pub enum ExperimentSubcommands {
     SecurityCoevolution(SecurityCoevolutionArgs),
     /// Falsify competing bug explanations in isolated code worlds.
     BugInvestigation(BugInvestigationArgs),
+    /// Analyze a fixed-genome cohort under controlled treatments.
+    Heredity(GenericExperimentArgs),
+    /// Apply hard constraints and Pareto selection to evaluated genomes.
+    Select(GenericExperimentArgs),
+    /// Evaluate functional reproducibility from paired behavior traces.
+    Reproducibility(GenericExperimentArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct GenericExperimentArgs {
+    pub manifest: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
 }
 
 #[derive(ArgsMacro, Debug)]

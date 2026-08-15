@@ -1,16 +1,19 @@
 use crate::args::{
-    BugInvestigationArgs, IncidentExperimentArgs, ScientificExperimentArgs,
+    BugInvestigationArgs, GenericExperimentArgs, IncidentExperimentArgs, ScientificExperimentArgs,
     SecurityCoevolutionArgs, TemporalExperimentArgs, WorkspaceExperimentArgs,
 };
 use crate::output::print_serialized;
 use anyhow::Context;
 use genos_runtime::{
+    analyze_fixed_genome_cohort, artificial_select, evaluate_paired_reproduction,
     persist_experiment_report, run_bug_investigation, run_incident_search,
     run_scientific_experiment, run_security_coevolution, run_temporal_experiment,
-    run_workspace_experiment, BugInvestigationManifest, IncidentSearchManifest,
-    ScientificExperimentManifest, SecurityCoevolutionManifest, TemporalExperimentManifest,
-    WorkspaceExperimentManifest,
+    run_workspace_experiment, BugInvestigationManifest, CohortControls, HeredityCohortMember,
+    IncidentSearchManifest, PairedBehaviorTrial, ReproducibilityThresholds,
+    ScientificExperimentManifest, SecurityCoevolutionManifest, SelectionCandidate,
+    SelectionConstraints, TemporalExperimentManifest, WorkspaceExperimentManifest,
 };
+use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
 
@@ -76,6 +79,46 @@ fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
         Some("yaml" | "yml") => Ok(serde_yaml::from_slice(&bytes)?),
         _ => Ok(serde_json::from_slice(&bytes)?),
     }
+}
+
+#[derive(Deserialize)]
+struct HeredityManifest {
+    controls: CohortControls,
+    members: Vec<HeredityCohortMember>,
+}
+
+#[derive(Deserialize)]
+struct SelectionManifest {
+    constraints: SelectionConstraints,
+    candidates: Vec<SelectionCandidate>,
+}
+
+#[derive(Deserialize)]
+struct ReproducibilityManifest {
+    thresholds: ReproducibilityThresholds,
+    trials: Vec<PairedBehaviorTrial>,
+}
+
+pub fn cmd_experiment_heredity(args: GenericExperimentArgs) -> anyhow::Result<()> {
+    let manifest: HeredityManifest = read_manifest(&args.manifest)?;
+    let report = analyze_fixed_genome_cohort(manifest.controls, &manifest.members)
+        .map_err(anyhow::Error::msg)?;
+    print_serialized(&report, args.format)
+}
+
+pub fn cmd_experiment_select(args: GenericExperimentArgs) -> anyhow::Result<()> {
+    let manifest: SelectionManifest = read_manifest(&args.manifest)?;
+    print_serialized(
+        &artificial_select(&manifest.candidates, &manifest.constraints),
+        args.format,
+    )
+}
+
+pub fn cmd_experiment_reproducibility(args: GenericExperimentArgs) -> anyhow::Result<()> {
+    let manifest: ReproducibilityManifest = read_manifest(&args.manifest)?;
+    let report = evaluate_paired_reproduction(&manifest.trials, &manifest.thresholds)
+        .map_err(anyhow::Error::msg)?;
+    print_serialized(&report, args.format)
 }
 
 pub async fn cmd_experiment_workspace(args: WorkspaceExperimentArgs) -> anyhow::Result<()> {
