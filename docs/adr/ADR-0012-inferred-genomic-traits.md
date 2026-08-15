@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Not implemented. A portable claim schema exists, but inferred claims are not
+stored by `AgentGenome`, replicated by an evaluator, or promoted through a
+runtime mutation workflow.
+
 ## Context
 
 Repeated phenotype evaluations may reveal stable characteristics that were not
@@ -39,4 +45,3 @@ evidence; stability within one agent is insufficient.
 - Circular self-confirmation is avoided by independent evaluation.
 - Promotion from inferred knowledge to executable genome configuration remains
   an auditable mutation.
-

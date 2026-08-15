@@ -15,6 +15,95 @@ mod security_coevolution;
 pub use security_coevolution::*;
 mod bug_investigation;
 pub use bug_investigation::*;
+mod evolution;
+pub use evolution::*;
+mod reproducibility;
+pub use reproducibility::*;
+mod capsules;
+pub use capsules::*;
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    pub fn snapshot() -> genos_core::AgentSnapshot {
+        use genos_core::*;
+        let genome_id = GenomeId::new();
+        let branch_id = BranchId::new();
+        let world_id = WorldId::new();
+        AgentSnapshot {
+            snapshot_id: SnapshotId::new(),
+            agent_id: AgentId::new(),
+            branch_id: branch_id.clone(),
+            branch_metadata: BranchMetadata::default(),
+            genome: AgentGenome {
+                id: genome_id.clone(),
+                parent_genome: None,
+                parent_genomes: vec![],
+                mutation: None,
+                version: GenomeVersion("0.1.0".to_string()),
+                identity: Identity {
+                    name: "test".to_string(),
+                    role: "agent".to_string(),
+                },
+                cognition: CognitionConfig {
+                    exploration: 0.7,
+                    risk_tolerance: 0.25,
+                    verification_threshold: 0.8,
+                    planning_depth: 4,
+                },
+                objectives: vec![],
+                policies: vec![],
+                capabilities: vec![],
+                memory_policy: MemoryPolicy {
+                    working_max_items: 10,
+                    episodic_enabled: true,
+                    semantic_enabled: true,
+                },
+                model_policy: ModelPolicy {
+                    strategy: "test".to_string(),
+                    preferred_providers: vec![],
+                    allow_local: true,
+                },
+                tool_policy: ToolPolicy {
+                    permissions: vec![],
+                },
+                inferred_traits: vec![],
+            },
+            state: AgentState {
+                genome: GenomeRef {
+                    genome_id,
+                    version: "0.1.0".to_string(),
+                },
+                working_memory: WorkingMemory { items: vec![] },
+                semantic_memory: SemanticMemory { refs: vec![] },
+                episodic_memory: EpisodicMemory { refs: vec![] },
+                memories: vec![],
+                tool_outputs: vec![],
+                beliefs: vec![],
+                active_goals: vec![],
+                world_id: world_id.clone(),
+                event_cursor: EventCursor {
+                    branch_id,
+                    sequence: 0,
+                    last_event_id: None,
+                },
+                execution: ExecutionMetadata {
+                    step: 0,
+                    last_model_provider: None,
+                },
+                artifact_refs: vec![],
+            },
+            world_id,
+            tool_state: ToolState {
+                active_tools: vec![],
+            },
+            runtime_metadata: RuntimeMetadata {
+                runtime_version: "test".to_string(),
+                budget_steps_remaining: 10,
+            },
+            created_at: chrono::Utc::now(),
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct StepResult {

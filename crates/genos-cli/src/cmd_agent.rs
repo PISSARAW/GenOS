@@ -28,6 +28,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
     let genome = AgentGenome {
         id: GenomeId::new(),
         parent_genome: None,
+        parent_genomes: vec![],
         mutation: None,
         version: GenomeVersion("0.1.0".to_string()),
         identity: Identity {
@@ -81,6 +82,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
                 },
             ],
         },
+        inferred_traits: vec![],
     };
 
     let path = args

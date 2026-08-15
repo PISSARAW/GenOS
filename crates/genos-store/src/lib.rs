@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use genos_core::{
-    AgentEvent, AgentEventType, AgentId, AgentSnapshot, ArtifactRef, BranchId, DigestAlgorithm,
-    EventId,
+    AgentEvent, AgentEventType, AgentId, AgentSnapshot, AgentWorldCapsule, ArtifactRef, BranchId,
+    CapsuleId, DigestAlgorithm, EventId,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -21,6 +21,110 @@ pub trait EventStore: Send + Sync {
 pub trait SnapshotStore: Send + Sync {
     async fn save_snapshot(&self, snapshot: AgentSnapshot) -> anyhow::Result<()>;
     async fn get_snapshot(&self, snapshot_id: String) -> anyhow::Result<Option<AgentSnapshot>>;
+}
+
+#[async_trait]
+pub trait CapsuleStore: Send + Sync {
+    async fn save_capsule(&self, capsule: AgentWorldCapsule) -> anyhow::Result<()>;
+    async fn get_capsule(&self, capsule_id: String) -> anyhow::Result<Option<AgentWorldCapsule>>;
+    async fn list_branch_capsules(
+        &self,
+        branch_id: String,
+    ) -> anyhow::Result<Vec<AgentWorldCapsule>>;
+}
+
+pub struct LocalCapsuleStore {
+    file_path: PathBuf,
+    write_lock: Mutex<()>,
+}
+
+impl LocalCapsuleStore {
+    pub fn new(file_path: impl Into<PathBuf>) -> Self {
+        Self {
+            file_path: file_path.into(),
+            write_lock: Mutex::new(()),
+        }
+    }
+
+    pub fn from_root(root: impl AsRef<Path>) -> Self {
+        Self::new(
+            root.as_ref()
+                .join("capsules")
+                .join("agent-world-capsules.jsonl"),
+        )
+    }
+
+    pub fn file_path(&self) -> &Path {
+        &self.file_path
+    }
+
+    async fn read_all(&self) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+        if !fs::try_exists(&self.file_path).await? {
+            return Ok(vec![]);
+        }
+        let raw = fs::read_to_string(&self.file_path).await?;
+        raw.lines()
+            .enumerate()
+            .filter(|(_, line)| !line.trim().is_empty())
+            .map(|(index, line)| {
+                let capsule: AgentWorldCapsule = serde_json::from_str(line).map_err(|error| {
+                    anyhow::anyhow!("invalid capsule at line {}: {error}", index + 1)
+                })?;
+                if !capsule.verify_integrity() {
+                    anyhow::bail!(
+                        "capsule {} failed integrity verification",
+                        capsule.capsule_id.0
+                    );
+                }
+                Ok(capsule)
+            })
+            .collect()
+    }
+}
+
+#[async_trait]
+impl CapsuleStore for LocalCapsuleStore {
+    async fn save_capsule(&self, capsule: AgentWorldCapsule) -> anyhow::Result<()> {
+        if !capsule.verify_integrity() {
+            anyhow::bail!("refusing to store capsule with invalid integrity digest");
+        }
+        let _guard = self.write_lock.lock().await;
+        if let Some(parent) = self.file_path.parent() {
+            fs::create_dir_all(parent).await?;
+        }
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.file_path)
+            .await?;
+        let mut line = serde_json::to_vec(&capsule)?;
+        line.push(b'\n');
+        file.write_all(&line).await?;
+        file.flush().await?;
+        Ok(())
+    }
+
+    async fn get_capsule(&self, capsule_id: String) -> anyhow::Result<Option<AgentWorldCapsule>> {
+        let id = CapsuleId(capsule_id);
+        Ok(self
+            .read_all()
+            .await?
+            .into_iter()
+            .rev()
+            .find(|capsule| capsule.capsule_id == id))
+    }
+
+    async fn list_branch_capsules(
+        &self,
+        branch_id: String,
+    ) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+        Ok(self
+            .read_all()
+            .await?
+            .into_iter()
+            .filter(|capsule| capsule.branch_id.0 == branch_id)
+            .collect())
+    }
 }
 
 /// Content-addressed local artifact store. The SHA-256 digest is the physical
@@ -593,6 +697,7 @@ mod tests {
             genome: genos_core::AgentGenome {
                 id: genome_id.clone(),
                 parent_genome: None,
+                parent_genomes: vec![],
                 mutation: None,
                 version: genos_core::GenomeVersion("0.1.0".to_string()),
                 identity: genos_core::Identity {
@@ -621,6 +726,7 @@ mod tests {
                 tool_policy: genos_core::ToolPolicy {
                     permissions: vec![],
                 },
+                inferred_traits: vec![],
             },
             state: genos_core::AgentState {
                 genome: GenomeRef {
@@ -1297,6 +1403,40 @@ mod tests {
             fs::remove_file(snapshots_path)
                 .await
                 .expect("cleanup snapshots failed");
+        }
+    }
+
+    #[tokio::test]
+    async fn capsule_store_round_trips_verified_checkpoints() {
+        let path = temp_store_path();
+        let store = LocalCapsuleStore::new(&path);
+        let snapshot = make_snapshot(0);
+        let capsule = genos_core::AgentWorldCapsule::new(
+            snapshot.clone(),
+            genos_core::SnapshotId::new(),
+            Some(snapshot.world_id.clone()),
+            vec![],
+            None,
+            genos_core::CapsuleRelation::Genesis,
+        );
+        store.save_capsule(capsule.clone()).await.unwrap();
+        let loaded = store
+            .get_capsule(capsule.capsule_id.0.clone())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(loaded, capsule);
+        assert!(loaded.verify_integrity());
+        assert_eq!(
+            store
+                .list_branch_capsules(snapshot.branch_id.0)
+                .await
+                .unwrap()
+                .len(),
+            1
+        );
+        if fs::try_exists(&path).await.unwrap() {
+            fs::remove_file(path).await.unwrap();
         }
     }
 }

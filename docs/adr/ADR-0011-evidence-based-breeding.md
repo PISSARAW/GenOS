@@ -3,6 +3,12 @@
 ## Status
 Accepted
 
+## Implementation Status
+
+Partially implemented. `genos-eval` can recombine comparable measured trait
+estimates and rejects incompatible suites. There is no `agent breed` command,
+genome recombination engine, or child-validation workflow yet.
+
 ## Context
 
 Combining prompt fragments or averaging self-declared trait values does not
@@ -32,4 +38,3 @@ contributions are recorded as lineage metadata.
 - A child may fail to express its target traits or exhibit unexpected traits.
 - Heritability can be estimated across many parent-child observations instead
   of assumed from one breeding event.
-
