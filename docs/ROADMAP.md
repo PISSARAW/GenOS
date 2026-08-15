@@ -18,3 +18,5 @@
 - Atomic counterfactual branch capsule: agent snapshot + world + event stream + budget
 - Shared evaluation protocol with branch selection
 - Provenance-bearing knowledge synthesis validated on a fresh branch
+- Long-lived agent-world capsule lifecycle: checkpoint, pause, resume, expire
+- Component restoration modes for filesystems, processes, environments, and services

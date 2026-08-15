@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/agent-world-capsule.schema.json",
+  "title": "AgentWorldCapsuleCheckpoint",
+  "type": "object",
+  "required": ["capsule_id", "branch_id", "agent", "world", "runtime", "lifecycle", "lineage", "integrity"],
+  "properties": {
+    "capsule_id": { "type": "string" },
+    "branch_id": { "type": "string" },
+    "agent": {
+      "type": "object",
+      "required": ["genome_digest", "state_snapshot", "event_cursor"],
+      "properties": {
+        "genome_digest": { "type": "string", "pattern": "^sha256:" },
+        "state_snapshot": { "type": "string" },
+        "event_cursor": { "type": "string" }
+      }
+    },
+    "world": {
+      "type": "object",
+      "required": ["filesystem", "processes", "services", "environment"],
+      "properties": {
+        "filesystem": { "$ref": "#/$defs/restorableComponent" },
+        "processes": { "$ref": "#/$defs/restorableComponent" },
+        "services": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/restorableComponent" }
+        },
+        "environment": { "$ref": "#/$defs/restorableComponent" },
+        "network_policy": { "type": "string" }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["manifest", "tools", "permissions", "budget"],
+      "properties": {
+        "manifest": { "type": "string" },
+        "tools": { "type": "string" },
+        "permissions": { "type": "string" },
+        "budget": {
+          "type": "object",
+          "properties": {
+            "steps_remaining": { "type": "integer", "minimum": 0 },
+            "duration_ms_remaining": { "type": "integer", "minimum": 0 },
+            "cost_remaining": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": ["status", "checkpointed_at"],
+      "properties": {
+        "status": { "enum": ["created", "running", "paused", "completed", "failed", "cancelled", "budget_exhausted"] },
+        "checkpointed_at": { "type": "string", "format": "date-time" },
+        "lease_expires_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "lineage": {
+      "type": "object",
+      "required": ["parent_capsule", "relation"],
+      "properties": {
+        "parent_capsule": { "type": ["string", "null"] },
+        "relation": { "enum": ["genesis", "fork", "checkpoint", "restore", "replay", "mutation", "merge"] }
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "required": ["manifest_digest"],
+      "properties": {
+        "manifest_digest": { "type": "string", "pattern": "^sha256:" }
+      }
+    }
+  },
+  "$defs": {
+    "restorableComponent": {
+      "type": "object",
+      "required": ["name", "mode"],
+      "properties": {
+        "name": { "type": "string" },
+        "mode": { "enum": ["snapshot", "reconstruct", "external"] },
+        "digest": { "type": "string" },
+        "manifest": { "type": "string" },
+        "compatibility": { "type": "object" },
+        "nondeterminism": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
+
