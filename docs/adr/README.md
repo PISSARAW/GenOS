@@ -24,6 +24,7 @@ Architecture Decision Records capture durable choices and their consequences. `A
 | [0018](ADR-0018-personal-causal-replay.md) | Replay from historical personal checkpoints |
 | [0019](ADR-0019-agent-genome-counterfactual-cycle.md) | Integrate genome evolution and counterfactual execution |
 | [0020](ADR-0020-agent-primitives-cli.md) | Define canonical agent CLI primitives |
+| [0021](ADR-0021-protocol-interoperability-codex.md) | Expose provider-neutral protocols to OpenAI Codex and other agent environments |
 
 ## Adding an ADR
 

@@ -7,6 +7,7 @@ This index separates user-facing concepts, normative specifications, implementat
 - [Project README](../README.md) — overview, quick start, architecture, and status
 - [Agent primitives](AGENT_PRIMITIVES.md) — the ten canonical lifecycle operations
 - [Counterfactual OS](COUNTERFACTUAL_OS.md) — integrated branch execution model
+- [Protocol interoperability and Codex](adr/ADR-0021-protocol-interoperability-codex.md) — MCP boundary and product/provider separation
 - [Examples catalogue](../examples/README.md) — runnable demonstrations by topic
 
 ## Concepts and specifications

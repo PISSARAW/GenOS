@@ -142,11 +142,27 @@ web/console/      Web console placeholder
 
 The core architectural commitments are provider neutrality, event-sourced history, fork isolation, explicit provenance, content-addressed artifacts, and reviewed cognitive merge. Design rationale is recorded in the [architecture decision records](docs/adr/).
 
+### Planned agent-environment integration
+
+GenOS distinguishes an environment that **uses GenOS** from a model provider
+that **GenOS uses**. OpenAI Codex is a planned GenOS-native environment through
+MCP; an OpenAI API model is a separate, interchangeable model provider.
+
+```text
+OpenAI Codex ---- MCP ----> GenOS protocol ----> GenOS runtime
+GenOS runtime ------------> OpenAI model API (optional)
+```
+
+The same MCP tool surface is intended for Codex, Claude Code, and other
+MCP-capable clients. This integration is accepted architecture but is not yet
+implemented. See [ADR-0021](docs/adr/ADR-0021-protocol-interoperability-codex.md)
+for the compatibility boundary and implementation criteria.
+
 ## Project status and roadmap
 
 GenOS is at `0.0.1`. The repository contains substantial executable research prototypes, but distribution, remote providers, transactional orchestration, API coverage, and the web console remain early or incomplete.
 
-The path to `0.1.0` focuses on a stable end-to-end counterfactual experiment, hardened persistence, public integration contracts, and release packaging. See the [roadmap](docs/ROADMAP.md).
+The path to `0.1.0` focuses on a stable end-to-end counterfactual experiment, hardened persistence, a public protocol contract, an MCP integration for OpenAI Codex and other compatible clients, and release packaging. See the [roadmap](docs/ROADMAP.md).
 
 ## Documentation
 
