@@ -1,14 +1,20 @@
-use crate::args::{CapsuleCreateArgs, CapsuleForkArgs, CapsuleIdArgs};
+use crate::args::{AgentRunArgs, CapsuleCreateArgs, CapsuleForkArgs, CapsuleIdArgs};
 use crate::output::print_serialized;
-use crate::resolve::{resolve_snapshot_ref, snapshot_store_from};
+use crate::resolve::{event_store_from, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{Context, Result};
-use genos_core::{AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation};
+use chrono::Utc;
+use genos_core::{
+    AgentEvent, AgentEventType, AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation,
+    CorrelationId, EventId,
+};
 use genos_runtime::{
     checkpoint_capsule, default_capsule_components, fork_counterfactual_capsules, pause_capsule,
     resume_capsule, CounterfactualBranchSpec,
 };
-use genos_store::{CapsuleStore, LocalCapsuleStore};
+use genos_store::{CapsuleStore, EventStore, LocalCapsuleStore};
 use genos_world::{DirectoryWorldProvider, WorldProvider};
+use serde::Serialize;
+use serde_json::json;
 
 fn stores(root: &std::path::Path) -> (LocalCapsuleStore, Result<DirectoryWorldProvider>) {
     (
@@ -27,6 +33,7 @@ async fn load(store: &LocalCapsuleStore, id: &str) -> Result<AgentWorldCapsule> 
 pub async fn cmd_capsule_create(args: CapsuleCreateArgs) -> Result<()> {
     let snapshot_store = snapshot_store_from(None, &args.root);
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    snapshot.runtime_metadata.budget_steps_remaining = args.budget_steps;
     let provider = DirectoryWorldProvider::new(args.root.join("worlds"), args.seed)?;
     let world_id = provider
         .create(snapshot.agent_id.clone(), snapshot.branch_id.clone())
@@ -96,6 +103,79 @@ pub async fn cmd_capsule_inspect(args: CapsuleIdArgs) -> Result<()> {
         anyhow::bail!("capsule integrity verification failed");
     }
     print_serialized(&capsule, crate::args::OutputFormat::Json)
+}
+
+#[derive(Serialize)]
+struct AgentRunOutput {
+    capsule: AgentWorldCapsule,
+    exit_code: i32,
+    stdout: String,
+    stderr: String,
+}
+
+pub async fn cmd_agent_run(args: AgentRunArgs) -> Result<()> {
+    let (store, provider) = stores(&args.root);
+    let provider = provider?;
+    let mut capsule = load(&store, &args.capsule_id).await?;
+    if !capsule.verify_integrity() {
+        anyhow::bail!("capsule integrity verification failed");
+    }
+    if capsule.lifecycle == CapsuleLifecycle::Created {
+        capsule
+            .transition(CapsuleLifecycle::Running)
+            .map_err(anyhow::Error::msg)?;
+    }
+    if capsule.budget.steps_remaining == 0 {
+        anyhow::bail!("capsule execution budget is exhausted");
+    }
+    let world_id = capsule
+        .live_world_id
+        .clone()
+        .context("capsule has no live world; restore it before running")?;
+    let result = provider.execute(world_id, &args.command).await?;
+    let event_id = EventId::new();
+    let causation_id = capsule
+        .agent_snapshot
+        .state
+        .event_cursor
+        .last_event_id
+        .clone();
+    capsule
+        .consume_step(event_id.clone())
+        .map_err(anyhow::Error::msg)?;
+    let event = AgentEvent {
+        event_id,
+        agent_id: capsule.agent_snapshot.agent_id.clone(),
+        branch_id: Some(capsule.branch_id.clone()),
+        sequence: capsule.agent_snapshot.state.event_cursor.sequence,
+        timestamp: Utc::now(),
+        event_type: AgentEventType::AgentStep,
+        payload: json!({
+            "command": args.command,
+            "exit_code": result.exit_code,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "budget_steps_remaining": capsule.budget.steps_remaining,
+        }),
+        causation_id,
+        correlation_id: Some(CorrelationId::new()),
+    };
+    event_store_from(None, &args.root).append(event).await?;
+    store.save_capsule(capsule.clone()).await?;
+    let exit_code = result.exit_code;
+    print_serialized(
+        &AgentRunOutput {
+            capsule,
+            exit_code,
+            stdout: result.stdout,
+            stderr: result.stderr,
+        },
+        args.format,
+    )?;
+    if exit_code != 0 && !args.allow_failure {
+        anyhow::bail!("world command exited with status {exit_code}");
+    }
+    Ok(())
 }
 
 #[allow(dead_code)]

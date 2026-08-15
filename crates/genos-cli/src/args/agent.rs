@@ -1,5 +1,7 @@
-use super::ArgsMacro;
-use super::OutputFormat;
+use super::{
+    ArgsMacro, CapsuleForkArgs, CapsuleIdArgs, DiffArgs, GenericExperimentArgs, OutputFormat,
+    ReplayBasicArgs, SnapshotLineageArgs,
+};
 use std::path::PathBuf;
 
 #[derive(ArgsMacro, Debug)]
@@ -10,6 +12,14 @@ pub struct AgentCommand {
 
 #[derive(clap::Subcommand, Debug)]
 pub enum AgentSubcommands {
+    /// Initialize a local GenOS repository.
+    Init,
+    /// Checkpoint an atomic agent + world capsule.
+    Snapshot(CapsuleIdArgs),
+    /// Restore a paused agent + world capsule into a live world.
+    Restore(CapsuleIdArgs),
+    /// Fork an atomic agent + world capsule into isolated branches.
+    Fork(CapsuleForkArgs),
     Create(AgentCreateArgs),
     Inspect(AgentInspectArgs),
     /// Derive a new genome by applying relative cognition changes.
@@ -20,8 +30,33 @@ pub enum AgentSubcommands {
     InferTraits(AgentInferTraitsArgs),
     /// Promote a replicated inferred trait through an explicit genome mutation.
     PromoteTrait(AgentPromoteTraitArgs),
+    /// Execute one command inside a capsule's isolated world.
+    Run(AgentRunArgs),
+    /// Compare the logical state of two agent snapshots.
+    Diff(DiffArgs),
+    /// Reconcile branch experiences with the Cognitive Merge Engine.
+    Merge(GenericExperimentArgs),
+    /// Show the snapshot lineage DAG.
+    Lineage(SnapshotLineageArgs),
+    /// Replay an agent's event stream.
+    Replay(ReplayBasicArgs),
     /// Derive counterfactual forks from an existing snapshot, without any model call.
     ForkFromSnapshot(AgentForkFromSnapshotArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct AgentRunArgs {
+    pub capsule_id: String,
+    /// Command executed inside the capsule's isolated world.
+    #[arg(long)]
+    pub command: String,
+    #[arg(long, default_value = ".genos")]
+    pub root: PathBuf,
+    /// Return success even when the command exits with a non-zero status.
+    #[arg(long)]
+    pub allow_failure: bool,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
 }
 
 #[derive(ArgsMacro, Debug)]

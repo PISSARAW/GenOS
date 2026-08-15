@@ -495,6 +495,10 @@ pub fn replay_basic_state_from(
         state.last_sequence = event.sequence;
 
         match event.event_type {
+            AgentEventType::AgentStep => {
+                state.lifecycle = AgentLifecycle::Running;
+                state.steps += 1;
+            }
             AgentEventType::ForkCompleted => {
                 state.branch_status = BranchStatus::Completed;
             }
@@ -820,21 +824,22 @@ mod tests {
         let events = vec![
             make_event(AgentEventType::AgentCreated, 1, "branch-a"),
             make_event(AgentEventType::AgentStarted, 2, "branch-a"),
-            make_event(AgentEventType::ModelResponded, 3, "branch-a"),
-            make_event(AgentEventType::ToolCompleted, 4, "branch-a"),
-            make_event(AgentEventType::ToolFailed, 5, "branch-a"),
-            make_event(AgentEventType::SnapshotCreated, 6, "branch-a"),
-            make_event(AgentEventType::AgentStopped, 7, "branch-a"),
+            make_event(AgentEventType::AgentStep, 3, "branch-a"),
+            make_event(AgentEventType::ModelResponded, 4, "branch-a"),
+            make_event(AgentEventType::ToolCompleted, 5, "branch-a"),
+            make_event(AgentEventType::ToolFailed, 6, "branch-a"),
+            make_event(AgentEventType::SnapshotCreated, 7, "branch-a"),
+            make_event(AgentEventType::AgentStopped, 8, "branch-a"),
         ];
 
         let replay = replay_basic_state(&events);
         assert_eq!(replay.lifecycle, AgentLifecycle::Stopped);
-        assert_eq!(replay.steps, 1);
+        assert_eq!(replay.steps, 2);
         assert_eq!(replay.model_calls, 1);
         assert_eq!(replay.tool_calls, 2);
         assert_eq!(replay.tool_failures, 1);
         assert_eq!(replay.snapshots_created, 1);
-        assert_eq!(replay.last_sequence, 7);
+        assert_eq!(replay.last_sequence, 8);
         assert!(replay.last_event_id.is_some());
     }
 

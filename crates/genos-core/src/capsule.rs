@@ -1,4 +1,4 @@
-use crate::{AgentSnapshot, BranchId, CapsuleId, SnapshotId, WorldId};
+use crate::{AgentSnapshot, BranchId, CapsuleId, EventId, SnapshotId, WorldId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -143,6 +143,28 @@ impl AgentWorldCapsule {
         checkpoint
     }
 
+    /// Consume one bounded execution step while preserving the capsule's
+    /// integrity seal. A running capsule with no remaining steps cannot run.
+    pub fn consume_step(&mut self, event_id: EventId) -> Result<(), String> {
+        if self.lifecycle != CapsuleLifecycle::Running {
+            return Err(format!(
+                "only a running capsule can consume a step (current: {:?})",
+                self.lifecycle
+            ));
+        }
+        if self.budget.steps_remaining == 0 {
+            return Err("capsule execution budget is exhausted".to_string());
+        }
+        self.budget.steps_remaining -= 1;
+        self.agent_snapshot.runtime_metadata.budget_steps_remaining = self.budget.steps_remaining;
+        self.agent_snapshot.state.execution.step += 1;
+        self.agent_snapshot.state.event_cursor.sequence += 1;
+        self.agent_snapshot.state.event_cursor.last_event_id = Some(event_id);
+        self.checkpointed_at = Utc::now();
+        self.reseal();
+        Ok(())
+    }
+
     fn reseal(&mut self) {
         self.integrity_digest = self.calculate_digest();
     }
@@ -191,5 +213,38 @@ mod tests {
         assert!(capsule.verify_integrity());
         assert_ne!(capsule.integrity_digest, original);
         assert!(capsule.transition(CapsuleLifecycle::Completed).is_err());
+    }
+
+    #[test]
+    fn capsule_step_budget_is_consumed_and_resealed() {
+        let mut snapshot = crate::snapshot::tests::parent_snapshot(0);
+        snapshot.runtime_metadata.budget_steps_remaining = 2;
+        let mut capsule = AgentWorldCapsule::new(
+            snapshot,
+            SnapshotId::new(),
+            None,
+            vec![],
+            None,
+            CapsuleRelation::Genesis,
+        );
+        capsule.transition(CapsuleLifecycle::Running).unwrap();
+        let before = capsule.budget.steps_remaining;
+        let event_id = EventId::new();
+        capsule.consume_step(event_id.clone()).unwrap();
+        assert_eq!(capsule.budget.steps_remaining, before - 1);
+        assert_eq!(
+            capsule
+                .agent_snapshot
+                .runtime_metadata
+                .budget_steps_remaining,
+            before - 1
+        );
+        assert_eq!(capsule.agent_snapshot.state.execution.step, 1);
+        assert_eq!(capsule.agent_snapshot.state.event_cursor.sequence, 1);
+        assert_eq!(
+            capsule.agent_snapshot.state.event_cursor.last_event_id,
+            Some(event_id)
+        );
+        assert!(capsule.verify_integrity());
     }
 }

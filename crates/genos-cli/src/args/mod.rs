@@ -107,3 +107,36 @@ pub enum OutputFormat {
 // `Args` is a derive macro from clap; a local alias keeps the derive line
 // in each per-domain file short without importing clap twice.
 use clap::Args as ArgsMacro;
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::Parser;
+
+    #[test]
+    fn canonical_agent_primitives_parse() {
+        let commands = [
+            vec!["genos", "agent", "init"],
+            vec!["genos", "agent", "snapshot", "capsule-1"],
+            vec!["genos", "agent", "restore", "capsule-1"],
+            vec![
+                "genos",
+                "agent",
+                "fork",
+                "capsule-1",
+                "--branch",
+                "A=hypothesis",
+            ],
+            vec!["genos", "agent", "mutate", "genome.yaml"],
+            vec!["genos", "agent", "run", "capsule-1", "--command", "echo ok"],
+            vec!["genos", "agent", "diff", "snapshot-a", "snapshot-b"],
+            vec!["genos", "agent", "merge", "merge.yaml"],
+            vec!["genos", "agent", "lineage"],
+            vec!["genos", "agent", "replay"],
+        ];
+
+        for command in commands {
+            assert!(Cli::try_parse_from(command.clone()).is_ok(), "{command:?}");
+        }
+    }
+}
