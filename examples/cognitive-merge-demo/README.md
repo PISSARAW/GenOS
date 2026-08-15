@@ -6,7 +6,9 @@ Run the three-branch Redis/PostgreSQL scenario:
 cargo run -p genos-cli -- experiment cognitive-merge examples/cognitive-merge-demo/merge.yaml
 ```
 
-The engine accepts the evidenced PostgreSQL root-cause claim, keeps the two
-architectural Redis conclusions disputed, and records that the root cause
-explains or qualifies them. Add `parent_snapshot` to the manifest to apply the
-reviewed report to a fresh parent checkpoint. Branch memories are never copied.
+Each branch returns a typed experience packet. The engine builds a graph from
+its observations, actions, results, belief changes, failures, discoveries,
+uncertainty and evidence. It accepts the evidenced PostgreSQL root-cause claim,
+keeps the two contextual Redis conclusions disputed, and emits a synthesis that
+retains all three conditions. Add `parent_snapshot` to apply the reviewed report
+to a fresh parent checkpoint. Branch memories are never copied.
