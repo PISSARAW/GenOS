@@ -44,7 +44,14 @@ pub struct GenericExperimentArgs {
 
 #[derive(ArgsMacro, Debug)]
 pub struct WorkspaceExperimentArgs {
-    pub manifest: PathBuf,
+    /// Complete YAML/JSON manifest. Omit when using --repo and --plan.
+    pub manifest: Option<PathBuf>,
+    /// Repository or workspace to clone into each experimental branch.
+    #[arg(long, value_name = "PATH")]
+    pub repo: Option<PathBuf>,
+    /// YAML/JSON workspace experiment plan; its seed_dir is replaced by --repo.
+    #[arg(long, value_name = "PATH")]
+    pub plan: Option<PathBuf>,
     #[arg(long, default_value = ".genos/experiments")]
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
@@ -62,7 +69,17 @@ pub struct TemporalExperimentArgs {
 
 #[derive(ArgsMacro, Debug)]
 pub struct IncidentExperimentArgs {
-    pub manifest: PathBuf,
+    /// Complete YAML/JSON manifest. Omit when using the direct input flags.
+    pub manifest: Option<PathBuf>,
+    /// Production snapshot reference from which universes are forked.
+    #[arg(long, value_name = "REF")]
+    pub snapshot: Option<String>,
+    /// YAML/JSON incident evidence object, or a manifest containing `evidence`.
+    #[arg(long, value_name = "PATH")]
+    pub evidence: Option<PathBuf>,
+    /// YAML/JSON search plan; its evidence is replaced by the direct inputs.
+    #[arg(long, value_name = "PATH")]
+    pub search_plan: Option<PathBuf>,
     #[arg(long, default_value = ".genos/experiments")]
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
@@ -74,7 +91,14 @@ pub struct IncidentExperimentArgs {
 
 #[derive(ArgsMacro, Debug)]
 pub struct ScientificExperimentArgs {
-    pub manifest: PathBuf,
+    /// Complete YAML/JSON manifest. Omit when using --dataset and --research-plan.
+    pub manifest: Option<PathBuf>,
+    /// Dataset records as JSON/YAML string array or one non-empty record per line.
+    #[arg(long, value_name = "PATH")]
+    pub dataset: Option<PathBuf>,
+    /// YAML/JSON research plan; its records are replaced by --dataset.
+    #[arg(long, value_name = "PATH")]
+    pub research_plan: Option<PathBuf>,
     #[arg(long, default_value = ".genos/experiments")]
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
@@ -86,7 +110,14 @@ pub struct ScientificExperimentArgs {
 
 #[derive(ArgsMacro, Debug)]
 pub struct SecurityCoevolutionArgs {
-    pub manifest: PathBuf,
+    /// Complete YAML/JSON manifest. Omit when using direct environment inputs.
+    pub manifest: Option<PathBuf>,
+    /// YAML/JSON scenario array, or a manifest containing `scenarios`.
+    #[arg(long, value_name = "PATH")]
+    pub environment: Option<PathBuf>,
+    /// YAML/JSON evolution plan; its scenarios are replaced by --environment.
+    #[arg(long, value_name = "PATH")]
+    pub evolution_plan: Option<PathBuf>,
     #[arg(long, default_value = ".genos/experiments")]
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
@@ -98,7 +129,14 @@ pub struct SecurityCoevolutionArgs {
 
 #[derive(ArgsMacro, Debug)]
 pub struct BugInvestigationArgs {
-    pub manifest: PathBuf,
+    /// Complete YAML/JSON manifest. Omit when using --repo and --plan.
+    pub manifest: Option<PathBuf>,
+    /// Repository or workspace in which every hypothesis is investigated.
+    #[arg(long, value_name = "PATH")]
+    pub repo: Option<PathBuf>,
+    /// YAML/JSON investigation plan; its seed_dir is replaced by --repo.
+    #[arg(long, value_name = "PATH")]
+    pub plan: Option<PathBuf>,
     #[arg(long, default_value = ".genos/experiments")]
     pub root: PathBuf,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]

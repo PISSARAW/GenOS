@@ -21,6 +21,12 @@ Run it as a first-class GenOS experiment:
 cargo run -p genos-cli -- experiment incident examples/adaptive-incident-search/experiment.yaml --summary
 ```
 
+Or search from separately supplied production evidence and snapshot identity:
+
+```powershell
+cargo run -p genos-cli -- experiment incident --snapshot production@incident-42 --evidence examples/adaptive-incident-search/evidence.yaml --search-plan examples/adaptive-incident-search/experiment.yaml --summary
+```
+
 The JSON report is persisted under `.genos/experiments/incident-42/reports/`.
 
 Its `primitive_trace` records `agent snapshot`, the initial and recursive

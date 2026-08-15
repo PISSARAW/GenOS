@@ -1,0 +1,14 @@
+snapshot_ref: production@incident-42
+incident_at: 2026-08-14T02:17:00Z
+logs:
+  - worker stalled before commit
+  - cache invalidation completed after request timeout
+metrics:
+  - p99 latency spike
+  - worker runnable count = 48
+traces:
+  - request → cache miss → DB lock wait → timeout
+database_state: sha256:db-state-42
+code_versions: [api@a91e, worker@18bc]
+infrastructure: [prod-eu-west, postgres-16, redis-7]
+preceding_events: [evt-901, evt-902, evt-903]

@@ -139,4 +139,75 @@ mod tests {
             assert!(Cli::try_parse_from(command.clone()).is_ok(), "{command:?}");
         }
     }
+
+    #[test]
+    fn experiment_direct_input_modes_parse() {
+        let commands = [
+            vec![
+                "genos",
+                "experiment",
+                "workspace",
+                "--repo",
+                "calculator",
+                "--plan",
+                "workspace.yaml",
+            ],
+            vec![
+                "genos",
+                "experiment",
+                "incident",
+                "--snapshot",
+                "production@incident-42",
+                "--evidence",
+                "evidence.yaml",
+                "--search-plan",
+                "search.yaml",
+            ],
+            vec![
+                "genos",
+                "experiment",
+                "scientific",
+                "--dataset",
+                "records.txt",
+                "--research-plan",
+                "research.yaml",
+            ],
+            vec![
+                "genos",
+                "experiment",
+                "security-coevolution",
+                "--environment",
+                "lab.yaml",
+                "--evolution-plan",
+                "evolution.yaml",
+            ],
+            vec![
+                "genos",
+                "experiment",
+                "bug-investigation",
+                "--repo",
+                "service",
+                "--plan",
+                "hypotheses.yaml",
+            ],
+        ];
+
+        for command in commands {
+            assert!(Cli::try_parse_from(command.clone()).is_ok(), "{command:?}");
+        }
+    }
+
+    #[test]
+    fn experiment_manifest_modes_remain_compatible() {
+        for subcommand in [
+            "workspace",
+            "incident",
+            "scientific",
+            "security-coevolution",
+            "bug-investigation",
+        ] {
+            let command = ["genos", "experiment", subcommand, "experiment.yaml"];
+            assert!(Cli::try_parse_from(command).is_ok(), "{command:?}");
+        }
+    }
 }
