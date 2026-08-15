@@ -1,0 +1,11 @@
+interface:
+  display_name: "Compare Code Fixes"
+  short_description: "Fork and evaluate alternative code fixes."
+  default_prompt: "Use $compare-code-fixes to test several isolated fixes for this bug and compare their evidence."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "genos"
+      description: "GenOS workspace experiment orchestrator"
+policy:
+  allow_implicit_invocation: true

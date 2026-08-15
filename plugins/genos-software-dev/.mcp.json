@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "genos-software-dev": {
+    "genos": {
       "command": "cargo",
       "args": [
         "run",
