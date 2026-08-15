@@ -35,6 +35,8 @@ Modern agents are difficult to reproduce because identity, memory, tools, enviro
 - Directory and Git worktree world providers
 - File isolation checks
 - CLI workflows for agents, snapshots, worlds, replay, inspection, and diff
+- Ten canonical `agent` primitives spanning initialization, snapshot/restore,
+  fork/mutation/run, diff/merge, lineage, and replay
 - Portable JSON Schemas in `spec/`
 - Runnable demonstrations in `examples/`
 
@@ -59,6 +61,24 @@ cargo run -p genos-cli -- agent create --name atlas --role software_engineer
 cargo run -p genos-cli -- agent inspect .genos/agents/atlas.yaml --format json
 cargo run -p genos-cli -- snapshot create --agent .genos/agents/atlas.yaml
 ```
+
+The canonical lifecycle surface is deliberately small:
+
+```bash
+genos agent init
+genos agent snapshot <CAPSULE_ID>
+genos agent restore <CAPSULE_ID>
+genos agent fork <CAPSULE_ID> --branch A=baseline --branch B=alternative
+genos agent mutate <GENOME> --exploration 0.15 --risk -0.10
+genos agent run <CAPSULE_ID> --command "cargo test"
+genos agent diff <SNAPSHOT_A> <SNAPSHOT_B>
+genos agent merge <COGNITIVE_MERGE_MANIFEST>
+genos agent lineage --snapshot <SNAPSHOT_ID>
+genos agent replay --snapshot <SNAPSHOT_ID>
+```
+
+See [`docs/AGENT_PRIMITIVES.md`](docs/AGENT_PRIMITIVES.md) for exact semantics
+and the bootstrap from a genome to an executable agent-world capsule.
 
 Create and fork snapshots:
 

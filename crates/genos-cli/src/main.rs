@@ -21,8 +21,8 @@ use crate::cmd_agent::{
     cmd_agent_inspect, cmd_agent_mutate, cmd_agent_promote_trait, cmd_init,
 };
 use crate::cmd_capsule::{
-    cmd_capsule_checkpoint, cmd_capsule_create, cmd_capsule_fork, cmd_capsule_inspect,
-    cmd_capsule_pause, cmd_capsule_resume,
+    cmd_agent_run, cmd_capsule_checkpoint, cmd_capsule_create, cmd_capsule_fork,
+    cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
@@ -51,12 +51,21 @@ async fn main() -> Result<()> {
     match cli.command {
         Commands::Init => cmd_init(),
         Commands::Agent(agent) => match agent.command {
+            AgentSubcommands::Init => cmd_init(),
+            AgentSubcommands::Snapshot(args) => cmd_capsule_checkpoint(args).await,
+            AgentSubcommands::Restore(args) => cmd_capsule_resume(args).await,
+            AgentSubcommands::Fork(args) => cmd_capsule_fork(args).await,
             AgentSubcommands::Create(args) => cmd_agent_create(args),
             AgentSubcommands::Inspect(args) => cmd_agent_inspect(args),
             AgentSubcommands::Mutate(args) => cmd_agent_mutate(args),
             AgentSubcommands::Breed(args) => cmd_agent_breed(args),
             AgentSubcommands::InferTraits(args) => cmd_agent_infer_traits(args),
             AgentSubcommands::PromoteTrait(args) => cmd_agent_promote_trait(args),
+            AgentSubcommands::Run(args) => cmd_agent_run(args).await,
+            AgentSubcommands::Diff(args) => cmd_diff(args).await,
+            AgentSubcommands::Merge(args) => cmd_experiment_cognitive_merge(args),
+            AgentSubcommands::Lineage(args) => cmd_snapshot_lineage(args).await,
+            AgentSubcommands::Replay(args) => cmd_replay_basic(args).await,
             AgentSubcommands::ForkFromSnapshot(args) => cmd_agent_fork_from_snapshot(args).await,
         },
         Commands::Capsule(capsule) => match capsule.command {

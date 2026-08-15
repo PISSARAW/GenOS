@@ -22,9 +22,15 @@ use std::fs;
 use std::path::PathBuf;
 
 pub fn cmd_init() -> Result<()> {
-    fs::create_dir_all(".genos/agents")?;
-    fs::create_dir_all(".genos/snapshots")?;
-    fs::create_dir_all(".genos/world")?;
+    for directory in [
+        ".genos/agents",
+        ".genos/snapshots",
+        ".genos/worlds",
+        ".genos/capsules",
+        ".genos/events",
+    ] {
+        fs::create_dir_all(directory)?;
+    }
     println!("initialized .genos workspace");
     Ok(())
 }

@@ -25,6 +25,9 @@ pub struct CapsuleCreateArgs {
     pub seed: Option<PathBuf>,
     #[arg(long, default_value = ".genos")]
     pub root: PathBuf,
+    /// Execution steps assigned to the new capsule.
+    #[arg(long, default_value_t = 100)]
+    pub budget_steps: u64,
 }
 
 #[derive(ArgsMacro, Debug)]
