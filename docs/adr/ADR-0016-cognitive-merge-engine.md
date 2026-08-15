@@ -16,6 +16,11 @@ Each branch submits typed subject-predicate-object claims with confidence,
 evidence, and branch provenance. Relations between claims are explicit:
 `supports`, `contradicts`, `explains`, `supersedes`, and `qualifies`.
 
+Branches may submit those claims inside a standard experience packet containing
+conditions, observations, actions, results, created and modified beliefs,
+failures, discoveries, uncertainty, and evidence. These records become typed
+graph nodes; they do not become factual beliefs merely by being present.
+
 The merge engine:
 
 - combines identical independent claims while retaining every source;
@@ -24,6 +29,10 @@ The merge engine:
 - accepts only evidenced claims meeting configured confidence and independence
   thresholds;
 - records explanatory, qualifying, and superseding structure;
+- distinguishes facts, hypotheses, observations, contradictions, preferences,
+  results, and discoveries;
+- produces connected, contextual knowledge syntheses instead of flattening
+  incompatible conclusions;
 - emits a reviewable merge report before changing the parent;
 - applies the report to a fresh parent checkpoint as beliefs with provenance;
 - never copies branch memories into the parent.

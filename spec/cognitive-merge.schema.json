@@ -4,12 +4,20 @@
   "title": "GenOS Cognitive Merge Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["claims"],
+  "oneOf": [
+    { "required": ["claims"], "not": { "required": ["experiences"] } },
+    { "required": ["experiences"], "not": { "required": ["claims"] } }
+  ],
   "properties": {
     "claims": {
       "type": "array",
       "minItems": 1,
       "items": { "$ref": "#/$defs/claim" }
+    },
+    "experiences": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/experience" }
     },
     "relations": {
       "type": "array",
@@ -37,7 +45,38 @@
         "predicate": { "type": "string", "minLength": 1 },
         "object_value": { "type": "string", "minLength": 1 },
         "confidence": { "$ref": "#/$defs/confidence" },
-        "evidence": { "$ref": "#/$defs/evidence" }
+        "evidence": { "$ref": "#/$defs/evidence" },
+        "kind": { "enum": ["fact", "hypothesis", "observation", "contradiction", "preference", "result", "discovery"] },
+        "statement": { "type": "string" },
+        "conditions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "experience_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["item_id", "description"],
+      "properties": {
+        "item_id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "experience": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch_id"],
+      "properties": {
+        "branch_id": { "type": "string", "minLength": 1 },
+        "conditions": { "type": "array", "items": { "type": "string" } },
+        "observations": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "results": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "beliefs_created": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
+        "beliefs_modified": { "type": "array", "items": { "$ref": "#/$defs/claim" } },
+        "failures": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "discoveries": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "uncertainty": { "type": "array", "items": { "$ref": "#/$defs/experience_item" } },
+        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } }
       }
     },
     "relation": {
