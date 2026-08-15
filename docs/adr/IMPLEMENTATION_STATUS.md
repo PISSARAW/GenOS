@@ -18,7 +18,7 @@ decision is fully implemented. This matrix tracks executable coverage.
 | 0018 | Implemented | Dated checkpoint, decision intervention, conditional replay, causal comparison | Generic event-to-domain-effect adapters |
 | 0019 | Implemented | Atomic S0→forks→experiences→merge→S1 orchestration and lineage URIs | Distributed transaction coordinator |
 | 0020 | Implemented | Ten canonical `agent` primitives, atomic capsule lifecycle, bounded isolated execution | Remote runtime transport |
-| 0021 | None | — | Versioned protocol schemas, MCP server, Codex configuration, transport tests, and installation documentation |
+| 0021 | Implemented | Versioned tool catalogue and result schema, ten MCP tools, STDIO and stateless HTTP transports, Codex configuration, transport tests, and installation guide | Authentication and sessionful remote deployment |
 
 An ADR moves to `Implemented` only when its normative behavior has production
 code and proportionate tests. Schema or documentation alone counts as `None`,

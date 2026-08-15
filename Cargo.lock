@@ -597,6 +597,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "genos-mcp"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "axum",
+ "clap",
+ "genos-protocol",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+]
+
+[[package]]
 name = "genos-model"
 version = "0.0.1"
 dependencies = [
@@ -606,6 +621,15 @@ dependencies = [
  "serde",
  "sha2",
  "tokio",
+]
+
+[[package]]
+name = "genos-protocol"
+version = "0.0.1"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

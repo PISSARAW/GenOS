@@ -50,7 +50,7 @@ A snapshot is a reproducible checkpoint. A fork receives a new agent and branch 
 | Evolution | Genome mutation, evidence-based breeding, trait inference, and budgeted branch evolution |
 | Evaluation | Multi-objective scoring, hard constraints, Pareto assessment, and winner selection |
 | Merge | Evidence packets, typed knowledge graphs, contextual synthesis, and reviewed parent updates |
-| Interfaces | Rust crates, a `genos` CLI, portable JSON Schemas, and an HTTP health endpoint |
+| Interfaces | Rust crates, a `genos` CLI, portable JSON Schemas, a versioned GenOS protocol, an MCP server, and an HTTP health endpoint |
 
 See the [implementation status](docs/adr/IMPLEMENTATION_STATUS.md) for the exact boundary between accepted design and executable coverage.
 
@@ -132,20 +132,22 @@ crates/
   genos-eval      Evaluation and selection primitives
   genos-api       HTTP API foundation
   genos-cli       Command-line interface
+  genos-protocol  Versioned public lifecycle tool contract
 
 spec/             Portable JSON Schemas and genome specification
 docs/             Concepts, architecture decisions, and roadmap
 examples/         Runnable proofs and end-to-end experiments
+integrations/mcp/ MCP adapter for Codex and other compatible clients
 python/           SDK and provider placeholders
 web/console/      Web console placeholder
 ```
 
 The core architectural commitments are provider neutrality, event-sourced history, fork isolation, explicit provenance, content-addressed artifacts, and reviewed cognitive merge. Design rationale is recorded in the [architecture decision records](docs/adr/).
 
-### Planned agent-environment integration
+### Agent-environment integration
 
 GenOS distinguishes an environment that **uses GenOS** from a model provider
-that **GenOS uses**. OpenAI Codex is a planned GenOS-native environment through
+that **GenOS uses**. OpenAI Codex is a GenOS-native environment through
 MCP; an OpenAI API model is a separate, interchangeable model provider.
 
 ```text
@@ -153,22 +155,25 @@ OpenAI Codex ---- MCP ----> GenOS protocol ----> GenOS runtime
 GenOS runtime ------------> OpenAI model API (optional)
 ```
 
-The same MCP tool surface is intended for Codex, Claude Code, and other
-MCP-capable clients. This integration is accepted architecture but is not yet
-implemented. See [ADR-0021](docs/adr/ADR-0021-protocol-interoperability-codex.md)
-for the compatibility boundary and implementation criteria.
+The same MCP tool surface works with Codex and other MCP-capable clients. Build
+and run it with `cargo run -p genos-mcp -- stdio`, or follow the
+[Codex integration guide](docs/integrations/CODEX_MCP.md). See
+[ADR-0021](docs/adr/ADR-0021-protocol-interoperability-codex.md) for the
+compatibility boundary.
 
 ## Project status and roadmap
 
 GenOS is at `0.0.1`. The repository contains substantial executable research prototypes, but distribution, remote providers, transactional orchestration, API coverage, and the web console remain early or incomplete.
 
-The path to `0.1.0` focuses on a stable end-to-end counterfactual experiment, hardened persistence, a public protocol contract, an MCP integration for OpenAI Codex and other compatible clients, and release packaging. See the [roadmap](docs/ROADMAP.md).
+The path to `0.1.0` focuses on a stable end-to-end counterfactual experiment, hardened persistence, broader API coverage, external model providers, and release packaging. See the [roadmap](docs/ROADMAP.md).
 
 ## Documentation
 
 - [Documentation index](docs/README.md)
 - [Agent primitives](docs/AGENT_PRIMITIVES.md)
 - [Counterfactual OS](docs/COUNTERFACTUAL_OS.md)
+- [GenOS protocol](docs/GENOS_PROTOCOL.md)
+- [OpenAI Codex MCP integration](docs/integrations/CODEX_MCP.md)
 - [Genome specification](spec/GENOME_SPEC.md)
 - [Phenotype and divergence](docs/phenotype.md)
 - [Architecture decisions](docs/adr/)
