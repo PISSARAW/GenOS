@@ -17,6 +17,8 @@ pub enum ExperimentSubcommands {
     Incident(IncidentExperimentArgs),
     /// Version hypotheses, protocols, evidence, peer review and reproductions.
     Scientific(ScientificExperimentArgs),
+    /// Co-evolve abstract Red and Blue genomes in isolated simulated worlds.
+    SecurityCoevolution(SecurityCoevolutionArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -57,6 +59,18 @@ pub struct ScientificExperimentArgs {
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
     /// Print the scientific graph totals while retaining the complete report.
+    #[arg(long)]
+    pub summary: bool,
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct SecurityCoevolutionArgs {
+    pub manifest: PathBuf,
+    #[arg(long, default_value = ".genos/experiments")]
+    pub root: PathBuf,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
+    /// Print population totals while retaining every generation in the report.
     #[arg(long)]
     pub summary: bool,
 }

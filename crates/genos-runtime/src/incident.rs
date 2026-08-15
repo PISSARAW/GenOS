@@ -83,7 +83,9 @@ pub struct IncidentSearchReport {
     pub lineage: LineageDag,
 }
 
-pub fn run_incident_search(manifest: IncidentSearchManifest) -> anyhow::Result<IncidentSearchReport> {
+pub fn run_incident_search(
+    manifest: IncidentSearchManifest,
+) -> anyhow::Result<IncidentSearchReport> {
     let config = &manifest.config;
     if config.initial_universes == 0
         || config.partial_survivors == 0
@@ -134,7 +136,8 @@ pub fn run_incident_search(manifest: IncidentSearchManifest) -> anyhow::Result<I
         .collect::<Vec<_>>();
     for index in &survivor_indexes {
         initial[*index].status = ReproductionStatus::PartiallyReproduced;
-        initial[*index].explanation = "partial crash signature reproduced; selected for recursive refinement".to_string();
+        initial[*index].explanation =
+            "partial crash signature reproduced; selected for recursive refinement".to_string();
     }
     let partial_survivor_ids = survivor_indexes
         .iter()
@@ -228,7 +231,9 @@ fn edge(
 fn generated_mutation(seed: u64, index: u64) -> IncidentMutation {
     let mut state = seed ^ index.wrapping_mul(0x9E3779B97F4A7C15);
     let mut next = || {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         ((state >> 11) as f64) / ((1_u64 << 53) as f64)
     };
     let isolation = ["read_committed", "repeatable_read", "serializable"];
@@ -237,7 +242,8 @@ fn generated_mutation(seed: u64, index: u64) -> IncidentMutation {
         network_latency_ms: next() * 300.0,
         packet_loss_percent: next() * 10.0,
         reorder_events: next() >= 0.5,
-        db_isolation: isolation[(next() * isolation.len() as f64) as usize % isolation.len()].to_string(),
+        db_isolation: isolation[(next() * isolation.len() as f64) as usize % isolation.len()]
+            .to_string(),
         concurrency: 1 + (next() * 63.0) as u32,
         cache_eviction_ratio: next(),
     }
@@ -255,23 +261,56 @@ fn refine_mutation(
         timing_skew_ms: blend(parent.timing_skew_ms, target.timing_skew_ms),
         network_latency_ms: blend(parent.network_latency_ms, target.network_latency_ms),
         packet_loss_percent: blend(parent.packet_loss_percent, target.packet_loss_percent),
-        reorder_events: if alpha >= 0.5 { target.reorder_events } else { parent.reorder_events },
-        db_isolation: if alpha >= 0.5 { target.db_isolation.clone() } else { parent.db_isolation.clone() },
+        reorder_events: if alpha >= 0.5 {
+            target.reorder_events
+        } else {
+            parent.reorder_events
+        },
+        db_isolation: if alpha >= 0.5 {
+            target.db_isolation.clone()
+        } else {
+            parent.db_isolation.clone()
+        },
         concurrency: blend(parent.concurrency as f64, target.concurrency as f64).round() as u32,
         cache_eviction_ratio: blend(parent.cache_eviction_ratio, target.cache_eviction_ratio),
     }
 }
 
 fn reproduction_score(candidate: &IncidentMutation, target: &IncidentMutation) -> f64 {
-    let closeness = |left: f64, right: f64, range: f64| 1.0 - ((left - right).abs() / range).min(1.0);
+    let closeness =
+        |left: f64, right: f64, range: f64| 1.0 - ((left - right).abs() / range).min(1.0);
     let scores = [
         closeness(candidate.timing_skew_ms, target.timing_skew_ms, 100.0),
-        closeness(candidate.network_latency_ms, target.network_latency_ms, 300.0),
-        closeness(candidate.packet_loss_percent, target.packet_loss_percent, 10.0),
-        if candidate.reorder_events == target.reorder_events { 1.0 } else { 0.0 },
-        if candidate.db_isolation == target.db_isolation { 1.0 } else { 0.0 },
-        closeness(candidate.concurrency as f64, target.concurrency as f64, 63.0),
-        closeness(candidate.cache_eviction_ratio, target.cache_eviction_ratio, 1.0),
+        closeness(
+            candidate.network_latency_ms,
+            target.network_latency_ms,
+            300.0,
+        ),
+        closeness(
+            candidate.packet_loss_percent,
+            target.packet_loss_percent,
+            10.0,
+        ),
+        if candidate.reorder_events == target.reorder_events {
+            1.0
+        } else {
+            0.0
+        },
+        if candidate.db_isolation == target.db_isolation {
+            1.0
+        } else {
+            0.0
+        },
+        closeness(
+            candidate.concurrency as f64,
+            target.concurrency as f64,
+            63.0,
+        ),
+        closeness(
+            candidate.cache_eviction_ratio,
+            target.cache_eviction_ratio,
+            1.0,
+        ),
     ];
     scores.iter().sum::<f64>() / scores.len() as f64
 }

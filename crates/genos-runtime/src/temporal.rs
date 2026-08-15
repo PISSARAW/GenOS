@@ -104,13 +104,19 @@ pub fn replay_counterfactual_history(
 ) -> TemporalCausalReport {
     let known_history = observations
         .iter()
-        .filter(|event| event.observed_at > checkpoint.replayed_at && event.observed_at <= history_end)
+        .filter(|event| {
+            event.observed_at > checkpoint.replayed_at && event.observed_at <= history_end
+        })
         .collect::<Vec<_>>();
     let results = universes
         .into_iter()
         .map(|universe| replay_universe(&known_history, universe))
         .collect();
-    TemporalCausalReport { checkpoint, history_end, universes: results }
+    TemporalCausalReport {
+        checkpoint,
+        history_end,
+        universes: results,
+    }
 }
 
 fn replay_universe(
@@ -162,41 +168,208 @@ fn apply_observation(result: &mut TemporalUniverseResult, observation: &Historic
     use ArchitectureDecision::*;
     use HistoricalObservationKind::*;
     match (&result.architecture, &observation.kind) {
-        (PostgresRedis, TrafficGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 12.0 * multiplier, "cache misses amplify database read pressure"),
-        (PostgresOnly, TrafficGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 18.0 * multiplier, "all reads reach the primary database"),
-        (CockroachDb, TrafficGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 8.0 * multiplier, "distributed reads absorb traffic with consensus overhead"),
-        (EventSourcing, TrafficGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 6.0 * multiplier, "read projections isolate query traffic"),
-        (DifferentDataModel, TrafficGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 4.0 * multiplier, "access-pattern-oriented records reduce joins"),
+        (PostgresRedis, TrafficGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            12.0 * multiplier,
+            "cache misses amplify database read pressure",
+        ),
+        (PostgresOnly, TrafficGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            18.0 * multiplier,
+            "all reads reach the primary database",
+        ),
+        (CockroachDb, TrafficGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            8.0 * multiplier,
+            "distributed reads absorb traffic with consensus overhead",
+        ),
+        (EventSourcing, TrafficGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            6.0 * multiplier,
+            "read projections isolate query traffic",
+        ),
+        (DifferentDataModel, TrafficGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            4.0 * multiplier,
+            "access-pattern-oriented records reduce joins",
+        ),
 
-        (PostgresRedis, DatasetGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 16.0 * multiplier, "larger joins and cache churn increase tail latency"),
-        (PostgresOnly, DatasetGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 20.0 * multiplier, "the normalized model becomes the query bottleneck"),
-        (CockroachDb, DatasetGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 9.0 * multiplier, "data distribution helps capacity but adds coordination"),
-        (EventSourcing, DatasetGrowth { multiplier }) => effect(result, observation, "operational_complexity", 0.08 * multiplier, "projection rebuilds grow with event volume"),
-        (DifferentDataModel, DatasetGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 3.0 * multiplier, "denormalized aggregates scale with the known access pattern"),
+        (PostgresRedis, DatasetGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            16.0 * multiplier,
+            "larger joins and cache churn increase tail latency",
+        ),
+        (PostgresOnly, DatasetGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            20.0 * multiplier,
+            "the normalized model becomes the query bottleneck",
+        ),
+        (CockroachDb, DatasetGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            9.0 * multiplier,
+            "data distribution helps capacity but adds coordination",
+        ),
+        (EventSourcing, DatasetGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            0.08 * multiplier,
+            "projection rebuilds grow with event volume",
+        ),
+        (DifferentDataModel, DatasetGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            3.0 * multiplier,
+            "denormalized aggregates scale with the known access pattern",
+        ),
 
         (PostgresRedis, WriteGrowth { multiplier }) => {
-            effect(result, observation, "p95_latency_ms", 11.0 * multiplier, "writes invalidate hot cache entries");
-            effect(result, observation, "consistency_risk", 0.07 * multiplier, "database and cache updates are not one transaction");
+            effect(
+                result,
+                observation,
+                "p95_latency_ms",
+                11.0 * multiplier,
+                "writes invalidate hot cache entries",
+            );
+            effect(
+                result,
+                observation,
+                "consistency_risk",
+                0.07 * multiplier,
+                "database and cache updates are not one transaction",
+            );
         }
-        (PostgresOnly, WriteGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 14.0 * multiplier, "write contention reaches the primary directly"),
-        (CockroachDb, WriteGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 8.0 * multiplier, "consensus increases write latency"),
-        (EventSourcing, WriteGrowth { multiplier }) => effect(result, observation, "operational_complexity", 0.05 * multiplier, "event ordering and projections require supervision"),
-        (DifferentDataModel, WriteGrowth { multiplier }) => effect(result, observation, "p95_latency_ms", 5.0 * multiplier, "partitioned aggregates reduce contention"),
+        (PostgresOnly, WriteGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            14.0 * multiplier,
+            "write contention reaches the primary directly",
+        ),
+        (CockroachDb, WriteGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            8.0 * multiplier,
+            "consensus increases write latency",
+        ),
+        (EventSourcing, WriteGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            0.05 * multiplier,
+            "event ordering and projections require supervision",
+        ),
+        (DifferentDataModel, WriteGrowth { multiplier }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            5.0 * multiplier,
+            "partitioned aggregates reduce contention",
+        ),
 
-        (PostgresRedis, CrossRegionTraffic { regions }) => effect(result, observation, "consistency_risk", 0.08 * *regions as f64, "regional caches diverge under invalidation lag"),
-        (PostgresOnly, CrossRegionTraffic { regions }) => effect(result, observation, "p95_latency_ms", 13.0 * *regions as f64, "all regions call one primary"),
-        (CockroachDb, CrossRegionTraffic { regions }) => effect(result, observation, "p95_latency_ms", 3.0 * *regions as f64, "geo-distribution keeps reads close while coordinating writes"),
-        (EventSourcing, CrossRegionTraffic { regions }) => effect(result, observation, "operational_complexity", 0.04 * *regions as f64, "global event ordering needs explicit semantics"),
-        (DifferentDataModel, CrossRegionTraffic { regions }) => effect(result, observation, "p95_latency_ms", 5.0 * *regions as f64, "regional replicas still reconcile aggregate ownership"),
+        (PostgresRedis, CrossRegionTraffic { regions }) => effect(
+            result,
+            observation,
+            "consistency_risk",
+            0.08 * *regions as f64,
+            "regional caches diverge under invalidation lag",
+        ),
+        (PostgresOnly, CrossRegionTraffic { regions }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            13.0 * *regions as f64,
+            "all regions call one primary",
+        ),
+        (CockroachDb, CrossRegionTraffic { regions }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            3.0 * *regions as f64,
+            "geo-distribution keeps reads close while coordinating writes",
+        ),
+        (EventSourcing, CrossRegionTraffic { regions }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            0.04 * *regions as f64,
+            "global event ordering needs explicit semantics",
+        ),
+        (DifferentDataModel, CrossRegionTraffic { regions }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            5.0 * *regions as f64,
+            "regional replicas still reconcile aggregate ownership",
+        ),
 
-        (PostgresRedis, CacheInvalidationSpike { invalidations_per_second }) => {
+        (
+            PostgresRedis,
+            CacheInvalidationSpike {
+                invalidations_per_second,
+            },
+        ) => {
             let scale = *invalidations_per_second as f64 / 1000.0;
-            effect(result, observation, "p95_latency_ms", 22.0 * scale, "invalidation storms collapse the cache hit rate");
-            effect(result, observation, "consistency_risk", 0.12 * scale, "stale values remain visible during the storm");
+            effect(
+                result,
+                observation,
+                "p95_latency_ms",
+                22.0 * scale,
+                "invalidation storms collapse the cache hit rate",
+            );
+            effect(
+                result,
+                observation,
+                "consistency_risk",
+                0.12 * scale,
+                "stale values remain visible during the storm",
+            );
         }
-        (PostgresOnly, CacheInvalidationSpike { .. }) => effect(result, observation, "operational_complexity", -0.02, "no cache invalidation subsystem exists"),
-        (CockroachDb, CacheInvalidationSpike { .. }) => effect(result, observation, "operational_complexity", 0.02, "the event is mostly irrelevant but distributed operations remain"),
-        (EventSourcing, CacheInvalidationSpike { .. }) => effect(result, observation, "operational_complexity", 0.03, "projection freshness replaces cache freshness as the concern"),
-        (DifferentDataModel, CacheInvalidationSpike { .. }) => effect(result, observation, "p95_latency_ms", 1.0, "materialized aggregates avoid the invalidation path"),
+        (PostgresOnly, CacheInvalidationSpike { .. }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            -0.02,
+            "no cache invalidation subsystem exists",
+        ),
+        (CockroachDb, CacheInvalidationSpike { .. }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            0.02,
+            "the event is mostly irrelevant but distributed operations remain",
+        ),
+        (EventSourcing, CacheInvalidationSpike { .. }) => effect(
+            result,
+            observation,
+            "operational_complexity",
+            0.03,
+            "projection freshness replaces cache freshness as the concern",
+        ),
+        (DifferentDataModel, CacheInvalidationSpike { .. }) => effect(
+            result,
+            observation,
+            "p95_latency_ms",
+            1.0,
+            "materialized aggregates avoid the invalidation path",
+        ),
     }
 }

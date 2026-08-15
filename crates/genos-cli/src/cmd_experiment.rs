@@ -1,13 +1,14 @@
 use crate::args::{
-    IncidentExperimentArgs, ScientificExperimentArgs, TemporalExperimentArgs,
-    WorkspaceExperimentArgs,
+    IncidentExperimentArgs, ScientificExperimentArgs, SecurityCoevolutionArgs,
+    TemporalExperimentArgs, WorkspaceExperimentArgs,
 };
 use crate::output::print_serialized;
 use anyhow::Context;
 use genos_runtime::{
     persist_experiment_report, run_incident_search, run_scientific_experiment,
-    run_temporal_experiment, run_workspace_experiment, IncidentSearchManifest,
-    ScientificExperimentManifest, TemporalExperimentManifest, WorkspaceExperimentManifest,
+    run_security_coevolution, run_temporal_experiment, run_workspace_experiment,
+    IncidentSearchManifest, ScientificExperimentManifest, SecurityCoevolutionManifest,
+    TemporalExperimentManifest, WorkspaceExperimentManifest,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use std::path::Path;
@@ -40,6 +41,19 @@ struct ScientificSummaryOutput {
     reproduction_mismatches: usize,
     rewinds: usize,
     artifacts: usize,
+}
+
+#[derive(Serialize)]
+struct SecurityCoevolutionSummaryOutput {
+    report_path: String,
+    worlds: usize,
+    generations_per_world: u32,
+    recorded_generations: usize,
+    red_mutations: usize,
+    blue_mutations: usize,
+    observer_findings: usize,
+    total_genomes_evaluated: usize,
+    final_breach_probabilities: Vec<(String, f64)>,
 }
 
 fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
@@ -149,6 +163,57 @@ pub fn cmd_experiment_scientific(args: ScientificExperimentArgs) -> anyhow::Resu
                     .count(),
                 rewinds: report.rewinds.len(),
                 artifacts: report.artifacts.len(),
+            },
+            args.format,
+        )
+    } else {
+        print_serialized(
+            &ExperimentRunOutput {
+                report_path: report_path.display().to_string(),
+                report,
+            },
+            args.format,
+        )
+    }
+}
+
+pub fn cmd_experiment_security_coevolution(args: SecurityCoevolutionArgs) -> anyhow::Result<()> {
+    let manifest: SecurityCoevolutionManifest = read_manifest(&args.manifest)?;
+    let name = manifest.name.clone();
+    let experiment_root = args.root.join(&name);
+    let report = run_security_coevolution(manifest)?;
+    let report_path = persist_experiment_report(&experiment_root, &name, &report)?;
+    if args.summary {
+        let final_breach_probabilities = report
+            .evolution
+            .iter()
+            .filter(|generation| generation.generation == report.generations_requested)
+            .map(|generation| {
+                (
+                    generation.scenario_id.clone(),
+                    generation.observer_finding.breach_probability,
+                )
+            })
+            .collect();
+        print_serialized(
+            &SecurityCoevolutionSummaryOutput {
+                report_path: report_path.display().to_string(),
+                worlds: report.initial_worlds.len(),
+                generations_per_world: report.generations_requested,
+                recorded_generations: report.evolution.len(),
+                red_mutations: report
+                    .evolution
+                    .iter()
+                    .map(|generation| generation.red_candidates.len())
+                    .sum(),
+                blue_mutations: report
+                    .evolution
+                    .iter()
+                    .map(|generation| generation.blue_candidates.len())
+                    .sum(),
+                observer_findings: report.evolution.len(),
+                total_genomes_evaluated: report.total_genomes_evaluated,
+                final_breach_probabilities,
             },
             args.format,
         )
