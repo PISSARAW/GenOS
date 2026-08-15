@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.dev/spec/agent-generation-lineage.schema.json",
+  "title": "GenOS Agent Generation Lineage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["agent_uri", "generation", "generation_id"],
+  "properties": {
+    "agent_uri": {
+      "type": "string",
+      "pattern": "^agent://[^/\\s]+$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "generation_id": {
+      "type": "string",
+      "pattern": "^agent://[^/\\s]+/generation/[0-9]+$"
+    },
+    "fork_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^agent://[^/\\s]+/generation/[0-9]+/fork/[0-9]+-[^/\\s]+$"
+      }
+    }
+  }
+}
