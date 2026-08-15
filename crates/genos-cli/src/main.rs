@@ -25,10 +25,10 @@ use crate::cmd_capsule::{
     cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_experiment::{
-    cmd_experiment_bug_investigation, cmd_experiment_cognitive_merge, cmd_experiment_heredity,
-    cmd_experiment_incident, cmd_experiment_reproducibility, cmd_experiment_scientific,
-    cmd_experiment_security_coevolution, cmd_experiment_select, cmd_experiment_temporal,
-    cmd_experiment_workspace,
+    cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
+    cmd_experiment_cognitive_merge, cmd_experiment_heredity, cmd_experiment_incident,
+    cmd_experiment_reproducibility, cmd_experiment_scientific, cmd_experiment_security_coevolution,
+    cmd_experiment_select, cmd_experiment_temporal, cmd_experiment_workspace,
 };
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
@@ -81,6 +81,7 @@ async fn main() -> Result<()> {
             ExperimentSubcommands::Select(args) => cmd_experiment_select(args),
             ExperimentSubcommands::Reproducibility(args) => cmd_experiment_reproducibility(args),
             ExperimentSubcommands::CognitiveMerge(args) => cmd_experiment_cognitive_merge(args),
+            ExperimentSubcommands::BranchEvolution(args) => cmd_experiment_branch_evolution(args),
         },
         Commands::Snapshot(snapshot) => match snapshot.command {
             SnapshotSubcommands::Create(args) => cmd_snapshot_create(args),

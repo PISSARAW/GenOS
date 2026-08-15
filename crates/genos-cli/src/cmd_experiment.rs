@@ -7,13 +7,14 @@ use anyhow::Context;
 use genos_runtime::{
     analyze_fixed_genome_cohort, apply_cognitive_merge, artificial_select, cognitive_merge,
     evaluate_paired_reproduction, merge_experiences, persist_experiment_report,
-    run_bug_investigation, run_incident_search, run_scientific_experiment,
-    run_security_coevolution, run_temporal_experiment, run_workspace_experiment, BranchExperience,
-    BugInvestigationManifest, ClaimRelation, CognitiveClaim, CognitiveMergeApplication,
-    CognitiveMergeConfig, CognitiveMergeReport, CohortControls, HeredityCohortMember,
-    IncidentSearchManifest, PairedBehaviorTrial, ReproducibilityThresholds,
-    ScientificExperimentManifest, SecurityCoevolutionManifest, SelectionCandidate,
-    SelectionConstraints, TemporalExperimentManifest, WorkspaceExperimentManifest,
+    run_branch_evolution, run_bug_investigation, run_incident_search, run_scientific_experiment,
+    run_security_coevolution, run_temporal_experiment, run_workspace_experiment,
+    BranchEvolutionConfig, BranchExperience, BugInvestigationManifest, ClaimRelation,
+    CognitiveClaim, CognitiveMergeApplication, CognitiveMergeConfig, CognitiveMergeReport,
+    CohortControls, EvolutionBranchSpec, HeredityCohortMember, IncidentSearchManifest,
+    PairedBehaviorTrial, ReproducibilityThresholds, ScientificExperimentManifest,
+    SecurityCoevolutionManifest, SelectionCandidate, SelectionConstraints,
+    TemporalExperimentManifest, WorkspaceExperimentManifest,
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -114,6 +115,12 @@ struct CognitiveMergeManifest {
     parent_snapshot: Option<genos_core::AgentSnapshot>,
 }
 
+#[derive(Deserialize)]
+struct BranchEvolutionManifest {
+    config: BranchEvolutionConfig,
+    branches: Vec<EvolutionBranchSpec>,
+}
+
 #[derive(Serialize)]
 struct CognitiveMergeOutput {
     report: CognitiveMergeReport,
@@ -163,6 +170,13 @@ pub fn cmd_experiment_cognitive_merge(args: GenericExperimentArgs) -> anyhow::Re
         },
         args.format,
     )
+}
+
+pub fn cmd_experiment_branch_evolution(args: GenericExperimentArgs) -> anyhow::Result<()> {
+    let manifest: BranchEvolutionManifest = read_manifest(&args.manifest)?;
+    let report =
+        run_branch_evolution(&manifest.branches, &manifest.config).map_err(anyhow::Error::msg)?;
+    print_serialized(&report, args.format)
 }
 
 pub async fn cmd_experiment_workspace(args: WorkspaceExperimentArgs) -> anyhow::Result<()> {
