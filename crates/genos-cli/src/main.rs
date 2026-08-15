@@ -1,6 +1,7 @@
 mod args;
 mod cmd_agent;
 mod cmd_capsule;
+mod cmd_dev;
 mod cmd_experiment;
 mod cmd_inspect;
 mod cmd_replay;
@@ -13,8 +14,8 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::args::{
-    AgentSubcommands, CapsuleSubcommands, Cli, Commands, ExperimentSubcommands, InspectSubcommands,
-    ReplaySubcommands, SnapshotSubcommands, WorldSubcommands,
+    AgentSubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands, ExperimentSubcommands,
+    InspectSubcommands, ReplaySubcommands, SnapshotSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -24,6 +25,7 @@ use crate::cmd_capsule::{
     cmd_agent_run, cmd_capsule_checkpoint, cmd_capsule_create, cmd_capsule_fork,
     cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
 };
+use crate::cmd_dev::*;
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
     cmd_experiment_causal_replay, cmd_experiment_cognitive_merge, cmd_experiment_heredity,
@@ -75,6 +77,24 @@ async fn main() -> Result<()> {
             CapsuleSubcommands::Pause(args) => cmd_capsule_pause(args).await,
             CapsuleSubcommands::Resume(args) => cmd_capsule_resume(args).await,
             CapsuleSubcommands::Inspect(args) => cmd_capsule_inspect(args).await,
+        },
+        Commands::Dev(dev) => match dev.command {
+            DevSubcommands::Diagnose(args) => cmd_diagnose(args),
+            DevSubcommands::Solve(args) => cmd_solve(args),
+            DevSubcommands::HypothesisEvidence(args) => cmd_hypothesis_evidence(args),
+            DevSubcommands::EvaluateTrajectories(args) => cmd_evaluate_trajectories(args),
+            DevSubcommands::RecordDecision(args) => cmd_record_decision(args),
+            DevSubcommands::Blame(args) => cmd_blame(args),
+            DevSubcommands::InvalidateAssumption(args) => cmd_invalidate_assumption(args),
+            DevSubcommands::RecordExperience(args) => cmd_record_experience(args),
+            DevSubcommands::SearchFailures(args) => cmd_search_failures(args),
+            DevSubcommands::CherryPickExperience(args) => cmd_cherry_pick_experience(args),
+            DevSubcommands::AdversarialReview(args) => cmd_adversarial_review(args),
+            DevSubcommands::FutureCi(args) => cmd_future_ci(args),
+            DevSubcommands::RepositoryGenome(args) => cmd_repository_genome(args),
+            DevSubcommands::BisectAgent(args) => cmd_bisect_agent(args),
+            DevSubcommands::AnalyzeTrajectory(args) => cmd_analyze_trajectory(args),
+            DevSubcommands::CompileMemory(args) => cmd_compile_memory(args),
         },
         Commands::Experiment(experiment) => match experiment.command {
             ExperimentSubcommands::Workspace(args) => cmd_experiment_workspace(args).await,

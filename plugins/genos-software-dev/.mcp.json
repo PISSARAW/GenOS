@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "genos-software-dev": {
+      "command": "cargo",
+      "args": [
+        "run",
+        "--quiet",
+        "--manifest-path",
+        "C:\\Users\\Shadow\\Documents\\GitHub\\GenOS\\Cargo.toml",
+        "-p",
+        "genos-mcp",
+        "--",
+        "stdio"
+      ],
+      "cwd": "C:\\Users\\Shadow\\Documents\\GitHub\\GenOS",
+      "env": {
+        "GENOS_WORKSPACE_ROOT": "C:\\Users\\Shadow\\Documents\\GitHub\\GenOS"
+      }
+    }
+  }
+}

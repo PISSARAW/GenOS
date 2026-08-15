@@ -1,0 +1,29 @@
+{
+  "name": "genos-software-dev",
+  "version": "0.1.0",
+  "description": "Trajectory engineering and causal software-development memory for GenOS",
+  "author": {
+    "name": "PISSARAW",
+    "url": "https://github.com/PISSARAW"
+  },
+  "homepage": "https://github.com/PISSARAW/GenOS",
+  "repository": "https://github.com/PISSARAW/GenOS",
+  "license": "Apache-2.0",
+  "keywords": ["agents", "debugging", "trajectory-engineering", "mcp", "software-development"],
+  "interface": {
+    "displayName": "GenOS Software Dev",
+    "shortDescription": "Explore, falsify, review, and remember coding trajectories.",
+    "longDescription": "Diagnose with hypothesis trees, explore adaptive solution branches, run adversarial reviews and future-CI plans, trace decisions to code and tests, and preserve negative knowledge.",
+    "developerName": "PISSARAW",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/PISSARAW/GenOS",
+    "brandColor": "#6D5EF5",
+    "defaultPrompt": [
+      "Diagnose this bug with falsifiable hypotheses.",
+      "Explore diverse fixes and allocate compute adaptively.",
+      "Review this patch across adversarial future worlds."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

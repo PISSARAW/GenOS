@@ -15,7 +15,7 @@ use tokio::{
 };
 
 pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
-pub const SERVER_INSTRUCTIONS: &str = "GenOS versions complete agent-world state. Inspect before mutation. Snapshot before risky work; fork when comparing alternatives; diff and evaluate before merge. genos_run executes an explicit command in an isolated GenOS world, consumes one budget step, and may change files. Never run a command the user did not authorize. Product clients such as Codex are tools users, not model providers stored in the genome.";
+pub const SERVER_INSTRUCTIONS: &str = "GenOS versions complete agent-world state and software-development trajectories. Inspect and search negative knowledge before mutation. Diagnose with falsifiable hypotheses before solve; snapshot before risky work; fork when comparing alternatives; diff, adversarially review, and evaluate across relevant worlds before merge. Record decisions, assumptions, evidence, failures, and code/test lineage for future agents. genos_run executes an explicit command in an isolated GenOS world, consumes one budget step, and may change files. Never run a command the user did not authorize. Product clients such as Codex are tools users, not model providers stored in the genome.";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionOutput {
@@ -366,6 +366,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let value: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(value["result"]["tools"].as_array().unwrap().len(), 10);
+        assert_eq!(value["result"]["tools"].as_array().unwrap().len(), 26);
     }
 }

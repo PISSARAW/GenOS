@@ -227,6 +227,38 @@ pub fn tool_specs() -> Vec<ToolSpec> {
             false,
             false,
         ),
+        spec("diagnose", "Diagnose with hypotheses", "Create a falsification-oriented hypothesis tree before changing code.",
+            object_schema([("problem", string_schema("Problem to diagnose.")), ("hypotheses", string_array_schema("Competing falsifiable hypotheses.")), ("root", root_schema())], &["problem", "hypotheses"]), false, false, false),
+        spec("hypothesis_evidence", "Add hypothesis evidence", "Attach provenance-bearing evidence and update a hypothesis confidence/status.",
+            object_schema([("diagnosis_id", string_schema("Diagnosis identifier.")), ("hypothesis_id", string_schema("Hypothesis identifier.")), ("claim", string_schema("Evidence claim.")), ("source", string_schema("Evidence source.")), ("artifact", string_schema("Optional artifact reference.")), ("against", json!({"type":"boolean","default":false})), ("confidence", json!({"type":"number","minimum":0,"maximum":1})), ("root", root_schema())], &["diagnosis_id","hypothesis_id","claim","source","confidence"]), false, false, false),
+        spec("solve", "Explore solution trajectories", "Create diverse isolated solution trajectories with adaptive compute and minimal-patch support.",
+            object_schema([("problem", string_schema("Issue or problem.")), ("strategies", string_array_schema("Explicitly diverse strategies.")), ("branches", json!({"type":"integer","minimum":1,"maximum":64,"default":8})), ("minimal_patch", json!({"type":"boolean","default":false})), ("root", root_schema())], &["problem"]), false, false, false),
+        spec("evaluate_trajectories", "Evaluate trajectories", "Score candidates, suspend dominated branches without deleting lineage, and adapt compute/model tiers.",
+            object_schema([("solve_id", string_schema("Solve run identifier.")), ("scores", string_array_schema("trajectory_id=score values.")), ("keep", json!({"type":"integer","minimum":1,"default":2})), ("root", root_schema())], &["solve_id","scores"]), false, false, false),
+        spec("record_decision", "Record decision lineage", "Persist a living ADR/decision with assumptions, alternatives, evidence, requirements, code, tests, and hypothesis lineage.",
+            object_schema([("title", string_schema("Decision title.")), ("alternatives", string_array_schema("Rejected alternatives.")), ("evidence", string_array_schema("Evidence references.")), ("assumptions", string_array_schema("Assumptions to track.")), ("code_refs", string_array_schema("Code references.")), ("test_refs", string_array_schema("Test references.")), ("requirement_refs", string_array_schema("Requirement references.")), ("expected", string_schema("Expected outcome.")), ("observed", string_schema("Observed outcome.")), ("parent_hypothesis", string_schema("Parent hypothesis.")), ("root", root_schema())], &["title"]), false, false, false),
+        spec("blame", "Causal code blame", "Trace a code, test, requirement, or decision reference back to cognitive decisions and evidence.",
+            object_schema([("reference", string_schema("Code/test/requirement/decision reference.")), ("root", root_schema())], &["reference"]), true, false, false),
+        spec("invalidate_assumption", "Invalidate assumption", "Mark an assumption invalid and return affected decisions, code, tests, and requirements.",
+            object_schema([("assumption", string_schema("Assumption text or identifying fragment.")), ("observed", string_schema("Observation that invalidates it.")), ("root", root_schema())], &["assumption","observed"]), false, false, false),
+        spec("record_experience", "Record branch experience", "Persist positive or negative knowledge with context, evidence, and branch provenance.",
+            object_schema([("strategy", string_schema("Attempted strategy.")), ("context", string_schema("Applicability context.")), ("outcome", string_schema("Observed outcome.")), ("successful", json!({"type":"boolean"})), ("evidence", string_array_schema("Evidence references.")), ("source_branch", string_schema("Origin branch.")), ("root", root_schema())], &["strategy","context","outcome","successful"]), false, false, false),
+        spec("search_failures", "Search failed approaches", "Find negative knowledge before agents retry a known-bad strategy.",
+            object_schema([("query", string_schema("Context or strategy query.")), ("root", root_schema())], &["query"]), true, false, false),
+        spec("cherry_pick_experience", "Cherry-pick experience", "Transfer one provenance-preserving discovery without copying an entire branch context.",
+            object_schema([("experience_id", string_schema("Experience artifact.")), ("to_branch", string_schema("Receiving branch.")), ("root", root_schema())], &["experience_id","to_branch"]), false, false, false),
+        spec("adversarial_review", "Adversarial review", "Plan blind, diverse security/correctness/performance review and counterfactual tests across worlds.",
+            object_schema([("target", string_schema("Patch or trajectory to review.")), ("critics", string_array_schema("Specialized reviewer roles/models.")), ("worlds", string_array_schema("Counterfactual worlds.")), ("rounds", json!({"type":"integer","minimum":1,"default":1})), ("blind", json!({"type":"boolean","default":true})), ("root", root_schema())], &["target"]), false, false, false),
+        spec("future_ci", "Plan future CI", "Verify code across plausible worlds, dependency futures, and autonomous migration targets.",
+            object_schema([("target", string_schema("Patch, PR, or branch.")), ("worlds", string_array_schema("Future worlds.")), ("agents", string_array_schema("Verification specializations.")), ("dependency", string_schema("Dependency future, e.g. react@next.")), ("migration_from", string_schema("Migration source.")), ("migration_to", string_schema("Migration target.")), ("root", root_schema())], &["target","worlds"]), false, false, false),
+        spec("repository_genome", "Update repository genome", "Persist architecture, conventions, invariants, policies, vocabulary, and forbidden patterns for all coding branches.",
+            object_schema([("architecture", string_array_schema("Architecture facts.")), ("conventions", string_array_schema("Repository conventions.")), ("invariants", string_array_schema("Architecture invariants.")), ("security_rules", string_array_schema("Security rules.")), ("testing_policy", string_array_schema("Testing policy.")), ("performance_requirements", string_array_schema("Performance constraints.")), ("domain_language", string_array_schema("Domain vocabulary.")), ("forbidden_patterns", string_array_schema("Forbidden patterns.")), ("root", root_schema())], &[]), false, false, false),
+        spec("bisect_agent", "Bisect agent trajectory", "Locate the first bad event, belief, memory, or world observation in an ordered trajectory.",
+            object_schema([("states", string_array_schema("Ordered label=good|bad observations.")), ("dimension", string_schema("events, beliefs, memory, or world."))], &["states"]), true, false, false),
+        spec("analyze_trajectory", "Analyze coding trajectory", "Detect the first regression, repeated failed edits, cognitive loops, and the safest automatic revert point.",
+            object_schema([("steps", string_array_schema("Ordered snapshot|good|action_signature|belief_signature steps."))], &["steps"]), true, false, false),
+        spec("compile_memory", "Compile development memory", "Garbage-collect context into facts, decisions, failures, constraints, questions, and source references.",
+            object_schema([("facts", string_array_schema("Verified facts.")), ("decisions", string_array_schema("Active decisions.")), ("failures", string_array_schema("Negative knowledge.")), ("constraints", string_array_schema("Active constraints.")), ("open_questions", string_array_schema("Open questions.")), ("source_refs", string_array_schema("Original evidence references.")), ("root", root_schema())], &[]), false, false, false),
     ]
 }
 
@@ -347,6 +379,229 @@ pub fn plan_tool_call(name: &str, arguments: &Value) -> Result<PlannedCommand, P
             args.push(required_string(object, operation, "manifest")?.to_string());
             push_flag(&mut args, "--format", "json");
         }
+        "diagnose" => {
+            args[0] = "dev".into();
+            args.push(required_string(object, operation, "problem")?.into());
+            push_string_array(
+                &mut args,
+                object,
+                operation,
+                "hypotheses",
+                "--hypothesis",
+                true,
+            )?;
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "solve" => {
+            args[0] = "dev".into();
+            args.push(required_string(object, operation, "problem")?.into());
+            push_string_array(
+                &mut args,
+                object,
+                operation,
+                "strategies",
+                "--strategy",
+                false,
+            )?;
+            push_usize(
+                &mut args,
+                object,
+                operation,
+                "branches",
+                "--branches",
+                Some(8),
+            )?;
+            if optional_bool(object, operation, "minimal_patch")?.unwrap_or(false) {
+                args.push("--minimal-patch".into());
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "hypothesis_evidence" => {
+            args[0] = "dev".into();
+            args[1] = "hypothesis-evidence".into();
+            args.push(required_string(object, operation, "diagnosis_id")?.into());
+            args.push(required_string(object, operation, "hypothesis_id")?.into());
+            for (key, flag) in [("claim", "--claim"), ("source", "--source")] {
+                push_flag(&mut args, flag, required_string(object, operation, key)?);
+            }
+            if let Some(v) = optional_string(object, operation, "artifact")? {
+                push_flag(&mut args, "--artifact", v);
+            }
+            if optional_bool(object, operation, "against")?.unwrap_or(false) {
+                args.push("--against".into());
+            }
+            push_number(&mut args, object, operation, "confidence", "--confidence")?;
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "evaluate_trajectories" => {
+            args[0] = "dev".into();
+            args[1] = "evaluate-trajectories".into();
+            args.push(required_string(object, operation, "solve_id")?.into());
+            push_string_array(&mut args, object, operation, "scores", "--score", true)?;
+            push_usize(&mut args, object, operation, "keep", "--keep", Some(2))?;
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "record_decision" => {
+            args[0] = "dev".into();
+            args[1] = "record-decision".into();
+            args.push(required_string(object, operation, "title")?.into());
+            for (key, flag) in [
+                ("alternatives", "--alternative"),
+                ("evidence", "--evidence"),
+                ("assumptions", "--assumption"),
+                ("code_refs", "--code-ref"),
+                ("test_refs", "--test-ref"),
+                ("requirement_refs", "--requirement-ref"),
+            ] {
+                push_string_array(&mut args, object, operation, key, flag, false)?;
+            }
+            for (key, flag) in [
+                ("expected", "--expected"),
+                ("observed", "--observed"),
+                ("parent_hypothesis", "--parent-hypothesis"),
+            ] {
+                if let Some(v) = optional_string(object, operation, key)? {
+                    push_flag(&mut args, flag, v);
+                }
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "blame" | "search_failures" => {
+            args[0] = "dev".into();
+            args[1] = operation.replace('_', "-");
+            let key = if operation == "blame" {
+                "reference"
+            } else {
+                "query"
+            };
+            args.push(required_string(object, operation, key)?.into());
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "invalidate_assumption" => {
+            args[0] = "dev".into();
+            args[1] = "invalidate-assumption".into();
+            args.push(required_string(object, operation, "assumption")?.into());
+            push_flag(
+                &mut args,
+                "--observed",
+                required_string(object, operation, "observed")?,
+            );
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "record_experience" => {
+            args[0] = "dev".into();
+            args[1] = "record-experience".into();
+            args.push(required_string(object, operation, "strategy")?.into());
+            for (key, flag) in [("context", "--context"), ("outcome", "--outcome")] {
+                push_flag(&mut args, flag, required_string(object, operation, key)?);
+            }
+            if required_bool(object, operation, "successful")? {
+                args.push("--successful".into());
+            }
+            push_string_array(
+                &mut args,
+                object,
+                operation,
+                "evidence",
+                "--evidence",
+                false,
+            )?;
+            if let Some(v) = optional_string(object, operation, "source_branch")? {
+                push_flag(&mut args, "--source-branch", v);
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "cherry_pick_experience" => {
+            args[0] = "dev".into();
+            args[1] = "cherry-pick-experience".into();
+            args.push(required_string(object, operation, "experience_id")?.into());
+            push_flag(
+                &mut args,
+                "--to-branch",
+                required_string(object, operation, "to_branch")?,
+            );
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "adversarial_review" => {
+            args[0] = "dev".into();
+            args[1] = "adversarial-review".into();
+            args.push(required_string(object, operation, "target")?.into());
+            push_string_array(&mut args, object, operation, "critics", "--critic", false)?;
+            push_string_array(&mut args, object, operation, "worlds", "--world", false)?;
+            push_usize(&mut args, object, operation, "rounds", "--rounds", Some(1))?;
+            push_flag(
+                &mut args,
+                "--blind",
+                if optional_bool(object, operation, "blind")?.unwrap_or(true) {
+                    "true"
+                } else {
+                    "false"
+                },
+            );
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "future_ci" => {
+            args[0] = "dev".into();
+            args[1] = "future-ci".into();
+            args.push(required_string(object, operation, "target")?.into());
+            push_string_array(&mut args, object, operation, "worlds", "--world", true)?;
+            push_string_array(&mut args, object, operation, "agents", "--agent", false)?;
+            for (key, flag) in [
+                ("dependency", "--dependency"),
+                ("migration_from", "--migration-from"),
+                ("migration_to", "--migration-to"),
+            ] {
+                if let Some(v) = optional_string(object, operation, key)? {
+                    push_flag(&mut args, flag, v);
+                }
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "repository_genome" => {
+            args[0] = "dev".into();
+            args[1] = "repository-genome".into();
+            for (key, flag) in [
+                ("architecture", "--architecture"),
+                ("conventions", "--convention"),
+                ("invariants", "--invariant"),
+                ("security_rules", "--security-rule"),
+                ("testing_policy", "--testing-policy"),
+                ("performance_requirements", "--performance-requirement"),
+                ("domain_language", "--domain-term"),
+                ("forbidden_patterns", "--forbidden-pattern"),
+            ] {
+                push_string_array(&mut args, object, operation, key, flag, false)?;
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
+        "bisect_agent" => {
+            args[0] = "dev".into();
+            args[1] = "bisect-agent".into();
+            push_string_array(&mut args, object, operation, "states", "--state", true)?;
+            if let Some(v) = optional_string(object, operation, "dimension")? {
+                push_flag(&mut args, "--dimension", v);
+            }
+        }
+        "analyze_trajectory" => {
+            args[0] = "dev".into();
+            args[1] = "analyze-trajectory".into();
+            push_string_array(&mut args, object, operation, "steps", "--step", true)?;
+        }
+        "compile_memory" => {
+            args[0] = "dev".into();
+            args[1] = "compile-memory".into();
+            for (key, flag) in [
+                ("facts", "--fact"),
+                ("decisions", "--decision"),
+                ("failures", "--failure"),
+                ("constraints", "--constraint"),
+                ("open_questions", "--open-question"),
+                ("source_refs", "--source-ref"),
+            ] {
+                push_string_array(&mut args, object, operation, key, flag, false)?;
+            }
+            push_root(&mut args, object, operation, "--root")?;
+        }
         _ => return Err(ProtocolError::UnknownTool(name.to_string())),
     }
 
@@ -409,6 +664,10 @@ fn string_schema(description: &str) -> Value {
     json!({"type": "string", "minLength": 1, "description": description})
 }
 
+fn string_array_schema(description: &str) -> Value {
+    json!({"type":"array","items":{"type":"string","minLength":1},"description":description})
+}
+
 fn root_schema() -> Value {
     json!({"type": "string", "minLength": 1, "default": ".genos", "description": "GenOS data root."})
 }
@@ -466,6 +725,84 @@ fn optional_bool(
     }
 }
 
+fn required_bool(
+    object: &Map<String, Value>,
+    operation: &str,
+    key: &str,
+) -> Result<bool, ProtocolError> {
+    optional_bool(object, operation, key)?
+        .ok_or_else(|| invalid(operation, &format!("missing required boolean '{key}'")))
+}
+
+fn push_string_array(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+    key: &str,
+    flag: &str,
+    required: bool,
+) -> Result<(), ProtocolError> {
+    let values = match object.get(key) {
+        None | Some(Value::Null) if !required => return Ok(()),
+        Some(Value::Array(values)) if !values.is_empty() || !required => values,
+        _ => {
+            return Err(invalid(
+                operation,
+                &format!(
+                    "'{key}' must be {}array of non-empty strings",
+                    if required { "a non-empty " } else { "an " }
+                ),
+            ))
+        }
+    };
+    for value in values {
+        let value = value.as_str().filter(|v| !v.is_empty()).ok_or_else(|| {
+            invalid(
+                operation,
+                &format!("'{key}' entries must be non-empty strings"),
+            )
+        })?;
+        push_flag(args, flag, value);
+    }
+    Ok(())
+}
+
+fn push_usize(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+    key: &str,
+    flag: &str,
+    default: Option<usize>,
+) -> Result<(), ProtocolError> {
+    let value = match object.get(key) {
+        None | Some(Value::Null) => default,
+        Some(v) => v.as_u64().map(|v| v as usize),
+    };
+    let value =
+        value.ok_or_else(|| invalid(operation, &format!("'{key}' must be a positive integer")))?;
+    if value == 0 {
+        return Err(invalid(operation, &format!("'{key}' must be positive")));
+    }
+    push_flag(args, flag, &value.to_string());
+    Ok(())
+}
+
+fn push_number(
+    args: &mut Vec<String>,
+    object: &Map<String, Value>,
+    operation: &str,
+    key: &str,
+    flag: &str,
+) -> Result<(), ProtocolError> {
+    let value = object
+        .get(key)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| invalid(operation, &format!("'{key}' must be a number")))?;
+    push_flag(args, flag, &value.to_string());
+    Ok(())
+}
+
 fn push_root(
     args: &mut Vec<String>,
     object: &Map<String, Value>,
@@ -498,9 +835,9 @@ mod tests {
     use std::collections::HashSet;
 
     #[test]
-    fn catalog_contains_the_ten_canonical_unique_tools() {
+    fn catalog_contains_canonical_and_software_development_tools() {
         let specs = tool_specs();
-        assert_eq!(specs.len(), 10);
+        assert_eq!(specs.len(), 26);
         let names = specs
             .iter()
             .map(|tool| tool.name.as_str())
@@ -514,6 +851,26 @@ mod tests {
         for expected in [
             "create", "snapshot", "restore", "fork", "run", "inspect", "diff", "lineage", "replay",
             "merge",
+        ] {
+            assert!(names.contains(format!("genos_{expected}").as_str()));
+        }
+        for expected in [
+            "diagnose",
+            "hypothesis_evidence",
+            "solve",
+            "evaluate_trajectories",
+            "record_decision",
+            "blame",
+            "invalidate_assumption",
+            "record_experience",
+            "search_failures",
+            "cherry_pick_experience",
+            "adversarial_review",
+            "future_ci",
+            "repository_genome",
+            "bisect_agent",
+            "analyze_trajectory",
+            "compile_memory",
         ] {
             assert!(names.contains(format!("genos_{expected}").as_str()));
         }
@@ -559,5 +916,35 @@ mod tests {
         let result = ProtocolResult::new("diff", 0, "{\"empty\":true}\n".into(), String::new());
         assert_eq!(result.output, Some(json!({"empty": true})));
         assert_eq!(result.protocol_version, PROTOCOL_VERSION);
+    }
+
+    #[test]
+    fn diagnose_maps_arrays_to_repeated_safe_arguments() {
+        let planned = plan_tool_call(
+            "genos_diagnose",
+            &json!({"problem":"freeze", "hypotheses":["deadlock", "pool; echo no"]}),
+        )
+        .unwrap();
+        assert_eq!(
+            planned.args,
+            [
+                "dev",
+                "diagnose",
+                "freeze",
+                "--hypothesis",
+                "deadlock",
+                "--hypothesis",
+                "pool; echo no",
+                "--root",
+                ".genos"
+            ]
+        );
+    }
+
+    #[test]
+    fn future_ci_rejects_an_empty_world_set() {
+        let error = plan_tool_call("genos_future_ci", &json!({"target":"patch-A", "worlds":[]}))
+            .unwrap_err();
+        assert!(error.to_string().contains("non-empty"));
     }
 }

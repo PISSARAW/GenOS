@@ -20,7 +20,8 @@ codex mcp list
 ```
 
 In the Codex terminal UI or composer, use `/mcp` to inspect the connected server
-and its ten `genos_*` tools.
+and its 26 `genos_*` tools (ten lifecycle tools and sixteen software-development
+trajectory tools).
 
 The checked-in configuration runs:
 
@@ -72,7 +73,8 @@ behind TLS and an authenticated gateway before exposing it to a network.
 
 ## Safety model
 
-- Read-only tools (`inspect`, `diff`, `lineage`, and `replay`) are annotated as
+- Read-only tools (`inspect`, `diff`, `lineage`, `replay`, `blame`,
+  `search_failures`, `bisect_agent`, and `analyze_trajectory`) are annotated as
   read-only.
 - State-changing tools trigger Codex's `writes` approval policy.
 - `genos_run` is always configured to prompt. It executes only inside the
@@ -95,4 +97,3 @@ behind TLS and an authenticated gateway before exposing it to a network.
 Codex supports project-scoped `.codex/config.toml`, local STDIO MCP servers,
 Streamable HTTP servers, server instructions, and per-tool approval policies;
 see the [official OpenAI MCP documentation](https://learn.chatgpt.com/docs/extend/mcp?surface=cli).
-
