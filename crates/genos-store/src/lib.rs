@@ -50,7 +50,9 @@ pub struct LocalSnapshotComponentStore {
 
 impl LocalSnapshotComponentStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { artifacts: LocalArtifactStore::new(root) }
+        Self {
+            artifacts: LocalArtifactStore::new(root),
+        }
     }
 
     async fn put_json<T: Serialize>(&self, value: &T) -> anyhow::Result<ArtifactRef> {
@@ -82,14 +84,21 @@ impl LocalSnapshotComponentStore {
 
 impl LocalArtifactStore {
     pub fn new(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into(), write_lock: Mutex::new(()) }
+        Self {
+            root: root.into(),
+            write_lock: Mutex::new(()),
+        }
     }
 
     pub fn blob_path(&self, digest: &str) -> PathBuf {
         self.root.join("sha256").join(digest)
     }
 
-    pub async fn put(&self, bytes: &[u8], media_type: impl Into<String>) -> anyhow::Result<ArtifactRef> {
+    pub async fn put(
+        &self,
+        bytes: &[u8],
+        media_type: impl Into<String>,
+    ) -> anyhow::Result<ArtifactRef> {
         let digest = format!("{:x}", Sha256::digest(bytes));
         let path = self.blob_path(&digest);
         let _guard = self.write_lock.lock().await;
@@ -441,8 +450,8 @@ pub fn replay_basic_state_from(
     // means the branch did not complete and must remain visible as interrupted.
     if state.branch_status != BranchStatus::BudgetExhausted
         && events
-        .last()
-        .is_some_and(|event| event.event_type == AgentEventType::ToolRequested)
+            .last()
+            .is_some_and(|event| event.event_type == AgentEventType::ToolRequested)
     {
         state.branch_status = BranchStatus::Interrupted;
     }
@@ -505,17 +514,37 @@ mod tests {
         let store = LocalArtifactStore::new(&root);
         let bytes = b"same generated file";
 
-        let reference_a = store.put(bytes, "text/plain").await.expect("store A failed");
-        let reference_b = store.put(bytes, "text/plain").await.expect("store B failed");
+        let reference_a = store
+            .put(bytes, "text/plain")
+            .await
+            .expect("store A failed");
+        let reference_b = store
+            .put(bytes, "text/plain")
+            .await
+            .expect("store B failed");
 
         assert_eq!(reference_a.digest, reference_b.digest);
         assert_eq!(reference_a.digest, format!("{:x}", Sha256::digest(bytes)));
-        assert!(fs::try_exists(store.blob_path(&reference_a.digest)).await.expect("blob lookup failed"));
-        let mut entries = fs::read_dir(root.join("sha256")).await.expect("artifact directory missing");
-        assert!(entries.next_entry().await.expect("read entry failed").is_some());
-        assert!(entries.next_entry().await.expect("read entry failed").is_none());
+        assert!(fs::try_exists(store.blob_path(&reference_a.digest))
+            .await
+            .expect("blob lookup failed"));
+        let mut entries = fs::read_dir(root.join("sha256"))
+            .await
+            .expect("artifact directory missing");
+        assert!(entries
+            .next_entry()
+            .await
+            .expect("read entry failed")
+            .is_some());
+        assert!(entries
+            .next_entry()
+            .await
+            .expect("read entry failed")
+            .is_none());
 
-        fs::remove_dir_all(&root).await.expect("artifact cleanup failed");
+        fs::remove_dir_all(&root)
+            .await
+            .expect("artifact cleanup failed");
     }
 
     #[tokio::test]
@@ -531,12 +560,24 @@ mod tests {
 
         assert_ne!(manifest_1.snapshot_id, manifest_2.snapshot_id);
         assert_eq!(manifest_1.genome.digest, manifest_2.genome.digest);
-        assert_eq!(manifest_1.working_memory.digest, manifest_2.working_memory.digest);
+        assert_eq!(
+            manifest_1.working_memory.digest,
+            manifest_2.working_memory.digest
+        );
         assert_eq!(manifest_1.memories.digest, manifest_2.memories.digest);
-        assert_eq!(manifest_1.runtime_metadata.digest, manifest_2.runtime_metadata.digest);
-        assert!(fs::try_exists(store.component_path(&manifest_1.genome.digest)).await.expect("genome blob missing"));
+        assert_eq!(
+            manifest_1.runtime_metadata.digest,
+            manifest_2.runtime_metadata.digest
+        );
+        assert!(
+            fs::try_exists(store.component_path(&manifest_1.genome.digest))
+                .await
+                .expect("genome blob missing")
+        );
 
-        fs::remove_dir_all(&root).await.expect("component cleanup failed");
+        fs::remove_dir_all(&root)
+            .await
+            .expect("component cleanup failed");
     }
 
     fn make_snapshot(sequence: u64) -> AgentSnapshot {
@@ -560,6 +601,7 @@ mod tests {
                 },
                 cognition: genos_core::CognitionConfig {
                     exploration: 0.5,
+                    risk_tolerance: 0.25,
                     verification_threshold: 0.8,
                     planning_depth: 2,
                 },
@@ -744,11 +786,7 @@ mod tests {
         fn model_steps(branch: &str, count: u64, max_steps: u64) -> Vec<AgentEvent> {
             (1..=count)
                 .map(|sequence| {
-                    let mut event = make_event(
-                        AgentEventType::ModelResponded,
-                        sequence,
-                        branch,
-                    );
+                    let mut event = make_event(AgentEventType::ModelResponded, sequence, branch);
                     event.payload = json!({ "max_steps": max_steps });
                     event
                 })

@@ -16,7 +16,7 @@ use crate::args::{
     SnapshotSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
-    cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_inspect, cmd_init,
+    cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_inspect, cmd_agent_mutate, cmd_init,
 };
 use crate::cmd_experiment::{
     cmd_experiment_bug_investigation, cmd_experiment_incident, cmd_experiment_scientific,
@@ -44,6 +44,7 @@ async fn main() -> Result<()> {
         Commands::Agent(agent) => match agent.command {
             AgentSubcommands::Create(args) => cmd_agent_create(args),
             AgentSubcommands::Inspect(args) => cmd_agent_inspect(args),
+            AgentSubcommands::Mutate(args) => cmd_agent_mutate(args),
             AgentSubcommands::ForkFromSnapshot(args) => cmd_agent_fork_from_snapshot(args).await,
         },
         Commands::Experiment(experiment) => match experiment.command {
