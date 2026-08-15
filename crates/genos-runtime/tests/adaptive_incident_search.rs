@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use genos_runtime::{
-    run_incident_search, IncidentEvidence, IncidentMutation, IncidentSearchConfig,
+    run_incident_search, AgentPrimitive, IncidentEvidence, IncidentMutation, IncidentSearchConfig,
     IncidentSearchManifest, ReproductionStatus,
 };
 
@@ -61,4 +61,8 @@ fn adaptive_search_refines_partial_reproductions_into_three_perfect_matches() {
         .iter()
         .chain(&report.descendants)
         .all(|result| { result.replayed_event_ids == vec!["evt-901", "evt-902", "evt-903"] }));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Snapshot));
+    assert_eq!(report.primitive_trace.count(AgentPrimitive::Fork), 2);
+    assert!(report.primitive_trace.contains(AgentPrimitive::Mutate));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Replay));
 }

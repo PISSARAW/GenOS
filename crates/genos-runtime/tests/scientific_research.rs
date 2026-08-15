@@ -1,6 +1,6 @@
 use genos_core::{LineageRelation, SnapshotId};
 use genos_runtime::{
-    run_scientific_experiment, CompressionStrategy, ScientificCritiqueSpec,
+    run_scientific_experiment, AgentPrimitive, CompressionStrategy, ScientificCritiqueSpec,
     ScientificExperimentManifest, ScientificHypothesisSpec, ScientificProtocol,
     ScientificReproductionSpec, ScientificRewindSpec,
 };
@@ -143,4 +143,7 @@ fn scientific_process_versions_recursive_hypotheses_reproduction_and_rewind() {
         .artifacts
         .iter()
         .any(|artifact| artifact.summary == "peer critique"));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Restore));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Merge));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Replay));
 }

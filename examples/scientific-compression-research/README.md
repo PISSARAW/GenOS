@@ -22,3 +22,7 @@ Il contient :
 Le rapport distingue ainsi la timeline des conclusions de l'historique des
 snapshots scientifiques. Une conclusion suspecte reste inspectable meme quand
 une nouvelle investigation repart de son etat anterieur.
+
+Le champ `primitive_trace` rend ce processus avec la nouvelle API : `agent
+snapshot → agent fork → agent run → agent replay → agent restore → agent merge
+→ agent lineage`.

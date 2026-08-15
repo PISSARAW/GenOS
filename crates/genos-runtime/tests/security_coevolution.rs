@@ -1,7 +1,7 @@
 use genos_core::{GenomeId, SnapshotId};
 use genos_runtime::{
-    run_security_coevolution, SecurityCoevolutionConfig, SecurityCoevolutionManifest,
-    SecurityGenes, SecurityPopulation, SecurityScenarioSpec,
+    run_security_coevolution, AgentPrimitive, SecurityCoevolutionConfig,
+    SecurityCoevolutionManifest, SecurityGenes, SecurityPopulation, SecurityScenarioSpec,
 };
 use std::collections::HashSet;
 
@@ -109,6 +109,9 @@ fn red_and_blue_genomes_coevolve_with_neutral_observers_and_traceable_parents() 
         .map(|candidate| candidate.genome.genome_id.clone())
         .collect::<Vec<GenomeId>>();
     assert_eq!(all_ids.iter().collect::<HashSet<_>>().len(), all_ids.len());
+    assert!(report.primitive_trace.contains(AgentPrimitive::Mutate));
+    assert!(report.primitive_trace.contains(AgentPrimitive::Run));
+    assert_eq!(report.primitive_trace.count(AgentPrimitive::Diff), 2);
 }
 
 #[test]

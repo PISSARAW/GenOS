@@ -81,6 +81,7 @@ pub struct IncidentSearchReport {
     pub descendants: Vec<IncidentUniverseResult>,
     pub perfect_reproduction_ids: Vec<BranchId>,
     pub lineage: LineageDag,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 pub fn run_incident_search(
@@ -201,6 +202,51 @@ pub fn run_incident_search(
         .map(|result| result.branch_id.clone())
         .collect();
 
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        manifest.evidence.snapshot_ref.clone(),
+        json!({ "incident_at": manifest.evidence.incident_at }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        "initial-incident-population",
+        json!({ "branches": initial.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Mutate,
+        "initial-incident-population",
+        json!({ "mutations": initial.len(), "seed": config.seed }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Replay,
+        "initial-incident-population",
+        json!({
+            "branches": initial.len(),
+            "events_per_branch": manifest.evidence.preceding_events.len(),
+        }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Run,
+        "adaptive-reproduction-evaluation",
+        json!({ "initial": initial.len(), "descendants": descendants.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        "recursive-refinement",
+        json!({ "parents": partial_survivor_ids.len(), "descendants": descendants.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Mutate,
+        "recursive-refinement",
+        json!({ "mutations": descendants.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        manifest.name.clone(),
+        json!({ "edges": lineage.edges.len() }),
+    );
+
     Ok(IncidentSearchReport {
         name: manifest.name,
         snapshot_ref: manifest.evidence.snapshot_ref,
@@ -209,6 +255,7 @@ pub fn run_incident_search(
         descendants,
         perfect_reproduction_ids,
         lineage,
+        primitive_trace,
     })
 }
 

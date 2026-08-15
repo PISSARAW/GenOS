@@ -141,6 +141,7 @@ pub struct PersonalCausalReplayReport {
     pub reality: CausalTimelineResult,
     pub counterfactual: CausalTimelineResult,
     pub comparison: CausalReplayComparison,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -178,12 +179,49 @@ pub fn replay_personal_counterfactual(
         Some(intervention),
     )?;
     let comparison = compare_timelines(&reality, &counterfactual, intervention);
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "at": checkpoint.at }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Restore,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "state_keys": checkpoint.state.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Fork,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "branches": ["reality", "counterfactual"] }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Replay,
+        "reality",
+        serde_json::json!({ "events": reality.events.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Replay,
+        "counterfactual",
+        serde_json::json!({ "events": counterfactual.events.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Diff,
+        "reality..counterfactual",
+        serde_json::json!({ "state_deltas": comparison.state_deltas.len() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        checkpoint.agent_ref.clone(),
+        serde_json::json!({ "children": 2 }),
+    );
     Ok(PersonalCausalReplayReport {
         checkpoint,
         history_end,
         reality,
         counterfactual,
         comparison,
+        primitive_trace,
     })
 }
 

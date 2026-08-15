@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use genos_core::BranchId;
 use genos_runtime::{
-    replay_counterfactual_history, ArchitectureDecision, CounterfactualUniverse,
+    replay_counterfactual_history, AgentPrimitive, ArchitectureDecision, CounterfactualUniverse,
     HistoricalObservation, HistoricalObservationKind, TemporalCheckpoint,
 };
 
@@ -136,4 +136,7 @@ fn rewriting_a_past_decision_replays_shared_history_with_causal_explanations() {
             cause.explanation,
         );
     }
+    assert!(report.primitive_trace.contains(AgentPrimitive::Restore));
+    assert_eq!(report.primitive_trace.count(AgentPrimitive::Replay), 5);
+    assert!(report.primitive_trace.contains(AgentPrimitive::Diff));
 }

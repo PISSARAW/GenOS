@@ -22,3 +22,7 @@ cargo run -p genos-cli -- experiment incident examples/adaptive-incident-search/
 ```
 
 The JSON report is persisted under `.genos/experiments/incident-42/reports/`.
+
+Its `primitive_trace` records `agent snapshot`, the initial and recursive
+`agent fork` operations, environment `agent mutate`, deterministic `agent
+replay`, evaluation through `agent run`, and `agent lineage`.

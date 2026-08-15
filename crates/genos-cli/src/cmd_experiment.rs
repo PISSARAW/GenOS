@@ -9,13 +9,13 @@ use genos_runtime::{
     evaluate_paired_reproduction, merge_experiences, persist_experiment_report,
     run_branch_evolution, run_bug_investigation, run_incident_search, run_personal_causal_replay,
     run_scientific_experiment, run_security_coevolution, run_temporal_experiment,
-    run_workspace_experiment, BranchEvolutionConfig, BranchExperience, BugInvestigationManifest,
-    ClaimRelation, CognitiveClaim, CognitiveMergeApplication, CognitiveMergeConfig,
-    CognitiveMergeReport, CohortControls, EvolutionBranchSpec, HeredityCohortMember,
-    IncidentSearchManifest, PairedBehaviorTrial, PersonalCausalReplayManifest,
-    ReproducibilityThresholds, ScientificExperimentManifest, SecurityCoevolutionManifest,
-    SelectionCandidate, SelectionConstraints, TemporalExperimentManifest,
-    WorkspaceExperimentManifest,
+    run_workspace_experiment, AgentPrimitive, AgentPrimitiveTrace, BranchEvolutionConfig,
+    BranchExperience, BugInvestigationManifest, ClaimRelation, CognitiveClaim,
+    CognitiveMergeApplication, CognitiveMergeConfig, CognitiveMergeReport, CohortControls,
+    EvolutionBranchSpec, HeredityCohortMember, IncidentSearchManifest, PairedBehaviorTrial,
+    PersonalCausalReplayManifest, ReproducibilityThresholds, ScientificExperimentManifest,
+    SecurityCoevolutionManifest, SelectionCandidate, SelectionConstraints,
+    TemporalExperimentManifest, WorkspaceExperimentManifest,
 };
 use serde::Deserialize;
 use serde::{de::DeserializeOwned, Serialize};
@@ -36,6 +36,7 @@ struct IncidentSummaryOutput {
     recursive_descendants: usize,
     perfect_reproductions: usize,
     perfect_branch_ids: Vec<String>,
+    primitives: Vec<AgentPrimitive>,
 }
 
 #[derive(Serialize)]
@@ -49,6 +50,7 @@ struct ScientificSummaryOutput {
     reproduction_mismatches: usize,
     rewinds: usize,
     artifacts: usize,
+    primitives: Vec<AgentPrimitive>,
 }
 
 #[derive(Serialize)]
@@ -62,6 +64,7 @@ struct SecurityCoevolutionSummaryOutput {
     observer_findings: usize,
     total_genomes_evaluated: usize,
     final_breach_probabilities: Vec<(String, f64)>,
+    primitives: Vec<AgentPrimitive>,
 }
 
 #[derive(Serialize)]
@@ -74,6 +77,17 @@ struct BugInvestigationSummaryOutput {
     selected_fix: Option<String>,
     evidence_records: usize,
     selection_note: String,
+    primitives: Vec<AgentPrimitive>,
+}
+
+fn primitive_sequence(trace: &AgentPrimitiveTrace) -> Vec<AgentPrimitive> {
+    let mut sequence = Vec::new();
+    for invocation in &trace.invocations {
+        if !sequence.contains(&invocation.primitive) {
+            sequence.push(invocation.primitive.clone());
+        }
+    }
+    sequence
 }
 
 fn read_manifest<T: DeserializeOwned>(path: &Path) -> anyhow::Result<T> {
@@ -249,6 +263,7 @@ pub fn cmd_experiment_incident(args: IncidentExperimentArgs) -> anyhow::Result<(
                     .into_iter()
                     .map(|id| id.0)
                     .collect(),
+                primitives: primitive_sequence(&report.primitive_trace),
             },
             args.format,
         )
@@ -293,6 +308,7 @@ pub fn cmd_experiment_scientific(args: ScientificExperimentArgs) -> anyhow::Resu
                     .count(),
                 rewinds: report.rewinds.len(),
                 artifacts: report.artifacts.len(),
+                primitives: primitive_sequence(&report.primitive_trace),
             },
             args.format,
         )
@@ -344,6 +360,7 @@ pub fn cmd_experiment_security_coevolution(args: SecurityCoevolutionArgs) -> any
                 observer_findings: report.evolution.len(),
                 total_genomes_evaluated: report.total_genomes_evaluated,
                 final_breach_probabilities,
+                primitives: primitive_sequence(&report.primitive_trace),
             },
             args.format,
         )
@@ -396,6 +413,7 @@ pub async fn cmd_experiment_bug_investigation(args: BugInvestigationArgs) -> any
                         .map(|investigation| investigation.evidence.len())
                         .sum::<usize>(),
                 selection_note: report.selection_note,
+                primitives: primitive_sequence(&report.primitive_trace),
             },
             args.format,
         )

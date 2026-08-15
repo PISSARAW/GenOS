@@ -110,6 +110,7 @@ pub struct BugInvestigationReport {
     pub selected_fix: Option<SelectedBugFix>,
     pub selection_note: String,
     pub lineage: LineageDag,
+    pub primitive_trace: crate::AgentPrimitiveTrace,
 }
 
 /// Falsify competing explanations in isolated code worlds. Every branch runs
@@ -133,6 +134,29 @@ pub async fn run_bug_investigation(
     }
 
     let started = Utc::now();
+    let mut primitive_trace = crate::AgentPrimitiveTrace::default();
+    primitive_trace.completed(
+        crate::AgentPrimitive::Init,
+        manifest.name.clone(),
+        json!({ "seed_dir": manifest.seed_dir.clone() }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Snapshot,
+        "bug-root",
+        json!({ "snapshot_id": root_snapshot_id.0.clone() }),
+    );
+    for evidence in &baseline_evidence {
+        let details = json!({
+            "evidence_id": evidence.evidence_id,
+            "exit_code": evidence.actual_exit_code,
+            "baseline": true,
+        });
+        if evidence.passed {
+            primitive_trace.completed(crate::AgentPrimitive::Run, "baseline", details);
+        } else {
+            primitive_trace.failed(crate::AgentPrimitive::Run, "baseline", details);
+        }
+    }
     let mut lineage = LineageDag::default();
     let mut investigations = Vec::new();
     for (index, hypothesis) in manifest.hypotheses.iter().enumerate() {
@@ -150,6 +174,31 @@ pub async fn run_bug_investigation(
         } else {
             HypothesisVerdict::Rejected
         };
+        primitive_trace.completed(
+            crate::AgentPrimitive::Fork,
+            hypothesis.id.clone(),
+            json!({ "parent_snapshot": root_snapshot_id.0.clone() }),
+        );
+        primitive_trace.completed(
+            crate::AgentPrimitive::Diff,
+            hypothesis.id.clone(),
+            json!({ "files_changed": diff.files_changed }),
+        );
+        for item in &evidence {
+            let details = json!({
+                "evidence_id": item.evidence_id,
+                "exit_code": item.actual_exit_code,
+            });
+            if item.passed {
+                primitive_trace.completed(
+                    crate::AgentPrimitive::Run,
+                    hypothesis.id.clone(),
+                    details,
+                );
+            } else {
+                primitive_trace.failed(crate::AgentPrimitive::Run, hypothesis.id.clone(), details);
+            }
+        }
         lineage.edges.push(LineageEdge {
             parent_snapshot: root_snapshot_id.clone(),
             child_snapshot: snapshot_id.clone(),
@@ -227,6 +276,19 @@ pub async fn run_bug_investigation(
             ),
         ),
     };
+    primitive_trace.deferred(
+        crate::AgentPrimitive::Merge,
+        manifest.name.clone(),
+        json!({
+            "reason": "winner selection preserves rejected branches; no cognitive state merge requested",
+            "supported": supported.len(),
+        }),
+    );
+    primitive_trace.completed(
+        crate::AgentPrimitive::Lineage,
+        manifest.name.clone(),
+        json!({ "edges": lineage.edges.len() }),
+    );
 
     Ok(BugInvestigationReport {
         name: manifest.name,
@@ -239,6 +301,7 @@ pub async fn run_bug_investigation(
         selected_fix,
         selection_note,
         lineage,
+        primitive_trace,
     })
 }
 

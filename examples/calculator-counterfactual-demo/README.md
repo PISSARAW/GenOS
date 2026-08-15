@@ -19,3 +19,6 @@ cargo run -p genos-cli -- experiment workspace examples/calculator-counterfactua
 ```
 
 The report and lineage are persisted under `.genos/experiments/calculator-counterfactual/reports/`.
+
+The report's `primitive_trace` records the canonical lifecycle actually used:
+`agent init → agent snapshot → agent fork → agent run → agent diff → agent merge → agent lineage`.
