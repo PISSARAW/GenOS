@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/phenotype.schema.json",
+  "title": "AgentPhenotypeObservation",
+  "type": "object",
+  "required": ["agent_id", "genome_digest", "context", "traits", "measured_at"],
+  "properties": {
+    "agent_id": { "type": "string" },
+    "genome_digest": { "type": "string", "pattern": "^sha256:" },
+    "context": {
+      "type": "object",
+      "required": ["evaluation_suite", "model", "environment"],
+      "properties": {
+        "evaluation_suite": { "type": "string" },
+        "model": { "type": "string" },
+        "environment": { "type": "string" },
+        "seed_policy": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "traits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "mean", "standard_error", "sample_size", "provenance"],
+        "properties": {
+          "name": { "type": "string" },
+          "mean": { "type": "number" },
+          "standard_error": { "type": "number", "minimum": 0 },
+          "sample_size": { "type": "integer", "minimum": 1 },
+          "provenance": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        }
+      }
+    },
+    "measured_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": true
+}
+
