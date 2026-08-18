@@ -4,6 +4,8 @@ pub mod pareto;
 pub mod qtl;
 pub mod phylogeny;
 pub mod variance;
+pub mod population;
+pub mod forces;
 pub mod reproducibility;
 pub mod traits;
 
