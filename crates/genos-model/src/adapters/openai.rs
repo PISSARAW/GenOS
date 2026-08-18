@@ -17,6 +17,10 @@ struct OpenAiRequest<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    seed: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     stop: Vec<String>,
@@ -94,9 +98,11 @@ impl LlmProvider for OpenAiAdapter {
         config: &GenerationConfig,
     ) -> anyhow::Result<LlmResponse> {
         let req_body = OpenAiRequest {
-            model: &self.model,
+            model: config.exact_model_version.as_deref().unwrap_or(&self.model),
             messages: map_messages(messages),
             temperature: config.temperature,
+            seed: config.seed,
+            top_p: config.top_p,
             max_completion_tokens: config.max_tokens,
             stop: config.stop_sequences.clone(),
         };
@@ -148,6 +154,11 @@ impl LlmProvider for OpenAiAdapter {
             },
             request_hash: "openai_req_hash".to_string(),
             response_hash: "openai_res_hash".to_string(),
+            model_version: Some(config.exact_model_version.clone().unwrap_or(self.model.clone())),
+            seed_used: config.seed,
+            temperature_used: config.temperature,
+            top_p_used: config.top_p,
+            top_k_used: config.top_k,
         })
     }
 }

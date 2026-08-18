@@ -60,6 +60,11 @@ impl LlmProvider for FakeModel {
             },
             request_hash,
             response_hash,
+            model_version: Some("fake_model".to_string()),
+            seed_used: _config.seed,
+            temperature_used: _config.temperature,
+            top_p_used: _config.top_p,
+            top_k_used: _config.top_k,
         })
     }
 }
@@ -114,6 +119,11 @@ impl LlmProvider for RandomModel {
             },
             request_hash,
             response_hash,
+            model_version: Some("random_model".to_string()),
+            seed_used: Some(self.seed),
+            temperature_used: _config.temperature,
+            top_p_used: _config.top_p,
+            top_k_used: _config.top_k,
         })
     }
 }
