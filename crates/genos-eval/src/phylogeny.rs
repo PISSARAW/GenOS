@@ -1,5 +1,5 @@
 ﻿use genos_core::{AgentGenome, GenomeId};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Calcule la distance gÃ©nÃ©tique Euclidienne (horloge molÃ©culaire) entre deux gÃ©nomes
 pub fn molecular_clock_distance(a: &AgentGenome, b: &AgentGenome) -> f64 {

@@ -1,4 +1,3 @@
-use super::*;
 use genos_core::Locus;
 use genos_core::RecombinationStrategy;
 
