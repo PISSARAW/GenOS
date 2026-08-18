@@ -16,6 +16,7 @@ categories.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 genos-core = { path = "../genos-core" }
+genos-eval = { version = "0.0.1", path = "../genos-eval" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
