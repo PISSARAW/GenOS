@@ -6,6 +6,9 @@ MAX_LINES=400
 has_error=0
 
 for file in $staged_files; do
+    if [[ "$file" == *"Cargo.lock" ]]; then
+        continue
+    fi
     if [ -f "$file" ]; then
         # Count lines
         lines=$(wc -l < "$file")
