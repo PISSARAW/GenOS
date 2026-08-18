@@ -44,6 +44,7 @@ impl LlmProvider for DegradationProvider {
                     request_hash: "degraded_request_hash".to_string(),
                     response_hash: "degraded_response_hash".to_string(),
                     model_version: Some("degraded_mode".to_string()),
+                    system_fingerprint: None,
                     seed_used: None,
                     temperature_used: None,
                     top_p_used: None,
