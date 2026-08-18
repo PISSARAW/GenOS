@@ -72,6 +72,7 @@ fn breeding_records_both_parents_and_starts_without_inferred_claims() {
         }],
         &genos_core::RecombinationStrategy::HomologousRecombination,
         None,
+        &[],
     )
     .unwrap();
     assert_eq!(child.parent_genomes, vec![alice.id, bob.id]);
@@ -162,6 +163,7 @@ fn child_validation_updates_breeding_status_from_observed_traits() {
         }],
         &genos_core::RecombinationStrategy::HomologousRecombination,
         None,
+        &[],
     )
     .unwrap();
     assert_eq!(

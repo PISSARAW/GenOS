@@ -168,8 +168,8 @@ mod tests {
                     Chromosome {
                         name: "C1".to_string(),
                         loci: vec![
-                            Locus { gene_name: "exploration".to_string(), value: exploration_val as f32 },
-                            Locus { gene_name: "risk".to_string(), value: risk_val as f32 },
+                            Locus { gene_name: "exploration".to_string(), value: exploration_val as f32, epigenetic_marker: 0.0 },
+                            Locus { gene_name: "risk".to_string(), value: risk_val as f32, epigenetic_marker: 0.0 },
                         ]
                     }
                 ],

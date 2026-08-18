@@ -99,7 +99,7 @@ pub fn map_qtl(genomes: &[AgentGenome], phenotypes: &[PhenotypeObservation], min
             // Extract all gene values
             for chrom in &genome.cognition.chromosomes {
                 for locus in &chrom.loci {
-                    let gene_val = locus.value as f64;
+                    let gene_val = locus.expressed_value() as f64;
                     let gene_name = &locus.gene_name;
 
                     // Extract all trait values
@@ -215,6 +215,7 @@ mod tests {
                 loci: vec![Locus {
                     gene_name: "curiosity".to_string(),
                     value: i as f32 * 0.1,
+                    epigenetic_marker: 0.0,
                 }]
             }];
             genomes.push(g);

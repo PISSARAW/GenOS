@@ -51,9 +51,9 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
                 genos_core::Chromosome {
                     name: "C1".to_string(),
                     loci: vec![
-                        genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7 },
-                        genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
-                        genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8 },
+                        genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
+                        genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
+                        genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
                     ],
                 }
             ],
@@ -186,7 +186,7 @@ pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
     let child =
-        breed_genomes(&alice, &bob, &manifest.child_name, &mappings, &genos_core::RecombinationStrategy::HomologousRecombination, manifest.speciation_threshold).map_err(anyhow::Error::msg)?;
+        breed_genomes(&alice, &bob, &manifest.child_name, &mappings, &genos_core::RecombinationStrategy::HomologousRecombination, manifest.speciation_threshold, &[]).map_err(anyhow::Error::msg)?;
     write_serialized(&args.out, &child, args.format)?;
     println!("bred agent genome written to {}", args.out.display());
     Ok(())

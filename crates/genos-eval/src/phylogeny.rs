@@ -8,7 +8,7 @@ pub fn molecular_clock_distance(a: &AgentGenome, b: &AgentGenome) -> f64 {
         if let Some(b_chrom) = b.cognition.chromosomes.iter().find(|c| c.name == a_chrom.name) {
             for a_locus in &a_chrom.loci {
                 if let Some(b_locus) = b_chrom.loci.iter().find(|l| l.gene_name == a_locus.gene_name) {
-                    let diff = (a_locus.value - b_locus.value) as f64;
+                    let diff = (a_locus.expressed_value() - b_locus.expressed_value()) as f64;
                     sum_sq += diff * diff;
                 }
             }

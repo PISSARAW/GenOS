@@ -25,7 +25,7 @@ pub fn extract_loci_values(population: &[AgentGenome], gene_name: &str) -> Vec<f
     for genome in population {
         for chromo in &genome.cognition.chromosomes {
             if let Some(locus) = chromo.loci.iter().find(|l| l.gene_name == gene_name) {
-                values.push(locus.value as f64);
+                values.push(locus.expressed_value() as f64);
             }
         }
     }
@@ -100,7 +100,7 @@ mod tests {
                 chromosomes: vec![
                     Chromosome {
                         name: "C1".to_string(),
-                        loci: vec![Locus { gene_name: "speed".to_string(), value: gene_val as f32 }]
+                        loci: vec![Locus { gene_name: "speed".to_string(), value: gene_val as f32, epigenetic_marker: 0.0 }]
                     }
                 ],
                 planning_depth: 3,
