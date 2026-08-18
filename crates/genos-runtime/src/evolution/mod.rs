@@ -1,4 +1,4 @@
-﻿mod breeding;
+mod breeding;
 mod heredity;
 mod selection;
 mod synthesis;
@@ -6,6 +6,8 @@ mod types;
 
 #[cfg(test)]
 mod breeding_tests;
+#[cfg(test)]
+mod recombination_tests;
 #[cfg(test)]
 mod tests;
 
