@@ -177,6 +177,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
             genome_field: "cognition.drives.exploration".to_string(),
             target,
         }],
+        &genos_core::RecombinationStrategy::HomologousRecombination,
     )
     .map_err(anyhow::Error::msg)?;
     assert_eq!(charlie.parent_genomes.len(), 2);

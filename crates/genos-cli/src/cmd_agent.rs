@@ -184,7 +184,7 @@ pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
         })
         .collect::<Result<Vec<_>>>()?;
     let child =
-        breed_genomes(&alice, &bob, &manifest.child_name, &mappings).map_err(anyhow::Error::msg)?;
+        breed_genomes(&alice, &bob, &manifest.child_name, &mappings, &genos_core::RecombinationStrategy::HomologousRecombination).map_err(anyhow::Error::msg)?;
     write_serialized(&args.out, &child, args.format)?;
     println!("bred agent genome written to {}", args.out.display());
     Ok(())
