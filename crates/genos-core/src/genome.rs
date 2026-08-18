@@ -16,6 +16,16 @@ pub struct CognitionConfig {
     #[serde(flatten)]
     pub drives: std::collections::BTreeMap<String, f32>,
     pub planning_depth: u32,
+    #[serde(default)]
+    pub regulators: Vec<RegulatorGene>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct RegulatorGene {
+    pub name: String,
+    pub condition: String,
+    pub modulated_drive: String,
+    pub modulation_offset: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -168,6 +178,7 @@ mod tests {
             cognition: CognitionConfig {
                 drives,
                 planning_depth: 1,
+                regulators: vec![],
             },
             objectives: vec![],
             policies: vec![],

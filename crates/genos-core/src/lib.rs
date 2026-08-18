@@ -2,6 +2,7 @@ pub mod artifact;
 pub mod beliefs;
 pub mod capsule;
 pub mod diff;
+pub mod epigenetics;
 pub mod events;
 pub mod genome;
 pub mod ids;

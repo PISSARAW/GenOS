@@ -61,6 +61,23 @@ pub struct AgentSnapshot {
     pub created_at: DateTime<Utc>,
 }
 
+impl AgentSnapshot {
+    /// Applies epigenetic modulators to the base genome drives based on current state.
+    pub fn active_drives(&self) -> std::collections::BTreeMap<String, f32> {
+        let mut current_drives = self.genome.cognition.drives.clone();
+        
+        for regulator in &self.genome.cognition.regulators {
+            if crate::epigenetics::evaluate_condition(&regulator.condition, &self.state) {
+                if let Some(val) = current_drives.get_mut(&regulator.modulated_drive) {
+                    *val = (*val + regulator.modulation_offset).clamp(0.0, 1.0);
+                }
+            }
+        }
+        
+        current_drives
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GenomeStateComparison {
     pub left_genome_hash: String,
@@ -405,6 +422,7 @@ pub(crate) mod tests {
                         d
                     },
                     planning_depth: 6,
+                    regulators: vec![],
                 },
                 objectives: vec![],
                 policies: vec![],

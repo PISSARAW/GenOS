@@ -55,6 +55,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
                 d
             },
             planning_depth: 6,
+            regulators: vec![],
         },
         objectives: vec![Objective {
             key: "tests_pass".to_string(),
