@@ -1,4 +1,4 @@
-﻿pub mod cognitive_merge;
+pub mod cognitive_merge;
 pub mod counterfactual;
 pub mod pareto;
 pub mod qtl;
@@ -10,6 +10,7 @@ pub mod reproducibility;
 pub mod traits;
 pub mod lamarck;
 pub mod ecosystem;
+pub mod parasitism;
 
 #[cfg(test)]
 mod tests;

@@ -33,11 +33,22 @@ impl Locus {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Modélise les différentes stratégies de recombinaison (Reproduction Sexuelle).
+/// 
+/// **Biologie Évolutive & Algorithmique (Opérateurs Linéaires vs Non-Linéaires)** :
+/// - **HomologousRecombination (Croisement en 1 point)** : L'enfant hérite de la première moitié du parent A, et de la deuxième du parent B.
+/// - **UniformCrossover (Croisement Uniforme)** : Extrêmement efficace pour explorer un large espace et maintenir l'hétérozygosité, chaque gène a X% de chance de venir de A ou B.
+/// - **Gaussian (SBX / Parent-Centric)** : Opérateur centré sur les parents (distribution normale). Maintient les blocs tout en permettant d'extrapoler aux extrêmes.
+/// - **Epistatic & DominantRecessive** : Préservent les interactions subtiles (épistasie) et les "building blocks" performants sans les moyenner mathématiquement.
 pub enum RecombinationStrategy {
     HomologousRecombination,
     GeneConversion { dominant_parent: String },
     NonHomologousEndJoining { error_rate: f32 },
     SiteSpecific { target_genes: Vec<String> },
+    DominantRecessive,
+    Gaussian,
+    Epistatic,
+    UniformCrossover { mix_probability: f32 },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
