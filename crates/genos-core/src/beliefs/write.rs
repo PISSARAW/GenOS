@@ -1,12 +1,12 @@
-//! Belief write API.
+﻿//! Belief write API.
 //!
 //! Extracted from `mod.rs` so the public surface stays under the 400-line rule.
 //! Two write paths exist:
 //!
-//! - [`upsert_belief`] / [`upsert_belief_at`] — pure upsert by triple, no
+//! - [`upsert_belief`] / [`upsert_belief_at`] â€” pure upsert by triple, no
 //!   evidence. Contradiction detection runs here (same `(subject, predicate)`,
 //!   different `object_value`).
-//! - [`upsert_belief_with_evidence`] — same shape plus typed evidence links.
+//! - [`upsert_belief_with_evidence`] â€” same shape plus typed evidence links.
 //!   Validates each `EvidenceRef::ToolOutput` against the branch's tool outputs
 //!   and dedupes re-linked refs.
 //!
@@ -126,7 +126,7 @@ pub fn upsert_belief_at(
 
     // Contradiction detection runs only on `Added`: same `(subject, predicate)`
     // with a different `object_value` is the disagreement signal. A confidence
-    // update on an existing triple is not a contradiction — the existing rule
+    // update on an existing triple is not a contradiction â€” the existing rule
     // stays tight.
     let (contradictions, contradiction_event) = if kind == BeliefWriteKind::Added {
         let opposing: Vec<BeliefId> = snapshot

@@ -1,4 +1,4 @@
-use super::{ArgsMacro, OutputFormat};
+﻿use super::{ArgsMacro, OutputFormat};
 use std::path::PathBuf;
 
 #[derive(ArgsMacro, Debug)]

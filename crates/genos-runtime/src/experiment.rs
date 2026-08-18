@@ -1,4 +1,4 @@
-use crate::{
+﻿use crate::{
     checkpoint_capsule, default_capsule_components, fork_lineaged_counterfactual_capsules,
     initialize_project_snapshot, LineagedCounterfactualBranchSpec, LongRunningBranchOutcome,
     VerificationOutcome,

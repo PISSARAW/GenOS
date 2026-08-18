@@ -1,9 +1,9 @@
-//! Branch-local beliefs.
+﻿//! Branch-local beliefs.
 //!
 //! A belief is a `(subject, predicate, object)` triple tagged with a confidence
 //! score. Beliefs live in [`AgentState::beliefs`](crate::state::AgentState::beliefs),
 //! which is deep-copied by [`fork_snapshot`](crate::snapshot::fork_snapshot), so a
-//! write on one fork is invisible to its siblings and to the parent — exactly
+//! write on one fork is invisible to its siblings and to the parent â€” exactly
 //! the same isolation guarantee that [`variables`](crate::variables) gives
 //! working memory.
 //!
@@ -36,7 +36,7 @@ use crate::state::{Belief, BeliefStatus};
 use serde::Serialize;
 use thiserror::Error;
 
-/// Errors a belief operation can surface. Kept narrow on purpose — anything
+/// Errors a belief operation can surface. Kept narrow on purpose â€” anything
 /// else (deserialization, storage) still uses the caller's error type.
 #[derive(Debug, Error, PartialEq)]
 pub enum BeliefError {
@@ -73,7 +73,7 @@ pub struct BeliefWrite {
     pub previous_confidence: Option<f32>,
     pub status: BeliefStatus,
     pub kind: BeliefWriteKind,
-    /// Belief ids on the same branch that contradict this one — same
+    /// Belief ids on the same branch that contradict this one â€” same
     /// `(subject, predicate)`, opposite `object_value`. Empty when the new
     /// belief agrees with everything already recorded, or when the call was an
     /// update of an existing triple (a confidence change isn't a contradiction).
@@ -91,7 +91,7 @@ pub struct BeliefWrite {
     /// numbered at the branch's next sequence.
     pub event: crate::events::AgentEvent,
     /// Optional contradiction marker event. Present only when
-    /// [`BeliefWrite::contradictions`] is non-empty — a second
+    /// [`BeliefWrite::contradictions`] is non-empty â€” a second
     /// [`AgentEventType::MemoryUpdated`] event whose payload carries
     /// `kind: "contradiction"` plus the opposing ids.
     pub contradiction_event: Option<crate::events::AgentEvent>,
@@ -120,7 +120,7 @@ impl AgentSnapshot {
 
     /// Find beliefs on this branch that disagree with `(subject, predicate,
     /// object_value)`: same `subject` and `predicate`, different `object_value`.
-    /// Used by contradiction detection — the rules are "same `(subject,
+    /// Used by contradiction detection â€” the rules are "same `(subject,
     /// predicate)`, opposite objects on the same branch" only.
     pub fn find_opposing_beliefs(
         &self,

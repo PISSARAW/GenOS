@@ -1,4 +1,4 @@
-use crate::ids::{AgentId, BranchId, CorrelationId, EventId};
+﻿use crate::ids::{AgentId, BranchId, CorrelationId, EventId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -38,7 +38,7 @@ pub enum AgentEventType {
     /// branch. Payload carries `source_snapshot_id`, `restored_state_fields`
     /// (list of fields overwritten), and `event_cursor_sequence_before`. The
     /// event cursor advances past this event; the events emitted *before*
-    /// restore remain on the branch stream — history is preserved by
+    /// restore remain on the branch stream â€” history is preserved by
     /// construction because the event store is append-only.
     Restored,
 }

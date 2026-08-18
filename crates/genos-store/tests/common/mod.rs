@@ -54,6 +54,7 @@ pub fn make_snapshot(sequence: u64) -> AgentSnapshot {
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
             identity: genos_core::Identity {
                 name: "test-agent".to_string(),

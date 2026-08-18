@@ -1,9 +1,9 @@
-use genos_core::{AgentGenome, GenomeId};
+﻿use genos_core::{AgentGenome, GenomeId};
 use genos_eval::phylogeny::PhylogenyTree;
 use std::path::{Path, PathBuf};
 use crate::snapshot::{LocalSnapshotStore, SnapshotStore};
 
-/// Registre Fossile pour l'analyse cladistique et évolutive
+/// Registre Fossile pour l'analyse cladistique et Ã©volutive
 pub struct FossilRegistry {
     store: LocalSnapshotStore,
 }
@@ -21,7 +21,7 @@ impl FossilRegistry {
         }
     }
 
-    /// Récupère tous les génomes historiques connus dans le store
+    /// RÃ©cupÃ¨re tous les gÃ©nomes historiques connus dans le store
     pub async fn extract_all_genomes(&self) -> anyhow::Result<Vec<AgentGenome>> {
         let snapshot_ids = self.store.list_snapshot_ids().await?;
         let mut genomes = Vec::new();
@@ -44,13 +44,13 @@ impl FossilRegistry {
         Ok(unique_genomes)
     }
 
-    /// Reconstruit l'arbre phylogénétique complet (Cladogramme) au format Newick
+    /// Reconstruit l'arbre phylogÃ©nÃ©tique complet (Cladogramme) au format Newick
     pub async fn build_global_phylogeny(&self) -> anyhow::Result<PhylogenyTree> {
         let genomes = self.extract_all_genomes().await?;
         Ok(PhylogenyTree::build_from_genomes(&genomes))
     }
 
-    /// Remonte la lignée exacte d'un agent spécifique
+    /// Remonte la lignÃ©e exacte d'un agent spÃ©cifique
     pub async fn extract_lineage(&self, target_genome_id: &GenomeId) -> anyhow::Result<Vec<AgentGenome>> {
         let genomes = self.extract_all_genomes().await?;
         let mut lineage = Vec::new();
@@ -58,7 +58,7 @@ impl FossilRegistry {
 
         while let Some(genome) = genomes.iter().find(|g| g.id == current_id) {
             lineage.push(genome.clone());
-            // Remonte le premier parent pour une lignée simple (matrilinéaire / patrilinéaire)
+            // Remonte le premier parent pour une lignÃ©e simple (matrilinÃ©aire / patrilinÃ©aire)
             if !genome.parent_genomes.is_empty() {
                 current_id = genome.parent_genomes[0].clone();
             } else if let Some(p) = &genome.parent_genome {

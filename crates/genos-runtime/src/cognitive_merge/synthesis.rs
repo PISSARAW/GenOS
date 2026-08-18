@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+﻿use std::collections::HashMap;
 
 use super::graph::candidate_name;
 use super::types::{ContextualConclusion, KnowledgeSynthesis, MergedClaim};

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+﻿use std::collections::HashSet;
 
 use super::types::{ClaimRelation, CognitiveClaim, CognitiveMergeConfig};
 

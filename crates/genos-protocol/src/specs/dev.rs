@@ -1,4 +1,4 @@
-use serde_json::json;
+﻿use serde_json::json;
 
 use crate::schema::{object_schema, root_schema, string_array_schema, string_schema};
 use crate::spec_builder::SpecBuilder;

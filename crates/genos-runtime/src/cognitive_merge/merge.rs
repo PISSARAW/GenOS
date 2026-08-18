@@ -1,4 +1,4 @@
-use genos_core::BranchId;
+﻿use genos_core::BranchId;
 use std::collections::{BTreeMap, HashMap};
 
 use super::graph::{add_experiences_to_graph, build_cognitive_graph, candidate_name};

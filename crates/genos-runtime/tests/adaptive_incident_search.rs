@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+﻿use chrono::{DateTime, Utc};
 use genos_runtime::{
     run_incident_search, AgentPrimitive, IncidentEvidence, IncidentMutation, IncidentSearchConfig,
     IncidentSearchManifest, ReproductionStatus,
@@ -17,7 +17,7 @@ fn adaptive_search_refines_partial_reproductions_into_three_perfect_matches() {
             incident_at: at("2026-08-14T02:17:00Z"),
             logs: vec!["worker stalled before commit".to_string()],
             metrics: vec!["p99 latency spike".to_string()],
-            traces: vec!["request→cache→db→timeout".to_string()],
+            traces: vec!["requestâ†’cacheâ†’dbâ†’timeout".to_string()],
             database_state: "sha256:db-state-42".to_string(),
             code_versions: vec!["api@a91e".to_string(), "worker@18bc".to_string()],
             infrastructure: vec!["prod-eu-west".to_string()],

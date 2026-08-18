@@ -1,4 +1,4 @@
-//! Tests for the provenance walker (the inspect tree builder).
+﻿//! Tests for the provenance walker (the inspect tree builder).
 
 #![cfg(test)]
 
@@ -55,7 +55,7 @@ fn inspect_belief_walks_evidence_to_tool_output_to_event() {
     let tool_node = &tree.children[0];
     assert_eq!(tool_node.kind, "tool_output");
     assert_eq!(tool_node.edge.as_deref(), Some("derived from"));
-    // The walker doesn't itself attach the originating event — that's the
+    // The walker doesn't itself attach the originating event â€” that's the
     // CLI's `augment_tool_output_node` step, which needs the `ToolOutputRecord`
     // in hand. Call it here and assert the event grandchild is now attached.
     let mut augmented = tool_node.clone();

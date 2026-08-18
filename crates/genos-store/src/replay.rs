@@ -1,4 +1,4 @@
-use genos_core::{AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId};
+﻿use genos_core::{AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 

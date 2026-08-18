@@ -1,4 +1,4 @@
-use genos_core::{LineageRelation, SnapshotId};
+﻿use genos_core::{LineageRelation, SnapshotId};
 use genos_runtime::{
     run_scientific_experiment, AgentPrimitive, CompressionStrategy, ScientificCritiqueSpec,
     ScientificExperimentManifest, ScientificHypothesisSpec, ScientificProtocol,

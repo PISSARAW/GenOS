@@ -1,11 +1,11 @@
-//! Structural diff between two agent snapshots.
+﻿//! Structural diff between two agent snapshots.
 //!
 //! # Semantics
 //!
 //! The diff covers **logical state only**: exactly the fields listed in
 //! [`LOGICAL_STATE_FIELDS`](crate::LOGICAL_STATE_FIELDS). Identity
 //! (`snapshot_id`, `agent_id`, `branch_id`, the cursor's `branch_id`) and
-//! `created_at` are excluded on purpose — two sibling forks differ there by
+//! `created_at` are excluded on purpose â€” two sibling forks differ there by
 //! construction, so a diff that reported them would flag every correct fork as
 //! changed.
 //!
@@ -17,8 +17,8 @@
 //!
 //! In particular, two untouched forks of the same snapshot diff to nothing.
 //!
-//! Collections that behave like maps — working memory, beliefs, goals,
-//! objectives, capabilities, tool permissions, artifact refs — are keyed by
+//! Collections that behave like maps â€” working memory, beliefs, goals,
+//! objectives, capabilities, tool permissions, artifact refs â€” are keyed by
 //! their natural identifier before comparison, so a diff points at
 //! `state.working_memory.counter` rather than at a positional index that shifts
 //! whenever an unrelated entry is inserted. Reference lists are compared as

@@ -1,4 +1,4 @@
-//! File-level fork isolation.
+﻿//! File-level fork isolation.
 //!
 //! The world counterpart of `genos_core::variables`: instead of a variable in
 //! working memory, the diverging state is a file inside a forked world. Both

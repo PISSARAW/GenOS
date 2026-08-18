@@ -1,4 +1,4 @@
-//! Tests for branch-local belief isolation.
+﻿//! Tests for branch-local belief isolation.
 
 #![cfg(test)]
 
@@ -124,7 +124,7 @@ fn update_event_carries_the_previous_confidence_in_its_payload() {
 
 #[test]
 fn confidence_must_be_a_unit_interval() {
-    // add_belief validates; upsert_belief asserts (panic) — these mirror the
+    // add_belief validates; upsert_belief asserts (panic) â€” these mirror the
     // API split between "may fail with an error" and "is a programmer bug".
     let mut snapshot = snapshot_with_variable("placeholder", "0");
 

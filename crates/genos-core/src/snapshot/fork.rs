@@ -1,4 +1,4 @@
-use super::{AgentSnapshot, BranchMetadata};
+﻿use super::{AgentSnapshot, BranchMetadata};
 use crate::ids::{AgentId, BranchId, SnapshotId};
 use chrono::{DateTime, Utc};
 

@@ -1,4 +1,4 @@
-//! Private helpers for the structural diff engine.
+﻿//! Private helpers for the structural diff engine.
 //!
 //! These are implementation details of [`super::diff_snapshots`] and should not
 //! be used directly outside the `diff` module.
@@ -55,7 +55,7 @@ pub(super) fn diff_roots(roots: &[Root]) -> Vec<DiffEntry> {
     out
 }
 
-/// Walk two values in parallel, emitting one entry per differing leaf — except
+/// Walk two values in parallel, emitting one entry per differing leaf â€” except
 /// for a record present on one side only, which is one change, not one change
 /// per field it happens to carry.
 fn diff_values(path: &str, a: &Value, b: &Value, ctx: &mut DiffContext<'_>) {
@@ -158,7 +158,7 @@ pub(super) fn json_of<T: Serialize>(value: &T) -> Value {
 /// Turn `[{ "<key_field>": k, ... }, ...]` into `{ k: { ... } }` so a collection
 /// that behaves like a map diffs by identity instead of by position. Entries
 /// without a usable key keep their index, and a duplicated key keeps the last
-/// entry — the same rule the rest of the model applies to duplicates.
+/// entry â€” the same rule the rest of the model applies to duplicates.
 pub(super) fn keyed_by(value: Value, key_field: &str) -> Value {
     let Value::Array(items) = value else {
         return value;

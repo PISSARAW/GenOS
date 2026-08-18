@@ -1,4 +1,4 @@
-mod common;
+﻿mod common;
 
 use common::{make_event, make_snapshot, temp_store_path};
 use genos_core::{AgentEventType, CapsuleRelation, SnapshotId};

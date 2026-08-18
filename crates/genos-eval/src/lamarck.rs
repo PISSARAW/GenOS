@@ -1,4 +1,4 @@
-use genos_core::{AgentGenome, LamarckianMutation};
+﻿use genos_core::{AgentGenome, LamarckianMutation};
 
 /// Run a single step of Lamarckian evolution.
 /// Evaluates the agent, infers what needs to change, and proposes mutations for the child.

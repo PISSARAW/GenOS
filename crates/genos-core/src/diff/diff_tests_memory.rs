@@ -1,4 +1,4 @@
-//! Tests for the diff behavior specific to memory records (added / removed /
+﻿//! Tests for the diff behavior specific to memory records (added / removed /
 //! edited / re-recorded, with provenance). Generic diff tests live in
 //! `diff_tests_basic.rs`.
 
@@ -10,7 +10,7 @@ use crate::{add_memory_on_branch, add_memory_on_branch_at, fork_snapshot, Memory
 use chrono::{TimeZone, Utc};
 
 /// A memory recorded on one branch is one added memory, reported with the
-/// branch it came from — not one entry per field of the record.
+/// branch it came from â€” not one entry per field of the record.
 #[test]
 fn a_memory_added_on_one_branch_is_one_entry_with_provenance() {
     let parent = snapshot_with_variable("counter", "0");
@@ -55,7 +55,7 @@ fn a_memory_added_on_one_branch_is_one_entry_with_provenance() {
         )
     );
 
-    // One record added, so one entry for it — the id showing up in the ref
+    // One record added, so one entry for it â€” the id showing up in the ref
     // index is the only other memory-side change.
     assert_eq!(
         diff.memory_diff

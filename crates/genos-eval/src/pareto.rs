@@ -1,4 +1,4 @@
-use genos_core::{BranchId, ExperimentId};
+﻿use genos_core::{BranchId, ExperimentId};
 use serde::{Deserialize, Serialize};
 
 /// Scores independently measured for one branch. No scalarisation or winner

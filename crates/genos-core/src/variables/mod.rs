@@ -1,4 +1,4 @@
-//! Branch-local variables.
+﻿//! Branch-local variables.
 //!
 //! A variable is a working-memory entry addressed by key. Because
 //! [`fork_snapshot`](crate::fork_snapshot) deep-copies the parent state, a write

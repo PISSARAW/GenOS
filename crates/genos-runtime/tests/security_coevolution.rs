@@ -1,4 +1,4 @@
-use genos_core::{GenomeId, SnapshotId};
+﻿use genos_core::{GenomeId, SnapshotId};
 use genos_runtime::{
     run_security_coevolution, AgentPrimitive, SecurityCoevolutionConfig,
     SecurityCoevolutionManifest, SecurityGenes, SecurityPopulation, SecurityScenarioSpec,

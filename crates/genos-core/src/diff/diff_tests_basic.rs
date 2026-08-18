@@ -1,4 +1,4 @@
-//! Tests for the structural diff that are not specific to memory records.
+﻿//! Tests for the structural diff that are not specific to memory records.
 //!
 //! Memory-specific tests live in `diff_tests_memory.rs`.
 
@@ -245,7 +245,7 @@ fn changes_land_in_the_section_that_owns_them() {
     );
 }
 
-/// One field changed, one entry reported — not a re-dump of the genome.
+/// One field changed, one entry reported â€” not a re-dump of the genome.
 #[test]
 fn a_single_cognition_change_is_reported_as_a_single_entry() {
     let parent = snapshot_with_variable("counter", "0");

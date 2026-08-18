@@ -1,4 +1,4 @@
-use genos_model::{FakeModel, ModelProvider, ModelRequest, RandomModel};
+﻿use genos_model::{FakeModel, ModelProvider, ModelRequest, RandomModel};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

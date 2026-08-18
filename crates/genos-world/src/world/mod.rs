@@ -1,10 +1,10 @@
-//! World providers — the on-disk substrate that backs every fork.
+﻿//! World providers â€” the on-disk substrate that backs every fork.
 //!
 //! A [`WorldProvider`] is what `genos_core` asks for when it needs to spin up
 //! a new isolated execution environment, snapshot it, fork from that snapshot,
 //! diff two worlds, run a command inside one, or tear it down. The trait is
 //! deliberately small so different backends (plain directories, git worktrees,
-//! …) can plug in without leaking their internals.
+//! â€¦) can plug in without leaking their internals.
 //!
 //! The two implementations live in `directory` and `git_worktree`; the
 //! helpers they share live in `utils`.

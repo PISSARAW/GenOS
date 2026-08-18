@@ -1,4 +1,4 @@
-use genos_core::{AgentGenome, PhenotypeObservation};
+﻿use genos_core::{AgentGenome, PhenotypeObservation};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]

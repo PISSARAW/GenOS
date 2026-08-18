@@ -1,4 +1,4 @@
-use genos_core::{GenomeId, LineageDag, SnapshotId};
+﻿use genos_core::{GenomeId, LineageDag, SnapshotId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]

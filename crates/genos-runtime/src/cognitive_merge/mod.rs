@@ -1,4 +1,4 @@
-mod application;
+﻿mod application;
 mod graph;
 mod merge;
 mod synthesis;

@@ -1,25 +1,25 @@
-use genos_core::AgentGenome;
+﻿use genos_core::AgentGenome;
 use crate::variance::compute_variance;
 
-/// Métriques de diversité pour une population donnée, basées sur la génétique quantitative.
+/// MÃ©triques de diversitÃ© pour une population donnÃ©e, basÃ©es sur la gÃ©nÃ©tique quantitative.
 /// 
-/// **Choix Architectural (Variance vs Allèles Discrets) :**
-/// Le modèle classique de Hardy-Weinberg utilise l'hétérozygosité ($H_e = 2pq$) pour mesurer la diversité.
-/// Cependant, ce modèle exige des allèles discrets (ex: A, a). GenOS modélisant des traits complexes 
-/// via des valeurs continues (`f32`), nous utilisons le **Modèle Quantitatif Infinitésimal**.
+/// **Choix Architectural (Variance vs AllÃ¨les Discrets) :**
+/// Le modÃ¨le classique de Hardy-Weinberg utilise l'hÃ©tÃ©rozygositÃ© ($H_e = 2pq$) pour mesurer la diversitÃ©.
+/// Cependant, ce modÃ¨le exige des allÃ¨les discrets (ex: A, a). GenOS modÃ©lisant des traits complexes 
+/// via des valeurs continues (`f32`), nous utilisons le **ModÃ¨le Quantitatif InfinitÃ©simal**.
 /// 
-/// Dans ce modèle, la **Variance Génétique** remplace l'hétérozygosité comme indicateur de diversité.
-/// La loi de dérive génétique s'applique à l'identique : $V_t = V_{t-1} \times (1 - 1 / (2N_e))$.
+/// Dans ce modÃ¨le, la **Variance GÃ©nÃ©tique** remplace l'hÃ©tÃ©rozygositÃ© comme indicateur de diversitÃ©.
+/// La loi de dÃ©rive gÃ©nÃ©tique s'applique Ã  l'identique : $V_t = V_{t-1} \times (1 - 1 / (2N_e))$.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PopulationDiversity {
-    /// La variance génétique additive (Va) globale, agissant comme substitut continu à l'hétérozygosité.
+    /// La variance gÃ©nÃ©tique additive (Va) globale, agissant comme substitut continu Ã  l'hÃ©tÃ©rozygositÃ©.
     pub genetic_variance: f64,
-    /// L'estimation théorique de la variance à la génération suivante sous l'effet exclusif de la dérive génétique.
+    /// L'estimation thÃ©orique de la variance Ã  la gÃ©nÃ©ration suivante sous l'effet exclusif de la dÃ©rive gÃ©nÃ©tique.
     /// Formule : V_t = V_{t-1} * (1 - 1 / (2Ne))
     pub expected_variance_next_gen: f64,
 }
 
-/// Extrait toutes les valeurs continues des loci d'un gène spécifique à travers une population.
+/// Extrait toutes les valeurs continues des loci d'un gÃ¨ne spÃ©cifique Ã  travers une population.
 pub fn extract_loci_values(population: &[AgentGenome], gene_name: &str) -> Vec<f64> {
     let mut values = Vec::new();
     for genome in population {
@@ -32,12 +32,12 @@ pub fn extract_loci_values(population: &[AgentGenome], gene_name: &str) -> Vec<f
     values
 }
 
-/// Calcule la diversité d'une population (variance génétique) pour un gène donné.
+/// Calcule la diversitÃ© d'une population (variance gÃ©nÃ©tique) pour un gÃ¨ne donnÃ©.
 pub fn calculate_population_diversity(population: &[AgentGenome], gene_name: &str) -> PopulationDiversity {
     let values = extract_loci_values(population, gene_name);
     let variance = compute_variance(&values);
     
-    // Ne (Taille Efficace) : Dans notre modèle simple, on suppose Ne = N.
+    // Ne (Taille Efficace) : Dans notre modÃ¨le simple, on suppose Ne = N.
     let n_e = population.len() as f64;
     
     let expected_next = if n_e > 0.0 {
@@ -53,7 +53,7 @@ pub fn calculate_population_diversity(population: &[AgentGenome], gene_name: &st
 }
 
 /// Calcule l'Indice de Fixation (Fst) entre deux sous-populations.
-/// Fst quantifie la différenciation génétique due à la dérive (0 = identiques, 1 = totalement divergentes).
+/// Fst quantifie la diffÃ©renciation gÃ©nÃ©tique due Ã  la dÃ©rive (0 = identiques, 1 = totalement divergentes).
 /// Formule (Approche quantitative) : Fst = (Var_totale - Var_intra_moyenne) / Var_totale
 pub fn calculate_fst(pop1: &[AgentGenome], pop2: &[AgentGenome], gene_name: &str) -> f64 {
     let values1 = extract_loci_values(pop1, gene_name);
@@ -68,13 +68,13 @@ pub fn calculate_fst(pop1: &[AgentGenome], pop2: &[AgentGenome], gene_name: &str
     
     let var_total = compute_variance(&total_values);
     if var_total == 0.0 {
-        return 0.0; // Pas de diversité du tout = pas de différenciation possible.
+        return 0.0; // Pas de diversitÃ© du tout = pas de diffÃ©renciation possible.
     }
 
     let var1 = compute_variance(&values1);
     let var2 = compute_variance(&values2);
     
-    // Moyenne pondérée des variances intra-populations
+    // Moyenne pondÃ©rÃ©e des variances intra-populations
     let n1 = values1.len() as f64;
     let n2 = values2.len() as f64;
     let var_intra_avg = (var1 * n1 + var2 * n2) / (n1 + n2);
@@ -94,6 +94,7 @@ mod tests {
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
             identity: Identity { name: "Test".to_string(), role: "Agent".to_string() },
             cognition: CognitionConfig {
@@ -141,9 +142,9 @@ mod tests {
 
     #[test]
     fn test_fst_diverged_populations() {
-        // Pop 1: fixée à 1.0 (Variance intra = 0)
+        // Pop 1: fixÃ©e Ã  1.0 (Variance intra = 0)
         let pop1 = vec![make_genome("g1", 1.0), make_genome("g2", 1.0)];
-        // Pop 2: fixée à 3.0 (Variance intra = 0)
+        // Pop 2: fixÃ©e Ã  3.0 (Variance intra = 0)
         let pop2 = vec![make_genome("g3", 3.0), make_genome("g4", 3.0)];
         
         let fst = calculate_fst(&pop1, &pop2, "speed");

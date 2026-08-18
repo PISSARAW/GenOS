@@ -1,4 +1,4 @@
-//! A [`WorldProvider`] backed by git worktrees.
+﻿//! A [`WorldProvider`] backed by git worktrees.
 //!
 //! Each world is its own worktree, branched off a shared source repository.
 //! A snapshot is the commit the worktree's HEAD points at, and forking means

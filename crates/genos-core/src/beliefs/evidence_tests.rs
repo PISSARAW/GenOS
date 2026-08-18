@@ -1,4 +1,4 @@
-//! Tests for the `evidence` field on `Belief` (typed links + auto-Inferred).
+﻿//! Tests for the `evidence` field on `Belief` (typed links + auto-Inferred).
 
 #![cfg(test)]
 
@@ -151,7 +151,7 @@ fn evidence_appended_dedups_existing_refs() {
 #[test]
 fn belief_evidence_is_defaulted_for_older_snapshots() {
     // Older JSON for a Belief had `evidence` absent (defaulted to empty) or
-    // `evidence: []` — both deserialize to an empty `Vec<EvidenceRef>`.
+    // `evidence: []` â€” both deserialize to an empty `Vec<EvidenceRef>`.
     let json = r#"{
         "id": "01h0",
         "subject": "s",
@@ -195,7 +195,7 @@ fn fork_inherits_the_tool_outputs_an_evidence_ref_points_at() {
             tool_output_id: tool_output_id.clone()
         }));
 
-    // An update on the fork is also visible — the same evidence remains on
+    // An update on the fork is also visible â€” the same evidence remains on
     // the fork-local copy of the belief.
     let write = upsert_belief(&mut fork, "api", "returns_one", "yes", 0.4);
     assert_eq!(write.belief_id, fork.beliefs()[0].id);

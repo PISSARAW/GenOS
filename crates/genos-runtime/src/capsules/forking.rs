@@ -1,4 +1,4 @@
-use genos_core::{
+﻿use genos_core::{
     fork_snapshot_with_hypothesis, AgentSnapshot, AgentWorldCapsule, CapsuleLifecycle,
     CapsuleRelation, WorldId,
 };

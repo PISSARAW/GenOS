@@ -1,4 +1,4 @@
-//! Branch-local tool output records.
+﻿//! Branch-local tool output records.
 //!
 //! A tool call recorded on a branch is the bridge between an
 //! [`AgentEventType::ToolRequested`] / [`AgentEventType::ToolCompleted`] (or
@@ -74,7 +74,7 @@ pub struct ToolCallRequest<'a> {
 /// Two events are emitted on the branch: a `ToolRequested` (sequence N+1),
 /// then `ToolCompleted` or `ToolFailed` (sequence N+2, with
 /// `causation_id = Some(<requested_event.event_id>)`). The record's
-/// `generating_event_id` is the completion event's id — that's the link the
+/// `generating_event_id` is the completion event's id â€” that's the link the
 /// provenance walker follows when rendering the inspect tree.
 ///
 /// `created_in` is the snapshot's branch, so a fork inherits a copy of the
@@ -192,7 +192,7 @@ pub fn record_tool_call_on_branch_at(
         size: artifact_bytes.len() as u64,
     });
 
-    // The cursor advances to the completion event — that is, the latest
+    // The cursor advances to the completion event â€” that is, the latest
     // event on the branch's stream.
     snapshot.state.event_cursor.sequence = completed_sequence;
     snapshot.state.event_cursor.last_event_id = Some(completed_event.event_id.clone());

@@ -1,4 +1,4 @@
-use crate::artifact::ArtifactRef;
+﻿use crate::artifact::ArtifactRef;
 use crate::beliefs::evidence::EvidenceRef;
 use crate::ids::GenomeId;
 use crate::ids::{BeliefId, BranchId, EventId, MemoryId, ToolOutputId, WorldId};

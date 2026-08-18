@@ -1,4 +1,4 @@
-//! Internal helpers shared by the world providers.
+﻿//! Internal helpers shared by the world providers.
 //!
 //! Kept in a private module so neither provider has to depend on the other
 //! just to copy a directory or run a command.

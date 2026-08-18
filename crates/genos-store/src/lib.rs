@@ -1,4 +1,4 @@
-pub mod artifact;
+﻿pub mod artifact;
 pub mod capsule;
 pub mod event;
 pub mod replay;

@@ -1,4 +1,4 @@
-use serde::Serialize;
+﻿use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use super::types::{BeliefRevision, CompressionMetrics, ScientificArtifact, ScientificArtifactKind};

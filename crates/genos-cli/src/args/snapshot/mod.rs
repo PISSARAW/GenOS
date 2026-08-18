@@ -1,4 +1,4 @@
-pub mod lifecycle;
+﻿pub mod lifecycle;
 pub mod mutation;
 
 pub use lifecycle::*;
@@ -13,7 +13,7 @@ pub enum LineageFormat {
     Json,
     /// YAML form of the same tree.
     Yaml,
-    /// Plain text rendered with `├──` / `└──` connectors.
+    /// Plain text rendered with `â”œâ”€â”€` / `â””â”€â”€` connectors.
     Text,
 }
 
@@ -59,7 +59,7 @@ pub enum SnapshotSubcommands {
     /// Mint a fresh `snapshot_id` carrying the current logical state on the
     /// same branch. Unlike `snapshot save` (id-stable round-trip), `checkpoint`
     /// advances the timeline so a series of writes can be recorded as
-    /// distinct snapshots `S0 → S1 → S2 → ...` on one branch. Emits a
+    /// distinct snapshots `S0 â†’ S1 â†’ S2 â†’ ...` on one branch. Emits a
     /// `snapshot_created` event whose payload references the prior id.
     Checkpoint(SnapshotCheckpointArgs),
     /// Build a lineage tree of snapshots and the relations between them by

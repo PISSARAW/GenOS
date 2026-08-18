@@ -1,4 +1,4 @@
-//! Tests for branch-local variable isolation.
+﻿//! Tests for branch-local variable isolation.
 
 #![cfg(test)]
 

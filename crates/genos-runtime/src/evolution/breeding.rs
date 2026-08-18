@@ -1,4 +1,4 @@
-use std::collections::hash_map::DefaultHasher;
+﻿use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use genos_core::{
@@ -134,7 +134,7 @@ fn recombine_chromosomes(
                     ctx.prng_state,
                 );
                 
-                // Hérédité Lamarckienne avec dissipation épigénétique (ex: 70% conservé)
+                // HÃ©rÃ©ditÃ© Lamarckienne avec dissipation Ã©pigÃ©nÃ©tique (ex: 70% conservÃ©)
                 chosen_locus.epigenetic_marker *= 0.7;
 
                 let chosen_value = chosen_locus.value;

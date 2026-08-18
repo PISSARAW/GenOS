@@ -1,4 +1,4 @@
-use genos_core::*;
+﻿use genos_core::*;
 use genos_eval::{recombine_measured_trait, ReproducibilityVerdict, TraitEstimate};
 use genos_runtime::*;
 use genos_store::{CapsuleStore, LocalCapsuleStore};
@@ -19,6 +19,7 @@ fn snapshot(name: &str) -> AgentSnapshot {
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: GenomeVersion("0.1.0".to_string()),
             identity: Identity {
                 name: name.to_string(),

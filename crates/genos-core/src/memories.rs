@@ -1,7 +1,7 @@
-//! Branch-local memories.
+﻿//! Branch-local memories.
 //!
-//! Recording a memory is the same kind of act as writing a variable — see
-//! [`crate::variables`] — with one addition: a memory carries provenance. It
+//! Recording a memory is the same kind of act as writing a variable â€” see
+//! [`crate::variables`] â€” with one addition: a memory carries provenance. It
 //! knows which branch created it, when, and on what basis, so a diff between
 //! two branches can report where a memory appeared rather than only that the
 //! two sides disagree.

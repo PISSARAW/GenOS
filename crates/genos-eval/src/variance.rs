@@ -1,28 +1,28 @@
-use genos_core::{AgentGenome, PhenotypeObservation};
+﻿use genos_core::{AgentGenome, PhenotypeObservation};
 use crate::qtl::map_qtl;
 
-/// Contient la décomposition complète de la variance d'un trait au sein d'une population.
+/// Contient la dÃ©composition complÃ¨te de la variance d'un trait au sein d'une population.
 /// 
-/// L'équation fondamentale modélisée est : `Vp = Va + Vd + Vi + Ve`
+/// L'Ã©quation fondamentale modÃ©lisÃ©e est : `Vp = Va + Vd + Vi + Ve`
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarianceDecomposition {
-    /// Variance Phénotypique Totale
+    /// Variance PhÃ©notypique Totale
     pub v_p: f64,
-    /// Variance Additive (Liée aux effets linéaires des gènes isolés)
+    /// Variance Additive (LiÃ©e aux effets linÃ©aires des gÃ¨nes isolÃ©s)
     pub v_a: f64,
-    /// Variance de Dominance (Liée aux interactions d'allèles sur le même locus)
+    /// Variance de Dominance (LiÃ©e aux interactions d'allÃ¨les sur le mÃªme locus)
     pub v_d: f64,
-    /// Variance d'Épistasie (Liée aux interactions entre gènes différents)
+    /// Variance d'Ã‰pistasie (LiÃ©e aux interactions entre gÃ¨nes diffÃ©rents)
     pub v_i: f64,
     /// Variance Environnementale
     pub v_e: f64,
 }
 
 impl VarianceDecomposition {
-    /// **Héritabilité au sens large (H²)**
+    /// **HÃ©ritabilitÃ© au sens large (HÂ²)**
     /// 
-    /// Mesure la part de la variance phénotypique totale due à *tous* les effets génétiques.
-    /// Formule : `H² = (Va + Vd + Vi) / Vp`
+    /// Mesure la part de la variance phÃ©notypique totale due Ã  *tous* les effets gÃ©nÃ©tiques.
+    /// Formule : `HÂ² = (Va + Vd + Vi) / Vp`
     pub fn broad_sense_heritability(&self) -> f64 {
         if self.v_p == 0.0 {
             return 0.0;
@@ -31,12 +31,12 @@ impl VarianceDecomposition {
         (v_g / self.v_p).clamp(0.0, 1.0)
     }
 
-    /// **Héritabilité au sens étroit (h²)**
+    /// **HÃ©ritabilitÃ© au sens Ã©troit (hÂ²)**
     /// 
-    /// Mesure la part de la variance phénotypique imputable *uniquement* à la variance additive (Va).
-    /// C'est la métrique la plus utile en sélection artificielle pour prédire la réponse à la sélection 
-    /// (Équation de l'Éleveur : `R = h² * S`).
-    /// Formule : `h² = Va / Vp`
+    /// Mesure la part de la variance phÃ©notypique imputable *uniquement* Ã  la variance additive (Va).
+    /// C'est la mÃ©trique la plus utile en sÃ©lection artificielle pour prÃ©dire la rÃ©ponse Ã  la sÃ©lection 
+    /// (Ã‰quation de l'Ã‰leveur : `R = hÂ² * S`).
+    /// Formule : `hÂ² = Va / Vp`
     pub fn narrow_sense_heritability(&self) -> f64 {
         if self.v_p == 0.0 {
             return 0.0;
@@ -45,7 +45,7 @@ impl VarianceDecomposition {
     }
 }
 
-/// Calcule la variance d'une série de nombres
+/// Calcule la variance d'une sÃ©rie de nombres
 pub fn compute_variance(values: &[f64]) -> f64 {
     let n = values.len() as f64;
     if n < 2.0 {
@@ -53,28 +53,28 @@ pub fn compute_variance(values: &[f64]) -> f64 {
     }
     let mean = values.iter().sum::<f64>() / n;
     let sum_sq_diff: f64 = values.iter().map(|&v| (v - mean) * (v - mean)).sum();
-    // Variance de l'échantillon (n - 1) ou population (n) ? On utilise (n-1) pour un estimateur sans biais.
+    // Variance de l'Ã©chantillon (n - 1) ou population (n) ? On utilise (n-1) pour un estimateur sans biais.
     sum_sq_diff / (n - 1.0)
 }
 
-/// Décompose la variance génétique (Vp = Va + Vd + Vi + Ve) d'une population.
+/// DÃ©compose la variance gÃ©nÃ©tique (Vp = Va + Vd + Vi + Ve) d'une population.
 /// 
-/// **Choix Architectural (Génétique Quantitative Moderne) :**
-/// Plutôt que de s'appuyer sur un pedigree théorique (covariance parent-enfant) ou 
-/// sur un arbre phylogénétique (inadapté pour la variance intra-population / micro-évolution), 
-/// cette fonction utilise une **approche génomique directe (GBLUP-like / GWAS)**.
-/// Puisque le système a un accès direct au code ADN exact des agents (les loci), 
-/// il effectue une régression linéaire liant la valeur des gènes au phénotype.
+/// **Choix Architectural (GÃ©nÃ©tique Quantitative Moderne) :**
+/// PlutÃ´t que de s'appuyer sur un pedigree thÃ©orique (covariance parent-enfant) ou 
+/// sur un arbre phylogÃ©nÃ©tique (inadaptÃ© pour la variance intra-population / micro-Ã©volution), 
+/// cette fonction utilise une **approche gÃ©nomique directe (GBLUP-like / GWAS)**.
+/// Puisque le systÃ¨me a un accÃ¨s direct au code ADN exact des agents (les loci), 
+/// il effectue une rÃ©gression linÃ©aire liant la valeur des gÃ¨nes au phÃ©notype.
 /// 
-/// Cela permet d'estimer la **Variance Additive (Va)** avec une précision moléculaire, 
-/// capturant ainsi la réalité de la transmission génétique bien mieux qu'une simple 
-/// attente théorique basée sur un pedigree.
+/// Cela permet d'estimer la **Variance Additive (Va)** avec une prÃ©cision molÃ©culaire, 
+/// capturant ainsi la rÃ©alitÃ© de la transmission gÃ©nÃ©tique bien mieux qu'une simple 
+/// attente thÃ©orique basÃ©e sur un pedigree.
 pub fn decompose_trait_variance(
     population: &[AgentGenome],
     phenotypes: &[PhenotypeObservation],
     target_trait: &str,
 ) -> VarianceDecomposition {
-    // 1. Isoler les scores du trait ciblé
+    // 1. Isoler les scores du trait ciblÃ©
     let mut scores = Vec::new();
     for p in phenotypes {
         if let Some(trait_obs) = p.traits.iter().find(|t| t.name == target_trait) {
@@ -92,7 +92,7 @@ pub fn decompose_trait_variance(
         };
     }
 
-    // 2. Variance Phénotypique totale (Vp)
+    // 2. Variance PhÃ©notypique totale (Vp)
     let v_p = compute_variance(&scores);
     if v_p == 0.0 {
         return VarianceDecomposition {
@@ -104,9 +104,9 @@ pub fn decompose_trait_variance(
         };
     }
 
-    // 3. Modèle Génomique (Régression QTL)
-    // Pour approximer GBLUP avec notre système actuel, on calcule la part de variance expliquée par chaque gène.
-    // La somme de ces variances linéaires isolées (Pearson) nous donne la Variance Additive (Va) proportionnelle à Vp.
+    // 3. ModÃ¨le GÃ©nomique (RÃ©gression QTL)
+    // Pour approximer GBLUP avec notre systÃ¨me actuel, on calcule la part de variance expliquÃ©e par chaque gÃ¨ne.
+    // La somme de ces variances linÃ©aires isolÃ©es (Pearson) nous donne la Variance Additive (Va) proportionnelle Ã  Vp.
     let qtl_results = map_qtl(population, phenotypes, 0.0);
     
     let mut total_additive_r2 = 0.0;
@@ -114,12 +114,12 @@ pub fn decompose_trait_variance(
     
     for qtl in qtl_results {
         if qtl.trait_name == target_trait {
-            // La covariance au carré (Pearson R²) indique la variance expliquée par un modèle strictement additif/linéaire.
+            // La covariance au carrÃ© (Pearson RÂ²) indique la variance expliquÃ©e par un modÃ¨le strictement additif/linÃ©aire.
             total_additive_r2 += qtl.variance_explained;
             
-            // Spearman R² mesure la corrélation monotone. 
-            // La différence entre (Spearman R²) et (Pearson R²) peut capturer une partie des effets non-linéaires (Dominance/Épistasie).
-            // Ceci est une approximation génomique simple.
+            // Spearman RÂ² mesure la corrÃ©lation monotone. 
+            // La diffÃ©rence entre (Spearman RÂ²) et (Pearson RÂ²) peut capturer une partie des effets non-linÃ©aires (Dominance/Ã‰pistasie).
+            // Ceci est une approximation gÃ©nomique simple.
             let spearman_r2 = qtl.spearman_correlation * qtl.spearman_correlation;
             if spearman_r2 > qtl.variance_explained {
                 total_nonlinear_r2 += spearman_r2 - qtl.variance_explained;
@@ -127,15 +127,15 @@ pub fn decompose_trait_variance(
         }
     }
 
-    // H² (large) = Somme des R² cumulés ne peut pas dépasser 1.0 théoriquement (modulo colinéarité, qu'on néglige ici pour la simplicité MVP)
+    // HÂ² (large) = Somme des RÂ² cumulÃ©s ne peut pas dÃ©passer 1.0 thÃ©oriquement (modulo colinÃ©aritÃ©, qu'on nÃ©glige ici pour la simplicitÃ© MVP)
     total_additive_r2 = total_additive_r2.clamp(0.0, 1.0);
     let remaining_for_nonlinear = 1.0 - total_additive_r2;
     total_nonlinear_r2 = total_nonlinear_r2.clamp(0.0, remaining_for_nonlinear);
 
     let v_a = v_p * total_additive_r2;
     
-    // Arbitrairement pour ce MVP, on assigne l'effet non-linéaire à l'Épistasie (interaction), car la Dominance intra-locus (Vd) 
-    // nécessiterait un code diploïde, or notre système est haploïde/continu.
+    // Arbitrairement pour ce MVP, on assigne l'effet non-linÃ©aire Ã  l'Ã‰pistasie (interaction), car la Dominance intra-locus (Vd) 
+    // nÃ©cessiterait un code diploÃ¯de, or notre systÃ¨me est haploÃ¯de/continu.
     let v_i = v_p * total_nonlinear_r2;
     let v_d = 0.0;
 
@@ -161,6 +161,7 @@ mod tests {
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
             identity: Identity { name: "Test".to_string(), role: "Agent".to_string() },
             cognition: CognitionConfig {
@@ -209,7 +210,7 @@ mod tests {
     fn test_compute_variance() {
         let vals = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let var = compute_variance(&vals);
-        assert!((var - 2.5).abs() < 1e-5); // Variance d'échantillon de [1,2,3,4,5] est 2.5
+        assert!((var - 2.5).abs() < 1e-5); // Variance d'Ã©chantillon de [1,2,3,4,5] est 2.5
     }
 
     #[test]
@@ -232,7 +233,7 @@ mod tests {
         let decomp = decompose_trait_variance(&pop, &phenotypes, "success");
         
         assert!((decomp.v_p - 250.0).abs() < 1e-4);
-        // Parfaitement corrélé avec "exploration", donc Va = Vp, Ve = 0
+        // Parfaitement corrÃ©lÃ© avec "exploration", donc Va = Vp, Ve = 0
         assert!((decomp.v_a - 250.0).abs() < 1e-4);
         assert!((decomp.v_e).abs() < 1e-4);
         assert!((decomp.narrow_sense_heritability() - 1.0).abs() < 1e-4);

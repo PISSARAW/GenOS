@@ -1,4 +1,4 @@
-use super::{AgentSnapshot, LOGICAL_STATE_FIELDS};
+﻿use super::{AgentSnapshot, LOGICAL_STATE_FIELDS};
 use crate::events::{AgentEvent, AgentEventType};
 use crate::ids::EventId;
 use chrono::{DateTime, Utc};
@@ -91,7 +91,7 @@ pub fn restore_snapshot_at(
 }
 
 /// Names of [`LOGICAL_STATE_FIELDS`] entries that actually differed between
-/// `target` and `source` before the restore — i.e. the fields the restore
+/// `target` and `source` before the restore â€” i.e. the fields the restore
 /// rewrote. Identity fields are excluded by construction (they're not in
 /// `LOGICAL_STATE_FIELDS`).
 fn compute_restored_fields(target: &AgentSnapshot, source: &AgentSnapshot) -> Vec<String> {
