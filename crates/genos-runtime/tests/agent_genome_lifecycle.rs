@@ -27,12 +27,13 @@ fn snapshot(name: &str) -> AgentSnapshot {
             cognition: CognitionConfig {
                 drives: {
                     let mut d = std::collections::BTreeMap::new();
-                    d.insert("exploration".to_string(), 0.8);
+                    d.insert("exploration".to_string(), 0.7);
                     d.insert("risk_tolerance".to_string(), 0.25);
-                    d.insert("verification_threshold".to_string(), 0.75);
+                    d.insert("verification_threshold".to_string(), 0.8);
                     d
                 },
                 planning_depth: 6,
+                regulators: vec![],
             },
             objectives: vec![],
             policies: vec![],

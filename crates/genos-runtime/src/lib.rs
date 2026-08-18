@@ -63,6 +63,7 @@ pub(crate) mod test_support {
                         d
                     },
                     planning_depth: 6,
+                    regulators: vec![],
                 },
                 objectives: vec![],
                 policies: vec![],
