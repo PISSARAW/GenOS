@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# Check all staged files (excluding deletions)
+staged_files=$(git diff --cached --name-only --diff-filter=ACM)
+MAX_LINES=400
+has_error=0
+
+for file in $staged_files; do
+    if [ -f "$file" ]; then
+        # Count lines
+        lines=$(wc -l < "$file")
+        if [ "$lines" -gt "$MAX_LINES" ]; then
+            echo "Erreur: Le fichier $file a $lines lignes (maximum autorisé: $MAX_LINES)."
+            has_error=1
+        fi
+    fi
+done
+
+if [ $has_error -ne 0 ]; then
+    echo "Commit rejeté. Veuillez respecter la règle des 400 lignes maximum par fichier."
+    exit 1
+fi
+
+exit 0
