@@ -28,9 +28,13 @@ pub fn initialize_project_snapshot(
                 role: role.to_string(),
             },
             cognition: CognitionConfig {
-                exploration: 0.5,
-                risk_tolerance: 0.25,
-                verification_threshold: 0.8,
+                drives: {
+                    let mut d = std::collections::BTreeMap::new();
+                    d.insert("exploration".to_string(), 0.5);
+                    d.insert("risk_tolerance".to_string(), 0.25);
+                    d.insert("verification_threshold".to_string(), 0.8);
+                    d
+                },
                 planning_depth: 4,
             },
             objectives: vec![],

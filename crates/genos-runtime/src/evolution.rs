@@ -408,15 +408,12 @@ pub fn breed_genomes(
                 mapping.genome_field
             ));
         }
-        let previous_value = match mapping.genome_field.as_str() {
-            "cognition.exploration" => std::mem::replace(&mut child.cognition.exploration, target),
-            "cognition.risk_tolerance" => {
-                std::mem::replace(&mut child.cognition.risk_tolerance, target)
-            }
-            "cognition.verification_threshold" => {
-                std::mem::replace(&mut child.cognition.verification_threshold, target)
-            }
-            field => return Err(format!("unsupported breeding target {field}")),
+        let previous_value = if let Some(drive_name) = mapping.genome_field.strip_prefix("cognition.drives.") {
+            let prev = child.cognition.drives.get(drive_name).copied().unwrap_or(0.5);
+            child.cognition.drives.insert(drive_name.to_string(), target);
+            prev
+        } else {
+            return Err(format!("unsupported breeding target {}", mapping.genome_field));
         };
         changes.push(GenomeMutationChange {
             field: mapping.genome_field.clone(),
@@ -606,14 +603,14 @@ mod tests {
             &bob,
             "charlie",
             &[BreedingTraitMapping {
-                genome_field: "cognition.exploration".to_string(),
+                genome_field: "cognition.drives.exploration".to_string(),
                 target,
             }],
         )
         .unwrap();
         assert_eq!(child.parent_genomes, vec![alice.id, bob.id]);
         assert_eq!(child.identity.name, "charlie");
-        assert_eq!(child.cognition.exploration, 0.65);
+        assert_eq!(*child.cognition.drives.get("exploration").unwrap(), 0.65);
         assert!(child.inferred_traits.is_empty());
     }
 
@@ -694,7 +691,7 @@ mod tests {
             &bob,
             "charlie",
             &[BreedingTraitMapping {
-                genome_field: "cognition.exploration".to_string(),
+                genome_field: "cognition.drives.exploration".to_string(),
                 target,
             }],
         )

@@ -47,9 +47,13 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
             role: args.role,
         },
         cognition: CognitionConfig {
-            exploration: 0.7,
-            risk_tolerance: 0.25,
-            verification_threshold: 0.8,
+            drives: {
+                let mut d = std::collections::BTreeMap::new();
+                d.insert("exploration".to_string(), 0.7);
+                d.insert("risk_tolerance".to_string(), 0.25);
+                d.insert("verification_threshold".to_string(), 0.8);
+                d
+            },
             planning_depth: 6,
         },
         objectives: vec![Objective {
@@ -111,19 +115,16 @@ pub fn cmd_agent_inspect(args: AgentInspectArgs) -> Result<()> {
 }
 
 pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
-    if args.exploration.is_none() && args.risk.is_none() {
-        bail!("nothing to mutate: pass --exploration and/or --risk");
+    if args.drives.is_empty() {
+        bail!("nothing to mutate: pass at least one --drive name=delta");
     }
     let parent: AgentGenome = read_genome(&args.path)?;
-    let exploration = args
-        .exploration
-        .map(|delta| bounded_delta("exploration", parent.cognition.exploration, delta))
-        .transpose()?;
-    let risk = args
-        .risk
-        .map(|delta| bounded_delta("risk", parent.cognition.risk_tolerance, delta))
-        .transpose()?;
-    let mut child = mutate_cognition(&parent, exploration, risk);
+    let mut drive_changes = std::collections::BTreeMap::new();
+    for (name, delta) in args.drives {
+        let current = parent.cognition.drives.get(&name).copied().unwrap_or(0.5);
+        drive_changes.insert(name.clone(), bounded_delta(&name, current, delta)?);
+    }
+    let mut child = mutate_cognition(&parent, drive_changes);
     child.version = GenomeVersion(next_version(&parent.version.0));
 
     let path = args.out.unwrap_or_else(|| {

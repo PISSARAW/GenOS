@@ -215,13 +215,12 @@ pub fn promote_inferred_trait(
     child.parent_genome = Some(genome.id.clone());
     child.parent_genomes = vec![genome.id.clone()];
     child.breeding = None;
-    let previous_value = match genome_field {
-        "cognition.exploration" => std::mem::replace(&mut child.cognition.exploration, value),
-        "cognition.risk_tolerance" => std::mem::replace(&mut child.cognition.risk_tolerance, value),
-        "cognition.verification_threshold" => {
-            std::mem::replace(&mut child.cognition.verification_threshold, value)
-        }
-        field => return Err(format!("unsupported promotion target {field}")),
+    let previous_value = if let Some(drive_name) = genome_field.strip_prefix("cognition.drives.") {
+        let prev = child.cognition.drives.get(drive_name).copied().unwrap_or(0.5);
+        child.cognition.drives.insert(drive_name.to_string(), value);
+        prev
+    } else {
+        return Err(format!("unsupported promotion target {genome_field}"));
     };
     child.mutation = Some(GenomeMutationMetadata {
         changes: vec![GenomeMutationChange {

@@ -716,10 +716,14 @@ mod tests {
                     role: "tester".to_string(),
                 },
                 cognition: genos_core::CognitionConfig {
-                    exploration: 0.5,
-                    risk_tolerance: 0.25,
-                    verification_threshold: 0.8,
-                    planning_depth: 2,
+                    drives: {
+                        let mut d = std::collections::BTreeMap::new();
+                        d.insert("exploration".to_string(), 0.5);
+                        d.insert("risk_tolerance".to_string(), 0.25);
+                        d.insert("verification_threshold".to_string(), 0.8);
+                        d
+                    },
+                    planning_depth: 4,
                 },
                 objectives: vec![],
                 policies: vec![],

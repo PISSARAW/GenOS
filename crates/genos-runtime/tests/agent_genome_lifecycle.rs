@@ -25,9 +25,13 @@ fn snapshot(name: &str) -> AgentSnapshot {
                 role: "researcher".to_string(),
             },
             cognition: CognitionConfig {
-                exploration: 0.8,
-                risk_tolerance: 0.25,
-                verification_threshold: 0.75,
+                drives: {
+                    let mut d = std::collections::BTreeMap::new();
+                    d.insert("exploration".to_string(), 0.8);
+                    d.insert("risk_tolerance".to_string(), 0.25);
+                    d.insert("verification_threshold".to_string(), 0.75);
+                    d
+                },
                 planning_depth: 6,
             },
             objectives: vec![],
@@ -121,11 +125,11 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
     let promoted = promote_inferred_trait(
         &alice.genome,
         "verification",
-        "cognition.verification_threshold",
+        "cognition.drives.verification_threshold",
     )
     .map_err(anyhow::Error::msg)?;
     assert_ne!(promoted.id, alice.genome.id);
-    assert!((promoted.cognition.verification_threshold - 0.81).abs() < 1e-6);
+    assert!((*promoted.cognition.drives.get("verification_threshold").unwrap() - 0.81).abs() < 1e-6);
 
     // ADR-0009: sibling baselines share a genome and logical state while
     // treatments produce a measurable phenotype range.
@@ -151,7 +155,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
 
     // ADR-0011: measured parental traits produce an untested two-parent child.
     let mut bob = snapshot("bob").genome;
-    bob.cognition.exploration = 0.3;
+    bob.cognition.drives.insert("exploration".to_string(), 0.3);
     let estimate = |mean| TraitEstimate {
         trait_name: "exploration".to_string(),
         mean,
@@ -166,7 +170,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
         &bob,
         "charlie",
         &[BreedingTraitMapping {
-            genome_field: "cognition.exploration".to_string(),
+            genome_field: "cognition.drives.exploration".to_string(),
             target,
         }],
     )

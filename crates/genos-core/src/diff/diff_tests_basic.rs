@@ -252,8 +252,8 @@ fn a_single_cognition_change_is_reported_as_a_single_entry() {
     let a1 = fork_snapshot(&parent);
     let mut a2 = fork_snapshot(&parent);
 
-    assert_eq!(a1.genome.cognition.exploration, 0.7);
-    a2.genome.cognition.exploration = 0.8;
+    assert_eq!(*a1.genome.cognition.drives.get("exploration").unwrap(), 0.7);
+    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
 
     let diff = diff_snapshots(&a1, &a2);
 
@@ -284,8 +284,8 @@ fn float_fields_are_reported_at_their_own_precision() {
     let a1 = fork_snapshot(&parent);
     let mut a2 = fork_snapshot(&parent);
 
-    a2.genome.cognition.exploration = 0.8;
-    a2.genome.cognition.verification_threshold = 0.55;
+    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
+    a2.genome.cognition.drives.insert("verification_threshold".to_string(), 0.55);
 
     let diff = diff_snapshots(&a1, &a2);
     let rendered: Vec<(&str, &str)> = diff
@@ -306,7 +306,7 @@ fn the_text_report_names_the_section_the_path_and_both_values() {
     let parent = snapshot_with_variable("counter", "0");
     let a1 = fork_snapshot(&parent);
     let mut a2 = fork_snapshot(&parent);
-    a2.genome.cognition.exploration = 0.8;
+    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
 
     assert_eq!(
         diff_snapshots(&a1, &a2).to_text(),

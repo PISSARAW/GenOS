@@ -397,9 +397,13 @@ pub(crate) mod tests {
                     role: "tester".to_string(),
                 },
                 cognition: CognitionConfig {
-                    exploration: 0.7,
-                    risk_tolerance: 0.25,
-                    verification_threshold: 0.8,
+                    drives: {
+                        let mut d = std::collections::BTreeMap::new();
+                        d.insert("exploration".to_string(), 0.7);
+                        d.insert("risk_tolerance".to_string(), 0.25);
+                        d.insert("verification_threshold".to_string(), 0.8);
+                        d
+                    },
                     planning_depth: 6,
                 },
                 objectives: vec![],
@@ -520,14 +524,19 @@ pub(crate) mod tests {
         let base = parent_snapshot(0);
         let mut agent_a = base.clone();
         let mut agent_b = base;
-        agent_a.genome = crate::mutate_exploration(&agent_a.genome, 0.4);
-        agent_b.genome = crate::mutate_exploration(&agent_b.genome, 0.9);
+        let mut changes_a = std::collections::BTreeMap::new();
+        changes_a.insert("exploration".to_string(), 0.4);
+        agent_a.genome = crate::mutate_cognition(&agent_a.genome, changes_a);
+
+        let mut changes_b = std::collections::BTreeMap::new();
+        changes_b.insert("exploration".to_string(), 0.9);
+        agent_b.genome = crate::mutate_cognition(&agent_b.genome, changes_b);
 
         let comparison = compare_genome_and_state(&agent_a, &agent_b);
         assert!(!comparison.same_genome);
         assert!(comparison.same_phenotype_state);
-        assert_eq!(agent_a.genome.cognition.exploration, 0.4);
-        assert_eq!(agent_b.genome.cognition.exploration, 0.9);
+        assert_eq!(*agent_a.genome.cognition.drives.get("exploration").unwrap(), 0.4);
+        assert_eq!(*agent_b.genome.cognition.drives.get("exploration").unwrap(), 0.9);
     }
 
     #[test]
