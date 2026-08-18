@@ -662,6 +662,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "genos-core",
+ "genos-eval",
  "serde",
  "serde_json",
  "sha2",
