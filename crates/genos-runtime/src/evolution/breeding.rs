@@ -1,0 +1,348 @@
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+use genos_core::{
+    AgentGenome, BreedingStatus, GenomeBreedingMetadata, GenomeBreedingTarget, GenomeId,
+    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion, PhenotypeObservation,
+    RecombinationStrategy,
+};
+
+use super::selection::artificial_select;
+use super::types::{
+    BreedingTraitMapping, BreedingValidation, SelectionCandidate, SelectionConstraints,
+};
+
+pub fn cantor_pairing(k1: u64, k2: u64) -> u64 {
+    (k1 + k2) * (k1 + k2 + 1) / 2 + k2
+}
+
+pub fn extract_numeric_id(id: &GenomeId) -> u64 {
+    let s = &id.0;
+    if let Some(idx) = s.rfind('_') {
+        if let Ok(num) = s[idx + 1..].parse::<u64>() {
+            return num;
+        }
+    }
+    let mut hasher = DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish() % 10000
+}
+
+pub fn compute_genetic_distance(alice: &AgentGenome, bob: &AgentGenome) -> f64 {
+    let mut sum_sq = 0.0;
+    for alice_chrom in &alice.cognition.chromosomes {
+        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+            for alice_locus in &alice_chrom.loci {
+                if let Some(bob_locus) = bob_chrom.loci.iter().find(|l| l.gene_name == alice_locus.gene_name) {
+                    let diff = (alice_locus.value - bob_locus.value) as f64;
+                    sum_sq += diff * diff;
+                }
+            }
+        }
+    }
+    sum_sq.sqrt()
+}
+
+pub fn breed_genomes(
+    alice: &AgentGenome,
+    bob: &AgentGenome,
+    child_name: &str,
+    mappings: &[BreedingTraitMapping],
+    strategy: &RecombinationStrategy,
+    speciation_threshold: Option<f64>,
+) -> Result<AgentGenome, String> {
+    if mappings.is_empty() {
+        return Err("breeding requires at least one measured trait target".to_string());
+    }
+
+    if let Some(threshold) = speciation_threshold {
+        let distance = compute_genetic_distance(alice, bob);
+        if distance > threshold {
+            return Err(format!(
+                "BreedingStatus::Rejected: Genetic distance {:.3} exceeds speciation threshold {:.3}",
+                distance, threshold
+            ));
+        }
+    }
+
+    let mut child = alice.clone();
+    child.id = GenomeId::new();
+    child.parent_genome = None;
+    child.parent_genomes = vec![alice.id.clone(), bob.id.clone()];
+    child.identity.name = child_name.to_string();
+    child.version = GenomeVersion("0.1.0".to_string());
+
+    let mut hasher = DefaultHasher::new();
+    alice.id.0.hash(&mut hasher);
+    bob.id.0.hash(&mut hasher);
+    let mut prng_state = hasher.finish();
+
+    let mut changes = Vec::new();
+    recombine_chromosomes(alice, bob, &mut child, RecombinationContext {
+        strategy,
+        prng_state: &mut prng_state,
+        changes: &mut changes,
+    });
+
+    child.mutation = Some(GenomeMutationMetadata { changes });
+    child.inferred_traits.clear();
+    child.breeding = Some(build_breeding_metadata(&child, mappings));
+    Ok(child)
+}
+
+struct RecombinationContext<'a> {
+    strategy: &'a RecombinationStrategy,
+    prng_state: &'a mut u64,
+    changes: &'a mut Vec<GenomeMutationChange>,
+}
+
+fn recombine_chromosomes(
+    alice: &AgentGenome,
+    bob: &AgentGenome,
+    child: &mut AgentGenome,
+    ctx: RecombinationContext<'_>,
+) {
+    for chrom_index in 0..child.cognition.chromosomes.len() {
+        let alice_chrom = &alice.cognition.chromosomes[chrom_index];
+        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+            let mut new_loci = Vec::new();
+            let crossover_point = alice_chrom.loci.len() / 2;
+
+            for (i, locus) in alice_chrom.loci.iter().enumerate() {
+                let bob_val = bob_chrom
+                    .loci
+                    .iter()
+                    .find(|l| l.gene_name == locus.gene_name)
+                    .map(|l| l.value)
+                    .unwrap_or(locus.value);
+
+                let chosen_value = calculate_recombined_locus(
+                    locus,
+                    bob_val,
+                    i >= crossover_point,
+                    ctx.strategy,
+                    ctx.prng_state,
+                );
+
+                new_loci.push(genos_core::Locus {
+                    gene_name: locus.gene_name.clone(),
+                    value: chosen_value,
+                });
+
+                ctx.changes.push(GenomeMutationChange {
+                    field: format!("cognition.drives.{}", locus.gene_name),
+                    previous_value: locus.value,
+                    new_value: chosen_value,
+                });
+            }
+            child.cognition.chromosomes[chrom_index].loci = new_loci;
+        }
+    }
+}
+
+fn calculate_recombined_locus(
+    locus: &genos_core::Locus,
+    bob_val: f32,
+    after_crossover: bool,
+    strategy: &RecombinationStrategy,
+    prng_state: &mut u64,
+) -> f32 {
+    let mut rand_f32 = || {
+        *prng_state = prng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (*prng_state >> 32) as f32 / (std::u32::MAX as f32)
+    };
+
+    match strategy {
+        RecombinationStrategy::HomologousRecombination => {
+            if after_crossover {
+                bob_val
+            } else {
+                locus.value
+            }
+        }
+        RecombinationStrategy::GeneConversion { dominant_parent } => {
+            if dominant_parent == "alice" {
+                locus.value
+            } else {
+                bob_val
+            }
+        }
+        RecombinationStrategy::NonHomologousEndJoining { error_rate } => {
+            let base_val = if after_crossover { bob_val } else { locus.value };
+            if rand_f32() < *error_rate {
+                let error = (rand_f32() - 0.5) * 0.2;
+                (base_val + error).clamp(0.0, 1.0)
+            } else {
+                base_val
+            }
+        }
+        RecombinationStrategy::SiteSpecific { target_genes } => {
+            if target_genes.contains(&locus.gene_name) {
+                bob_val
+            } else {
+                locus.value
+            }
+        }
+    }
+}
+
+fn build_breeding_metadata(
+    child: &AgentGenome,
+    mappings: &[BreedingTraitMapping],
+) -> GenomeBreedingMetadata {
+    GenomeBreedingMetadata {
+        status: BreedingStatus::UntestedCandidate,
+        targets: mappings
+            .iter()
+            .map(|mapping| {
+                let drive_name = mapping
+                    .genome_field
+                    .strip_prefix("cognition.drives.")
+                    .unwrap_or("");
+                let actual_target = child
+                    .cognition
+                    .get_drive(drive_name)
+                    .unwrap_or(mapping.target.target as f32) as f64;
+                GenomeBreedingTarget {
+                    trait_name: mapping.target.trait_name.clone(),
+                    genome_field: mapping.genome_field.clone(),
+                    target: actual_target,
+                    parent_a_weight: mapping.target.parent_a_weight,
+                    evaluation_suite: mapping.target.parent_a_estimate.evaluation_suite.clone(),
+                }
+            })
+            .collect(),
+    }
+}
+
+pub fn validate_bred_child(
+    child: &AgentGenome,
+    phenotype: &PhenotypeObservation,
+    tolerance: f64,
+) -> Result<BreedingValidation, String> {
+    let metadata = child
+        .breeding
+        .as_ref()
+        .ok_or_else(|| "genome has no breeding metadata".to_string())?;
+    if phenotype.genome_id != child.id {
+        return Err("phenotype does not belong to child genome".to_string());
+    }
+    let mut deviations = Vec::new();
+    for target in &metadata.targets {
+        let observed = phenotype
+            .traits
+            .iter()
+            .find(|value| value.name == target.trait_name)
+            .ok_or_else(|| format!("missing child observation for {}", target.trait_name))?;
+        deviations.push((
+            target.trait_name.clone(),
+            (observed.value - target.target).abs(),
+        ));
+    }
+    let mut genome = child.clone();
+    genome.breeding.as_mut().unwrap().status = if deviations
+        .iter()
+        .all(|(_, deviation)| *deviation <= tolerance)
+    {
+        BreedingStatus::Validated
+    } else {
+        BreedingStatus::Rejected
+    };
+    Ok(BreedingValidation {
+        genome,
+        deviations,
+        tolerance,
+    })
+}
+
+pub fn run_breeding_program<E>(
+    mut current_population: Vec<AgentGenome>,
+    batch_evaluator: &E,
+    constraints: &SelectionConstraints,
+    strategy: &RecombinationStrategy,
+    mappings: &[BreedingTraitMapping],
+    population_size: usize,
+    generations: usize,
+    start_generation: usize,
+    speciation_threshold: Option<f64>,
+) -> Result<Vec<AgentGenome>, String>
+where
+    E: Fn(&[AgentGenome]) -> Vec<SelectionCandidate>,
+{
+    if current_population.is_empty() {
+        return Err("Initial population cannot be empty".to_string());
+    }
+
+    let mut hasher = DefaultHasher::new();
+    "breeding_program".hash(&mut hasher);
+    let mut rand_f32 = || {
+        hasher.write_u8(0);
+        (hasher.finish() % 1000) as f32 / 1000.0
+    };
+
+    for gen in 0..generations {
+        let current_gen_num = start_generation + gen;
+        let candidates = batch_evaluator(&current_population);
+        let report = artificial_select(&candidates, constraints);
+
+        let mut non_dominated_ids = Vec::new();
+        for assessment in &report.pareto {
+            if assessment.status == genos_eval::ParetoStatus::NonDominated {
+                non_dominated_ids.push(GenomeId(assessment.branch_id.0.clone()));
+            }
+        }
+
+        if non_dominated_ids.is_empty() {
+            return Err(format!(
+                "Extinction at generation {} - no candidates survived constraints or pareto selection",
+                current_gen_num
+            ));
+        }
+
+        let mut next_population = Vec::new();
+        let mut non_dominated_genomes = Vec::new();
+        for genome in &current_population {
+            if non_dominated_ids.contains(&genome.id) {
+                next_population.push(genome.clone());
+                non_dominated_genomes.push(genome.clone());
+            }
+        }
+
+        let mut children_produced = 0;
+        while next_population.len() < population_size {
+            let alice_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
+            let mut bob_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
+            if non_dominated_genomes.len() > 1 && bob_idx == alice_idx {
+                bob_idx = (bob_idx + 1) % non_dominated_genomes.len();
+            }
+
+            let alice = &non_dominated_genomes[alice_idx];
+            let bob = &non_dominated_genomes[bob_idx];
+
+            let k1 = extract_numeric_id(&alice.id);
+            let k2 = extract_numeric_id(&bob.id);
+            let child_num_id = cantor_pairing(k1, k2);
+            let child_name = format!(
+                "gen_{}_id_{}",
+                current_gen_num + 1,
+                child_num_id + children_produced as u64
+            );
+
+            match breed_genomes(alice, bob, &child_name, mappings, strategy, speciation_threshold) {
+                Ok(mut child) => {
+                    child.id = genos_core::GenomeId(child_name);
+                    next_population.push(child);
+                    children_produced += 1;
+                }
+                Err(e) if e.contains("Rejected") => {
+                    continue;
+                }
+                Err(e) => return Err(e),
+            }
+        }
+
+        current_population = next_population;
+    }
+
+    Ok(current_population)
+}
