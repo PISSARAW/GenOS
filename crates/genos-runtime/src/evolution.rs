@@ -384,11 +384,16 @@ pub struct BreedingTraitMapping {
     pub target: RecombinedTraitTarget,
 }
 
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
+use genos_core::RecombinationStrategy;
+
 pub fn breed_genomes(
     alice: &AgentGenome,
     bob: &AgentGenome,
     child_name: &str,
     mappings: &[BreedingTraitMapping],
+    strategy: &RecombinationStrategy,
 ) -> Result<AgentGenome, String> {
     if mappings.is_empty() {
         return Err("breeding requires at least one measured trait target".to_string());
@@ -401,22 +406,62 @@ pub fn breed_genomes(
     child.version = GenomeVersion("0.1.0".to_string());
     let mut changes = Vec::new();
 
-    // 1. Spatially crossover chromosomes
+    // Create a deterministic pseudo-random sequence for NHEJ based on parent IDs
+    let mut hasher = DefaultHasher::new();
+    alice.id.0.hash(&mut hasher);
+    bob.id.0.hash(&mut hasher);
+    let mut prng_state = hasher.finish();
+
+    // Helper to get a pseudo-random f32 between 0 and 1
+    let mut rand_f32 = || {
+        prng_state = prng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        (prng_state >> 32) as f32 / (std::u32::MAX as f32)
+    };
+
     for chrom_index in 0..child.cognition.chromosomes.len() {
         let alice_chrom = &alice.cognition.chromosomes[chrom_index];
         if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
             
-            // For tests, use a simple deterministic crossover: cut in half
+            let mut new_loci = Vec::new();
             let crossover_point = alice_chrom.loci.len() / 2;
 
-            let mut new_loci = Vec::new();
             for (i, locus) in alice_chrom.loci.iter().enumerate() {
                 let mut chosen_value = locus.value;
-                if i >= crossover_point {
-                    if let Some(bob_locus) = bob_chrom.loci.iter().find(|l| l.gene_name == locus.gene_name) {
-                        chosen_value = bob_locus.value;
+                let bob_val = bob_chrom.loci.iter().find(|l| l.gene_name == locus.gene_name).map(|l| l.value).unwrap_or(locus.value);
+
+                match strategy {
+                    RecombinationStrategy::HomologousRecombination => {
+                        if i >= crossover_point {
+                            chosen_value = bob_val;
+                        }
+                    }
+                    RecombinationStrategy::GeneConversion { dominant_parent } => {
+                        if dominant_parent == "alice" {
+                            chosen_value = locus.value;
+                        } else if dominant_parent == "bob" {
+                            chosen_value = bob_val;
+                        } else {
+                            chosen_value = bob_val; // Default fallback
+                        }
+                    }
+                    RecombinationStrategy::NonHomologousEndJoining { error_rate } => {
+                        if i >= crossover_point {
+                            chosen_value = bob_val;
+                        }
+                        // Introduces a random error based on deterministic PRNG
+                        if rand_f32() < *error_rate {
+                            let error = (rand_f32() - 0.5) * 0.2; // +/- 10% error
+                            chosen_value = (chosen_value + error).clamp(0.0, 1.0);
+                        }
+                    }
+                    RecombinationStrategy::SiteSpecific { target_genes } => {
+                        if target_genes.contains(&locus.gene_name) {
+                            // Exchange targeted genes from Bob
+                            chosen_value = bob_val;
+                        }
                     }
                 }
+
                 new_loci.push(genos_core::Locus { gene_name: locus.gene_name.clone(), value: chosen_value });
                 
                 changes.push(GenomeMutationChange {
@@ -552,6 +597,21 @@ mod tests {
     use genos_core::{ObservedTrait, PhenotypeObservation};
     use genos_eval::TraitEstimate;
 
+    fn dummy_genome() -> genos_core::AgentGenome {
+        serde_json::from_str(r#"{
+            "id": "test_id",
+            "version": "1.0",
+            "identity": { "name": "test", "role": "test" },
+            "cognition": { "planning_depth": 1, "chromosomes": [] },
+            "objectives": [],
+            "policies": [],
+            "capabilities": [],
+            "memory_policy": { "working_max_items": 1, "episodic_enabled": false, "semantic_enabled": false },
+            "model_policy": { "strategy": "default", "preferred_providers": [], "allow_local": true },
+            "tool_policy": { "permissions": [] }
+        }"#).unwrap()
+    }
+
     fn phenotype(snapshot: &AgentSnapshot, treatment: &str, value: f64) -> HeredityCohortMember {
         HeredityCohortMember {
             treatment: treatment.to_string(),
@@ -618,6 +678,7 @@ mod tests {
                 genome_field: "cognition.drives.exploration".to_string(),
                 target,
             }],
+            &genos_core::RecombinationStrategy::HomologousRecombination,
         )
         .unwrap();
         assert_eq!(child.parent_genomes, vec![alice.id, bob.id]);
@@ -706,6 +767,7 @@ mod tests {
                 genome_field: "cognition.drives.exploration".to_string(),
                 target,
             }],
+            &genos_core::RecombinationStrategy::HomologousRecombination,
         )
         .unwrap();
         assert_eq!(
@@ -750,5 +812,77 @@ mod tests {
         );
         assert_eq!(proposal.status, SynthesisStatus::Validated);
         assert!(proposal.validation_branch.is_some());
+    }
+
+    #[test]
+    fn test_gene_conversion_dominant_alice() {
+        let mut alice = dummy_genome();
+        alice.id = genos_core::ids::GenomeId::new();
+        alice.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.1 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.2 }] }];
+        let mut bob = dummy_genome();
+        bob.id = genos_core::ids::GenomeId::new();
+        bob.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.9 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.8 }] }];
+
+        let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
+
+        let strategy = genos_core::RecombinationStrategy::GeneConversion { dominant_parent: "alice".to_string() };
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
+        assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.2);
+    }
+
+    #[test]
+    fn test_gene_conversion_dominant_bob() {
+        let mut alice = dummy_genome();
+        alice.id = genos_core::ids::GenomeId::new();
+        alice.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.1 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.2 }] }];
+        let mut bob = dummy_genome();
+        bob.id = genos_core::ids::GenomeId::new();
+        bob.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.9 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.8 }] }];
+
+        let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
+
+        let strategy = genos_core::RecombinationStrategy::GeneConversion { dominant_parent: "bob".to_string() };
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.9);
+        assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.8);
+    }
+
+    #[test]
+    fn test_nhej_deterministic_prng() {
+        let mut alice = dummy_genome();
+        alice.id = genos_core::ids::GenomeId::new();
+        alice.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.1 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.2 }] }];
+        let mut bob = dummy_genome();
+        bob.id = genos_core::ids::GenomeId::new();
+        bob.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.9 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.8 }] }];
+
+        let target1 = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
+        let target2 = target1.clone();
+
+        let strategy = genos_core::RecombinationStrategy::NonHomologousEndJoining { error_rate: 1.0 };
+        let child1 = breed_genomes(&alice, &bob, "child1", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target1 }], &strategy).unwrap();
+        let child2 = breed_genomes(&alice, &bob, "child2", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target2 }], &strategy).unwrap();
+
+        assert_eq!(child1.cognition.chromosomes[0].loci[0].value, child2.cognition.chromosomes[0].loci[0].value);
+        assert_eq!(child1.cognition.chromosomes[0].loci[1].value, child2.cognition.chromosomes[0].loci[1].value);
+        assert_ne!(child1.cognition.chromosomes[0].loci[0].value, 0.1);
+    }
+
+    #[test]
+    fn test_site_specific() {
+        let mut alice = dummy_genome();
+        alice.id = genos_core::ids::GenomeId::new();
+        alice.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.1 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.2 }] }];
+        let mut bob = dummy_genome();
+        bob.id = genos_core::ids::GenomeId::new();
+        bob.cognition.chromosomes = vec![genos_core::Chromosome { name: "C1".to_string(), loci: vec![genos_core::Locus { gene_name: "A".to_string(), value: 0.9 }, genos_core::Locus { gene_name: "B".to_string(), value: 0.8 }] }];
+
+        let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
+
+        let strategy = genos_core::RecombinationStrategy::SiteSpecific { target_genes: vec!["B".to_string()] };
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
+        assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.8);
     }
 }

@@ -18,6 +18,14 @@ pub struct Locus {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum RecombinationStrategy {
+    HomologousRecombination,
+    GeneConversion { dominant_parent: String },
+    NonHomologousEndJoining { error_rate: f32 },
+    SiteSpecific { target_genes: Vec<String> },
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Chromosome {
     pub name: String,
     pub loci: Vec<Locus>,
