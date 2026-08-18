@@ -15,6 +15,13 @@ pub struct Identity {
 pub struct Locus {
     pub gene_name: String,
     pub value: f32,
+    pub epigenetic_marker: f32,
+}
+
+impl Locus {
+    pub fn expressed_value(&self) -> f32 {
+        self.value + self.epigenetic_marker
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -151,6 +158,14 @@ pub struct AgentGenome {
     pub breeding: Option<GenomeBreedingMetadata>,
 }
 
+impl AgentGenome {
+    pub fn infer_trait_claim(&mut self, observations: &[crate::phenotype::PhenotypeObservation], trait_name: &str) {
+        if let Some(claim) = crate::phenotype::infer_trait_claim(observations, trait_name) {
+            self.inferred_traits.push(claim);
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BreedingStatus {
@@ -172,6 +187,12 @@ pub struct GenomeBreedingTarget {
 pub struct GenomeBreedingMetadata {
     pub status: BreedingStatus,
     pub targets: Vec<GenomeBreedingTarget>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct LamarckianMutation {
+    pub target_gene: String,
+    pub epigenetic_marker: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -210,7 +231,7 @@ pub fn mutate_cognition(
             if child.cognition.chromosomes.is_empty() {
                 child.cognition.chromosomes.push(Chromosome { name: "C1".to_string(), loci: vec![] });
             }
-            child.cognition.chromosomes[0].loci.push(Locus { gene_name: drive_name, value: new_value });
+            child.cognition.chromosomes[0].loci.push(Locus { gene_name: drive_name, value: new_value, epigenetic_marker: 0.0 });
         }
     }
     
@@ -239,9 +260,9 @@ mod tests {
                     Chromosome {
                         name: "C1".to_string(),
                         loci: vec![
-                            Locus { gene_name: "exploration".to_string(), value: exploration },
-                            Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
-                            Locus { gene_name: "verification_threshold".to_string(), value: 0.5 },
+                            Locus { gene_name: "exploration".to_string(), value: exploration, epigenetic_marker: 0.0 },
+                            Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
+                            Locus { gene_name: "verification_threshold".to_string(), value: 0.5, epigenetic_marker: 0.0 },
                         ],
                     }
                 ],

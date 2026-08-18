@@ -50,6 +50,7 @@ pub fn breed_genomes(
     mappings: &[BreedingTraitMapping],
     strategy: &RecombinationStrategy,
     speciation_threshold: Option<f64>,
+    lamarckian_mutations: &[genos_core::LamarckianMutation],
 ) -> Result<AgentGenome, String> {
     if mappings.is_empty() {
         return Err("breeding requires at least one measured trait target".to_string());
@@ -84,6 +85,16 @@ pub fn breed_genomes(
         changes: &mut changes,
     });
 
+    for mut_req in lamarckian_mutations {
+        for chrom in &mut child.cognition.chromosomes {
+            for locus in &mut chrom.loci {
+                if locus.gene_name == mut_req.target_gene {
+                    locus.epigenetic_marker = mut_req.epigenetic_marker;
+                }
+            }
+        }
+    }
+
     child.mutation = Some(GenomeMutationMetadata { changes });
     child.inferred_traits.clear();
     child.breeding = Some(build_breeding_metadata(&child, mappings));
@@ -109,25 +120,25 @@ fn recombine_chromosomes(
             let crossover_point = alice_chrom.loci.len() / 2;
 
             for (i, locus) in alice_chrom.loci.iter().enumerate() {
-                let bob_val = bob_chrom
+                let bob_locus = bob_chrom
                     .loci
                     .iter()
                     .find(|l| l.gene_name == locus.gene_name)
-                    .map(|l| l.value)
-                    .unwrap_or(locus.value);
+                    .unwrap_or(locus);
 
-                let chosen_value = calculate_recombined_locus(
+                let mut chosen_locus = calculate_recombined_locus(
                     locus,
-                    bob_val,
+                    bob_locus,
                     i >= crossover_point,
                     ctx.strategy,
                     ctx.prng_state,
                 );
+                
+                // Hérédité Lamarckienne avec dissipation épigénétique (ex: 70% conservé)
+                chosen_locus.epigenetic_marker *= 0.7;
 
-                new_loci.push(genos_core::Locus {
-                    gene_name: locus.gene_name.clone(),
-                    value: chosen_value,
-                });
+                let chosen_value = chosen_locus.value;
+                new_loci.push(chosen_locus);
 
                 ctx.changes.push(GenomeMutationChange {
                     field: format!("cognition.drives.{}", locus.gene_name),
@@ -142,48 +153,49 @@ fn recombine_chromosomes(
 
 fn calculate_recombined_locus(
     locus: &genos_core::Locus,
-    bob_val: f32,
+    bob_locus: &genos_core::Locus,
     after_crossover: bool,
     strategy: &RecombinationStrategy,
     prng_state: &mut u64,
-) -> f32 {
+) -> genos_core::Locus {
     let mut rand_f32 = || {
         *prng_state = prng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
         (*prng_state >> 32) as f32 / (std::u32::MAX as f32)
     };
 
-    match strategy {
+    let mut result = match strategy {
         RecombinationStrategy::HomologousRecombination => {
             if after_crossover {
-                bob_val
+                bob_locus.clone()
             } else {
-                locus.value
+                locus.clone()
             }
         }
         RecombinationStrategy::GeneConversion { dominant_parent } => {
             if dominant_parent == "alice" {
-                locus.value
+                locus.clone()
             } else {
-                bob_val
+                bob_locus.clone()
             }
         }
         RecombinationStrategy::NonHomologousEndJoining { error_rate } => {
-            let base_val = if after_crossover { bob_val } else { locus.value };
+            let mut base_locus = if after_crossover { bob_locus.clone() } else { locus.clone() };
             if rand_f32() < *error_rate {
                 let error = (rand_f32() - 0.5) * 0.2;
-                (base_val + error).clamp(0.0, 1.0)
-            } else {
-                base_val
+                base_locus.value = (base_locus.value + error).clamp(0.0, 1.0);
             }
+            base_locus
         }
         RecombinationStrategy::SiteSpecific { target_genes } => {
             if target_genes.contains(&locus.gene_name) {
-                bob_val
+                bob_locus.clone()
             } else {
-                locus.value
+                locus.clone()
             }
         }
-    }
+    };
+    
+    result
 }
 
 fn build_breeding_metadata(
@@ -328,7 +340,7 @@ where
                 child_num_id + children_produced as u64
             );
 
-            match breed_genomes(alice, bob, &child_name, mappings, strategy, speciation_threshold) {
+            match breed_genomes(alice, bob, &child_name, mappings, strategy, speciation_threshold, &[]) {
                 Ok(mut child) => {
                     child.id = genos_core::GenomeId(child_name);
                     next_population.push(child);

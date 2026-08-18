@@ -22,10 +22,12 @@ fn dummy_genome(val1: f32, val2: f32) -> AgentGenome {
             Locus {
                 gene_name: "trait1".to_string(),
                 value: val1,
+                epigenetic_marker: 0.0,
             },
             Locus {
                 gene_name: "trait2".to_string(),
                 value: val2,
+                epigenetic_marker: 0.0,
             }
         ]
     }];
@@ -65,7 +67,7 @@ fn run_speciation_experiment() {
     let thresholds = vec![0.5, 1.0, 5.0, 10.0, 20.0];
     
     for &threshold in &thresholds {
-        let result = breed_genomes(&alice, &bob, "child", &mappings, &strategy, Some(threshold));
+        let result = breed_genomes(&alice, &bob, "child", &mappings, &strategy, Some(threshold), &[]);
         if let Err(e) = result {
             println!("Threshold {:.1}: Rejected ({})", threshold, e);
         } else {

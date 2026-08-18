@@ -29,9 +29,9 @@ fn snapshot(name: &str) -> AgentSnapshot {
                     genos_core::Chromosome {
                         name: "C1".to_string(),
                         loci: vec![
-                            genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7 },
-                            genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
-                            genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8 },
+                            genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
+                            genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
+                            genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
                         ],
                     }
                 ],
@@ -179,6 +179,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
         }],
         &genos_core::RecombinationStrategy::HomologousRecombination,
         None,
+        &[],
     )
     .map_err(anyhow::Error::msg)?;
     assert_eq!(charlie.parent_genomes.len(), 2);

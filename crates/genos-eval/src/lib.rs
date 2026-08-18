@@ -8,6 +8,7 @@ pub mod population;
 pub mod forces;
 pub mod reproducibility;
 pub mod traits;
+pub mod lamarck;
 
 #[cfg(test)]
 mod tests;
@@ -17,3 +18,4 @@ pub use counterfactual::*;
 pub use pareto::*;
 pub use reproducibility::*;
 pub use traits::*;
+pub use lamarck::*;

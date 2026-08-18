@@ -23,8 +23,8 @@ fn test_gene_conversion_dominant_alice() {
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
         ],
     }];
     let mut bob = dummy_genome();
@@ -32,8 +32,8 @@ fn test_gene_conversion_dominant_alice() {
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
         ],
     }];
 
@@ -70,6 +70,7 @@ fn test_gene_conversion_dominant_alice() {
         }],
         &strategy,
         None,
+        &[],
     )
     .unwrap();
     assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
@@ -83,8 +84,8 @@ fn test_gene_conversion_dominant_bob() {
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
         ],
     }];
     let mut bob = dummy_genome();
@@ -92,8 +93,8 @@ fn test_gene_conversion_dominant_bob() {
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
         ],
     }];
 
@@ -130,6 +131,7 @@ fn test_gene_conversion_dominant_bob() {
         }],
         &strategy,
         None,
+        &[],
     )
     .unwrap();
     assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.9);
@@ -143,8 +145,8 @@ fn test_nhej_deterministic_prng() {
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
         ],
     }];
     let mut bob = dummy_genome();
@@ -152,8 +154,8 @@ fn test_nhej_deterministic_prng() {
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
         ],
     }];
 
@@ -189,6 +191,7 @@ fn test_nhej_deterministic_prng() {
         }],
         &strategy,
         None,
+        &[],
     )
     .unwrap();
     let child2 = breed_genomes(
@@ -201,6 +204,7 @@ fn test_nhej_deterministic_prng() {
         }],
         &strategy,
         None,
+        &[],
     )
     .unwrap();
 
@@ -222,8 +226,8 @@ fn test_site_specific() {
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
         ],
     }];
     let mut bob = dummy_genome();
@@ -231,8 +235,8 @@ fn test_site_specific() {
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8 },
+            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
+            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
         ],
     }];
 
@@ -269,6 +273,7 @@ fn test_site_specific() {
         }],
         &strategy,
         None,
+        &[],
     )
     .unwrap();
     assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);

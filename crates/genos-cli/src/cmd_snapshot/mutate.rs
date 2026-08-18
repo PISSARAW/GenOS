@@ -39,7 +39,7 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
             if snapshot.genome.cognition.chromosomes.is_empty() {
                 snapshot.genome.cognition.chromosomes.push(genos_core::Chromosome { name: "C1".to_string(), loci: vec![] });
             }
-            snapshot.genome.cognition.chromosomes[0].loci.push(genos_core::Locus { gene_name: name.clone(), value: new_value });
+            snapshot.genome.cognition.chromosomes[0].loci.push(genos_core::Locus { gene_name: name.clone(), value: new_value, epigenetic_marker: 0.0 });
         }
     }
 
