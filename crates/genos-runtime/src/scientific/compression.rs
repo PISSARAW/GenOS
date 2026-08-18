@@ -1,4 +1,4 @@
-use anyhow::bail;
+﻿use anyhow::bail;
 
 use super::types::{CompressionMetrics, CompressionStrategy, ScientificProtocol};
 

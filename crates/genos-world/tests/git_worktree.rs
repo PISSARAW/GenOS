@@ -1,4 +1,4 @@
-//! Git-worktree-backed world provider tests. Skipped if `git` is unavailable.
+﻿//! Git-worktree-backed world provider tests. Skipped if `git` is unavailable.
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{

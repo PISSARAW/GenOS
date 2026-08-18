@@ -1,4 +1,4 @@
-use super::*;
+﻿use super::*;
 use genos_core::{
     AgentSnapshot, BreedingStatus, GenomeId, ObservedTrait, PhenotypeObservation,
 };

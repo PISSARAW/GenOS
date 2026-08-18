@@ -1,4 +1,4 @@
-use super::{ArgsMacro, MemoryKindArg, OutputFormat};
+﻿use super::{ArgsMacro, MemoryKindArg, OutputFormat};
 use std::path::PathBuf;
 
 pub fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
@@ -105,13 +105,13 @@ pub struct SnapshotSetBeliefArgs {
     /// Snapshot to write on: file path or snapshot id resolved in the snapshot store.
     #[arg(long)]
     pub snapshot: String,
-    /// Subject of the belief — what the claim is *about*.
+    /// Subject of the belief â€” what the claim is *about*.
     #[arg(long)]
     pub subject: String,
-    /// Predicate of the belief — what relation is being asserted.
+    /// Predicate of the belief â€” what relation is being asserted.
     #[arg(long)]
     pub predicate: String,
-    /// Object of the belief — what the subject is claimed to relate to.
+    /// Object of the belief â€” what the subject is claimed to relate to.
     #[arg(long = "object")]
     pub object_value: String,
     /// Confidence in [0.0, 1.0]. A later call with the same triple overwrites

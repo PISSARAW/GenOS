@@ -1,4 +1,4 @@
-//! Snapshot-only output structs. Split out of `output.rs` so that file
+﻿//! Snapshot-only output structs. Split out of `output.rs` so that file
 //! stays under the 400-line ceiling as the snapshot subcommand set grows.
 
 use genos_core::{AgentSnapshot, LineageNode};
@@ -21,7 +21,7 @@ pub struct SnapshotRestoreOutput {
     /// target).
     pub source_snapshot_id: String,
     /// Names of the [`LOGICAL_STATE_FIELDS`] that actually differed between
-    /// target and source before the restore — i.e. the fields the restore
+    /// target and source before the restore â€” i.e. the fields the restore
     /// rewrote. Empty when target and source were already identical.
     pub restored_fields: Vec<String>,
     /// `restored` event id, when `--emit-events` was passed.
@@ -29,7 +29,7 @@ pub struct SnapshotRestoreOutput {
     /// Sequence of the `restored` event on the branch (target's previous
     /// cursor + 1).
     pub event_sequence: u64,
-    /// Cursor sequence on the target *before* the restore — useful for
+    /// Cursor sequence on the target *before* the restore â€” useful for
     /// the demo's `last_sequence = N + 1` assertion.
     pub previous_sequence: u64,
     pub out_path: Option<String>,
@@ -54,7 +54,7 @@ pub struct SnapshotListOutput {
 
 #[derive(Serialize)]
 pub struct SnapshotCheckpointOutput {
-    /// The source snapshot's id — the one whose state was checkpointed.
+    /// The source snapshot's id â€” the one whose state was checkpointed.
     pub source_snapshot_id: String,
     /// The new snapshot's id (freshly minted by the checkpoint).
     pub snapshot_id: String,
@@ -72,7 +72,7 @@ pub struct SnapshotCheckpointOutput {
 #[derive(Serialize)]
 pub struct SnapshotLineageOutput {
     pub root_snapshot_id: String,
-    /// Number of edges in the dag the tree was built from — useful as a
+    /// Number of edges in the dag the tree was built from â€” useful as a
     /// sanity check that the event stream produced the expected topology.
     pub edges: usize,
     pub tree: LineageNode,

@@ -1,4 +1,4 @@
-//! Lineage tree renderer for the `snapshot lineage` command.
+﻿//! Lineage tree renderer for the `snapshot lineage` command.
 //!
 //! Extracted from `output.rs` so the parent module stays under the 400-line
 //! rule. The printer is plain-text only; structured output (JSON / YAML)
@@ -6,7 +6,7 @@
 
 use genos_core::{LineageChild, LineageNode};
 
-/// Render a [`LineageNode`] tree to stdout using `├──` / `└──` connectors
+/// Render a [`LineageNode`] tree to stdout using `â”œâ”€â”€` / `â””â”€â”€` connectors
 /// and edge labels (`mutation`, `fork`, `restore`, ...) between the
 /// connector and the child label.
 ///
@@ -14,9 +14,9 @@ use genos_core::{LineageChild, LineageNode};
 ///
 /// ```text
 /// a1b2c3d4 (branch=abcd1234)
-/// ├── mutation 5e6f7g8h
-/// │       └── mutation 9i0j1k2l
-/// └── fork 3m4n5o6p
+/// â”œâ”€â”€ mutation 5e6f7g8h
+/// â”‚       â””â”€â”€ mutation 9i0j1k2l
+/// â””â”€â”€ fork 3m4n5o6p
 /// ```
 pub fn print_lineage_tree(node: &LineageNode) {
     // The root line carries its branch id (when known) so a reader can
@@ -32,8 +32,8 @@ fn print_children(children: &[LineageChild], prefix: &str) {
     let count = children.len();
     for (index, child) in children.iter().enumerate() {
         let last = index + 1 == count;
-        let connector = if last { "└── " } else { "├── " };
-        let next_prefix = format!("{prefix}{}", if last { "    " } else { "│   " });
+        let connector = if last { "â””â”€â”€ " } else { "â”œâ”€â”€ " };
+        let next_prefix = format!("{prefix}{}", if last { "    " } else { "â”‚   " });
         println!(
             "{prefix}{connector}{} {}",
             child.relation, child.snapshot_id

@@ -1,4 +1,4 @@
-//! World providers and the helpers they share.
+﻿//! World providers and the helpers they share.
 
 mod files;
 mod utils;

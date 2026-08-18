@@ -1,4 +1,4 @@
-//! Tests for contradiction detection on the same branch.
+﻿//! Tests for contradiction detection on the same branch.
 
 #![cfg(test)]
 
@@ -8,7 +8,7 @@ use crate::{fork_snapshot, upsert_belief};
 
 // Same `(subject, predicate)` with a different `object_value` on the same
 // branch is a contradiction. A confidence update on the same triple is *not*
-// a contradiction — the rule stays tight.
+// a contradiction â€” the rule stays tight.
 
 #[test]
 fn opposing_objects_on_the_same_predicate_flag_a_contradiction() {

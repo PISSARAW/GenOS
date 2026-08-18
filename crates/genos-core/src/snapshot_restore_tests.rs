@@ -1,4 +1,4 @@
-//! Tests for [`crate::snapshot::restore_snapshot`] and friends.
+﻿//! Tests for [`crate::snapshot::restore_snapshot`] and friends.
 //!
 //! The shared `parent_snapshot` and `snapshot_with_variable` helpers live in
 //! [`super::tests`]; the former is private to that module so the tests here
@@ -32,7 +32,7 @@ fn restore_rewinds_a_counter_variable() {
     let saved = counter_snapshot("10", 0);
 
     // User goes on to write counter = 50; the snapshot now reflects that
-    // (sequence 3 — three writes happened).
+    // (sequence 3 â€” three writes happened).
     let mut current = saved.clone();
     current.state.working_memory.items[COUNTER_INDEX].value = "50".to_string();
     current.state.event_cursor.sequence = 3;
@@ -51,7 +51,7 @@ fn restore_rewinds_a_counter_variable() {
     assert_eq!(write.snapshot.branch_id, current.branch_id);
     assert_eq!(write.snapshot.agent_id, current.agent_id);
 
-    // The cursor advanced past the Restored event: 3 → 4.
+    // The cursor advanced past the Restored event: 3 â†’ 4.
     assert_eq!(write.snapshot.state.event_cursor.sequence, 4);
     assert_eq!(
         write.snapshot.state.event_cursor.last_event_id,
@@ -109,7 +109,7 @@ fn restore_records_only_fields_that_actually_diverged() {
     });
     saved.state.execution.step = 0;
 
-    // Drift only the counter and the cursor sequence — everything else
+    // Drift only the counter and the cursor sequence â€” everything else
     // (memories, beliefs, genome, runtime_metadata) stays identical.
     let mut current = saved.clone();
     current.state.working_memory.items[1].value = "50".to_string();
@@ -188,7 +188,7 @@ fn restore_is_distinguishable_from_fork_in_compare() {
     // After a restore, compare_snapshots(target_after_restore, source) reports
     // same logical state for everything except the cursor (which now points
     // at the Restored event), distinct snapshot_id when target had a
-    // different id than source (true in general — restore rewinds state, not
+    // different id than source (true in general â€” restore rewinds state, not
     // identity), and the same branch_id (the whole point of restore vs
     // fork).
     let saved = counter_snapshot("10", 0);
@@ -200,7 +200,7 @@ fn restore_is_distinguishable_from_fork_in_compare() {
     let write = restore_snapshot(&current, &saved);
 
     let cmp = compare_snapshots(&write.snapshot, &saved);
-    // The cursor advanced past the Restored event (target sequence 3 → 4,
+    // The cursor advanced past the Restored event (target sequence 3 â†’ 4,
     // source sequence 0), so the cursor fields legitimately differ.
     assert_eq!(
         cmp.differing_fields,

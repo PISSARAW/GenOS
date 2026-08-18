@@ -1,4 +1,4 @@
-use super::*;
+﻿use super::*;
 use async_trait::async_trait;
 use genos_core::{AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation, RestorableComponent};
 use genos_store::{CapsuleStore, LocalCapsuleStore};

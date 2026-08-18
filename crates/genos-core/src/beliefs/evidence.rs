@@ -1,4 +1,4 @@
-//! Typed evidence links on a belief.
+﻿//! Typed evidence links on a belief.
 //!
 //! `Belief.evidence: Vec<EvidenceRef>` carries the chain back to whatever the
 //! claim was derived from: a tool output recorded on the same branch, or a
@@ -17,7 +17,7 @@ pub enum EvidenceRef {
     /// branch's `state.tool_outputs`).
     ToolOutput { tool_output_id: ToolOutputId },
     /// A free-form textual note. Used when the basis isn't a recorded tool
-    /// call — observations, prior beliefs, or external context.
+    /// call â€” observations, prior beliefs, or external context.
     Note { text: String },
 }
 

@@ -1,4 +1,4 @@
-use crate::args::{
+﻿use crate::args::{
     AgentBreedArgs, AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInferTraitsArgs,
     AgentInspectArgs, AgentMutateArgs, AgentPromoteTraitArgs, OutputFormat,
 };
@@ -41,6 +41,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
         parent_genome: None,
         parent_genomes: vec![],
         mutation: None,
+            ecological_niche: None,
         version: GenomeVersion("0.1.0".to_string()),
         identity: Identity {
             name: args.name.clone(),

@@ -1,4 +1,4 @@
-use crate::args::{InspectBeliefArgs, InspectFormat, OutputFormat};
+﻿use crate::args::{InspectBeliefArgs, InspectFormat, OutputFormat};
 use crate::output::{print_provenance_tree, print_serialized, InspectBeliefOutput};
 use crate::resolve::{resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{Context, Result};

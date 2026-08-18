@@ -1,4 +1,4 @@
-use super::{AgentSnapshot, LOGICAL_STATE_FIELDS};
+﻿use super::{AgentSnapshot, LOGICAL_STATE_FIELDS};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 

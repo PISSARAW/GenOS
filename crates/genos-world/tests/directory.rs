@@ -1,4 +1,4 @@
-//! Directory-backed world provider tests.
+﻿//! Directory-backed world provider tests.
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, WorldProvider};

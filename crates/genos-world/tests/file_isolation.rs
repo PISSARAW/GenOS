@@ -1,4 +1,4 @@
-//! File-isolation tests — what the `files` module's check is for.
+﻿//! File-isolation tests â€” what the `files` module's check is for.
 //!
 //! These exercise the [`FileIsolationCheck`] builder and the free-function
 //! `check_file_isolation` wrapper.

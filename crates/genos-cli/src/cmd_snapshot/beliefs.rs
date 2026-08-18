@@ -1,4 +1,4 @@
-//! Belief and tool-call mutators.
+﻿//! Belief and tool-call mutators.
 //!
 //! Extracted from `mutate.rs` so the file stays under the 400-line rule while
 //! the belief-evidence and tool-output record paths have room to grow. The
@@ -25,7 +25,7 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
     // `--evidence` routes through `upsert_belief_with_evidence`, which
     // validates each `EvidenceRef::ToolOutput` against `state.tool_outputs`,
     // defaults the new belief's status to `Inferred` (unless the caller passed
-    // one — they didn't here, so the no-`--status` path takes the default), and
+    // one â€” they didn't here, so the no-`--status` path takes the default), and
     // dedupes re-linked refs. A no-`--evidence` call still uses
     // `upsert_belief` to keep the existing 5-arg shape for back-compat.
     let write = if args.evidence.is_empty() {
@@ -75,7 +75,7 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
             let event_id = write.event.event_id.0.clone();
             store.append(write.event.clone()).await?;
             // The contradiction marker event is part of the same branch's audit
-            // trail — append it right after, so a replay of the branch sees
+            // trail â€” append it right after, so a replay of the branch sees
             // both the belief write and the contradiction in order.
             if let Some(marker) = &write.contradiction_event {
                 store.append(marker.clone()).await?;

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand, ValueEnum};
+﻿use clap::{Parser, Subcommand, ValueEnum};
 use genos_core::MemoryKind;
 use std::path::PathBuf;
 
@@ -40,7 +40,7 @@ pub enum Commands {
     Snapshot(SnapshotCommand),
     World(WorldCommand),
     Replay(ReplayCommand),
-    /// Inspect typed entities on a snapshot — belief provenance trees, etc.
+    /// Inspect typed entities on a snapshot â€” belief provenance trees, etc.
     Inspect(InspectCommand),
     /// Diff the logical state of two snapshots. Identity fields are excluded,
     /// so two untouched forks of one snapshot diff to nothing.

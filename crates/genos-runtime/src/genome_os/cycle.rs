@@ -1,4 +1,4 @@
-use genos_core::{
+﻿use genos_core::{
     checkpoint_snapshot, AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation,
 };
 use genos_store::CapsuleStore;

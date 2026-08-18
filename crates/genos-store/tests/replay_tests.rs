@@ -1,4 +1,4 @@
-mod common;
+﻿mod common;
 
 use chrono::{Duration, Utc};
 use common::{make_event, make_snapshot};

@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use genos_core::RestorableComponent;
 
 #[derive(Clone, Debug)]

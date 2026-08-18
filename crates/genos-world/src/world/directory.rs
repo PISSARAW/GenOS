@@ -1,4 +1,4 @@
-//! A [`WorldProvider`] backed by plain directories on disk.
+﻿//! A [`WorldProvider`] backed by plain directories on disk.
 //!
 //! Each world is a directory under `<root>/worlds/<id>`; each snapshot is a
 //! directory under `<root>/snapshots/<id>`. Forking copies a snapshot to a

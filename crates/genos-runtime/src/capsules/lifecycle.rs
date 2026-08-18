@@ -1,4 +1,4 @@
-use genos_core::{AgentWorldCapsule, CapsuleLifecycle};
+﻿use genos_core::{AgentWorldCapsule, CapsuleLifecycle};
 use genos_store::CapsuleStore;
 use genos_world::WorldProvider;
 

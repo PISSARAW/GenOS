@@ -22,6 +22,7 @@ pub fn initialize_project_snapshot(
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: GenomeVersion("0.1.0".to_string()),
             identity: Identity {
                 name: name.to_string(),

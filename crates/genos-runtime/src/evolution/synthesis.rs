@@ -1,4 +1,4 @@
-use super::types::{BranchFinding, KnowledgeSynthesisProposal, SynthesisStatus};
+﻿use super::types::{BranchFinding, KnowledgeSynthesisProposal, SynthesisStatus};
 
 pub fn synthesize_branch_knowledge(
     findings: Vec<BranchFinding>,

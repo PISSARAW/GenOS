@@ -1,4 +1,4 @@
-use genos_core::BranchId;
+﻿use genos_core::BranchId;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

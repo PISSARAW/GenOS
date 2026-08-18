@@ -1,4 +1,4 @@
-use genos_core::{compare_genome_and_state, compare_snapshots};
+﻿use genos_core::{compare_genome_and_state, compare_snapshots};
 
 use super::types::{
     CohortControls, ExperienceEffect, FactorialTraitObservation, GenomeExperienceEffects,

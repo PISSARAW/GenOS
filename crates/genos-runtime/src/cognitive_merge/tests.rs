@@ -1,4 +1,4 @@
-use super::*;
+﻿use super::*;
 use genos_core::{AgentEventType, BeliefStatus, BranchId, EvidenceRef};
 
 fn claim(

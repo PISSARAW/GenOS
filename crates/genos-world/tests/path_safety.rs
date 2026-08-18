@@ -1,4 +1,4 @@
-//! Path-safety test: world-relative paths must not escape the world.
+﻿//! Path-safety test: world-relative paths must not escape the world.
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{DirectoryWorldProvider, WorldProvider};

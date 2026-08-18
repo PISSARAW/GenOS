@@ -1,4 +1,4 @@
-use crate::args::OutputFormat;
+﻿use crate::args::OutputFormat;
 use genos_core::{
     AgentDiff, BeliefStatus, BeliefWriteKind, MemoryKind, ProvenanceNode, SnapshotComparison,
     VariableIsolationReport,
@@ -157,7 +157,7 @@ pub struct SnapshotSetBeliefOutput {
     /// Whether the write created the belief or updated an existing triple.
     pub kind: BeliefWriteKind,
     pub status: BeliefStatus,
-    /// Belief ids on the same branch that contradict this one — same
+    /// Belief ids on the same branch that contradict this one â€” same
     /// `(subject, predicate)`, opposite `object_value`. Empty when the new
     /// belief agrees with everything else on the branch, or when the write
     /// was an update of an existing triple (a confidence change isn't a

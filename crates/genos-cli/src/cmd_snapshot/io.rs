@@ -1,4 +1,4 @@
-use crate::args::{
+﻿use crate::args::{
     OutputFormat, SnapshotCheckpointArgs, SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs,
     SnapshotRestoreArgs, SnapshotSaveArgs,
 };
@@ -125,7 +125,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
     let write = restore_snapshot(&target, &source);
 
     // The rewound target replaces the file the target was loaded from by
-    // default — that's where the user's "current" working snapshot lives.
+    // default â€” that's where the user's "current" working snapshot lives.
     let out_path = args
         .out
         .clone()
@@ -181,7 +181,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
         let cmp = compare_snapshots(&write.snapshot, &source);
         // The cursor legitimately advances past the Restored event, so the
         // two cursor fields always differ. Filter them out: `expect_same_state`
-        // for restore means "working memory, beliefs, etc. all match" — the
+        // for restore means "working memory, beliefs, etc. all match" â€” the
         // cursor bookkeeping is part of the rewind itself.
         let unexpected: Vec<&str> = cmp
             .differing_fields
@@ -208,7 +208,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
 pub async fn cmd_snapshot_checkpoint(args: SnapshotCheckpointArgs) -> Result<()> {
     let snapshot_store = snapshot_store_from(args.snapshots.clone(), &args.root);
 
-    // Resolve the source snapshot — same shape as `cmd_snapshot_restore`.
+    // Resolve the source snapshot â€” same shape as `cmd_snapshot_restore`.
     let source = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
 
     let write = checkpoint_snapshot(&source);

@@ -1,4 +1,4 @@
-//! Tests for [`checkpoint_snapshot`] and [`checkpoint_snapshot_at`].
+﻿//! Tests for [`checkpoint_snapshot`] and [`checkpoint_snapshot_at`].
 //!
 //! Mirrors the structure of `snapshot_restore_tests.rs`: a small
 //! per-test parent snapshot built through the public-in-crate helper
@@ -74,7 +74,7 @@ fn checkpoint_then_set_var_advances_further() {
     // Simulate a set-var on the new snapshot by reading its current
     // state, bumping the cursor, and checkpointing again. The second
     // checkpoint's parent_snapshot_id must be the *first* checkpoint's
-    // id, not the original parent's — that's the lineage chain.
+    // id, not the original parent's â€” that's the lineage chain.
     let mut second_input = first.snapshot.clone();
     second_input.state.event_cursor.sequence = first.event.sequence;
     let second = checkpoint_snapshot(&second_input);
@@ -107,7 +107,7 @@ fn checkpoint_event_carries_branch_id_for_branch_scoped_streams() {
     assert_eq!(write.event.branch_id, Some(parent.branch_id.clone()));
     assert_eq!(write.event.agent_id, parent.agent_id);
     // The event causation chain points at whatever the parent was last
-    // looking at — None here because the parent started on an empty
+    // looking at â€” None here because the parent started on an empty
     // stream.
     assert!(write.event.causation_id.is_none());
     assert!(write.event.correlation_id.is_none());

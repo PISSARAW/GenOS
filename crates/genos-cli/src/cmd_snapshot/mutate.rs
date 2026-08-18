@@ -1,4 +1,4 @@
-//! Generic snapshot mutators — cognition, variables, memories, var-checks.
+﻿//! Generic snapshot mutators â€” cognition, variables, memories, var-checks.
 //!
 //! Beliefs and tool-call records live in [`super::beliefs`] so this file stays
 //! under the 400-line rule. Each function follows the same shape: load the

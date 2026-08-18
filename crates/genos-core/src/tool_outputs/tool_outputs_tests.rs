@@ -1,4 +1,4 @@
-//! Tests for branch-local tool output records.
+﻿//! Tests for branch-local tool output records.
 
 use crate::events::AgentEventType;
 use crate::fork_snapshot;
@@ -23,7 +23,7 @@ fn tool_output_records_carry_generating_event_id() {
     );
 
     // The record's `generating_event_id` is the *completion* event, not the
-    // request — that's the link the inspect walker follows from a belief's
+    // request â€” that's the link the inspect walker follows from a belief's
     // evidence back through the tool output to the event.
     assert_eq!(
         write.record.generating_event_id,

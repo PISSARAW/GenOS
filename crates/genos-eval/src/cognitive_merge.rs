@@ -1,4 +1,4 @@
-use crate::pareto::ObjectiveScore;
+﻿use crate::pareto::ObjectiveScore;
 use genos_core::BranchId;
 use serde::{Deserialize, Serialize};
 

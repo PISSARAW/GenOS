@@ -1,4 +1,4 @@
-use genos_core::{AgentSnapshot, ArtifactRef, DigestAlgorithm};
+﻿use genos_core::{AgentSnapshot, ArtifactRef, DigestAlgorithm};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;

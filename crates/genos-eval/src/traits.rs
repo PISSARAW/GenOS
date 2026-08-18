@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 
 /// Experimentally estimated expression of a trait. The estimate is evidence,
 /// not a field copied from the genome.

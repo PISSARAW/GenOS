@@ -1,7 +1,7 @@
-use genos_core::{AgentGenome, GenomeId};
+﻿use genos_core::{AgentGenome, GenomeId};
 use std::collections::{HashMap, HashSet};
 
-/// Calcule la distance génétique Euclidienne (horloge moléculaire) entre deux génomes
+/// Calcule la distance gÃ©nÃ©tique Euclidienne (horloge molÃ©culaire) entre deux gÃ©nomes
 pub fn molecular_clock_distance(a: &AgentGenome, b: &AgentGenome) -> f64 {
     let mut sum_sq = 0.0;
     for a_chrom in &a.cognition.chromosomes {
@@ -17,31 +17,31 @@ pub fn molecular_clock_distance(a: &AgentGenome, b: &AgentGenome) -> f64 {
     sum_sq.sqrt()
 }
 
-/// Représente un nœud (Clade ou Feuille) dans l'arbre phylogénétique.
+/// ReprÃ©sente un nÅ“ud (Clade ou Feuille) dans l'arbre phylogÃ©nÃ©tique.
 #[derive(Debug, Clone)]
 pub struct PhylogenyNode {
-    /// Identifiant unique du génome.
+    /// Identifiant unique du gÃ©nome.
     pub id: GenomeId,
-    /// Identifiants des génomes parents (ascendance directe).
+    /// Identifiants des gÃ©nomes parents (ascendance directe).
     pub parents: Vec<GenomeId>,
-    /// Identifiants des génomes enfants (descendance directe).
+    /// Identifiants des gÃ©nomes enfants (descendance directe).
     pub children: Vec<GenomeId>,
-    /// Distance génétique cumulative depuis la racine de la lignée (Horloge Moléculaire).
+    /// Distance gÃ©nÃ©tique cumulative depuis la racine de la lignÃ©e (Horloge MolÃ©culaire).
     pub distance_from_root: f64,
 }
 
-/// Structure en Graphe Orienté Acyclique (DAG) retraçant l'évolution et les relations familiales des agents.
+/// Structure en Graphe OrientÃ© Acyclique (DAG) retraÃ§ant l'Ã©volution et les relations familiales des agents.
 #[derive(Debug)]
 pub struct PhylogenyTree {
-    /// Dictionnaire de tous les nœuds de l'arbre, indexés par leur GenomeId.
+    /// Dictionnaire de tous les nÅ“uds de l'arbre, indexÃ©s par leur GenomeId.
     pub nodes: HashMap<GenomeId, PhylogenyNode>,
-    /// Liste des ancêtres fondamentaux (nœuds sans parents).
+    /// Liste des ancÃªtres fondamentaux (nÅ“uds sans parents).
     pub roots: Vec<GenomeId>,
 }
 
 impl PhylogenyTree {
-    /// Construit l'arbre phylogénétique à partir d'une liste plate de génomes.
-    /// Les liens de parenté et les distances de l'horloge moléculaire sont automatiquement résolus.
+    /// Construit l'arbre phylogÃ©nÃ©tique Ã  partir d'une liste plate de gÃ©nomes.
+    /// Les liens de parentÃ© et les distances de l'horloge molÃ©culaire sont automatiquement rÃ©solus.
     pub fn build_from_genomes(genomes: &[AgentGenome]) -> Self {
         let mut nodes = HashMap::new();
         let mut children_map: HashMap<GenomeId, Vec<GenomeId>> = HashMap::new();
@@ -79,7 +79,7 @@ impl PhylogenyTree {
             // Molecular clock from parents (moyenne des distances)
             let mut distance_from_root = 0.0;
             if !parents.is_empty() {
-                // Pour simplifier l'horloge moléculaire dans cet exemple, on calcule par rapport au premier parent
+                // Pour simplifier l'horloge molÃ©culaire dans cet exemple, on calcule par rapport au premier parent
                 if let Some(p_genome) = genomes.iter().find(|x| x.id == parents[0]) {
                     distance_from_root = molecular_clock_distance(p_genome, g);
                 }

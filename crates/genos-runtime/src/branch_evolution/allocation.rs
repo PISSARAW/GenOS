@@ -1,4 +1,4 @@
-use super::types::ActiveBranch;
+﻿use super::types::ActiveBranch;
 
 pub(crate) fn weighted_allocations(
     total: u64,

@@ -1,8 +1,9 @@
-use super::*;
+﻿use super::*;
 use genos_core::GenomeId;
 
 fn dummy_genome() -> genos_core::AgentGenome {
     serde_json::from_str(r#"{
+        "inferred_traits": [],
         "id": "test_id",
         "version": "1.0",
         "identity": { "name": "test", "role": "test" },

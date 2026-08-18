@@ -1,4 +1,4 @@
-//! `snapshot lineage` command — build a lineage tree from the event stream.
+﻿//! `snapshot lineage` command â€” build a lineage tree from the event stream.
 
 use crate::args::{LineageFormat, OutputFormat, SnapshotLineageArgs};
 use crate::output::{print_lineage_tree, print_serialized, SnapshotLineageOutput};
@@ -52,7 +52,7 @@ pub async fn cmd_snapshot_lineage(args: SnapshotLineageArgs) -> Result<()> {
 
     // Augment the root with the branch id and creation time from the
     // resolved snapshot file (or store entry) when available. The dag
-    // doesn't carry that metadata — it only knows about edges.
+    // doesn't carry that metadata â€” it only knows about edges.
     if let Some(snap) = root_snapshot {
         tree.branch_id = Some(snap.branch_id.0.clone());
         tree.created_at = snap.created_at;

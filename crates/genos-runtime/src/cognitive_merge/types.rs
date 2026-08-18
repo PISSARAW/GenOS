@@ -1,4 +1,4 @@
-use genos_core::{AgentEvent, AgentSnapshot, BranchId};
+﻿use genos_core::{AgentEvent, AgentSnapshot, BranchId};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

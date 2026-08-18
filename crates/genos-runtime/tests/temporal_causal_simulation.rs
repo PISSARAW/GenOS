@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+﻿use chrono::{DateTime, Utc};
 use genos_core::BranchId;
 use genos_runtime::{
     replay_counterfactual_history, AgentPrimitive, ArchitectureDecision, CounterfactualUniverse,
@@ -113,7 +113,7 @@ fn rewriting_a_past_decision_replays_shared_history_with_causal_explanations() {
     assert!(changed_model.p95_latency_ms < reality.p95_latency_ms);
 
     println!(
-        "replay {} → {} known events",
+        "replay {} â†’ {} known events",
         report.checkpoint.agent_ref,
         shared_history.len()
     );
@@ -129,7 +129,7 @@ fn rewriting_a_past_decision_replays_shared_history_with_causal_explanations() {
     }
     for cause in latency_causes {
         println!(
-            "why reality latency changed: decision={} event={} delta={:+.1} — {}",
+            "why reality latency changed: decision={} event={} delta={:+.1} â€” {}",
             cause.decision.label(),
             cause.triggering_event_id,
             cause.delta,

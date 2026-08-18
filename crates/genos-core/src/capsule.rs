@@ -1,4 +1,4 @@
-use crate::{AgentSnapshot, BranchId, CapsuleId, EventId, SnapshotId, WorldId};
+﻿use crate::{AgentSnapshot, BranchId, CapsuleId, EventId, SnapshotId, WorldId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

@@ -1,15 +1,15 @@
-use genos_core::AgentGenome;
+﻿use genos_core::AgentGenome;
 use rand::Rng;
 use rand::seq::SliceRandom;
 
-/// Modélise la Dérive Génétique (Effet de Goulet d'Étranglement).
+/// ModÃ©lise la DÃ©rive GÃ©nÃ©tique (Effet de Goulet d'Ã‰tranglement).
 /// 
-/// **Logique Évolutive :**
-/// En génétique des populations, la dérive est la fluctuation aléatoire des fréquences alléliques. 
-/// Pour notre modèle quantitatif, nous appliquons un "Bottleneck" : un échantillonnage strictement 
-/// aléatoire de `survivor_count` individus qui survivent indépendamment de leur fitness.
+/// **Logique Ã‰volutive :**
+/// En gÃ©nÃ©tique des populations, la dÃ©rive est la fluctuation alÃ©atoire des frÃ©quences allÃ©liques. 
+/// Pour notre modÃ¨le quantitatif, nous appliquons un "Bottleneck" : un Ã©chantillonnage strictement 
+/// alÃ©atoire de `survivor_count` individus qui survivent indÃ©pendamment de leur fitness.
 /// 
-/// Mathématiquement, cela réduit mécaniquement la variance génétique globale selon la loi $V_t = V_{t-1} \times (1 - 1 / (2N_e))$.
+/// MathÃ©matiquement, cela rÃ©duit mÃ©caniquement la variance gÃ©nÃ©tique globale selon la loi $V_t = V_{t-1} \times (1 - 1 / (2N_e))$.
 pub fn genetic_drift_bottleneck(population: &mut Vec<AgentGenome>, survivor_count: usize) {
     if population.len() <= survivor_count {
         return;
@@ -20,14 +20,14 @@ pub fn genetic_drift_bottleneck(population: &mut Vec<AgentGenome>, survivor_coun
     population.truncate(survivor_count);
 }
 
-/// Modélise la Migration (Flux de gènes) entre plusieurs sous-populations isolées (Dèmes).
+/// ModÃ©lise la Migration (Flux de gÃ¨nes) entre plusieurs sous-populations isolÃ©es (DÃ¨mes).
 /// 
-/// **Logique Évolutive :**
-/// La migration contrecarre la dérive génétique. Alors que la dérive différencie les dèmes 
-/// (augmentant le $F_{ST}$), la migration les homogénéise (faisant chuter le $F_{ST}$ vers 0).
+/// **Logique Ã‰volutive :**
+/// La migration contrecarre la dÃ©rive gÃ©nÃ©tique. Alors que la dÃ©rive diffÃ©rencie les dÃ¨mes 
+/// (augmentant le $F_{ST}$), la migration les homogÃ©nÃ©ise (faisant chuter le $F_{ST}$ vers 0).
 /// 
-/// La fonction brasse aléatoirement un pourcentage `migration_rate` (ex: 0.05 pour 5%) de 
-/// la population de chaque dème vers un autre dème choisi au hasard.
+/// La fonction brasse alÃ©atoirement un pourcentage `migration_rate` (ex: 0.05 pour 5%) de 
+/// la population de chaque dÃ¨me vers un autre dÃ¨me choisi au hasard.
 pub fn migration_step(demes: &mut [Vec<AgentGenome>], migration_rate: f64) {
     if demes.len() < 2 || migration_rate <= 0.0 {
         return;
@@ -38,7 +38,7 @@ pub fn migration_step(demes: &mut [Vec<AgentGenome>], migration_rate: f64) {
     
     let mut migrants = Vec::new();
     
-    // 1. Collecter les migrants de chaque dème
+    // 1. Collecter les migrants de chaque dÃ¨me
     for (i, deme) in demes.iter_mut().enumerate() {
         let num_migrants = (deme.len() as f64 * migration_rate).round() as usize;
         deme.shuffle(&mut rng);
@@ -48,14 +48,14 @@ pub fn migration_step(demes: &mut [Vec<AgentGenome>], migration_rate: f64) {
         }
     }
     
-    // 2. Redistribuer aléatoirement les migrants, en évitant qu'ils ne retournent dans leur dème d'origine si possible
+    // 2. Redistribuer alÃ©atoirement les migrants, en Ã©vitant qu'ils ne retournent dans leur dÃ¨me d'origine si possible
     migrants.shuffle(&mut rng);
     let num_demes = demes.len();
     
     for (origin_idx, agent) in migrants {
         let mut target_idx = rng.gen_range(0..num_demes);
         if target_idx == origin_idx {
-            target_idx = (target_idx + 1) % num_demes; // Forcer le changement de dème
+            target_idx = (target_idx + 1) % num_demes; // Forcer le changement de dÃ¨me
         }
         demes[target_idx].push(agent);
     }
@@ -72,6 +72,7 @@ mod tests {
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
+            ecological_niche: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
             identity: Identity { name: "Test".to_string(), role: "Agent".to_string() },
             cognition: CognitionConfig {
@@ -122,14 +123,14 @@ mod tests {
         
         let mut demes = vec![deme1, deme2];
         
-        // Taux de migration de 50% = 2 agents par dème vont migrer.
+        // Taux de migration de 50% = 2 agents par dÃ¨me vont migrer.
         migration_step(&mut demes, 0.5);
         
-        // Chaque dème devrait récupérer 2 agents de l'autre, gardant une taille globale équilibrée (à peu près).
+        // Chaque dÃ¨me devrait rÃ©cupÃ©rer 2 agents de l'autre, gardant une taille globale Ã©quilibrÃ©e (Ã  peu prÃ¨s).
         assert_eq!(demes[0].len(), 4);
         assert_eq!(demes[1].len(), 4);
         
-        // Vérifions qu'un mix s'est produit (d1 dans deme2 et d2 dans deme1)
+        // VÃ©rifions qu'un mix s'est produit (d1 dans deme2 et d2 dans deme1)
         let d1_has_d2 = demes[0].iter().any(|g| g.id.0.starts_with("d2_"));
         let d2_has_d1 = demes[1].iter().any(|g| g.id.0.starts_with("d1_"));
         assert!(d1_has_d2);

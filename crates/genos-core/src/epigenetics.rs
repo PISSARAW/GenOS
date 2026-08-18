@@ -1,4 +1,4 @@
-use crate::state::AgentState;
+﻿use crate::state::AgentState;
 
 /// Evaluates a simple trigger condition against the agent's current state.
 /// The condition string should be in the format: "<variable> <operator> <value>"

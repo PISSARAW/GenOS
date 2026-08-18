@@ -1,4 +1,4 @@
-use genos_core::{AgentWorldCapsule, RestorableComponent, RestorationMode};
+﻿use genos_core::{AgentWorldCapsule, RestorableComponent, RestorationMode};
 
 use super::types::{ComponentRestoreReport, ComponentRestoreStatus, ComponentRestorer};
 

@@ -11,6 +11,14 @@ pub struct Identity {
     pub role: String,
 }
 
+/// Modélise la niche fondamentale et réalisée d'un agent dans son écosystème.
+/// Définit l'ensemble des conditions et ressources dont l'agent a besoin pour maintenir une fitness optimale.
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct EcologicalNiche {
+    /// La demande de l'agent pour différentes ressources (ex: "cpu", "memory", "network_bandwidth").
+    pub resource_requirements: std::collections::BTreeMap<String, f32>,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Locus {
     pub gene_name: String,
@@ -156,6 +164,8 @@ pub struct AgentGenome {
     pub inferred_traits: Vec<InferredGenomeTraitClaim>,
     #[serde(default)]
     pub breeding: Option<GenomeBreedingMetadata>,
+    #[serde(default)]
+    pub ecological_niche: Option<EcologicalNiche>,
 }
 
 impl AgentGenome {
@@ -250,6 +260,7 @@ mod tests {
             parent_genomes: vec![],
             mutation: None,
             breeding: None,
+            ecological_niche: None,
             version: GenomeVersion("0.1.0".to_string()),
             identity: Identity {
                 name: "test-agent".to_string(),
