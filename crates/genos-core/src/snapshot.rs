@@ -64,7 +64,7 @@ pub struct AgentSnapshot {
 impl AgentSnapshot {
     /// Applies epigenetic modulators to the base genome drives based on current state.
     pub fn active_drives(&self) -> std::collections::BTreeMap<String, f32> {
-        let mut current_drives = self.genome.cognition.drives.clone();
+        let mut current_drives = self.genome.cognition.clone_drives();
         
         for regulator in &self.genome.cognition.regulators {
             if crate::epigenetics::evaluate_condition(&regulator.condition, &self.state) {
@@ -414,13 +414,16 @@ pub(crate) mod tests {
                     role: "tester".to_string(),
                 },
                 cognition: CognitionConfig {
-                    drives: {
-                        let mut d = std::collections::BTreeMap::new();
-                        d.insert("exploration".to_string(), 0.7);
-                        d.insert("risk_tolerance".to_string(), 0.25);
-                        d.insert("verification_threshold".to_string(), 0.8);
-                        d
-                    },
+                    chromosomes: vec![
+                        crate::Chromosome {
+                            name: "C1".to_string(),
+                            loci: vec![
+                                crate::Locus { gene_name: "exploration".to_string(), value: 0.7 },
+                                crate::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
+                                crate::Locus { gene_name: "verification_threshold".to_string(), value: 0.8 },
+                            ],
+                        }
+                    ],
                     planning_depth: 6,
                     regulators: vec![],
                 },
@@ -553,8 +556,8 @@ pub(crate) mod tests {
         let comparison = compare_genome_and_state(&agent_a, &agent_b);
         assert!(!comparison.same_genome);
         assert!(comparison.same_phenotype_state);
-        assert_eq!(*agent_a.genome.cognition.drives.get("exploration").unwrap(), 0.4);
-        assert_eq!(*agent_b.genome.cognition.drives.get("exploration").unwrap(), 0.9);
+        assert_eq!(agent_a.genome.cognition.get_drive("exploration").unwrap(), 0.4);
+        assert_eq!(agent_b.genome.cognition.get_drive("exploration").unwrap(), 0.9);
     }
 
     #[test]

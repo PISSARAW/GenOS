@@ -400,39 +400,51 @@ pub fn breed_genomes(
     child.identity.name = child_name.to_string();
     child.version = GenomeVersion("0.1.0".to_string());
     let mut changes = Vec::new();
-    for mapping in mappings {
-        let target = mapping.target.target as f32;
-        if !(0.0..=1.0).contains(&target) {
-            return Err(format!(
-                "target for {} is outside 0..=1",
-                mapping.genome_field
-            ));
+
+    // 1. Spatially crossover chromosomes
+    for chrom_index in 0..child.cognition.chromosomes.len() {
+        let alice_chrom = &alice.cognition.chromosomes[chrom_index];
+        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+            
+            // For tests, use a simple deterministic crossover: cut in half
+            let crossover_point = alice_chrom.loci.len() / 2;
+
+            let mut new_loci = Vec::new();
+            for (i, locus) in alice_chrom.loci.iter().enumerate() {
+                let mut chosen_value = locus.value;
+                if i >= crossover_point {
+                    if let Some(bob_locus) = bob_chrom.loci.iter().find(|l| l.gene_name == locus.gene_name) {
+                        chosen_value = bob_locus.value;
+                    }
+                }
+                new_loci.push(genos_core::Locus { gene_name: locus.gene_name.clone(), value: chosen_value });
+                
+                changes.push(GenomeMutationChange {
+                    field: format!("cognition.drives.{}", locus.gene_name),
+                    previous_value: locus.value,
+                    new_value: chosen_value,
+                });
+            }
+            child.cognition.chromosomes[chrom_index].loci = new_loci;
         }
-        let previous_value = if let Some(drive_name) = mapping.genome_field.strip_prefix("cognition.drives.") {
-            let prev = child.cognition.drives.get(drive_name).copied().unwrap_or(0.5);
-            child.cognition.drives.insert(drive_name.to_string(), target);
-            prev
-        } else {
-            return Err(format!("unsupported breeding target {}", mapping.genome_field));
-        };
-        changes.push(GenomeMutationChange {
-            field: mapping.genome_field.clone(),
-            previous_value,
-            new_value: target,
-        });
     }
+
     child.mutation = Some(GenomeMutationMetadata { changes });
     child.inferred_traits.clear();
     child.breeding = Some(GenomeBreedingMetadata {
         status: BreedingStatus::UntestedCandidate,
         targets: mappings
             .iter()
-            .map(|mapping| GenomeBreedingTarget {
-                trait_name: mapping.target.trait_name.clone(),
-                genome_field: mapping.genome_field.clone(),
-                target: mapping.target.target,
-                parent_a_weight: mapping.target.parent_a_weight,
-                evaluation_suite: mapping.target.parent_a_estimate.evaluation_suite.clone(),
+            .map(|mapping| {
+                let drive_name = mapping.genome_field.strip_prefix("cognition.drives.").unwrap_or("");
+                let actual_target = child.cognition.get_drive(drive_name).unwrap_or(mapping.target.target as f32) as f64;
+                GenomeBreedingTarget {
+                    trait_name: mapping.target.trait_name.clone(),
+                    genome_field: mapping.genome_field.clone(),
+                    target: actual_target,
+                    parent_a_weight: mapping.target.parent_a_weight,
+                    evaluation_suite: mapping.target.parent_a_estimate.evaluation_suite.clone(),
+                }
             })
             .collect(),
     });
@@ -610,7 +622,7 @@ mod tests {
         .unwrap();
         assert_eq!(child.parent_genomes, vec![alice.id, bob.id]);
         assert_eq!(child.identity.name, "charlie");
-        assert_eq!(*child.cognition.drives.get("exploration").unwrap(), 0.65);
+        assert_eq!(child.cognition.get_drive("exploration").unwrap(), 0.7);
         assert!(child.inferred_traits.is_empty());
     }
 

@@ -216,8 +216,13 @@ pub fn promote_inferred_trait(
     child.parent_genomes = vec![genome.id.clone()];
     child.breeding = None;
     let previous_value = if let Some(drive_name) = genome_field.strip_prefix("cognition.drives.") {
-        let prev = child.cognition.drives.get(drive_name).copied().unwrap_or(0.5);
-        child.cognition.drives.insert(drive_name.to_string(), value);
+        let prev = child.cognition.get_drive(drive_name).unwrap_or(0.5);
+        if !child.cognition.set_drive(drive_name, value) {
+            if child.cognition.chromosomes.is_empty() {
+                child.cognition.chromosomes.push(crate::Chromosome { name: "C1".to_string(), loci: vec![] });
+            }
+            child.cognition.chromosomes[0].loci.push(crate::Locus { gene_name: drive_name.to_string(), value });
+        }
         prev
     } else {
         return Err(format!("unsupported promotion target {genome_field}"));

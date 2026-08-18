@@ -29,13 +29,18 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
     let mut changed = Vec::new();
 
     for (name, new_value) in args.drives {
-        let previous = snapshot.genome.cognition.drives.get(&name).copied().unwrap_or(0.5);
+        let previous = snapshot.genome.cognition.get_drive(&name).unwrap_or(0.5);
         changed.push(CognitionChange {
             field: format!("genome.cognition.drives.{}", name),
             previous: previous.to_string(),
             value: new_value.to_string(),
         });
-        snapshot.genome.cognition.drives.insert(name, new_value);
+        if !snapshot.genome.cognition.set_drive(&name, new_value) {
+            if snapshot.genome.cognition.chromosomes.is_empty() {
+                snapshot.genome.cognition.chromosomes.push(genos_core::Chromosome { name: "C1".to_string(), loci: vec![] });
+            }
+            snapshot.genome.cognition.chromosomes[0].loci.push(genos_core::Locus { gene_name: name.clone(), value: new_value });
+        }
     }
 
     if let Some(depth) = args.planning_depth {

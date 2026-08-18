@@ -12,12 +12,59 @@ pub struct Identity {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Locus {
+    pub gene_name: String,
+    pub value: f32,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Chromosome {
+    pub name: String,
+    pub loci: Vec<Locus>,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CognitionConfig {
-    #[serde(flatten)]
-    pub drives: std::collections::BTreeMap<String, f32>,
+    #[serde(default)]
+    pub chromosomes: Vec<Chromosome>,
     pub planning_depth: u32,
     #[serde(default)]
     pub regulators: Vec<RegulatorGene>,
+}
+
+impl CognitionConfig {
+    pub fn get_drive(&self, drive_name: &str) -> Option<f32> {
+        for chrom in &self.chromosomes {
+            for locus in &chrom.loci {
+                if locus.gene_name == drive_name {
+                    return Some(locus.value);
+                }
+            }
+        }
+        None
+    }
+
+    pub fn set_drive(&mut self, drive_name: &str, value: f32) -> bool {
+        for chrom in &mut self.chromosomes {
+            for locus in &mut chrom.loci {
+                if locus.gene_name == drive_name {
+                    locus.value = value;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    pub fn clone_drives(&self) -> std::collections::BTreeMap<String, f32> {
+        let mut map = std::collections::BTreeMap::new();
+        for chrom in &self.chromosomes {
+            for locus in &chrom.loci {
+                map.insert(locus.gene_name.clone(), locus.value);
+            }
+        }
+        map
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -143,13 +190,20 @@ pub fn mutate_cognition(
     let mut changes = Vec::new();
 
     for (drive_name, new_value) in drive_changes {
-        let previous_value = child.cognition.drives.get(&drive_name).copied().unwrap_or(0.5); // Default to 0.5 if not found
+        let previous_value = child.cognition.get_drive(&drive_name).unwrap_or(0.5); // Default to 0.5 if not found
+
         changes.push(GenomeMutationChange {
             field: format!("cognition.drives.{}", drive_name),
             previous_value,
             new_value,
         });
-        child.cognition.drives.insert(drive_name, new_value);
+        if !child.cognition.set_drive(&drive_name, new_value) {
+            // If drive wasn't found in any chromosome, add it to a 'default' chromosome
+            if child.cognition.chromosomes.is_empty() {
+                child.cognition.chromosomes.push(Chromosome { name: "C1".to_string(), loci: vec![] });
+            }
+            child.cognition.chromosomes[0].loci.push(Locus { gene_name: drive_name, value: new_value });
+        }
     }
     
     child.mutation = Some(GenomeMutationMetadata { changes });
@@ -161,23 +215,29 @@ mod tests {
     use super::*;
 
     fn genome(exploration: f32) -> AgentGenome {
-        let mut drives = std::collections::BTreeMap::new();
-        drives.insert("exploration".to_string(), exploration);
-        drives.insert("risk_tolerance".to_string(), 0.25);
-        drives.insert("verification_threshold".to_string(), 0.5);
         AgentGenome {
-            id: GenomeId("G0".to_string()),
+            id: GenomeId::new(),
             parent_genome: None,
             parent_genomes: vec![],
             mutation: None,
-            version: GenomeVersion("v0".to_string()),
+            breeding: None,
+            version: GenomeVersion("0.1.0".to_string()),
             identity: Identity {
-                name: "test".to_string(),
-                role: "agent".to_string(),
+                name: "test-agent".to_string(),
+                role: "tester".to_string(),
             },
             cognition: CognitionConfig {
-                drives,
-                planning_depth: 1,
+                chromosomes: vec![
+                    Chromosome {
+                        name: "C1".to_string(),
+                        loci: vec![
+                            Locus { gene_name: "exploration".to_string(), value: exploration },
+                            Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
+                            Locus { gene_name: "verification_threshold".to_string(), value: 0.5 },
+                        ],
+                    }
+                ],
+                planning_depth: 4,
                 regulators: vec![],
             },
             objectives: vec![],
@@ -197,7 +257,6 @@ mod tests {
                 permissions: vec![],
             },
             inferred_traits: vec![],
-            breeding: None,
         }
     }
 
@@ -214,8 +273,8 @@ mod tests {
         
         assert_eq!(g1.parent_genome, Some(parent.id.clone()));
         assert_eq!(g2.parent_genome, Some(parent.id.clone()));
-        assert_eq!(*g1.cognition.drives.get("exploration").unwrap(), 0.6);
-        assert_eq!(*g2.cognition.drives.get("exploration").unwrap(), 0.4);
+        assert_eq!(g1.cognition.get_drive("exploration").unwrap(), 0.6);
+        assert_eq!(g2.cognition.get_drive("exploration").unwrap(), 0.4);
         assert_eq!(g1.mutation.as_ref().unwrap().changes[0].previous_value, 0.5);
     }
 
@@ -226,8 +285,8 @@ mod tests {
         changes.insert("exploration".to_string(), 0.95);
         changes.insert("risk_tolerance".to_string(), 0.15);
         let child = mutate_cognition(&parent, changes);
-        assert_eq!(*child.cognition.drives.get("exploration").unwrap(), 0.95);
-        assert_eq!(*child.cognition.drives.get("risk_tolerance").unwrap(), 0.15);
+        assert_eq!(child.cognition.get_drive("exploration").unwrap(), 0.95);
+        assert_eq!(child.cognition.get_drive("risk_tolerance").unwrap(), 0.15);
         assert_eq!(child.mutation.as_ref().unwrap().changes.len(), 2);
     }
 
@@ -249,8 +308,8 @@ mod tests {
         assert_eq!(g1.parent_genome, Some(g0.id.clone()));
         assert_eq!(g2.parent_genome, Some(g1.id.clone()));
         assert_eq!(restarted.parent_genome, Some(g0.id.clone()));
-        assert_eq!(*g0.cognition.drives.get("exploration").unwrap(), 0.5);
-        assert_eq!(*restarted.cognition.drives.get("exploration").unwrap(), 0.4);
+        assert_eq!(g0.cognition.get_drive("exploration").unwrap(), 0.5);
+        assert_eq!(restarted.cognition.get_drive("exploration").unwrap(), 0.4);
         assert_ne!(restarted.id, g1.id);
     }
 }
