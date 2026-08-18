@@ -1,4 +1,4 @@
-﻿use std::collections::hash_map::DefaultHasher;
+use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use genos_core::{
@@ -193,6 +193,39 @@ fn calculate_recombined_locus(
                 locus.clone()
             }
         }
+        RecombinationStrategy::DominantRecessive => {
+            if locus.expressed_value() > bob_locus.expressed_value() {
+                locus.clone()
+            } else {
+                bob_locus.clone()
+            }
+        }
+        RecombinationStrategy::Gaussian => {
+            let mean = (locus.value + bob_locus.value) / 2.0;
+            let diff = (locus.value - bob_locus.value).abs().max(0.01);
+            // Approximation simple d'une gaussienne via sommation d'uniformes (Irwin-Hall)
+            let noise = (rand_f32() + rand_f32() + rand_f32() - 1.5) * diff;
+            let mut child = if after_crossover { bob_locus.clone() } else { locus.clone() };
+            child.value = (mean + noise).clamp(0.0, 1.0);
+            child
+        }
+        RecombinationStrategy::Epistatic => {
+            // Épistasie basique simulée via le marqueur épigénétique qui "masque" l'autre gène
+            if locus.epigenetic_marker > 0.5 && bob_locus.epigenetic_marker <= 0.5 {
+                locus.clone()
+            } else if bob_locus.epigenetic_marker > 0.5 && locus.epigenetic_marker <= 0.5 {
+                bob_locus.clone()
+            } else {
+                if after_crossover { bob_locus.clone() } else { locus.clone() }
+            }
+        }
+        RecombinationStrategy::UniformCrossover { mix_probability } => {
+            if rand_f32() < *mix_probability {
+                bob_locus.clone()
+            } else {
+                locus.clone()
+            }
+        }
     };
     
     result
@@ -357,4 +390,53 @@ where
     }
 
     Ok(current_population)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use genos_core::{Locus, RecombinationStrategy};
+
+    #[test]
+    fn test_dominant_recessive() {
+        let locus_a = Locus { gene_name: "trait".to_string(), value: 0.2, epigenetic_marker: 0.1 };
+        let locus_b = Locus { gene_name: "trait".to_string(), value: 0.8, epigenetic_marker: 0.0 };
+        let mut prng = 42;
+
+        let res = calculate_recombined_locus(&locus_a, &locus_b, false, &RecombinationStrategy::DominantRecessive, &mut prng);
+        assert_eq!(res.value, 0.8);
+    }
+
+    #[test]
+    fn test_epistatic_masking() {
+        let locus_a = Locus { gene_name: "trait".to_string(), value: 0.2, epigenetic_marker: 0.9 };
+        let locus_b = Locus { gene_name: "trait".to_string(), value: 0.8, epigenetic_marker: 0.1 };
+        let mut prng = 42;
+
+        let res = calculate_recombined_locus(&locus_a, &locus_b, false, &RecombinationStrategy::Epistatic, &mut prng);
+        assert_eq!(res.value, 0.2);
+    }
+
+    #[test]
+    fn test_gaussian_recombination() {
+        let locus_a = Locus { gene_name: "trait".to_string(), value: 0.2, epigenetic_marker: 0.0 };
+        let locus_b = Locus { gene_name: "trait".to_string(), value: 0.8, epigenetic_marker: 0.0 };
+        let mut prng = 42;
+
+        let res = calculate_recombined_locus(&locus_a, &locus_b, false, &RecombinationStrategy::Gaussian, &mut prng);
+        assert!(res.value > 0.0 && res.value < 1.0);
+    }
+
+    #[test]
+    fn test_uniform_crossover() {
+        let locus_a = Locus { gene_name: "trait".to_string(), value: 0.2, epigenetic_marker: 0.0 };
+        let locus_b = Locus { gene_name: "trait".to_string(), value: 0.8, epigenetic_marker: 0.0 };
+        let mut prng = 42;
+
+        let res = calculate_recombined_locus(&locus_a, &locus_b, false, &RecombinationStrategy::UniformCrossover { mix_probability: 1.0 }, &mut prng);
+        assert_eq!(res.value, 0.8);
+        
+        let res = calculate_recombined_locus(&locus_a, &locus_b, false, &RecombinationStrategy::UniformCrossover { mix_probability: 0.0 }, &mut prng);
+        assert_eq!(res.value, 0.2);
+    }
 }

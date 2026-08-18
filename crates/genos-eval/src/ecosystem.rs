@@ -1,11 +1,27 @@
 use genos_core::AgentGenome;
 use std::collections::BTreeMap;
+use crate::parasitism::ParasiteGenome;
 
-/// ReprÃ©sente l'environnement inerte et ses ressources limitÃ©es.
+/// Représente l'environnement inerte et ses ressources limitées.
 #[derive(Debug, Clone)]
 pub struct Biotope {
-    /// Les ressources disponibles avec leur CapacitÃ© de Charge (K).
+    /// Les ressources disponibles avec leur Capacité de Charge (K).
     pub carrying_capacities: BTreeMap<String, f32>,
+}
+
+/// Représente l'écosystème complet (biotope + biocénose parasite).
+#[derive(Debug, Clone)]
+pub struct Ecosystem {
+    pub biotope: Biotope,
+    pub parasites: Vec<ParasiteGenome>,
+}
+
+/// Évalue une population d'agents dans un écosystème complet.
+/// Applique d'abord la compétition pour les ressources inertes (Biotope), 
+/// puis la pression parasitaire (Course aux armements).
+pub fn evaluate_ecosystem(ecosystem: &Ecosystem, agents: &mut [AgentGenome]) {
+    evaluate_niche_competition(&ecosystem.biotope, agents);
+    crate::parasitism::evaluate_parasitic_pressure(&ecosystem.parasites, agents);
 }
 
 /// Applique le Principe d'Exclusion Compétitive de Gause.
