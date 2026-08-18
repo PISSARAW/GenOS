@@ -1,3 +1,4 @@
+pub mod guardrails;
 pub mod loop_detection;
 pub mod revert;
 pub mod context;
