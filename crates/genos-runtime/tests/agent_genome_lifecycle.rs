@@ -24,14 +24,17 @@ fn snapshot(name: &str) -> AgentSnapshot {
                 name: name.to_string(),
                 role: "researcher".to_string(),
             },
-            cognition: CognitionConfig {
-                drives: {
-                    let mut d = std::collections::BTreeMap::new();
-                    d.insert("exploration".to_string(), 0.7);
-                    d.insert("risk_tolerance".to_string(), 0.25);
-                    d.insert("verification_threshold".to_string(), 0.8);
-                    d
-                },
+            cognition: genos_core::CognitionConfig {
+                chromosomes: vec![
+                    genos_core::Chromosome {
+                        name: "C1".to_string(),
+                        loci: vec![
+                            genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7 },
+                            genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
+                            genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8 },
+                        ],
+                    }
+                ],
                 planning_depth: 6,
                 regulators: vec![],
             },
@@ -130,7 +133,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
     )
     .map_err(anyhow::Error::msg)?;
     assert_ne!(promoted.id, alice.genome.id);
-    assert!((*promoted.cognition.drives.get("verification_threshold").unwrap() - 0.81).abs() < 1e-6);
+    assert!((promoted.cognition.get_drive("verification_threshold").unwrap() - 0.81).abs() < 1e-6);
 
     // ADR-0009: sibling baselines share a genome and logical state while
     // treatments produce a measurable phenotype range.
@@ -156,7 +159,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
 
     // ADR-0011: measured parental traits produce an untested two-parent child.
     let mut bob = snapshot("bob").genome;
-    bob.cognition.drives.insert("exploration".to_string(), 0.3);
+    bob.cognition.set_drive("exploration", 0.3);
     let estimate = |mean| TraitEstimate {
         trait_name: "exploration".to_string(),
         mean,

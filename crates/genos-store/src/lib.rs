@@ -716,13 +716,16 @@ mod tests {
                     role: "tester".to_string(),
                 },
                 cognition: genos_core::CognitionConfig {
-                    drives: {
-                        let mut d = std::collections::BTreeMap::new();
-                        d.insert("exploration".to_string(), 0.7);
-                        d.insert("risk_tolerance".to_string(), 0.25);
-                        d.insert("verification_threshold".to_string(), 0.8);
-                        d
-                    },
+                    chromosomes: vec![
+                        genos_core::Chromosome {
+                            name: "C1".to_string(),
+                            loci: vec![
+                                genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7 },
+                                genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25 },
+                                genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8 },
+                            ],
+                        }
+                    ],
                     planning_depth: 6,
                     regulators: vec![],
                 },

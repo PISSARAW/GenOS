@@ -252,8 +252,8 @@ fn a_single_cognition_change_is_reported_as_a_single_entry() {
     let a1 = fork_snapshot(&parent);
     let mut a2 = fork_snapshot(&parent);
 
-    assert_eq!(*a1.genome.cognition.drives.get("exploration").unwrap(), 0.7);
-    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
+    assert_eq!(a1.genome.cognition.get_drive("exploration").unwrap(), 0.7);
+    a2.genome.cognition.set_drive("exploration", 0.8);
 
     let diff = diff_snapshots(&a1, &a2);
 
@@ -261,7 +261,7 @@ fn a_single_cognition_change_is_reported_as_a_single_entry() {
     assert_eq!(
         diff.genome_diff,
         vec![DiffEntry {
-            path: "genome.cognition.exploration".to_string(),
+            path: "genome.cognition.chromosomes[0].loci[0].value".to_string(),
             before: Some("0.7".to_string()),
             after: Some("0.8".to_string()),
             provenance: None,
@@ -284,8 +284,8 @@ fn float_fields_are_reported_at_their_own_precision() {
     let a1 = fork_snapshot(&parent);
     let mut a2 = fork_snapshot(&parent);
 
-    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
-    a2.genome.cognition.drives.insert("verification_threshold".to_string(), 0.55);
+    a2.genome.cognition.set_drive("exploration", 0.8);
+    a2.genome.cognition.set_drive("verification_threshold", 0.55);
 
     let diff = diff_snapshots(&a1, &a2);
     let rendered: Vec<(&str, &str)> = diff
@@ -305,12 +305,12 @@ fn float_fields_are_reported_at_their_own_precision() {
 fn the_text_report_names_the_section_the_path_and_both_values() {
     let parent = snapshot_with_variable("counter", "0");
     let a1 = fork_snapshot(&parent);
-    let mut a2 = fork_snapshot(&parent);
-    a2.genome.cognition.drives.insert("exploration".to_string(), 0.8);
+    let mut a2 = a1.clone();
+    a2.genome.cognition.set_drive("exploration", 0.8);
 
     assert_eq!(
         diff_snapshots(&a1, &a2).to_text(),
-        "GenomeDiff\n  genome.cognition.exploration\n    old: 0.7\n    new: 0.8\n"
+        "GenomeDiff\n  genome.cognition.chromosomes[0].loci[0].value\n    old: 0.7\n    new: 0.8\n"
     );
 }
 
