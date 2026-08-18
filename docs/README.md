@@ -1,37 +1,43 @@
-# GenOS documentation
+# GenOS Documentation
 
-This index separates user-facing concepts, normative specifications, implementation status, and design history.
+Bienvenue dans la documentation officielle de **GenOS**. 
+Cette documentation est structurée selon une approche **AI-Native**, conçue pour être consommée à la fois par les développeurs humains et par les agents IA autonomes.
 
-## Start here
+## 🤖 Pour les Agents IA
+Si vous êtes un agent IA travaillant sur ce dépôt, veuillez commencer par lire :
+- [Instructions Système](.ai/system-prompt.md)
+- [Politique de Mise à Jour de la Documentation](.ai/doc-update-policy.md)
+- [Invariants du Système](.ai/invariants.md)
 
-- [Project README](../README.md) — overview, quick start, architecture, and status
-- [Agent primitives](AGENT_PRIMITIVES.md) — the ten canonical lifecycle operations
-- [Counterfactual OS](COUNTERFACTUAL_OS.md) — integrated branch execution model
-- [Protocol interoperability and Codex](adr/ADR-0021-protocol-interoperability-codex.md) — MCP boundary and product/provider separation
-- [GenOS protocol](GENOS_PROTOCOL.md) — versioned operations, result envelope, and execution boundary
-- [OpenAI Codex MCP integration](integrations/CODEX_MCP.md) — local and HTTP setup, approvals, and troubleshooting
-- [Examples catalogue](../examples/README.md) — runnable demonstrations by topic
+## 🗺️ Index de la Documentation
 
-## Concepts and specifications
+- **[0. Contexte et Vision](0-context-and-vision/)**
+  - [Roadmap Produit](0-context-and-vision/product-roadmap.md)
+  - [Counterfactual OS](0-context-and-vision/counterfactual-os.md)
+  - [Objectifs Métier](0-context-and-vision/business-goals.md)
+  - [Lexique (Ubiquitous Language)](0-context-and-vision/ubiquitous-language.md)
 
-- [Genome specification](../spec/GENOME_SPEC.md) — normative genome structure and compatibility
-- [Phenotype and divergence](phenotype.md) — observed behavior, heredity experiments, and inferred traits
-- [JSON Schemas](../spec/) — portable serialized contracts
-- [Project primitive matrix](PROJECT_PRIMITIVE_MATRIX.md) — canonical primitives exercised by each project
+- **[1. Prise en Main et Installation](1-onboarding-and-setup/)**
+  - [Environnement Local](1-onboarding-and-setup/local-environment.md)
+  - [Visite de l'Architecture](1-onboarding-and-setup/architecture-tour.md)
 
-## Planning and status
+- **[2. Architecture et Décisions Techniques](2-architecture/)**
+  - [Vue d'Ensemble](2-architecture/overview.md)
+  - [Matrice de Traçabilité](2-architecture/traceability-matrix.md)
+  - [Matrice des Primitives Projet](2-architecture/project-primitive-matrix.md)
+  - [ADRs (Architecture Decision Records)](2-architecture/adrs/)
 
-- [Roadmap](ROADMAP.md) — planned milestones and release criteria
-- [ADR implementation status](adr/IMPLEMENTATION_STATUS.md) — executable coverage and known gaps
+- **[3. Fonctionnalités et Domaine](3-features-and-domain/)**
+  - [Primitives Agentiques](3-features-and-domain/agent-primitives.md)
+  - [Phénotype](3-features-and-domain/phenotype.md)
 
-## Architecture decisions
+- **[4. Interfaces et Contrats](4-interfaces/)**
+  - [Protocole GenOS](4-interfaces/genos-protocol.md)
+  - [Intégrations Externes](4-interfaces/integrations/)
 
-The [`adr/`](adr/) directory records accepted design decisions. An accepted ADR describes intended architecture; it is not evidence of implementation unless the implementation status and tests say so.
+- **[5. Workflows de Développement](5-development-workflows/)**
+  - [Conventions de Code](5-development-workflows/coding-guidelines.md)
+  - [Stratégie de Test](5-development-workflows/testing-strategy.md)
 
-## Project policies
-
-- [Contributing](../CONTRIBUTING.md)
-- [Security](../SECURITY.md)
-- [Support](../SUPPORT.md)
-- [Governance](../GOVERNANCE.md)
-- [Code of Conduct](../CODE_OF_CONDUCT.md)
+- **[6. Opérations et Déploiement](6-operations-and-deployment/)**
+  - [Runbooks & Résolution d'Incidents](6-operations-and-deployment/runbooks/)
