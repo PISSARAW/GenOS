@@ -1,4 +1,4 @@
-﻿use genos_core::{AgentGenome, AgentSnapshot, GenomeId, PhenotypeObservation};
+use genos_core::{AgentGenome, AgentSnapshot, GenomeId, PhenotypeObservation};
 use genos_eval::{ParetoAssessment, RecombinedTraitTarget};
 use serde::{Deserialize, Serialize};
 
@@ -115,6 +115,47 @@ pub enum SynthesisStatus {
     Proposed,
     Validated,
     Rejected,
+}
+
+/// Stratégies de sélection des parents lors de la reproduction (Algorithme Génétique).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ParentSelectionStrategy {
+    /// Choix aléatoire uniforme parmi le front de Pareto (non-dominés).
+    RandomPareto,
+    /// Tirage de `size` candidats aléatoires. Le gagnant est le candidat qui domine
+    /// les autres selon Pareto, ou le premier non-dominé trouvé dans le groupe.
+    Tournament { size: usize },
+    /// Sélection proportionnelle au succès scalaire (Fitness proportionnelle).
+    Roulette,
+}
+
+/// Regroupement des hyper-paramètres d'évolution (Cycle de vie).
+/// Permet de contrôler le comportement de `run_breeding_program` de bout en bout.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BreedingConfig {
+    /// Taille de la population à maintenir pour chaque génération.
+    pub population_size: usize,
+    /// Nombre de générations à simuler.
+    pub generations: usize,
+    /// Index de départ de la première génération (Génération 0 par défaut).
+    pub start_generation: usize,
+    /// Seuil optionnel de spéciation pour bloquer les accouplements trop éloignés génétiquement.
+    pub speciation_threshold: Option<f64>,
+    /// Méthode de tirage des parents (ex: Tournoi, Roulette).
+    pub selection_strategy: ParentSelectionStrategy,
+    /// Opérateur de recombinaison à appliquer lors de la fusion génétique (ex: Croisement Uniforme).
+    pub recombination_strategy: genos_core::RecombinationStrategy,
+    /// Contraintes hard pour écarter d'office les individus trop coûteux ou risqués.
+    pub selection_constraints: SelectionConstraints,
+    /// Mappages entre les gènes et les traits phénotypiques (cibles de l'élevage).
+    pub trait_mappings: Vec<BreedingTraitMapping>,
+    /// Nombre de meilleurs agents (élites) à cloner intacts dans la génération suivante.
+    pub elitism_count: usize,
+    /// Probabilité (0.0 à 1.0) qu'un gène de l'enfant subisse une mutation aléatoire post-recombinaison.
+    pub mutation_rate: f32,
+    /// Variance maximale du bruit Gaussien appliqué lors d'une mutation.
+    pub mutation_variance: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

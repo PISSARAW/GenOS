@@ -3,14 +3,16 @@ use std::hash::{Hash, Hasher};
 
 use genos_core::{
     AgentGenome, BreedingStatus, GenomeBreedingMetadata, GenomeBreedingTarget, GenomeId,
-    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion, PhenotypeObservation,
+    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion,
     RecombinationStrategy,
 };
 
 use super::selection::artificial_select;
 use super::types::{
-    BreedingTraitMapping, BreedingValidation, SelectionCandidate, SelectionConstraints,
+    BreedingTraitMapping, SelectionCandidate,
+    BreedingConfig,
 };
+use super::selection::{select_parent, SelectionPool};
 
 pub fn cantor_pairing(k1: u64, k2: u64) -> u64 {
     (k1 + k2) * (k1 + k2 + 1) / 2 + k2
@@ -163,7 +165,7 @@ pub(crate) fn calculate_recombined_locus(
         (*prng_state >> 32) as f32 / (std::u32::MAX as f32)
     };
 
-    let mut result = match strategy {
+    let result = match strategy {
         RecombinationStrategy::HomologousRecombination => {
             if after_crossover {
                 bob_locus.clone()
@@ -260,56 +262,14 @@ fn build_breeding_metadata(
     }
 }
 
-pub fn validate_bred_child(
-    child: &AgentGenome,
-    phenotype: &PhenotypeObservation,
-    tolerance: f64,
-) -> Result<BreedingValidation, String> {
-    let metadata = child
-        .breeding
-        .as_ref()
-        .ok_or_else(|| "genome has no breeding metadata".to_string())?;
-    if phenotype.genome_id != child.id {
-        return Err("phenotype does not belong to child genome".to_string());
-    }
-    let mut deviations = Vec::new();
-    for target in &metadata.targets {
-        let observed = phenotype
-            .traits
-            .iter()
-            .find(|value| value.name == target.trait_name)
-            .ok_or_else(|| format!("missing child observation for {}", target.trait_name))?;
-        deviations.push((
-            target.trait_name.clone(),
-            (observed.value - target.target).abs(),
-        ));
-    }
-    let mut genome = child.clone();
-    genome.breeding.as_mut().unwrap().status = if deviations
-        .iter()
-        .all(|(_, deviation)| *deviation <= tolerance)
-    {
-        BreedingStatus::Validated
-    } else {
-        BreedingStatus::Rejected
-    };
-    Ok(BreedingValidation {
-        genome,
-        deviations,
-        tolerance,
-    })
-}
-
+/// Boucle principale de l'Élevage Multi-Générationnel (Algorithme Génétique Automatisé).
+/// Évalue la population actuelle via `batch_evaluator`, sélectionne les meilleurs candidats selon
+/// les contraintes de `config`, puis utilise les stratégies de sélection parentale et de recombinaison
+/// pour produire la génération suivante.
 pub fn run_breeding_program<E>(
     mut current_population: Vec<AgentGenome>,
+    config: &BreedingConfig,
     batch_evaluator: &E,
-    constraints: &SelectionConstraints,
-    strategy: &RecombinationStrategy,
-    mappings: &[BreedingTraitMapping],
-    population_size: usize,
-    generations: usize,
-    start_generation: usize,
-    speciation_threshold: Option<f64>,
 ) -> Result<Vec<AgentGenome>, String>
 where
     E: Fn(&[AgentGenome]) -> Vec<SelectionCandidate>,
@@ -325,10 +285,10 @@ where
         (hasher.finish() % 1000) as f32 / 1000.0
     };
 
-    for gen in 0..generations {
-        let current_gen_num = start_generation + gen;
+    for gen in 0..config.generations {
+        let current_gen_num = config.start_generation + gen;
         let candidates = batch_evaluator(&current_population);
-        let report = artificial_select(&candidates, constraints);
+        let report = artificial_select(&candidates, &config.selection_constraints);
 
         let mut non_dominated_ids = Vec::new();
         for assessment in &report.pareto {
@@ -346,23 +306,36 @@ where
 
         let mut next_population = Vec::new();
         let mut non_dominated_genomes = Vec::new();
+        let mut eligible_genomes = Vec::new();
+        let mut eligible_candidates = Vec::new();
+
         for genome in &current_population {
+            if report.eligible.contains(&genome.id) {
+                eligible_genomes.push(genome.clone());
+                if let Some(cand) = candidates.iter().find(|c| c.genome_id == genome.id) {
+                    eligible_candidates.push(cand.clone());
+                }
+            }
             if non_dominated_ids.contains(&genome.id) {
-                next_population.push(genome.clone());
                 non_dominated_genomes.push(genome.clone());
             }
         }
+        
+        let elites = config.elitism_count.min(non_dominated_genomes.len());
+        for elite in &non_dominated_genomes[..elites] {
+            next_population.push(elite.clone());
+        }
+
+        let pool = SelectionPool {
+            genomes: &eligible_genomes,
+            candidates: &eligible_candidates,
+            non_dominated: &non_dominated_genomes,
+        };
 
         let mut children_produced = 0;
-        while next_population.len() < population_size {
-            let alice_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
-            let mut bob_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
-            if non_dominated_genomes.len() > 1 && bob_idx == alice_idx {
-                bob_idx = (bob_idx + 1) % non_dominated_genomes.len();
-            }
-
-            let alice = &non_dominated_genomes[alice_idx];
-            let bob = &non_dominated_genomes[bob_idx];
+        while next_population.len() < config.population_size {
+            let alice = select_parent(&pool, &config.selection_strategy, &mut rand_f32);
+            let bob = select_parent(&pool, &config.selection_strategy, &mut rand_f32);
 
             let k1 = extract_numeric_id(&alice.id);
             let k2 = extract_numeric_id(&bob.id);
@@ -373,15 +346,24 @@ where
                 child_num_id + children_produced as u64
             );
 
-            match breed_genomes(alice, bob, &child_name, mappings, strategy, speciation_threshold, &[]) {
+            match breed_genomes(alice, bob, &child_name, &config.trait_mappings, &config.recombination_strategy, config.speciation_threshold, &[]) {
                 Ok(mut child) => {
+                    if config.mutation_rate > 0.0 {
+                        for chrom in &mut child.cognition.chromosomes {
+                            for locus in &mut chrom.loci {
+                                if rand_f32() < config.mutation_rate {
+                                    let error = (rand_f32() - 0.5) * config.mutation_variance;
+                                    locus.value = (locus.value + error).clamp(0.0, 1.0);
+                                    locus.epigenetic_marker = (locus.epigenetic_marker + error).clamp(0.0, 1.0);
+                                }
+                            }
+                        }
+                    }
                     child.id = genos_core::GenomeId(child_name);
                     next_population.push(child);
                     children_produced += 1;
                 }
-                Err(e) if e.contains("Rejected") => {
-                    continue;
-                }
+                Err(e) if e.contains("Rejected") => continue,
                 Err(e) => return Err(e),
             }
         }

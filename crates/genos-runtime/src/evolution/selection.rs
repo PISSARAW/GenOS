@@ -1,6 +1,8 @@
-﻿use genos_eval::{
+use genos_eval::{
     pareto_select, MultiObjectiveBranchScore, ObjectiveDirection, ObjectiveScore, ParetoObjective,
 };
+use genos_core::AgentGenome;
+use super::types::ParentSelectionStrategy;
 
 use super::types::{
     ArtificialSelectionReport, CanonicalAgentMetrics, ControlledBenchmarkRun, SelectionCandidate,
@@ -133,5 +135,60 @@ pub fn artificial_select(
             .map(|candidate| candidate.genome_id.clone())
             .collect(),
         pareto: pareto_select(&branches, &directions),
+    }
+}
+
+pub struct SelectionPool<'a> {
+    pub genomes: &'a [AgentGenome],
+    pub candidates: &'a [SelectionCandidate],
+    pub non_dominated: &'a [AgentGenome],
+}
+
+/// Sélectionne un agent parent parmi les candidats éligibles en appliquant la stratégie définie.
+/// Utilise le front de Pareto pour optimiser la sélection via le Tournoi ou aléatoirement.
+pub fn select_parent<'a>(
+    pool: &SelectionPool<'a>,
+    strategy: &ParentSelectionStrategy,
+    rand_f32: &mut impl FnMut() -> f32,
+) -> &'a AgentGenome {
+    if pool.genomes.is_empty() {
+        return &pool.non_dominated[0];
+    }
+    match strategy {
+        ParentSelectionStrategy::RandomPareto => {
+            let idx = (rand_f32() * pool.non_dominated.len() as f32) as usize;
+            &pool.non_dominated[idx]
+        }
+        ParentSelectionStrategy::Roulette => {
+            let sum_success: f64 = pool.candidates.iter().map(|c| c.metrics.success.max(0.01)).sum();
+            let mut pick = (rand_f32() as f64) * sum_success;
+            for (i, c) in pool.candidates.iter().enumerate() {
+                pick -= c.metrics.success.max(0.01);
+                if pick <= 0.0 {
+                    return &pool.genomes[i];
+                }
+            }
+            &pool.genomes[0]
+        }
+        ParentSelectionStrategy::Tournament { size } => {
+            let mut best_idx = (rand_f32() * pool.genomes.len() as f32) as usize;
+            let mut best_is_pareto = false;
+            let mut best_success = pool.candidates[best_idx].metrics.success;
+
+            for _ in 0..*size {
+                let idx = (rand_f32() * pool.genomes.len() as f32) as usize;
+                let is_pareto = pool.non_dominated.iter().any(|g| g.id == pool.genomes[idx].id);
+                
+                if is_pareto && !best_is_pareto {
+                    best_idx = idx;
+                    best_is_pareto = true;
+                    best_success = pool.candidates[idx].metrics.success;
+                } else if is_pareto == best_is_pareto && pool.candidates[idx].metrics.success > best_success {
+                    best_idx = idx;
+                    best_success = pool.candidates[idx].metrics.success;
+                }
+            }
+            &pool.genomes[best_idx]
+        }
     }
 }

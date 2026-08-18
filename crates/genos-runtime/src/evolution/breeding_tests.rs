@@ -341,16 +341,24 @@ fn test_run_breeding_program_loop() {
             .collect()
     };
 
+    let config = super::types::BreedingConfig {
+        population_size: 5,
+        generations: 2,
+        start_generation: 0,
+        speciation_threshold: None,
+        selection_strategy: super::types::ParentSelectionStrategy::RandomPareto,
+        recombination_strategy: strategy,
+        selection_constraints: constraints,
+        trait_mappings: mappings,
+        elitism_count: 0,
+        mutation_rate: 0.1,
+        mutation_variance: 0.05,
+    };
+
     let result = super::run_breeding_program(
         initial_population,
+        &config,
         &batch_evaluator,
-        &constraints,
-        &strategy,
-        &mappings,
-        5,
-        2,
-        0,
-        None,
     );
 
     assert!(result.is_ok());
