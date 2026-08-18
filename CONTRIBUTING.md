@@ -15,6 +15,20 @@ GenOS is pre-alpha. Focused contributions with a clear invariant, test, or user 
 
 GenOS uses the stable Rust toolchain with `rustfmt` and `clippy`.
 
+### Règles Strictes de Codage (Strict Coding Rules)
+
+Le projet GenOS impose **3 règles absolues** pour garantir la maintenabilité et la lisibilité du code :
+
+1. **Longueur des fichiers** : Ne jamais dépasser **400 lignes** par fichier.
+2. **Paramètres de fonction** : Ne jamais dépasser **3 paramètres** par fonction (utilisez des `struct` si besoin).
+3. **Complexité** : La complexité cyclomatique doit rester très faible (seuil strict configuré à 15).
+
+> [!WARNING]
+> Ces règles sont validées par :
+> - Un **hook git pre-commit** (`.githooks/pre-commit`) empêchant de commiter des fichiers trop longs.
+> - La configuration `clippy.toml` (`too-many-arguments-threshold = 3`, `cognitive-complexity-threshold = 15`) vérifiée par CI.
+
+
 ```bash
 git clone https://github.com/PISSARAW/GenOS.git
 cd GenOS
