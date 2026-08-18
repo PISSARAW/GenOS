@@ -1,5 +1,5 @@
+use crate::entities::{check_intersection, EntityRef};
 use crate::revert::{ActionDependencyGraph, CausalAction};
-use std::collections::HashSet;
 
 /// Résultat d'un calcul de Rebase temporel
 #[derive(Debug, Clone)]
@@ -22,7 +22,7 @@ impl TrajectoryRebaser {
     pub fn compute_rebase_plan(
         graph: &ActionDependencyGraph,
         injection_step: usize,
-        injected_writes: &HashSet<String>,
+        injected_writes: &Vec<EntityRef>,
     ) -> RebasePlan {
         let mut cherry_picked_steps = Vec::new();
         let mut fast_forward_steps = Vec::new();
@@ -38,14 +38,18 @@ impl TrajectoryRebaser {
 
             // Une action est corrompue (Tainted) si elle lit une entité qui a été
             // modifiée par l'injection ou par une action préalablement corrompue.
-            let is_tainted_by_read = action.reads.intersection(&tainted_entities).next().is_some();
+            let is_tainted_by_read = check_intersection(action.reads.iter(), tainted_entities.iter());
             
             // Une action est aussi corrompue si elle écrase une entité corrompue (conflit direct)
-            let is_tainted_by_write = action.writes.intersection(&tainted_entities).next().is_some();
+            let is_tainted_by_write = check_intersection(action.writes.iter(), tainted_entities.iter());
 
             if is_tainted_by_read || is_tainted_by_write {
                 // L'Effet Papillon: cette action "malade" contamine les fichiers/entités qu'elle touche.
-                tainted_entities.extend(action.writes.iter().cloned());
+                for w in &action.writes {
+                    if !tainted_entities.contains(w) {
+                        tainted_entities.push(w.clone());
+                    }
+                }
                 fast_forward_steps.push(action.clone());
             } else {
                 // Action totalement indépendante de la nouvelle réalité (ex: des tests sans rapport)
@@ -72,45 +76,45 @@ mod tests {
         graph.record_action(CausalAction {
             step_index: 1,
             boundary_id: "b1".to_string(),
-            reads: HashSet::new(),
-            writes: HashSet::from(["Init".to_string()]),
+            reads: vec![],
+            writes: vec![EntityRef::StateVar { key: "Init".to_string() }],
         });
 
         // Étape 2: Injection ciblera cette étape (Modifie Config)
         graph.record_action(CausalAction {
             step_index: 2,
             boundary_id: "b2".to_string(),
-            reads: HashSet::new(),
-            writes: HashSet::from(["Config".to_string()]),
+            reads: vec![],
+            writes: vec![EntityRef::StateVar { key: "Config".to_string() }],
         });
 
         // Étape 3: Lit Config, Modifie Database -> Doit être classée fast_forward car elle lit Config (Effet papillon)
         graph.record_action(CausalAction {
             step_index: 3,
             boundary_id: "b3".to_string(),
-            reads: HashSet::from(["Config".to_string()]),
-            writes: HashSet::from(["Database".to_string()]),
+            reads: vec![EntityRef::StateVar { key: "Config".to_string() }],
+            writes: vec![EntityRef::StateVar { key: "Database".to_string() }],
         });
 
         // Étape 4: Lit UI, Modifie CSS -> Doit être cherry_picked (Indépendant)
         graph.record_action(CausalAction {
             step_index: 4,
             boundary_id: "b4".to_string(),
-            reads: HashSet::from(["UI".to_string()]),
-            writes: HashSet::from(["CSS".to_string()]),
+            reads: vec![EntityRef::StateVar { key: "UI".to_string() }],
+            writes: vec![EntityRef::StateVar { key: "CSS".to_string() }],
         });
 
         // Étape 5: Lit Database -> Doit être fast_forward car Database a été pollué par l'étape 3
         graph.record_action(CausalAction {
             step_index: 5,
             boundary_id: "b5".to_string(),
-            reads: HashSet::from(["Database".to_string()]),
-            writes: HashSet::from(["Logs".to_string()]),
+            reads: vec![EntityRef::StateVar { key: "Database".to_string() }],
+            writes: vec![EntityRef::StateVar { key: "Logs".to_string() }],
         });
 
         // Simulation d'une injection à l'étape 2 (Modifie Config)
         let injection_step = 2;
-        let injected_writes = HashSet::from(["Config".to_string()]);
+        let injected_writes = vec![EntityRef::StateVar { key: "Config".to_string() }];
 
         let plan = TrajectoryRebaser::compute_rebase_plan(&graph, injection_step, &injected_writes);
 
