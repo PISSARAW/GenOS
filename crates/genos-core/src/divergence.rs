@@ -1,4 +1,5 @@
 use crate::loop_detection::IterationSnapshot;
+use crate::noise::{CompositeNoiseFilter, NoiseFilter, ChronologicalFilter, EphemeralIdFilter, StructuralFilter};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -42,20 +43,28 @@ pub struct DivergenceEvent {
 /// Moteur de détection de divergence en temps réel
 pub struct DivergenceDetector {
     pub belief_similarity_threshold: f32,
+    pub noise_filter: Box<dyn NoiseFilter>,
 }
 
 impl Default for DivergenceDetector {
     fn default() -> Self {
+        let composite = CompositeNoiseFilter::new(vec![
+            Box::new(ChronologicalFilter::new()),
+            Box::new(EphemeralIdFilter::new()),
+            Box::new(StructuralFilter),
+        ]);
         Self {
             belief_similarity_threshold: 0.95, // Si similarité < 0.95 => Divergence cognitive
+            noise_filter: Box::new(composite),
         }
     }
 }
 
 impl DivergenceDetector {
-    pub fn new(belief_similarity_threshold: f32) -> Self {
+    pub fn new(belief_similarity_threshold: f32, noise_filter: Box<dyn NoiseFilter>) -> Self {
         Self {
             belief_similarity_threshold,
+            noise_filter,
         }
     }
 
@@ -111,8 +120,19 @@ impl DivergenceDetector {
             (None, None) => {}
         }
 
-        // 2. Fingerprinting d'État (State Match)
-        if golden.world_state_hash != current.world_state_hash {
+        // 2. Équivalence Sémantique d'État (Semantic State Match)
+        let is_state_divergent = match (&golden.world_state_content, &current.world_state_content) {
+            (Some(g_content), Some(c_content)) => {
+                // Utilise le moteur de filtrage de bruit pour comparer la sémantique
+                !self.noise_filter.is_equivalent(g_content, c_content)
+            }
+            _ => {
+                // Fallback binaire si le contenu texte n'est pas fourni (Mode strict)
+                golden.world_state_hash != current.world_state_hash
+            }
+        };
+
+        if is_state_divergent {
             return Err(DivergenceEvent {
                 cause: DivergenceCause::StateFingerprintMismatch {
                     step: step_index,
@@ -169,12 +189,14 @@ mod tests {
         let golden = IterationSnapshot {
             tool_signature: None,
             world_state_hash: 100,
+            world_state_content: None,
             thought_embedding: None,
         };
         
         let current = IterationSnapshot {
             tool_signature: None,
             world_state_hash: 101, // Décalage (Bruit)
+            world_state_content: None,
             thought_embedding: None,
         };
 
@@ -199,12 +221,14 @@ mod tests {
         let golden = IterationSnapshot {
             tool_signature: Some(ToolCallSignature { tool_name: "A".to_string(), arguments_hash: 1 }),
             world_state_hash: 100,
+            world_state_content: None,
             thought_embedding: None,
         };
         
         let current = IterationSnapshot {
             tool_signature: Some(ToolCallSignature { tool_name: "B".to_string(), arguments_hash: 2 }), // Nouveau choix (Expérience)
             world_state_hash: 100,
+            world_state_content: None,
             thought_embedding: None,
         };
 
