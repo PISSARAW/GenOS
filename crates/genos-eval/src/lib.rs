@@ -1,3 +1,5 @@
+pub mod qtl;
+
 use genos_core::{BranchId, ExperimentId};
 use serde::{Deserialize, Serialize};
 
