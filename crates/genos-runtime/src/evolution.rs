@@ -388,6 +388,112 @@ use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use genos_core::RecombinationStrategy;
 
+pub fn cantor_pairing(k1: u64, k2: u64) -> u64 {
+    (k1 + k2) * (k1 + k2 + 1) / 2 + k2
+}
+
+pub fn extract_numeric_id(id: &GenomeId) -> u64 {
+    let s = &id.0;
+    if let Some(idx) = s.rfind('_') {
+        if let Ok(num) = s[idx + 1..].parse::<u64>() {
+            return num;
+        }
+    }
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    s.hash(&mut hasher);
+    hasher.finish() % 10000 // Keep it small to avoid overflow in next generations
+}
+
+pub fn run_breeding_program<E>(
+    mut current_population: Vec<AgentGenome>,
+    batch_evaluator: &E,
+    constraints: &SelectionConstraints,
+    strategy: &RecombinationStrategy,
+    mappings: &[BreedingTraitMapping],
+    population_size: usize,
+    generations: usize,
+    start_generation: usize,
+) -> Result<Vec<AgentGenome>, String>
+where
+    E: Fn(&[AgentGenome]) -> Vec<SelectionCandidate>,
+{
+    if current_population.is_empty() {
+        return Err("Initial population cannot be empty".to_string());
+    }
+
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    use std::hash::{Hash, Hasher};
+    "breeding_program".hash(&mut hasher);
+    let mut rand_f32 = || {
+        hasher.write_u8(0);
+        (hasher.finish() % 1000) as f32 / 1000.0
+    };
+
+    for gen in 0..generations {
+        let current_gen_num = start_generation + gen;
+        
+        // 1. Evaluate current generation
+        let candidates = batch_evaluator(&current_population);
+        
+        // 2. Select using Artificial Selection (including Pareto)
+        let report = artificial_select(&candidates, constraints);
+        
+        // 3. Isolate Pareto front (Non-dominated)
+        let mut non_dominated_ids = Vec::new();
+        for assessment in &report.pareto {
+            if assessment.status == genos_eval::ParetoStatus::NonDominated {
+                non_dominated_ids.push(GenomeId(assessment.branch_id.0.clone()));
+            }
+        }
+        
+        if non_dominated_ids.is_empty() {
+            return Err(format!("Extinction at generation {} - no candidates survived constraints or pareto selection", current_gen_num));
+        }
+        
+        // 4. Elitism: Keep non-dominated parents
+        let mut next_population = Vec::new();
+        let mut non_dominated_genomes = Vec::new();
+        for genome in &current_population {
+            if non_dominated_ids.contains(&genome.id) {
+                next_population.push(genome.clone());
+                non_dominated_genomes.push(genome.clone());
+            }
+        }
+        
+        // 5. Breed to fill the rest of the population
+        let mut children_produced = 0;
+        while next_population.len() < population_size {
+            // Randomly select two parents from the Pareto front
+            let alice_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
+            let mut bob_idx = (rand_f32() * non_dominated_genomes.len() as f32) as usize;
+            if non_dominated_genomes.len() > 1 && bob_idx == alice_idx {
+                bob_idx = (bob_idx + 1) % non_dominated_genomes.len();
+            }
+            
+            let alice = &non_dominated_genomes[alice_idx];
+            let bob = &non_dominated_genomes[bob_idx];
+            
+            let k1 = extract_numeric_id(&alice.id);
+            let k2 = extract_numeric_id(&bob.id);
+            let child_num_id = cantor_pairing(k1, k2);
+            
+            // Naming convention: gen_{N}_id_{CantorID}
+            // To avoid collisions if parents are identical, we add an offset based on children produced
+            let child_name = format!("gen_{}_id_{}", current_gen_num + 1, child_num_id + children_produced as u64);
+            
+            let mut child = breed_genomes(alice, bob, &child_name, mappings, strategy)?;
+            child.id = genos_core::GenomeId(child_name);
+            next_population.push(child);
+            children_produced += 1;
+        }
+        
+        current_population = next_population;
+    }
+    
+    Ok(current_population)
+}
+
 pub fn breed_genomes(
     alice: &AgentGenome,
     bob: &AgentGenome,
@@ -884,5 +990,70 @@ mod tests {
         let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
         assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
         assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.8);
+    }
+
+    #[test]
+    fn test_run_breeding_program_loop() {
+        let mut alice = dummy_genome(); alice.id = GenomeId("gen_0_id_1".to_string());
+        let mut bob = dummy_genome(); bob.id = GenomeId("gen_0_id_2".to_string());
+        let mut charlie = dummy_genome(); charlie.id = GenomeId("gen_0_id_3".to_string());
+
+        let initial_population = vec![alice, bob, charlie];
+        let constraints = SelectionConstraints {
+            max_cost: 100.0,
+            max_risk: 100.0,
+            max_hallucinations: 100.0,
+            min_success: 0.0,
+        };
+        let strategy = genos_core::RecombinationStrategy::HomologousRecombination;
+        let mappings = vec![BreedingTraitMapping {
+            genome_field: "cognition.drives.A".to_string(),
+            target: genos_eval::RecombinedTraitTarget {
+                trait_name: "A".to_string(),
+                target: 0.5,
+                parent_a_weight: 0.5,
+                parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() },
+                parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() },
+            }
+        }];
+
+        let batch_evaluator = |pop: &[AgentGenome]| -> Vec<SelectionCandidate> {
+            pop.iter().enumerate().map(|(i, g)| {
+                SelectionCandidate {
+                    genome_id: g.id.clone(),
+                    metrics: CanonicalAgentMetrics {
+                        accuracy: 0.5 + (i as f64 * 0.1),
+                        cost: 10.0,
+                        tokens: 1000.0,
+                        latency: 1.0,
+                        tool_calls: 1.0,
+                        risk: 0.1,
+                        hallucinations: 0.0,
+                        novelty: 0.5,
+                        success: 1.0,
+                    }
+                }
+            }).collect()
+        };
+
+        let result = super::run_breeding_program(
+            initial_population,
+            &batch_evaluator,
+            &constraints,
+            &strategy,
+            &mappings,
+            5, // population size
+            2, // generations
+            0, // start generation
+        );
+
+        assert!(result.is_ok());
+        let final_pop = result.unwrap();
+        for g in &final_pop { println!("genome in final_pop: {}", g.id.0); }
+        assert_eq!(final_pop.len(), 5);
+        // The elitism should retain the best parents and produce children.
+        // Check that at least some genomes are from generation 2
+        let has_gen_2 = final_pop.iter().any(|g| g.id.0.starts_with("gen_2"));
+        assert!(has_gen_2);
     }
 }
