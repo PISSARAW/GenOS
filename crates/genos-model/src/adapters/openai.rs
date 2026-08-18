@@ -30,6 +30,7 @@ struct OpenAiRequest<'a> {
 struct OpenAiResponse {
     choices: Vec<OpenAiChoice>,
     usage: Option<OpenAiUsage>,
+    system_fingerprint: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -155,6 +156,7 @@ impl LlmProvider for OpenAiAdapter {
             request_hash: "openai_req_hash".to_string(),
             response_hash: "openai_res_hash".to_string(),
             model_version: Some(config.exact_model_version.clone().unwrap_or(self.model.clone())),
+            system_fingerprint: openai_res.system_fingerprint,
             seed_used: config.seed,
             temperature_used: config.temperature,
             top_p_used: config.top_p,

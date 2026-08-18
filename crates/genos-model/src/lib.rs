@@ -61,6 +61,7 @@ pub struct LlmResponse {
     pub request_hash: String,
     pub response_hash: String,
     pub model_version: Option<String>,
+    pub system_fingerprint: Option<String>,
     pub seed_used: Option<u64>,
     pub temperature_used: Option<f32>,
     pub top_p_used: Option<f32>,
