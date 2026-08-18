@@ -175,9 +175,10 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
         "charlie",
         &[BreedingTraitMapping {
             genome_field: "cognition.drives.exploration".to_string(),
-            target,
+            target: target,
         }],
         &genos_core::RecombinationStrategy::HomologousRecombination,
+        None,
     )
     .map_err(anyhow::Error::msg)?;
     assert_eq!(charlie.parent_genomes.len(), 2);

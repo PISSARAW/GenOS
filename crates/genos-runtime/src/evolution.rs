@@ -414,6 +414,7 @@ pub fn run_breeding_program<E>(
     population_size: usize,
     generations: usize,
     start_generation: usize,
+    speciation_threshold: Option<f64>,
 ) -> Result<Vec<AgentGenome>, String>
 where
     E: Fn(&[AgentGenome]) -> Vec<SelectionCandidate>,
@@ -482,10 +483,18 @@ where
             // To avoid collisions if parents are identical, we add an offset based on children produced
             let child_name = format!("gen_{}_id_{}", current_gen_num + 1, child_num_id + children_produced as u64);
             
-            let mut child = breed_genomes(alice, bob, &child_name, mappings, strategy)?;
-            child.id = genos_core::GenomeId(child_name);
-            next_population.push(child);
-            children_produced += 1;
+            match breed_genomes(alice, bob, &child_name, mappings, strategy, speciation_threshold) {
+                Ok(mut child) => {
+                    child.id = genos_core::GenomeId(child_name);
+                    next_population.push(child);
+                    children_produced += 1;
+                },
+                Err(e) if e.contains("Rejected") => {
+                    // Speciation rejection: retry with other parents in the next iteration
+                    continue;
+                },
+                Err(e) => return Err(e),
+            }
         }
         
         current_population = next_population;
@@ -494,15 +503,39 @@ where
     Ok(current_population)
 }
 
+pub fn compute_genetic_distance(alice: &AgentGenome, bob: &AgentGenome) -> f64 {
+    let mut sum_sq = 0.0;
+    // Simple Euclidean distance over all shared loci
+    for alice_chrom in &alice.cognition.chromosomes {
+        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+            for alice_locus in &alice_chrom.loci {
+                if let Some(bob_locus) = bob_chrom.loci.iter().find(|l| l.gene_name == alice_locus.gene_name) {
+                    let diff = (alice_locus.value - bob_locus.value) as f64;
+                    sum_sq += diff * diff;
+                }
+            }
+        }
+    }
+    sum_sq.sqrt()
+}
+
 pub fn breed_genomes(
     alice: &AgentGenome,
     bob: &AgentGenome,
     child_name: &str,
     mappings: &[BreedingTraitMapping],
     strategy: &RecombinationStrategy,
+    speciation_threshold: Option<f64>,
 ) -> Result<AgentGenome, String> {
     if mappings.is_empty() {
         return Err("breeding requires at least one measured trait target".to_string());
+    }
+    
+    if let Some(threshold) = speciation_threshold {
+        let distance = compute_genetic_distance(alice, bob);
+        if distance > threshold {
+            return Err(format!("BreedingStatus::Rejected: Genetic distance {:.3} exceeds speciation threshold {:.3}", distance, threshold));
+        }
     }
     let mut child = alice.clone();
     child.id = GenomeId::new();
@@ -785,6 +818,7 @@ mod tests {
                 target,
             }],
             &genos_core::RecombinationStrategy::HomologousRecombination,
+            None,
         )
         .unwrap();
         assert_eq!(child.parent_genomes, vec![alice.id, bob.id]);
@@ -874,6 +908,7 @@ mod tests {
                 target,
             }],
             &genos_core::RecombinationStrategy::HomologousRecombination,
+            None,
         )
         .unwrap();
         assert_eq!(
@@ -932,7 +967,7 @@ mod tests {
         let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
 
         let strategy = genos_core::RecombinationStrategy::GeneConversion { dominant_parent: "alice".to_string() };
-        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy, None).unwrap();
         assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
         assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.2);
     }
@@ -949,7 +984,7 @@ mod tests {
         let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
 
         let strategy = genos_core::RecombinationStrategy::GeneConversion { dominant_parent: "bob".to_string() };
-        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy, None).unwrap();
         assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.9);
         assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.8);
     }
@@ -967,8 +1002,8 @@ mod tests {
         let target2 = target1.clone();
 
         let strategy = genos_core::RecombinationStrategy::NonHomologousEndJoining { error_rate: 1.0 };
-        let child1 = breed_genomes(&alice, &bob, "child1", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target1 }], &strategy).unwrap();
-        let child2 = breed_genomes(&alice, &bob, "child2", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target2 }], &strategy).unwrap();
+        let child1 = breed_genomes(&alice, &bob, "child1", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target1 }], &strategy, None).unwrap();
+        let child2 = breed_genomes(&alice, &bob, "child2", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target: target2 }], &strategy, None).unwrap();
 
         assert_eq!(child1.cognition.chromosomes[0].loci[0].value, child2.cognition.chromosomes[0].loci[0].value);
         assert_eq!(child1.cognition.chromosomes[0].loci[1].value, child2.cognition.chromosomes[0].loci[1].value);
@@ -987,7 +1022,7 @@ mod tests {
         let target = genos_eval::RecombinedTraitTarget { trait_name: "A".to_string(), target: 0.5, parent_a_weight: 0.5, parent_a_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() }, parent_b_estimate: genos_eval::TraitEstimate { trait_name: "A".to_string(), mean: 0.5, standard_error: 0.1, sample_size: 1, evaluation_suite: "suite".to_string() } };
 
         let strategy = genos_core::RecombinationStrategy::SiteSpecific { target_genes: vec!["B".to_string()] };
-        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy).unwrap();
+        let child = breed_genomes(&alice, &bob, "child", &[BreedingTraitMapping { genome_field: "cognition.drives.A".to_string(), target }], &strategy, None).unwrap();
         assert_eq!(child.cognition.chromosomes[0].loci[0].value, 0.1);
         assert_eq!(child.cognition.chromosomes[0].loci[1].value, 0.8);
     }
@@ -1045,6 +1080,7 @@ mod tests {
             5, // population size
             2, // generations
             0, // start generation
+            None, // speciation threshold
         );
 
         assert!(result.is_ok());
