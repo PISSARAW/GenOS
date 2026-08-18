@@ -3,6 +3,7 @@ pub mod counterfactual;
 pub mod pareto;
 pub mod qtl;
 pub mod phylogeny;
+pub mod variance;
 pub mod reproducibility;
 pub mod traits;
 
