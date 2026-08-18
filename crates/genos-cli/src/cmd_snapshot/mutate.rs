@@ -28,22 +28,14 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
 
     let mut changed = Vec::new();
 
-    if let Some(exploration) = args.exploration {
+    for (name, new_value) in args.drives {
+        let previous = snapshot.genome.cognition.drives.get(&name).copied().unwrap_or(0.5);
         changed.push(CognitionChange {
-            field: "genome.cognition.exploration".to_string(),
-            previous: snapshot.genome.cognition.exploration.to_string(),
-            value: exploration.to_string(),
+            field: format!("genome.cognition.drives.{}", name),
+            previous: previous.to_string(),
+            value: new_value.to_string(),
         });
-        snapshot.genome.cognition.exploration = exploration;
-    }
-
-    if let Some(threshold) = args.verification_threshold {
-        changed.push(CognitionChange {
-            field: "genome.cognition.verification_threshold".to_string(),
-            previous: snapshot.genome.cognition.verification_threshold.to_string(),
-            value: threshold.to_string(),
-        });
-        snapshot.genome.cognition.verification_threshold = threshold;
+        snapshot.genome.cognition.drives.insert(name, new_value);
     }
 
     if let Some(depth) = args.planning_depth {
@@ -55,9 +47,9 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
         snapshot.genome.cognition.planning_depth = depth;
     }
 
-    if changed.is_empty() {
+    if changed.is_empty() && args.planning_depth.is_none() {
         bail!(
-            "nothing to change: pass at least one of --exploration, --verification-threshold, --planning-depth"
+            "nothing to change: pass at least one of --drive, --planning-depth"
         );
     }
 

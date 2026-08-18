@@ -95,15 +95,26 @@ pub struct SnapshotAddMemoryArgs {
     pub format: OutputFormat,
 }
 
+fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
+where
+    T: std::str::FromStr,
+    T::Err: std::error::Error + Send + Sync + 'static,
+    U: std::str::FromStr,
+    U::Err: std::error::Error + Send + Sync + 'static,
+{
+    let pos = s
+        .find('=')
+        .ok_or_else(|| format!("invalid KEY=value: no `=` found in `{s}`"))?;
+    Ok((s[..pos].parse()?, s[pos + 1..].parse()?))
+}
+
 #[derive(ArgsMacro, Debug)]
 pub struct SnapshotSetCognitionArgs {
     /// Snapshot to change: file path or snapshot id resolved in the store.
     #[arg(long)]
     pub snapshot: String,
-    #[arg(long, value_parser = crate::resolve::unit_interval)]
-    pub exploration: Option<f32>,
-    #[arg(long, value_parser = crate::resolve::unit_interval)]
-    pub verification_threshold: Option<f32>,
+    #[arg(long = "drive", value_parser = parse_key_val::<String, f32>)]
+    pub drives: Vec<(String, f32)>,
     #[arg(long)]
     pub planning_depth: Option<u32>,
     #[arg(long, default_value = ".genos")]

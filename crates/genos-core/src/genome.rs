@@ -13,15 +13,9 @@ pub struct Identity {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CognitionConfig {
-    pub exploration: f32,
-    #[serde(default = "default_risk_tolerance")]
-    pub risk_tolerance: f32,
-    pub verification_threshold: f32,
+    #[serde(flatten)]
+    pub drives: std::collections::BTreeMap<String, f32>,
     pub planning_depth: u32,
-}
-
-fn default_risk_tolerance() -> f32 {
-    0.5
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -127,18 +121,9 @@ pub struct GenomeMutationChange {
     pub new_value: f32,
 }
 
-/// Derive a genome by changing only its exploration configuration.
-///
-/// This is genetic lineage, not execution history: the parent genome is never
-/// modified and may be used later to start an independent mutation lineage.
-pub fn mutate_exploration(parent: &AgentGenome, exploration: f32) -> AgentGenome {
-    mutate_cognition(parent, Some(exploration), None)
-}
-
 pub fn mutate_cognition(
     parent: &AgentGenome,
-    exploration: Option<f32>,
-    risk_tolerance: Option<f32>,
+    drive_changes: std::collections::BTreeMap<String, f32>,
 ) -> AgentGenome {
     let mut child = parent.clone();
     child.id = GenomeId::new();
@@ -146,22 +131,17 @@ pub fn mutate_cognition(
     child.parent_genomes = vec![parent.id.clone()];
     child.breeding = None;
     let mut changes = Vec::new();
-    if let Some(value) = exploration {
+
+    for (drive_name, new_value) in drive_changes {
+        let previous_value = child.cognition.drives.get(&drive_name).copied().unwrap_or(0.5); // Default to 0.5 if not found
         changes.push(GenomeMutationChange {
-            field: "cognition.exploration".to_string(),
-            previous_value: parent.cognition.exploration,
-            new_value: value,
+            field: format!("cognition.drives.{}", drive_name),
+            previous_value,
+            new_value,
         });
-        child.cognition.exploration = value;
+        child.cognition.drives.insert(drive_name, new_value);
     }
-    if let Some(value) = risk_tolerance {
-        changes.push(GenomeMutationChange {
-            field: "cognition.risk_tolerance".to_string(),
-            previous_value: parent.cognition.risk_tolerance,
-            new_value: value,
-        });
-        child.cognition.risk_tolerance = value;
-    }
+    
     child.mutation = Some(GenomeMutationMetadata { changes });
     child
 }
@@ -171,6 +151,10 @@ mod tests {
     use super::*;
 
     fn genome(exploration: f32) -> AgentGenome {
+        let mut drives = std::collections::BTreeMap::new();
+        drives.insert("exploration".to_string(), exploration);
+        drives.insert("risk_tolerance".to_string(), 0.25);
+        drives.insert("verification_threshold".to_string(), 0.5);
         AgentGenome {
             id: GenomeId("G0".to_string()),
             parent_genome: None,
@@ -182,9 +166,7 @@ mod tests {
                 role: "agent".to_string(),
             },
             cognition: CognitionConfig {
-                exploration,
-                risk_tolerance: 0.25,
-                verification_threshold: 0.5,
+                drives,
                 planning_depth: 1,
             },
             objectives: vec![],
@@ -211,39 +193,53 @@ mod tests {
     #[test]
     fn exploration_mutations_keep_parent_and_metadata() {
         let parent = genome(0.5);
-        let g1 = mutate_exploration(&parent, 0.6);
-        let g2 = mutate_exploration(&parent, 0.4);
+        let mut changes1 = std::collections::BTreeMap::new();
+        changes1.insert("exploration".to_string(), 0.6);
+        let g1 = mutate_cognition(&parent, changes1);
+        
+        let mut changes2 = std::collections::BTreeMap::new();
+        changes2.insert("exploration".to_string(), 0.4);
+        let g2 = mutate_cognition(&parent, changes2);
+        
         assert_eq!(g1.parent_genome, Some(parent.id.clone()));
         assert_eq!(g2.parent_genome, Some(parent.id.clone()));
-        assert_eq!(g1.cognition.exploration, 0.6);
-        assert_eq!(g2.cognition.exploration, 0.4);
+        assert_eq!(*g1.cognition.drives.get("exploration").unwrap(), 0.6);
+        assert_eq!(*g2.cognition.drives.get("exploration").unwrap(), 0.4);
         assert_eq!(g1.mutation.as_ref().unwrap().changes[0].previous_value, 0.5);
     }
 
     #[test]
     fn multi_field_mutation_records_each_change() {
         let parent = genome(0.8);
-        let child = mutate_cognition(&parent, Some(0.95), Some(0.15));
-        assert_eq!(child.cognition.exploration, 0.95);
-        assert_eq!(child.cognition.risk_tolerance, 0.15);
+        let mut changes = std::collections::BTreeMap::new();
+        changes.insert("exploration".to_string(), 0.95);
+        changes.insert("risk_tolerance".to_string(), 0.15);
+        let child = mutate_cognition(&parent, changes);
+        assert_eq!(*child.cognition.drives.get("exploration").unwrap(), 0.95);
+        assert_eq!(*child.cognition.drives.get("risk_tolerance").unwrap(), 0.15);
         assert_eq!(child.mutation.as_ref().unwrap().changes.len(), 2);
     }
 
     #[test]
     fn mutation_is_reversible_by_restarting_from_the_original_genome() {
         let g0 = genome(0.5);
-        let g1 = mutate_exploration(&g0, 0.6);
-        let g2 = mutate_exploration(&g1, 0.7);
+        let mut ch1 = std::collections::BTreeMap::new();
+        ch1.insert("exploration".to_string(), 0.6);
+        let g1 = mutate_cognition(&g0, ch1);
+        
+        let mut ch2 = std::collections::BTreeMap::new();
+        ch2.insert("exploration".to_string(), 0.7);
+        let g2 = mutate_cognition(&g1, ch2);
 
-        // Restarting from G0 does not rewind an execution timeline; it creates
-        // a distinct genetic sibling of G1 with G0 as its own parent.
-        let restarted = mutate_exploration(&g0, 0.4);
+        let mut ch3 = std::collections::BTreeMap::new();
+        ch3.insert("exploration".to_string(), 0.4);
+        let restarted = mutate_cognition(&g0, ch3);
 
         assert_eq!(g1.parent_genome, Some(g0.id.clone()));
         assert_eq!(g2.parent_genome, Some(g1.id.clone()));
         assert_eq!(restarted.parent_genome, Some(g0.id.clone()));
-        assert_eq!(g0.cognition.exploration, 0.5);
-        assert_eq!(restarted.cognition.exploration, 0.4);
+        assert_eq!(*g0.cognition.drives.get("exploration").unwrap(), 0.5);
+        assert_eq!(*restarted.cognition.drives.get("exploration").unwrap(), 0.4);
         assert_ne!(restarted.id, g1.id);
     }
 }
