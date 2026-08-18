@@ -26,7 +26,11 @@ pub struct Message {
 /// Configuration grouping to keep function parameters < 3
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GenerationConfig {
+    pub exact_model_version: Option<String>,
     pub temperature: Option<f32>,
+    pub seed: Option<u64>,
+    pub top_p: Option<f32>,
+    pub top_k: Option<u32>,
     pub max_tokens: Option<u32>,
     pub stop_sequences: Vec<String>,
 }
@@ -56,6 +60,11 @@ pub struct LlmResponse {
     pub usage: TokenUsage,
     pub request_hash: String,
     pub response_hash: String,
+    pub model_version: Option<String>,
+    pub seed_used: Option<u64>,
+    pub temperature_used: Option<f32>,
+    pub top_p_used: Option<f32>,
+    pub top_k_used: Option<u32>,
 }
 
 /// The main abstraction trait for all LLM providers
