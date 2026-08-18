@@ -1,4 +1,4 @@
-﻿use crate::args::OutputFormat;
+use crate::args::OutputFormat;
 use genos_core::{
     AgentDiff, BeliefStatus, BeliefWriteKind, MemoryKind, ProvenanceNode, SnapshotComparison,
     VariableIsolationReport,
@@ -12,6 +12,7 @@ use std::{fs, path::PathBuf};
 pub mod lineage;
 pub mod provenance;
 pub mod snapshot_outputs;
+pub mod divergence;
 
 // Re-export the snapshot-only output structs so callers can keep importing
 // them from `crate::output` (and don't have to learn the submodule).
@@ -19,6 +20,8 @@ pub use snapshot_outputs::{
     SnapshotCheckpointOutput, SnapshotGetOutput, SnapshotLineageOutput, SnapshotListOutput,
     SnapshotRestoreOutput, SnapshotSaveOutput,
 };
+
+pub use divergence::{DivergenceReport, print_divergence_handoff};
 
 // ---------- output structs ----------
 
