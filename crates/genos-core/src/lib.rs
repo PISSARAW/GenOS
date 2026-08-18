@@ -2,6 +2,7 @@ pub mod divergence;
 pub mod entities;
 pub mod guardrails;
 pub mod loop_detection;
+pub mod noise;
 pub mod rebase;
 pub mod revert;
 pub mod context;

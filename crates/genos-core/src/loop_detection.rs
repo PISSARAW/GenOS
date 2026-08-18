@@ -28,6 +28,8 @@ pub struct ToolCallSignature {
 pub struct IterationSnapshot {
     pub tool_signature: Option<ToolCallSignature>,
     pub world_state_hash: u64,
+    /// Représentation JSON de l'état (utile pour la normalisation du bruit).
+    pub world_state_content: Option<String>,
     /// Vectorized representation of the thought for similarity checks.
     pub thought_embedding: Option<Vec<f32>>,
 }
@@ -190,6 +192,7 @@ mod tests {
         breaker.record_iteration(IterationSnapshot {
             tool_signature: Some(sig.clone()),
             world_state_hash: 0,
+            world_state_content: None,
             thought_embedding: None,
         });
 
