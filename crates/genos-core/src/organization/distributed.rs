@@ -1,7 +1,41 @@
 //! Algorithmes d'organisation distribuée
 //! Implémente les modèles inspirés de la nature : Pieuvre, Manchots, Lucioles.
+//! Avec optimisations de tokens : JSON compact et FilePointer.
 
 use std::collections::HashMap;
+
+/// Pointeur vers un artefact (évite d'échanger les contenus bruts)
+#[derive(Debug, Clone, PartialEq)]
+pub struct FilePointer {
+    pub path: String,
+}
+
+impl FilePointer {
+    pub fn new(path: String) -> Self {
+        Self { path }
+    }
+}
+
+/// Message optimisé utilisant JSON compact et FilePointer
+#[derive(Debug, Clone)]
+pub struct CompactMessage {
+    pub sender_id: String,
+    pub payload_ptr: FilePointer,
+}
+
+impl CompactMessage {
+    pub fn new(sender: String, path: String) -> Self {
+        Self {
+            sender_id: sender,
+            payload_ptr: FilePointer::new(path),
+        }
+    }
+
+    /// Sérialise le message en JSON très compact pour économiser les tokens
+    pub fn to_json(&self) -> String {
+        format!(r#"{{"s":"{}","p":"{}"}}"#, self.sender_id, self.payload_ptr.path)
+    }
+}
 
 /// Représente un agent dans le système
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +92,11 @@ impl OctopusBrain {
             }
         }
         false
+    }
+    
+    /// Envoie un message sérialisé à un bras (optimisation de tokens)
+    pub fn send_msg(&self, msg: &CompactMessage) -> String {
+        msg.to_json()
     }
 }
 

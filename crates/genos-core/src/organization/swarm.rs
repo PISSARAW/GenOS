@@ -1,5 +1,33 @@
 use std::collections::HashMap;
 
+/// Niveaux de modèles pour l'optimisation des tokens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ModelTier {
+    FlashLite, // Pour les tâches de routine
+    Pro,       // Pour la synthèse
+}
+
+/// État global (Tableau Noir / Stigmergie) remplaçant l'historique des requêtes.
+pub struct SharedState {
+    pub data: HashMap<String, String>,
+}
+
+impl SharedState {
+    pub fn new() -> Self {
+        Self {
+            data: HashMap::new(),
+        }
+    }
+
+    pub fn write(&mut self, key: String, val: String) {
+        self.data.insert(key, val);
+    }
+
+    pub fn read(&self, key: &str) -> Option<String> {
+        self.data.get(key).cloned()
+    }
+}
+
 /// Représente l'environnement où les phéromones sont déposées (Stigmergie).
 pub struct Environment {
     pheromones: HashMap<(i32, i32), f64>,
@@ -88,11 +116,12 @@ pub enum Role {
 pub struct Agent {
     pub id: usize,
     pub role: Role,
+    pub tier: ModelTier,
 }
 
 impl Agent {
-    pub fn new(id: usize, role: Role) -> Self {
-        Self { id, role }
+    pub fn new(id: usize, role: Role, tier: ModelTier) -> Self {
+        Self { id, role, tier }
     }
 
     pub fn assign_role(&mut self, new_role: Role) {
@@ -121,6 +150,7 @@ pub struct Swarm {
     pub nest: Nest,
     pub env: Environment,
     pub consensus: Consensus,
+    pub shared_state: SharedState,
 }
 
 impl Swarm {
@@ -130,6 +160,7 @@ impl Swarm {
             nest: Nest::new(),
             env: Environment::new(),
             consensus: Consensus::new(),
+            shared_state: SharedState::new(),
         }
     }
 

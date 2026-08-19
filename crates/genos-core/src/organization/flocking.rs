@@ -247,3 +247,33 @@ pub fn update_wolf_pos(w: &mut Wolf, pack: &GwoPack, a: f32) {
     
     w.pos = w.pos.add(&total_step);
 }
+
+// ==========================================
+// 5. GESTION DES SIMILARITÉS (Opti Tokens)
+// ==========================================
+// Remplacement des appels LLM conceptuels par des 
+// heuristiques de similarité spatiale et bas niveau en Rust pur.
+
+pub fn spatial_similarity(p1: &Vec2, p2: &Vec2, max_d: f32) -> f32 {
+    let d = p1.sub(p2).mag();
+    if d >= max_d {
+        0.0
+    } else {
+        1.0 - (d / max_d)
+    }
+}
+
+pub fn vector_similarity(v1: &Vec2, v2: &Vec2, max_diff: f32) -> f32 {
+    let diff = v1.sub(v2).mag();
+    if diff >= max_diff {
+        0.0
+    } else {
+        1.0 - (diff / max_diff)
+    }
+}
+
+pub fn agent_similarity(pos1: &Vec2, pos2: &Vec2, max_d: f32) -> f32 {
+    // Combine les heuristiques pour évaluer la similarité 
+    // d'agents sans recourir à un LLM.
+    spatial_similarity(pos1, pos2, max_d)
+}
