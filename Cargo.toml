@@ -10,7 +10,8 @@ members = [
   "crates/genos-api",
   "crates/genos-cli",
   "crates/genos-protocol",
-  "integrations/mcp/genos-mcp", "genos_v5_rust",
+  "crates/epsilon_sa",
+  "integrations/mcp/genos-mcp", "genos_v5_rust", "sigma_runner",
 ]
 resolver = "2"
 
