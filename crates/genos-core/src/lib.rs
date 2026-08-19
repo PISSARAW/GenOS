@@ -9,6 +9,7 @@ pub mod context;
 pub mod causality;
 pub mod environment;
 pub mod artifact;
+pub mod organization;
 pub mod beliefs;
 pub mod capsule;
 pub mod diff;
