@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "z3-solver": "^5.1.0"
+  }
+}
