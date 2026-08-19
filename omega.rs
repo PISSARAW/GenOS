@@ -3,47 +3,21 @@ use std::fs;
 
 type Trajectory = [[[u8; 20]; 20]; 5];
 
-struct Rng {
-    state: u64,
-}
-
+struct Rng { state: u64 }
 impl Rng {
-    fn new() -> Self {
-        Rng { state: 88172645463325252 }
-    }
-
+    fn new() -> Self { Rng { state: 88172645463325252 } }
     fn next_u64(&mut self) -> u64 {
-        let mut x = self.state;
-        if x == 0 { x = 1; }
-        x ^= x << 13;
-        x ^= x >> 7;
-        x ^= x << 17;
-        self.state = x;
-        x
+        let mut x = self.state; if x == 0 { x = 1; }
+        x ^= x << 13; x ^= x >> 7; x ^= x << 17;
+        self.state = x; x
     }
-
-    fn gen_f64(&mut self) -> f64 {
-        (self.next_u64() as f64) / (u64::MAX as f64)
-    }
-
-    fn gen_range(&mut self, end: usize) -> usize {
-        if end == 0 { return 0; }
-        (self.next_u64() as usize) % end
-    }
+    fn gen_f64(&mut self) -> f64 { (self.next_u64() as f64) / (u64::MAX as f64) }
+    fn gen_range(&mut self, end: usize) -> usize { if end == 0 { 0 } else { (self.next_u64() as usize) % end } }
 }
 
 #[derive(Copy, Clone, Default)]
-struct Coord {
-    t: usize,
-    x: usize,
-    y: usize,
-}
-
-impl Coord {
-    fn new(t: usize, x: usize, y: usize) -> Self {
-        Self { t, x, y }
-    }
-}
+struct Coord { t: usize, x: usize, y: usize }
+impl Coord { fn new(t: usize, x: usize, y: usize) -> Self { Self { t, x, y } } }
 
 struct WalkSatEngine {
     trajectory: Trajectory,
@@ -59,21 +33,13 @@ struct WalkSatEngine {
 }
 
 impl WalkSatEngine {
-    fn new(target: [[u8; 20]; 20], mut rng: Rng) -> Self {
-        let mut engine = WalkSatEngine {
-            trajectory: [[[0; 20]; 20]; 5],
-            target,
-            violations_dense: Vec::with_capacity(2000),
-            violations_sparse: [-1; 2000],
-            clause_weights: [[[1; 20]; 20]; 5],
-            vraw_score: 0,
-            vweighted_score: 0,
-            rng,
-            tabu: [[[0; 20]; 20]; 5],
-            iter: 0,
+    fn new(target: [[u8; 20]; 20], rng: Rng) -> Self {
+        let mut e = WalkSatEngine {
+            trajectory: [[[0;20];20];5], target, violations_dense: Vec::with_capacity(2000),
+            violations_sparse: [-1;2000], clause_weights: [[[1;20];20];5],
+            vraw_score: 0, vweighted_score: 0, rng, tabu: [[[0;20];20];5], iter: 0,
         };
-        engine.init_retrograde_wave();
-        engine
+        e.init_retrograde_wave(); e
     }
 
     fn init_retrograde_wave(&mut self) {
@@ -266,18 +232,10 @@ impl WalkSatEngine {
 
     fn smooth_weights(&mut self) {
         self.vweighted_score = 0;
-        for t in 0..5 {
-            for y in 0..20 {
-                for x in 0..20 {
-                    if self.clause_weights[t][y][x] > 1 {
-                        self.clause_weights[t][y][x] = 1 + (self.clause_weights[t][y][x] - 1) * 9 / 10;
-                    }
-                    if self.is_violated(Coord::new(t, x, y)) {
-                        self.vweighted_score += self.clause_weights[t][y][x];
-                    }
-                }
-            }
-        }
+        for t in 0..5 { for y in 0..20 { for x in 0..20 {
+            if self.clause_weights[t][y][x] > 1 { self.clause_weights[t][y][x] = 1 + (self.clause_weights[t][y][x] - 1) * 9 / 10; }
+            if self.is_violated(Coord::new(t, x, y)) { self.vweighted_score += self.clause_weights[t][y][x]; }
+        }}}
     }
 
     fn fill_candidate_vars(&self, v_pos: Coord, c_vars: &mut [Coord; 10]) -> usize {
