@@ -65,6 +65,8 @@ impl Boid {
             self.vel = self.vel.normalize().mul(max_speed);
         }
         self.pos = self.pos.add(&self.vel);
+        self.pos.x = self.pos.x.round().clamp(0.0, 19.0);
+        self.pos.y = self.pos.y.round().clamp(0.0, 19.0);
     }
 }
 
