@@ -1,0 +1,7 @@
+{
+  "status": "ACTIVE_CYCLE",
+  "quorum_score": 0,
+  "locked_zones": [],
+  "proposals": [],
+  "circuit_breaker": false
+}

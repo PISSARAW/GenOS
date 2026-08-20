@@ -15,6 +15,7 @@ struct State {
 struct Context<'a> {
     target: &'a [u32; 20],
     shared: &'a Arc<Mutex<[State; 16]>>,
+    omega_locks: [u32; 20],
 }
 
 fn step_flat(grid: &[u32; 20], next: &mut [u32; 20]) {
@@ -74,9 +75,10 @@ fn crossover(current: &State, shared: &Arc<Mutex<[State; 16]>>) -> [u32; 20] {
     mixed
 }
 
-fn mutate(current: &State, r: u32, rng: &mut rand::rngs::ThreadRng) -> [u32; 20] {
+fn hypermutation(current: &State, ctx: &Context, rng: &mut rand::rngs::ThreadRng) -> [u32; 20] {
     let mut next_grid = current.grid;
     let mut mutated = false;
+    let r = if current.score < 330 { 5 } else if current.score < 360 { 3 } else { 1 };
     
     if rng.gen_bool(0.7) && current.score < 400 {
         let mut errs = Vec::with_capacity(400);
@@ -91,15 +93,19 @@ fn mutate(current: &State, r: u32, rng: &mut rand::rngs::ThreadRng) -> [u32; 20]
             let (ex, ey) = errs[rng.gen_range(0..errs.len())];
             let mx = rng.gen_range(ex.saturating_sub(r)..=(ex + r).min(19));
             let my = rng.gen_range(ey.saturating_sub(r)..=(ey + r).min(19));
-            next_grid[my as usize] ^= 1 << mx;
-            mutated = true;
+            if (ctx.omega_locks[my as usize] >> mx) & 1 == 0 {
+                next_grid[my as usize] ^= 1 << mx;
+                mutated = true;
+            }
         }
     }
     
     if !mutated {
         let mx = rng.gen_range(0..20);
         let my = rng.gen_range(0..20);
-        next_grid[my] ^= 1 << mx;
+        if (ctx.omega_locks[my as usize] >> mx) & 1 == 0 {
+            next_grid[my as usize] ^= 1 << mx;
+        }
     }
     next_grid
 }
@@ -141,8 +147,7 @@ fn sa_thread(tid: usize, ctx: Context) {
             continue;
         }
 
-        let r = if current.score < 330 { 5 } else if current.score < 360 { 3 } else { 1 };
-        let next_grid = mutate(&current, r, &mut rng);
+        let next_grid = hypermutation(&current, &ctx, &mut rng);
 
         if iter - last_best_iter[cid] > 500_000 {
             for y in 0..20 { current.grid[y] = rng.gen_range(0..=0xFFFFF); }
@@ -201,10 +206,23 @@ fn load_target(path: &str) -> [u32; 20] {
     target
 }
 
+fn load_omega_locks() -> [u32; 20] {
+    let mut locks = [0; 20];
+    if let Ok(content) = fs::read_to_string("omega_locks.txt") {
+        for (y, line) in content.lines().enumerate().take(20) {
+            for (x, ch) in line.chars().enumerate().take(20) {
+                if ch == '1' { locks[y] |= 1 << x; }
+            }
+        }
+    }
+    locks
+}
+
 fn main() {
-    println!("Démarrage Gen 41 Sigma (Le Puriste Darwinien) - 1024 chaînes (16 threads * 64), budget 45s...");
-    println!("-> Activation du Novelty Search (Pénalité sur les grilles bloquées à 378)");
+    println!("Démarrage Gen 39 Sigma (Le Darwinien) - Fin de Cryptobiose...");
+    println!("-> Application du recuit simulé sur les zones non verrouillées par Omega");
     let target = load_target("target_grid.txt");
+    let omega_locks = load_omega_locks();
 
     let shared = Arc::new(Mutex::new([State { grid: [0; 20], score: 0, errors: [0; 20] }; 16]));
     
@@ -218,6 +236,7 @@ fn main() {
             let ctx = Context {
                 target: &t,
                 shared: &s,
+                omega_locks,
             };
             sa_thread(tid, ctx);
         }));
