@@ -1,4 +1,4 @@
-﻿use clap::{Parser, Subcommand, ValueEnum};
+use clap::{Parser, Subcommand, ValueEnum};
 use genos_core::MemoryKind;
 use std::path::PathBuf;
 
@@ -10,6 +10,8 @@ pub mod inspect;
 pub mod replay;
 pub mod snapshot;
 pub mod world;
+pub mod resilience;
+pub mod biomimicry;
 
 pub use agent::*;
 pub use capsule::*;
@@ -19,6 +21,8 @@ pub use inspect::*;
 pub use replay::*;
 pub use snapshot::*;
 pub use world::*;
+pub use resilience::*;
+pub use biomimicry::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -45,6 +49,10 @@ pub enum Commands {
     /// Diff the logical state of two snapshots. Identity fields are excluded,
     /// so two untouched forks of one snapshot diff to nothing.
     Diff(DiffArgs),
+    /// Triggers for biological resilience concepts like Apoptosis and Fuzzing.
+    Resilience(ResilienceCommand),
+    /// Triggers for biomimetic organizational concepts like Swarms and Flocking.
+    Biomimicry(BiomimicryCommand),
 }
 
 #[derive(ArgsMacro, Debug)]
