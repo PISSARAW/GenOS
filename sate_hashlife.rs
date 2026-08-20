@@ -112,15 +112,10 @@ impl HashLife {
             let mut nw = c[0]; let mut ne = c[1];
             let mut sw = c[2]; let mut se = c[3];
             let (x, y) = args.pos;
-            if x < half && y < half {
-                nw = self.set_cell(SetCellArgs { node: nw, pos: (x, y), val: args.val, level: args.level - 1 });
-            } else if x >= half && y < half {
-                ne = self.set_cell(SetCellArgs { node: ne, pos: (x - half, y), val: args.val, level: args.level - 1 });
-            } else if x < half && y >= half {
-                sw = self.set_cell(SetCellArgs { node: sw, pos: (x, y - half), val: args.val, level: args.level - 1 });
-            } else {
-                se = self.set_cell(SetCellArgs { node: se, pos: (x - half, y - half), val: args.val, level: args.level - 1 });
-            }
+            if x < half && y < half { nw = self.set_cell(SetCellArgs { node: nw, pos: (x, y), val: args.val, level: args.level - 1 }); }
+            else if x >= half && y < half { ne = self.set_cell(SetCellArgs { node: ne, pos: (x - half, y), val: args.val, level: args.level - 1 }); }
+            else if x < half && y >= half { sw = self.set_cell(SetCellArgs { node: sw, pos: (x, y - half), val: args.val, level: args.level - 1 }); }
+            else { se = self.set_cell(SetCellArgs { node: se, pos: (x - half, y - half), val: args.val, level: args.level - 1 }); }
             self.intern(Node::Branch([nw, ne, sw, se]))
         } else { unreachable!() }
     }
@@ -202,10 +197,8 @@ impl<'a> GridContext<'a> {
         }
         let half = 1 << (args.level - 1);
         if let Node::Branch(c) = self.hl.nodes[args.node] {
-            self.fill(FillArgs { node: c[0], level: args.level - 1, pos: (ox, oy) });
-            self.fill(FillArgs { node: c[1], level: args.level - 1, pos: (ox + half, oy) });
-            self.fill(FillArgs { node: c[2], level: args.level - 1, pos: (ox, oy + half) });
-            self.fill(FillArgs { node: c[3], level: args.level - 1, pos: (ox + half, oy + half) });
+            self.fill(FillArgs { node: c[0], level: args.level - 1, pos: (ox, oy) }); self.fill(FillArgs { node: c[1], level: args.level - 1, pos: (ox + half, oy) });
+            self.fill(FillArgs { node: c[2], level: args.level - 1, pos: (ox, oy + half) }); self.fill(FillArgs { node: c[3], level: args.level - 1, pos: (ox + half, oy + half) });
         }
     }
 }
@@ -234,20 +227,10 @@ fn compute_fitness(grid: &[[u8; SIZE]; SIZE]) -> i32 {
 
     let mut score = 0i32;
     for y in 1..=SIZE {
-        let i0 = (y - 1) * 22;
-        let p_tl = u8x32::from_slice(&padded[i0..]);
-        let p_tc = u8x32::from_slice(&padded[i0 + 1..]);
-        let p_tr = u8x32::from_slice(&padded[i0 + 2..]);
-
-        let i1 = y * 22;
-        let p_ml = u8x32::from_slice(&padded[i1..]);
-        let p_mc = u8x32::from_slice(&padded[i1 + 1..]);
-        let p_mr = u8x32::from_slice(&padded[i1 + 2..]);
-
-        let i2 = (y + 1) * 22;
-        let p_bl = u8x32::from_slice(&padded[i2..]);
-        let p_bc = u8x32::from_slice(&padded[i2 + 1..]);
-        let p_br = u8x32::from_slice(&padded[i2 + 2..]);
+        let i0 = (y - 1) * 22; let i1 = y * 22; let i2 = (y + 1) * 22;
+        let p_tl = u8x32::from_slice(&padded[i0..]); let p_tc = u8x32::from_slice(&padded[i0 + 1..]); let p_tr = u8x32::from_slice(&padded[i0 + 2..]);
+        let p_ml = u8x32::from_slice(&padded[i1..]); let p_mc = u8x32::from_slice(&padded[i1 + 1..]); let p_mr = u8x32::from_slice(&padded[i1 + 2..]);
+        let p_bl = u8x32::from_slice(&padded[i2..]); let p_bc = u8x32::from_slice(&padded[i2 + 1..]); let p_br = u8x32::from_slice(&padded[i2 + 2..]);
 
         let sum = p_tl + p_tc + p_tr + p_ml + p_mr + p_bl + p_bc + p_br;
         
@@ -389,19 +372,10 @@ fn simulated_annealing(hl: &mut HashLife, start_root: usize, rng: &mut Rng) -> u
 fn generate_initial(hl: &mut HashLife, rng: &mut Rng) -> usize {
     loop {
         let mut root = hl.empty_tree(5);
-        for y in 0..SIZE {
-            for x in 0..SIZE {
-                let val = if rng.next() % 4 == 0 { 1 } else { 0 };
-                root = hl.set_cell(SetCellArgs { node: root, pos: (x, y), val, level: 5 });
-            }
-        }
-        
+        for y in 0..SIZE { for x in 0..SIZE { root = hl.set_cell(SetCellArgs { node: root, pos: (x, y), val: if rng.next() % 4 == 0 { 1 } else { 0 }, level: 5 }); } }
         let mut grid = [[0; SIZE]; SIZE];
-        let mut ctx = GridContext { hl, grid: &mut grid };
-        ctx.fill(FillArgs { node: root, level: 5, pos: (0, 0) });
-        if SATSolver::solve_anti_symmetry(&grid) {
-            return root;
-        }
+        GridContext { hl, grid: &mut grid }.fill(FillArgs { node: root, level: 5, pos: (0, 0) });
+        if SATSolver::solve_anti_symmetry(&grid) { return root; }
     }
 }
 
