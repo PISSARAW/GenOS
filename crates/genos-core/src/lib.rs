@@ -10,6 +10,7 @@ pub mod causality;
 pub mod environment;
 pub mod artifact;
 pub mod organization;
+pub mod resilience;
 pub mod beliefs;
 pub mod capsule;
 pub mod diff;
