@@ -1,11 +1,11 @@
-﻿use genos_protocol::{plan_tool_call, tool_specs, ProtocolResult, PROTOCOL_VERSION};
+use genos_protocol::{plan_tool_call, tool_specs, ProtocolResult, PROTOCOL_VERSION};
 use serde_json::json;
 use std::collections::HashSet;
 
 #[test]
 fn catalog_contains_canonical_and_software_development_tools() {
     let specs = tool_specs();
-    assert_eq!(specs.len(), 32);
+    assert_eq!(specs.len(), 65);
     let names = specs
         .iter()
         .map(|tool| tool.name.as_str())

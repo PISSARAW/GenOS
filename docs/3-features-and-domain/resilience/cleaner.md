@@ -1,61 +1,227 @@
-# Résilience et Stratégies de Survie (cleaner.rs)
+# Cleaner: Autophagy, DAG Mark-and-Sweep & Metabolic Torpor
 
-Ce document décrit les stratégies de résilience implémentées au sein du sous-système de nettoyage et de défense de GenOS, spécifiquement à travers les mécanismes définis dans `cleaner.rs`.
+## 1. Overview & Biological Analogy
 
-## 1. Concepts de Résilience
+In multicellular organisms, physiological survival requires continuous waste removal and nutrient recycling. Two vital biological processes govern this cellular housekeeping:
+1. **Autophagy**: The self-degradative mechanism whereby damaged organelles, misfolded proteins, and senescent components are encapsulated in autophagosomes, delivered to lysosomes, and broken down into amino acids to fuel essential metabolism.
+2. **Torpor**: A state of regulated metabolic depression and reduced body temperature allowing organisms to survive acute nutrient scarcity, extreme cold, or environmental hyper-stress.
 
-GenOS s'inspire de la biologie et des systèmes distribués pour assurer sa survie et son efficacité face aux erreurs, aux attaques et à l'entropie du système.
+In **GenOS**, the **Cleaner** subsystem (`cleaner.rs`) prevents resource exhaustion, memory leaks, and storage bloat across long-running autonomous workflows. It orchestrates the automated garbage collection of abandoned counterfactual exploration branches, stale Git worktrees, and dangling Content-Addressable Storage (CAS) blobs, while enforcing metabolic torpor during external API backpressure.
 
-* **Hypermutation (Fuzzing)** : Capacité du système à générer rapidement des variations de son propre code ou de ses entrées pour tester la robustesse des interfaces (fuzzing) ou pour échapper à des signatures virales/défensives (polymorphisme).
-* **Autophagie** : Processus d'auto-nettoyage. Le système identifie, isole et détruit ses propres composants défectueux, corrompus ou obsolètes pour récupérer des ressources et empêcher la propagation de pannes.
-* **Redondance** : Duplication stratégique des données et des processus critiques. Si un composant est détruit (par une attaque ou par autophagie), un clone prend immédiatement le relais sans interruption de service.
-* **Torpeur (Rate Limiting / Backoff)** : Ralentissement volontaire du métabolisme du système. En cas de surcharge ou d'attaque par déni de service, le système réduit sa fréquence de traitement (rate limiting) et adopte un état de "sommeil" partiel pour économiser ses ressources et dissiper l'énergie de l'attaque.
-
-## 2. Implémentation en Rust (`cleaner.rs`)
-
-L'architecture de `cleaner.rs` s'articule autour de ces concepts en exploitant la sécurité mémoire et la concurrence de Rust.
-
-### Hypermutation
-Implémentée via des générateurs de mutations aléatoires. Le code utilise des traits pour définir des `Mutator` qui altèrent les structures de données en mémoire.
-```rust
-pub trait Mutator {
-    fn mutate(&mut self, data: &mut [u8]);
-}
+```
+       +-------------------------------------------------------------+
+       |               WORKSPACE & LINEAGE SENESCENCE WATCHDOG       |
+       |  - Continuous Tracking of Memory, AST Nodes, and Worktrees  |
+       +-------------------------------------------------------------+
+                                      |
+         +----------------------------+----------------------------+
+         |                                                         |
+         v                                                         v
+  [Senescent Branch / Stale Blob]                           [Rate Limit 429 / DDoS Spike]
+         |                                                         |
+         v                                                         v
+  +-------------------------------+         +-------------------------------+
+  |       AUTOPHAGY & GC          |         |       METABOLIC TORPOR        |
+  |  - Mark-and-Sweep Causal DAG  |         |  - Exponential sleep backoff  |
+  |  - Prune abandoned worktrees  |         |  - Reduce execution cadence   |
+  |  - Unlink 0-ref CAS blobs     |         |  - Preserve working state     |
+  +-------------------------------+         +-------------------------------+
+         |                                                         |
+         +----------------------------+----------------------------+
+                                      |
+                                      v
+         +---------------------------------------------------------+
+         |              RECLAIMED SYSTEM POOL & HEALTH             |
+         |  - Zero Memory Leaks, Compact DAG, Preserved Quota      |
+         +---------------------------------------------------------+
 ```
 
-### Autophagie
-Un thread de surveillance (watchdog) évalue la "santé" des processus. Si un score de santé descend sous un seuil critique, le processus est "tué" proprement et ses ressources mémoire sont désallouées. Le système de possession (*ownership*) de Rust est exploité pour garantir qu'aucune fuite de mémoire ne survienne lors de l'élimination de la cible.
+---
+
+## 2. Mathematical Formalism of DAG Garbage Collection
+
+### 2.1 Mark-and-Sweep over Causal Lineage DAGs
+Let $G = (\mathcal{V}, \mathcal{E})$ represent the complete Causal Lineage Directed Acyclic Graph, where $\mathcal{V}$ are state snapshots/decisions and $\mathcal{E}$ are causal transitions.
+
+Let $\mathcal{R} = \mathcal{H}_{\text{active}} \cup \mathcal{P}_{\text{pinned}}$ be the set of root anchors (active agent head nodes $\mathcal{H}_{\text{active}}$ and user-pinned checkpoints $\mathcal{P}_{\text{pinned}}$).
+
+A node $\nu \in \mathcal{V}$ is **reachable** if and only if there exists a directed path from a root anchor:
+
+$$\text{Reachable}(\nu) \iff \exists r \in \mathcal{R}, \quad r \rightsquigarrow \nu$$
+
+The **Sweep Set** $\mathcal{V}_{\text{dead}}$ to be autophagically reclaimed is defined as:
+
+$$\mathcal{V}_{\text{dead}} = \mathcal{V} \setminus \{\nu \in \mathcal{V} \mid \text{Reachable}(\nu)\}$$
+
+### 2.2 Reference Counting on CAS (Content-Addressable Storage) Blobs
+Every immutable code blob $\beta \in \mathcal{B}$ stored in `.genos/cas/` maintains an atomic reference count:
+
+$$\text{RefCount}(\beta) = \sum_{\nu \in \mathcal{V} \setminus \mathcal{V}_{\text{dead}}} \mathbb{I}\left(\text{BlobHash}(\nu) == \text{Hash}(\beta)\right)$$
+
+When $\text{RefCount}(\beta) = 0$, the physical storage file is unlinked and reclaimed.
+
+### 2.3 Tombstone Compaction
+When pruned branches are excised from the DAG, sequential unreferenced nodes are collapsed into a single cryptographically attested **Tombstone**:
+
+$$\text{Tombstone}(\nu_i, \dots, \nu_j) = \text{SHA256}\left(\text{Hash}(\nu_i) \,\|\, \text{Hash}(\nu_j) \,\|\, |\mathcal{V}_{\text{pruned}}|\right)$$
+
+---
+
+## 3. The Four Operational Pillars of the Cleaner
+
+### 3.1 Causal DAG Autophagy
+Exploratory sub-agents frequently branch hypotheses that fail tests or hit dead ends. The Autophagy engine sweeps these abandoned reasoning subtrees, recycling memory and pruning unneeded scratchpads.
+
+### 3.2 Stale Git Worktree Sweeper
+Ephemeral Git worktrees spawned for isolated compiler runs and patch verification (`.genos/worktrees/wt_*`) are automatically unmounted and deleted upon task completion or agent apoptosis.
+
+### 3.3 Metabolic Torpor (Rate Limiting Backoff)
+When downstream LLM providers return HTTP 429 (Rate Limit Exceeded) or downstream tools suffer latency degradation, the Torpor engine slows the execution tempo exponentially:
+
+$$\Delta t_{\text{torpor}}(k) = \min\left(\Delta t_{max}, \; \Delta t_0 \cdot 2^k\right)$$
+
+This dissipates queue pressure without losing pending scratchpad states.
+
+### 3.4 Active Redundancy & Hot Spares
+The Cleaner maintains synchronized warm-standby worker contexts. If an active worker undergoes autophagy due to critical internal corruption, the warm clone instantly adopts the execution lease.
+
+---
+
+## 4. Rust Architecture & Implementation
+
 ```rust
-pub fn trigger_autophagy(process_id: u32, health_score: f32) {
-    if health_score < CRITICAL_THRESHOLD {
-        terminate_and_reclaim(process_id);
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct LineageNode {
+    pub id: String,
+    pub parents: Vec<String>,
+    pub cas_blob_hash: Option<String>,
+}
+
+pub struct CausalCleanerEngine {
+    dag_nodes: Arc<RwLock<HashMap<String, LineageNode>>>,
+    cas_ref_counts: Arc<RwLock<HashMap<String, usize>>>,
+}
+
+impl CausalCleanerEngine {
+    pub fn new() -> Self {
+        Self {
+            dag_nodes: Arc::new(RwLock::new(HashMap::new())),
+            cas_ref_counts: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    /// Executes Mark-and-Sweep GC from active root heads.
+    pub fn sweep_unreachable(&self, active_roots: &[String]) -> usize {
+        let nodes = self.dag_nodes.read().unwrap();
+        let mut visited = HashSet::new();
+
+        for root in active_roots {
+            Self::mark_recursive(root, &nodes, &mut visited);
+        }
+
+        let dead_keys: Vec<String> = nodes
+            .keys()
+            .filter(|k| !visited.contains(*k))
+            .cloned()
+            .collect();
+        drop(nodes);
+
+        let count = dead_keys.len();
+        let mut nodes_mut = self.dag_nodes.write().unwrap();
+        let mut cas_refs = self.cas_ref_counts.write().unwrap();
+
+        for dead_id in dead_keys {
+            if let Some(removed) = nodes_mut.remove(&dead_id) {
+                if let Some(blob_hash) = removed.cas_blob_hash {
+                    if let Some(ref_count) = cas_refs.get_mut(&blob_hash) {
+                        *ref_count = ref_count.saturating_sub(1);
+                    }
+                }
+            }
+        }
+        count
+    }
+
+    fn mark_recursive(current: &str, nodes: &HashMap<String, LineageNode>, visited: &mut HashSet<String>) {
+        if visited.insert(current.to_string()) {
+            if let Some(node) = nodes.get(current) {
+                for parent in &node.parents {
+                    Self::mark_recursive(parent, nodes, visited);
+                }
+            }
+        }
+    }
+}
+
+pub struct TorporGovernor {
+    pub last_action: Instant,
+    pub interval: Duration,
+}
+
+impl TorporGovernor {
+    pub fn new(interval: Duration) -> Self {
+        Self {
+            last_action: Instant::now() - interval,
+            interval,
+        }
+    }
+
+    pub fn check_proceed(&mut self) -> bool {
+        let now = Instant::now();
+        if now.duration_since(self.last_action) >= self.interval {
+            self.last_action = now;
+            true
+        } else {
+            false
+        }
     }
 }
 ```
 
-### Redondance
-Utilisation de structures comme `Arc` (Atomic Reference Counting) couplées à des mécanismes de synchronisation robustes (`RwLock`, ou des files de messages cross-beam) pour maintenir des états répliqués entre plusieurs workers isolés.
-```rust
-pub struct RedundantNode {
-    pub state: Arc<RwLock<SystemState>>,
+---
+
+## 5. MCP Tool Schema & CLI Reference
+
+### 5.1 MCP Tool Declaration
+```json
+{
+  "name": "genos_resilience_cleaner",
+  "description": "Execute autophagy garbage collection, prune dead worktrees, or trigger metabolic torpor.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["SweepUnreachableDAG", "PruneStaleWorktrees", "CompactCASBlobs", "EnterTorpor"]
+      },
+      "dry_run": {
+        "type": "boolean",
+        "description": "Simulate cleanup without unlinking storage"
+      }
+    },
+    "required": ["action"]
+  }
 }
 ```
 
-### Torpeur
-Implémentation d'un algorithme de limitation de débit (rate limiting) asynchrone pour imposer des backoffs progressifs, combiné à des timers asynchrones (`tokio::time::sleep`) pour mettre le module en sommeil.
-```rust
-pub async fn enter_torpor(duration: Duration) {
-    // Réduction du métabolisme
-    tokio::time::sleep(duration).await;
-}
+### 5.2 CLI Commands
+```bash
+# Sweep unreachable causal DAG nodes and dangling CAS blobs
+genos cleaner sweep --dry-run=false
+
+# Clean orphaned ephemeral Git worktrees
+genos cleaner prune-worktrees --older-than "30m"
 ```
 
-## 3. Cas d'Utilisation
+---
 
-### Sécurité Offensive
-* **Fuzzing Actif** : L'hypermutation est utilisée pour bombarder des cibles (internes ou externes) avec des paquets malformés afin de découvrir des vulnérabilités zero-day ou de saturer les capteurs de l'ennemi.
-* **Évasion** : L'adaptation dynamique du code et la mutation des données rendent la détection par des systèmes de défense classiques extrêmement difficile, imitant le comportement des menaces polymorphes.
+## 6. Operational Invariants & Reclaiming Guarantees
 
-### Nettoyage du Système
-* **Isolation des Défaillances** : L'autophagie garantit que les erreurs ou les corruptions de mémoire sont isolées et purgées avant de compromettre le noyau global de GenOS.
-* **Gestion des Surcharges** : La torpeur permet de réagir aux tempêtes de requêtes (DDoS) en limitant l'allocation de ressources. Conjointement, la redondance assure qu'au moins une instance du service critique reste opérationnelle en arrière-plan pendant que les instances compromises sont sacrifiées et régénérées.
+- **Zero Accidental Data Erasure**: Active lineage roots and pinned user checkpoints are strictly immutable and guaranteed never to be swept.
+- **Atomic CAS Unlinking**: Blob storage files are unlinked only when their global atomic reference count strictly equals zero.
+- **Deterministic Worktree Idempotency**: Pruned worktree directories are cleaned with atomic unmounts, preventing dangling filesystem locks.
