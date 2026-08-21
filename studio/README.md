@@ -1,32 +1,58 @@
-# React + TypeScript + Vite
+# GenOS Studio
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+GenOS Studio is the browser-based control plane for the GenOS project. It is the operational UI that wraps the backend APIs and exposes the live functionality implemented in the codebase.
 
-Currently, two official plugins are available:
+## What this frontend does
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+The current app is a GitHub-inspired dashboard for:
 
-## React Compiler
+- monitoring active agents and swarm status
+- viewing live telemetry and event streams
+- deploying agents and trinity workflows
+- inspecting swarm lineage and agent DNA
+- launching experiments and solver tournaments
+- testing tool sandboxes and MCP tools
+- managing resilience actions and kill switches
+- reviewing workspaces, diffs, snapshots, and rollback candidates
+- exploring memory, genomes, and trajectories
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The app is organized around seven modules visible in the UI:
 
-## Expanding the Oxlint configuration
+- Arena & Solvers
+- MCP Sandbox & Tools
+- Swarm Monitor & Quorum
+- Biology & Resilience
+- Genetics & Genome
+- Memory & Experience
+- Workspace Timeline & Diff
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Stack
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+- React + TypeScript + Vite
+- Zustand for UI state
+- Live telemetry via SSE
+- centralized typed API client against the local backend
+
+## Local run
+
+From the repository root:
+
+```bash
+cd backend
+npm install
+npm start
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Then in another terminal:
+
+```bash
+cd studio
+npm install
+npm run dev
+```
+
+The frontend expects the backend to be available at http://localhost:4000.
+
+## Important note
+
+This is not a generic starter template; it is the actual GenOS Studio interface implemented for the project. The repository contains both the underlying GenOS runtime concepts and a live operational dashboard for them.
