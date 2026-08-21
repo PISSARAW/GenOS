@@ -5,6 +5,7 @@ pub mod replay;
 pub mod snapshot;
 pub mod fossil;
 pub mod dpo;
+pub mod cryptobiosis;
 
 pub use artifact::{LocalArtifactStore, LocalSnapshotComponentStore, SnapshotComponentManifest};
 pub use fossil::FossilRegistry;
