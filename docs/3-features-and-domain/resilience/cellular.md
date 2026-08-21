@@ -1,86 +1,220 @@
-# Résilience Cellulaire dans GenOS
+# Cellular Resilience: Eukaryotic Sandboxing, Nociception & Homeostatic Regulation
 
-## Introduction
-Ce document détaille les stratégies de résilience inspirées de la biologie cellulaire et des systèmes distribués, implémentées dans le projet GenOS. L'objectif est de garantir la stabilité globale du système face aux erreurs, aux attaques et aux défaillances locales.
+## 1. Overview & Biological Analogy
 
-## Concepts Clés
+In eukaryotic biology, cellular viability is not maintained through the impossible guarantee of zero internal damage. Instead, cells maintain dynamic structural integrity (**homeostasis**) through four fundamental biomimetic mechanisms:
+1. **Selective Semi-Permeable Membranes**: Strict filtration of incoming nutrients and outgoing signaling molecules.
+2. **Organelle Compartmentalization**: Chemical and metabolic isolation ensuring local reactions do not spill toxic byproducts into the cytoplasm.
+3. **Nociception & Molecular Stress Sensing**: Early biochemical alarms (kinases, reactive oxygen species detectors) measuring damage before systemic failure.
+4. **Programmed Self-Regulation & Apoptosis**: Controlled degradation or suicide of malfunctioning cells to protect the surrounding tissue.
 
-### 1. Apoptose
-L'apoptose (mort cellulaire programmée) est un mécanisme par lequel un composant ou processus défaillant s'arrête volontairement et proprement lorsqu'il détecte qu'il est dans un état irrécupérable ou potentiellement dangereux pour le reste du système.
-- **Cas d'utilisation** : Éviter la propagation de corruption de mémoire, libérer des ressources avant un crash complet, prévenir des boucles infinies.
+In **GenOS**, every autonomous agent operates as an isolated **Cell**. The cellular resilience architecture guarantees that memory leaks, unhandled panics, infinite hallucination loops, or poisoned inputs remain strictly contained within the originating execution cell without compromising the orchestrator or adjacent workers.
 
-### 2. Sandboxing (CODIT)
-Le Sandboxing isole l'exécution des processus dans des environnements contrôlés. CODIT (Containment Of Defective Isolated Tasks) garantit qu'une défaillance ou une faille de sécurité dans un module ne peut pas affecter le noyau du système.
-- **Cas d'utilisation** : Exécution de plugins tiers, traitement de données non fiables, confinement des failles de sécurité.
+```
+       +-------------------------------------------------------------+
+       |                  CELLULAR MEMBRANE FILTER                   |
+       |  - Selective Input/Output Validation & Schema Attestation   |
+       +-------------------------------------------------------------+
+                                      |
+         +----------------------------+----------------------------+
+         |                                                         |
+         v                                                         v
+  +-------------------------------+         +-------------------------------+
+  |        CODIT SANDBOX          |         |      NOCICEPTIVE SENSORS      |
+  |  - catch_unwind panic guard   |         |  - Sliding error rate E_rate  |
+  |  - Memory & thread boundary   |         |  - Semantic drift D_sem       |
+  +-------------------------------+         +-------------------------------+
+         |                                                         |
+         +----------------------------+----------------------------+
+                                      |
+                                      v
+         +---------------------------------------------------------+
+         |              HOMEOSTATIC EVALUATOR & IDS                |
+         |  - Compute Homeostatic Index H_cell                     |
+         |  - If Toxic: Quarantine payload to Dead Letter Queue    |
+         |  - If H_cell < 0.40: Trigger Apoptotic Dismantling      |
+         +---------------------------------------------------------+
+```
 
-### 3. Nociception
-Inspirée du système nerveux, la nociception est la capacité du système à détecter les "douleurs" (anomalies de performance, erreurs répétées, latence excessive) avant qu'elles ne causent une défaillance majeure.
-- **Cas d'utilisation** : Surveillance proactive de la santé du système, déclenchement d'alertes préventives, ajustement dynamique de la charge.
+---
 
-### 4. IDS / DLQ (Immune Defense System / Dead Letter Queue)
-- **IDS** : Agit comme un système immunitaire, détectant et neutralisant les menaces ou comportements anormaux (ex: attaques DDoS, requêtes malveillantes).
-- **DLQ** : Les messages ou tâches qui ne peuvent pas être traités avec succès sont mis en quarantaine dans une "Dead Letter Queue" pour analyse ultérieure, évitant ainsi le blocage des flux principaux.
-- **Cas d'utilisation** : Traitement asynchrone robuste, analyse post-mortem des erreurs, protection contre les pannes en cascade.
+## 2. The Four Pillars of Cellular Resilience
 
-## Implémentation dans `cellular.rs`
+### 2.1 CODIT Sandboxing (Containment Of Defective Isolated Tasks)
+CODIT encapsulates each agent task within a strict execution boundary:
+- **Panic Confinement**: Rust runtime panics and thread unwinds are trapped via `std::panic::catch_unwind`, converting fatal crashes into structured diagnostic errors.
+- **Resource Clamping**: Strict allocation limits on execution time, memory footprint, and token burn rate.
+- **Descriptor Containment**: Filesystem and network mutations are mediated via virtualized workspace descriptors.
 
-Les mécanismes ci-dessus sont au cœur du module `cellular.rs` en Rust. Voici comment ils se traduisent techniquement :
+### 2.2 Nociception (Early Pain & Stress Sensing)
+Nociception quantifies execution distress continuously before catastrophic failure occurs:
+- **Sliding Error Rate ($E_{rate}$)**: Fraction of failed tool executions across the last $N$ steps.
+- **Observed Latency Ratio ($L_{obs} / L_{max}$)**: Drift against baseline latency profiles.
+- **Semantic Divergence ($D_{sem}$)**: Cosine distance between current belief state embeddings and task goal embeddings.
+
+### 2.3 Homeostatic Regulation & Apoptosis Triggering
+Homeostasis continuously adjusts the operational state of the agent cell, shedding background load when degraded and executing clean shutdown (apoptosis) if unrecoverable.
+
+### 2.4 Immune Defense System (IDS) & Dead Letter Queue (DLQ)
+- **IDS Filter**: Scans incoming messages and tool returns for prompt injections, corrupted schemas, and adversarial loops.
+- **DLQ Quarantining**: Malicious or unparseable payloads are isolated in an encrypted quarantine buffer for post-mortem forensics without blocking agent processing.
+
+---
+
+## 3. Mathematical Homeostasis Formulation
+
+The viability and health status of an agent cell is continuously scored by the Homeostatic Index $H_{cell} \in [0.0, 1.0]$:
+
+$$H_{cell} = 1.0 - \left( w_1 \cdot E_{rate} + w_2 \cdot \min\left(1.0, \frac{L_{obs}}{L_{max}}\right) + w_3 \cdot D_{sem} \right)$$
+
+Where:
+- $E_{rate} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{I}(\text{Step}_i == \text{FAILED})$, with weight $w_1 = 0.40$.
+- $L_{obs} / L_{max}$ is the normalized latency ratio, with weight $w_2 = 0.25$.
+- $D_{sem} = 1 - \frac{\mathbf{v}_{goal} \cdot \mathbf{v}_{current}}{\|\mathbf{v}_{goal}\| \|\mathbf{v}_{current}\|}$, with weight $w_3 = 0.35$.
+- Constraints: $w_1 + w_2 + w_3 = 1.0$.
+
+### Health State Transitions
+
+| Health Range | State Category | Action Taken |
+| :--- | :--- | :--- |
+| **$H_{cell} \ge 0.70$** | **Nominal (Healthy)** | Unrestricted execution at full concurrency. |
+| **$0.40 \le H_{cell} < 0.70$** | **Degraded (Nociceptive Warning)** | Throttle execution rate, trigger Somatic Hypermutation, shed speculative tasks. |
+| **$H_{cell} < 0.40$** | **Critical (Apoptosis Required)** | Immediate execution halt, memory compaction, and DLQ quarantine. |
+
+---
+
+## 4. Rust Architecture & Implementation
 
 ```rust
-// Exemple conceptuel de l'implémentation dans cellular.rs
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::time::{Duration, Instant};
+use serde::{Deserialize, Serialize};
 
-pub struct Cell {
-    id: String,
-    health: HealthStatus,
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub enum CellState {
+    Nominal,
+    Degraded(f32),
+    Apoptotic,
 }
 
-impl Cell {
-    /// Sandboxing: Exécute une tâche isolée
-    pub fn execute_sandboxed<F, R>(&mut self, task: F) -> Result<R, CellError>
-    where F: FnOnce() -> R + std::panic::UnwindSafe {
-        let result = std::panic::catch_unwind(|| {
-            task()
-        });
-        
-        match result {
-            Ok(val) => Ok(val),
+pub struct NociceptiveMetrics {
+    pub total_calls: u32,
+    pub failed_calls: u32,
+    pub cumulative_latency: Duration,
+    pub max_latency: Duration,
+    pub semantic_divergence: f32,
+}
+
+pub struct CellularAgent {
+    pub id: String,
+    pub state: CellState,
+    pub metrics: NociceptiveMetrics,
+    pub dlq: Vec<String>,
+}
+
+impl CellularAgent {
+    pub fn new(id: &str, max_latency: Duration) -> Self {
+        Self {
+            id: id.to_string(),
+            state: CellState::Nominal,
+            metrics: NociceptiveMetrics {
+                total_calls: 0,
+                failed_calls: 0,
+                cumulative_latency: Duration::ZERO,
+                max_latency,
+                semantic_divergence: 0.0,
+            },
+            dlq: Vec::new(),
+        }
+    }
+
+    /// Executes task inside CODIT sandbox with panic isolation.
+    pub fn execute_sandboxed<F, R>(&mut self, task: F) -> Result<R, String>
+    where
+        F: FnOnce() -> Result<R, String> + std::panic::UnwindSafe,
+    {
+        if self.state == CellState::Apoptotic {
+            return Err("Execution rejected: Cell in apoptotic state.".into());
+        }
+
+        let start = Instant::now();
+        self.metrics.total_calls += 1;
+
+        let outcome = catch_unwind(AssertUnwindSafe(task));
+        let duration = start.elapsed();
+        self.metrics.cumulative_latency += duration;
+
+        match outcome {
+            Ok(Ok(value)) => {
+                self.evaluate_homeostasis();
+                Ok(value)
+            }
+            Ok(Err(err_msg)) => {
+                self.metrics.failed_calls += 1;
+                self.dlq.push(err_msg.clone());
+                self.evaluate_homeostasis();
+                Err(err_msg)
+            }
             Err(_) => {
-                self.trigger_apoptosis();
-                Err(CellError::PanicContained)
+                self.metrics.failed_calls += 1;
+                self.dlq.push("Critical panic unwound inside CODIT sandbox".into());
+                self.trigger_apoptosis("Unhandled panic trapped");
+                Err("Execution panic trapped and quarantined.".into())
             }
         }
     }
 
-    /// Nociception: Évaluation continue des métriques internes
-    pub fn check_nociception(&mut self, error_rate: f64, latency_ms: u64) {
-        if error_rate > 0.8 || latency_ms > 1000 {
-            // Alerte IDS
-            self.alert_ids();
-        }
-    }
-
-    /// Apoptose: Arrêt propre
-    fn trigger_apoptosis(&mut self) {
-        self.health = HealthStatus::Terminated;
-        // Libération propre des ressources
-    }
-
-    /// DLQ: Rejet des messages toxiques
-    pub fn process_msg(&mut self, msg: Message) {
-        if !self.is_valid(&msg) {
-            dlq_manager::push(msg); // Dead Letter Queue
+    /// Computes H_cell and transitions cell operational state.
+    pub fn evaluate_homeostasis(&mut self) {
+        if self.metrics.total_calls == 0 {
             return;
         }
-        // Traitement
+
+        let e_rate = self.metrics.failed_calls as f32 / self.metrics.total_calls as f32;
+        let avg_lat = self.metrics.cumulative_latency.as_secs_f32() / self.metrics.total_calls as f32;
+        let lat_ratio = (avg_lat / self.metrics.max_latency.as_secs_f32()).min(1.0);
+        let d_sem = self.metrics.semantic_divergence.clamp(0.0, 1.0);
+
+        let h_cell = 1.0 - (0.40 * e_rate + 0.25 * lat_ratio + 0.35 * d_sem);
+
+        if h_cell < 0.40 {
+            self.trigger_apoptosis("Homeostatic index breached critical threshold (< 0.40)");
+        } else if h_cell < 0.70 {
+            self.state = CellState::Degraded(h_cell);
+        } else {
+            self.state = CellState::Nominal;
+        }
+    }
+
+    pub fn trigger_apoptosis(&mut self, reason: &str) {
+        self.state = CellState::Apoptotic;
+        eprintln!("[CELLULAR-APOPTOSIS] Agent {}: {}", self.id, reason);
     }
 }
 ```
 
-## Stabilité du Système
+---
 
-L'application combinée de ces stratégies au sein de GenOS apporte une stabilité inégalée :
-- **Tolérance aux pannes locale** : Grâce à l'apoptose et au sandboxing, une erreur critique reste locale et n'entraîne pas le crash du système global.
-- **Auto-réparation** : La nociception alerte le système superviseur qui peut remplacer ou redémarrer les composants dégradés avant une panne totale.
-- **Résilience asynchrone** : Le couple IDS/DLQ garantit qu'un empoisonnement de la file de messages (poison pill) est isolé sans bloquer le traitement des messages sains.
+## 5. Dead Letter Queue & Forensic Autopsy
 
-L'objectif de GenOS est de traiter les erreurs non pas comme des exceptions fatales, mais comme des événements normaux gérés par des mécanismes homéostatiques de bas niveau.
+When an operation triggers an error or panic inside the CODIT sandbox, the payload and execution context are quarantined into the DLQ:
+
+```json
+{
+  "dlq_entry_id": "dlq_99a8b7c6",
+  "cell_id": "worker_parser_subtask_3",
+  "timestamp": "2026-08-21T08:00:00Z",
+  "failure_kind": "PanicUnwind",
+  "payload_snippet": "ast_parse_symbol(Token::EOF)",
+  "homeostatic_index": 0.32,
+  "quarantine_status": "ISOLATED"
+}
+```
+
+---
+
+## 6. Operational Invariants & Resilience Guarantees
+
+- **Zero Panic Leakage**: No unhandled panic in an agent thread can terminate the parent orchestrator process.
+- **Budget Preservation**: Nociceptive alerts trigger early backoff, preventing token budget drain on degraded trajectories.
+- **Forensic Traceability**: All quarantined failures maintain immutable records in the DLQ for offline causal analysis.

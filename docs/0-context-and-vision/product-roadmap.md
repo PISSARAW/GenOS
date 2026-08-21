@@ -1,71 +1,89 @@
-# GenOS roadmap
+# GenOS Product Roadmap & Release Milestones
 
-This roadmap communicates direction, not a delivery promise. Priorities may change as the architecture is tested against real integrations. Accepted ADRs and research prototypes do not by themselves establish a stable public contract.
+## 1. Vision & Strategy
 
-## Current: 0.0.1 — executable foundations
+GenOS is evolving from an innovative research runtime into the standard **Counterfactual Operating System and Runtime for Enterprise Autonomous Agents**. The product roadmap is structured around progressive milestones that systematically advance developer experience, runtime resilience, multi-agent coordination, and enterprise-grade distributed scaling.
 
-The repository currently demonstrates:
+```text
+[v0.0.1 Foundations] ---> [v0.1.0 Developer Preview] ---> [v0.2.0 Biomimetic Swarms]
+                                                                    |
+[v1.0.0 Production Enterprise OS] <--- [v0.5.0 Causal Lab & Eval] <-+
+```
 
-- typed genomes, state, beliefs, memories, evidence, snapshots, events, and lineage;
-- isolated directory and Git worktree worlds;
-- snapshot, restore, fork, diff, replay, and capsule lifecycle operations;
-- deterministic counterfactual experiments and multi-objective evaluation;
-- cognitive merge, branch evolution, heredity, and causal replay research workflows;
-- portable schemas, architecture decisions, and cross-platform isolation demos.
+---
 
-The exact implementation boundary is maintained in [ADR implementation status](adr/IMPLEMENTATION_STATUS.md).
+## 2. Release Milestones
 
-The provider-neutral `v1alpha1` protocol and MCP adapter are available for
-OpenAI Codex and other MCP clients over local STDIO or stateless Streamable
-HTTP. Their schemas and transport behavior are covered by executable tests.
+### Milestone 1: v0.0.1 — Executable Foundations (Current Baseline)
+*Objective: Implement core data structures, deterministic primitives, and local capsule execution.*
 
-## Target: 0.1.0 — coherent developer preview
+- **Core Primitives**: Typed Genome, Phenotype, Capsule, Epistemic Beliefs, Memory, Evidence, and Causal DAGs (`genos-core`).
+- **World Sandboxing**: Isolated directory worlds and Git worktree backends (`genos-world`).
+- **Lifecycle Operations**: Atomic snapshot creation, restore, counterfactual fork, diff, and state replay (`genos-runtime`).
+- **Research Engines**: Initial cognitive merge, branch evolution, heredity experiments, and simulated annealing (`genos-synaptic`, `epsilon_sa`).
+- **Protocol Interoperability**: Initial `v1alpha1` Model Context Protocol (MCP) JSON-RPC adapter over STDIO and HTTP (`genos-protocol`).
+- **CLI Suite**: Unified `genos` CLI covering agent, capsule, snapshot, world, dev, and experiment subcommands (`genos-cli`).
 
-The goal of `0.1.0` is one documented, reliable path from an agent-world checkpoint to evaluated counterfactual branches and a reviewed successor state.
+---
 
-### Runtime
+### Milestone 2: v0.1.0 — Coherent Developer Preview (Next Target)
+*Objective: Deliver a robust, frictionless local developer workflow with full persistence and external model support.*
 
-- Make the atomic capsule the default orchestration boundary.
-- Harden failure recovery across snapshots, worlds, event streams, and budgets.
-- Define cancellation, timeout, expiration, cleanup, and partial-result semantics.
-- Validate synthesized knowledge on a fresh branch before parent application.
+#### Deliverables:
+1. **Capsule Orchestration Default**: Make the atomic `Agent-World Capsule` the standard boundary for all runtime executions and CLI operations.
+2. **Persistent Storage Layer**: Production-grade SQLite and PostgreSQL adapters for snapshots, event streams, and Content-Addressable Storage (CAS) in `genos-store`.
+3. **Provider Connectors**: Standardized model adapters for OpenAI (GPT-4o), Anthropic (Claude 3.5 Sonnet), Ollama, and deterministic mock/replay fixtures in `genos-model`.
+4. **Resilience & Cleanup**: Robust cleanup of temporary Git worktrees, cancellation tokens, timeout guards, and partial-result salvage.
+5. **Schema Stability**: Versioned JSON schemas for genomes, snapshots, events, and MCP tool declarations.
+6. **Documentation & DX**: Complete onboarding guide, architecture tour, quickstart tutorial, and automated installation scripts.
 
-### Public interfaces
+#### Exit Criteria:
+- Zero-configuration local setup on Linux, macOS, and Windows.
+- Full end-to-end execution of a counterfactual branch, evaluation, and cognitive merge without live LLM calls (via replay).
+- 100% CI pass rate across unit tests, integration tests, and clippy lints.
 
-- Stabilize the canonical agent primitives and manifest formats for the `0.1.x` line.
-- Expand the HTTP API beyond health checks.
-- Exercise the versioned lifecycle tool schemas and MCP server against released Codex clients.
-- Define authentication and session semantics before supporting MCP beyond a trusted local environment.
-- Define provider contracts and add at least one documented external model integration.
-- Publish installation artifacts or a supported source-install workflow.
+---
 
-### Persistence and portability
+### Milestone 3: v0.2.0 — Resilient & Multi-Agent Swarms
+*Objective: Introduce biomimetic self-healing, stigmergic coordination, and distributed swarm consensus.*
 
-- Add durable transactional storage for long-running experiments.
-- Define compatibility and migration rules for snapshots, events, capsules, and schemas.
-- Support explicit restoration modes for filesystems, processes, environments, and services.
-- Verify import and export across machines.
+#### Deliverables:
+1. **Biomimetic Triggers**: Automatic runtime detection of reasoning stagnation and execution of:
+   - **Apoptosis**: Graceful teardown of corrupted or looping agents.
+   - **Cryptobiosis**: Freeze and resume upon API rate limits or network degradation.
+   - **Hypermutation**: Temperature and prompt diversification during cognitive deadlocks.
+2. **Stigmergic Collaboration**: Shared workspace coordination among agents via environmental markers and AST change notifications without message bottlenecks.
+3. **Swarm Consensus Engine**: Multi-agent quorum protocols for collective decision-making and cross-validation of complex code refactors.
+4. **Horizontal Gene Transfer (HGT)**: Runtime sharing of successful tool configurations and reasoning operons across disparate agent lineages.
 
-### Project quality
+---
 
-- Establish release automation, signed checksums, and dependency auditing.
-- Add end-to-end tests for the supported developer-preview workflow.
-- Add benchmarks for snapshot, fork, diff, replay, and artifact deduplication.
-- Document the security and trust model for command execution and world providers.
+### Milestone 4: v0.5.0 — Enterprise Evaluation & Causal Laboratory
+*Objective: Provide comprehensive multi-objective evaluation, formal verification, and observability.*
 
-### Exit criteria
+#### Deliverables:
+1. **Multi-Objective Pareto Engine**: Automated ranking of counterfactual trajectories across correctness, financial cost, token latency, and security invariants in `genos-eval`.
+2. **Causal Incident Studio**: Interactive debugging tools to isolate, bisect, and diagnose historical agent failures with step-by-step counterfactual mutation.
+3. **Security Coevolution Testbed**: Automated red-team vs. blue-team agent simulations in isolated network sandboxes.
+4. **Observability & Web UI**: Real-time visual Causal DAG explorer, lineage tree visualizer, and live token budget telemetry (`genos-api`).
+5. **IDE Integrations**: First-class extensions for Visual Studio Code, JetBrains, and Antigravity IDE.
 
-`0.1.0` is ready when:
+---
 
-1. A new contributor can complete the primary workflow from the README on Linux, macOS, or Windows.
-2. The workflow can be repeated from persisted artifacts without a live model call.
-3. Branch state, files, events, and budgets remain isolated under success, failure, cancellation, and retry.
-4. Public manifests validate against versioned schemas with documented migration behavior.
-5. CI covers formatting, linting, tests, and the primary end-to-end scenario.
-6. Known production limitations and security boundaries are explicit.
+### Milestone 5: v1.0.0 — Production-Ready Distributed Counterfactual OS
+*Objective: Enterprise-grade scale, zero-trust sandboxing, high-availability storage, and regulatory compliance.*
 
-## Beyond 0.1
+#### Deliverables:
+1. **Distributed CAS Storage**: High-throughput distributed content-addressable storage supporting S3, GCS, and Azure Blob storage with edge caching.
+2. **MicroVM & Micro-Sandbox Isolation**: Firecracker microVM and gVisor sandboxing for untrusted arbitrary code and system execution.
+3. **Multi-Node Cluster Orchestration**: Kubernetes operator and distributed scheduling for executing thousands of counterfactual agent branches concurrently.
+4. **Regulatory Audit & Attestation**: Cryptographically signed execution certificates verifying tamper-proof event logs for EU AI Act, SOC2 Type II, and HIPAA compliance.
+5. **Formal SLAs & Enterprise Support**: Enterprise-ready backward compatibility guarantees, zero-downtime schema migrations, and 24/7 reliability.
 
-Potential later work includes remote execution transports, distributed transaction coordination, richer provider integrations, a usable web console, experiment observability, policy-driven tool sandboxes, and scalable artifact backends.
+---
 
-These items are intentionally not assigned to a release until the `0.1.0` developer workflow is stable.
+## 3. Governance & Contribution Cadence
+
+- **RFC Process**: Architectural additions must be proposed via Architecture Decision Records (ADRs) in `docs/2-architecture/adrs/`.
+- **Release Cycle**: Minor releases every 6 weeks; patch releases bi-weekly.
+- **Backward Compatibility**: Semantic versioning strictly enforced post-v0.1.0. All public event schemas and snapshot formats maintain 1-year deprecation windows.
