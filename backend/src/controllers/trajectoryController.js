@@ -19,11 +19,11 @@ async function formatTrajectory(t) {
     confidence: t.confidence,
     summary: t.semantic_summary,
     qaFeedback: t.qa_feedback,
-    diffFile: t.diff_file || 'src/index.ts',
-    diffStats: t.diff_stats || '+10, -5',
+    diffFile: t.diff_file || null,
+    diffStats: t.diff_stats || null,
     diffLines,
-    adversarialResult: t.adversarial_result || 'Passed (0 CVEs)',
-    futureCiResult: t.future_ci_result || 'Clean',
+    adversarialResult: t.adversarial_result || null,
+    futureCiResult: t.future_ci_result || null,
     isExceptional: !!t.is_exceptional,
     createdAt: t.created_at
   };
@@ -96,7 +96,7 @@ async function approveTrajectory(req, res) {
     severity: 'info'
   });
 
-  res.json({ success: true, message: `Trajectory ${id} approved and merged.` });
+  res.json({ success: true, message: `Trajectory ${id} status changed to approved. Repository merge was not executed.` });
 }
 
 async function rejectTrajectory(req, res) {

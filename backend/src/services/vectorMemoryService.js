@@ -3,7 +3,7 @@
  * Hybrid Cosine/Lexical similarity search, sub-trajectory cherry-picking & What-If counterfactual replay.
  */
 
-// Common vocabulary dictionary for deterministic term-frequency embedding simulation
+// Small deterministic vocabulary for local, dependency-free similarity scoring.
 const VOCABULARY = [
   'sqlite', 'wal', 'concurrency', 'ast', 'parser', 'recursion',
   'timeout', 'circuit', 'breaker', 'mcp', 'security', 'rbac',
@@ -58,38 +58,38 @@ async function searchMemory(query = '', options = {}, db = null) {
   const limit = options.limit || 5;
   const queryVec = textToVector(query);
 
-  const defaultCorpus = [
-    {
-      id: 'exp-001',
-      title: 'SQLite WAL Mode Concurrent Locking Resolution',
-      category: 'Database Optimization',
+  if (!db) throw new Error('Database connection is required for memory search.');
+  const trajectories = await db.all('SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at FROM trajectories ORDER BY created_at DESC');
+  const decisions = await db.all('SELECT id, title, category, content, created_by, created_at FROM genome_decisions ORDER BY created_at DESC');
+  const corpus = [
+    ...trajectories.map((item) => {
+      let diffLines = [];
+      try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
+      return {
+        id: item.id,
+        title: item.title,
+        category: 'Trajectory',
+        status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
+        summary: item.semantic_summary || diffLines.map((line) => line.content || line.text || line).join(' '),
+        tags: ['trajectory', item.status],
+        author: item.author_name,
+        createdAt: item.created_at
+      };
+    }),
+    ...decisions.map((item) => ({
+      id: item.id,
+      title: item.title,
+      category: item.category,
       status: 'SUCCESS',
-      summary: 'Enabled PRAGMA journal_mode = WAL to fix SQLITE_BUSY locking during telemetry ingestion.',
-      tags: ['sqlite', 'wal', 'concurrency'],
-      fitnessScore: 98.5
-    },
-    {
-      id: 'exp-002',
-      title: 'MCP Circuit Breaker Sliding Window Protection',
-      category: 'Security Hardening',
-      status: 'SUCCESS',
-      summary: 'Implemented sliding window failure counter for automatic tool quarantine in HALF-OPEN state.',
-      tags: ['mcp', 'circuit', 'breaker', 'security'],
-      fitnessScore: 95.0
-    },
-    {
-      id: 'exp-003',
-      title: 'Unbounded AST Parser Recursion Fault',
-      category: 'Post-Mortem Incident',
-      status: 'FAILURE',
-      summary: 'Parser went into stack overflow loop on nested ternary expressions without guard clauses.',
-      tags: ['ast', 'parser', 'recursion', 'timeout'],
-      fitnessScore: 32.0
-    }
+      summary: item.content,
+      tags: ['genome', item.category],
+      author: item.created_by,
+      createdAt: item.created_at
+    }))
   ];
 
   // Score each memory item
-  const scoredItems = defaultCorpus.map(item => {
+  const scoredItems = corpus.map(item => {
     const itemText = `${item.title} ${item.summary} ${item.tags.join(' ')}`;
     const itemVec = textToVector(itemText);
     const cosine = cosineSimilarity(queryVec, itemVec);
@@ -124,12 +124,7 @@ async function searchMemory(query = '', options = {}, db = null) {
  * Cherry-picks breakthrough turns and synthesizes an optimal Golden-Path trajectory
  */
 function cherryPickGoldenPath(rawTurns = []) {
-  const turns = rawTurns.length > 0 ? rawTurns : [
-    { step: 1, action: 'view_file', path: 'src/app.js', type: 'Exploration' },
-    { step: 2, action: 'replace_file_content', error: 'SyntaxError at line 14', type: 'Dead-End' },
-    { step: 3, action: 'replace_file_content', success: true, type: 'Breakthrough' },
-    { step: 4, action: 'run_command', cmd: 'npm test', pass: true, type: 'Verification' }
-  ];
+  const turns = Array.isArray(rawTurns) ? rawTurns : [];
 
   const classifiedSteps = turns.map(turn => {
     let category = turn.type;
@@ -161,29 +156,21 @@ function cherryPickGoldenPath(rawTurns = []) {
 }
 
 /**
- * Simulates counterfactual "What-If" branching from historical decision step K
+ * Builds a counterfactual branch description from a persisted trajectory.
  */
 function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alterations = {}) {
-  const step = Math.max(1, stepIndex || 1);
-  const alt = alterations || { ruleInjected: 'Guard clause added', temperature: 0.1 };
-
-  const originalTimeline = {
-    stepBranched: step,
-    totalSteps: 6,
-    executionTimeMs: 1420,
-    tokenCostUsd: 0.0124,
-    finalStatus: 'FAILURE',
-    rootCause: 'Recursion limit hit at Step 4'
-  };
-
+  const turns = originalTrajectory.turns || originalTrajectory.diffLines || [];
+  if (!Array.isArray(turns) || turns.length === 0) {
+    throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
+  }
+  const step = Math.min(Math.max(1, Number(stepIndex) || 1), turns.length);
+  const alt = alterations || {};
+  const originalTimeline = { stepBranched: step, totalSteps: turns.length, steps: turns, sourceTrajectoryId: originalTrajectory.id };
   const counterfactualTimeline = {
     stepBranched: step,
     alterationApplied: alt,
-    totalSteps: 4,
-    executionTimeMs: 680,
-    tokenCostUsd: 0.0058,
-    finalStatus: 'SUCCESS',
-    outcome: 'Clean execution with guard clause intervention at Step 2'
+    totalSteps: turns.length,
+    steps: [...turns.slice(0, step), { type: 'Counterfactual Override', ...alt }, ...turns.slice(step)]
   };
 
   return {
@@ -191,11 +178,10 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
     timestamp: new Date().toISOString(),
     branchingPoint: step,
     comparison: {
-      timeDeltaMs: counterfactualTimeline.executionTimeMs - originalTimeline.executionTimeMs,
-      costSavingsUsd: Number((originalTimeline.tokenCostUsd - counterfactualTimeline.tokenCostUsd).toFixed(4)),
-      efficiencyGainPercent: '+52.1%',
+      mode: 'recorded-trajectory-branch',
       originalTimeline,
-      counterfactualTimeline
+      counterfactualTimeline,
+      outcome: 'Branch prepared from persisted steps; execution evidence is required before comparing results.'
     }
   };
 }

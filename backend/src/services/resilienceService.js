@@ -57,7 +57,7 @@ function trackHypermutationDrift(ancestorPrompt, currentPrompt) {
 /**
  * Evaluates adaptive apoptosis criteria and generates post-mortem autopsy report
  */
-async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null) {
+async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy = {}) {
   const agent = agentId || 'agent-unknown';
   const consecutiveFailures = triggerMetrics.consecutiveFailures || 0;
   const tokensBurned = triggerMetrics.tokensBurned || 0;
@@ -66,17 +66,20 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null) {
   const hallucinations = triggerMetrics.hallucinations || 0;
 
   // Multi-threshold criteria check
-  const failureTrigger = consecutiveFailures >= 3;
-  const budgetTrigger = costUsd >= 1.0 || tokensBurned >= 100000;
-  const semanticTrigger = semanticDivergence < 0.55;
+  const maxFailures = policy.maxConsecutiveFailures || 3;
+  const maxCostUsd = policy.maxCostUsd || 1.0;
+  const divergenceThreshold = policy.divergenceThreshold || 0.55;
+  const failureTrigger = consecutiveFailures >= maxFailures;
+  const budgetTrigger = costUsd >= maxCostUsd || tokensBurned >= 100000;
+  const semanticTrigger = semanticDivergence < divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
 
   const shouldTerminate = failureTrigger || budgetTrigger || semanticTrigger || hallucinationTrigger;
 
   let primaryReason = 'No termination criteria met';
-  if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= 3)`;
+  if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
   else if (budgetTrigger) primaryReason = `Compute budget exhausted (Cost: $${costUsd}, Tokens: ${tokensBurned})`;
-  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < 0.55)`;
+  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
 
   // Generate autopsy report

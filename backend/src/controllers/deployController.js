@@ -4,36 +4,113 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const fs = require('fs');
+const path = require('path');
+
+const AGENT_TYPES = ['GenOS', 'Antigravity', 'Codex', 'ChatGPT', 'Claude', 'Other'];
+
+function normalizeAgentType(value) {
+  const candidate = String(value || 'GenOS').trim();
+  return AGENT_TYPES.includes(candidate) ? candidate : 'Other';
+}
+
+function unquote(value) {
+  return String(value || '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+function readGenomeIdentity(filePath) {
+  const source = fs.readFileSync(filePath, 'utf8');
+  try {
+    const genome = JSON.parse(source);
+    return { id: genome.id, name: genome.identity?.name, role: genome.identity?.role };
+  } catch {
+    const identity = source.match(/identity:\s*\n\s+name:\s*(.+)\n\s+role:\s*(.+)/);
+    if (!identity) return null;
+    return { name: unquote(identity[1]), role: unquote(identity[2]) };
+  }
+}
+
+function discoverGenosGenomes() {
+  const repositoryRoot = path.resolve(__dirname, '../../../');
+  const candidates = [];
+  const genomeDirectory = path.join(repositoryRoot, '.genos', 'agents');
+  if (fs.existsSync(genomeDirectory)) {
+    for (const file of fs.readdirSync(genomeDirectory)) {
+      if (/\.(yaml|yml|json)$/i.test(file)) candidates.push(path.join(genomeDirectory, file));
+    }
+  }
+  for (const file of fs.readdirSync(repositoryRoot)) {
+    if (/-agent\.(yaml|yml|json)$/i.test(file)) candidates.push(path.join(repositoryRoot, file));
+  }
+
+  return candidates.map((filePath) => {
+    try {
+      const identity = readGenomeIdentity(filePath);
+      if (!identity?.name || !identity?.role) return null;
+      const fileId = identity.id || path.basename(filePath).replace(/\.(yaml|yml|json)$/i, '');
+      return {
+        id: `genos_${fileId}`,
+        name: identity.name,
+        role: identity.role,
+        status: 'idle',
+        agentType: 'GenOS',
+        modelTier: 'provider-agnostic',
+        isolationMode: 'local',
+        currentTask: 'GenOS genome available for activation',
+        workspaceId: null,
+        source: 'cli/mcp',
+        genomePath: path.relative(repositoryRoot, filePath)
+      };
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
 
 async function deployAgent(req, res) {
-  const { prompt, modelTier = 'Flash', workspaceIsolation = 'Branch', role = 'Autonomous Node', name } = req.body || {};
+  const { prompt, modelTier = 'Flash', workspaceIsolation = 'Branch', role = 'Autonomous Node', name, about, agentType, language = 'TypeScript', workspaceId = null, fleetId = null, parentAgentId = null, lineageRelation = 'independent' } = req.body || {};
   const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const agentName = name || `Swarm Worker ${agentId.slice(-4)}`;
+  const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
   await db.run(
-    `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    agentId, agentName, role, 'running', 'Antigravity', modelTier, workspaceIsolation, prompt || 'Autonomous task execution'
+    `INSERT INTO agents (id, name, role, status, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    agentId, agentName, role, 'idle', resolvedAgentType, workspaceId, fleetId, modelTier, language, workspaceIsolation, parentAgentId, lineageRelation, about || prompt || `Autonomous agent for ${role}.`, prompt || 'Autonomous task execution'
   );
 
   telemetry.emitEvent({
-    eventType: 'AGENT_SPAWNED',
+    eventType: 'AGENT_QUEUED',
     agentId,
     action: 'DEPLOY',
     detail: `Spawned agent '${agentName}' with tier ${modelTier}`,
     severity: 'info',
-    payload: { prompt, modelTier, workspaceIsolation }
+    payload: { prompt, agentType: resolvedAgentType, modelTier, workspaceIsolation }
   });
+  runtimeAdapter.startMission({
+    agentId, name: agentName, role, prompt: prompt || '', modelTier,
+    workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType
+  }).catch((error) => telemetry.emitEvent({
+    eventType: 'AGENT_RUNTIME_ERROR', agentId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
+  }));
 
   res.status(201).json({
     success: true,
     agentId,
-    status: 'running',
+    status: 'idle',
     agent: {
       id: agentId,
       name: agentName,
       role,
-      status: 'running',
+      status: 'idle',
+      agentType: resolvedAgentType,
+      workspaceId,
+      fleetId,
+      language,
+      parentAgentId,
+      lineageRelation,
+      about: about || prompt || `Autonomous agent for ${role}.`,
       modelTier,
       isolationMode: workspaceIsolation,
       currentTask: prompt
@@ -42,7 +119,8 @@ async function deployAgent(req, res) {
 }
 
 async function deployTrinity(req, res) {
-  const { prompt } = req.body || {};
+  const { prompt, agentType } = req.body || {};
+  const resolvedAgentType = normalizeAgentType(agentType);
   const db = await getDatabase();
   
   // Create the 3 parallel agents
@@ -52,14 +130,20 @@ async function deployTrinity(req, res) {
     { name: 'Trinity Worker (World 3: AI-Corrected)', role: 'AI-Corrected Implementation', task: 'Implement with AI self-correction' }
   ];
 
+  const missionId = `trinity_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
   const agentIds = [];
-  for (const w of worlds) {
+  const persistedWorlds = [];
+  for (let index = 0; index < worlds.length; index += 1) {
+    const w = worlds[index];
     const id = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
     agentIds.push(id);
+    const worldId = `${missionId}_world_${index + 1}`;
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, w.name, w.role, 'running', 'Antigravity', 'Pro', 'Branch', w.task
+      `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, w.name, w.role, 'running', resolvedAgentType, 'Pro', 'Branch', missionId, `Trinity world ${index + 1} for: ${prompt}`, w.task
     );
+    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'running', id);
+    persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'running', agentId: id, fleetId: missionId });
     telemetry.emitEvent({
       eventType: 'TRINITY_WORLD_SPAWNED',
       agentId: id,
@@ -72,14 +156,52 @@ async function deployTrinity(req, res) {
   res.status(201).json({
     success: true,
     message: 'Trinity worlds spawned',
+    missionId,
+    worlds: persistedWorlds,
     agents: agentIds
   });
 }
 
+async function backfillLegacyTrinityWorlds(db) {
+  const legacy = await db.all("SELECT id, name, agent_type, current_task, fleet_id FROM agents WHERE name LIKE 'Trinity Worker (World %' AND id NOT IN (SELECT COALESCE(agent_id, '') FROM trinity_worlds)");
+  for (const agent of legacy) {
+    const match = agent.name.match(/World (\d+)/);
+    const worldNumber = match ? Number(match[1]) : 1;
+    await db.run(`INSERT OR IGNORE INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, `${agent.id}_world`, 'Legacy Trinity mission', worldNumber, agent.name, agent.current_task || 'Trinity strategy', agent.status || 'running', agent.id);
+  }
+}
+
+async function listTrinityWorlds(req, res) {
+  const db = await getDatabase();
+  await backfillLegacyTrinityWorlds(db);
+  const rows = await db.all(`SELECT w.*, a.name as agentName, a.agent_type as agentType, a.status as agentStatus FROM trinity_worlds w LEFT JOIN agents a ON a.id = w.agent_id ORDER BY w.created_at DESC, w.world_number ASC`);
+  res.json(rows);
+}
+
 async function listAgents(req, res) {
   const db = await getDatabase();
-  const agents = await db.all("SELECT id, name, role, status, agent_type as agentType, model_tier as modelTier, isolation_mode as isolationMode, current_task as currentTask, workspace_id as workspaceId FROM agents WHERE status != 'terminated'");
+  await backfillLegacyTrinityWorlds(db);
+  const agents = await db.all("SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType, a.model_tier as modelTier, a.language, a.isolation_mode as isolationMode, a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId, a.parent_agent_id as parentAgentId, p.name as parentAgentName, a.lineage_relation as lineageRelation, a.hallucination_monitoring as hallucinationMonitoring, COALESCE(a.about, a.current_task, 'Autonomous GenOS agent.') as about, tw.id as trinityWorldId, tw.name as trinityWorldName, tw.strategy as trinityStrategy, tw.mission as trinityMission FROM agents a LEFT JOIN agents p ON p.id = a.parent_agent_id LEFT JOIN trinity_worlds tw ON tw.agent_id = a.id WHERE a.status != 'terminated'");
+  // Local genome files are definitions available for deployment, not active
+  // fleet members. Only persisted agent records belong in the fleet view.
   res.json(agents);
+}
+
+async function subscribeAgent(req, res) {
+  const { id } = req.params;
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id, name FROM agents WHERE id = ?', id);
+  if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+
+  await db.run('UPDATE agents SET hallucination_monitoring = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?', id);
+  telemetry.emitEvent({
+    eventType: 'HALLUCINATION_MONITORING_ENABLED',
+    agentId: id,
+    action: 'SUBSCRIBE',
+    detail: `Hallucination monitoring enabled for ${agent.name}`,
+    severity: 'info'
+  });
+  res.json({ success: true, agentId: id, hallucinationMonitoring: true });
 }
 
 async function getAgentHistory(req, res) {
@@ -88,8 +210,7 @@ async function getAgentHistory(req, res) {
   const formatted = history.map(h => ({
     id: h.id,
     name: h.name || h.role,
-    status: (h.status === 'apoptosis' || h.status === 'Apoptosis' || h.status === 'terminated') ? 'Apoptosis' : 'Active',
-    duration: '1h',
+    status: h.status,
     task: h.task
   }));
   res.json(formatted);
@@ -105,10 +226,38 @@ function pingAgent(req, res) {
   });
 }
 
+async function ingestAgentEvent(req, res) {
+  const { id } = req.params;
+  const { eventType = 'AGENT_STEP', action = 'EXECUTE', detail = '', status, payload = {}, severity = 'info', currentTask } = req.body || {};
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id, name FROM agents WHERE id = ?', id);
+  if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+
+  await db.run(
+    'UPDATE agents SET status = COALESCE(?, status), current_task = COALESCE(?, current_task), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    status || null, currentTask || null, id
+  );
+  const event = telemetry.emitEvent({ eventType, agentId: id, action, detail, payload, severity, status: status || 'SUCCESS' });
+  res.status(201).json({ success: true, agentId: id, event });
+}
+
+async function startAgent(req, res) {
+  const { id } = req.params;
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType FROM agents WHERE id = ?', id);
+  if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+  const result = await runtimeAdapter.startMission(agent);
+  res.json({ success: true, agentId: id, ...result });
+}
+
 module.exports = {
   deployAgent,
   deployTrinity,
+  listTrinityWorlds,
   listAgents,
+  subscribeAgent,
   getAgentHistory,
-  pingAgent
+  pingAgent,
+  ingestAgentEvent,
+  startAgent
 };

@@ -22,8 +22,19 @@ async function search(req, res, next) {
 
 async function cherryPick(req, res, next) {
   try {
-    const { turns = [] } = req.body || {};
+    const { turns = [], label = 'Golden Path Trajectory', createdBy = 'memory_synthesizer' } = req.body || {};
     const result = vectorMemoryService.cherryPickGoldenPath(turns);
+    const db = await getDatabase();
+    const decisionId = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await db.run(
+      `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
+      decisionId,
+      label,
+      JSON.stringify(result.goldenPathSteps),
+      JSON.stringify(result.goldenPathSteps.map((step) => step.id || step.step || step.action)),
+      createdBy,
+      'GoldenPath'
+    );
 
     telemetry.emitEvent({
       eventType: 'GOLDEN_PATH_SYNTHESIZED',
@@ -34,7 +45,7 @@ async function cherryPick(req, res, next) {
       payload: result
     });
 
-    res.status(200).json(result);
+    res.status(200).json({ ...result, decisionId });
   } catch (err) {
     next(err);
   }

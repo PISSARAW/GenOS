@@ -11,7 +11,8 @@ async function triggerApoptosis(req, res, next) {
   try {
     const { agentId = 'agent_worker_1', triggerMetrics = {} } = req.body || {};
     const db = await getDatabase();
-    const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db);
+    const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold FROM resilience_policies WHERE id = 1');
+    const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db, policy || {});
 
     telemetry.emitEvent({
       eventType: 'APOPTOSIS_EVALUATED',
@@ -30,8 +31,10 @@ async function triggerApoptosis(req, res, next) {
 
 async function freezeCryptobiosis(req, res, next) {
   try {
-    const { workspaceId = 'ws-genos-core', reason = 'Operator cryptobiosis freeze' } = req.body || {};
-    const result = resilienceService.freezeCryptobiosis(workspaceId, reason, req.body?.statePayload || {});
+    const { workspaceId = 'fleet', reason = 'Operator cryptobiosis freeze' } = req.body || {};
+    const db = await getDatabase();
+    const agents = await db.all("SELECT id, status, current_task as currentTask FROM agents WHERE status != 'terminated'");
+    const result = resilienceService.freezeCryptobiosis(workspaceId, reason, { ...(req.body?.statePayload || {}), agents });
 
     telemetry.emitEvent({
       eventType: 'CRYPTOBIOSIS_FROZEN',
@@ -78,9 +81,28 @@ async function getDrift(req, res, next) {
   }
 }
 
+async function getPolicy(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold, updated_at as updatedAt FROM resilience_policies WHERE id = 1');
+    res.json(policy);
+  } catch (err) { next(err); }
+}
+
+async function updatePolicy(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const { maxConsecutiveFailures = 3, maxCostUsd = 1.0, divergenceThreshold = 0.55 } = req.body || {};
+    await db.run('UPDATE resilience_policies SET max_consecutive_failures = ?, max_cost_usd = ?, divergence_threshold = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1', maxConsecutiveFailures, maxCostUsd, divergenceThreshold);
+    return getPolicy(req, res, next);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   triggerApoptosis,
   freezeCryptobiosis,
   thawCryptobiosis,
-  getDrift
+  getDrift,
+  getPolicy,
+  updatePolicy
 };

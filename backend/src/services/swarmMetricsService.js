@@ -3,42 +3,49 @@
  * Shannon entropy calculation, cognitive drift detection, topology graph & deadlock sentinel.
  */
 
+function getEntropyStats(actionEvents = []) {
+  const frequencies = {};
+  for (const item of actionEvents) {
+    const key = typeof item === 'string' ? item : (item.type || item.action || 'generic_action');
+    frequencies[key] = (frequencies[key] || 0) + 1;
+  }
+
+  const totalActions = actionEvents.length;
+  const uniqueActions = Object.keys(frequencies).length;
+  let entropy = 0;
+  for (const count of Object.values(frequencies)) {
+    const p = count / totalActions;
+    if (p > 0) entropy -= p * Math.log2(p);
+  }
+
+  const maxEntropy = uniqueActions > 1 ? Math.log2(uniqueActions) : 1;
+  return {
+    entropy,
+    normalizedEntropy: maxEntropy > 0 ? entropy / maxEntropy : 0,
+    uniqueActions
+  };
+}
+
 /**
  * Calculates Information-Theoretic Shannon Entropy H(A) = - sum(P(a_i) * log2(P(a_i)))
  */
 function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
-  const sample = actionEvents.length > 0
-    ? actionEvents.slice(-windowSize)
-    : [
-        { type: 'read_code' }, { type: 'read_code' }, { type: 'edit_code' },
-        { type: 'test_run' }, { type: 'read_code' }, { type: 'edit_code' },
-        { type: 'verify' }, { type: 'commit' }
-      ];
+  const sample = actionEvents.slice(-windowSize);
 
   const totalActions = sample.length;
   if (totalActions === 0) {
     return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0 };
   }
 
-  // Calculate frequency counts
-  const frequencies = {};
-  for (const item of sample) {
-    const key = typeof item === 'string' ? item : (item.type || item.action || 'generic_action');
-    frequencies[key] = (frequencies[key] || 0) + 1;
-  }
-
-  const uniqueActions = Object.keys(frequencies).length;
-  let entropy = 0;
-
-  for (const count of Object.values(frequencies)) {
-    const p = count / totalActions;
-    if (p > 0) {
-      entropy -= p * Math.log2(p);
-    }
-  }
+  const { entropy, normalizedEntropy, uniqueActions } = getEntropyStats(sample);
 
   const maxEntropy = uniqueActions > 1 ? Math.log2(uniqueActions) : 1;
-  const normalizedEntropy = Number((entropy / maxEntropy).toFixed(3));
+  const sparkline = [];
+  const pointCount = Math.min(7, totalActions);
+  for (let i = 0; i < pointCount; i += 1) {
+    const end = Math.max(1, Math.floor(((i + 1) * totalActions) / pointCount));
+    sparkline.push(Number(getEntropyStats(sample.slice(0, end)).normalizedEntropy.toFixed(3)));
+  }
 
   // Determine cognitive drift status
   let driftState = 'OPTIMAL_EXPLORATION';
@@ -60,7 +67,7 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
     sampleSize: totalActions,
     cognitiveDriftState: driftState,
     diagnosticRecommendation: diagnostic,
-    sparkline: [0.42, 0.48, 0.53, 0.61, 0.58, 0.65, Number(normalizedEntropy)]
+    sparkline
   };
 }
 
@@ -71,12 +78,7 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
   const interactions = {};
   const messageGraph = {};
 
-  const queue = messageQueue.length > 0 ? messageQueue : [
-    { sender: 'worker_1', recipient: 'worker_2', hasDiff: false },
-    { sender: 'worker_2', recipient: 'worker_1', hasDiff: false },
-    { sender: 'worker_1', recipient: 'worker_2', hasDiff: false },
-    { sender: 'worker_3', recipient: 'observer_1', hasDiff: true }
-  ];
+  const queue = messageQueue;
 
   for (const msg of queue) {
     const key = [msg.sender, msg.recipient].sort().join('<->');
@@ -139,15 +141,8 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
  * Computes force-directed swarm topology graph with active message particles
  */
 function getSwarmTopology(agentList = [], eventBuffer = []) {
-  const defaultAgents = [
-    { id: 'supervisor_main', role: 'supervisor', status: 'active', tier: 'Ultra', cluster: 'Command' },
-    { id: 'worker_backend_1', role: 'implementer', status: 'active', tier: 'Pro', cluster: 'Engineers' },
-    { id: 'worker_frontend_2', role: 'implementer', status: 'active', tier: 'Pro', cluster: 'Engineers' },
-    { id: 'qa_sentinel_1', role: 'qa', status: 'active', tier: 'Pro', cluster: 'Verifiers' },
-    { id: 'telemetry_observer', role: 'observer', status: 'monitoring', tier: 'Flash', cluster: 'Telemetry' }
-  ];
-
-  const agents = agentList.length > 0 ? agentList : defaultAgents;
+  const agents = agentList;
+  const agentById = new Map(agents.map((agent) => [agent.id, agent]));
 
   // Build nodes with normalized graph layout coordinates
   const nodes = agents.map((ag, i) => {
@@ -156,30 +151,54 @@ function getSwarmTopology(agentList = [], eventBuffer = []) {
 
     return {
       id: ag.id,
-      label: ag.id.replace(/_/g, ' ').toUpperCase(),
+      label: ag.name || ag.id.replace(/_/g, ' ').toUpperCase(),
       role: ag.role,
       cluster: ag.cluster || 'General',
       tier: ag.tier || 'Pro',
       status: ag.status || 'active',
       x: Math.round(300 + radius * Math.cos(angle)),
       y: Math.round(250 + radius * Math.sin(angle)),
-      tokenBurnRate: Math.round(120 + i * 45),
-      memoryUsageKb: 1024 + i * 512
+      tokenBurnRate: Number(ag.tokenBurnRate || 0),
+      memoryUsageKb: Number(ag.memoryUsageKb || 0)
     };
   });
 
-  // Build connecting edges with animated message particles
-  const edges = [
-    { id: 'edge-sup-w1', source: 'supervisor_main', target: 'worker_backend_1', type: 'command', weight: 1.0 },
-    { id: 'edge-sup-w2', source: 'supervisor_main', target: 'worker_frontend_2', type: 'command', weight: 1.0 },
-    { id: 'edge-w1-qa', source: 'worker_backend_1', target: 'qa_sentinel_1', type: 'handshake', weight: 0.8 },
-    { id: 'edge-all-obs', source: 'worker_backend_1', target: 'telemetry_observer', type: 'telemetry', weight: 0.4 }
-  ];
+  // Relationships come from persisted agent metadata and real telemetry.
+  const edges = [];
+  const particles = [];
 
-  const particles = [
-    { id: 'part-1', edgeId: 'edge-sup-w1', progress: 0.65, type: 'instruction' },
-    { id: 'part-2', edgeId: 'edge-w1-qa', progress: 0.30, type: 'ast_verification' }
-  ];
+  const edgeKeys = new Set();
+  const addEdge = (from, to, type) => {
+    if (!from || !to || from === to || !agentById.has(from) || !agentById.has(to)) return;
+    const key = [from, to].sort().join('::');
+    if (!edgeKeys.has(key)) {
+      edgeKeys.add(key);
+      edges.push({ from, to, type, particles: [] });
+    }
+  };
+
+  for (const agent of agents) addEdge(agent.parentAgentId, agent.id, 'lineage');
+  for (let i = 0; i < agents.length; i += 1) {
+    for (let j = i + 1; j < agents.length; j += 1) {
+      const left = agents[i];
+      const right = agents[j];
+      if ((left.fleetId && left.fleetId === right.fleetId) ||
+          (left.workspaceId && left.workspaceId === right.workspaceId)) {
+        addEdge(left.id, right.id, left.fleetId ? 'fleet' : 'workspace');
+      }
+    }
+  }
+
+  for (const event of eventBuffer) {
+    let payload = {};
+    try { payload = JSON.parse(event.payload_json || '{}'); } catch {}
+    const sender = payload.sender || event.agent_id;
+    const recipient = payload.recipient || payload.targetAgentId || payload.target_agent_id;
+    addEdge(sender, recipient, 'telemetry');
+    if (recipient && agentById.has(recipient)) {
+      particles.push({ from: sender, to: recipient, eventId: event.id || event.created_at });
+    }
+  }
 
   return {
     timestamp: new Date().toISOString(),
@@ -188,7 +207,7 @@ function getSwarmTopology(agentList = [], eventBuffer = []) {
     nodes,
     edges,
     particles,
-    communityClusters: ['Command', 'Engineers', 'Verifiers', 'Telemetry']
+    communityClusters: []
   };
 }
 

@@ -3,7 +3,7 @@
  */
 
 const crypto = require('crypto');
-const { SEED_KEYS, SEED_WORKSPACES, SEED_AGENTS, SEED_TRAJECTORIES } = require('./seedData');
+const { SEED_KEYS, SEED_WORKSPACES, SEED_TRAJECTORIES } = require('./seedData');
 const { seedMcpTools } = require('./seedTools');
 
 function hashKey(key) {
@@ -22,6 +22,12 @@ async function seedDatabase(db) {
     );
   }
 
+  // Keep only authentication bootstrap and the registered MCP capability catalog.
+  // Workspaces, agents, experiments, trajectories and telemetry must come from
+  // real user/backend actions, never from demo fixtures.
+  await seedMcpTools(db);
+  return;
+
   // 2. Seed Workspaces
   for (const w of SEED_WORKSPACES) {
     await db.run(
@@ -38,15 +44,7 @@ async function seedDatabase(db) {
     'snp-002', 'ws-genos-core', 'e4f5g6h', 2, 'Telemetry Observer Hooked', 'telemetry_observer', 'Deployed dedicated telemetry agent', '+telemetryObserver.js'
   );
 
-  // 4. Seed Agents
-  for (const a of SEED_AGENTS) {
-    await db.run(
-      'INSERT INTO agents (id, name, role, status, agent_type, model_tier, workspace_id, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      a.id, a.name, a.role, a.status, a.type, a.tier, a.ws, a.task
-    );
-  }
-
-  // 5. Seed Trajectories
+  // 4. Trajectories are seeded for schema/UI fixtures; agents are never seeded.
   for (const t of SEED_TRAJECTORIES) {
     await db.run(
       'INSERT INTO trajectories (id, workspace_id, author_name, title, status, semantic_summary, qa_feedback, diff_file, diff_stats, diff_lines, confidence, adversarial_result, future_ci_result, is_exceptional) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',

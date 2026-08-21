@@ -56,20 +56,39 @@ async function inspectNode(req, res) {
 }
 
 async function cloneNode(req, res) {
-  const { nodeId } = req.body || {};
+  const { nodeId, id } = req.body || {};
+  const parentId = nodeId || id;
   const clonedId = `node-clone-${Date.now()}`;
 
   const db = await getDatabase();
+  const parentAgent = await db.get('SELECT * FROM agents WHERE id = ?', parentId);
+  if (parentAgent) {
+    const agentId = `agent_clone_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    await db.run(
+      `INSERT INTO agents (id, name, role, status, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      agentId, `Clone of ${parentAgent.name}`, parentAgent.role, 'running', parentAgent.agent_type, parentAgent.workspace_id, parentAgent.fleet_id, parentAgent.model_tier, parentAgent.language, 'Branch', parentAgent.id, 'clone', parentAgent.about, `Cloned from ${parentAgent.name}`
+    );
+    telemetry.emitEvent({
+      eventType: 'AGENT_CLONED',
+      agentId,
+      action: 'CLONE',
+      detail: `Cloned agent ${parentAgent.name}`,
+      severity: 'info',
+      payload: { parentAgentId: parentAgent.id }
+    });
+    return res.status(201).json({ success: true, clonedAgentId: agentId, parentAgentId: parentAgent.id });
+  }
+
   await db.run(
     `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, pos_x, pos_y, state_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    clonedId, 'ws-genos-core', `Clone of ${nodeId || 'Root'}`, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node'
+    clonedId, 'ws-genos-core', `Clone of ${parentId || 'Root'}`, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node'
   );
 
   telemetry.emitEvent({
     eventType: 'NODE_CLONED',
     agentId: 'lineage_controller',
     action: 'CLONE',
-    detail: `Cloned lineage node ${nodeId} into ${clonedId}`,
+    detail: `Cloned lineage node ${parentId} into ${clonedId}`,
     severity: 'info'
   });
 
@@ -132,7 +151,7 @@ async function getGenomeGraph(req, res) {
 async function synthesizeGenome(req, res) {
   const { cartNodes, title = 'Genome Synthesis' } = req.body || {};
   const db = await getDatabase();
-  const decId = `dec-${Date.now()}`;
+  const decId = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   await db.run(
     `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -153,7 +172,7 @@ async function synthesizeGenome(req, res) {
 async function recordDecision(req, res) {
   const { title, content, category = 'Architecture', createdBy = 'operator' } = req.body || {};
   const db = await getDatabase();
-  const id = `dec-${Date.now()}`;
+  const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   await db.run(
     `INSERT INTO genome_decisions (id, title, content, created_by, category) VALUES (?, ?, ?, ?, ?)`,
@@ -168,7 +187,7 @@ const geneticsService = require('../services/geneticsService');
 async function getPhylogeny(req, res, next) {
   try {
     const workspaceId = req.query.workspaceId || 'ws-genos-core';
-    const tree = geneticsService.getPhylogeneticTree(workspaceId);
+    const tree = await geneticsService.getPhylogeneticTree(workspaceId);
     res.json(tree);
   } catch (err) {
     next(err);
@@ -177,7 +196,7 @@ async function getPhylogeny(req, res, next) {
 
 async function getAlleles(req, res, next) {
   try {
-    const alleles = geneticsService.analyzeAlleles();
+    const alleles = await geneticsService.analyzeAlleles();
     res.json(alleles);
   } catch (err) {
     next(err);
