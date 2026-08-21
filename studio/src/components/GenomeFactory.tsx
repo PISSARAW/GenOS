@@ -22,20 +22,8 @@ export const GenomeFactory: React.FC = () => {
         if (data?.edges) setEdges(data.edges);
       })
       .catch(() => {
-        // Fallback default nodes
-        setNodes([
-          { id: 'n1', label: 'Rule #1: File Length <=400', type: 'core', mm: { x: 200, y: 150 }, const: { x: 180, y: 120 } },
-          { id: 'n2', label: 'Rule #2: Params <=3', type: 'core', mm: { x: 450, y: 150 }, const: { x: 420, y: 140 } },
-          { id: 'n3', label: 'Rule #5: Strict GitHub Dark', type: 'core', mm: { x: 320, y: 280 }, const: { x: 300, y: 260 } },
-          { id: 'n4', label: 'RBAC Military Gate', type: 'leaf', mm: { x: 150, y: 350 }, const: { x: 140, y: 340 } },
-          { id: 'n5', label: 'MCP Circuit Breaker', type: 'leaf', mm: { x: 500, y: 350 }, const: { x: 480, y: 340 } },
-        ]);
-        setEdges([
-          { from: 'n1', to: 'n3' },
-          { from: 'n2', to: 'n3' },
-          { from: 'n3', to: 'n4' },
-          { from: 'n3', to: 'n5' }
-        ]);
+        setNodes([]);
+        setEdges([]);
       });
   }, []);
 

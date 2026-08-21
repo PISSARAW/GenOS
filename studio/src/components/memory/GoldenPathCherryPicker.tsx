@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Award, Check, Sparkles, AlertCircle, HelpCircle } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Award, Sparkles } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
@@ -12,28 +12,44 @@ interface TrajectoryTurn {
 }
 
 export const GoldenPathCherryPicker: React.FC = () => {
-  const [turns, setTurns] = useState<TrajectoryTurn[]>([
-    { id: 't1', stepNum: 1, type: 'Exploration', action: 'Scan codebase files with find_by_name to locate middleware', selected: false },
-    { id: 't2', stepNum: 2, type: 'Breakthrough', action: 'Isolate timing vulnerability in token equality verification', selected: true },
-    { id: 't3', stepNum: 3, type: 'Dead-End', action: 'Attempted to rewrite entire auth module with external package (Failed)', selected: false },
-    { id: 't4', stepNum: 4, type: 'Breakthrough', action: 'Apply surgical replace_file_content using crypto.timingSafeEqual', selected: true },
-    { id: 't5', stepNum: 5, type: 'Verification', action: 'Execute test suite (58/58 passed) with 0 regressions', selected: true },
-  ]);
-  const [goldenLabel, setGoldenLabel] = useState('Golden Path: Constant-Time Token Hardening');
+  const [turns, setTurns] = useState<TrajectoryTurn[]>([]);
+  const [goldenLabel, setGoldenLabel] = useState('');
+  const [loading, setLoading] = useState(true);
   const showToast = useToastStore((state) => state.showToast);
+
+  useEffect(() => {
+    api.getTrajectories()
+      .then((data: any) => {
+        const trajectories = [...(data?.pendingList || []), ...(data?.activeList || [])];
+        const loadedTurns = trajectories.flatMap((trajectory: any) => {
+          const lines = Array.isArray(trajectory.diffLines) ? trajectory.diffLines : [];
+          return lines.map((line: any, index: number) => ({
+            id: `${trajectory.id}:${index}`,
+            stepNum: index + 1,
+            type: line.type || (line.error ? 'Dead-End' : line.success || line.pass ? 'Breakthrough' : 'Exploration'),
+            action: line.action || line.content || line.text || String(line),
+            selected: false
+          }));
+        });
+        setTurns(loadedTurns);
+      })
+      .catch(() => showToast('error', 'Trajectory Load Failed', 'Unable to load persisted trajectories.'))
+      .finally(() => setLoading(false));
+  }, [showToast]);
 
   const toggleSelect = (id: string) => {
     setTurns((prev) => prev.map((t) => t.id === id ? { ...t, selected: !t.selected } : t));
   };
 
   const handleSynthesize = async () => {
-    const selectedIds = turns.filter((t) => t.selected).map((t) => `Step #${t.stepNum}: ${t.action}`);
+    const selectedTurns = turns.filter((t) => t.selected);
+    if (selectedTurns.length === 0) return;
     try {
       await api.cherryPickGoldenPath({
-        trajectoryIds: selectedIds,
+        turns: selectedTurns,
         label: goldenLabel
       });
-      showToast('success', 'Golden Path Synthesized', `Fused ${selectedIds.length} breakthrough steps into global DNA.`);
+      showToast('success', 'Golden Path Synthesized', `Persisted ${selectedTurns.length} selected steps into genome memory.`);
     } catch (e: any) {
       showToast('error', 'Synthesis Failed', e.message);
     }
@@ -62,6 +78,7 @@ export const GoldenPathCherryPicker: React.FC = () => {
 
         {/* Turns List */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {!loading && turns.length === 0 && <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>No recorded trajectory steps available.</div>}
           {turns.map((turn) => {
             const isBreakthrough = turn.type === 'Breakthrough';
             const isDeadEnd = turn.type === 'Dead-End';

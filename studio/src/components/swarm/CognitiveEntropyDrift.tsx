@@ -3,35 +3,37 @@ import { Brain, AlertTriangle, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { api } from '../../api/client';
 
 export const CognitiveEntropyDrift: React.FC = () => {
-  const [entropyHistory, setEntropyHistory] = useState<number[]>([2.1, 2.3, 2.4, 2.2, 2.6, 2.5, 2.8, 2.4, 2.3]);
-  const [currentEntropy, setCurrentEntropy] = useState<number>(2.42);
-  const [deadlockStatus, setDeadlockStatus] = useState<string>('Nominal (0 Cycles Detected)');
+  const [entropyHistory, setEntropyHistory] = useState<number[]>([]);
+  const [currentEntropy, setCurrentEntropy] = useState<number | null>(null);
+  const [metrics, setMetrics] = useState<any>(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const fetchMetrics = () => {
       api.getEntropyMetrics()
         .then((wave: any) => {
-          if (wave?.stressLevel) {
-            const h = +(1.8 + (wave.stressLevel / 60)).toFixed(2);
-            setCurrentEntropy(h);
-            setEntropyHistory((prev) => [...prev.slice(1), h]);
+          setError('');
+          setMetrics(wave);
+          if (typeof wave?.rawEntropy === 'number') {
+            setCurrentEntropy(wave.rawEntropy);
+            setEntropyHistory(Array.isArray(wave?.sparkline) ? wave.sparkline : []);
           }
         })
-        .catch(() => {
-          const fakeH = +(2.0 + Math.random() * 0.8).toFixed(2);
-          setCurrentEntropy(fakeH);
-          setEntropyHistory((prev) => [...prev.slice(1), fakeH]);
-        });
-    }, 2000);
+        .catch((err: any) => setError(err?.message || 'Unable to load telemetry.'));
+    };
+    fetchMetrics();
+    const interval = setInterval(fetchMetrics, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  const isSpike = currentEntropy > 3.2;
-  const isCollapse = currentEntropy < 1.2;
+  const isSpike = metrics?.cognitiveDriftState === 'SPIKE_CONFUSION';
+  const isCollapse = metrics?.cognitiveDriftState === 'COLLAPSE_DEADLOCK';
+  const hasTelemetry = Boolean(metrics?.sampleSize);
+  const deadlockStatus = metrics?.deadlockSentinel?.deadlockDetected ? 'Deadlock or chatty loop detected' : hasTelemetry ? 'No deadlock detected' : 'No telemetry';
 
   const points = entropyHistory.map((h, i) => {
     const x = (i / Math.max(entropyHistory.length - 1, 1)) * 140;
-    const y = 35 - ((h - 1) / 3) * 30;
+    const y = 35 - h * 30;
     return `${x},${Math.max(2, Math.min(38, y))}`;
   }).join(' ');
 
@@ -43,7 +45,7 @@ export const CognitiveEntropyDrift: React.FC = () => {
           <Brain size={14} color="var(--accent-purple)" /> Shannon Entropy & Cognitive Drift Analyzer
         </div>
         <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: isSpike || isCollapse ? 'var(--danger)' : 'var(--success)' }}>
-          H = {currentEntropy} bits/token
+          H = {currentEntropy === null ? '—' : `${currentEntropy} bits/action`}
         </span>
       </div>
 
@@ -56,7 +58,7 @@ export const CognitiveEntropyDrift: React.FC = () => {
               Cognitive Entropy Distribution
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Normal Operating Window: <strong style={{ color: 'var(--text-primary)' }}>1.5 - 3.0 bits</strong>
+              {hasTelemetry ? `${metrics.sampleSize} events · ${metrics.uniqueActionCount} unique actions` : 'Waiting for telemetry events'}
             </div>
           </div>
 
@@ -79,7 +81,7 @@ export const CognitiveEntropyDrift: React.FC = () => {
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Spike / Thrashing Detector</div>
             <div style={{ fontSize: '0.8rem', fontWeight: 600, color: isSpike ? 'var(--danger)' : 'var(--success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               {isSpike ? <AlertTriangle size={12} /> : <CheckCircle2 size={12} />}
-              {isSpike ? 'Spike Detected (Prompt Divergence)' : 'Stable Convergence'}
+              {!hasTelemetry ? 'No telemetry' : isSpike ? 'Spike Detected (Prompt Divergence)' : isCollapse ? 'Collapse Detected' : 'Balanced entropy'}
             </div>
           </div>
 
@@ -93,6 +95,8 @@ export const CognitiveEntropyDrift: React.FC = () => {
         </div>
 
       </div>
+
+      {error && <div style={{ padding: '8px 16px', color: 'var(--danger)', fontSize: '0.75rem' }}>{error}</div>}
 
     </div>
   );

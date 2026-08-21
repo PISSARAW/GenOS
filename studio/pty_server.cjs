@@ -1,6 +1,30 @@
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
 const pty = require('node-pty');
 const { WebSocketServer } = require('ws');
+
+// npm can unpack node-pty's native helper without its executable bit on macOS.
+// Fix the mode before node-pty calls posix_spawnp, otherwise the PTY server
+// fails during startup with the opaque "posix_spawnp failed" error.
+function ensureSpawnHelperExecutable() {
+  const nodePtyDir = path.dirname(require.resolve('node-pty'));
+  const candidates = [
+    path.resolve(nodePtyDir, `../prebuilds/${process.platform}-${process.arch}/spawn-helper`),
+    path.resolve(nodePtyDir, '../build/Release/spawn-helper')
+  ];
+
+  const helper = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!helper) return;
+
+  try {
+    fs.chmodSync(helper, 0o755);
+  } catch (error) {
+    throw new Error(`Unable to prepare node-pty spawn helper: ${error.message}`);
+  }
+}
+
+ensureSpawnHelperExecutable();
 
 const shell = os.platform() === 'win32' ? 'powershell.exe' : 'bash';
 

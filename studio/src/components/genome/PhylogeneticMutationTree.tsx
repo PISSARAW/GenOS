@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GitBranch, Dna, CheckCircle2, AlertOctagon, Award } from 'lucide-react';
+import { api } from '../../api/client';
 
 interface PhylogenyNode {
   id: string;
@@ -16,21 +17,30 @@ interface PhylogenyNode {
 
 export const PhylogeneticMutationTree: React.FC = () => {
   const [selectedNode, setSelectedNode] = useState<PhylogenyNode | null>(null);
+  const [nodes, setNodes] = useState<PhylogenyNode[]>([]);
+  const [edges, setEdges] = useState<{ from: string; to: string }[]>([]);
 
-  const nodes: PhylogenyNode[] = [
-    { id: 'g0-root', generation: 0, label: 'G0: Base Fleet Blueprint', mutationType: 'Role', fitnessScore: 82.0, isChampion: false, isApoptosis: false, geneDiff: '+ Base archetype prompts and standard MCP permissions', x: 280, y: 50 },
-    { id: 'g1-branch-a', generation: 1, label: 'G1: Strict Type Heuristics', mutationType: 'Strategy', fitnessScore: 91.5, isChampion: false, isApoptosis: false, geneDiff: '+ Enforce TypeScript strict mode on all AST mutations\n+ Rule: max 3 params per function', x: 140, y: 160 },
-    { id: 'g1-branch-b', generation: 1, label: 'G1: Unrestricted Tool Access', mutationType: 'Tool_Access', fitnessScore: 42.0, isChampion: false, isApoptosis: true, geneDiff: '- Removed circuit breaker quarantine\n[APOPTOSIS] Cascading failure triggered', x: 420, y: 160 },
-    { id: 'g2-branch-c', generation: 2, label: 'G2: Causal Bisection Guardrail', mutationType: 'Guardrail', fitnessScore: 96.8, isChampion: true, isApoptosis: false, geneDiff: '+ Integrated binary search regression bisection\n+ Zero-copy branch rollback hook', x: 140, y: 280 },
-    { id: 'g2-branch-d', generation: 2, label: 'G2: Beam Search Optimizer', mutationType: 'Strategy', fitnessScore: 88.0, isChampion: false, isApoptosis: false, geneDiff: '+ Expand top-3 candidates in parallel before commit', x: 300, y: 280 },
-  ];
-
-  const edges = [
-    { from: 'g0-root', to: 'g1-branch-a' },
-    { from: 'g0-root', to: 'g1-branch-b' },
-    { from: 'g1-branch-a', to: 'g2-branch-c' },
-    { from: 'g1-branch-a', to: 'g2-branch-d' }
-  ];
+  useEffect(() => {
+    api.getPhylogeneticTree().then((tree: any) => {
+      const sourceNodes = Array.isArray(tree?.nodes) ? tree.nodes : [];
+      setNodes(sourceNodes.map((node: any, index: number) => ({
+        id: node.id,
+        generation: Number(node.generation || 0),
+        label: node.name || node.label || node.id,
+        mutationType: node.mutationType || 'Strategy',
+        fitnessScore: Number(node.fitnessScore || 0),
+        isChampion: node.status === 'CHAMPION',
+        isApoptosis: node.status === 'EXTINCT' || node.status === 'Apoptosis',
+        geneDiff: node.geneDiff || node.summary || '',
+        x: Number(node.x ?? node.pos?.x ?? (100 + (index % 4) * 120)),
+        y: Number(node.y ?? node.pos?.y ?? (80 + Math.floor(index / 4) * 100))
+      })));
+      setEdges((Array.isArray(tree?.edges) ? tree.edges : []).map((edge: any) => ({ from: edge.from || edge.source, to: edge.to || edge.target })));
+    }).catch(() => {
+      setNodes([]);
+      setEdges([]);
+    });
+  }, []);
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '24px', height: '100%' }}>

@@ -10,6 +10,7 @@ import { AgentProfileState } from './agent-profile/AgentProfileState';
 import { AgentProfileTasks } from './agent-profile/AgentProfileTasks';
 import { AgentProfileMemory } from './agent-profile/AgentProfileMemory';
 import { AgentProfileSidebar } from './agent-profile/AgentProfileSidebar';
+import { AgentProfileHealth } from './agent-profile/AgentProfileHealth';
 
 export const AgentProfile: React.FC = () => {
   const [activeTab, setActiveTab] = useState('state');
@@ -19,15 +20,24 @@ export const AgentProfile: React.FC = () => {
   const fetchAgents = useGenOSStore((state) => state.fetchAgents);
   const showToast = useToastStore((state) => state.showToast);
   
-  const activeAgent = (selectedAgentId ? clones.find((c) => c.id === selectedAgentId) : null) || clones[0] || { 
-    id: 'agent_primary', 
-    name: 'Antigravity (Orchestrator)', 
-    status: 'running', 
-    role: 'System Architect', 
-    currentTask: 'Supervising GenOS Studio Fleet' 
-  };
+  const activeAgent = (selectedAgentId ? clones.find((c) => c.id === selectedAgentId) : null) || clones[0] || null;
+
+  if (!activeAgent) {
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', color: 'var(--text-secondary)' }}>
+        No agent data available.
+      </div>
+    );
+  }
 
   const agentTraces = traces[activeAgent.id] || [];
+  const visibleAgents = clones.filter((agent) => {
+    if (agent.id === activeAgent.id) return true;
+    const sameWorkspace = Boolean(activeAgent.workspaceId && agent.workspaceId === activeAgent.workspaceId);
+    const sameFleet = Boolean(activeAgent.fleetId && agent.fleetId === activeAgent.fleetId);
+    const parentChild = agent.parentAgentId === activeAgent.id || activeAgent.parentAgentId === agent.id;
+    return sameWorkspace || sameFleet || parentChild;
+  });
   
   const displayFiles = agentTraces.slice(-5).map((t) => ({
     type: (t.inputs?.path && t.inputs.path.includes('.')) ? 'file' : 'folder',
@@ -36,18 +46,12 @@ export const AgentProfile: React.FC = () => {
     time: new Date(t.startTime).toLocaleTimeString()
   }));
 
-  const fallbackFiles = displayFiles.length > 0 ? displayFiles : [
-    { type: 'folder', name: 'src/components', message: 'Refactoring layout for AgentProfile', time: '2 mins ago' },
-    { type: 'file', name: 'src/components/AgentProfile.tsx', message: 'Modular subcomponents refactor', time: '4 mins ago' },
-    { type: 'file', name: 'src/App.tsx', message: 'Fix TypeError on repo.name fallback', time: '12 mins ago' },
-    { type: 'file', name: 'backend/src/app.js', message: 'Update MCP tool categorizer logic', time: '25 mins ago' },
-    { type: 'file', name: 'package.json', message: 'Update dependencies for GenOS 2.0', time: '1 hr ago' },
-  ];
+  const displayFilesFromBackend = displayFiles;
 
   const tabs = [
     { id: 'state', label: 'State & Files', icon: Code },
-    { id: 'tasks', label: 'Tasks', icon: CircleDot, count: agentTraces.length || 4 },
-    { id: 'trajectories', label: 'Trajectories', icon: GitPullRequest, count: 2 },
+    { id: 'tasks', label: 'Tasks', icon: CircleDot, count: agentTraces.length },
+    { id: 'trajectories', label: 'Trajectories', icon: GitPullRequest, count: 0 },
     { id: 'swarm', label: 'Swarm & Network', icon: LayoutGrid },
     { id: 'memory', label: 'Memory & Genome', icon: Book },
     { id: 'experiments', label: 'Experiments', icon: PlayCircle },
@@ -60,7 +64,7 @@ export const AgentProfile: React.FC = () => {
       {/* HEADER ZONE */}
       <AgentProfileHeader
         activeAgent={activeAgent}
-        clonesCount={clones.length}
+        clonesCount={visibleAgents.filter((agent) => agent.parentAgentId === activeAgent.id).length}
         activeTab={activeTab}
         tabs={tabs}
         onSelectTab={setActiveTab}
@@ -77,8 +81,9 @@ export const AgentProfile: React.FC = () => {
             <AgentProfileState
               activeAgent={activeAgent}
               clonesCount={clones.length}
-              snapshotsCount={agentTraces.filter((t) => t.name === 'genos_snapshot').length || 1}
-              displayFiles={fallbackFiles}
+              snapshotsCount={agentTraces.filter((t) => t.name === 'genos_snapshot').length}
+              displayFiles={displayFilesFromBackend}
+              agentTraces={agentTraces}
               agentTracesCount={agentTraces.length}
             />
           )}
@@ -95,18 +100,26 @@ export const AgentProfile: React.FC = () => {
                 </h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {[
-                  { title: 'Timeline: Optimize Swarm Topology', time: '2 hours ago', base: 'b4f91a2', delta: '+12 files, -3 files', nodes: 4 },
-                  { title: 'Timeline: Security Vulnerability Patching', time: '5 hours ago', base: 'c9e33f1', delta: '+2 files, -1 file', nodes: 1 },
-                ].map((tl, i) => (
-                  <div key={i} style={{ borderBottom: i === 0 ? '1px solid var(--panel-border)' : 'none', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} className="hover-bg-gray">
-                    <div>
-                      <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px', fontSize: '0.95rem' }} className="hover-blue">{tl.title}</div>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Forked {tl.time} from <span style={{ fontFamily: 'monospace' }}>{tl.base}</span></div>
-                    </div>
-                    <button className="gh-btn" onClick={() => showToast('info', 'Timeline Explorer', 'Navigating to timeline')}>Inspect Timeline</button>
+                {agentTraces.length === 0 && !activeAgent.currentTask && (
+                  <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>No persisted or active trajectory recorded for this agent.</div>
+                )}
+                {activeAgent.currentTask && (
+                  <div style={{ padding: '16px', borderBottom: agentTraces.length ? '1px solid var(--panel-border)' : 'none' }}>
+                    <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Current execution</div>
+                    <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>{activeAgent.currentTask}</div>
+                    <div style={{ marginTop: '6px', color: 'var(--success)', fontSize: '0.8rem' }}>running · source: agent state</div>
                   </div>
-                ))}
+                )}
+                {agentTraces.map((trace, index) => {
+                  const output = trace.outputs ? (typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)) : '';
+                  return (
+                    <div key={trace.id || index} style={{ padding: '16px', borderBottom: index < agentTraces.length - 1 ? '1px solid var(--panel-border)' : 'none' }}>
+                      <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{trace.name || 'Agent action'}</div>
+                      <div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{output || 'Action recorded without output.'}</div>
+                      <div style={{ marginTop: '6px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>{trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'time unavailable'} · live trace</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -119,7 +132,7 @@ export const AgentProfile: React.FC = () => {
                 </h2>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {clones.map((node, i) => (
+                {visibleAgents.map((node, i) => (
                   <div key={node.id || i} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < clones.length - 1 ? '1px solid var(--panel-border)' : 'none' }} className="hover-bg-gray">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1f6feb', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
@@ -140,29 +153,22 @@ export const AgentProfile: React.FC = () => {
           )}
 
           {activeTab === 'memory' && (
-            <AgentProfileMemory activeAgent={activeAgent} />
+            <AgentProfileMemory activeAgent={activeAgent} traces={agentTraces} />
           )}
 
           {activeTab === 'experiments' && (
-            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '48px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              <PlayCircle size={48} style={{ margin: '0 auto 16px auto', display: 'block', opacity: 0.3 }} />
-              <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '8px' }}>Proving Ground Ready</h2>
-              <p>Allocate this agent to active experiments via the Experiments Lab.</p>
+            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px' }}>
+              <div style={{ padding: '16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)' }}>
+                <h2 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}><PlayCircle size={16} color="var(--text-muted)" /> Live Experiment Activity</h2>
+              </div>
+              {activeAgent.currentTask && <div style={{ padding: '16px', borderBottom: agentTraces.length ? '1px solid var(--panel-border)' : 'none' }}><div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Active assignment</div><div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>{activeAgent.currentTask}</div><div style={{ marginTop: '6px', color: 'var(--success)', fontSize: '0.8rem' }}>running · source: agent state</div></div>}
+              {agentTraces.map((trace, index) => <div key={trace.id || index} style={{ padding: '16px', borderBottom: index < agentTraces.length - 1 ? '1px solid var(--panel-border)' : 'none' }}><div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{trace.name || 'Agent action'}</div><div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{trace.outputs ? (typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)) : 'No output recorded.'}</div><div style={{ marginTop: '6px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>{trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'time unavailable'} · live trace</div></div>)}
+              {!activeAgent.currentTask && agentTraces.length === 0 && <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>No experiment assignment or execution trace recorded for this agent.</div>}
             </div>
           )}
 
           {activeTab === 'health' && (
-            <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '24px' }}>
-              <h2 style={{ fontSize: '1.25rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-primary)' }}>
-                <ShieldCheck size={20} color="var(--success)" /> Diagnostics Nominal
-              </h2>
-              <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                <li style={{ padding: '12px 0', borderBottom: '1px solid var(--panel-border)' }}><strong>CPU Allocation:</strong> 0.2 vCPU</li>
-                <li style={{ padding: '12px 0', borderBottom: '1px solid var(--panel-border)' }}><strong>Memory Footprint:</strong> 128 MB</li>
-                <li style={{ padding: '12px 0', borderBottom: '1px solid var(--panel-border)' }}><strong>Network I/O:</strong> Sandboxed (Localhost only)</li>
-                <li style={{ padding: '12px 0' }}><strong>Apoptosis Risk:</strong> Low</li>
-              </ul>
-            </div>
+            <AgentProfileHealth activeAgent={activeAgent} />
           )}
 
         </div>

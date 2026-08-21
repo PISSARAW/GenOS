@@ -6,9 +6,21 @@ export interface Clone {
   name: string;
   role: string;
   status: 'idle' | 'running' | 'error' | 'terminated';
-  agentType: 'ChatGPT' | 'Antigravity' | 'other';
+  agentType: 'GenOS' | 'Antigravity' | 'Codex' | 'ChatGPT' | 'Claude' | 'Other' | string;
+  workspaceId?: string | null;
+  about?: string;
+  parentAgentId?: string | null;
+  parentAgentName?: string | null;
+  lineageRelation?: 'independent' | 'child' | 'mutation' | 'clone' | string;
+  fleetId?: string | null;
+  hallucinationMonitoring?: boolean | number;
+  language?: string | null;
   lastAction?: string;
   currentTask?: string;
+  trinityWorldId?: string | null;
+  trinityWorldName?: string | null;
+  trinityStrategy?: string | null;
+  trinityMission?: string | null;
 }
 
 export interface MCTSTreeNode {

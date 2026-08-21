@@ -66,7 +66,7 @@ const SnapshotNode = ({ data }: any) => {
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{data.label}</div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '2px' }}><strong>Author:</strong> {data.author || 'GenOS Agent'}</div>
           <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '2px' }}><strong>Reason:</strong> {data.reason || 'Auto-checkpoint'}</div>
-          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{data.timestamp || '2 mins ago'}</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{data.timestamp || 'No timestamp'}</div>
         </div>
       )}
     </div>

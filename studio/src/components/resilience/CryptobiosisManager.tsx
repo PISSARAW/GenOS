@@ -5,6 +5,7 @@ import { useToastStore } from '../../store/useToastStore';
 
 interface CryoSnapshot {
   id: string;
+  workspaceId?: string;
   name: string;
   timestamp: string;
   sizeBytes: number;
@@ -14,24 +15,23 @@ interface CryoSnapshot {
 }
 
 export const CryptobiosisManager: React.FC = () => {
-  const [snapshots, setSnapshots] = useState<CryoSnapshot[]>([
-    { id: 'cryo-20260821-01', name: 'Fleet-PreMigration-State.cryo', timestamp: '2026-08-21T13:45:00Z', sizeBytes: 24580, activeAgentsCount: 6, memoryItemsCount: 42, status: 'frozen' },
-    { id: 'cryo-20260821-02', name: 'Refactor-Checkpoint-Core.cryo', timestamp: '2026-08-21T14:00:00Z', sizeBytes: 31200, activeAgentsCount: 4, memoryItemsCount: 68, status: 'frozen' },
-  ]);
+  const [snapshots, setSnapshots] = useState<CryoSnapshot[]>([]);
   const [isFreezing, setIsFreezing] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
   const handleFreeze = async () => {
     setIsFreezing(true);
     try {
-      await api.freezeCryptobiosis('ws-genos-core');
+      const result: any = await api.freezeCryptobiosis();
+      const snapshot = result;
+      if (!snapshot?.snapshotId) throw new Error('Backend did not return a snapshot');
       const newSnap: CryoSnapshot = {
-        id: `cryo-${Date.now()}`,
-        name: `Swarm-Instant-Freeze-${Date.now().toString().slice(-4)}.cryo`,
-        timestamp: new Date().toISOString(),
-        sizeBytes: 28400,
-        activeAgentsCount: 6,
-        memoryItemsCount: 54,
+        id: snapshot.snapshotId,
+        name: snapshot.snapshotId,
+        timestamp: snapshot.frozenAt || new Date().toISOString(),
+        sizeBytes: snapshot.sizeBytes || 0,
+        activeAgentsCount: snapshot.agentCount || 0,
+        memoryItemsCount: snapshot.memoryItemsCount || 0,
         status: 'frozen'
       };
       setSnapshots([newSnap, ...snapshots]);
@@ -45,7 +45,7 @@ export const CryptobiosisManager: React.FC = () => {
 
   const handleResume = async (snap: CryoSnapshot) => {
     try {
-      await api.resumeCryptobiosis('ws-genos-core', 1);
+      await api.resumeCryptobiosis(snap.id, snap.workspaceId);
       showToast('success', 'Swarm Revived', `Resumed swarm execution from ${snap.name} with 0 context loss.`);
     } catch (e: any) {
       showToast('error', 'Revival Failed', e.message);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Menu, ChevronDown, Activity as ActivityIcon, AlertOctagon,
-  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch
+  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -14,6 +14,8 @@ import { PendingTrajectories } from './components/PendingTrajectories';
 import { WorkspacesList } from './components/WorkspacesList';
 import { ActiveExperiments } from './components/ActiveExperiments';
 import { AgentDeployment } from './components/AgentDeployment';
+import { FleetPage } from './components/FleetPage';
+import { AgentsPage } from './components/AgentsPage';
 import { TrinityAgentDeploy } from './components/TrinityAgentDeploy';
 import { LiveMatrix } from './components/LiveMatrix';
 import { GodModeTerminal } from './components/GodModeTerminal';
@@ -37,14 +39,14 @@ type StudioView =
   | 'home' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience' 
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
   | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments' 
-  | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
+  | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
   | 'live_matrix' | 'terminal';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<StudioView>('home');
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeAgentsCount, setActiveAgentsCount] = useState<number | string>('Syncing...');
-  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [workspaces, setWorkspaces] = useState<any[] | null>(null);
   const [repoSearch, setRepoSearch] = useState('');
   const initializeLiveSync = useGenOSStore((state) => state.initializeLiveSync);
   const showToast = useToastStore((state) => state.showToast);
@@ -67,7 +69,9 @@ const App: React.FC = () => {
       try {
         const list = await api.listWorkspaces();
         if (Array.isArray(list)) setWorkspaces(list);
-      } catch {}
+      } catch {
+        setWorkspaces([]);
+      }
     };
 
     fetchStatus();
@@ -178,6 +182,13 @@ const App: React.FC = () => {
                 <hr style={{ border: 'none', borderTop: '1px solid var(--panel-border)', margin: '8px 0' }} />
                 <div style={{ padding: '0 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Fleet Operations</div>
 
+                <div onClick={() => setActiveView('fleets')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'fleets' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'fleets' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <Network size={16} color="var(--accent-blue)" /> Fleets
+                </div>
+                <div onClick={() => setActiveView('agents')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'agents' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'agents' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <Bot size={16} color="var(--success)" /> Agents
+                </div>
+
                 <div onClick={() => setActiveView('agent_deployment')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'agent_deployment' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'agent_deployment' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <IssueOpenedIcon size={16} color="var(--text-secondary)" /> Agent Deployment
                 </div>
@@ -225,7 +236,7 @@ const App: React.FC = () => {
 
               {/* Repo List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 8px' }}>
-                {workspaces.filter((repo) => (repo.title || repo.name || '').toLowerCase().includes(repoSearch.toLowerCase())).map((repo, i) => (
+                {(workspaces || []).filter((repo) => (repo.title || repo.name || '').toLowerCase().includes(repoSearch.toLowerCase())).map((repo, i) => (
                   <div key={repo.id || repo.title || repo.name || i} onClick={() => setActiveView('workspaces')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)' }} className="hover-bg-gray">
                     <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#1f6feb', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontSize: '9px', fontWeight: 'bold' }}>G</div>
                     {repo.title || repo.name}
@@ -238,7 +249,7 @@ const App: React.FC = () => {
 
           {/* MAIN CONTENT AREA */}
           <div className="gh-content-area">
-            {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces.length} />}
+            {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
             {activeView === 'arena' && <ArenaSolversModule />}
             {activeView === 'mcp_sandbox' && <McpSandboxModule />}
             {activeView === 'swarm_monitor' && <SwarmMonitorModule />}
@@ -246,6 +257,8 @@ const App: React.FC = () => {
             {activeView === 'genome_factory' && <GenomeFactoryModule />}
             {activeView === 'memory_engine' && <MemoryExperienceModule />}
             {activeView === 'timeline_bisection' && <WorkspaceTimelineModule />}
+            {activeView === 'fleets' && <FleetPage />}
+            {activeView === 'agents' && <AgentsPage onSelectAgent={() => setActiveView('agent_profile')} />}
             
             {activeView === 'agent_deployment' && <div style={{width:'100%', height:'100%'}}><AgentDeployment /></div>}
             {activeView === 'trinity' && <div style={{width:'100%', height:'100%'}}><TrinityAgentDeploy /></div>}

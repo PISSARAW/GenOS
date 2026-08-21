@@ -98,18 +98,23 @@ export const api = {
 
   // Config & Profile
   getConfig: () => apiRequest('/api/config'),
+  getWorkspaceDiff: (base: string, target: string) => apiRequest(`/api/workspaces/diff?base=${encodeURIComponent(base)}&target=${encodeURIComponent(target)}`),
   updateProfile: (username: string) => apiRequest('/api/profile', { method: 'POST', body: { username } }),
   getBudget: () => apiRequest('/api/budget'),
   updateBudget: (budget: any) => apiRequest('/api/budget', { method: 'POST', body: budget }),
 
   // Agent Fleet & Deploy
-  deployAgent: (payload: { prompt: string; modelTier?: string; workspaceIsolation?: string }) => 
+  deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string }) => 
     apiRequest('/api/deploy', { method: 'POST', body: payload }),
-  deployTrinity: (payload: { prompt: string; worlds?: string[] }) =>
+  deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[] }) =>
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
+  listTrinityWorlds: () => apiRequest('/api/deploy/trinity'),
   listAgents: () => apiRequest('/api/agents'),
   getAgentHistory: () => apiRequest('/api/agents/history'),
   pingAgent: (id: string) => apiRequest(`/api/agents/${id}/ping`, { method: 'POST' }),
+  ingestAgentEvent: (id: string, payload: any) => apiRequest(`/api/agents/${id}/events`, { method: 'POST', body: payload }),
+  startAgent: (id: string) => apiRequest(`/api/agents/${id}/start`, { method: 'POST' }),
+  subscribeAgent: (id: string) => apiRequest(`/api/agents/${id}/subscribe`, { method: 'POST' }),
 
   // Commands & Terminal
   sendCommand: (action: string, payload?: any) => 
@@ -132,10 +137,10 @@ export const api = {
   listExperiments: () => apiRequest('/api/experiments'),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
     apiRequest('/api/experiments', { method: 'POST', body: payload }),
-  getExperimentAnalysis: () => apiRequest('/api/experiments/analysis'),
-  getExperimentThoughts: () => apiRequest('/api/experiments/thoughts'),
-  getExperimentCoevolution: () => apiRequest('/api/experiments/coevolution'),
-  getWavePoint: () => apiRequest('/api/experiments/wave-point'),
+  getExperimentAnalysis: (experimentId?: string) => apiRequest(`/api/experiments/analysis${experimentId ? `?experimentId=${encodeURIComponent(experimentId)}` : ''}`),
+  getExperimentThoughts: (experimentId: string) => apiRequest(`/api/experiments/thoughts?experimentId=${encodeURIComponent(experimentId)}`),
+  getExperimentCoevolution: (experimentId: string) => apiRequest(`/api/experiments/coevolution?experimentId=${encodeURIComponent(experimentId)}`),
+  getExperimentWaves: (experimentId: string) => apiRequest(`/api/experiments/${encodeURIComponent(experimentId)}/waves`),
 
   // Lineage & DAG
   getLineage: () => apiRequest('/api/lineage'),
@@ -193,70 +198,55 @@ export const api = {
   getHealth: () => apiRequest('/api/health'),
   getDashboard: () => apiRequest('/api/dashboard'),
   getAchievements: () => apiRequest('/api/achievements'),
-  getTelemetryEvents: (limit: number = 50) => apiRequest(`/api/telemetry/events?limit=${limit}`),
+  getTelemetryEvents: (limit: number = 50, agentId?: string) => apiRequest(`/api/telemetry/events?limit=${limit}${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`),
 
   // Module 1: Arena & Solvers
-  getSolverTournament: () => apiRequest('/api/experiments/coevolution'),
+  getSolverTournament: () => apiRequest('/api/arena/tournament'),
   runSolverTournament: (payload: { benchmarkId?: string; solvers?: string[]; rounds?: number }) =>
-    apiRequest('/api/experiments/launch', { method: 'POST', body: { title: `Solver Tournament [${payload.benchmarkId || 'CodeRefactor'}]`, type: 'tournament', chaosLevel: payload.rounds || 5 } }),
-  getParetoFrontier: (_benchmarkId?: string) => apiRequest('/api/experiments/wave-point'),
+    apiRequest('/api/arena/tournament', { method: 'POST', body: { problemSpec: payload.benchmarkId ? { title: payload.benchmarkId } : undefined, solvers: payload.solvers, rounds: payload.rounds } }),
+  getParetoFrontier: (_benchmarkId?: string) => apiRequest('/api/arena/pareto'),
+  getArenaTrace: (tournamentId?: string, format: string = 'json-dag') => apiRequest(`/api/arena/trace?${tournamentId ? `tournamentId=${encodeURIComponent(tournamentId)}&` : ''}format=${encodeURIComponent(format)}`),
   crossPollinateHeuristics: (payload: { sourceSolver: string; targetSolver: string; gene: string }) =>
     apiRequest('/api/genome/decision', { method: 'POST', body: { title: `Cross-Pollination [${payload.sourceSolver} -> ${payload.targetSolver}]`, content: payload.gene, category: 'Heuristics' } }),
 
   // Module 2: MCP Sandbox
   dryRunMcpTool: (toolName: string, args: any = {}) =>
-    apiRequest('/api/tools/test', { method: 'POST', body: { toolName, args: { ...args, _dryRun: true } } }),
+    apiRequest('/api/tools/dry-run', { method: 'POST', body: { toolName, args } }),
+  getMcpToolSchema: (toolName: string) => apiRequest(`/api/tools/${encodeURIComponent(toolName)}/schema`),
 
   // Module 3: Swarm Monitor & Entropy
-  getSwarmTopology: () => apiRequest('/api/lineage'),
-  getEntropyMetrics: (_agentId?: string) => apiRequest('/api/experiments/wave-point'),
+  getSwarmTopology: () => apiRequest('/api/swarm/topology'),
+  getEntropyMetrics: (_agentId?: string) => apiRequest('/api/swarm/metrics'),
 
   // Module 4: Biology & Resilience
-  freezeCryptobiosis: (workspaceId: string = 'ws-genos-core') =>
-    apiRequest(`/api/workspaces/${workspaceId}/snapshots`, { method: 'POST', body: { label: 'Cryptobiosis Hibernation (.cryo)', reason: 'Full swarm state serialization' } }),
-  resumeCryptobiosis: (workspaceId: string = 'ws-genos-core', step: number = 1) =>
-    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { step } }),
+  triggerApoptosis: (agentId: string, triggerMetrics: any = {}) =>
+    apiRequest('/api/resilience/apoptosis', { method: 'POST', body: { agentId, triggerMetrics } }),
+  getResiliencePolicy: () => apiRequest('/api/resilience/policy'),
+  updateResiliencePolicy: (policy: any) => apiRequest('/api/resilience/policy', { method: 'POST', body: policy }),
+  freezeCryptobiosis: (workspaceId: string = 'fleet') =>
+    apiRequest('/api/resilience/cryptobiosis/freeze', { method: 'POST', body: { workspaceId, reason: 'Full swarm state serialization' } }),
+  resumeCryptobiosis: (snapshotId: string, workspaceId?: string) =>
+    apiRequest('/api/resilience/cryptobiosis/thaw', { method: 'POST', body: { snapshotId, targetWorkspaceId: workspaceId } }),
 
   // Module 5: Genetics & Genome
-  getPhylogeneticTree: () => apiRequest('/api/lineage'),
-  synthesizeCrossover: (payload: { parentA: string; parentB: string; strategy?: string; mutationRate?: number }) =>
-    apiRequest('/api/genome/synthesize', { method: 'POST', body: { title: `Genetic Crossover (${payload.parentA} + ${payload.parentB})`, content: `Recombination strategy: ${payload.strategy || 'Single-Point'}, mutation rate: ${payload.mutationRate || 5}%`, cart: [payload.parentA, payload.parentB] } }),
+  getPhylogeneticTree: () => apiRequest('/api/genome/phylogeny'),
+  getAlleles: () => apiRequest('/api/genome/alleles'),
+  synthesizeCrossover: (payload: { parentA: any; parentB: any; strategy?: string; mutationRate?: number }) =>
+    apiRequest('/api/genome/crossover', { method: 'POST', body: { parentA: payload.parentA, parentB: payload.parentB, options: { strategy: payload.strategy, mutationRate: (payload.mutationRate || 0) / 100 } } }),
 
   // Module 6: Memory & Experience
-  searchMemoryVector: (query: string, _limit: number = 10) =>
-    apiRequest('/api/trajectories', { method: 'GET' }).then((res: any) => {
-      const items = [...(res.pendingList || []), ...(res.activeList || [])];
-      return items.filter((t: any) => 
-        (t.title || '').toLowerCase().includes(query.toLowerCase()) || 
-        (t.summary || '').toLowerCase().includes(query.toLowerCase()) ||
-        (t.author || '').toLowerCase().includes(query.toLowerCase())
-      );
-    }),
-  cherryPickGoldenPath: (payload: { trajectoryIds: string[]; label?: string }) =>
-    apiRequest('/api/genome/decision', { method: 'POST', body: { title: payload.label || 'Golden Path Trajectory', content: `Fused golden path from: ${payload.trajectoryIds.join(', ')}`, category: 'GoldenPath' } }),
-  reconstructCounterfactual: (payload: { incidentId?: string; stepSpeed?: number }) =>
-    apiRequest('/api/incidents/replay', { method: 'POST', body: payload }),
+  searchMemoryVector: (query: string, limit: number = 10) =>
+    apiRequest(`/api/memory/search?q=${encodeURIComponent(query)}&limit=${limit}`).then((res: any) => res?.allScoredExperiences || []),
+  cherryPickGoldenPath: (payload: { turns: any[]; label?: string }) =>
+    apiRequest('/api/memory/cherry-pick', { method: 'POST', body: payload }),
+  reconstructCounterfactual: (payload: { trajectory: any; stepIndex?: number; alterations?: any }) =>
+    apiRequest('/api/memory/counterfactual', { method: 'POST', body: payload }),
 
   // Module 7: Workspace Timeline & Causal Bisection
   runCausalBisection: (workspaceId: string, testCommand: string) =>
-    apiRequest(`/api/workspaces/${workspaceId}/snapshots`, { method: 'GET' }).then((snapshots: any[]) => ({
-      workspaceId,
-      testCommand,
-      bisectionSteps: Math.ceil(Math.log2(Math.max(snapshots?.length || 4, 2))),
-      culpritSnapshot: snapshots?.[Math.floor((snapshots?.length || 4) / 2)] || { step_number: 2, label: 'Mutation regression' },
-      culpritAgent: 'worker_backend',
-      rootCause: 'Assertion error in strict type validation rule',
-      remediationPatch: '+ // Invariant restored\n- // Regressed check'
-    })),
+    apiRequest('/api/workspaces/bisect', { method: 'POST', body: { workspaceId, testCommand } }),
   previewAtomicRollback: (workspaceId: string, step: number) =>
-    apiRequest(`/api/workspaces/${workspaceId}`, { method: 'GET' }).then((ws: any) => ({
-      workspaceId,
-      step,
-      targetSnapshot: ws?.snapshots?.find((s: any) => s.step_number === step) || { step_number: step, label: `Snapshot #${step}` },
-      affectedFiles: ['src/app.ts', 'src/api/client.ts'],
-      reversePatch: '+ export const safeMode = true;\n- export const safeMode = false;'
-    })),
+    apiRequest(`/api/workspaces/${workspaceId}/rollback-preview?step=${step}`, { method: 'GET' }),
   applyAtomicRollback: (workspaceId: string, step: number) =>
-    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { step } })
+    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { stepNumber: step } })
 };
-

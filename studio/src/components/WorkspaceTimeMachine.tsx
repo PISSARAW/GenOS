@@ -25,17 +25,9 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
           setSnapshots(data);
-        } else {
-          // Fallback snapshot steps
-          setSnapshots([
-            { id: 'snap_0', step_number: 0, snapshot_type: 'genesis', commit_hash: 'c819fa2', label: 'Initial Workspace State', metadata_json: '{"status":"clean"}' },
-            { id: 'snap_1', step_number: 1, snapshot_type: 'agent_fork', commit_hash: 'd421eb1', label: 'Spawn Swarm Workers', metadata_json: '{"agents":4}' },
-            { id: 'snap_2', step_number: 2, snapshot_type: 'mutation', commit_hash: 'e893cc4', label: 'Refactor Components & Security', metadata_json: '{"files_changed":12}' },
-            { id: 'snap_3', step_number: 3, snapshot_type: 'merge', commit_hash: 'f901dd7', label: 'Consensus Merged to Main', metadata_json: '{"consensus":true}' },
-          ]);
-        }
+        } else setSnapshots([]);
       })
-      .catch(() => {});
+      .catch(() => setSnapshots([]));
   }, [workspaceId]);
 
   const nodes = snapshots.map((s, i) => ({

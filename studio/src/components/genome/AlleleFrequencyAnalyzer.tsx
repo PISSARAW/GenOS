@@ -1,24 +1,32 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
+import { api } from '../../api/client';
 
 interface GeneFrequencyItem {
   id: string;
   geneName: string;
   category: string;
-  frequencyPct: number;
-  winCorrelation: number;
+  frequencyPct: number | null;
+  winCorrelation: number | null;
   status: 'dominant_beneficial' | 'neutral' | 'lethal';
 }
 
 export const AlleleFrequencyAnalyzer: React.FC = () => {
-  const genes: GeneFrequencyItem[] = [
-    { id: 'g1', geneName: 'Strict Static Typing (TypeScript strict: true)', category: 'Safety', frequencyPct: 92, winCorrelation: +0.88, status: 'dominant_beneficial' },
-    { id: 'g2', geneName: 'Function Parameter Limit (<=3 params)', category: 'Modularity', frequencyPct: 88, winCorrelation: +0.76, status: 'dominant_beneficial' },
-    { id: 'g3', geneName: 'Causal Anomaly Bisection Guardrail', category: 'Resilience', frequencyPct: 85, winCorrelation: +0.82, status: 'dominant_beneficial' },
-    { id: 'g4', geneName: 'Monolithic Single-File Replacement', category: 'Anti-Pattern', frequencyPct: 12, winCorrelation: -0.91, status: 'lethal' },
-    { id: 'g5', geneName: 'Unchecked Shell Exec Bypass', category: 'Security', frequencyPct: 8, winCorrelation: -0.84, status: 'lethal' },
-    { id: 'g6', geneName: 'Sub-AST Invariant Verification', category: 'Optimization', frequencyPct: 78, winCorrelation: +0.65, status: 'neutral' },
-  ];
+  const [genes, setGenes] = useState<GeneFrequencyItem[]>([]);
+
+  useEffect(() => {
+    api.getAlleles().then((data: any) => {
+      const records = Array.isArray(data?.geneFrequencyMatrix) ? data.geneFrequencyMatrix : [];
+      setGenes(records.map((gene: any) => ({
+        id: gene.alleleId,
+        geneName: gene.name,
+        category: gene.category || 'Recorded',
+        frequencyPct: gene.frequencyPct ?? (gene.successCorrelation ? Number(String(gene.successCorrelation).replace('%', '')) : null),
+        winCorrelation: gene.winCorrelation ?? null,
+        status: gene.status === 'LETHAL' ? 'lethal' : gene.status === 'BENEFICIAL' ? 'dominant_beneficial' : 'neutral'
+      })));
+    }).catch(() => setGenes([]));
+  }, []);
 
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -27,7 +35,7 @@ export const AlleleFrequencyAnalyzer: React.FC = () => {
         <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <BarChart3 size={14} color="var(--accent-blue)" /> Allele & Gene Frequency Analyzer (Heuristic Genomic Mining)
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Mined from 1,420 multi-agent task resolutions</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Backend records only</span>
       </div>
 
       <div style={{ padding: '16px', flex: 1, overflowY: 'auto' }}>
@@ -42,6 +50,7 @@ export const AlleleFrequencyAnalyzer: React.FC = () => {
             </tr>
           </thead>
           <tbody>
+            {genes.length === 0 && <tr><td colSpan={5} style={{ padding: '24px', color: 'var(--text-secondary)', textAlign: 'center' }}>No genomic data recorded.</td></tr>}
             {genes.map((gene, idx) => {
               const isBeneficial = gene.status === 'dominant_beneficial';
               const isLethal = gene.status === 'lethal';
@@ -55,13 +64,13 @@ export const AlleleFrequencyAnalyzer: React.FC = () => {
                   <td style={{ padding: '10px 12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <div style={{ width: '80px', height: '6px', background: 'var(--bg-main)', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${gene.frequencyPct}%`, height: '100%', background: isLethal ? 'var(--danger)' : isBeneficial ? 'var(--success)' : 'var(--accent-blue)' }} />
+                        <div style={{ width: `${gene.frequencyPct || 0}%`, height: '100%', background: isLethal ? 'var(--danger)' : isBeneficial ? 'var(--success)' : 'var(--accent-blue)' }} />
                       </div>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{gene.frequencyPct}%</span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{gene.frequencyPct === null ? '—' : `${gene.frequencyPct}%`}</span>
                     </div>
                   </td>
-                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600, color: gene.winCorrelation > 0 ? 'var(--success)' : 'var(--danger)' }}>
-                    {gene.winCorrelation > 0 ? `+${gene.winCorrelation}` : gene.winCorrelation}
+                  <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600, color: gene.winCorrelation !== null && gene.winCorrelation > 0 ? 'var(--success)' : 'var(--text-secondary)' }}>
+                    {gene.winCorrelation === null ? '—' : gene.winCorrelation > 0 ? `+${gene.winCorrelation}` : gene.winCorrelation}
                   </td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>
                     {isBeneficial && (

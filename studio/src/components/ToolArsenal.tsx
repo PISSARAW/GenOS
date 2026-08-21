@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+import { getToolAlias } from '../utils/toolLabels';
 
 export const ToolArsenal: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState('All');
@@ -26,10 +27,6 @@ export const ToolArsenal: React.FC = () => {
   useEffect(() => {
     fetchToolList();
   }, []);
-
-  const formatToolName = (name: string) => {
-    return name.replace(/^genos_/, '').split('_').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-  };
 
   const filters = [
     { name: 'All', icon: <Wrench size={16} /> },
@@ -139,7 +136,7 @@ export const ToolArsenal: React.FC = () => {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                <h3 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 600 }}>{formatToolName(tool.name)}</h3>
+                <h3 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', fontWeight: 600 }}>{getToolAlias(tool.name)}</h3>
                 
                 {/* Risk Badge */}
                 {tool.risk === 'Low' && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--success)', color: 'var(--success)' }}><ShieldCheck size={12} /> Low Risk</span>}
@@ -202,7 +199,7 @@ export const ToolArsenal: React.FC = () => {
             <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-panel)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <h2 style={{ fontSize: '1.5rem', margin: 0, color: 'var(--text-primary)' }}>{selectedTool.name}</h2>
+                  <h2 style={{ fontSize: '1.5rem', margin: 0, color: 'var(--text-primary)' }}>{getToolAlias(selectedTool.name)}</h2>
                   {selectedTool.risk === 'High' && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--danger)', color: 'var(--danger)', fontWeight: 600 }}><ShieldAlert size={14} /> HIGH RISK</span>}
                 </div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{selectedTool.description}</div>

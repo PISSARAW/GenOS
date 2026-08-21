@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Sliders, Code } from 'lucide-react';
+import { getToolAlias } from '../../utils/toolLabels';
+import { api } from '../../api/client';
 
 interface FormBuilderProps {
   toolName: string;
@@ -8,14 +10,20 @@ interface FormBuilderProps {
 
 export const McpSchemaFormBuilder: React.FC<FormBuilderProps> = ({ toolName, onChange }) => {
   const [mode, setMode] = useState<'visual' | 'json'>('visual');
-  const [formData, setFormData] = useState<Record<string, any>>({
-    query: 'Audit authentication middleware and sanitize tokens',
-    workspaceId: 'ws-genos-core',
-    timeoutMs: 5000,
-    dryRun: true,
-    isolationLevel: 'sandboxed'
-  });
+  const [schema, setSchema] = useState<any>(null);
+  const [formData, setFormData] = useState<Record<string, any>>({});
   const [jsonString, setJsonString] = useState(JSON.stringify(formData, null, 2));
+
+  useEffect(() => {
+    api.getMcpToolSchema(toolName).then((nextSchema: any) => {
+      setSchema(nextSchema);
+      const properties = nextSchema?.properties || {};
+      const initial = Object.fromEntries(Object.entries(properties).map(([key, value]: any) => [key, value.default ?? (value.type === 'boolean' ? false : value.type === 'integer' || value.type === 'number' ? 0 : '')]));
+      setFormData(initial);
+      setJsonString(JSON.stringify(initial, null, 2));
+      onChange(initial);
+    }).catch(() => setSchema(null));
+  }, [toolName]);
 
   const handleFieldChange = (key: string, val: any) => {
     const updated = { ...formData, [key]: val };
@@ -39,7 +47,7 @@ export const McpSchemaFormBuilder: React.FC<FormBuilderProps> = ({ toolName, onC
       {/* Header */}
       <div style={{ padding: '10px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Sliders size={14} color="var(--accent-blue)" /> JSON Schema Form Inspector ({toolName})
+          <Sliders size={14} color="var(--accent-blue)" /> JSON Schema Form Inspector ({getToolAlias(toolName)})
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button 
@@ -63,63 +71,14 @@ export const McpSchemaFormBuilder: React.FC<FormBuilderProps> = ({ toolName, onC
       <div style={{ padding: '16px' }}>
         {mode === 'visual' ? (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            
-            <div style={{ gridColumn: 'span 2' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Query / Instruction</label>
-              <input 
-                type="text" 
-                value={formData.query || ''} 
-                onChange={(e) => handleFieldChange('query', e.target.value)} 
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Workspace ID</label>
-              <input 
-                type="text" 
-                value={formData.workspaceId || ''} 
-                onChange={(e) => handleFieldChange('workspaceId', e.target.value)} 
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Timeout (ms)</label>
-              <input 
-                type="number" 
-                value={formData.timeoutMs || 5000} 
-                onChange={(e) => handleFieldChange('timeoutMs', parseInt(e.target.value))} 
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Isolation Level</label>
-              <select 
-                value={formData.isolationLevel || 'sandboxed'} 
-                onChange={(e) => handleFieldChange('isolationLevel', e.target.value)} 
-                style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
-              >
-                <option value="sandboxed">Isolated Sandbox (No Disk Access)</option>
-                <option value="branch_vfs">Virtual File System (In-Memory)</option>
-                <option value="workspace_direct">Direct Workspace Hook</option>
-              </select>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '20px' }}>
-              <input 
-                type="checkbox" 
-                id="dryRunCheck" 
-                checked={!!formData.dryRun} 
-                onChange={(e) => handleFieldChange('dryRun', e.target.checked)} 
-                style={{ accentColor: 'var(--accent-blue)', cursor: 'pointer' }}
-              />
-              <label htmlFor="dryRunCheck" style={{ fontSize: '0.8rem', color: 'var(--text-primary)', cursor: 'pointer' }}>
-                Enable Dry-Run Mode (Simulate Blast Radius)
-              </label>
-            </div>
-
+            {Object.entries(schema?.properties || {}).map(([key, field]: any) => (
+              <div key={key} style={{ gridColumn: field.type === 'string' && field.description?.length > 50 ? 'span 2' : undefined }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>{key}{schema?.required?.includes(key) ? ' *' : ''}</label>
+                {field.type === 'boolean' ? <input type="checkbox" checked={!!formData[key]} onChange={(e) => handleFieldChange(key, e.target.checked)} /> : <input type={field.type === 'integer' || field.type === 'number' ? 'number' : 'text'} value={formData[key] ?? ''} onChange={(e) => handleFieldChange(key, field.type === 'integer' || field.type === 'number' ? Number(e.target.value) : e.target.value)} style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }} />}
+                {field.description && <div style={{ marginTop: '3px', fontSize: '0.7rem', color: 'var(--text-secondary)' }}>{field.description}</div>}
+              </div>
+            ))}
+            {!schema && <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Loading schema…</div>}
           </div>
         ) : (
           <textarea 

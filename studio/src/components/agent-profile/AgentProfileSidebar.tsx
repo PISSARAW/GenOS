@@ -14,6 +14,43 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
   onSelectTab
 }) => {
   const showToast = useToastStore((state) => state.showToast);
+  const relationLabels: Record<string, string> = {
+    child: 'Child of',
+    mutation: 'Mutation of',
+    clone: 'Clone of'
+  };
+  const relationLabel = activeAgent.lineageRelation ? relationLabels[activeAgent.lineageRelation] : null;
+  const about = activeAgent.about || activeAgent.currentTask || `Autonomous ${activeAgent.role || 'GenOS'} agent.`;
+  const sourceText = [activeAgent.role, activeAgent.currentTask, activeAgent.about]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  const capabilityKeywords = [
+    ['architecture', 'architecture'],
+    ['plan', 'planning'],
+    ['implement', 'implementation'],
+    ['build', 'implementation'],
+    ['test', 'testing'],
+    ['debug', 'debugging'],
+    ['review', 'review'],
+    ['telemetry', 'telemetry'],
+    ['monitor', 'monitoring'],
+    ['security', 'security'],
+    ['memory', 'memory'],
+    ['genome', 'genome'],
+    ['research', 'research']
+  ];
+  const inferredCapabilities = capabilityKeywords
+    .filter(([keyword]) => sourceText.includes(keyword))
+    .map(([, label]) => label);
+  const tags = Array.from(new Set([
+    activeAgent.language,
+    activeAgent.role,
+    activeAgent.agentType,
+    activeAgent.modelTier,
+    activeAgent.isolationMode,
+    ...inferredCapabilities
+  ].filter(Boolean).map((tag) => String(tag))));
 
   const handleOpenSettings = () => {
     showToast('info', 'Agent Configuration', `Configuration parameters for ${activeAgent.name}`);
@@ -32,8 +69,13 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
           <Settings size={16} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={handleOpenSettings}/>
         </h2>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-          Autonomous counterfactual runtime agent for reproducible, forkable, and inspectable development tasks.
+          {about}
         </p>
+        {relationLabel && (activeAgent.parentAgentName || activeAgent.parentAgentId) && (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+            <strong>{relationLabel}</strong> {activeAgent.parentAgentName || activeAgent.parentAgentId}
+          </p>
+        )}
         <div 
           onClick={() => onSelectTab('state')}
           style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer' }}
@@ -51,7 +93,7 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
         
         {/* Tags */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-          {['react', 'typescript', 'frontend', 'ui-refactor', 'autonomous'].map((tag) => (
+          {tags.map((tag) => (
             <span 
               key={tag} 
               onClick={() => handleTagClick(tag)}
