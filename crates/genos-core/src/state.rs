@@ -99,6 +99,8 @@ pub struct ToolOutputRecord {
     pub output: serde_json::Value,
     pub success: bool,
     pub receipt: Option<ExecutionReceipt>,
+    #[serde(default)]
+    pub is_tainted: bool,
     pub branch_id: BranchId,
     pub created_at: DateTime<Utc>,
     pub generating_event_id: EventId,

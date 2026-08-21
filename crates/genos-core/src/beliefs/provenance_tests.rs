@@ -1,4 +1,4 @@
-﻿//! Tests for the provenance walker (the inspect tree builder).
+//! Tests for the provenance walker (the inspect tree builder).
 
 #![cfg(test)]
 
@@ -23,6 +23,8 @@ fn inspect_belief_walks_evidence_to_tool_output_to_event() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -77,6 +79,8 @@ fn inspect_belief_missing_event_renders_a_placeholder() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
