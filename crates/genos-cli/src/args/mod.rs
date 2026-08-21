@@ -12,6 +12,7 @@ pub mod snapshot;
 pub mod world;
 pub mod resilience;
 pub mod biomimicry;
+pub mod hallucination;
 
 pub use agent::*;
 pub use capsule::*;
@@ -23,6 +24,7 @@ pub use snapshot::*;
 pub use world::*;
 pub use resilience::*;
 pub use biomimicry::*;
+pub use hallucination::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -53,6 +55,8 @@ pub enum Commands {
     Resilience(ResilienceCommand),
     /// Triggers for biomimetic organizational concepts like Swarms and Flocking.
     Biomimicry(BiomimicryCommand),
+    /// Hallucination mitigation and detection commands.
+    Hallucination(HallucinationCommand),
 }
 
 #[derive(ArgsMacro, Debug)]

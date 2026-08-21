@@ -4,6 +4,7 @@ pub mod dev;
 pub mod experiment;
 pub mod resilience;
 pub mod biomimicry;
+pub mod hallucination;
 
 use serde_json::Value;
 
@@ -13,6 +14,7 @@ use self::dev::plan_dev;
 use self::experiment::plan_experiment;
 use self::resilience::plan_resilience;
 use self::biomimicry::plan_biomimicry;
+use self::hallucination::plan_hallucination;
 use crate::types::{PlannedCommand, ProtocolError};
 
 pub fn plan_tool_call(name: &str, arguments: &Value) -> Result<PlannedCommand, ProtocolError> {
@@ -31,6 +33,7 @@ pub fn plan_tool_call(name: &str, arguments: &Value) -> Result<PlannedCommand, P
         || plan_dev(&mut planner)?
         || plan_resilience(&mut planner)?
         || plan_biomimicry(&mut planner)?
+        || plan_hallucination(&mut planner)?
     {
         Ok(planner.finish())
     } else {
