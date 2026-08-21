@@ -1,39 +1,19 @@
-import React, { useState } from 'react';
-import { GitCompare, GitBranch, FileCode, CheckCircle2, AlertCircle } from 'lucide-react';
-
-interface DiffBranchItem {
-  branchName: string;
-  author: string;
-  commitsCount: number;
-  churnStats: string;
-  astCategory: 'Syntax Addition' | 'Refactoring' | 'Security Hardening' | 'Breaking API';
-  diffContent: string;
-}
+import React, { useEffect, useState } from 'react';
+import { GitCompare } from 'lucide-react';
+import { api } from '../../api/client';
 
 export const MultiBranchTreeDiff: React.FC = () => {
-  const [selectedBranchA, setSelectedBranchA] = useState('main');
-  const [selectedBranchB, setSelectedBranchB] = useState('feature/causal-bisection');
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [selectedBranchA, setSelectedBranchA] = useState('');
+  const [selectedBranchB, setSelectedBranchB] = useState('');
+  const [currentDiff, setCurrentDiff] = useState<any>(null);
+  const [error, setError] = useState('');
 
-  const branches: DiffBranchItem[] = [
-    {
-      branchName: 'feature/causal-bisection',
-      author: 'QA Specialist',
-      commitsCount: 3,
-      churnStats: '+42, -8 lines',
-      astCategory: 'Security Hardening',
-      diffContent: '+ export function bisectAnomalies(snapshots: Snapshot[]) {\n+   let low = 0, high = snapshots.length - 1;\n+   while (low <= high) {\n+     const mid = Math.floor((low + high) / 2);\n+     if (testInvariant(snapshots[mid])) low = mid + 1;\n+     else high = mid - 1;\n+   }\n+   return snapshots[low];\n+ }'
-    },
-    {
-      branchName: 'refactor/modular-api',
-      author: 'Frontend Worker 2',
-      commitsCount: 5,
-      churnStats: '+85, -64 lines',
-      astCategory: 'Refactoring',
-      diffContent: '- import { rawFetch } from "./fetch";\n+ import { api } from "./client";\n+ const status = await api.getStatus();'
-    }
-  ];
-
-  const currentDiff = branches.find((b) => b.branchName === selectedBranchB) || branches[0];
+  useEffect(() => { api.listWorkspaces().then((items: any[]) => {
+    setWorkspaces(items || []);
+    if (items?.length > 0) { setSelectedBranchA(items[0].id); setSelectedBranchB(items[1]?.id || items[0].id); }
+  }).catch((e) => setError(e.message)); }, []);
+  useEffect(() => { if (!selectedBranchA || !selectedBranchB) return; setError(''); api.getWorkspaceDiff(selectedBranchA, selectedBranchB).then(setCurrentDiff).catch((e) => { setCurrentDiff(null); setError(e.message); }); }, [selectedBranchA, selectedBranchB]);
 
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -51,8 +31,7 @@ export const MultiBranchTreeDiff: React.FC = () => {
             onChange={(e) => setSelectedBranchA(e.target.value)} 
             style={{ padding: '4px 8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
           >
-            <option value="main">base: main</option>
-            <option value="develop">base: develop</option>
+            {workspaces.map((w) => <option key={w.id} value={w.id}>base: {w.name}</option>)}
           </select>
           <span style={{ color: 'var(--text-muted)' }}>←</span>
           <select 
@@ -60,8 +39,8 @@ export const MultiBranchTreeDiff: React.FC = () => {
             onChange={(e) => setSelectedBranchB(e.target.value)} 
             style={{ padding: '4px 8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
           >
-            {branches.map((b) => (
-              <option key={b.branchName} value={b.branchName}>compare: {b.branchName}</option>
+            {workspaces.map((w) => (
+              <option key={w.id} value={w.id}>compare: {w.name}</option>
             ))}
           </select>
         </div>
@@ -70,26 +49,21 @@ export const MultiBranchTreeDiff: React.FC = () => {
       {/* Diff Inspector */}
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '10px 14px' }}>
+        {error ? <div style={{ padding: '24px', color: 'var(--danger)' }}>{error}</div> : currentDiff?.diffEntries?.length ? <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '10px 14px' }}>
           <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{currentDiff.branchName}</div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>{currentDiff.baseBranch} → {currentDiff.targetBranch}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Author: <strong>{currentDiff.author}</strong> · Commits: <strong>{currentDiff.commitsCount}</strong> · Churn: <span style={{ color: 'var(--success)' }}>{currentDiff.churnStats}</span>
+              Files: <strong>{currentDiff.totalFilesChanged}</strong> · Additions: <strong>{currentDiff.totalAdditions}</strong> · Deletions: <strong>{currentDiff.totalDeletions}</strong>
             </div>
           </div>
-          <span style={{ border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', background: 'rgba(56, 139, 253, 0.1)', padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600 }}>
-            {currentDiff.astCategory}
-          </span>
-        </div>
+        </div> : <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>{workspaces.length < 2 ? 'Create a second workspace to compare branches.' : 'No recorded trajectory or snapshot diff for this workspace.'}</div>}
 
-        <div style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {currentDiff?.diffEntries?.length > 0 && <div style={{ flex: 1, background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'auto' }}>
           <div style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-            src/services/causalBisection.ts
+            Recorded changes
           </div>
-          <pre style={{ margin: 0, padding: '14px', fontFamily: 'monospace', fontSize: '0.8rem', color: '#3fb950', lineHeight: 1.5, overflowX: 'auto', flex: 1 }}>
-            {currentDiff.diffContent}
-          </pre>
-        </div>
+          {currentDiff.diffEntries.map((entry: any, index: number) => <div key={`${entry.file}-${index}`} style={{ padding: '10px 12px', borderBottom: '1px solid var(--panel-border)', fontSize: '0.8rem' }}><strong>{entry.file}</strong> · {entry.category} · +{entry.additions} / -{entry.deletions} · {entry.author}{entry.notes ? ` · ${entry.notes}` : ''}</div>)}
+        </div>}
 
       </div>
 

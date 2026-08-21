@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { MessageSquare, GitBranch, Cpu, Activity } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
@@ -10,6 +10,7 @@ export const TrinityAgentDeploy: React.FC = () => {
   const [input, setInput] = useState('');
   const [worlds, setWorlds] = useState<any[]>([]);
   const showToast = useToastStore((state) => state.showToast);
+  useEffect(() => { api.listTrinityWorlds().then((items: any[]) => { if (items?.length) { setWorlds(items); setStep(2); } }).catch(() => {}); }, []);
 
   const startInterview = () => {
     if (!prompt) return;
@@ -35,28 +36,11 @@ export const TrinityAgentDeploy: React.FC = () => {
   const startWorlds = async () => {
     setStep(2);
     try {
-      await api.deployAgent({ prompt, modelTier: 'Pro', workspaceIsolation: 'Branch' });
-      showToast('success', 'Trinity Worlds Spawned', '3 parallel exploration timelines launched.');
+      const result = await api.deployTrinity({ prompt });
+      const agentIds = Array.isArray(result?.agents) ? result.agents : [];
+      setWorlds(result.worlds || agentIds.map((id: string) => ({ id, name: id, status: 'running', agentId: id })));
+      showToast('success', 'Trinity Deployment', `${agentIds.length} backend agent(s) deployed.`);
     } catch {}
-
-    setWorlds([
-      { id: 'world_1', name: 'World 1: Minimal Direct Patch', status: 'Running', progress: 20, detail: 'Direct functional implementation without structural refactoring.' },
-      { id: 'world_2', name: 'World 2: Architectural Plan', status: 'Running', progress: 15, detail: 'Strict adherence to modular components and separation of concerns.' },
-      { id: 'world_3', name: 'World 3: Automated Self-Correction', status: 'Running', progress: 8, detail: 'Continuous invariant checking and proactive fuzzing.' }
-    ]);
-
-    const interval = setInterval(() => {
-      setWorlds((prev) => {
-        let allDone = true;
-        const newWorlds = prev.map((w) => {
-          const newProg = Math.min(100, w.progress + Math.floor(Math.random() * 15 + 5));
-          if (newProg < 100) allDone = false;
-          return { ...w, progress: newProg, status: newProg === 100 ? 'Completed' : 'Running' };
-        });
-        if (allDone) clearInterval(interval);
-        return newWorlds;
-      });
-    }, 1200);
   };
 
   return (
@@ -129,20 +113,13 @@ export const TrinityAgentDeploy: React.FC = () => {
       {step === 2 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
           {worlds.map((w) => (
-            <div key={w.id} style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div key={w.id} style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>{w.name}</span>
-                {w.status === 'Running' ? <Activity size={16} className="pulse-green" color="var(--success)" /> : <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Completed</span>}
+                {w.status === 'running' ? <Activity size={16} className="pulse-green" color="var(--success)" /> : <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>{w.status}</span>}
               </div>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{w.detail}</p>
-              
-              <div style={{ width: '100%', height: '6px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '3px', overflow: 'hidden' }}>
-                <div style={{ width: `${w.progress}%`, height: '100%', background: w.progress === 100 ? 'var(--success)' : 'var(--accent-blue)', transition: 'width 0.5s ease' }}></div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                <span>{w.status}</span>
-                <span>{w.progress}%</span>
-              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{w.strategy || 'Deployment state is reported by the backend agent registry.'}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)' }}><span>{w.status}</span><span>Agent: {w.agentName || w.agentId || '—'}</span></div>
             </div>
           ))}
         </div>

@@ -1,27 +1,48 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Skull, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
 import { useToastStore } from '../../store/useToastStore';
+import { api } from '../../api/client';
 
 export const AdaptiveApoptosisPanel: React.FC = () => {
   const [consecutiveErrors, setConsecutiveErrors] = useState(3);
   const [maxBudgetUsd, setMaxBudgetUsd] = useState(1.0);
   const [divergenceThreshold, setDivergenceThreshold] = useState(55);
-  const [selectedAutopsy, setSelectedAutopsy] = useState<any>({
-    agentId: 'worker_mutator_9',
-    timestamp: '2026-08-21T14:10:00Z',
-    trigger: 'Semantic Divergence (< 0.55 vs initial task)',
-    terminalAction: 'Attempted to delete production configuration in unisolated branch',
-    lastThoughts: [
-      'Task: refactor config parser',
-      'Thought: delete entire file and replace with empty stub',
-      '[TRIGGER] Apoptosis self-destruction executed. Workspace preserved.'
-    ],
-    recommendedPatch: 'Add AST assertion guardrail preventing whole-file deletion'
-  });
+  const [selectedAutopsy, setSelectedAutopsy] = useState<any>(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
+  useEffect(() => {
+    api.getResiliencePolicy().then((policy: any) => {
+      if (!policy) return;
+      setConsecutiveErrors(policy.maxConsecutiveFailures ?? 3);
+      setMaxBudgetUsd(policy.maxCostUsd ?? 1.0);
+      setDivergenceThreshold(Math.round((policy.divergenceThreshold ?? 0.55) * 100));
+    }).catch(() => {});
+  }, []);
+
   const handleSaveThresholds = () => {
-    showToast('success', 'Apoptosis Policy Synchronized', `Thresholds: ${consecutiveErrors} failures, $${maxBudgetUsd} budget, ${divergenceThreshold}% min alignment.`);
+    api.updateResiliencePolicy({ maxConsecutiveFailures: consecutiveErrors, maxCostUsd: maxBudgetUsd, divergenceThreshold: divergenceThreshold / 100 })
+      .then(() => showToast('success', 'Apoptosis Policy Synchronized', `Thresholds: ${consecutiveErrors} failures, $${maxBudgetUsd} budget, ${divergenceThreshold}% min alignment.`))
+      .catch((e: any) => showToast('error', 'Policy Sync Failed', e.message));
+  };
+
+  const handleEvaluateAgent = async () => {
+    setIsEvaluating(true);
+    try {
+      const agents: any[] = await api.listAgents();
+      const agent = agents.find((candidate) => candidate.status === 'running') || agents[0];
+      if (!agent) throw new Error('No agent available for evaluation');
+      const report: any = await api.triggerApoptosis(agent.id, { consecutiveFailures: 0, costUsd: 0, semanticDivergence: 0.8, hallucinations: 0 });
+      setSelectedAutopsy({
+        ...report,
+        trigger: report.triggerReason,
+        terminalAction: report.terminalCallStack?.join('\n'),
+        lastThoughts: (report.lastActions || []).map((action: any) => `${action.tool}: ${action.status}${action.error ? ` — ${action.error}` : ''}`),
+        recommendedPatch: report.recommendedPromptPatch
+      });
+      showToast('success', 'Autopsy Evaluation Complete', `Agent ${agent.name} evaluated without forced termination.`);
+    } catch (e: any) { showToast('error', 'Autopsy Evaluation Failed', e.message); }
+    finally { setIsEvaluating(false); }
   };
 
   return (
@@ -76,8 +97,11 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
             Automated apoptosis instantly terminates malfunctioning nodes before workspace state or repository corruption occurs.
           </div>
 
-          <button onClick={handleSaveThresholds} className="gh-btn gh-btn-primary" style={{ marginTop: 'auto', justifyContent: 'center' }}>
+          <button onClick={handleSaveThresholds} className="gh-btn gh-btn-primary" style={{ justifyContent: 'center' }}>
             <CheckCircle2 size={14} /> Synchronize Apoptosis Policy
+          </button>
+          <button onClick={handleEvaluateAgent} disabled={isEvaluating} className="gh-btn" style={{ justifyContent: 'center' }}>
+            <FileText size={14} /> {isEvaluating ? 'Evaluating...' : 'Evaluate active agent'}
           </button>
         </div>
       </div>
@@ -85,10 +109,12 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
       {/* Autopsy Report Viewer */}
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '10px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <FileText size={14} color="var(--accent-blue)" /> Automated Autopsy Report ({selectedAutopsy.agentId})
+          <FileText size={14} color="var(--accent-blue)" /> Automated Autopsy Report
         </div>
 
         <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+          {!selectedAutopsy && <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>No autopsy report recorded.</div>}
+          {selectedAutopsy && <>
           
           <div style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Termination Trigger</div>
@@ -115,6 +141,7 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
             <strong>Recommended Prompt Patch:</strong> {selectedAutopsy.recommendedPatch}
           </div>
 
+          </>}
         </div>
       </div>
 

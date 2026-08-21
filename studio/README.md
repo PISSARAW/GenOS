@@ -53,6 +53,16 @@ npm run dev
 
 The frontend expects the backend to be available at http://localhost:4000.
 
+## Agent runtime adapter
+
+Deploying an agent registers its mission in Studio and starts the configured runtime adapter. Set `GENOS_AGENT_EXECUTOR` to an executable that reads one JSON mission from stdin and emits newline-delimited JSON events on stdout. For example:
+
+```bash
+GENOS_AGENT_EXECUTOR=/absolute/path/to/genos-agent-runtime npm start
+```
+
+Events may include `eventType`, `action`, `detail`, `status`, `currentTask`, `severity`, and `payload`. Without this variable, agents remain `idle` and Studio explicitly reports that they are waiting for a runtime adapter.
+
 ## Important note
 
 This is not a generic starter template; it is the actual GenOS Studio interface implemented for the project. The repository contains both the underlying GenOS runtime concepts and a live operational dashboard for them.

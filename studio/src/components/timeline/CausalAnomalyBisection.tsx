@@ -1,21 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Bug, Play, AlertOctagon, CheckCircle2, User } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
 export const CausalAnomalyBisection: React.FC = () => {
-  const [workspaceId, setWorkspaceId] = useState('ws-genos-core');
+  const [workspaceId, setWorkspaceId] = useState('');
   const [testAssertion, setTestAssertion] = useState('npm test -- --grep "invariant_type_check"');
   const [isRunning, setIsRunning] = useState(false);
   const [bisectionReport, setBisectionReport] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
+  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch(() => {}); }, []);
 
   const handleRunBisection = async () => {
     setIsRunning(true);
     try {
       const res = await api.runCausalBisection(workspaceId, testAssertion);
       setBisectionReport(res);
-      showToast('success', 'Bisection Concluded', `Pinpointed culprit in ${res.bisectionSteps || 3} logarithmic steps.`);
+      showToast('success', 'Bisection Concluded', res.anomalyFound === false ? 'No anomaly found in the recorded snapshots.' : 'Backend returned the causal bisection result.');
     } catch (e: any) {
       showToast('error', 'Bisection Error', e.message);
     } finally {
@@ -75,7 +76,7 @@ export const CausalAnomalyBisection: React.FC = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <AlertOctagon size={16} color="var(--danger)" />
-                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--danger)' }}>Culprit Isolated at Snapshot #{bisectionReport.culpritSnapshot?.step_number || 2}</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 600, color: !bisectionReport.culpritReport ? 'var(--success)' : 'var(--danger)' }}>{!bisectionReport.culpritReport ? 'No anomaly found' : `Culprit isolated at snapshot #${bisectionReport.culpritReport.stepNumber}`}</span>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                 Evaluated in <strong>{bisectionReport.bisectionSteps}</strong> logarithmic iterations
@@ -85,18 +86,18 @@ export const CausalAnomalyBisection: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.8rem' }}>
               <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '10px' }}>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>Culprit Agent:</span>
-                <strong style={{ color: 'var(--accent-blue)' }}>{bisectionReport.culpritAgent}</strong>
+                <strong style={{ color: 'var(--accent-blue)' }}>{bisectionReport.culpritReport?.culpritAgentId || '—'}</strong>
               </div>
               <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '10px' }}>
                 <span style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '2px' }}>Root Cause:</span>
-                <strong style={{ color: 'var(--text-primary)' }}>{bisectionReport.rootCause}</strong>
+                <strong style={{ color: 'var(--text-primary)' }}>{bisectionReport.culpritReport?.rootCauseSummary || bisectionReport.reason || '—'}</strong>
               </div>
             </div>
 
             <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '4px', padding: '10px' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>Recommended Remediation Patch:</div>
               <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.75rem', color: '#3fb950', lineHeight: 1.4 }}>
-                {bisectionReport.remediationPatch}
+                {bisectionReport.culpritReport ? `${bisectionReport.culpritReport.actionDescription || ''}\nTarget: ${bisectionReport.culpritReport.targetFile || '—'}` : 'No remediation required.'}
               </pre>
             </div>
           </div>

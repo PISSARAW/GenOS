@@ -17,12 +17,7 @@ interface AgentProfileTasksProps {
 export const AgentProfileTasks: React.FC<AgentProfileTasksProps> = ({ traces }) => {
   const [expandedTask, setExpandedTask] = useState<number | null>(null);
 
-  const displayTraces = traces.length > 0 ? traces : [
-    { type: 'SYSTEM_VERIFICATION', time: 'Just now', content: 'Run command: node test_backend.js. Result: 50 PASSED.' },
-    { type: 'SWARM_MONITOR', time: '5 mins ago', content: 'Swarm health telemetry verified across all agents.' },
-    { type: 'EVENT_EMIT', time: '12 mins ago', content: 'Published Event: WORKSPACE_STATE_CHANGE' },
-    { type: 'TOOL_CALL', time: '25 mins ago', content: 'Executed MCP circuit breaker verification.' }
-  ];
+  const displayTraces = traces;
 
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px' }}>

@@ -27,8 +27,8 @@ export const GodModeTerminal: React.FC = () => {
     fitAddon.fit();
     xtermRef.current = term;
 
-    term.writeln('\x1b[1;31m=== GenOS GOD MODE TERMINAL ===\x1b[0m');
-    term.writeln('Type a command to override swarm directives.');
+    term.writeln('\x1b[1;31m=== GenOS OPERATIONS TERMINAL ===\x1b[0m');
+    term.writeln('Type a supported administrative command.');
     term.write('\r\n$ ');
 
     let currentCommand = '';
@@ -40,7 +40,7 @@ export const GodModeTerminal: React.FC = () => {
           if (currentCommand.trim() !== '') {
             try {
               const data = await api.sendTerminalCommand(currentCommand.trim());
-              term.writeln(data.output || 'Command executed.');
+              if (data.output) term.writeln(data.output);
             } catch (err: any) {
               term.writeln(`\x1b[31mError: ${err.message || 'Execution failed'}\x1b[0m`);
             }
@@ -69,9 +69,9 @@ export const GodModeTerminal: React.FC = () => {
 
   return (
     <div style={{ width: '100%', height: '100%', padding: '24px', background: 'var(--bg-main)' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '16px', color: '#f85149' }}>God Mode Override Terminal</h2>
+      <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '16px', color: '#f85149' }}>Authenticated Operations Terminal</h2>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-        Directly inject payloads into the GenOS memory or override agent directives.
+        Authenticated administrative commands executed by the GenOS backend.
       </p>
       <div 
         ref={terminalRef} 

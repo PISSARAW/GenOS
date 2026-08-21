@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { RotateCcw, ShieldCheck, FileText, AlertTriangle } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
 export const AtomicRollbackPreview: React.FC = () => {
-  const [workspaceId, setWorkspaceId] = useState('ws-genos-core');
+  const [workspaceId, setWorkspaceId] = useState('');
   const [targetStep, setTargetStep] = useState(1);
   const [previewData, setPreviewData] = useState<any>(null);
   const [isApplying, setIsApplying] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
+  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch(() => {}); }, []);
 
   const handlePreview = async () => {
     try {

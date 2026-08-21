@@ -2,6 +2,7 @@ import React from 'react';
 import { ShieldCheck, ShieldAlert, Lock, Unlock, AlertOctagon } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
+import { getToolAlias } from '../../utils/toolLabels';
 
 export interface McpToolItem {
   id: string;
@@ -23,7 +24,7 @@ export const McpCircuitBreakerTable: React.FC<{ tools: McpToolItem[]; onRefresh:
       showToast(
         tool.isLocked ? 'success' : 'warning',
         'Circuit Breaker Quarantined',
-        `Tool "${tool.name}" is now ${!tool.isLocked ? 'LOCKED / QUARANTINED' : 'ACTIVE'}`
+        `Tool "${getToolAlias(tool.name)}" is now ${!tool.isLocked ? 'LOCKED / QUARANTINED' : 'ACTIVE'}`
       );
       onRefresh();
     } catch (e: any) {
@@ -56,7 +57,7 @@ export const McpCircuitBreakerTable: React.FC<{ tools: McpToolItem[]; onRefresh:
             {tools.map((tool, idx) => (
               <tr key={tool.id || tool.name} style={{ borderBottom: idx < tools.length - 1 ? '1px solid var(--panel-border)' : 'none' }} className="hover-bg-gray">
                 <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 600, color: tool.isLocked ? 'var(--danger)' : 'var(--text-primary)' }}>
-                  {tool.name}
+                  {getToolAlias(tool.name)}
                 </td>
                 <td style={{ padding: '8px 12px', color: 'var(--text-secondary)' }}>{tool.category}</td>
                 <td style={{ padding: '8px 12px' }}>

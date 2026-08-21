@@ -16,6 +16,8 @@ interface AgentProfileHeaderProps {
     name: string;
     status: string;
     role?: string;
+    workspaceId?: string | null;
+    hallucinationMonitoring?: boolean | number;
   };
   clonesCount: number;
   activeTab: string;
@@ -34,8 +36,14 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
 }) => {
   const showToast = useToastStore((state) => state.showToast);
 
-  const handleSubscribe = () => {
-    showToast('info', 'Subscribed to Agent', `Subscribed to live telemetry stream for ${activeAgent.name}`);
+  const handleSubscribe = async () => {
+    try {
+      await api.subscribeAgent(activeAgent.id);
+      onRefreshClones();
+      showToast('success', 'Hallucination Monitoring Enabled', `Monitoring is active for ${activeAgent.name}`);
+    } catch (err: any) {
+      showToast('error', 'Subscription Failed', err.message || 'Could not enable hallucination monitoring.');
+    }
   };
 
   const handleCloneAgent = async () => {
@@ -71,7 +79,9 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
               G
             </div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-              <span style={{ color: 'var(--text-accent)', cursor: 'pointer' }} className="hover-underline">Workspace_Main</span>
+              <span style={{ color: activeAgent.workspaceId ? 'var(--text-accent)' : 'var(--text-secondary)' }} className={activeAgent.workspaceId ? 'hover-underline' : undefined}>
+                {activeAgent.workspaceId || 'No workspace attached'}
+              </span>
               <span style={{ margin: '0 4px', color: 'var(--text-muted)' }}>/</span>
               <span style={{ fontWeight: 600, cursor: 'pointer' }} className="hover-underline">{activeAgent.name}</span>
             </h1>
@@ -91,11 +101,11 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
           <div style={{ display: 'flex', gap: '12px' }}>
             <div className="gh-btn-group" style={{ display: 'flex', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
               <button onClick={handleSubscribe} className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px' }}>
-                <Eye size={14} color="var(--text-secondary)" /> Subscribe <ChevronDown size={12} color="var(--text-muted)"/>
+                <Eye size={14} color="var(--text-secondary)" /> {activeAgent.hallucinationMonitoring ? 'Subscribed' : 'Subscribe'} <ChevronDown size={12} color="var(--text-muted)"/>
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
               <button className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px', fontWeight: 600 }}>
-                {activeAgent.status === 'running' ? 1 : 0}
+                {activeAgent.hallucinationMonitoring ? 1 : 0}
               </button>
             </div>
 

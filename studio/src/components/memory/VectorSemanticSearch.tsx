@@ -13,33 +13,8 @@ interface SearchResultItem {
 }
 
 export const VectorSemanticSearch: React.FC = () => {
-  const [query, setQuery] = useState('sanitize authentication tokens and prevent memory leaks');
-  const [results, setResults] = useState<SearchResultItem[]>([
-    {
-      id: 'traj-084',
-      title: 'HMAC Constant-Time Authentication Token Sanitization',
-      summary: 'Implemented timingSafeEqual checks and added sub-millisecond crypto assertions to prevent timing attacks.',
-      author: 'Security Specialist',
-      similarityScore: 0.94,
-      tags: ['auth', 'crypto', 'timing-safe']
-    },
-    {
-      id: 'traj-052',
-      title: 'Modular Memory Stream Buffering & Backpressure',
-      summary: 'Introduced sliding window ring-buffer to prevent node.js buffer saturation in long-running telemetry.',
-      author: 'Backend Worker 1',
-      similarityScore: 0.86,
-      tags: ['buffer', 'memory', 'telemetry']
-    },
-    {
-      id: 'traj-019',
-      title: 'Express Security Headers & Anti-CSRF Origin Gate',
-      summary: 'Configured military-grade CORS headers and per-session CSRF verification tokens.',
-      author: 'QA Auditor',
-      similarityScore: 0.79,
-      tags: ['security', 'cors', 'csrf']
-    }
-  ]);
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -49,17 +24,15 @@ export const VectorSemanticSearch: React.FC = () => {
     setIsSearching(true);
     try {
       const hits = await api.searchMemoryVector(query);
-      if (Array.isArray(hits) && hits.length > 0) {
-        setResults(hits.map((h: any, i: number) => ({
-          id: h.id || `traj-${i}`,
-          title: h.title || 'Past Resolution',
-          summary: h.summary || 'Extracted memory context',
-          author: h.author || 'Swarm Worker',
-          similarityScore: +(0.95 - (i * 0.08)).toFixed(2),
-          tags: ['sqlite-vector', 'episodic']
-        })));
-      }
-      showToast('success', 'Vector Recall Completed', `Retrieved ${hits.length || results.length} episodic memories via cosine similarity.`);
+      setResults(Array.isArray(hits) ? hits.map((h: any, i: number) => ({
+        id: h.id || `memory-${i}`,
+        title: h.title || 'Memory result',
+        summary: h.summary || h.semantic_summary || '',
+        author: h.author || h.author_name || 'Unknown',
+        similarityScore: Number(h.similarityScore || 0),
+        tags: Array.isArray(h.tags) ? h.tags : []
+      })) : []);
+      showToast('success', 'Vector Recall Completed', `Retrieved ${Array.isArray(hits) ? hits.length : 0} persisted memories.`);
     } catch (e: any) {
       showToast('error', 'Search Error', e.message);
     } finally {

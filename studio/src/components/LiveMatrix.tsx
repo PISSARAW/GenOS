@@ -1,73 +1,83 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useGenOSStore } from '../store/useGenOSStore';
+import { api } from '../api/client';
+
+interface MatrixTopology {
+  nodes: Array<{ id: string; label: string; x: number; y: number; status: string }>;
+  edges: Array<{ from: string; to: string; type: 'lineage' | 'fleet' | 'workspace' | 'telemetry' }>;
+  particles: Array<{ from: string; to: string; eventId: string }>;
+}
 
 export const LiveMatrix: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { clones } = useGenOSStore();
-  const [nodes, setNodes] = useState<{id: string, x: number, y: number, vx: number, vy: number, label: string}[]>([]);
+  const [topology, setTopology] = useState<MatrixTopology | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadTopology = () => {
+      api.getSwarmTopology()
+        .then((data: MatrixTopology) => { if (mounted) setTopology(data); })
+        .catch(() => { if (mounted) setTopology(null); });
+    };
+    loadTopology();
+    const interval = setInterval(loadTopology, 4000);
+    return () => { mounted = false; clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !topology) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-    // Draw Grid
     ctx.strokeStyle = '#30363d';
     ctx.lineWidth = 1;
-    for (let i = 0; i < canvas.width; i += 50) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    for (let x = 0; x < canvas.width; x += 50) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
     }
-    for (let i = 0; i < canvas.height; i += 50) {
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
-    }
-
-    setNodes(clones.map((c, i) => ({
-      id: c.id,
-      label: c.name,
-      x: (i * 137) % 800,
-      y: (i * 251) % 600,
-      vx: ((i % 3) - 1) * 2 || 1,
-      vy: ((i % 5) - 2) * 2 || 1
-    })));
-
-    // Draw connections
-    ctx.strokeStyle = 'rgba(88, 166, 255, 0.2)';
-    ctx.lineWidth = 2;
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const dist = Math.hypot(nodes[i].x - nodes[j].x, nodes[i].y - nodes[j].y);
-        if (dist < 300) {
-          ctx.beginPath();
-          ctx.moveTo(nodes[i].x, nodes[i].y);
-          ctx.lineTo(nodes[j].x, nodes[j].y);
-          ctx.stroke();
-        }
-      }
+    for (let y = 0; y < canvas.height; y += 50) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
     }
 
-    // Draw nodes
-    nodes.forEach(n => {
-      ctx.fillStyle = '#238636';
+    const nodeById = new Map(topology.nodes.map((node) => [node.id, node]));
+    topology.edges.forEach((edge) => {
+      const from = nodeById.get(edge.from);
+      const to = nodeById.get(edge.to);
+      if (!from || !to) return;
+      ctx.strokeStyle = edge.type === 'telemetry' ? 'rgba(88, 166, 255, 0.75)' : 'rgba(88, 166, 255, 0.2)';
+      ctx.lineWidth = edge.type === 'telemetry' ? 3 : 2;
+      ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke();
+    });
+
+    topology.particles.forEach((particle) => {
+      const from = nodeById.get(particle.from);
+      const to = nodeById.get(particle.to);
+      if (!from || !to) return;
+      ctx.fillStyle = '#58a6ff';
       ctx.beginPath();
-      ctx.arc(n.x, n.y, 8, 0, Math.PI * 2);
+      ctx.arc((from.x + to.x) / 2, (from.y + to.y) / 2, 4, 0, Math.PI * 2);
       ctx.fill();
+    });
+
+    topology.nodes.forEach((node) => {
+      ctx.fillStyle = node.status === 'running' || node.status === 'Active' ? '#238636' : '#8b949e';
+      ctx.beginPath(); ctx.arc(node.x, node.y, 8, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#c9d1d9';
       ctx.font = '12px monospace';
-      ctx.fillText(n.label, n.x + 12, n.y + 4);
+      ctx.fillText(node.label, node.x + 12, node.y + 4);
     });
-  }, [clones]);
+  }, [topology]);
 
   return (
     <div style={{ width: '100%', height: '100%', padding: '24px', background: 'var(--bg-main)' }}>
       <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '16px', color: 'var(--text-primary)' }}>Live Neural Matrix</h2>
       <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
-        Real-time cognitive mapping of swarm processes. Nodes represent active agents.
+        Live topology from registered agents, persisted relationships, and recent telemetry events.
       </p>
       <div style={{ width: '100%', height: 'calc(100% - 100px)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
-        <canvas ref={canvasRef} width={1200} height={800} style={{ width: '100%', height: '100%', background: '#0d1117' }} />
+        {!topology || topology.nodes.length === 0
+          ? <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>No topology data available.</div>
+          : <canvas ref={canvasRef} width={1200} height={800} style={{ width: '100%', height: '100%', background: '#0d1117' }} />}
       </div>
     </div>
   );

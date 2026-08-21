@@ -7,13 +7,12 @@ import { useGenOSStore } from '../store/useGenOSStore';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
-export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspacesCount?: number }> = ({ onNavigate, workspacesCount = 1 }) => {
+export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspacesCount?: number | null }> = ({ onNavigate, workspacesCount = null }) => {
   const [data, setData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [achievements, setAchievements] = useState<any[]>([]);
   const clones = useGenOSStore((state) => state.clones);
-  const traces = useGenOSStore((state) => state.traces);
   const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
@@ -43,45 +42,26 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
     setIsEditing(false);
   };
 
-  const activeAgents = clones.filter((c) => c.status === 'running').length;
-  
+  const serverStats = data?.stats || {};
+  const activeAgents = data?.activeAgents ?? clones.filter((c) => c.status === 'running').length;
   const stats = {
-    total_agents_created: clones.length || (data?.stats?.total_agents ?? 5),
-    mutations: Object.values(traces).flat().length || (data?.stats?.total_mutations ?? 1420),
-    total_snapshots: Object.values(traces).flat().filter((t) => t.name === 'genos_snapshot').length || (data?.stats?.total_snapshots ?? 86),
-    total_tasks: Object.values(traces).flat().filter((t) => t.name === 'genos_solve').length || (data?.stats?.total_tasks ?? 42),
-    total_swarms: Object.keys(traces).length || 3
+    total_agents_created: clones.length || activeAgents,
+    mutations: serverStats.total_actions ?? 0,
+    total_snapshots: serverStats.total_snapshots ?? 0,
+    total_tasks: serverStats.total_tasks ?? 0,
+    total_swarms: serverStats.total_swarms ?? 0
   };
 
   const username = data?.profile?.username || 'Commander';
   const org = data?.profile?.organization || 'GenOS Fleet';
   const location = data?.profile?.location || 'Localhost Enclave (Sandboxed)';
 
-  const pinned = clones.slice(0, 4).map((c) => ({
-    id: c.id,
-    name: c.name,
-    status: c.currentTask || 'Operational Fleet Node',
-    language: c.agentType || 'TypeScript',
-    agents_count: 1,
-    progress: c.status === 'running' ? 100 : 0
-  }));
-
-  const fallbackPinned = pinned.length > 0 ? pinned : [
-    { id: 'p1', name: 'GenOS/FleetOrchestrator', status: 'Active MCTS Supervision', language: 'TypeScript', agents_count: 4, progress: 100 },
-    { id: 'p2', name: 'GenOS/TelemetryObserver', status: 'Real-time Event Streaming', language: 'Node.js', agents_count: 1, progress: 100 },
-    { id: 'p3', name: 'GenOS/ExperimentsLab', status: 'Proving Ground & Arenas', language: 'React', agents_count: 2, progress: 60 },
-    { id: 'p4', name: 'GenOS/CircuitBreaker', status: 'MCP Safety Firewall Active', language: 'TypeScript', agents_count: 1, progress: 100 },
-  ];
+  const pinned = Array.isArray(data?.pinned) ? data.pinned : [];
 
   // 52-week activity heatmap
-  const heatmapData = new Array(52 * 7).fill(0);
-  Object.values(traces).flat().forEach((_, i) => {
-    const idx = (i * 3 + 12) % (52 * 7);
-    heatmapData[idx] += 1;
-  });
-  // Ensure non-empty realistic pattern
-  [12, 13, 14, 25, 45, 52, 60, 88, 104, 150, 180, 210, 240, 280, 310, 340, 350, 360].forEach((idx) => {
-    heatmapData[idx] = (heatmapData[idx] || 0) + 2;
+  const heatmapData = Array.from({ length: 364 }, (_, index) => {
+    const value = Array.isArray(data?.heatmap) ? data.heatmap[index] : 0;
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
   });
 
   return (
@@ -94,7 +74,7 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
             <Activity size={16} color="var(--text-muted)" /> Dashboard
           </div>
           <div className="gh-tab" onClick={() => onNavigate?.('workspaces')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '0.85rem', cursor: 'pointer' }}>
-            <Database size={16} color="var(--text-muted)" /> Workspaces <span style={{ background: 'var(--bg-subtle)', borderRadius: '12px', padding: '2px 6px', fontSize: '0.7rem', border: '1px solid var(--panel-border)' }}>{workspacesCount}</span>
+            <Database size={16} color="var(--text-muted)" /> Workspaces <span style={{ background: 'var(--bg-subtle)', borderRadius: '12px', padding: '2px 6px', fontSize: '0.7rem', border: '1px solid var(--panel-border)' }}>{workspacesCount ?? '…'}</span>
           </div>
           <div className="gh-tab" onClick={() => onNavigate?.('active_experiments')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '0.85rem', cursor: 'pointer' }}>
             <Zap size={16} color="var(--text-muted)" /> Active Experiments
@@ -195,7 +175,7 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              {fallbackPinned.map((repo: any) => (
+              {pinned.map((repo: any) => (
                 <div key={repo.id} style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px', display: 'flex', flexDirection: 'column', background: 'var(--bg-panel)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -245,7 +225,7 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
                           <div 
                             key={rowIndex} 
                             style={{ width: '10px', height: '10px', background: bg, borderRadius: '2px', border: '1px solid rgba(255,255,255,0.03)' }} 
-                            title={`${val * 4} mutations recorded on this day`}
+                            title={`${val} mutations recorded on this day`}
                           />
                         );
                       })}

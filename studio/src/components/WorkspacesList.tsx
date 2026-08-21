@@ -201,13 +201,13 @@ export const WorkspacesList: React.FC = () => {
                     </span>
                     
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Snapshots">
-                      <Camera size={14} /> {(ws.snapshots || 8).toLocaleString()}
+                      <Camera size={14} /> {(ws.snapshots || 0).toLocaleString()}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Agents">
-                      <Bot size={14} /> {ws.agents || 4}
+                      <Bot size={14} /> {ws.agents || '0 Active'}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Pending Trajectories">
-                      <GitPullRequest size={14} /> {ws.trajectories || 2}
+                      <GitPullRequest size={14} /> {ws.trajectories || 0}
                     </span>
                     {(ws.anomalies > 0) && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--danger)' }} title="Anomalies">
@@ -215,13 +215,13 @@ export const WorkspacesList: React.FC = () => {
                       </span>
                     )}
 
-                    <span>Updated {ws.updated || 'recently'}</span>
+                    <span>{ws.updated ? `Updated ${ws.updated}` : 'No update timestamp'}</span>
                   </div>
                 </div>
 
                 {/* Right Area (Sparkline & Settings) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Sparkline data={ws.activityData || [5, 12, 18, 25, 30, 42]} color={ws.activityColor || '#238636'} />
+                  <Sparkline data={ws.activityData || []} color={ws.activityColor || '#238636'} />
                   <Settings size={18} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showToast('info', 'Settings', 'Workspace configuration panel'); }} />
                 </div>
               </div>

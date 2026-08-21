@@ -21,31 +21,23 @@ export const QuorumConsensusLive: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState('');
   const showToast = useToastStore((state) => state.showToast);
 
   const fetchConsensus = () => {
     api.getConsensus()
       .then((data: any) => {
+        setError('');
         if (data?.proposals && Array.isArray(data.proposals)) {
           setProposals(data.proposals);
         } else {
-          setProposals([
-            {
-              id: 'prop-101',
-              title: 'Promote MCTS refactoring rule to global genome DNA',
-              description: 'Supermajority vote required to persist learned syntax pattern into SQLite genome.',
-              status: 'open',
-              proposer: 'Fleet Orchestrator',
-              quorumThreshold: 0.66,
-              yesCount: 5,
-              noCount: 1,
-              totalVotes: 6,
-              approvalRate: 83
-            }
-          ]);
+          setProposals([]);
         }
       })
-      .catch(() => {});
+      .catch((err: any) => {
+        setError(err?.message || 'Unable to load quorum data.');
+        setProposals([]);
+      });
   };
 
   useEffect(() => {
@@ -93,9 +85,11 @@ export const QuorumConsensusLive: React.FC = () => {
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflowY: 'auto' }}>
+        {error && <div style={{ color: 'var(--danger)', fontSize: '0.8rem' }}>{error}</div>}
+        {!error && proposals.length === 0 && <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>No quorum proposals recorded.</div>}
         {proposals.map((p) => {
           const thresholdPct = Math.round((p.quorumThreshold || 0.66) * 100);
-          const isPassed = p.approvalRate >= thresholdPct;
+          const isPassed = p.status === 'passed';
 
           return (
             <div key={p.id} style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '14px 16px' }}>

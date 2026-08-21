@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FileText, Download, GitBranch, Terminal, CheckCircle2 } from 'lucide-react';
 import { useToastStore } from '../../store/useToastStore';
+import { api } from '../../api/client';
 
 interface TraceStep {
   id: string;
@@ -13,54 +14,38 @@ interface TraceStep {
 
 export const ResolutionTracesInspector: React.FC = () => {
   const [selectedFormat, setSelectedFormat] = useState<'json' | 'otel' | 'html'>('json');
-  const [activeStepId, setActiveStepId] = useState<string>('tr-1');
+  const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
-  const steps: TraceStep[] = [
-    {
-      id: 'tr-1',
-      stepNumber: 1,
-      phase: 'Search',
-      description: 'MCTS expansion exploring 4 AST replacement candidates for authentication token validation.',
-      latencyMs: 45,
-      astDiff: '// Candidate 1: Regex validation\n// Candidate 2: Byte-length parity\n// Candidate 3: Cryptographic signature HMAC verify'
-    },
-    {
-      id: 'tr-2',
-      stepNumber: 2,
-      phase: 'Hypothesis',
-      description: 'Selected Candidate 3. Synthesized HMAC-SHA256 constant-time comparison helper to prevent timing attacks.',
-      latencyMs: 82,
-      astDiff: '+ import { timingSafeEqual } from "crypto";\n+ export function verifyTokenSafe(a: Buffer, b: Buffer) {\n+   return timingSafeEqual(a, b);\n+ }'
-    },
-    {
-      id: 'tr-3',
-      stepNumber: 3,
-      phase: 'AST_Transform',
-      description: 'Applied surgical patch to src/api/auth.ts with zero regression on adjacent functions.',
-      latencyMs: 38,
-      astDiff: '- function insecureCheck(a, b) { return a === b; }\n+ function insecureCheck(a, b) { return verifyTokenSafe(a, b); }'
-    },
-    {
-      id: 'tr-4',
-      stepNumber: 4,
-      phase: 'Verification',
-      description: 'Executed test suite (58 assertions). 100% pass rate. 0 CVEs detected by Adversarial Reviewer.',
-      latencyMs: 120,
-      astDiff: '[TEST] 58 tests passed in 120ms.\n[ADVERSARIAL_QA] 0 vulnerabilities detected.'
-    }
-  ];
+  const [steps, setSteps] = useState<TraceStep[]>([]);
+  const [traceBundle, setTraceBundle] = useState<any>(null);
 
-  const activeStep = steps.find((s) => s.id === activeStepId) || steps[0];
+  useEffect(() => {
+    api.getArenaTrace(undefined, selectedFormat)
+      .then((bundle: any) => {
+        setTraceBundle(bundle?.traceId ? bundle : null);
+        setSteps((bundle?.spans || []).map((span: any, index: number) => ({
+          id: span.spanId,
+          stepNumber: span.stepNumber || index + 1,
+          phase: span.phase || 'Verification',
+          description: span.description || span.name,
+          latencyMs: span.latencyMs || 0,
+          astDiff: span.astDiff || 'No AST diff available.'
+        })));
+      })
+      .catch(() => {
+        setTraceBundle(null);
+        setSteps([]);
+      });
+  }, [selectedFormat]);
+
+  const activeStep = steps.find((s) => s.id === activeStepId) || null;
 
   const handleExport = () => {
-    const traceBundle = {
-      traceId: `trace-${Date.now()}`,
-      format: selectedFormat,
-      exportedAt: new Date().toISOString(),
-      solver: 'MCTS-Explorer',
-      steps
-    };
+    if (!traceBundle || steps.length === 0) {
+      showToast('info', 'No Trace Available', 'Run a real solver tournament before exporting a trace.');
+      return;
+    }
     const blob = new Blob([JSON.stringify(traceBundle, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -139,16 +124,14 @@ export const ResolutionTracesInspector: React.FC = () => {
         <div style={{ flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              <Terminal size={14} /> Step #{activeStep.stepNumber} AST Transformation Diff
+              <Terminal size={14} /> {activeStep ? `Step #${activeStep.stepNumber} Execution Detail` : 'No execution trace selected'}
             </div>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--success)' }}>
-              <CheckCircle2 size={12} /> AST Validated
-            </span>
+            {activeStep && <span style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', color: 'var(--success)' }}><CheckCircle2 size={12} /> Recorded</span>}
           </div>
 
           <div style={{ flex: 1, padding: '16px', background: 'var(--bg-main)', overflow: 'auto' }}>
             <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: 1.6, color: 'var(--text-primary)' }}>
-              {activeStep.astDiff}
+              {activeStep?.astDiff || 'No trace data available.'}
             </pre>
           </div>
         </div>

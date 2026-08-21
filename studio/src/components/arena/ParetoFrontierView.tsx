@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
 import { Target, Zap, Award } from 'lucide-react';
-import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
+import { api } from '../../api/client';
 
 interface SolutionPoint {
   id: string;
@@ -19,33 +19,21 @@ export const ParetoFrontierView: React.FC = () => {
   const [recommendedId, setRecommendedId] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
-  const initialPoints: SolutionPoint[] = [
-    { id: 'sol-mcts-1', solver: 'MCTS-Explorer', timeMs: 420, costUsd: 0.012, fitness: 94.5, isParetoOptimal: true },
-    { id: 'sol-react-1', solver: 'ReAct-Chain', timeMs: 180, costUsd: 0.004, fitness: 82.0, isParetoOptimal: true },
-    { id: 'sol-reflex-1', solver: 'Reflexion-Critic', timeMs: 650, costUsd: 0.022, fitness: 98.2, isParetoOptimal: true },
-    { id: 'sol-beam-1', solver: 'Beam-Search', timeMs: 310, costUsd: 0.009, fitness: 88.4, isParetoOptimal: false },
-    { id: 'sol-genetic-1', solver: 'Island-Genetic', timeMs: 820, costUsd: 0.035, fitness: 97.0, isParetoOptimal: false },
-    { id: 'sol-divergent-1', solver: 'Divergent-Synth', timeMs: 510, costUsd: 0.018, fitness: 91.0, isParetoOptimal: false },
-  ];
-
   useEffect(() => {
     api.getParetoFrontier()
-      .then((wave: any) => {
-        if (wave?.successRate) {
-          const livePoint: SolutionPoint = {
-            id: `sol-live-${Date.now().toString().slice(-4)}`,
-            solver: 'Active Swarm Prover',
-            timeMs: Math.round(200 + (100 - wave.successRate) * 6),
-            costUsd: +(0.005 + (wave.stressLevel / 5000)).toFixed(4),
-            fitness: +(wave.successRate).toFixed(1),
-            isParetoOptimal: wave.successRate > 90
-          };
-          setPoints([livePoint, ...initialPoints]);
-        } else {
-          setPoints(initialPoints);
-        }
+      .then((result: any) => {
+        const frontierIds = new Set((result?.paretoFront || []).map((p: any) => p.solverKey));
+        const mapped = [...(result?.paretoFront || []), ...(result?.dominatedSolutions || [])].map((p: any) => ({
+          id: p.solverKey,
+          solver: p.solverName,
+          timeMs: p.executionTimeMs,
+          costUsd: p.tokenCostUSD,
+          fitness: p.fitnessScore,
+          isParetoOptimal: frontierIds.has(p.solverKey)
+        }));
+        setPoints(mapped);
       })
-      .catch(() => setPoints(initialPoints));
+      .catch(() => setPoints([]));
   }, []);
 
   const computeKneePoint = () => {
@@ -74,13 +62,14 @@ export const ParetoFrontierView: React.FC = () => {
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Trade-off mapping: Execution Time (ms) vs Solution Fitness (%)</span>
         </div>
-        <button onClick={computeKneePoint} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
+        <button onClick={computeKneePoint} disabled={points.length === 0} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
           <Award size={14} /> Calculate Knee-Point
         </button>
       </div>
 
       <div style={{ flex: 1, minHeight: '260px', background: 'var(--bg-panel)', borderRadius: '6px', border: '1px solid var(--panel-border)', padding: '16px 8px 8px 0' }}>
-        <ResponsiveContainer width="100%" height="100%">
+        {points.length === 0 && <div style={{ height: '100%', minHeight: '260px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>No executed tournament results available.</div>}
+        {points.length > 0 && <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--panel-border)" />
             <XAxis type="number" dataKey="timeMs" name="Time" unit="ms" stroke="var(--text-secondary)" fontSize={11} domain={[100, 900]} />
@@ -119,7 +108,7 @@ export const ParetoFrontierView: React.FC = () => {
               })}
             </Scatter>
           </ScatterChart>
-        </ResponsiveContainer>
+        </ResponsiveContainer>}
       </div>
 
       {selectedPoint && (
