@@ -111,6 +111,9 @@ pub enum AgentPrimitive {
     Merge,
     Lineage,
     Replay,
+    /// Représente un aveu d'incompétence de l'agent. Mécanisme de mitigation des hallucinations 
+    /// (via R-Tuning) pour s'abstenir formellement d'agir plutôt que de "tricher".
+    ActiveRefusal,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

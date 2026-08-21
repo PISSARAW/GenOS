@@ -1,4 +1,4 @@
-﻿//! Branch-local tool output records.
+//! Branch-local tool output records.
 //!
 //! A tool call recorded on a branch is the bridge between an
 //! [`AgentEventType::ToolRequested`] / [`AgentEventType::ToolCompleted`] (or
@@ -67,6 +67,7 @@ pub struct ToolCallRequest<'a> {
     pub input: serde_json::Value,
     pub output: serde_json::Value,
     pub success: bool,
+    pub receipt: Option<crate::state::ExecutionReceipt>,
 }
 
 /// Record a tool call on `snapshot`'s own branch and advance its event cursor.
@@ -88,33 +89,44 @@ pub fn record_tool_call_on_branch(
     record_tool_call_on_branch_at(snapshot, req, Utc::now())
 }
 
+/// Regroupe les paramètres pour vérifier si un outil peut être utilisé par un agent.
+///
+/// Cette structure permet de ne passer qu'un argument au lieu de 4 à
+/// `record_checked_tool_call_on_branch`, assurant le respect des règles GenOS
+/// de 3 paramètres maximum par fonction.
+pub struct CheckToolRequest<'a> {
+    pub policy: &'a ToolPolicy,
+    pub tool_name: &'a str,
+    pub scope: &'a str,
+    pub input: serde_json::Value,
+}
+
 /// Record a tool request after enforcing the branch genome policy. Denied
 /// requests are never executed, but remain auditable as `ToolFailed`.
 pub fn record_checked_tool_call_on_branch(
     snapshot: &mut AgentSnapshot,
-    policy: &ToolPolicy,
-    tool_name: &str,
-    scope: &str,
-    input: serde_json::Value,
+    req: CheckToolRequest<'_>,
 ) -> ToolOutputWrite {
-    if snapshot.tool_is_allowed(policy, tool_name, scope) {
+    if snapshot.tool_is_allowed(req.policy, req.tool_name, req.scope) {
         record_tool_call_on_branch(
             snapshot,
             ToolCallRequest {
-                tool_name,
-                input,
+                tool_name: req.tool_name,
+                input: req.input,
                 output: json!({ "status": "allowed" }),
                 success: true,
+                receipt: None,
             },
         )
     } else {
         record_tool_call_on_branch(
             snapshot,
             ToolCallRequest {
-                tool_name,
-                input,
-                output: json!({ "error": "permission_denied", "scope": scope }),
+                tool_name: req.tool_name,
+                input: req.input,
+                output: json!({ "error": "permission_denied", "scope": req.scope }),
                 success: false,
+                receipt: None,
             },
         )
     }
@@ -177,6 +189,7 @@ pub fn record_tool_call_on_branch_at(
         input: req.input,
         output: req.output,
         success: req.success,
+        receipt: req.receipt,
         branch_id: snapshot.branch_id.clone(),
         created_at,
         generating_event_id: completed_event.event_id.clone(),

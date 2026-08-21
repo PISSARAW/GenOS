@@ -1,4 +1,4 @@
-﻿use crate::artifact::ArtifactRef;
+use crate::artifact::ArtifactRef;
 use crate::beliefs::evidence::EvidenceRef;
 use crate::ids::GenomeId;
 use crate::ids::{BeliefId, BranchId, EventId, MemoryId, ToolOutputId, WorldId};
@@ -70,6 +70,19 @@ pub struct EventCursor {
     pub last_event_id: Option<EventId>,
 }
 
+/// Preuve structurée de l'exécution d'une action par l'agent.
+///
+/// Ce reçu sert à vérifier de manière externe (via l'environnement) que l'agent a bien
+/// exécuté l'outil, plutôt que de se fier à une simple déclaration textuelle susceptible
+/// d'être une hallucination ou du reward hacking.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionReceipt {
+    /// Indique si l'environnement a confirmé l'exécution de l'étape.
+    pub verified_by_env: bool,
+    /// Un hachage de la preuve d'exécution pour garantir sa traçabilité.
+    pub proof_hash: Option<String>,
+}
+
 /// A tool call recorded on a branch, with the event that recorded it.
 ///
 /// Mirrors [`MemoryRecord`] (same provenance trio: id + created_in +
@@ -85,6 +98,7 @@ pub struct ToolOutputRecord {
     pub input: serde_json::Value,
     pub output: serde_json::Value,
     pub success: bool,
+    pub receipt: Option<ExecutionReceipt>,
     pub branch_id: BranchId,
     pub created_at: DateTime<Utc>,
     pub generating_event_id: EventId,
