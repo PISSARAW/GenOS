@@ -1,0 +1,12 @@
+[package]
+name = "genos-synaptic"
+description = "Synaptic plasticity and STDP graph memory for GenOS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+serde.workspace = true
