@@ -5,12 +5,94 @@
 
 // Default algorithmic solvers supported by the Arena
 const SOLVER_PROFILES = {
-  mcts_solver: { name: 'MCTS Solver', archetype: 'Tree Search', baseElo: 1520, costPerStep: 0.003, speedMs: 420 },
-  react_solver: { name: 'ReAct Solver', archetype: 'Chain-of-Thought', baseElo: 1480, costPerStep: 0.002, speedMs: 280 },
-  reflexion_solver: { name: 'Reflexion Solver', archetype: 'Self-Critique', baseElo: 1560, costPerStep: 0.004, speedMs: 510 },
-  beam_solver: { name: 'Beam Search Solver', archetype: 'Best-First Beam', baseElo: 1450, costPerStep: 0.0018, speedMs: 210 },
-  genetic_solver: { name: 'Island Genetic Solver', archetype: 'Evolutionary', baseElo: 1510, costPerStep: 0.0025, speedMs: 360 }
+  mcts_solver: { name: 'MCTS Solver', archetype: 'Tree Search', baseElo: 1520 },
+  react_solver: { name: 'ReAct Solver', archetype: 'Chain-of-Thought', baseElo: 1480 },
+  reflexion_solver: { name: 'Reflexion Solver', archetype: 'Self-Critique', baseElo: 1560 },
+  beam_solver: { name: 'Beam Search Solver', archetype: 'Best-First Beam', baseElo: 1450 },
+  genetic_solver: { name: 'Island Genetic Solver', archetype: 'Evolutionary', baseElo: 1510 }
 };
+
+const { performance } = require('perf_hooks');
+let lastTournamentResult = null;
+
+function buildBenchmark(problemSpec = {}) {
+  if (Array.isArray(problemSpec.cases) && problemSpec.cases.length > 0) {
+    return {
+      id: problemSpec.id || 'custom-search',
+      title: problemSpec.title || 'Custom search benchmark',
+      cases: problemSpec.cases.map((item, index) => ({
+        id: item.id || `case-${index + 1}`,
+        values: Array.isArray(item.values) ? item.values : [],
+        target: item.target
+      }))
+    };
+  }
+
+  // A real, deterministic local benchmark. No fabricated scores or timings.
+  const cases = [
+    [3, 8, 13, 21, 34, 55, 89],
+    [2, 5, 11, 17, 23, 29, 31, 37, 41, 43, 47],
+    [1, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144]
+  ];
+  return {
+    id: problemSpec.id || 'local-sorted-search',
+    title: problemSpec.title || 'Local sorted search benchmark',
+    cases: cases.map((values, index) => ({ id: `case-${index + 1}`, values, target: values[(index * 3 + 2) % values.length] }))
+  };
+}
+
+function executeSolver(solverKey, values, target) {
+  const startedAt = performance.now();
+  let index = -1;
+  let steps = 0;
+  const trace = [];
+
+  if (solverKey === 'react_solver') {
+    for (let i = 0; i < values.length; i += 1) {
+      steps += 1;
+      trace.push({ phase: 'Search', detail: `Checked index ${i}` });
+      if (values[i] === target) { index = i; break; }
+    }
+  } else if (solverKey === 'beam_solver') {
+    let left = 0;
+    let right = values.length - 1;
+    while (left <= right) {
+      const middle = Math.floor((left + right) / 2);
+      steps += 1;
+      trace.push({ phase: 'Search', detail: `Expanded best candidate at index ${middle}` });
+      if (values[middle] === target) { index = middle; break; }
+      if (values[middle] < target) left = middle + 1;
+      else right = middle - 1;
+    }
+  } else if (solverKey === 'genetic_solver') {
+    // Interpolation search: a real alternative strategy for sorted numeric data.
+    let low = 0;
+    let high = values.length - 1;
+    while (low <= high && target >= values[low] && target <= values[high]) {
+      const denominator = values[high] - values[low];
+      const probe = denominator === 0 ? low : low + Math.floor(((target - values[low]) * (high - low)) / denominator);
+      steps += 1;
+      trace.push({ phase: 'Hypothesis', detail: `Probed index ${probe}` });
+      if (values[probe] === target) { index = probe; break; }
+      if (values[probe] < target) low = probe + 1;
+      else high = probe - 1;
+    }
+  } else {
+    // MCTS and Reflexion use a verified binary-search pass in this local harness.
+    let left = 0;
+    let right = values.length - 1;
+    while (left <= right) {
+      const middle = Math.floor((left + right) / 2);
+      steps += 1;
+      trace.push({ phase: solverKey === 'reflexion_solver' ? 'Verification' : 'Search', detail: `Visited index ${middle}` });
+      if (values[middle] === target) { index = middle; break; }
+      if (values[middle] < target) left = middle + 1;
+      else right = middle - 1;
+    }
+  }
+
+  return { index, steps, executionTimeMs: Math.max(0, Number((performance.now() - startedAt).toFixed(3))), trace };
+}
 
 /**
  * Calculates updated ELO rating between two competitors
@@ -21,40 +103,35 @@ function calculateElo(ratingA, ratingB, scoreA) {
   return Math.round(ratingA + kFactor * (scoreA - expectedA));
 }
 
-/**
- * Simulates an isolated solver execution step on a problem
- */
 function evaluateSolverStep(solverKey, problem, roundNum) {
   const profile = SOLVER_PROFILES[solverKey] || SOLVER_PROFILES.mcts_solver;
-  const difficulty = problem.difficulty || 1.0;
-  
-  // Deterministic pseudo-random variation based on solver key and round
-  const seed = (solverKey.charCodeAt(0) * 17 + roundNum * 31) % 100 / 100;
-  const stepsTaken = Math.max(3, Math.round(5 * difficulty + seed * 4));
-  
-  const executionTimeMs = Math.round(profile.speedMs * stepsTaken * (0.85 + seed * 0.3));
-  const tokenCostUSD = Number((profile.costPerStep * stepsTaken * (0.9 + seed * 0.2)).toFixed(4));
-  const fitnessScore = Number(Math.min(99.5, Math.max(60, 82 + (profile.baseElo - 1450) / 10 + seed * 12 - difficulty * 5)).toFixed(1));
-  const adversarialPassRate = Number(Math.min(100, Math.max(50, 78 + seed * 20)).toFixed(1));
+  const benchmarkCase = problem.cases[(roundNum - 1) % problem.cases.length];
+  if (!benchmarkCase || !Array.isArray(benchmarkCase.values) || benchmarkCase.values.length === 0) {
+    throw new Error('Benchmark cases must contain non-empty numeric values.');
+  }
+  const execution = executeSolver(solverKey, benchmarkCase.values, benchmarkCase.target);
+  const passed = execution.index >= 0 && benchmarkCase.values[execution.index] === benchmarkCase.target;
 
   return {
     solverKey,
     solverName: profile.name,
     archetype: profile.archetype,
-    stepsTaken,
-    executionTimeMs,
-    tokenCostUSD,
-    fitnessScore,
-    adversarialPassRate
+    stepsTaken: execution.steps,
+    executionTimeMs: execution.executionTimeMs,
+    tokenCostUSD: 0,
+    fitnessScore: passed ? Number((100 * (1 - execution.steps / (benchmarkCase.values.length * 2))).toFixed(1)) : 0,
+    adversarialPassRate: passed ? 100 : 0,
+    passed,
+    trace: execution.trace
   };
 }
 
 /**
  * Executes a multi-solver tournament round
  */
-function runTournament(problemSpec, solverKeys = [], rounds = 3) {
+function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) {
   const selectedSolvers = solverKeys.length > 0 ? solverKeys : Object.keys(SOLVER_PROFILES);
-  const problem = problemSpec || { id: 'prob-refactor-01', title: 'Refactor AST Parser', difficulty: 1.2 };
+  const problem = buildBenchmark(problemSpec || {});
   
   const tournamentId = `tourn-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const solverResults = {};
@@ -65,6 +142,7 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3) {
     let totalFitness = 0;
     let totalPassRate = 0;
     let totalSteps = 0;
+    const traces = [];
 
     for (let r = 1; r <= rounds; r++) {
       const step = evaluateSolverStep(key, problem, r);
@@ -73,6 +151,7 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3) {
       totalFitness += step.fitnessScore;
       totalPassRate += step.adversarialPassRate;
       totalSteps += step.stepsTaken;
+      traces.push({ round: r, caseId: problem.cases[(r - 1) % problem.cases.length].id, passed: step.passed, steps: step.trace });
     }
 
     const avgFitness = Number((totalFitness / rounds).toFixed(1));
@@ -80,29 +159,33 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3) {
     const baseElo = SOLVER_PROFILES[key]?.baseElo || 1500;
 
     solverResults[key] = {
+      agentId: agentIds.length > 0 ? agentIds[Object.keys(solverResults).length % agentIds.length] : null,
       solverKey: key,
       solverName: SOLVER_PROFILES[key]?.name || key,
       archetype: SOLVER_PROFILES[key]?.archetype || 'Custom',
       roundsCompleted: rounds,
       totalSteps,
-      executionTimeMs: Math.round(totalTime / rounds),
+      executionTimeMs: Math.max(1, Math.round(totalTime / rounds)),
       tokenCostUSD: Number((totalCost / rounds).toFixed(4)),
       fitnessScore: avgFitness,
       adversarialPassRate: avgPassRate,
-      eloRating: baseElo + Math.round((avgFitness - 80) * 2.5 + (avgPassRate - 75) * 1.5)
+      eloRating: baseElo + Math.round((avgFitness - 80) * 2.5 + (avgPassRate - 75) * 1.5),
+      traces
     };
   }
 
   // Rank competitors by ELO rating
   const leaderboard = Object.values(solverResults).sort((a, b) => b.eloRating - a.eloRating);
 
-  return {
+  const result = {
     tournamentId,
     problem,
     timestamp: new Date().toISOString(),
     leaderboard,
     topSolver: leaderboard[0] || null
   };
+  lastTournamentResult = result;
+  return result;
 }
 
 /**
@@ -176,12 +259,16 @@ function findKneePoint(paretoSet) {
  * Calculates the multi-objective Pareto Frontier from a collection of solutions
  */
 function calculateParetoFront(candidateSolutions = []) {
-  let solutions = candidateSolutions;
-
-  // If no solutions passed, generate standard comparison set from tournament
-  if (!solutions || solutions.length === 0) {
-    const tournament = runTournament(null, [], 3);
-    solutions = tournament.leaderboard;
+  const solutions = Array.isArray(candidateSolutions) ? candidateSolutions : [];
+  if (solutions.length === 0) {
+    return {
+      timestamp: new Date().toISOString(),
+      totalEvaluated: 0,
+      paretoFrontCount: 0,
+      paretoFront: [],
+      dominatedSolutions: [],
+      kneePointRecommendation: null
+    };
   }
 
   const paretoFront = [];
@@ -218,20 +305,30 @@ function calculateParetoFront(candidateSolutions = []) {
 }
 
 /**
- * Exports execution trace bundle conforming to OpenTelemetry Spans & DAG format
+ * Exports the recorded execution trace bundle conforming to OpenTelemetry Spans & DAG format
  */
-function exportTrace(tournamentId, format = 'json-dag') {
-  const traceId = `trace-${tournamentId || 'tourn-default'}`;
-  const spans = Object.keys(SOLVER_PROFILES).map((key, idx) => ({
+function exportTrace(tournamentId, format = 'json-dag', solverKeys = Object.keys(SOLVER_PROFILES)) {
+  const recorded = lastTournamentResult?.leaderboard || [];
+  if (recorded.length === 0) {
+    return { traceId: null, format, exportedAt: null, spans: [] };
+  }
+  const recordedByKey = new Map(recorded.map((solver) => [solver.solverKey, solver]));
+  const traceId = `trace-${tournamentId || lastTournamentResult.tournamentId}`;
+  const spans = solverKeys.map((key, idx) => ({
     traceId,
     spanId: `span-${key}-${idx + 1}`,
     name: `execute_${key}`,
-    startTime: Date.now() - (500 - idx * 80),
-    endTime: Date.now(),
+    stepNumber: idx + 1,
+    phase: ['Search', 'Hypothesis', 'AST_Transform', 'Verification'][idx % 4],
+    description: recordedByKey.get(key) ? `Recorded ${recordedByKey.get(key).traces.length} benchmark executions.` : 'No recorded execution for this solver.',
+    latencyMs: recordedByKey.get(key)?.executionTimeMs || 0,
+    astDiff: JSON.stringify(recordedByKey.get(key)?.traces || [], null, 2),
+    startTime: null,
+    endTime: null,
     attributes: {
-      'solver.name': SOLVER_PROFILES[key].name,
-      'solver.archetype': SOLVER_PROFILES[key].archetype,
-      'solver.baseElo': SOLVER_PROFILES[key].baseElo
+      'solver.name': SOLVER_PROFILES[key]?.name || key,
+      'solver.archetype': SOLVER_PROFILES[key]?.archetype || 'Custom',
+      'solver.baseElo': SOLVER_PROFILES[key]?.baseElo || 1500
     }
   }));
 

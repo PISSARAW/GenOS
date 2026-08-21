@@ -9,6 +9,7 @@ async function getConsensus(req, res) {
   const db = await getDatabase();
   const proposals = await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
   const votes = await db.all('SELECT * FROM swarm_votes');
+  const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
 
   const formatted = proposals.map(p => {
     const pVotes = votes.filter(v => v.proposal_id === p.id);
@@ -37,12 +38,24 @@ async function getConsensus(req, res) {
     };
   });
 
+  for (const proposal of formatted) {
+    if (proposal.status === 'open' && proposal.totalVotes > 0 && proposal.yesCount / proposal.totalVotes >= proposal.quorumThreshold) {
+      proposal.status = 'passed';
+      await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposal.id);
+    }
+  }
+
+  const latestProposal = formatted[0];
+  const currentConsensus = latestProposal
+    ? `${latestProposal.approvalRate}% approval · ${latestProposal.totalVotes} vote${latestProposal.totalVotes === 1 ? '' : 's'}`
+    : 'No quorum proposal';
+
   res.json({
     proposals: formatted,
     quorumState: {
-      activeNodes: 6,
-      currentConsensus: 'Achieved (Supermajority 83%)',
-      biomimicryModel: 'Honeybee Dance & Quorum Sensing'
+      activeNodes: Number(activeNodeRow?.count || 0),
+      currentConsensus,
+      biomimicryModel: 'Database-backed quorum'
     }
   });
 }
@@ -78,6 +91,14 @@ async function castVote(req, res) {
     id, proposalId, agentId, agentId, vote, reason
   );
 
+  const proposal = await db.get('SELECT quorum_threshold FROM swarm_proposals WHERE id = ?', proposalId);
+  const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', proposalId);
+  const yesCount = proposalVotes.filter((item) => item.vote === 'yes').length;
+  const totalVotes = proposalVotes.length;
+  if (proposal && totalVotes > 0 && yesCount / totalVotes >= proposal.quorum_threshold) {
+    await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposalId);
+  }
+
   telemetry.emitEvent({
     eventType: 'QUORUM_VOTE_CAST',
     agentId,
@@ -94,9 +115,18 @@ const swarmMetricsService = require('../services/swarmMetricsService');
 async function getMetrics(req, res, next) {
   try {
     const db = await getDatabase();
-    const events = await db.all('SELECT action as type, event_type as action FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
+    const events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
     const entropyResult = swarmMetricsService.calculateShannonEntropy(events);
-    const deadlockResult = swarmMetricsService.detectDeadlocks([]);
+    const messageQueue = events.map((event) => {
+      let payload = {};
+      try { payload = JSON.parse(event.payload_json || '{}'); } catch {}
+      return {
+        sender: payload.sender || event.agent_id || 'unknown',
+        recipient: payload.recipient || payload.targetAgentId || 'telemetry',
+        hasDiff: Boolean(payload.hasDiff || payload.diff)
+      };
+    });
+    const deadlockResult = swarmMetricsService.detectDeadlocks(messageQueue);
 
     res.json({
       ...entropyResult,
@@ -111,8 +141,16 @@ async function getMetrics(req, res, next) {
 async function getTopology(req, res, next) {
   try {
     const db = await getDatabase();
-    const agents = await db.all('SELECT id, role, status, model_tier as tier FROM agents');
-    const topology = swarmMetricsService.getSwarmTopology(agents);
+    const agents = await db.all(`
+      SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
+        fleet_id as fleetId, parent_agent_id as parentAgentId
+      FROM agents WHERE status != 'terminated'
+    `);
+    const events = await db.all(`
+      SELECT id, agent_id, payload_json, created_at
+      FROM telemetry_events ORDER BY created_at DESC LIMIT 100
+    `);
+    const topology = swarmMetricsService.getSwarmTopology(agents, events);
     res.json(topology);
   } catch (err) {
     next(err);

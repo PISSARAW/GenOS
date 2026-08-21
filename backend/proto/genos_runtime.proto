@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package genos.runtime.v1;
+
+message AgentMission {
+  string agent_id = 1;
+  string name = 2;
+  string role = 3;
+  string prompt = 4;
+  string model_tier = 5;
+  string workspace_root = 6;
+  string workspace_isolation = 7;
+  string agent_type = 8;
+}
+
+message AgentEvent {
+  string agent_id = 1;
+  string event_type = 2;
+  string action = 3;
+  string detail = 4;
+  string severity = 5;
+  string status = 6;
+  string current_task = 7;
+  string payload_json = 8;
+}

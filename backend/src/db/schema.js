@@ -64,16 +64,41 @@ CREATE TABLE IF NOT EXISTS agents (
     name TEXT NOT NULL,
     role TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
-    agent_type TEXT NOT NULL DEFAULT 'Antigravity',
+    agent_type TEXT NOT NULL DEFAULT 'GenOS',
     workspace_id TEXT,
+    fleet_id TEXT,
+    hallucination_monitoring INTEGER NOT NULL DEFAULT 0,
     model_tier TEXT DEFAULT 'Flash',
+    language TEXT DEFAULT 'TypeScript',
     isolation_mode TEXT DEFAULT 'Branch',
     parent_agent_id TEXT,
+    lineage_relation TEXT DEFAULT 'independent',
+    about TEXT,
     current_task TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,
     FOREIGN KEY (parent_agent_id) REFERENCES agents(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS resilience_policies (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    max_consecutive_failures INTEGER NOT NULL DEFAULT 3,
+    max_cost_usd REAL NOT NULL DEFAULT 1.0,
+    divergence_threshold REAL NOT NULL DEFAULT 0.55,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS trinity_worlds (
+    id TEXT PRIMARY KEY,
+    mission TEXT NOT NULL,
+    world_number INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    strategy TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    agent_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 6. Trajectories & Code Proposals
@@ -303,6 +328,7 @@ CREATE INDEX IF NOT EXISTS idx_access_keys_hash ON access_keys(key_hash);
 CREATE INDEX IF NOT EXISTS idx_experiments_status ON experiments(status);
 CREATE INDEX IF NOT EXISTS idx_snapshots_workspace ON workspace_snapshots(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_votes_proposal ON swarm_votes(proposal_id);
+CREATE INDEX IF NOT EXISTS idx_trinity_worlds_agent ON trinity_worlds(agent_id);
 `;
 
 async function migrateLegacySchema(db) {
@@ -313,6 +339,18 @@ async function migrateLegacySchema(db) {
       if (!colNames.includes('agent_type')) {
         // Legacy agents table without agent_type, drop and let CREATE_TABLES_SQL rebuild it
         await db.exec('DROP TABLE IF EXISTS agents;');
+      } else {
+        if (!colNames.includes('fleet_id')) await db.exec('ALTER TABLE agents ADD COLUMN fleet_id TEXT;');
+        if (!colNames.includes('hallucination_monitoring')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_monitoring INTEGER NOT NULL DEFAULT 0;');
+      }
+      if (!colNames.includes('lineage_relation')) {
+        await db.exec("ALTER TABLE agents ADD COLUMN lineage_relation TEXT DEFAULT 'independent';");
+      }
+      if (!colNames.includes('about')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN about TEXT;');
+      }
+      if (!colNames.includes('language')) {
+        await db.exec("ALTER TABLE agents ADD COLUMN language TEXT DEFAULT 'TypeScript';");
       }
     }
   } catch (err) {
@@ -327,6 +365,7 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA foreign_keys = ON;');
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
+  await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   await db.exec(CREATE_INDEXES_SQL);
 }
 

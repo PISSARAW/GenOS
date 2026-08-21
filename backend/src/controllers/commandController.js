@@ -22,9 +22,10 @@ async function handleCommand(req, res) {
   switch (action) {
     case 'fork_agent': {
       const newId = `agent_fork_${Date.now()}`;
+      const parent = agentId ? await db.get('SELECT agent_type, language FROM agents WHERE id = ?', agentId) : null;
       await db.run(
-        `INSERT INTO agents (id, name, role, status, agent_type, isolation_mode, parent_agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        newId, `Fork of ${agentId || 'Node'}`, 'Forked Worker', 'running', 'Antigravity', 'Branch', agentId || null
+        `INSERT INTO agents (id, name, role, status, agent_type, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        newId, `Clone of ${agentId || 'Node'}`, 'Forked Worker', 'running', parent?.agent_type || 'GenOS', parent?.language || 'TypeScript', 'Branch', agentId || null, 'clone', `Clone created from ${agentId || 'the GenOS fleet'}.`, 'Autonomous forked execution'
       );
       return res.json({ success: true, message: `Forked agent created: ${newId}`, agentId: newId });
     }
@@ -59,26 +60,34 @@ async function handleCommand(req, res) {
   }
 }
 
-function handleTerminal(req, res) {
+async function handleTerminal(req, res) {
   const { command } = req.body || {};
   const cmd = (command || '').trim().toLowerCase();
+  const db = await getDatabase();
 
   let output = '';
   if (cmd === 'help') {
-    output = 'GenOS Terminal Available Commands:\n  status   - Show swarm, agent, and circuit breaker status\n  halt     - Engage emergency kill switch\n  resume   - Reset kill switch and restore runtime\n  agents   - List active agents\n  ping     - Health ping to orchestrator\n  clear    - Clear terminal buffer';
+    output = 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Engage emergency kill switch\n  resume   - Reset kill switch and restore runtime\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
   } else if (cmd === 'status') {
     const cb = circuitBreaker.getStatus();
-    output = `[SYSTEM OK] 40 MCP Tools Active | Breaker: ${cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
+    const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
+    const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+    output = `[SYSTEM] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
   } else if (cmd === 'halt' || cmd === 'abort') {
     circuitBreaker.triggerHalt('Terminal user command', 'terminal_user');
     output = '[HALT ENGAGED] Global Cryptobiosis initiated. All active tasks suspended.';
   } else if (cmd === 'resume') {
     circuitBreaker.resetHalt('terminal_user');
     output = '[RESUMED] System runtime restored. Circuit breaker set to CLOSED.';
+  } else if (cmd === 'agents') {
+    const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
+    output = agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
   } else if (cmd === 'ping') {
-    output = 'PONG (Latency: 0.8ms, Memory: 42.8MB, Swarm: Healthy)';
+    output = `[PONG] Backend online | Uptime: ${Math.floor(process.uptime())}s`;
+  } else if (cmd === 'clear') {
+    output = '';
   } else {
-    output = `Command executed: ${command} (Exit code: 0)`;
+    return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported terminal command: ${command}` } });
   }
 
   res.json({ output });

@@ -35,7 +35,7 @@ function streamSSE(req, res) {
 }
 
 async function getEvents(req, res) {
-  const { limit = 50, event_type, severity } = req.query;
+  const { limit = 50, event_type, severity, agent_id } = req.query;
   const db = await getDatabase();
 
   let query = 'SELECT * FROM telemetry_events WHERE 1=1';
@@ -48,6 +48,10 @@ async function getEvents(req, res) {
   if (severity) {
     query += ' AND severity = ?';
     params.push(severity);
+  }
+  if (agent_id) {
+    query += ' AND agent_id = ?';
+    params.push(agent_id);
   }
 
   query += ' ORDER BY created_at DESC LIMIT ?';
@@ -68,11 +72,11 @@ function ingestEvent(req, res) {
 async function getStatus(req, res) {
   const db = await getDatabase();
   const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-  const count = agentCount ? agentCount.count : 4;
+  const count = agentCount ? agentCount.count : 0;
 
   res.json({
     activeAgentsCount: count,
-    clonesHistory: 154,
+    clonesHistory: (await db.get('SELECT COUNT(*) as count FROM agents'))?.count || 0,
     status: 'online',
     timestamp: new Date().toISOString()
   });
@@ -96,22 +100,23 @@ async function getDashboard(req, res) {
   const wsList = await db.all('SELECT * FROM workspaces LIMIT 2');
   const heatmapRows = await db.all('SELECT actions FROM heatmap_activity ORDER BY day ASC LIMIT 364');
 
-  const heatmap = heatmapRows.length > 0 ? heatmapRows.map(r => r.actions) : Array(52 * 7).fill(1);
+  // The dashboard contract is a full year (364 cells). Older/local databases
+  // may contain only a partial seed, so normalize the response instead of
+  // leaking a short heatmap to the frontend.
+  const heatmap = heatmapRows.length > 0
+    ? heatmapRows.map(r => r.actions).concat(Array(Math.max(0, 364 - heatmapRows.length)).fill(0)).slice(0, 364)
+    : [];
 
   const pinned = wsList.map(w => ({
     id: w.id,
     name: w.name,
     status: 'Active Workspace',
     language: w.language || 'TypeScript',
-    agents_count: agentCount ? agentCount.count : 3,
-    progress: 100
+    agents_count: agentCount ? agentCount.count : 0,
+    progress: null
   }));
 
-  const achievements = [
-    { id: 'db', title: 'Data Persister', desc: '18 SQLite Tables Active', icon: 'Database', color: '#0969da' },
-    { id: 'sec', title: 'Military Security', desc: 'RBAC Gate & Breaker Armed', icon: 'ShieldAlert', color: '#bf8700' },
-    { id: 'telemetry', title: 'Telemetry Observer', desc: 'Zero-Overhead Stream Online', icon: 'Activity', color: '#1a7f37' }
-  ];
+  const achievements = [];
 
   res.json({
     profile: {
@@ -119,20 +124,16 @@ async function getDashboard(req, res) {
       org: 'PISSARAW',
       location: 'Local Machine (Windows)'
     },
-    stats: statsRecord || { total_actions: 8420, total_snapshots: 1310, total_tasks: 52, total_swarms: 4 },
+    stats: statsRecord || { total_actions: 0, total_snapshots: 0, total_tasks: 0, total_swarms: 0 },
     heatmap,
     pinned,
-    activeAgents: agentCount ? agentCount.count : 4,
+    activeAgents: agentCount ? agentCount.count : 0,
     achievements
   });
 }
 
 async function getAchievements(req, res) {
-  res.json([
-    { id: 'db', title: 'Data Persister', desc: '18 SQLite Tables Active', icon: 'Database', color: '#0969da' },
-    { id: 'sec', title: 'Military Security', desc: 'RBAC Gate & Breaker Armed', icon: 'ShieldAlert', color: '#bf8700' },
-    { id: 'telemetry', title: 'Telemetry Observer', desc: 'Zero-Overhead Stream Online', icon: 'Activity', color: '#1a7f37' }
-  ]);
+  res.json([]);
 }
 
 module.exports = {
