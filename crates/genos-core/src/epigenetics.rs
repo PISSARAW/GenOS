@@ -1,4 +1,4 @@
-﻿use crate::state::AgentState;
+use crate::state::AgentState;
 
 /// Evaluates a simple trigger condition against the agent's current state.
 /// The condition string should be in the format: "<variable> <operator> <value>"
@@ -93,6 +93,8 @@ mod tests {
             input: serde_json::Value::Null,
             output: serde_json::Value::Null,
             success,
+            receipt: None,
+            is_tainted: false,
             branch_id: crate::ids::BranchId::new(),
             created_at: Utc::now(),
             generating_event_id: crate::ids::EventId::new(),

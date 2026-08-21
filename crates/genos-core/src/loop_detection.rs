@@ -184,6 +184,7 @@ mod tests {
             breaker.record_iteration(IterationSnapshot {
                 tool_signature: Some(sig.clone()),
                 world_state_hash: 0,
+                world_state_content: None,
                 thought_embedding: None,
             });
         }
@@ -212,6 +213,7 @@ mod tests {
             breaker.record_iteration(IterationSnapshot {
                 tool_signature: None,
                 world_state_hash: 42,
+                world_state_content: None,
                 thought_embedding: None,
             });
         }
@@ -220,6 +222,7 @@ mod tests {
         breaker.record_iteration(IterationSnapshot {
             tool_signature: None,
             world_state_hash: 42,
+            world_state_content: None,
             thought_embedding: None,
         });
 
@@ -237,16 +240,19 @@ mod tests {
         breaker.record_iteration(IterationSnapshot {
             tool_signature: None,
             world_state_hash: 1,
+            world_state_content: None,
             thought_embedding: Some(vec![1.0, 0.0, 0.0]),
         });
         breaker.record_iteration(IterationSnapshot {
             tool_signature: None,
             world_state_hash: 2,
+            world_state_content: None,
             thought_embedding: Some(vec![0.0, 1.0, 0.0]),
         });
         breaker.record_iteration(IterationSnapshot {
             tool_signature: None,
             world_state_hash: 3,
+            world_state_content: None,
             thought_embedding: Some(vec![0.9, 0.1, 0.0]), // Highly similar to N-2
         });
 

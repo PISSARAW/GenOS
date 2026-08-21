@@ -1,7 +1,7 @@
 // Module de résilience cellulaire
 // Implémente Apoptose, CODIT, Nociception et IDS/DLQ.
 
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 
 /// Type d'erreur du système
@@ -134,6 +134,7 @@ impl ResilienceSystem {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::mpsc;
 
     #[test]
     fn test_resilience_flow() {

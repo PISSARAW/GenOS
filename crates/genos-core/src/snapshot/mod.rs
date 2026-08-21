@@ -1,7 +1,8 @@
-﻿pub mod checkpoint;
+pub mod checkpoint;
 pub mod compare;
 pub mod fork;
 pub mod restore;
+pub mod manifest;
 
 #[cfg(test)]
 pub(crate) mod tests;
@@ -18,6 +19,7 @@ pub use checkpoint::*;
 pub use compare::*;
 pub use fork::*;
 pub use restore::*;
+pub use manifest::*;
 
 use crate::ids::{AgentId, BranchId, SnapshotId, WorldId};
 use crate::{AgentGenome, AgentState};

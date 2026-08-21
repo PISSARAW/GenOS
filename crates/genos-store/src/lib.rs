@@ -1,9 +1,10 @@
-﻿pub mod artifact;
+pub mod artifact;
 pub mod capsule;
 pub mod event;
 pub mod replay;
 pub mod snapshot;
 pub mod fossil;
+pub mod dpo;
 
 pub use artifact::{LocalArtifactStore, LocalSnapshotComponentStore, SnapshotComponentManifest};
 pub use fossil::FossilRegistry;
