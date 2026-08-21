@@ -1,0 +1,323 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import 'allotment/dist/style.css';
+
+:root {
+  /* GitHub Dark Theme Primer Colors */
+  --bg-main: #0d1117;
+  --bg-panel: #161b22;
+  --bg-subtle: #21262d;
+  --panel-border: #30363d;
+  --border-subtle: #21262d;
+  
+  --text-primary: #c9d1d9;
+  --text-secondary: #8b949e;
+  --text-muted: #6e7681;
+  --text-accent: #58a6ff;
+  
+  --accent-blue: #58a6ff;
+  --accent-purple: #bc8cff;
+  --accent-light: rgba(56, 139, 253, 0.15);
+  --success: #238636;
+  --warning: #d29922;
+  --danger: #f85149;
+  --error: #f85149;
+  
+  --radius-sm: 6px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base Panels & Cards */
+.saas-panel, .saas-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+}
+
+.saas-sidebar {
+  border-right: 1px solid var(--panel-border);
+  background: var(--bg-main);
+  height: 100%;
+}
+
+.saas-sidebar-primary {
+  border-right: 1px solid var(--panel-border);
+  background: var(--bg-panel);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 16px;
+}
+
+/* Hover utilities */
+.hover-bg-gray:hover {
+  background: var(--bg-subtle) !important;
+}
+
+.hover-blue:hover {
+  color: var(--accent-blue) !important;
+}
+
+.hover-underline:hover {
+  text-decoration: underline;
+}
+
+.hover-bg-red:hover {
+  background: rgba(248, 81, 73, 0.15) !important;
+}
+
+/* Device Node styling */
+.device-node {
+  background: var(--bg-panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.device-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--panel-border);
+  padding-bottom: 6px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.device-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.device-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.device-port-row {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.device-port {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: var(--panel-border);
+}
+
+/* React Flow Overrides */
+.react-flow__pane {
+  background: var(--bg-main) !important;
+}
+
+.react-flow__edge-path {
+  stroke: var(--panel-border);
+  stroke-width: 2;
+}
+
+/* Context Menu GitHub Style */
+.mac-context-menu {
+  background: var(--bg-panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 0;
+  min-width: 160px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.mac-menu-item {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  outline: none;
+}
+
+.mac-menu-item:hover, .mac-menu-item:focus {
+  background: var(--accent-blue);
+  color: #ffffff;
+}
+
+.mac-menu-separator {
+  height: 1px;
+  background: var(--panel-border);
+  margin: 4px 0;
+}
+
+/* GitHub Layout */
+.gh-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: var(--bg-main);
+  overflow: hidden;
+}
+
+.gh-topbar {
+  height: 60px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--panel-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.gh-search-bar {
+  display: flex;
+  align-items: center;
+  background: var(--bg-main);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  width: 320px;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.gh-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 0.85rem;
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.gh-main-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.gh-sidebar {
+  width: 280px;
+  background: var(--bg-panel);
+  border-right: 1px solid var(--panel-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.gh-content-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  background: var(--bg-main);
+}
+
+.gh-dashboard-wrapper {
+  display: flex;
+  max-width: 1280px;
+  width: 100%;
+  padding: 32px;
+  gap: 32px;
+}
+
+.gh-tab {
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.gh-tab:hover {
+  color: var(--text-primary) !important;
+}
+
+.gh-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-subtle);
+  border: 1px solid var(--panel-border);
+  color: var(--text-primary);
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.gh-btn:hover {
+  background: var(--panel-border);
+}
+
+.gh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gh-btn-primary {
+  background: var(--success);
+  border-color: rgba(240, 246, 252, 0.1);
+  color: #ffffff;
+}
+
+.gh-btn-primary:hover {
+  background: #2ea043;
+}
+
+.gh-btn-danger {
+  background: var(--danger);
+  border-color: rgba(240, 246, 252, 0.1);
+  color: #ffffff;
+}
+
+.gh-btn-danger:hover {
+  background: #da3633;
+}
+
+/* Animations */
+@keyframes pulse-green {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
+.pulse-green {
+  animation: pulse-green 2s infinite ease-in-out;
+  color: var(--success);
+}
+
+@keyframes blink-red {
+  0%, 100% { opacity: 1; color: var(--danger); }
+  50% { opacity: 0.4; color: #ff7b72; }
+}
+.blink-red {
+  animation: blink-red 1.5s infinite ease-in-out;
+}
