@@ -1,4 +1,4 @@
-﻿//! Tests for branch-local tool output records.
+//! Tests for branch-local tool output records.
 
 use crate::events::AgentEventType;
 use crate::fork_snapshot;
@@ -19,6 +19,8 @@ fn tool_output_records_carry_generating_event_id() {
             input: json!({ "sql": "SELECT 1" }),
             output: json!({ "rows": 1 }),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -59,6 +61,8 @@ fn tool_output_record_is_branch_local() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -80,6 +84,8 @@ fn tool_output_record_is_branch_local() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
     assert_eq!(a.tool_outputs().len(), 2);
@@ -99,6 +105,8 @@ fn tool_output_failed_flag_distinguishes_completed_from_failed() {
             input: json!({ "sql": "SELECT 1" }),
             output: json!({ "error": "timeout" }),
             success: false,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -117,6 +125,8 @@ fn record_tool_call_appends_two_events_in_order() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -159,6 +169,8 @@ fn read_file_result_is_attached_as_a_provenance_artifact() {
             input: json!({ "path": "README.md" }),
             output: json!({ "content": "hello" }),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -192,6 +204,8 @@ fn failed_tool_call_is_recorded_without_failing_the_runtime() {
             input: json!({ "path": "missing.txt" }),
             output: json!({ "error": "file not found" }),
             success: false,
+            receipt: None,
+            is_tainted: false,
         },
     );
 
@@ -219,10 +233,12 @@ fn denied_network_tool_is_audited_without_execution() {
 
     let write = record_checked_tool_call_on_branch(
         &mut snapshot,
-        &policy,
-        "http",
-        "network",
-        json!({ "url": "https://example.com" }),
+        crate::tool_outputs::CheckToolRequest {
+            policy: &policy,
+            tool_name: "http",
+            scope: "network",
+            input: json!({ "url": "https://example.com" }),
+        }
     );
 
     assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
@@ -252,17 +268,21 @@ fn sibling_branches_can_use_different_environment_permissions() {
 
     let allowed = record_checked_tool_call_on_branch(
         &mut branch_a,
-        &policy_a,
-        "http",
-        "network",
-        json!({ "url": "https://example.com" }),
+        crate::tool_outputs::CheckToolRequest {
+            policy: &policy_a,
+            tool_name: "http",
+            scope: "network",
+            input: json!({ "url": "https://example.com" }),
+        }
     );
     let denied = record_checked_tool_call_on_branch(
         &mut branch_b,
-        &policy_b,
-        "http",
-        "network",
-        json!({ "url": "https://example.com" }),
+        crate::tool_outputs::CheckToolRequest {
+            policy: &policy_b,
+            tool_name: "http",
+            scope: "network",
+            input: json!({ "url": "https://example.com" }),
+        }
     );
 
     assert_eq!(
@@ -287,6 +307,8 @@ fn tool_output_ids_are_unique() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
     let b = record_tool_call_on_branch(
@@ -296,6 +318,8 @@ fn tool_output_ids_are_unique() {
             input: json!({}),
             output: json!({}),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
     assert_ne!(a.record.id, b.record.id);

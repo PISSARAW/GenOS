@@ -68,6 +68,7 @@ pub struct ToolCallRequest<'a> {
     pub output: serde_json::Value,
     pub success: bool,
     pub receipt: Option<crate::state::ExecutionReceipt>,
+    pub is_tainted: bool,
 }
 
 /// Record a tool call on `snapshot`'s own branch and advance its event cursor.
@@ -116,6 +117,7 @@ pub fn record_checked_tool_call_on_branch(
                 output: json!({ "status": "allowed" }),
                 success: true,
                 receipt: None,
+                is_tainted: false,
             },
         )
     } else {
@@ -127,6 +129,7 @@ pub fn record_checked_tool_call_on_branch(
                 output: json!({ "error": "permission_denied", "scope": req.scope }),
                 success: false,
                 receipt: None,
+                is_tainted: false,
             },
         )
     }
@@ -190,6 +193,7 @@ pub fn record_tool_call_on_branch_at(
         output: req.output,
         success: req.success,
         receipt: req.receipt,
+        is_tainted: req.is_tainted,
         branch_id: snapshot.branch_id.clone(),
         created_at,
         generating_event_id: completed_event.event_id.clone(),

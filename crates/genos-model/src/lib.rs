@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 pub mod adapters;
 pub mod factory;
 pub mod fake;
+pub mod inference;
+pub mod router;
+pub mod ssm;
 
 /// Standardized roles for LLM messages
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

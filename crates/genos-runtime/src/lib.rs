@@ -31,6 +31,8 @@ mod cognitive_merge;
 pub use cognitive_merge::*;
 mod agent_primitives;
 pub use agent_primitives::*;
+mod huddle;
+pub use huddle::*;
 
 #[cfg(test)]
 pub(crate) mod test_support {

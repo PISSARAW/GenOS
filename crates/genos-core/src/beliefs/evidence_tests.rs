@@ -1,4 +1,4 @@
-﻿//! Tests for the `evidence` field on `Belief` (typed links + auto-Inferred).
+//! Tests for the `evidence` field on `Belief` (typed links + auto-Inferred).
 
 #![cfg(test)]
 
@@ -18,6 +18,8 @@ fn seed_tool_output(snapshot: &mut crate::snapshot::AgentSnapshot) -> ToolOutput
             input: json!({ "sql": "SELECT 1" }),
             output: json!({ "rows": 1 }),
             success: true,
+            receipt: None,
+            is_tainted: false,
         },
     );
     write.record.id
