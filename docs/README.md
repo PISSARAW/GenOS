@@ -1,43 +1,176 @@
-# GenOS Documentation
+# GenOS Documentation Portal
 
-Bienvenue dans la documentation officielle de **GenOS**. 
-Cette documentation est structurée selon une approche **AI-Native**, conçue pour être consommée à la fois par les développeurs humains et par les agents IA autonomes.
+[![GenOS Architecture](https://img.shields.io/badge/Architecture-Counterfactual_OS-blue.svg)](2-architecture/overview.md)
+[![Resilience](https://img.shields.io/badge/Resilience-Apoptosis_&_Cryptobiosis-green.svg)](3-features-and-domain/resilience/cellular.md)
+[![MCP Native](https://img.shields.io/badge/MCP-Native_40+_Tools-orange.svg)](4-interfaces/mcp-tools-reference.md)
+[![Lineage CAS](https://img.shields.io/badge/CAS-Merkle_DAG_100%25_Replay-purple.svg)](7-benchmarks-and-comparisons/theoretical-foundations.md)
+[![Rust Core](https://img.shields.io/badge/Engine-Native_Rust_<2ms-red.svg)](1-onboarding-and-setup/architecture-tour.md)
 
-## 🤖 Pour les Agents IA
-Si vous êtes un agent IA travaillant sur ce dépôt, veuillez commencer par lire :
-- [Instructions Système](.ai/system-prompt.md)
-- [Politique de Mise à Jour de la Documentation](.ai/doc-update-policy.md)
-- [Invariants du Système](.ai/invariants.md)
+Welcome to the official technical documentation for **GenOS**—the world's first **Counterfactual Operating System for Autonomous AI Agents**.
 
-## 🗺️ Index de la Documentation
+GenOS provides an event-sourced execution environment with Content-Addressable Storage (CAS), zero-cost speculative branching, bitwise replayability, epistemic cognitive merging, and biomimetic cellular resilience.
 
-- **[0. Contexte et Vision](0-context-and-vision/)**
-  - [Roadmap Produit](0-context-and-vision/product-roadmap.md)
-  - [Counterfactual OS](0-context-and-vision/counterfactual-os.md)
-  - [Objectifs Métier](0-context-and-vision/business-goals.md)
-  - [Lexique (Ubiquitous Language)](0-context-and-vision/ubiquitous-language.md)
+---
 
-- **[1. Prise en Main et Installation](1-onboarding-and-setup/)**
-  - [Environnement Local](1-onboarding-and-setup/local-environment.md)
-  - [Visite de l'Architecture](1-onboarding-and-setup/architecture-tour.md)
+## 🤖 AI-Native Directives
 
-- **[2. Architecture et Décisions Techniques](2-architecture/)**
-  - [Vue d'Ensemble](2-architecture/overview.md)
-  - [Matrice de Traçabilité](2-architecture/traceability-matrix.md)
-  - [Matrice des Primitives Projet](2-architecture/project-primitive-matrix.md)
-  - [ADRs (Architecture Decision Records)](2-architecture/adrs/)
+If you are an autonomous AI agent operating on this repository, strictly adhere to these directives:
+1. **System Prompt & Role Guide**: Read [.ai/system-prompt.md](.ai/system-prompt.md)
+2. **Documentation & Maintenance Policy**: Read [.ai/doc-update-policy.md](.ai/doc-update-policy.md)
+3. **Core Invariants & Integrity Rules**: Read [.ai/invariants.md](.ai/invariants.md)
 
-- **[3. Fonctionnalités et Domaine](3-features-and-domain/)**
-  - [Primitives Agentiques](3-features-and-domain/agent-primitives.md)
-  - [Phénotype](3-features-and-domain/phenotype.md)
+---
 
-- **[4. Interfaces et Contrats](4-interfaces/)**
-  - [Protocole GenOS](4-interfaces/genos-protocol.md)
-  - [Intégrations Externes](4-interfaces/integrations/)
+## 🏛️ System Architecture Overview
 
-- **[5. Workflows de Développement](5-development-workflows/)**
-  - [Conventions de Code](5-development-workflows/coding-guidelines.md)
-  - [Stratégie de Test](5-development-workflows/testing-strategy.md)
+```text
+                                  ┌──────────────────────────────────┐
+                                  │      AGENT GENOME (Genotype)     │
+                                  └─────────────────┬────────────────┘
+                                                    │ Instantiates
+                                                    ▼
+                                  ┌──────────────────────────────────┐
+                                  │   AGENT-WORLD CAPSULE (S0)       │
+                                  │  - Beliefs & Epistemic State     │
+                                  │  - Virtual Filesystem & Sandbox  │
+                                  │  - Content-Addressable Event Log │
+                                  └─────────┬──────────────┬─────────┘
+                                            │ Fork CoW     │ Fork CoW
+                     ┌──────────────────────┴───┐      ┌───┴──────────────────────┐
+                     │   Speculative Branch A   │      │   Speculative Branch B   │
+                     │  - Strategy: Quick Patch │      │  - Strategy: Deep Refactor│
+                     │  - Invariant Check: FAIL │      │  - Invariant Check: PASS │
+                     └─────────────┬────────────┘      └───────────┬──────────────┘
+                                   │ Apoptosis                     │ Experience Packet
+                                   ▼                               ▼
+                             [Quarantined]             ┌──────────────────────────┐
+                                                       │  COGNITIVE MERGE ENGINE  │
+                                                       │   (Epistemic Graph Sync) │
+                                                       └───────────┬──────────────┘
+                                                                   │ Commits
+                                                                   ▼
+                                                       ┌──────────────────────────┐
+                                                       │ AGENT-WORLD CAPSULE (S1) │
+                                                       └──────────────────────────┘
+```
 
-- **[6. Opérations et Déploiement](6-operations-and-deployment/)**
-  - [Runbooks & Résolution d'Incidents](6-operations-and-deployment/runbooks/)
+---
+
+## 🗺️ Master Documentation Index
+
+### [Module 0: Contexte et Vision](0-context-and-vision/)
+- [Counterfactual OS Paradigm](0-context-and-vision/counterfactual-os.md) — Motivation, problem space, and the speculative execution model.
+- [Product Roadmap](0-context-and-vision/product-roadmap.md) — Strategic roadmap and evolution phases.
+- [Business Goals & ROI](0-context-and-vision/business-goals.md) — Enterprise value proposition, token economics, and reliability ROI.
+- [Ubiquitous Language](0-context-and-vision/ubiquitous-language.md) — Canonical domain terminology, entities, and ontology.
+
+### [Module 1: Prise en Main et Installation](1-onboarding-and-setup/)
+- [Local Environment Setup](1-onboarding-and-setup/local-environment.md) — Rust, Node.js, Python, and local CAS storage setup.
+- [Architecture Tour](1-onboarding-and-setup/architecture-tour.md) — 15-minute guided walkthrough of the core crates.
+- [Quickstart Tutorial](1-onboarding-and-setup/quickstart-tutorial.md) — Hands-on guide to spawning your first counterfactual agent.
+
+### [Module 2: Architecture et Décisions Techniques](2-architecture/)
+- [System Overview](2-architecture/overview.md) — Global architecture and crate decomposition.
+- [Traceability Matrix](2-architecture/traceability-matrix.md) — Mapping requirements to core implementations.
+- [Project Primitive Matrix](2-architecture/project-primitive-matrix.md) — Low-level runtime primitives and lifecycle contracts.
+- [Architecture Decision Records (ADRs)](2-architecture/adrs/) — 21 accepted ADRs covering event sourcing, CAS, merge algebra, and resilience.
+
+### [Module 3: Fonctionnalités et Domaine](3-features-and-domain/)
+- [Agent Primitives & Lifecycle](3-features-and-domain/agent-primitives.md) — `fork`, `snapshot`, `restore`, `merge`, and `blame`.
+- [Phenotype & Genomic Adaptation](3-features-and-domain/phenotype.md) — Genetic evolution and runtime phenotypic traits.
+- [Counterfactual Simulation](3-features-and-domain/counterfactual-simulation.md) — Speculative multi-branch exploration.
+- [Causal & Contextual Isolation](3-features-and-domain/causal-and-contextual-isolation.md) — Zero-leak sandboxing boundaries.
+- [Determinism & Reproducibility](3-features-and-domain/determinism-and-reproducibility.md) — Bitwise CAS event replay guarantees.
+- [Biomimicry & Multi-Agent Swarms](3-features-and-domain/biomimicry/) — Swarm consensus, flocking, network quorum, and distributed huddling.
+- [Cellular Resilience Suite](3-features-and-domain/resilience/) — Apoptosis, cryptobiosis, hypermutation, and cyber immune response.
+
+### [Module 4: Interfaces et Protocoles](4-interfaces/)
+- [GenOS Protocol Specification](4-interfaces/genos-protocol.md) — Inter-agent messaging, event schemas, and RPC.
+- [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) — 40+ native Model Context Protocol tools.
+- [CLI Reference Manual](4-interfaces/cli-reference.md) — Comprehensive command-line interface documentation.
+- [External Integrations](4-interfaces/integrations/) — IDE, CI/CD, and external agent bridges.
+
+### [Module 5: Workflows de Développement](5-development-workflows/)
+- [Coding Guidelines](5-development-workflows/coding-guidelines.md) — Strict rules: Max 400 lines, Max 3 parameters, low complexity.
+- [Testing & Verification Strategy](5-development-workflows/testing-strategy.md) — Property-based, integration, and chaos testing.
+- [Contributing Guide](5-development-workflows/contributing-guide.md) — Contribution workflows and branch policies.
+
+### [Module 6: Opérations et Déploiement](6-operations-and-deployment/)
+- [Production Deployment Guide](6-operations-and-deployment/production-deployment.md) — Kubernetes, Docker, and bare-metal deployment.
+- [Operations Runbooks](6-operations-and-deployment/runbooks/) — Incident response, CAS maintenance, and telemetry.
+
+### [Module 7: Benchmarks, Comparatifs et Théorie](7-benchmarks-and-comparisons/)
+- [Simple Agent vs. GenOS](7-benchmarks-and-comparisons/simple-agent-vs-genos.md) — In-depth head-to-head comparison and failure-cascade analysis.
+- [Comprehensive Competitive Matrix](7-benchmarks-and-comparisons/competitive-matrix.md) — 16-axis comparison with AutoGen, CrewAI, LangGraph, MetaGPT, ChatDev, and Semantic Kernel.
+- [Resilience Benchmark Methodology](7-benchmarks-and-comparisons/resilience-benchmarks.md) — MTTR, CPR, CBIF, TWR, and ChaosAgent-Bench suite.
+- [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Formal proofs for entropy reduction, cascade suppression bounds, and Pareto merge algebra.
+
+---
+
+## 🧭 4 Guided Reading Paths
+
+```text
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                 GUIDED READING PATHS                                   │
+├─────────────────────────┬──────────────────────────────────────────────────────────────┤
+│ Persona                 │ Recommended Sequential Path                                  │
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 💻 Application Devs     │ 1. [Local Setup](1-onboarding-and-setup/local-environment.md)│
+│                         │ 2. [Quickstart](1-onboarding-and-setup/quickstart-tutorial.md)│
+│                         │ 3. [Agent Primitives](3-features-and-domain/agent-primitives.md)│
+│                         │ 4. [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) │
+│                         │ 5. [Coding Guidelines](5-development-workflows/coding-guidelines.md)│
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 🏗️ System Architects    │ 1. [Counterfactual OS](0-context-and-vision/counterfactual-os.md)│
+│                         │ 2. [System Overview](2-architecture/overview.md)             │
+│                         │ 3. [ADR Index](2-architecture/adrs/)                         │
+│                         │ 4. [Competitive Matrix](7-benchmarks-and-comparisons/competitive-matrix.md)│
+│                         │ 5. [Causal Isolation](3-features-and-domain/causal-and-contextual-isolation.md)│
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 🔬 AI Researchers       │ 1. [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md)│
+│                         │ 2. [Counterfactual Simulation](3-features-and-domain/counterfactual-simulation.md)│
+│                         │ 3. [Phenotype Adaptation](3-features-and-domain/phenotype.md) │
+│                         │ 4. [Biomimicry Swarm](3-features-and-domain/biomimicry/)     │
+│                         │ 5. [Resilience Benchmarks](7-benchmarks-and-comparisons/resilience-benchmarks.md)│
+├─────────────────────────┼──────────────────────────────────────────────────────────────┤
+│ 🛡️ Enterprise & SRE     │ 1. [Production Deployment](6-operations-and-deployment/production-deployment.md)│
+│                         │ 2. [Business Goals & ROI](0-context-and-vision/business-goals.md)│
+│                         │ 3. [Operations Runbooks](6-operations-and-deployment/runbooks/)│
+│                         │ 4. [Cellular Resilience](3-features-and-domain/resilience/)  │
+│                         │ 5. [Determinism & Replay](3-features-and-domain/determinism-and-reproducibility.md)│
+└─────────────────────────┴──────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚡ Quick Start: Zero-Cost Speculative Forking
+
+```rust
+use genos_core::{CapsuleManager, CapsuleId, Strategy};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let manager = CapsuleManager::init_default();
+    
+    // 1. Create root baseline capsule
+    let root_id = manager.create_root("baseline-v1")?;
+    
+    // 2. Fork zero-cost speculative branches (< 2ms)
+    let branch_a = manager.fork_branch(root_id, "patch-strategy-a")?;
+    let branch_b = manager.fork_branch(root_id, "patch-strategy-b")?;
+    
+    // 3. Execute isolated speculative search
+    manager.execute_branch(branch_a, Strategy::AggressiveFix)?;
+    manager.execute_branch(branch_b, Strategy::SafeRefactor)?;
+    
+    // 4. Reconcile optimal branch into baseline
+    let merged_id = manager.reconcile_optimal(root_id, &[branch_a, branch_b])?;
+    println!("Reconciled Capsule: {:?}", merged_id);
+    Ok(())
+}
+```
+
+---
+
+## 📄 License & Governance
+
+GenOS is licensed under the Apache 2.0 License. See [LICENSE](../LICENSE) for complete terms.
