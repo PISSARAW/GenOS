@@ -1,0 +1,138 @@
+.command-palette-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.command-palette-dialog {
+  width: 100%;
+  max-width: 640px;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  color: #c9d1d9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  animation: slideDown 0.15s ease-out;
+  position: relative;
+}
+
+.command-palette-header {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #30363d;
+  background: #0d1117;
+}
+
+.command-search-icon {
+  color: #8b949e;
+  margin-right: 12px;
+}
+
+.command-palette-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #c9d1d9;
+  font-size: 1rem;
+  font-family: inherit;
+  font-weight: 400;
+}
+
+.command-palette-input::placeholder {
+  color: #6e7681;
+}
+
+.command-palette-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 8px 8px;
+  background: #161b22;
+}
+
+.command-palette-empty {
+  padding: 24px;
+  text-align: center;
+  color: #8b949e;
+  font-size: 0.9rem;
+}
+
+.command-palette-group {
+  margin-bottom: 8px;
+}
+
+.command-palette-group [cmdk-group-heading] {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b949e;
+  font-weight: 600;
+}
+
+.command-palette-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #c9d1d9;
+  transition: background 0.1s ease;
+  margin-bottom: 2px;
+}
+
+.command-icon {
+  margin-right: 12px;
+  color: #8b949e;
+}
+
+.command-palette-item[aria-selected="true"] {
+  background: #1f6feb;
+  color: #ffffff;
+}
+
+.command-palette-item[aria-selected="true"] .command-icon {
+  color: #ffffff;
+}
+
+.command-palette-item.danger[aria-selected="true"] {
+  background: #da3633;
+  color: #ffffff;
+}
+
+.command-palette-item.danger[aria-selected="true"] .command-icon {
+  color: #ffffff;
+}
+
+.command-shortcut {
+  margin-left: auto;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  color: #8b949e;
+  letter-spacing: 0.05em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
