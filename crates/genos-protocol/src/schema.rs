@@ -1,4 +1,4 @@
-﻿use serde_json::{json, Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::types::PROTOCOL_VERSION;
 
@@ -28,6 +28,14 @@ pub fn capsule_schema() -> Value {
 
 pub fn string_schema(description: &str) -> Value {
     json!({"type": "string", "minLength": 1, "description": description})
+}
+
+pub fn integer_schema(description: &str) -> Value {
+    json!({"type": "integer", "description": description})
+}
+
+pub fn number_schema(description: &str) -> Value {
+    json!({"type": "number", "description": description})
 }
 
 pub fn string_array_schema(description: &str) -> Value {

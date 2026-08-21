@@ -55,6 +55,8 @@ pub enum RecombinationStrategy {
 pub struct Chromosome {
     pub name: String,
     pub loci: Vec<Locus>,
+    #[serde(default)]
+    pub operons: Vec<crate::operon::Operon>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -250,7 +252,7 @@ pub fn mutate_cognition(
         if !child.cognition.set_drive(&drive_name, new_value) {
             // If drive wasn't found in any chromosome, add it to a 'default' chromosome
             if child.cognition.chromosomes.is_empty() {
-                child.cognition.chromosomes.push(Chromosome { name: "C1".to_string(), loci: vec![] });
+                child.cognition.chromosomes.push(Chromosome { name: "C1".to_string(), loci: vec![], operons: vec![] });
             }
             child.cognition.chromosomes[0].loci.push(Locus { gene_name: drive_name, value: new_value, epigenetic_marker: 0.0 });
         }
@@ -286,6 +288,7 @@ mod tests {
                             Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
                             Locus { gene_name: "verification_threshold".to_string(), value: 0.5, epigenetic_marker: 0.0 },
                         ],
+                        operons: vec![],
                     }
                 ],
                 planning_depth: 4,

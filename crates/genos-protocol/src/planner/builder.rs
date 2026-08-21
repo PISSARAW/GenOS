@@ -1,4 +1,4 @@
-﻿use serde_json::{Map, Value};
+use serde_json::{Map, Value};
 
 use crate::types::{PlannedCommand, ProtocolError};
 
@@ -116,13 +116,16 @@ impl<'a> CommandPlanner<'a> {
     }
 
     pub fn push_number(&mut self, key: &str, flag: &str) -> Result<(), ProtocolError> {
-        let value = self
-            .object
-            .get(key)
-            .and_then(Value::as_f64)
-            .ok_or_else(|| self.invalid(&format!("'{key}' must be a number")))?;
+        let value = self.req_num(key)?;
         self.push_flag(flag, &value.to_string());
         Ok(())
+    }
+
+    pub fn req_num(&self, key: &str) -> Result<f64, ProtocolError> {
+        self.object
+            .get(key)
+            .and_then(Value::as_f64)
+            .ok_or_else(|| self.invalid(&format!("'{key}' must be a number")))
     }
 
     pub fn push_manifest_or_pair(

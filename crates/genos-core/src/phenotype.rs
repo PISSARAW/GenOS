@@ -1,4 +1,4 @@
-﻿use crate::{AgentGenome, GenomeId, GenomeMutationChange, GenomeMutationMetadata};
+use crate::{AgentGenome, GenomeId, GenomeMutationChange, GenomeMutationMetadata};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -219,7 +219,7 @@ pub fn promote_inferred_trait(
         let prev = child.cognition.get_drive(drive_name).unwrap_or(0.5);
         if !child.cognition.set_drive(drive_name, value) {
             if child.cognition.chromosomes.is_empty() {
-                child.cognition.chromosomes.push(crate::Chromosome { name: "C1".to_string(), loci: vec![] });
+                child.cognition.chromosomes.push(crate::Chromosome { name: "C1".to_string(), loci: vec![], operons: vec![] });
             }
             child.cognition.chromosomes[0].loci.push(crate::Locus { gene_name: drive_name.to_string(), value, epigenetic_marker: 0.0 });
         }

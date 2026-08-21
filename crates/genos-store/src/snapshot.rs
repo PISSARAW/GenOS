@@ -8,6 +8,11 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 use genos_core::snapshot::SnapshotComponentManifest;
 
+/// Store de haut niveau pour les instantanés d'agents.
+///
+/// Ce store orchestre le fonctionnement de l'architecture de mémoire $O(1)$ :
+/// il découpe l'état de l'agent, sauvegarde chaque composant dans un `CasStore`
+/// (évitant la duplication) et produit un `SnapshotComponentManifest`.
 #[async_trait]
 pub trait SnapshotStore: Send + Sync {
     async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>>;

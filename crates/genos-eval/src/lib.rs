@@ -15,6 +15,7 @@ pub mod parasitism;
 pub mod mcts;
 pub mod prm;
 pub mod outcomes;
+pub mod morphogenesis;
 
 #[cfg(test)]
 mod tests;
@@ -29,3 +30,4 @@ pub use ecosystem::*;
 pub use mcts::*;
 pub use prm::*;
 pub use outcomes::*;
+pub use morphogenesis::*;
