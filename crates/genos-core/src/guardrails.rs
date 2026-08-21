@@ -10,6 +10,11 @@ pub enum GuardrailError {
     
     #[error("Maximum execution time exceeded: {elapsed_seconds}s > {max_seconds}s. Escalating to Human-in-the-loop.")]
     MaxTimeExceeded { elapsed_seconds: u64, max_seconds: u64 },
+
+    /// Déclenchement d'un refus actif (Active Refusal) lorsque le modèle détecte une incertitude ou 
+    /// une entropie sémantique élevée dépassant le seuil de tolérance (garantie d'abstention conforme).
+    #[error("Uncertainty score exceeded threshold: {score} > {max}. Active refusal triggered.")]
+    UncertaintyThresholdExceeded { score: f64, max: f64 },
 }
 
 /// Contrats d'exécution stricts (Execution Guardrails).
@@ -19,6 +24,8 @@ pub struct ExecutionGuardrails {
     pub max_iterations: usize,
     pub max_total_tokens: usize,
     pub max_execution_seconds: u64,
+    /// Seuil maximal d'entropie sémantique (incertitude). Si dépassé, l'agent doit s'abstenir de générer.
+    pub max_uncertainty_score: f64,
 }
 
 impl Default for ExecutionGuardrails {
@@ -27,6 +34,7 @@ impl Default for ExecutionGuardrails {
             max_iterations: 15,
             max_total_tokens: 50_000,
             max_execution_seconds: 3600, // 1 heure par défaut
+            max_uncertainty_score: 0.8, // Seuil d'incertitude (entropie sémantique) par défaut
         }
     }
 }
@@ -37,6 +45,8 @@ pub struct ExecutionMetrics {
     pub current_iteration: usize,
     pub total_tokens_used: usize,
     pub elapsed_seconds: u64,
+    /// Score courant mesurant l'incertitude du modèle lors de ses raisonnements (ex: via dispersion sémantique).
+    pub current_uncertainty_score: f64,
 }
 
 impl ExecutionGuardrails {
@@ -63,6 +73,13 @@ impl ExecutionGuardrails {
             });
         }
         
+        if metrics.current_uncertainty_score >= self.max_uncertainty_score {
+            return Err(GuardrailError::UncertaintyThresholdExceeded {
+                score: metrics.current_uncertainty_score,
+                max: self.max_uncertainty_score,
+            });
+        }
+        
         Ok(())
     }
 }
@@ -78,6 +95,7 @@ mod tests {
             current_iteration: 5,
             total_tokens_used: 10_000,
             elapsed_seconds: 60,
+            current_uncertainty_score: 0.5,
         };
         assert!(guardrails.verify(&metrics).is_ok());
     }
@@ -89,6 +107,7 @@ mod tests {
             current_iteration: 15, // equals max
             total_tokens_used: 10_000,
             elapsed_seconds: 60,
+            current_uncertainty_score: 0.5,
         };
         match guardrails.verify(&metrics) {
             Err(GuardrailError::MaxIterationsReached { max_iterations }) => {

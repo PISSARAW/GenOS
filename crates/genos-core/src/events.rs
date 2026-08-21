@@ -1,4 +1,4 @@
-﻿use crate::ids::{AgentId, BranchId, CorrelationId, EventId};
+use crate::ids::{AgentId, BranchId, CorrelationId, EventId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -150,5 +150,44 @@ mod tests {
                 &AgentEventType::AgentStep,
             ]
         );
+    }
+}
+
+/// Superviseur chargé d'évaluer de manière indépendante les étapes de raisonnement de l'agent
+/// pour implémenter la Process Supervision (PRM).
+///
+/// La supervision par processus (PRM) aide à réduire les hallucinations en s'assurant que
+/// l'agent ne recourt pas au reward hacking, en validant chaque étape intermédiaire
+/// indépendamment avant la conclusion.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ProcessSupervision {
+    /// Indique si l'étape est vérifiée. Une étape n'est vérifiée que si elle a une
+    /// confiance suffisante et qu'elle est logiquement valide.
+    pub step_verified: bool,
+    /// Score de confiance estimé pour cette étape (lié à l'entropie).
+    pub confidence_score: f32,
+    /// Validation logique de l'étape de raisonnement par rapport à son contexte.
+    pub reasoning_valid: bool,
+}
+
+/// Instance qui applique la stratégie PRM (Process Supervision) en fixant un seuil de risque.
+pub struct ProcessSupervisor {
+    /// Seuil minimal de confiance requis pour valider une étape.
+    pub risk_threshold: f32,
+}
+
+impl ProcessSupervisor {
+    /// Initialise le superviseur avec le seuil spécifié.
+    pub fn new(risk_threshold: f32) -> Self {
+        Self { risk_threshold }
+    }
+
+    /// Évalue une étape individuelle en se basant sur la confiance mesurée et la validation externe.
+    pub fn evaluate_step(&self, confidence: f32, reasoning_valid: bool) -> ProcessSupervision {
+        ProcessSupervision {
+            step_verified: confidence >= self.risk_threshold && reasoning_valid,
+            confidence_score: confidence,
+            reasoning_valid,
+        }
     }
 }
