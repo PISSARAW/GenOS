@@ -7,41 +7,7 @@
  * Computes multi-branch temporal tree diff across workspaces or snapshots
  */
 function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branch', options = {}) {
-  const diffEntries = [
-    {
-      file: 'src/services/circuitBreaker.js',
-      category: 'Refactorings',
-      additions: 18,
-      deletions: 4,
-      collisionRisk: 'LOW',
-      author: 'worker_backend_1'
-    },
-    {
-      file: 'src/app.js',
-      category: 'Syntax Additions',
-      additions: 12,
-      deletions: 1,
-      collisionRisk: 'HIGH',
-      author: 'supervisor_main',
-      notes: 'Concurrent edits detected on route mounting block'
-    },
-    {
-      file: 'src/middleware/security.js',
-      category: 'Breaking API Changes',
-      additions: 8,
-      deletions: 6,
-      collisionRisk: 'MEDIUM',
-      author: 'qa_sentinel_1'
-    },
-    {
-      file: 'docs/ARCHITECTURE.md',
-      category: 'Documentation',
-      additions: 45,
-      deletions: 0,
-      collisionRisk: 'NONE',
-      author: 'observer_1'
-    }
-  ];
+  const diffEntries = options.diffEntries || [];
 
   return {
     baseBranch: baseWorkspace,
@@ -70,14 +36,10 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
  * Algorithmic O(log N) causal bisection search isolating the exact culprit agent step
  */
 function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
-  // Mock snapshot history if none provided
-  const history = snapshotHistory.length > 0 ? snapshotHistory : [
-    { step: 1, hash: 'snap-001', agent: 'worker_backend', healthy: true, desc: 'Initial workspace setup' },
-    { step: 2, hash: 'snap-002', agent: 'worker_backend', healthy: true, desc: 'Add database schema' },
-    { step: 3, hash: 'snap-003', agent: 'worker_fast_coder', healthy: false, desc: 'Remove guard clause in parser' },
-    { step: 4, hash: 'snap-004', agent: 'worker_frontend', healthy: false, desc: 'Add UI component' },
-    { step: 5, hash: 'snap-005', agent: 'worker_frontend', healthy: false, desc: 'Update styles' }
-  ];
+  const history = snapshotHistory;
+  if (history.length === 0) {
+    return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
+  }
 
   let low = 0;
   let high = history.length - 1;
@@ -88,7 +50,7 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const snap = history[mid];
-    const isHealthy = failurePredicate ? failurePredicate(snap) : snap.healthy;
+    const isHealthy = failurePredicate ? failurePredicate(snap) : snap.healthy !== false;
 
     bisectionSteps.push({
       iteration: bisectionSteps.length + 1,
@@ -108,7 +70,19 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
     }
   }
 
-  const culpritSnap = culpritIdx >= 0 ? history[culpritIdx] : history[0];
+  if (culpritIdx < 0) {
+    return {
+      bisectionComplete: true,
+      anomalyFound: false,
+      totalSnapshotsSearched: history.length,
+      bisectionIterationsRequired: bisectionSteps.length,
+      theoreticalComplexity: `O(log ${history.length}) = ${Math.ceil(Math.log2(history.length || 1))} steps`,
+      bisectionAuditTrace: bisectionSteps,
+      reason: 'All available snapshots satisfy the invariant.'
+    };
+  }
+
+  const culpritSnap = history[culpritIdx];
 
   return {
     bisectionComplete: true,

@@ -130,7 +130,11 @@ const vfsSandboxService = require('../services/vfsSandboxService');
 async function dryRun(req, res, next) {
   try {
     const { toolName, args = {}, vfsState = {} } = req.body || {};
+    const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
+    if (!check.allowed) return res.status(503).json({ error: { code: check.reason, message: check.message } });
     const result = vfsSandboxService.simulateDryRun(toolName, args, vfsState);
+    circuitBreaker.recordSuccess(toolName);
+    telemetry.emitEvent({ eventType: 'MCP_DRY_RUN_COMPLETED', agentId: 'mcp_controller', action: 'DRY_RUN', detail: `Dry-run calculated for '${toolName}'`, severity: 'info', payload: { toolName, args, result } });
     res.json(result);
   } catch (err) {
     next(err);

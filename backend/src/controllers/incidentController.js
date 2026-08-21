@@ -15,9 +15,9 @@ async function getAlerts(req, res) {
     status: a.status,
     agent: a.agent_name,
     workspace: a.workspace_name,
-    time: 'Just now',
-    confidence: a.confidence || '95%',
-    severity: a.severity || 'medium',
+    time: a.created_at || null,
+    confidence: a.confidence || null,
+    severity: a.severity || null,
     contextSnapshot: a.context_snapshot
   }));
 
@@ -31,6 +31,12 @@ async function getIncidents(req, res) {
 async function replayIncident(req, res) {
   const { incidentId = 'inc-001', stepSpeed = 100 } = req.body || {};
 
+  const db = await getDatabase();
+  const incident = await db.get('SELECT * FROM global_alerts WHERE id = ?', incidentId);
+  if (!incident) {
+    return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Incident not found: ${incidentId}` } });
+  }
+
   telemetry.emitEvent({
     eventType: 'INCIDENT_REPLAY_STARTED',
     agentId: 'incident_controller',
@@ -42,13 +48,8 @@ async function replayIncident(req, res) {
   res.json({
     success: true,
     incidentId,
-    totalSteps: 8,
-    timeline: [
-      { step: 1, action: 'Agent deleted unused import in auth.ts', status: 'WARN' },
-      { step: 2, action: 'Static analyzer emitted false-positive syntax error', status: 'ERROR' },
-      { step: 3, action: 'Automated 500ms rollback triggered', status: 'SUCCESS' },
-      { step: 4, action: 'Workspace state restored to clean snapshot', status: 'SUCCESS' }
-    ]
+    totalSteps: 0,
+    timeline: []
   });
 }
 
