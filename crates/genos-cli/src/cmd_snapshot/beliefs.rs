@@ -1,4 +1,4 @@
-﻿//! Belief and tool-call mutators.
+//! Belief and tool-call mutators.
 //!
 //! Extracted from `mutate.rs` so the file stays under the 400-line rule while
 //! the belief-evidence and tool-output record paths have room to grow. The
@@ -183,6 +183,7 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
             input: input_json,
             output: output_json,
             success: args.success,
+            receipt: None,
         },
     );
 

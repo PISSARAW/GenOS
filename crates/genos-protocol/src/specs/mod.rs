@@ -3,12 +3,14 @@ pub mod dev;
 pub mod experiment;
 pub mod resilience;
 pub mod biomimicry;
+pub mod hallucination;
 
 use self::canonical::canonical_specs;
 use self::dev::dev_specs;
 use self::experiment::experiment_specs;
 use self::resilience::resilience_specs;
 use self::biomimicry::biomimicry_specs;
+use self::hallucination::hallucination_specs;
 use crate::types::ToolSpec;
 
 pub fn tool_specs() -> Vec<ToolSpec> {
@@ -18,5 +20,6 @@ pub fn tool_specs() -> Vec<ToolSpec> {
     specs.extend(dev_specs());
     specs.extend(resilience_specs());
     specs.extend(biomimicry_specs());
+    specs.extend(hallucination_specs());
     specs
 }

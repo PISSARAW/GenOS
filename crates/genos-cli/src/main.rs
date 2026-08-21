@@ -9,6 +9,7 @@ mod cmd_snapshot;
 mod cmd_world;
 mod cmd_resilience;
 mod cmd_biomimicry;
+mod cmd_hallucination;
 mod output;
 mod resolve;
 
@@ -18,7 +19,7 @@ use clap::Parser;
 use crate::args::{
     AgentSubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands, ExperimentSubcommands,
     InspectSubcommands, ReplaySubcommands, SnapshotSubcommands, WorldSubcommands,
-    ResilienceSubcommands, BiomimicrySubcommands,
+    ResilienceSubcommands, BiomimicrySubcommands, HallucinationSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -50,6 +51,7 @@ use crate::cmd_world::{
 };
 use crate::cmd_resilience::*;
 use crate::cmd_biomimicry::*;
+use crate::cmd_hallucination::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -164,6 +166,15 @@ async fn main() -> Result<()> {
             BiomimicrySubcommands::FlockingExplore(args) => cmd_biomimicry_flocking_explore(args).await,
             BiomimicrySubcommands::NetworkQuorum(args) => cmd_biomimicry_network_quorum(args).await,
             BiomimicrySubcommands::DistributedHuddle(args) => cmd_biomimicry_distributed_huddle(args).await,
+        },
+        Commands::Hallucination(hallucination) => match hallucination.command {
+            HallucinationSubcommands::Detect(_args) => cmd_hallucination_detect().await,
+            HallucinationSubcommands::Inject(_args) => cmd_hallucination_inject().await,
+            HallucinationSubcommands::Test(_args) => cmd_hallucination_test().await,
+            HallucinationSubcommands::Extract(_args) => cmd_hallucination_extract().await,
+            HallucinationSubcommands::Analyze(_args) => cmd_hallucination_analyze().await,
+            HallucinationSubcommands::Correct(_args) => cmd_hallucination_correct().await,
+            HallucinationSubcommands::Simulate(_args) => cmd_hallucination_simulate().await,
         },
     }
 }
