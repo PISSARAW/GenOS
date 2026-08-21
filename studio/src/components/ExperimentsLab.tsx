@@ -17,29 +17,27 @@ export const ExperimentsLab: React.FC = () => {
   const [thoughtFeed, setThoughtFeed] = useState<any[]>([]);
   const [coevolutionData, setCoevolutionData] = useState<any>(null);
   const [analysisData, setAnalysisData] = useState<any>(null);
+  const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
   const [protocolType, setProtocolType] = useState('Incident');
   const [protocolTitle, setProtocolTitle] = useState('Memory Saturation Under High Concurrency');
   const showToast = useToastStore((state) => state.showToast);
 
-  const loadLabData = () => {
+  const loadLabData = (experimentId = activeExperimentId) => {
     api.listExperiments()
       .then((data) => {
-        if (Array.isArray(data)) setExperiments(data);
+        if (Array.isArray(data)) {
+          setExperiments(data);
+          const selectedId = experimentId || data[0]?.id;
+          if (selectedId) {
+            setActiveExperimentId(selectedId);
+            api.getExperimentAnalysis(selectedId).then(setAnalysisData).catch(() => {});
+            api.getExperimentThoughts(selectedId).then((thoughts) => {
+              if (Array.isArray(thoughts)) setThoughtFeed(thoughts);
+            }).catch(() => {});
+            api.getExperimentCoevolution(selectedId).then(setCoevolutionData).catch(() => {});
+          }
+        }
       })
-      .catch(() => {});
-
-    api.getExperimentAnalysis()
-      .then((data) => setAnalysisData(data))
-      .catch(() => {});
-
-    api.getExperimentThoughts()
-      .then((data) => {
-        if (Array.isArray(data)) setThoughtFeed(data);
-      })
-      .catch(() => {});
-
-    api.getExperimentCoevolution()
-      .then((data) => setCoevolutionData(data))
       .catch(() => {});
   };
 
@@ -49,30 +47,24 @@ export const ExperimentsLab: React.FC = () => {
 
   // Wave points animation
   useEffect(() => {
-    if (view === 'monitoring' || view === 'coevolution') {
-      const interval = setInterval(() => {
-        api.getWavePoint()
-          .then((data) => {
-            setWaveData((prev) => {
-              const newData = prev.length > 20 ? [...prev.slice(1)] : [...prev];
-              newData.push(data);
-              return newData;
-            });
-          })
-          .catch(() => {});
-      }, 1000);
+    if ((view === 'monitoring' || view === 'coevolution') && activeExperimentId) {
+      const refresh = () => api.getExperimentWaves(activeExperimentId).then((data) => setWaveData(Array.isArray(data) ? data : [])).catch(() => {});
+      refresh();
+      const interval = setInterval(refresh, 3000);
       return () => clearInterval(interval);
     }
-  }, [view]);
+  }, [view, activeExperimentId]);
 
   const handleLaunch = async () => {
     try {
-      await api.launchExperiment({
+      const result = await api.launchExperiment({
         title: protocolTitle,
         type: protocolType,
         chaosLevel
       });
-      showToast('success', 'Experiment Launched', `Started ${protocolType} simulation arena.`);
+      setActiveExperimentId(result.experimentId);
+      setWaveData([]);
+      showToast('success', 'Protocol Registered', `${protocolType} protocol is ready for recorded observations.`);
       setView('monitoring');
       loadLabData();
     } catch (e: any) {
@@ -114,7 +106,7 @@ export const ExperimentsLab: React.FC = () => {
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid var(--panel-border)' }}>Active Arenas & Historical Protocols</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', paddingBottom: '24px' }}>
         {experiments.map((exp: any, i: number) => (
-          <div key={exp.id || i} onClick={() => exp.status === 'Running' ? setView('coevolution') : setView('analysis')} style={{
+          <div key={exp.id || i} onClick={() => { setActiveExperimentId(exp.id); setWaveData([]); loadLabData(exp.id); setView(exp.status === 'Running' ? 'monitoring' : 'analysis'); }} style={{
             background: 'var(--bg-panel)',
             border: exp.status === 'Running' ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)',
             borderRadius: '6px',
@@ -229,6 +221,7 @@ export const ExperimentsLab: React.FC = () => {
           <Cpu size={16} color="var(--text-muted)" /> Isolated Agent Thought Stream
         </div>
         <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {thoughtFeed.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No recorded observations yet.</div>}
           {thoughtFeed.map((thought: any, i: number) => (
             <div key={i} style={{ 
               fontSize: '0.85rem', 
@@ -283,7 +276,7 @@ export const ExperimentsLab: React.FC = () => {
               height="100%"
               defaultLanguage="typescript"
               theme="vs-dark"
-              value={coevolutionData.code || '// Coevolution Arena Active\nexport function secureVerify() {\n  return true;\n}'}
+              value={coevolutionData.code || '// No recorded arena source for this experiment.'}
               options={{ minimap: { enabled: false }, fontSize: 13, readOnly: true }}
             />
           </div>
@@ -316,15 +309,11 @@ export const ExperimentsLab: React.FC = () => {
           </button>
 
           <h2 style={{ fontSize: '1.4rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>{analysisData.title || 'Experiment Verification Report'}</h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>{analysisData.subtitle || 'Simulation concluded with nominal parameters.'}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '24px' }}>{analysisData.subtitle || 'No recorded observations for this experiment yet.'}</p>
 
           {/* Mind Map Conceptuelle */}
           <div style={{ background: 'var(--bg-panel)', borderRadius: '6px', border: '1px solid var(--panel-border)', padding: '24px', marginBottom: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-            {(analysisData.mindMapNodes || [
-              { label: 'Latency Injection' },
-              { label: 'Circuit Breaker Isolation' },
-              { label: 'Apoptosis Safe Recovery' }
-            ]).map((node: any, idx: number, arr: any[]) => (
+            {(analysisData.mindMapNodes || []).map((node: any, idx: number, arr: any[]) => (
               <React.Fragment key={idx}>
                 <div style={{ padding: '6px 14px', border: '1px solid var(--panel-border)', background: 'var(--bg-main)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}>
                   {node.label}
@@ -341,7 +330,7 @@ export const ExperimentsLab: React.FC = () => {
             </div>
             <div style={{ padding: '24px' }}>
               <p style={{ fontSize: '0.9rem', lineHeight: 1.6, color: 'var(--text-primary)', marginBottom: '24px' }}>
-                {analysisData.summary || 'Autonomous agents successfully prevented cascading failures under high latency.'}
+                {analysisData.summary || 'No result has been recorded for this experiment yet.'}
               </p>
               <button onClick={handlePromoteRule} className="gh-btn gh-btn-primary">
                 <Sparkles size={14} style={{ marginRight: '8px' }} /> Promote to Global Genome DNA

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShieldCheck, ShieldAlert, Zap, RefreshCw } from 'lucide-react';
 import { api } from '../../api/client';
+import { getToolAlias } from '../../utils/toolLabels';
 import { useToastStore } from '../../store/useToastStore';
 
 interface BreakerNode {
@@ -13,15 +14,19 @@ interface BreakerNode {
 }
 
 export const CircuitBreakerHealthMatrix: React.FC = () => {
-  const [nodes, setNodes] = useState<BreakerNode[]>([
-    { id: 'b1', name: 'genos_restore', type: 'mcp_tool', status: 'closed', failureRate: 0, dependentSwarmNodes: ['Worker 1', 'Worker 2'] },
-    { id: 'b2', name: 'genos_resilience_apoptosis', type: 'mcp_tool', status: 'closed', failureRate: 4, dependentSwarmNodes: ['Supervisor'] },
-    { id: 'b3', name: 'HTTP / API Proxy Bridge', type: 'network_bridge', status: 'closed', failureRate: 0, dependentSwarmNodes: ['All Swarms'] },
-    { id: 'b4', name: 'VFS Disk Writer Sandbox', type: 'agent_process', status: 'closed', failureRate: 1, dependentSwarmNodes: ['Backend Worker'] },
-    { id: 'b5', name: 'genos_security_coevolution', type: 'mcp_tool', status: 'closed', failureRate: 0, dependentSwarmNodes: ['Auditor 3'] },
-    { id: 'b6', name: 'SQLite Embedding Vector Storage', type: 'agent_process', status: 'closed', failureRate: 0, dependentSwarmNodes: ['Memory Engine'] }
-  ]);
+  const [nodes, setNodes] = useState<BreakerNode[]>([]);
   const showToast = useToastStore((state) => state.showToast);
+
+  useEffect(() => {
+    api.listTools().then((tools: any[]) => setNodes((tools || []).map((tool) => ({
+      id: tool.id || tool.name,
+      name: getToolAlias(tool.name),
+      type: 'mcp_tool',
+      status: tool.is_locked ? 'open' : 'closed',
+      failureRate: tool.failure_count || 0,
+      dependentSwarmNodes: tool.equipped_agents || []
+    })))).catch(() => setNodes([]));
+  }, []);
 
   const handleResetAll = async () => {
     try {

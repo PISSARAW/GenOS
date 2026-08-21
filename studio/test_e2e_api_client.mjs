@@ -109,18 +109,18 @@ function recordVulnerability(title, description, payload, error) {
 
 async function resetAndSeedDatabase() {
   const dbPath = path.resolve(__dirname, '../backend/genos.db');
-  if (fs.existsSync(dbPath)) {
-    try {
-      fs.unlinkSync(dbPath);
-    } catch (e) {}
+  for (const filePath of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.unlinkSync(filePath);
+      } catch (e) {}
+    }
   }
   const { getDatabase } = require(path.resolve(__dirname, '../backend/src/db'));
   await getDatabase();
 }
 
 async function ensureBackendRunning() {
-  await resetAndSeedDatabase();
-
   const isPortOpen = await new Promise((resolve) => {
     const req = http.request({ hostname: 'localhost', port: 4000, path: '/api/health', method: 'GET', timeout: 800 }, (res) => {
       resolve(res.statusCode === 200);
@@ -134,6 +134,8 @@ async function ensureBackendRunning() {
     console.log('Backend server is already actively listening on port 4000.\n');
     return;
   }
+
+  await resetAndSeedDatabase();
 
   console.log('Starting GenOS backend server on port 4000 for E2E testing...');
   const backendServerPath = path.resolve(__dirname, '../backend/server.js');

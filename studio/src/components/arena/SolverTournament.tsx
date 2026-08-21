@@ -14,36 +14,44 @@ interface SolverRating {
 }
 
 export const SolverTournament: React.FC = () => {
-  const [solvers, setSolvers] = useState<SolverRating[]>([
-    { id: 'mcts', name: 'MCTS-Explorer', archetype: 'Tree Search', elo: 1845, winRate: 78, matches: 64, status: 'champion' },
-    { id: 'reflex', name: 'Reflexion-Critic', archetype: 'Self-Critique', elo: 1790, winRate: 72, matches: 58, status: 'idle' },
-    { id: 'beam', name: 'Beam-Search', archetype: 'Best-First Beam', elo: 1680, winRate: 64, matches: 45, status: 'idle' },
-    { id: 'react', name: 'ReAct-CoT', archetype: 'Step-by-Step Chain', elo: 1610, winRate: 59, matches: 80, status: 'idle' },
-    { id: 'genetic', name: 'Island-Genetic', archetype: 'Evolutionary Crossover', elo: 1720, winRate: 68, matches: 38, status: 'idle' },
-  ]);
-  const [benchmarkSuite, setBenchmarkSuite] = useState('Code Refactor & AST Validation');
+  const [solvers, setSolvers] = useState<SolverRating[]>([]);
+  const [benchmarkSuite, setBenchmarkSuite] = useState('Local Sorted Search');
   const [isRunning, setIsRunning] = useState(false);
   const [genePayload, setGenePayload] = useState('AST Invariant: check strict type assertions before mutation');
   const showToast = useToastStore((state) => state.showToast);
 
+  const applyLeaderboard = (leaderboard: any[]) => setSolvers(leaderboard.map((s: any) => ({
+    id: s.solverKey,
+    name: s.solverName,
+    archetype: s.archetype,
+    elo: s.eloRating,
+    winRate: s.adversarialPassRate,
+    matches: s.roundsCompleted,
+    status: 'idle'
+  })));
+
+  React.useEffect(() => {
+    api.getSolverTournament().then((result: any) => applyLeaderboard(result?.leaderboard || [])).catch(() => {});
+  }, []);
+
   const handleRunMatch = async () => {
     setIsRunning(true);
     try {
-      await api.runSolverTournament({
+      const result: any = await api.runSolverTournament({
         benchmarkId: benchmarkSuite,
-        solvers: solvers.map((s) => s.name),
+        solvers: solvers.map((s) => s.id),
         rounds: 3
       });
-      // Simulate real Elo adjustment based on tournament round
-      setSolvers((prev) => prev.map((s) => {
-        const delta = Math.floor((Math.random() * 24) - 8);
-        return {
-          ...s,
-          elo: s.elo + delta,
-          matches: s.matches + 1,
-          winRate: Math.min(99, Math.max(40, s.winRate + (delta > 0 ? 1 : -1)))
-        };
-      }).sort((a, b) => b.elo - a.elo));
+      const leaderboard = Array.isArray(result?.leaderboard) ? result.leaderboard : [];
+      setSolvers(leaderboard.map((s: any) => ({
+        id: s.solverKey,
+        name: s.solverName,
+        archetype: s.archetype,
+        elo: s.eloRating,
+        winRate: s.adversarialPassRate,
+        matches: s.roundsCompleted,
+        status: 'idle'
+      })));
       showToast('success', 'Tournament Match Concluded', `Benchmark "${benchmarkSuite}" evaluated. Elo updated.`);
     } catch (e: any) {
       showToast('error', 'Tournament Error', e.message);
@@ -53,6 +61,7 @@ export const SolverTournament: React.FC = () => {
   };
 
   const handleCrossPollinate = async () => {
+    if (solvers.length < 2) return;
     try {
       await api.crossPollinateHeuristics({
         sourceSolver: solvers[0].name,
@@ -74,7 +83,7 @@ export const SolverTournament: React.FC = () => {
           <Trophy size={18} color="#d29922" />
           <div>
             <h3 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Solver ELO Rating & Tournament Grid</h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Compete search archetypes on standard coding benchmarks</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Execute search strategies against a local benchmark</span>
           </div>
         </div>
 
@@ -84,9 +93,7 @@ export const SolverTournament: React.FC = () => {
             onChange={(e) => setBenchmarkSuite(e.target.value)}
             style={{ padding: '4px 8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
           >
-            <option value="Code Refactor & AST Validation">Code Refactor & AST Validation</option>
-            <option value="Bug Localization & Causal Trace">Bug Localization & Causal Trace</option>
-            <option value="Security Hardening & CVE Patch">Security Hardening & CVE Patch</option>
+            <option value="Local Sorted Search">Local Sorted Search</option>
           </select>
           <button 
             onClick={handleRunMatch} 
@@ -94,7 +101,7 @@ export const SolverTournament: React.FC = () => {
             className="gh-btn gh-btn-primary" 
             style={{ fontSize: '0.75rem', padding: '4px 12px' }}
           >
-            <Play size={12} /> {isRunning ? 'Simulating...' : 'Run Tournament Round'}
+            <Play size={12} /> {isRunning ? 'Running...' : 'Run Benchmark'}
           </button>
         </div>
       </div>
@@ -157,7 +164,7 @@ export const SolverTournament: React.FC = () => {
             <Shuffle size={14} color="var(--accent-purple)" /> Heuristic Cross-Pollination Blackboard
           </h4>
           <button onClick={handleCrossPollinate} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px', color: 'var(--accent-purple)' }}>
-            <GitCommit size={12} /> Graft Champion Gene
+            <GitCommit size={12} /> Record Heuristic Note
           </button>
         </div>
         <input 
@@ -167,7 +174,7 @@ export const SolverTournament: React.FC = () => {
           style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }} 
         />
         <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Check size={12} color="var(--success)" /> Inter-solver blackboard memory synchronizes high-performing sub-AST expressions across swarms.
+          <Check size={12} color="var(--success)" /> Records the submitted heuristic as a genome decision; it is not automatically injected into another solver.
         </div>
       </div>
 

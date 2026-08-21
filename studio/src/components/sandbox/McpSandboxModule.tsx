@@ -5,6 +5,7 @@ import { useToastStore } from '../../store/useToastStore';
 import { McpSchemaFormBuilder } from './McpSchemaFormBuilder';
 import { McpDryRunConsole } from './McpDryRunConsole';
 import { McpCircuitBreakerTable, type McpToolItem } from './McpCircuitBreakerTable';
+import { getToolAlias } from '../../utils/toolLabels';
 
 export const McpSandboxModule: React.FC = () => {
   const [tools, setTools] = useState<McpToolItem[]>([]);
@@ -33,20 +34,8 @@ export const McpSandboxModule: React.FC = () => {
       const res = await api.dryRunMcpTool(selectedToolName, formArgs);
       const elapsed = Math.round(performance.now() - start);
       
-      const simulatedTokens = Math.round(150 + Math.random() * 200);
-      setDryRunResult({
-        output: res.result || `[VFS SANDBOX] Execution of '${selectedToolName}' completed successfully. Invariants checked: 100% valid.`,
-        latencyMs: elapsed || 24,
-        tokensUsed: { input: 85, output: simulatedTokens - 85, total: simulatedTokens },
-        estimatedCostUsd: +(simulatedTokens * 0.000003).toFixed(5),
-        blastRadius: {
-          score: selectedToolName.includes('kill') || selectedToolName.includes('apoptosis') ? 65 : 15,
-          filesModified: ['src/api/auth.ts', 'src/db/schema.sql'],
-          subprocesses: ['git diff --check'],
-          riskLevel: selectedToolName.includes('kill') ? 'High' : 'Low'
-        }
-      });
-      showToast('success', 'Dry-Run Completed', `Simulated execution in ${elapsed || 24}ms with 0 blast-radius corruption.`);
+      setDryRunResult({ ...res, latencyMs: elapsed });
+      showToast('success', 'Dry-Run Completed', `Backend execution completed in ${elapsed}ms.`);
     } catch (e: any) {
       showToast('error', 'Execution Error', e.message);
     } finally {
@@ -76,7 +65,7 @@ export const McpSandboxModule: React.FC = () => {
             style={{ padding: '6px 12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: 600 }}
           >
             {tools.map((t) => (
-              <option key={t.id || t.name} value={t.name}>{t.name} ({t.category})</option>
+              <option key={t.id || t.name} value={t.name}>{getToolAlias(t.name)} ({t.category})</option>
             ))}
           </select>
           <button 

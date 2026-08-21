@@ -1,26 +1,37 @@
-import React, { useState } from 'react';
-import { GitFork, Play, RotateCcw, ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { GitFork, Play } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
 export const CounterfactualReplay: React.FC = () => {
   const [branchStep, setBranchStep] = useState(2);
   const [alteredPrompt, setAlteredPrompt] = useState('Enforce strict zero-trust boundary: reject unauthenticated WebSocket handshake immediately.');
+  const [trajectories, setTrajectories] = useState<any[]>([]);
+  const [trajectoryId, setTrajectoryId] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [simulationResult, setSimulationResult] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
 
+  useEffect(() => {
+    api.getTrajectories().then((data: any) => {
+      const items = [...(data?.pendingList || []), ...(data?.activeList || [])];
+      setTrajectories(items);
+      setTrajectoryId(items[0]?.id || '');
+    }).catch(() => showToast('error', 'Trajectory Load Failed', 'Unable to load persisted trajectories.'));
+  }, [showToast]);
+
   const handleRunReplay = async () => {
     setIsRunning(true);
     try {
-      await api.reconstructCounterfactual({ incidentId: `inc-step-${branchStep}`, stepSpeed: 50 });
-      setSimulationResult({
-        originalOutcome: 'Cascading timeout: 12 retries before connection failure (Latency: 4.8s, Cost: $0.042)',
-        counterfactualOutcome: 'Immediate rejection with 401 Unauthorized (Latency: 18ms, Cost: $0.0002)',
-        astDiffDelta: '+ ws.close(4001, "Unauthorized Handshake");\n- setTimeout(retryConnect, 500);',
-        improvementPct: 96
+      const trajectory = trajectories.find((item) => item.id === trajectoryId);
+      if (!trajectory) throw new Error('Select a persisted trajectory before branching.');
+      const result = await api.reconstructCounterfactual({
+        trajectory: { ...trajectory, turns: trajectory.diffLines || [] },
+        stepIndex: branchStep,
+        alterations: { instructionOverride: alteredPrompt }
       });
-      showToast('success', 'Counterfactual Simulation Complete', 'Isolated sandbox evaluated alternative branch successfully.');
+      setSimulationResult(result);
+      showToast('success', 'Counterfactual Branch Prepared', 'The alternative branch was derived from persisted trajectory steps.');
     } catch (e: any) {
       showToast('error', 'Replay Error', e.message);
     } finally {
@@ -46,13 +57,19 @@ export const CounterfactualReplay: React.FC = () => {
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Branch from Step</label>
             <select 
+              value={trajectoryId}
+              onChange={(e) => setTrajectoryId(e.target.value)}
+              style={{ width: '100%', marginBottom: '8px', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+            >
+              <option value="">Select recorded trajectory</option>
+              {trajectories.map((trajectory) => <option key={trajectory.id} value={trajectory.id}>{trajectory.title}</option>)}
+            </select>
+            <select 
               value={branchStep} 
               onChange={(e) => setBranchStep(parseInt(e.target.value))} 
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem' }}
             >
-              <option value={1}>Step #1: Input Validation</option>
-              <option value={2}>Step #2: Connection Handshake</option>
-              <option value={3}>Step #3: AST Modification</option>
+              {Array.from({ length: Math.max(1, trajectories.find((item) => item.id === trajectoryId)?.diffLines?.length || 1) }, (_, i) => <option key={i + 1} value={i + 1}>Step #{i + 1}</option>)}
             </select>
           </div>
 
@@ -73,7 +90,7 @@ export const CounterfactualReplay: React.FC = () => {
           className="gh-btn gh-btn-primary" 
           style={{ padding: '8px 16px', justifyContent: 'center' }}
         >
-          <Play size={14} /> {isRunning ? 'Re-simulating Branch...' : 'Simulate Counterfactual Timeline'}
+          <Play size={14} /> {isRunning ? 'Preparing Branch...' : 'Prepare Counterfactual Branch'}
         </button>
 
         {/* Comparison Result */}
@@ -86,7 +103,7 @@ export const CounterfactualReplay: React.FC = () => {
                 Original Timeline (Recorded)
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>
-                {simulationResult.originalOutcome}
+                {simulationResult.comparison?.originalTimeline?.totalSteps || 0} recorded steps from trajectory {simulationResult.comparison?.originalTimeline?.sourceTrajectoryId}
               </p>
             </div>
 
@@ -94,13 +111,13 @@ export const CounterfactualReplay: React.FC = () => {
             <div style={{ background: 'var(--bg-main)', border: '1px solid var(--success)', borderRadius: '6px', padding: '14px' }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--success)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Counterfactual Timeline (What-If)</span>
-                <span>+{simulationResult.improvementPct}% Efficiency</span>
+                <span>Analysis only</span>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
-                {simulationResult.counterfactualOutcome}
+                {simulationResult.comparison?.outcome}
               </p>
               <pre style={{ margin: 0, fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--success)', lineHeight: 1.4 }}>
-                {simulationResult.astDiffDelta}
+                {JSON.stringify(simulationResult.comparison?.counterfactualTimeline?.alterationApplied || {}, null, 2)}
               </pre>
             </div>
 

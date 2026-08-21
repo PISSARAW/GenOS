@@ -48,7 +48,8 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
     if (activeFilter === 'Requires Human Override' && issue.status !== 'blocked') return false;
     if (activeFilter === 'Agent Questions (@human)' && issue.status !== 'question') return false;
     if (activeFilter === 'Delegated to Fleet' && issue.status !== 'running') return false;
-    if (statusFilter === 'closed') return false;
+    if (statusFilter === 'open' && issue.status === 'resolved') return false;
+    if (statusFilter === 'closed' && issue.status !== 'resolved') return false;
     return true;
   });
 
@@ -114,7 +115,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                   <CircleDot size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {issues.length} Open
                 </span>
                 <span onClick={() => setStatusFilter('closed')} style={{ fontWeight: statusFilter === 'closed' ? 600 : 400, color: statusFilter === 'closed' ? 'var(--text-primary)' : 'inherit', cursor: 'pointer' }}>
-                  <Check size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> 0 Closed
+                  <Check size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {issues.filter((issue) => issue.status === 'resolved').length} Closed
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-secondary)' }}>
@@ -174,7 +175,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                         <div style={{ marginTop: '12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px' }}>
                           <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: 'var(--text-primary)' }}>Context Snapshot</h4>
                           <pre style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: 'var(--text-primary)', fontFamily: 'monospace' }}>
-                            {issue.contextSnapshot || (issue.status === 'blocked' ? '[ERROR] The agent encountered a fatal error during step execution and is awaiting human override.' : '[INFO] Operational subagent active.')}
+                            {issue.contextSnapshot || 'No context snapshot recorded.'}
                           </pre>
                           <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
                             <button onClick={() => showToast('info', 'Agent Profile', `Focusing context for ${issue.agent}`)} className="gh-btn gh-btn-primary" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>Jump to Agent</button>

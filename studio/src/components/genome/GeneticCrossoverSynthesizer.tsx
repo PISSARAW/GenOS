@@ -1,37 +1,38 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dna, Shuffle, Sparkles, Check } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
 export const GeneticCrossoverSynthesizer: React.FC = () => {
-  const [parentA, setParentA] = useState('Senior Architect (High AST Valid)');
-  const [parentB, setParentB] = useState('Security Auditor (High CVE Catch)');
-  const [strategy, setStrategy] = useState('Uniform Crossover');
+  const [parents, setParents] = useState<any[]>([]);
+  const [parentAId, setParentAId] = useState('');
+  const [parentBId, setParentBId] = useState('');
+  const [strategy, setStrategy] = useState('uniform');
   const [mutationRate, setMutationRate] = useState(5);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
   const [childGenome, setChildGenome] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
 
+  useEffect(() => {
+    api.getPhylogeneticTree().then((tree: any) => {
+      const available = (Array.isArray(tree?.nodes) ? tree.nodes : []).filter((node: any) => node.genes && Array.isArray(node.genes.tools));
+      setParents(available);
+      setParentAId(available[0]?.id || '');
+      setParentBId(available[1]?.id || '');
+    }).catch(() => setParents([]));
+  }, []);
+
   const handleSynthesize = async () => {
     setIsSynthesizing(true);
     try {
       const res = await api.synthesizeCrossover({
-        parentA,
-        parentB,
+        parentA: parents.find((parent) => parent.id === parentAId),
+        parentB: parents.find((parent) => parent.id === parentBId),
         strategy,
         mutationRate
       });
-      setChildGenome({
-        id: `child-${Date.now().toString().slice(-4)}`,
-        generation: 'G3-Hybrid',
-        inheritedTraits: [
-          'Inherited AST Structural Invariants from Parent A',
-          'Inherited Zero-Day Sanitizer Patterns from Parent B',
-          `Applied ${mutationRate}% hypermutation exploration heuristic`
-        ],
-        fitnessEstimate: 97.4
-      });
-      showToast('success', 'Hybrid Child Agent Synthesized', `Child G3 created via ${strategy} with ${mutationRate}% mutation rate.`);
+      setChildGenome(res);
+      showToast('success', 'Crossover Completed', 'Backend returned the synthesized genome.');
     } catch (e: any) {
       showToast('error', 'Crossover Failed', e.message);
     } finally {
@@ -46,7 +47,7 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
         <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Shuffle size={14} color="var(--accent-purple)" /> Guided Genetic Crossover Synthesizer (Parent Agent Recombination)
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Breed high-fitness hybrid agent archetypes</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Requires two recorded parent genomes</span>
       </div>
 
       <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
@@ -56,26 +57,24 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Parent Agent A (Genome Alpha)</label>
             <select 
-              value={parentA} 
-              onChange={(e) => setParentA(e.target.value)} 
+              value={parentAId} 
+              onChange={(e) => setParentAId(e.target.value)} 
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem' }}
             >
-              <option value="Senior Architect (High AST Valid)">Senior Architect (High AST Valid - 96.8%)</option>
-              <option value="MCTS Explorer (Deep Search)">MCTS Explorer (Deep Search - 94.5%)</option>
-              <option value="Fast Prototyper (High Velocity)">Fast Prototyper (High Velocity - 88.0%)</option>
+              <option value="">No recorded genome</option>
+              {parents.map((parent) => <option key={parent.id} value={parent.id}>{parent.name || parent.label || parent.id}</option>)}
             </select>
           </div>
 
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Parent Agent B (Genome Beta)</label>
             <select 
-              value={parentB} 
-              onChange={(e) => setParentB(e.target.value)} 
+              value={parentBId} 
+              onChange={(e) => setParentBId(e.target.value)} 
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem' }}
             >
-              <option value="Security Auditor (High CVE Catch)">Security Auditor (High CVE Catch - 98.2%)</option>
-              <option value="Reflexion Critic (Self-Correction)">Reflexion Critic (Self-Correction - 95.0%)</option>
-              <option value="Strict QA Verifier (Invariant Enforcement)">Strict QA Verifier (Invariant Enforcement - 93.5%)</option>
+              <option value="">No recorded genome</option>
+              {parents.map((parent) => <option key={parent.id} value={parent.id}>{parent.name || parent.label || parent.id}</option>)}
             </select>
           </div>
         </div>
@@ -89,9 +88,9 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
               onChange={(e) => setStrategy(e.target.value)} 
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem' }}
             >
-              <option value="Uniform Crossover">Uniform Crossover (50/50 Feature Blend)</option>
-              <option value="Single-Point Crossover">Single-Point Crossover (Role + Strategy Split)</option>
-              <option value="Multi-Point Recombination">Multi-Point Recombination (AST Chunk Grafting)</option>
+              <option value="uniform">Uniform Crossover</option>
+              <option value="single_point">Single-Point Crossover</option>
+              <option value="multi_point">Multi-Point Recombination</option>
             </select>
           </div>
 
@@ -110,7 +109,7 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
 
         <button 
           onClick={handleSynthesize} 
-          disabled={isSynthesizing} 
+          disabled={isSynthesizing || !parentAId || !parentBId || parentAId === parentBId} 
           className="gh-btn gh-btn-primary" 
           style={{ padding: '8px 16px', justifyContent: 'center' }}
         >
@@ -122,16 +121,17 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
           <div style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Dna size={14} /> Synthesized Agent: {childGenome.id} ({childGenome.generation})
+                <Dna size={14} /> Synthesized Genome: {childGenome.childId}
               </span>
               <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
-                Estimated Fitness: {childGenome.fitnessEstimate}%
+                Predicted Fitness: {childGenome.predictedFitnessScore}%
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {childGenome.inheritedTraits.map((trait: string, i: number) => (
+              {(childGenome.mutations || []).length === 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>No mutation was recorded.</div>}
+              {(childGenome.mutations || []).map((mutation: any, i: number) => (
                 <div key={i} style={{ fontSize: '0.75rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Check size={12} color="var(--success)" /> {trait}
+                  <Check size={12} color="var(--success)" /> {mutation.gene}: {mutation.delta}
                 </div>
               ))}
             </div>

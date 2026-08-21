@@ -8,13 +8,14 @@ import { useToastStore } from '../store/useToastStore';
 
 export const AgentDeployment: React.FC = () => {
   const [isDeployed, setIsDeployed] = useState(false);
+  const [agentType, setAgentType] = useState('GenOS');
   const [modelTier, setModelTier] = useState('Flash');
   const [workspaceIsolation, setWorkspaceIsolation] = useState('Branch');
   const [prompt, setPrompt] = useState('');
   
   const [telemetryLogs, setTelemetryLogs] = useState<{action: string; detail: string; time: string}[]>([]);
   const [history, setHistory] = useState<any[]>([]);
-  const [budget, setBudget] = useState<{percent: number; spent: string; total: string}>({percent: 18, spent: '$14.20', total: '$80.00'});
+  const [budget, setBudget] = useState<{percent: number | null; usedTokens: number | null; maxTokens: number}>({percent: null, usedTokens: null, maxTokens: 0});
   const [scenarios, setScenarios] = useState<any>({ debug: '', explain: '', plan: '' });
   const logsEndRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((state) => state.showToast);
@@ -43,8 +44,8 @@ export const AgentDeployment: React.FC = () => {
     if (isDeployed) {
       const deploy = async () => {
         try {
-          await api.deployAgent({ prompt, modelTier, workspaceIsolation });
-          showToast('success', 'Agent Deployed', `Subagent launched with ${modelTier} tier in ${workspaceIsolation} isolation.`);
+          await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation });
+          showToast('success', 'Agent Deployed', `${agentType} subagent launched with ${modelTier} tier in ${workspaceIsolation} isolation.`);
           fetchHistory();
         } catch (e: any) {
           showToast('error', 'Deployment Failed', e.message);
@@ -78,7 +79,7 @@ export const AgentDeployment: React.FC = () => {
     } else {
       setTelemetryLogs([]);
     }
-  }, [isDeployed, prompt, modelTier, workspaceIsolation]);
+  }, [isDeployed, prompt, agentType, modelTier, workspaceIsolation]);
 
   useEffect(() => {
     if (logsEndRef.current) {
@@ -99,6 +100,21 @@ export const AgentDeployment: React.FC = () => {
       setPrompt(scenarios.plan || 'Create a step-by-step implementation plan for new features.');
       setModelTier('Flash');
       setWorkspaceIsolation('Inherit');
+    }
+  };
+
+  const handleIncreaseLimits = async () => {
+    if (!budget.maxTokens) {
+      showToast('info', 'Limits Unavailable', 'The current quota is not configured.');
+      return;
+    }
+    try {
+      await api.updateBudget({ maxTokens: budget.maxTokens * 2 });
+      const refreshed = await api.getConfig();
+      if (refreshed?.budget) setBudget(refreshed.budget);
+      showToast('success', 'Limits Updated', `Quota increased to ${budget.maxTokens * 2} tokens.`);
+    } catch (e: any) {
+      showToast('error', 'Limit Update Failed', e.message);
     }
   };
 
@@ -138,7 +154,7 @@ export const AgentDeployment: React.FC = () => {
                   <div>
                     <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>{agent.name}</div>
                     <div style={{ fontSize: '0.75rem', color: agent.status === 'Active' || agent.status === 'running' ? 'var(--text-secondary)' : 'var(--danger)' }}>
-                      {agent.status} · {agent.id?.substring(0, 8)}
+                      {agent.status} · {agent.id}
                     </div>
                   </div>
                 </div>
@@ -156,9 +172,11 @@ export const AgentDeployment: React.FC = () => {
           <div style={{ background: 'var(--bg-panel)', border: '1px solid #1f6feb', borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-blue)', fontSize: '0.85rem' }}>
               <Info size={16} />
-              <span>Fleet Compute Burn Rate: <strong>{budget.percent}% of quota consumed</strong> ({budget.spent} / {budget.total}).</span>
+              <span>Fleet Compute Burn Rate: {budget.percent === null
+                ? <strong>No token usage telemetry available</strong>
+                : <><strong>{budget.percent}% of quota consumed</strong> ({budget.usedTokens} / {budget.maxTokens} tokens).</>}</span>
             </div>
-            <button onClick={() => showToast('info', 'Limits', 'Quota adjusted')} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Increase limits</button>
+            <button onClick={handleIncreaseLimits} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Increase limits</button>
           </div>
         </div>
 
@@ -188,6 +206,13 @@ export const AgentDeployment: React.FC = () => {
                 <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   
                   <div style={{ display: 'flex', gap: '24px' }}>
+                    {/* Agent Type */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Agent Type</span>
+                      <select value={agentType} onChange={(e) => setAgentType(e.target.value)} style={{ minWidth: '120px', padding: '5px 8px', border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-main)', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+                        {['GenOS', 'Antigravity', 'Codex', 'ChatGPT', 'Claude', 'Other'].map((type) => <option key={type} value={type}>{type}</option>)}
+                      </select>
+                    </div>
                     {/* Model Tier */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Model Tier</span>
@@ -265,10 +290,10 @@ export const AgentDeployment: React.FC = () => {
                 <div>
                   <h2 style={{ fontSize: '1.25rem', margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <Activity size={20} color="var(--success)" className="pulse-green" /> 
-                    Mission in progress
+                    Deployment registered
                   </h2>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    Agent is working autonomously in the background. Stream will continue logging.
+                    The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px' }}>

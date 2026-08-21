@@ -11,7 +11,10 @@ interface SwarmControlCenterProps {
 export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelectAgent }) => {
   const { clones: agents, setSelectedAgentId, fetchAgents } = useGenOSStore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [worldFilter, setWorldFilter] = useState('all');
   const [proposals, setProposals] = useState<any[]>([]);
+  const [activity, setActivity] = useState<Record<string, any>>({});
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
@@ -28,6 +31,16 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   useEffect(() => {
     fetchAgents();
     fetchConsensus();
+    const loadActivity = () => api.getTelemetryEvents(100).then((response: any) => {
+      const latest: Record<string, any> = {};
+      (response?.events || []).forEach((event: any) => {
+        if (event.agent_id && !latest[event.agent_id]) latest[event.agent_id] = event;
+      });
+      setActivity(latest);
+    }).catch(() => {});
+    loadActivity();
+    const interval = setInterval(loadActivity, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   const handlePing = async (agentId: string, name: string) => {
@@ -64,9 +77,11 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   };
 
   const filteredAgents = agents.filter((a) => 
-    (a.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (a.role || '').toLowerCase().includes(searchTerm.toLowerCase())
+    ((a.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || (a.role || '').toLowerCase().includes(searchTerm.toLowerCase()) || (a.trinityWorldName || '').toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (typeFilter === 'all' || a.agentType === typeFilter) && (worldFilter === 'all' || a.trinityWorldId === worldFilter)
   );
+  const agentTypes = [...new Set(agents.map((a) => a.agentType).filter(Boolean))];
+  const worlds = agents.filter((a) => a.trinityWorldId).reduce((all: any[], a) => all.some((w) => w.id === a.trinityWorldId) ? all : [...all, { id: a.trinityWorldId, name: a.trinityWorldName }], []);
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', height: '100%', overflowY: 'auto', background: 'var(--bg-main)' }}>
@@ -86,6 +101,8 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
               />
               <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '8px' }} />
             </div>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '6px' }}><option value="all">All types</option>{agentTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select>
+            <select value={worldFilter} onChange={(e) => setWorldFilter(e.target.value)} style={{ background: 'var(--bg-panel)', color: 'var(--text-primary)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '6px' }}><option value="all">All worlds</option>{worlds.map((world) => <option key={world.id} value={world.id}>{world.name}</option>)}</select>
           </div>
 
           <button onClick={() => setShowProposalModal(true)} className="gh-btn gh-btn-primary" style={{ padding: '6px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -141,8 +158,9 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                       {agent.agentType || 'Agent'}
                     </span>
                     <span style={{ fontSize: '0.75rem', padding: '2px 8px', border: '1px solid var(--panel-border)', borderRadius: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                      {agent.role}
-                    </span>
+                    {agent.role}
+                  </span>
+                  {agent.trinityWorldName && <span style={{ fontSize: '0.75rem', padding: '2px 8px', border: '1px solid var(--accent-purple)', borderRadius: '12px', color: 'var(--accent-purple)', fontWeight: 500 }}>{agent.trinityWorldName}</span>}
                   </div>
 
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', maxWidth: '85%' }}>
@@ -155,6 +173,10 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                       {agent.status}
                     </span>
                     <span>Node ID: {agent.id}</span>
+                  </div>
+                  <div style={{ marginTop: '10px', padding: '8px 10px', border: '1px solid var(--panel-border)', borderRadius: '4px', background: 'var(--bg-main)', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                    <strong style={{ color: 'var(--text-primary)' }}>Last activity:</strong>{' '}
+                    {activity[agent.id] ? `${activity[agent.id].event_type || activity[agent.id].action} — ${activity[agent.id].detail || 'No detail'} · ${activity[agent.id].created_at || ''}` : 'No execution event received yet.'}
                   </div>
                 </div>
 

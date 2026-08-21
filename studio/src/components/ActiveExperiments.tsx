@@ -79,14 +79,14 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
 
     const progress = Math.min(agentTraces.length * 10, 100);
     const evalData = evaluations.filter((e) => e.agentId === agentId).map((e) => e.score);
-    const data = evalData.length > 0 ? evalData : [10, 15, 25, 40, 65, 80];
+    const data = evalData;
 
     return {
       id: agentId,
       title: `${agentName} - ${agentTraces[agentTraces.length - 1]?.name || 'Active Task'}`,
       type,
       progress,
-      agents: [{ name: agentName, role: agentRole }],
+      agents: agent ? [{ name: agentName, role: agentRole }] : [],
       color,
       data
     };
@@ -98,10 +98,10 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
       id: be.id,
       title: be.title,
       type: be.type || 'Live Simulation',
-      progress: be.status === 'Running' ? 65 : 100,
-      agents: [{ name: 'GenOS Fleet Agent', role: 'Simulation Node' }],
+      progress: typeof be.progress === 'number' ? be.progress : 0,
+      agents: Array.isArray(be.agents) ? be.agents : [],
       color: be.color || '#58a6ff',
-      data: [15, 30, 45, 60, 75, 90]
+      data: Array.isArray(be.data) ? be.data : []
     }))
   ];
 
@@ -163,14 +163,14 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
                   <Flame size={14} /> Compute Burn Rate
                 </span>
                 <span style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                  ${(mergedExperiments.length * 0.45).toFixed(2)} <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400 }}>/ hr</span>
+                  — <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 400 }}>/ hr</span>
                 </span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <Target size={14} /> Success Rate (7d)
                 </span>
-                <span style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--success)' }}>98.4%</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-secondary)' }}>—</span>
               </div>
             </div>
 
@@ -208,7 +208,7 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
 
                 {/* Agent Arena */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', padding: '12px', borderRadius: '6px' }}>
-                  {exp.agents.map((agent) => (
+                  {exp.agents.map((agent: any) => (
                     <div key={agent.name} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                       <div style={{ width: '24px', height: '24px', borderRadius: '4px', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <User size={14} color="var(--text-secondary)" />
