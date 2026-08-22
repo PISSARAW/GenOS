@@ -38,7 +38,13 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
     for (const token of tokenize(text)) await onToken(token);
     return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || tokenize(prompt).length, outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || tokenize(text).length, provider };
   };
-  return Promise.race([run(), new Promise((_, reject) => setTimeout(() => reject(new Error(`Model timeout after ${timeoutMs}ms.`)), timeoutMs))]);
+  let timer;
+  return Promise.race([
+    run(),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`Model timeout after ${timeoutMs}ms.`)), timeoutMs);
+    })
+  ]).finally(() => clearTimeout(timer));
 }
 
 function getModelStatus(model) {
