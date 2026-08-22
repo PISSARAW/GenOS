@@ -1,4 +1,5 @@
 const modelProvider = require('./modelProvider');
+const localModelDiscovery = require('./localModelDiscovery');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -53,7 +54,8 @@ async function loadPolicy(db, { agentId, organizationId, projectId }) {
 
 async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, onToken = () => {}, policy: suppliedPolicy }) {
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
-  const candidates = candidateModels(model, policy);
+  const configuredCandidates = candidateModels(model, policy);
+  const candidates = configuredCandidates.length ? configuredCandidates : await localModelDiscovery.discoverChatModelUris();
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {

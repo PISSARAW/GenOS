@@ -399,6 +399,7 @@ export const api = {
   getPlatformGraph: () => apiRequest('/api/platform/causal-graph'),
   getPlatformTelemetry: () => apiRequest('/api/platform/telemetry/summary'),
   getPlatformProviders: () => apiRequest('/api/platform/providers'),
+  getLocalModels: (refresh = false) => apiRequest(`/api/model/local${refresh ? '?refresh=1' : ''}`),
   routePlatformModel: (payload: any) => apiRequest('/api/platform/route', { method: 'POST', body: payload }),
   getModelRoutingPolicies: () => apiRequest('/api/platform/model-routing/policies'),
   saveModelRoutingPolicy: (agentId: string, policy: any) => apiRequest(`/api/platform/model-routing/policies/${encodeURIComponent(agentId)}`, { method: 'PUT', body: { policy } }),
