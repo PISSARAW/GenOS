@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Lock, Key, X } from 'lucide-react';
-import { api, ensureTenantScope, setAuthToken } from '../api/client';
+import { api, ensureTenantScope, getAuthToken, setAuthToken } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
 interface RBACGateProps {
@@ -13,6 +13,21 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
   const [key, setKey] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const showToast = useToastStore((state) => state.showToast);
+
+  // A refreshed Studio must reuse a previously validated local access key.
+  // Without this, every reload incorrectly presents the login gate again.
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) return;
+    api.verifyToken(token)
+      .then(async (result) => {
+        if (result?.valid) {
+          await ensureTenantScope();
+          setLocked(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleUnlock = async () => {
     setErrorMsg(null);
