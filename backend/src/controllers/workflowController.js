@@ -17,7 +17,9 @@ function validateGraph(graph) {
     if (!ids.has(edge.source) || !ids.has(edge.target)) errors.push(`Edge ${edge.id || '(unnamed)'} references an unknown node.`);
   });
   const incoming = new Set(edges.map((edge) => edge.target));
-  if (nodes.length > 1 && nodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger')) {
+  // React Flow uses the built-in `input` node type for a trigger node,
+  // while persisted graphs may use the domain-level `trigger` type.
+  if (nodes.length > 1 && nodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
     errors.push('Every non-trigger node must have an incoming edge.');
   }
   return { valid: errors.length === 0, errors, nodeCount: nodes.length, edgeCount: edges.length };
