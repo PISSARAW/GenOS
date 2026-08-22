@@ -49,6 +49,8 @@ mod orchestration;
 pub use orchestration::*;
 mod workers;
 pub use workers::*;
+mod distributed_scheduler;
+pub use distributed_scheduler::*;
 
 #[cfg(test)]
 pub(crate) mod test_support {
