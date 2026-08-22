@@ -507,6 +507,27 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
     completed_at DATETIME,
     FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
 );
+
+-- 27. Prompt registry and immutable prompt versions
+CREATE TABLE IF NOT EXISTS prompts (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    current_version INTEGER NOT NULL DEFAULT 1,
+    variables_json TEXT NOT NULL DEFAULT '[]',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS prompt_versions (
+    id TEXT PRIMARY KEY,
+    prompt_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    template TEXT NOT NULL,
+    model TEXT NOT NULL DEFAULT 'fake://local',
+    config_json TEXT NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
+    UNIQUE(prompt_id, version)
+);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -531,6 +552,7 @@ CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_ru
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_steps(run_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version DESC);
 `;
 
 async function migrateLegacySchema(db) {
