@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 pub mod adapters;
 pub mod factory;
 pub mod fake;
 pub mod inference;
+pub mod reliability;
 pub mod router;
 pub mod ssm;
 
@@ -46,6 +48,19 @@ pub struct ToolCall {
     pub arguments: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolDefinition {
+    pub name: String,
+    pub description: String,
+    pub parameters: Value,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StreamChunk {
+    pub delta: String,
+    pub done: bool,
+}
+
 /// Usage statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenUsage {
@@ -83,4 +98,49 @@ pub trait LlmProvider: Send + Sync {
         messages: &[Message],
         config: &GenerationConfig,
     ) -> anyhow::Result<LlmResponse>;
+
+    /// Normalized streaming surface. Providers with native streaming can
+    /// override this; the default keeps every adapter usable by emitting one
+    /// final chunk.
+    async fn stream(
+        &self,
+        messages: &[Message],
+        config: &GenerationConfig,
+    ) -> anyhow::Result<Vec<StreamChunk>> {
+        let response = self.generate(messages, config).await?;
+        Ok(vec![StreamChunk {
+            delta: response.content.unwrap_or_default(),
+            done: true,
+        }])
+    }
+}
+
+pub fn parse_structured<T: serde::de::DeserializeOwned>(
+    response: &LlmResponse,
+) -> anyhow::Result<T> {
+    let content = response
+        .content
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("model returned no structured content"))?;
+    Ok(serde_json::from_str(content)?)
+}
+
+pub fn validate_required_fields(value: &Value, schema: &Value) -> anyhow::Result<()> {
+    let object = value
+        .as_object()
+        .ok_or_else(|| anyhow::anyhow!("structured output must be a JSON object"))?;
+    for required in schema
+        .get("required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+    {
+        let field = required
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("schema required fields must be strings"))?;
+        if !object.contains_key(field) {
+            anyhow::bail!("structured output is missing required field {field}");
+        }
+    }
+    Ok(())
 }
