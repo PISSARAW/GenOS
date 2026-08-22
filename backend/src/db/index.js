@@ -9,25 +9,41 @@ const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
 
 let dbInstance = null;
+let dbInitialization = null;
 
 async function getDatabase(dbFilePath) {
   if (dbInstance) {
     return dbInstance;
   }
 
+  // Requests may reach the backend while it is still bootstrapping.  Reuse the
+  // same connection/bootstrap promise instead of running two seed passes in
+  // parallel inside one Node process.
+  if (dbInitialization) return dbInitialization;
+
   const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
   const filename = dbFilePath || defaultPath;
 
-  const db = await open({
-    filename,
-    driver: sqlite3.Database
-  });
+  dbInitialization = (async () => {
+    const db = await open({
+      filename,
+      driver: sqlite3.Database
+    });
 
-  await initializeSchema(db);
-  await seedDatabase(db);
+    try {
+      await initializeSchema(db);
+      await seedDatabase(db);
+      dbInstance = db;
+      return dbInstance;
+    } catch (error) {
+      await db.close();
+      throw error;
+    } finally {
+      dbInitialization = null;
+    }
+  })();
 
-  dbInstance = db;
-  return dbInstance;
+  return dbInitialization;
 }
 
 async function closeDatabase() {
