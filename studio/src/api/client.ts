@@ -153,6 +153,14 @@ export const api = {
   runWorkflow: (id: string, input: any = {}) => apiRequest(`/api/workflows/${encodeURIComponent(id)}/runs`, { method: 'POST', body: { input } }),
   listWorkflowRuns: (id: string) => apiRequest(`/api/workflows/${encodeURIComponent(id)}/runs`),
 
+  // Prompt registry and model playground
+  listPrompts: () => apiRequest('/api/prompts'),
+  createPrompt: (payload: { name: string; template: string; variables?: string[]; model?: string }) => apiRequest('/api/prompts', { method: 'POST', body: payload }),
+  getPrompt: (id: string) => apiRequest(`/api/prompts/${encodeURIComponent(id)}`),
+  createPromptVersion: (id: string, payload: { template: string; model?: string; config?: any }) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/versions`, { method: 'POST', body: payload }),
+  renderPrompt: (id: string, version: number, variables: any) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/render`, { method: 'POST', body: { version, variables } }),
+  runPlayground: (payload: { prompt: string; models: string[]; variables?: any }) => apiRequest('/api/prompts/playground', { method: 'POST', body: payload }),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
