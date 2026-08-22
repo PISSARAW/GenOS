@@ -16,6 +16,8 @@ import { runPart2 } from './test_e2e_api_client_part2.mjs';
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const E2E_PORT = 4101;
+const E2E_DB_PATH = path.join('/tmp', `genos-studio-e2e-${process.pid}.db`);
 
 // In-memory localStorage mock for Node.js
 const storage = new Map();
@@ -29,13 +31,17 @@ globalThis.localStorage = {
 // Use an ephemeral test-only administrator token inherited by the backend.
 const ADMIN_TEST_TOKEN = `genos_test_admin_${crypto.randomBytes(16).toString('hex')}`;
 process.env.GENOS_ADMIN_TOKEN = ADMIN_TEST_TOKEN;
+process.env.GENOS_E2E_PORT = String(E2E_PORT);
+process.env.GENOS_E2E_API_BASE_URL = `http://localhost:${E2E_PORT}`;
+process.env.GENOS_DB_PATH = E2E_DB_PATH;
+process.env.PORT = String(E2E_PORT);
 globalThis.localStorage.setItem('genos_auth_token', ADMIN_TEST_TOKEN);
 globalThis.localStorage.setItem('genos_csrf_token', 'csrf-e2e-challenger-2-token');
 
 // Compile and load client.ts and useToastStore.ts dynamically
 function loadTsModule(filePath) {
   const code = fs.readFileSync(filePath, 'utf-8');
-  const compiled = ts.transpileModule(code, {
+  const compiled = ts.transpileModule(code.replaceAll('import.meta.env', '__VITE_ENV__'), {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
       target: ts.ScriptTarget.ES2022
@@ -43,7 +49,7 @@ function loadTsModule(filePath) {
   }).outputText;
 
   const moduleObj = { exports: {} };
-  const fn = new Function('require', 'exports', 'module', compiled);
+  const fn = new Function('require', 'exports', 'module', '__VITE_ENV__', compiled);
   
   const customRequire = (specifier) => {
     if (specifier === 'zustand') {
@@ -76,7 +82,7 @@ function loadTsModule(filePath) {
     return require(specifier);
   };
 
-  fn(customRequire, moduleObj.exports, moduleObj);
+  fn(customRequire, moduleObj.exports, moduleObj, { DEV: true, VITE_API_BASE_URL: process.env.GENOS_E2E_API_BASE_URL });
   return moduleObj.exports;
 }
 
@@ -110,7 +116,7 @@ function recordVulnerability(title, description, payload, error) {
 }
 
 async function resetAndSeedDatabase() {
-  const dbPath = path.resolve(__dirname, '../backend/genos.db');
+  const dbPath = E2E_DB_PATH;
   for (const filePath of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
     if (fs.existsSync(filePath)) {
       try {
@@ -124,7 +130,7 @@ async function resetAndSeedDatabase() {
 
 async function ensureBackendRunning() {
   const isPortOpen = await new Promise((resolve) => {
-    const req = http.request({ hostname: 'localhost', port: 4000, path: '/api/health', method: 'GET', timeout: 800 }, (res) => {
+    const req = http.request({ hostname: 'localhost', port: E2E_PORT, path: '/api/health', method: 'GET', timeout: 800 }, (res) => {
       resolve(res.statusCode === 200);
     });
     req.on('error', () => resolve(false));
@@ -133,18 +139,18 @@ async function ensureBackendRunning() {
   });
 
   if (isPortOpen) {
-    console.log('Backend server is already actively listening on port 4000.\n');
+    console.log(`Backend server is already actively listening on port ${E2E_PORT}.\n`);
     return;
   }
 
   await resetAndSeedDatabase();
 
-  console.log('Starting GenOS backend server on port 4000 for E2E testing...');
+  console.log(`Starting isolated GenOS backend server on port ${E2E_PORT} for E2E testing...`);
   const backendServerPath = path.resolve(__dirname, '../backend/server.js');
   const { startServer } = require(backendServerPath);
   const serverObj = await startServer();
   backendServerInstance = serverObj.server;
-  console.log('Backend server initialized successfully on port 4000.\n');
+  console.log(`Backend server initialized successfully on port ${E2E_PORT}.\n`);
 }
 
 async function runE2EVerification() {
