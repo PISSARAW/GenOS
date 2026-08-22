@@ -22,6 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Reframed the README around reproducible counterfactual agent execution and the project's current pre-alpha boundary.
 - Clarified the project's authorship, use of AI assistance, and maintainer responsibility.
+- Bound alpha artefacts to a verified tag commit and matching Cargo version before publication.
+- Replaced embedded Studio credentials with environment or random one-time bootstrap tokens.
+- Limited the local Compose stack to one explicit bind-mounted workspace with safe Codex defaults.
 
 ## 0.0.1 development milestone - 2026-08-15
 

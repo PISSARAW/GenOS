@@ -8,12 +8,22 @@ services:
       NODE_ENV: production
       PORT: 4000
       GENOS_DB_PATH: /data/genos.db
+      GENOS_WORKSPACE_ROOT: /workspace
+      GENOS_WORKSPACE_NAME: ${GENOS_WORKSPACE_NAME:-GenOS}
+      GENOS_SINGLE_WORKSPACE: "1"
+      GENOS_ADMIN_TOKEN: ${GENOS_ADMIN_TOKEN:-}
+      GENOS_CODEX_UNSAFE_BYPASS: ${GENOS_CODEX_UNSAFE_BYPASS:-0}
     init: true
     ports:
       - "127.0.0.1:4000:4000"
     volumes:
       - genos-data:/data
+      - type: bind
+        source: ${GENOS_WORKSPACE_PATH:-.}
+        target: /workspace
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test:
         - CMD
@@ -35,6 +45,8 @@ services:
     ports:
       - "127.0.0.1:3000:80"
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
       interval: 10s

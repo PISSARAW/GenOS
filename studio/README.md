@@ -56,6 +56,9 @@ npm run dev
 ```
 
 The frontend expects the backend to be available at http://localhost:4000.
+Studio does not contain a default access token. On a new database, use the
+random bootstrap token printed by the backend or set `GENOS_ADMIN_TOKEN`
+before its first start, then enter that token in the RBAC gate.
 
 ## Agent runtime adapter
 
@@ -66,6 +69,11 @@ To use a custom executor, override the default explicitly:
 ```bash
 GENOS_AGENT_EXECUTOR=/absolute/path/to/genos-agent-runtime npm start
 ```
+
+The bundled Codex bridge uses normal approvals and sandboxing by default. An
+unsafe bypass is available only through the explicit
+`GENOS_CODEX_UNSAFE_BYPASS=1` opt-in and should be limited to disposable,
+trusted workspaces.
 
 Events may include `eventType`, `action`, `detail`, `status`, `currentTask`, `severity`, and `payload`. If the custom variable is omitted, Studio uses the bundled runtime and agents no longer remain idle merely because the environment was not configured.
 
