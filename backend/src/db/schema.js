@@ -478,6 +478,35 @@ CREATE TABLE IF NOT EXISTS notification_preferences (
     threshold REAL,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 26. Versioned visual workflows and their execution requests
+CREATE TABLE IF NOT EXISTS workflows (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    version INTEGER NOT NULL DEFAULT 1,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'staging', 'published', 'archived')),
+    graph_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS workflow_runs (
+    id TEXT PRIMARY KEY,
+    workflow_id TEXT NOT NULL,
+    workflow_version INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+    input_json TEXT NOT NULL DEFAULT '{}',
+    output_json TEXT,
+    error_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    started_at DATETIME,
+    completed_at DATETIME,
+    FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE
+);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -500,6 +529,8 @@ CREATE INDEX IF NOT EXISTS idx_evaluation_benchmark ON evaluation_runs(benchmark
 CREATE INDEX IF NOT EXISTS idx_strategy_contract_agent ON strategy_contracts(agent_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_runs(agent_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_steps(run_id, sequence);
+CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
 `;
 
 async function migrateLegacySchema(db) {
