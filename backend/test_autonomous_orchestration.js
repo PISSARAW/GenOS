@@ -26,6 +26,10 @@ assert(plan.requiredTools.includes('genos_fork'));
 assert(plan.requiredTools.includes('genos_replay'));
 assert.strictEqual(plan.parasitism.enabled, true);
 assert.strictEqual(plan.tokenPolicy.allocation, 'successive_halving_with_reallocation');
+assert.strictEqual(plan.tokenPolicy.rounds.initial.workerCount, 3);
+assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 9600);
+assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 0);
+assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 
 const lowBudgetPlan = buildAutonomyPlan(securityContract, { tokens: 6000, minimumWorkerTokens: 8000 });
 assert.strictEqual(lowBudgetPlan.dispatchWorkers.length, 0, 'the orchestrator must retain control rather than launch unaffordable workers');
