@@ -40,7 +40,7 @@ process.stdin.on('end', () => {
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
     authorityInstruction,
     'Work directly in the assigned repository and implement the mission completely.',
-    'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress.',
+    'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"]}. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.',
     strategyContract.selected_strategy?.primary
       ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(strategyContract, null, 2)}`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
@@ -74,6 +74,7 @@ process.stdin.on('end', () => {
   const child = spawn(codex, args, { cwd: workspace, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   let buffer = '';
   let stderr = '';
+  let finalReportText = '';
   // The plan exposes every relevant GenOS primitive, but a low-risk mission
   // must not invoke all of them merely to satisfy telemetry. Only a future
   // explicitly-declared mandatory set is a completion invariant.
@@ -100,7 +101,10 @@ process.stdin.on('end', () => {
       const type = String(event.type || '');
       if (type === 'turn.started') emit({ eventType: 'AGENT_STEP', action: 'THINK', detail: 'Implementation turn started.', payload: event });
       else if (type === 'item.started') emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item started.', payload: event });
-      else if (type === 'item.completed') emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
+      else if (type === 'item.completed') {
+        if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') finalReportText = event.item.text;
+        emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
+      }
       else if (type === 'turn.completed') emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
     });
   });
@@ -124,7 +128,18 @@ process.stdin.on('end', () => {
     if (code === 0 && missingTools.length) {
       emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'ORCHESTRATION_POLICY', detail: `Required GenOS orchestration tools were not observed: ${missingTools.join(', ')}.`, severity: 'error', status: 'error', payload: { missingTools, observedTools: [...observedTools] } });
       process.exitCode = 1;
-    } else if (code === 0) emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'idle', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools] } });
+    } else if (code === 0) {
+      let report;
+      try {
+        const json = finalReportText.match(/\{[\s\S]*\}/)?.[0];
+        report = JSON.parse(json || '');
+        if (!Array.isArray(report.claims)) throw new Error('claims must be an array');
+      } catch (_) {
+        report = { claims: [], unverifiedClaims: ['The agent completed without a valid evidence report.'] };
+      }
+      emit({ eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Validated the agent final evidence report.', payload: report });
+      emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'idle', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
+    }
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     if (process.exitCode === undefined) process.exitCode = code || 0;
   });

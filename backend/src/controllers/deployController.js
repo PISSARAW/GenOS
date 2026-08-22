@@ -263,6 +263,7 @@ async function listAgents(req, res) {
     a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId,
     a.parent_agent_id as parentAgentId, p.name as parentAgentName,
     a.lineage_relation as lineageRelation, a.hallucination_monitoring as hallucinationMonitoring,
+    a.hallucination_count as hallucinationCount,
     COALESCE(a.about, a.current_task, 'Autonomous GenOS agent.') as about,
     tw.id as trinityWorldId, tw.name as trinityWorldName, tw.strategy as trinityStrategy,
     tw.mission as trinityMission, sc.primary_strategy as strategyPrimary,
@@ -324,7 +325,7 @@ async function subscribeAgent(req, res) {
   const agent = await db.get('SELECT id, name FROM agents WHERE id = ?', id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
 
-  await db.run('UPDATE agents SET hallucination_monitoring = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?', id);
+  await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', id);
   telemetry.emitEvent({
     eventType: 'HALLUCINATION_MONITORING_ENABLED',
     agentId: id,
