@@ -92,7 +92,7 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
     };
 
     if args.save {
-        snapshot_store.save_snapshot(snapshot.clone()).await?;
+        snapshot_store.save_snapshot(&snapshot).await?;
     }
 
     print_serialized(&out, args.format)
@@ -147,7 +147,7 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
     };
 
     if args.save {
-        snapshot_store.save_snapshot(snapshot.clone()).await?;
+        snapshot_store.save_snapshot(&snapshot).await?;
     }
 
     print_serialized(&out, args.format)
@@ -208,7 +208,7 @@ pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> 
     };
 
     if args.save {
-        snapshot_store.save_snapshot(snapshot.clone()).await?;
+        snapshot_store.save_snapshot(&snapshot).await?;
     }
 
     print_serialized(&out, args.format)
