@@ -1,4 +1,4 @@
-use crate::{GenerationConfig, LlmProvider, LlmResponse, Message, Role, TokenUsage};
+use crate::{GenerationConfig, LlmProvider, LlmResponse, Message, Role, TokenUsage, ToolCall};
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use reqwest::Client;
@@ -24,6 +24,8 @@ struct OpenAiRequest<'a> {
     max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     stop: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    tools: Vec<crate::ToolDefinition>,
 }
 
 #[derive(Deserialize)]
@@ -41,6 +43,19 @@ struct OpenAiChoice {
 #[derive(Deserialize)]
 struct OpenAiResponseMessage {
     content: Option<String>,
+    #[serde(default)]
+    tool_calls: Vec<OpenAiToolCall>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiToolCall {
+    id: String,
+    function: OpenAiFunction,
+}
+#[derive(Deserialize)]
+struct OpenAiFunction {
+    name: String,
+    arguments: String,
 }
 
 #[derive(Deserialize)]
@@ -124,6 +139,7 @@ impl LlmProvider for OpenAiAdapter {
             top_p: config.top_p,
             max_completion_tokens: config.max_tokens,
             stop: config.stop_sequences.clone(),
+            tools: config.tools.clone(),
         };
 
         let start_time = std::time::Instant::now();
@@ -153,6 +169,22 @@ impl LlmProvider for OpenAiAdapter {
             .choices
             .first()
             .and_then(|c| c.message.content.clone());
+        let tool_calls = openai_res
+            .choices
+            .first()
+            .map(|choice| {
+                choice
+                    .message
+                    .tool_calls
+                    .iter()
+                    .map(|call| ToolCall {
+                        id: call.id.clone(),
+                        function_name: call.function.name.clone(),
+                        arguments: call.function.arguments.clone(),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
 
         let usage = openai_res.usage.unwrap_or(OpenAiUsage {
             prompt_tokens: 0,
@@ -164,7 +196,7 @@ impl LlmProvider for OpenAiAdapter {
         // could use the same sha2 approach if needed.
         Ok(LlmResponse {
             content,
-            tool_calls: vec![],
+            tool_calls,
             usage: TokenUsage {
                 prompt_tokens: usage.prompt_tokens,
                 completion_tokens: usage.completion_tokens,

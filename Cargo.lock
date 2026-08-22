@@ -649,6 +649,7 @@ dependencies = [
 name = "genos-api"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "axum",
  "futures",
  "genos-core",
