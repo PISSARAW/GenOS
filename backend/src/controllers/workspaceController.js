@@ -10,7 +10,9 @@ const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const execFileAsync = promisify(execFile);
 
-const WORKSPACES_ROOT = 'C:/Users/Shadow/Documents/GitHub';
+const WORKSPACES_ROOT = process.env.GENOS_WORKSPACES_ROOT
+  ? path.resolve(process.env.GENOS_WORKSPACES_ROOT)
+  : path.resolve(process.cwd(), 'workspaces');
 
 async function getWorkspaceFiles(req, res) {
   const db = await getDatabase();
@@ -106,6 +108,15 @@ async function listWorkspaces(req, res) {
 }
 
 async function createWorkspace(req, res) {
+  if (process.env.GENOS_SINGLE_WORKSPACE === '1') {
+    return res.status(409).json({
+      error: {
+        code: 'SINGLE_WORKSPACE_MODE',
+        message: 'This Studio instance manages only the workspace mounted through GENOS_WORKSPACE_ROOT.'
+      }
+    });
+  }
+
   const { name, language = 'TypeScript', description = '', visibility = 'Private' } = req.body || {};
   if (!name) {
     return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name is required' } });

@@ -7,11 +7,12 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN, TEST_VIEWER_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const { sanitizeString, sanitizeObject } = require('./src/middleware/security');
 const circuitBreaker = require('./src/services/circuitBreaker');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4399;
 let server = null;
@@ -83,7 +84,7 @@ async function runRbacMatrixTests() {
   const viewerCb = await sendReq({
     method: 'POST',
     path: '/api/mcp/circuit-breaker',
-    headers: { Authorization: 'Bearer genos_sk_viewer_2026' }
+    headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
   }, { toolName: 'genos_run', locked: true });
   assert(viewerCb.status === 403 && viewerCb.body.error.code === 'FORBIDDEN', 'Viewer token rejected with 403 FORBIDDEN on /api/mcp/circuit-breaker');
 
@@ -91,7 +92,7 @@ async function runRbacMatrixTests() {
   const opReset = await sendReq({
     method: 'POST',
     path: '/api/security/kill-switch/reset',
-    headers: { Authorization: 'Bearer genos_sk_operator_2026' }
+    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   }, {});
   assert(opReset.status === 403 && opReset.body.error.code === 'FORBIDDEN', 'Operator token rejected with 403 on /api/security/kill-switch/reset');
 
@@ -99,7 +100,7 @@ async function runRbacMatrixTests() {
   const opKeys = await sendReq({
     method: 'GET',
     path: '/api/auth/keys',
-    headers: { Authorization: 'Bearer genos_sk_operator_2026' }
+    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   });
   assert(opKeys.status === 403, 'Operator rejected with 403 on GET /api/auth/keys');
 
@@ -123,7 +124,7 @@ async function runRbacMatrixTests() {
   const adminKeyCreate = await sendReq({
     method: 'POST',
     path: '/api/auth/keys',
-    headers: { Authorization: 'Bearer genos_sk_admin_2026' }
+    headers: { Authorization: `Bearer ${TEST_ADMIN_TOKEN}` }
   }, { label: 'Dynamic Test Key', role: 'operator', permissions: ['read'] });
   assert(adminKeyCreate.status === 201 && adminKeyCreate.body.key && adminKeyCreate.body.key.id, 'Admin token successfully creates new access key with 201 Created');
 }
@@ -225,7 +226,7 @@ async function runCircuitBreakerTests() {
   const viewerExec = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: 'Bearer genos_sk_viewer_2026' }
+    headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
   }, { toolName: 'genos_inspect', args: {} });
   assert(viewerExec.status === 403, 'Viewer blocked from MCP tool execution with 403 FORBIDDEN');
 
@@ -233,7 +234,7 @@ async function runCircuitBreakerTests() {
   const opDestructive = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: 'Bearer genos_sk_operator_2026' }
+    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   }, { toolName: 'genos_merge', args: {} });
   assert(opDestructive.status === 503 && opDestructive.body.error.code === 'INSUFFICIENT_ROLE', 'Operator blocked from destructive genos_merge with 503 INSUFFICIENT_ROLE');
 
