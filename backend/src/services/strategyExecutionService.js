@@ -85,8 +85,20 @@ async function createExecutionRun(db, context) {
 
 function metricDelta(payload = {}) {
   const usage = payload.usage || payload.item?.usage || {};
+  const inputTokens = Number(usage.input_tokens || usage.prompt_tokens || 0);
+  const outputTokens = Number(usage.output_tokens || usage.completion_tokens || 0);
+  // Providers report cached input as a subset of input_tokens.  Keep it
+  // separate: it still occupies context, while its billing is different.
+  const cachedInputTokens = Math.min(inputTokens, Math.max(0, Number(usage.cached_input_tokens || usage.cache_read_input_tokens || 0)));
+  const contextTokens = Number(payload.tokens || usage.total_tokens || (inputTokens + outputTokens) || 0);
   return {
-    tokens: Number(payload.tokens || usage.total_tokens || ((usage.input_tokens || 0) + (usage.output_tokens || 0)) || 0),
+    // `tokens` remains the backwards-compatible context guardrail.  Cost
+    // guardrails continue to use costUsd supplied by the provider.
+    tokens: contextTokens,
+    inputTokens,
+    cachedInputTokens,
+    outputTokens,
+    billableTokens: Math.max(0, inputTokens - cachedInputTokens) + outputTokens,
     costUsd: Number(payload.costUsd || payload.cost_usd || usage.cost_usd || 0)
   };
 }
@@ -123,6 +135,10 @@ async function recordExecutionEvent(db, agentId, event) {
   const startedAt = row.started_at ? new Date(row.started_at).getTime() : Date.now();
   const metrics = {
     tokens: Number(previousMetrics.tokens || 0) + delta.tokens,
+    inputTokens: Number(previousMetrics.inputTokens || 0) + delta.inputTokens,
+    cachedInputTokens: Number(previousMetrics.cachedInputTokens || 0) + delta.cachedInputTokens,
+    outputTokens: Number(previousMetrics.outputTokens || 0) + delta.outputTokens,
+    billableTokens: Number(previousMetrics.billableTokens || 0) + delta.billableTokens,
     costUsd: Number((Number(previousMetrics.costUsd || 0) + delta.costUsd).toFixed(6)),
     latencyMs: Math.max(0, Date.now() - startedAt),
     events: Number(previousMetrics.events || 0) + 1
@@ -145,7 +161,14 @@ async function recordExecutionEvent(db, agentId, event) {
       `UPDATE strategy_execution_steps SET status = ?, actual_metrics_json = ?, evidence_json = ?,
        started_at = COALESCE(started_at, ?), completed_at = ? WHERE id = ?`,
       guardrailReason ? 'blocked' : (failed ? 'failed' : (approvalRequired ? 'awaiting_approval' : 'completed')),
-      JSON.stringify({ tokens: Number(stepMetrics.tokens || 0) + delta.tokens, costUsd: Number(stepMetrics.costUsd || 0) + delta.costUsd }),
+      JSON.stringify({
+        tokens: Number(stepMetrics.tokens || 0) + delta.tokens,
+        inputTokens: Number(stepMetrics.inputTokens || 0) + delta.inputTokens,
+        cachedInputTokens: Number(stepMetrics.cachedInputTokens || 0) + delta.cachedInputTokens,
+        outputTokens: Number(stepMetrics.outputTokens || 0) + delta.outputTokens,
+        billableTokens: Number(stepMetrics.billableTokens || 0) + delta.billableTokens,
+        costUsd: Number(stepMetrics.costUsd || 0) + delta.costUsd
+      }),
       JSON.stringify(evidence.slice(-50)), now, guardrailReason || failed || completed ? now : null, step.id
     );
   }
@@ -190,4 +213,4 @@ async function listRuns(db, agentId) {
   return Promise.all(rows.map((row) => hydrateRun(db, row)));
 }
 
-module.exports = { DEFAULT_BUDGET, compileExecutionPlan, createExecutionRun, recordExecutionEvent, approveRun, getRun, getLatestRun, listRuns };
+module.exports = { DEFAULT_BUDGET, metricDelta, compileExecutionPlan, createExecutionRun, recordExecutionEvent, approveRun, getRun, getLatestRun, listRuns };

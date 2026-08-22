@@ -16,6 +16,19 @@ try {
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
+
+  const halted = adapter.runtimeExitOutcome(
+    { kind: 'guardrail', reason: 'tokens budget exceeded (45001 > 45000)' },
+    null, 'SIGTERM', 'ERROR stale external cache message'
+  );
+  assert.equal(halted.status, 'blocked');
+  assert.equal(halted.eventType, 'AGENT_HALTED');
+  assert.equal(halted.payload.terminationReason, 'tokens budget exceeded (45001 > 45000)');
+  assert.match(halted.payload.stderr, /stale external cache message/);
+
+  const failed = adapter.runtimeExitOutcome(null, 1, null, 'ERROR actual runtime failure');
+  assert.equal(failed.status, 'error');
+  assert.equal(failed.eventType, 'AGENT_FAILED');
   console.log('Agent runtime adapter default and override checks passed.');
 } finally {
   if (previous === undefined) delete process.env.GENOS_AGENT_EXECUTOR;
