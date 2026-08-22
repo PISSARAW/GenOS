@@ -6,6 +6,7 @@ pub mod agent;
 pub mod biomimicry;
 pub mod capsule;
 pub mod dev;
+pub mod eval;
 pub mod experiment;
 pub mod hallucination;
 pub mod inspect;
@@ -21,6 +22,7 @@ pub use agent::*;
 pub use biomimicry::*;
 pub use capsule::*;
 pub use dev::*;
+pub use eval::*;
 pub use experiment::*;
 pub use hallucination::*;
 pub use inspect::*;
@@ -70,6 +72,8 @@ pub enum Commands {
     Platform(PlatformCommand),
     /// Versioned prompt templates and dynamic context rendering.
     Prompt(PromptCommand),
+    /// Persistent evaluation datasets and batch scoring.
+    Eval(EvalCommand),
 }
 
 #[derive(ArgsMacro, Debug)]
