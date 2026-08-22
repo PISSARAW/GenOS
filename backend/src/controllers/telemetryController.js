@@ -122,7 +122,7 @@ async function getDashboard(req, res) {
     profile: {
       username,
       org: 'PISSARAW',
-      location: 'Local Machine (Windows)'
+      location: 'Local Runtime'
     },
     stats: statsRecord || { total_actions: 0, total_snapshots: 0, total_tasks: 0, total_swarms: 0 },
     heatmap,

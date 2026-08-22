@@ -131,7 +131,7 @@ try {
 	New-Item -ItemType Directory -Path $forksDir | Out-Null
 
 	Write-Host "[0/9] build the genos CLI"
-	Invoke-Cargo build -p genos-cli
+	Invoke-Cargo -CargoArgs @("build", "-p", "genos-cli")
 
 	Write-Host "[1/9] init + create agent A + snapshot S0 (counter=10)"
 	Invoke-Genos init | Out-Null

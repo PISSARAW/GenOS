@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Menu, ChevronDown, Activity as ActivityIcon, AlertOctagon,
-  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot
+  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot, Bug
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -22,8 +22,10 @@ import { GodModeTerminal } from './components/GodModeTerminal';
 import { ToastContainer } from './components/ToastContainer';
 import { RBAC_Gate } from './components/RBAC_Gate';
 import { EvaluationLineageConsole } from './components/EvaluationLineageConsole';
+import { SafeDebuggingDemo } from './components/SafeDebuggingDemo';
+import './components/SafeDebuggingDemo.css';
 
-// 7 Innovative Breakthrough Modules
+// Product proof and breakthrough modules
 import { ArenaSolversModule } from './components/arena/ArenaSolversModule';
 import { McpSandboxModule } from './components/sandbox/McpSandboxModule';
 import { SwarmMonitorModule } from './components/swarm/SwarmMonitorModule';
@@ -39,7 +41,7 @@ import { useToastStore } from './store/useToastStore';
 import { api } from './api/client';
 
 type StudioView = 
-  | 'home' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience' 
+  | 'home' | 'safe_debugging' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience'
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
   | 'evaluation_lineage'
   | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments' 
@@ -153,7 +155,13 @@ const App: React.FC = () => {
                   <HomeIcon size={16} color="var(--text-secondary)" /> Home Dashboard
                 </div>
 
-                <div style={{ padding: '8px 8px 4px 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>7 Breakthrough Modules</div>
+                <div style={{ padding: '8px 8px 4px 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product Proof</div>
+
+                <div onClick={() => setActiveView('safe_debugging')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'safe_debugging' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'safe_debugging' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <Bug size={16} color="var(--success)" /> Safe Parallel Debugging
+                </div>
+
+                <div style={{ padding: '8px 8px 4px 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Breakthrough Modules</div>
 
                 <div onClick={() => setActiveView('arena')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'arena' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'arena' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Swords size={16} color="var(--accent-blue)" /> Arena & Solvers
@@ -263,6 +271,7 @@ const App: React.FC = () => {
           {/* MAIN CONTENT AREA */}
           <div className="gh-content-area">
             {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
+            {activeView === 'safe_debugging' && <SafeDebuggingDemo />}
             {activeView === 'arena' && <ArenaSolversModule />}
             {activeView === 'evaluation_lineage' && <EvaluationLineageConsole />}
             {activeView === 'mcp_sandbox' && <McpSandboxModule />}

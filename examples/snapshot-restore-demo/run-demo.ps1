@@ -117,7 +117,7 @@ try {
 	New-Item -ItemType Directory -Path $demoDir | Out-Null
 
 	Write-Host "[0/5] build the genos CLI"
-	Invoke-Cargo build -p genos-cli
+	Invoke-Cargo -CargoArgs @("build", "-p", "genos-cli")
 
 	Write-Host "[1/5] init + create agent A and snapshot S0 with counter=10"
 	Invoke-Genos init

@@ -18,9 +18,31 @@ pub enum WorldSubcommands {
     ReadFile(WorldReadFileArgs),
     /// Write a world-relative file inside a world.
     WriteFile(WorldWriteFileArgs),
+    /// Execute a command inside one isolated world.
+    Run(WorldRunArgs),
     /// Check that forked worlds wrote the same file differently and that no
     /// write escaped its world.
     CheckFile(WorldCheckFileArgs),
+}
+
+#[derive(ArgsMacro, Debug)]
+pub struct WorldRunArgs {
+    #[arg(long, value_enum)]
+    pub provider: WorldProviderKind,
+    #[arg(long, default_value = ".genos/world")]
+    pub root: PathBuf,
+    #[arg(long)]
+    pub world_id: String,
+    /// Command executed with the selected world as its working directory.
+    #[arg(long)]
+    pub command: String,
+    /// Return success even when the command exits non-zero.
+    #[arg(long)]
+    pub allow_failure: bool,
+    #[arg(long)]
+    pub repo: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    pub format: OutputFormat,
 }
 
 #[derive(ArgsMacro, Debug)]

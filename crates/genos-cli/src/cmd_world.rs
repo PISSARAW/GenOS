@@ -1,10 +1,11 @@
-﻿use crate::args::{
+use crate::args::{
     WorldCheckFileArgs, WorldCreateArgs, WorldDestroyArgs, WorldDiffArgs, WorldForkArgs,
-    WorldProviderKind, WorldReadFileArgs, WorldSnapshotArgs, WorldWriteFileArgs,
+    WorldProviderKind, WorldReadFileArgs, WorldRunArgs, WorldSnapshotArgs, WorldWriteFileArgs,
 };
 use crate::output::{
     print_serialized, WorldCheckFileOutput, WorldCreateOutput, WorldDestroyOutput, WorldDiffOutput,
-    WorldForkOutput, WorldReadFileOutput, WorldSnapshotOutput, WorldWriteFileOutput,
+    WorldForkOutput, WorldReadFileOutput, WorldRunOutput, WorldSnapshotOutput,
+    WorldWriteFileOutput,
 };
 use crate::resolve::{provider_from_args, provider_name, WorldProviderConfig};
 use anyhow::{bail, Result};
@@ -149,6 +150,33 @@ pub async fn cmd_world_write_file(args: WorldWriteFileArgs) -> Result<()> {
         contents: args.contents,
     };
     print_serialized(&out, args.format)
+}
+
+pub async fn cmd_world_run(args: WorldRunArgs) -> Result<()> {
+    let provider = provider_from_args(WorldProviderConfig {
+        kind: args.provider,
+        root: args.root,
+        seed: None,
+        repo: args.repo,
+    })?;
+    let result = provider
+        .execute(WorldId(args.world_id.clone()), &args.command)
+        .await?;
+    let success = result.exit_code == 0;
+    let out = WorldRunOutput {
+        provider: provider_name(args.provider).to_string(),
+        world_id: args.world_id,
+        command: args.command,
+        exit_code: result.exit_code,
+        success,
+        stdout: result.stdout,
+        stderr: result.stderr,
+    };
+    print_serialized(&out, args.format)?;
+    if !success && !args.allow_failure {
+        bail!("world command exited with code {}", out.exit_code);
+    }
+    Ok(())
 }
 
 pub async fn cmd_world_check_file(args: WorldCheckFileArgs) -> Result<()> {
