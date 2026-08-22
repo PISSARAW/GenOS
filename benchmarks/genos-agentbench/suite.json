@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "suite": "genos-agentbench-v1",
+  "tasks": [
+    { "id": "lease-ledger", "difficulty": 7, "grader": "graders/lease-ledger.test.mjs", "max_seconds": 300 },
+    { "id": "retry-scheduler", "difficulty": 8, "grader": "graders/retry-scheduler.test.mjs", "max_seconds": 300 },
+    { "id": "config-rollout", "difficulty": 7, "grader": "graders/config-rollout.test.mjs", "max_seconds": 300 }
+  ]
+}
