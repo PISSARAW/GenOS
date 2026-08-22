@@ -3,6 +3,7 @@ members = [
   "crates/genos-core",
   "crates/genos-observability",
   "crates/genos-rag",
+  "crates/genos-integrations",
   "crates/genos-runtime",
   "crates/genos-world",
   "crates/genos-store",
