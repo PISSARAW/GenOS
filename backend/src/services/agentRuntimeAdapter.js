@@ -5,6 +5,7 @@
  */
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs/promises');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const strategyExecution = require('./strategyExecutionService');
@@ -48,6 +49,23 @@ function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+async function createIsolatedWorkspace(sourceRoot, workerId) {
+  const source = path.resolve(sourceRoot);
+  // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
+  // destination nested under its source and this also keeps the parent clean.
+  const capsuleRoot = process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
+  const destination = path.join(capsuleRoot, path.basename(source), workerId);
+  // Capsules must never recursively copy previous capsules, build products, or
+  // VCS metadata. They remain on disk for replay and evidence-aware merging.
+  const excluded = new Set(['.git', '.genos', 'node_modules', 'target']);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.cp(source, destination, {
+    recursive: true,
+    filter: (entry) => !excluded.has(path.basename(entry))
+  });
+  return destination;
+}
+
 async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   const assignments = plan.dispatchWorkers || [];
   if (!assignments.length) return [];
@@ -58,8 +76,10 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
   const perWorkerTokens = Math.max(1, Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
   const workers = [];
+  const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
+    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id);
     const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`].join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
@@ -73,7 +93,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
       agentId: id, name: `${parent.name} · ${assignment.label}`, role: assignment.role, prompt,
       modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
-      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id
+      workspaceRoot, executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id
     });
   }
   return workers;
@@ -119,7 +139,7 @@ async function startMission(mission) {
 
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.
-  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const child = spawn(resolvedExecutable, [], { cwd: workspaceRoot, env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot }, stdio: ['pipe', 'pipe', 'pipe'] });
   activeProcesses.set(agentId, child);
@@ -211,4 +231,4 @@ function stopMission(agentId) {
   return true;
 }
 
-module.exports = { startMission, stopMission, configuredExecutable };
+module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace };
