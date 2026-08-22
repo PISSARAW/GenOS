@@ -1,44 +1,44 @@
 {
   "schema_version": 1,
   "scenario": "safe-parallel-debugging",
-  "generated_at": "2026-08-22T05:53:37.759Z",
+  "generated_at": "2026-08-22T05:58:48.362Z",
   "source": {
     "command": "./examples/safe-debugging-demo/run-demo.sh",
     "fixture": "examples/safe-debugging-demo/fixture"
   },
   "baseline": {
-    "world_id": "01a02808-244c-7f22-84b7-23da69fd1520",
+    "world_id": "01a0280c-e1bb-7c03-8195-719b634d7c20",
     "reproduced": true,
-    "snapshot_id": "01a02808-249c-7ce1-9ece-fee5048f19d6"
+    "snapshot_id": "01a0280c-e200-7a91-a02f-011dbe8e3316"
   },
   "candidates": [
     {
       "name": "candidate-a",
-      "world_id": "01a02808-24a5-7bd3-bf99-f4dceeda217c",
+      "world_id": "01a0280c-e209-7d20-998a-45e467d3628a",
       "success": true,
       "exit_code": 0,
-      "duration_ms": 55.52
+      "duration_ms": 54.56
     },
     {
       "name": "candidate-b",
-      "world_id": "01a02808-24a6-7011-a9b4-e19d5b4d2f4e",
+      "world_id": "01a0280c-e209-7d20-998a-45f0f3080984",
       "success": false,
       "exit_code": 1,
-      "duration_ms": 56.75
+      "duration_ms": 54.28
     },
     {
       "name": "candidate-c",
-      "world_id": "01a02808-24a6-7011-a9b4-e1a74662d656",
+      "world_id": "01a0280c-e20a-7813-9d0b-42f0b63069aa",
       "success": false,
       "exit_code": 1,
-      "duration_ms": 80.97
+      "duration_ms": 57.95
     }
   ],
   "selection": {
     "winner": "candidate-a",
-    "replay_world_id": "01a02808-258b-7ae1-acc2-3a07939eb47d",
+    "replay_world_id": "01a0280c-e2d4-75e3-ac23-8ee74a08f785",
     "replay_verified": true,
-    "promoted_snapshot_id": "01a02808-25de-7e81-acc8-da85d851523b",
+    "promoted_snapshot_id": "01a0280c-e329-78a0-abea-efd5027323a2",
     "merge_decision": "approved"
   },
   "usage": {
@@ -49,7 +49,7 @@
     "reason": "This deterministic demo invokes no language model."
   },
   "runtime": {
-    "wall_ms": 1007,
+    "wall_ms": 785,
     "genos_operations": 15
   },
   "limits": [
