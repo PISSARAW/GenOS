@@ -66,6 +66,33 @@ pub trait WorkflowStateStore: Send + Sync {
     async fn save(&self, state: &WorkflowState) -> Result<()>;
 }
 
+/// A forward-only state migration. Migrations are deliberately explicit so a
+/// persisted workflow cannot silently run against incompatible semantics.
+pub trait WorkflowStateMigration: Send + Sync {
+    fn from_version(&self) -> u32;
+    fn to_version(&self) -> u32;
+    fn migrate(&self, state: WorkflowState) -> Result<WorkflowState>;
+}
+
+pub fn migrate_workflow_state(
+    mut state: WorkflowState,
+    target_version: u32,
+    migrations: &[Arc<dyn WorkflowStateMigration>],
+) -> Result<WorkflowState> {
+    while state.workflow_version != target_version {
+        let migration = migrations
+            .iter()
+            .find(|migration| migration.from_version() == state.workflow_version)
+            .context("no workflow state migration is available")?;
+        if migration.to_version() <= state.workflow_version {
+            bail!("workflow state migration must move forward");
+        }
+        state = migration.migrate(state)?;
+        state.workflow_version = migration.to_version();
+    }
+    Ok(state)
+}
+
 pub struct MemoryWorkflowStateStore {
     state: Mutex<Option<WorkflowState>>,
 }
@@ -460,5 +487,33 @@ mod tests {
         };
         store.save(&state).await.unwrap();
         assert_eq!(store.load().await.unwrap().unwrap().input, state.input);
+    }
+
+    struct V1ToV2;
+    impl WorkflowStateMigration for V1ToV2 {
+        fn from_version(&self) -> u32 {
+            1
+        }
+        fn to_version(&self) -> u32 {
+            2
+        }
+        fn migrate(&self, mut state: WorkflowState) -> Result<WorkflowState> {
+            state.outputs.insert("migrated".into(), Value::Bool(true));
+            Ok(state)
+        }
+    }
+    #[test]
+    fn state_migration_is_explicit_and_forward_only() {
+        let state = migrate_workflow_state(
+            WorkflowState {
+                workflow_version: 1,
+                ..Default::default()
+            },
+            2,
+            &[Arc::new(V1ToV2)],
+        )
+        .unwrap();
+        assert_eq!(state.workflow_version, 2);
+        assert_eq!(state.outputs["migrated"], Value::Bool(true));
     }
 }
