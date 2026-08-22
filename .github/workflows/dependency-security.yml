@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        directory: [., backend, studio]
+        directory: [research/reverse-game-of-life, backend, studio]
     steps:
       - uses: actions/checkout@v4
 
