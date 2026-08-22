@@ -45,7 +45,7 @@ process.stdin.on('end', () => {
       ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(strategyContract, null, 2)}`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
     !isWorker && autonomyPlan.schema
-      ? `Autonomous orchestration plan (required tools/phases; do not claim completion until its replay-and-promote phase has been attempted):\n${JSON.stringify(autonomyPlan, null, 2)}`
+      ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(autonomyPlan, null, 2)}`
       : '',
     !isWorker && autonomyPlan.parasitism?.enabled
       ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.'
@@ -74,7 +74,10 @@ process.stdin.on('end', () => {
   const child = spawn(codex, args, { cwd: workspace, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   let buffer = '';
   let stderr = '';
-  const requiredTools = new Set(isWorker ? [] : (autonomyPlan.requiredTools || []));
+  // The plan exposes every relevant GenOS primitive, but a low-risk mission
+  // must not invoke all of them merely to satisfy telemetry. Only a future
+  // explicitly-declared mandatory set is a completion invariant.
+  const requiredTools = new Set(isWorker ? [] : (autonomyPlan.mandatoryTools || []));
   const observedTools = new Set();
   const observeGenosTools = (value) => {
     const text = JSON.stringify(value || {});
