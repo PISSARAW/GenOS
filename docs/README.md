@@ -113,6 +113,8 @@ treating a component or boundary as available.
 
 ### [Module 6: Opérations et Déploiement](6-operations-and-deployment/)
 - [Deployment Design](6-operations-and-deployment/production-deployment.md) — Target Kubernetes, Docker, and bare-metal topology; verify current maturity before use.
+- [Deployment Audit](6-operations-and-deployment/deployment-audit.md) — Evidence-bounded audit of the shipped Compose deployment and its remaining production gaps.
+- [Studio Navigation Audit](6-operations-and-deployment/studio-navigation-audit.md) — Navigation coverage, unreachable legacy views, and backend route evidence.
 - [Operations Runbooks](6-operations-and-deployment/runbooks/) — Incident response, CAS maintenance, and telemetry.
 
 ### [Module 7: Benchmarks, Comparatifs et Théorie](7-benchmarks-and-comparisons/)
