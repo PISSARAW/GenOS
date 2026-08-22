@@ -329,7 +329,7 @@ const App: React.FC = () => {
             {activeView === 'fleets' && <FleetPage />}
             {activeView === 'agents' && <AgentsPage onSelectAgent={() => setActiveView('agent_profile')} />}
             
-            {activeView === 'agent_deployment' && <div style={{width:'100%', height:'100%'}}><AgentDeployment workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} /></div>}
+            {activeView === 'agent_deployment' && <div style={{width:'100%', height:'100%'}}><AgentDeployment workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} onSelectAgent={() => setActiveView('agent_profile')} /></div>}
             {activeView === 'trinity' && <div style={{width:'100%', height:'100%'}}><TrinityAgentDeploy workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} /></div>}
             {activeView === 'topology' && <div style={{width:'100%', height:'100%'}}><SwarmControlCenter onSelectAgent={() => setActiveView('agent_profile')} /></div>}
             {activeView === 'timeline' && <div style={{width:'100%', height:'100%'}}><PendingTrajectories /></div>}

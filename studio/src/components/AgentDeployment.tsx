@@ -5,8 +5,9 @@ import {
 } from 'lucide-react';
 import { api, API_BASE_URL } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+import { useGenOSStore } from '../store/useGenOSStore';
 
-export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceName?: string }> = ({ workspaceId = null, workspaceName }) => {
+export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceName?: string; onSelectAgent?: () => void }> = ({ workspaceId = null, workspaceName, onSelectAgent }) => {
   const [isDeployed, setIsDeployed] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [agentType, setAgentType] = useState('GenOS');
@@ -16,17 +17,21 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   
   const [telemetryLogs, setTelemetryLogs] = useState<{action: string; detail: string; time: string}[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [deployedAgent, setDeployedAgent] = useState<any | null>(null);
   const [budget, setBudget] = useState<{percent: number | null; usedTokens: number | null; maxTokens: number}>({percent: null, usedTokens: null, maxTokens: 0});
   const [scenarios, setScenarios] = useState<any>({ debug: '', explain: '', plan: '' });
   const logsEndRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((state) => state.showToast);
+  const setSelectedAgentId = useGenOSStore((state) => state.setSelectedAgentId);
 
-  const fetchHistory = () => {
-    api.getAgentHistory()
-      .then((data) => {
-        if (Array.isArray(data)) setHistory(data);
-      })
-      .catch(() => {});
+  const fetchHistory = async () => {
+    try {
+      const data = await api.getAgentHistory();
+      if (Array.isArray(data)) setHistory(data);
+      return data;
+    } catch {
+      return [];
+    }
   };
 
   useEffect(() => {
@@ -45,6 +50,7 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     setIsDeploying(true);
     try {
       const result = await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation, workspaceId });
+      setDeployedAgent(result.agent || null);
       setIsDeployed(true);
       showToast('success', 'Agent Deployed', `${result.agent?.name || agentType} was persisted for ${workspaceName || 'the selected workspace'} with ${modelTier} tier in ${workspaceIsolation} isolation.`);
       fetchHistory();
@@ -55,9 +61,11 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     }
   };
 
-  // Real telemetry via EventSource, after the deployment is persisted.
+  // Keep the deployment panel scoped to its own agent. The telemetry endpoint
+  // is fleet-wide, so displaying every event here made completed agents look
+  // active and mixed unrelated deployment history into their terminal.
   useEffect(() => {
-    if (isDeployed) {
+    if (isDeployed && deployedAgent?.id) {
       let eventSource: EventSource | null = null;
       try {
         eventSource = new EventSource(`${API_BASE_URL}/api/telemetry`);
@@ -65,11 +73,13 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
         eventSource.onmessage = (event) => {
           try {
             const log = JSON.parse(event.data);
+            if (log.agentId !== deployedAgent.id) return;
             setTelemetryLogs((prev) => [...prev, { 
               action: log.action || log.eventType || 'system', 
               detail: log.detail || log.message || JSON.stringify(log.payload || ''), 
               time: new Date().toLocaleTimeString() 
             }]);
+            void fetchHistory();
           } catch {}
         };
 
@@ -84,7 +94,16 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     } else {
       setTelemetryLogs([]);
     }
-  }, [isDeployed, prompt, agentType, modelTier, workspaceIsolation]);
+  }, [isDeployed, deployedAgent?.id]);
+
+  // A short status poll closes the gap when a very fast runtime finishes
+  // before the EventSource connection is ready to observe its final event.
+  useEffect(() => {
+    if (!isDeployed || !deployedAgent?.id) return;
+    void fetchHistory();
+    const interval = window.setInterval(() => void fetchHistory(), 2000);
+    return () => window.clearInterval(interval);
+  }, [isDeployed, deployedAgent?.id]);
 
   useEffect(() => {
     if (logsEndRef.current) {
@@ -123,6 +142,29 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     }
   };
 
+  const persistedAgent = deployedAgent
+    ? history.find((agent) => agent.id === deployedAgent.id)
+    : null;
+  const deploymentStatus = persistedAgent?.status || deployedAgent?.status || 'idle';
+  const deploymentTask = persistedAgent?.task || deployedAgent?.currentTask || '';
+  const isRunning = deploymentStatus === 'running';
+  const isCompleted = deploymentStatus === 'idle' && /completed/i.test(deploymentTask);
+  const deploymentHeading = isRunning
+    ? 'Execution running'
+    : isCompleted
+      ? 'Execution completed'
+      : deploymentStatus === 'error'
+        ? 'Execution failed'
+        : 'Deployment registered';
+  const deploymentMessage = isRunning
+    ? 'The runtime is active and this agent is included in the active-agent counter.'
+    : isCompleted
+      ? 'The runtime completed. This agent is idle and is no longer included in the active-agent counter.'
+      : deploymentStatus === 'error'
+        ? 'The runtime stopped with an error. Review the telemetry below for details.'
+        : 'The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.';
+  const deploymentColor = deploymentStatus === 'error' ? 'var(--danger)' : isRunning ? 'var(--success)' : 'var(--text-muted)';
+
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', background: 'var(--bg-main)' }}>
       
@@ -130,7 +172,11 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
       <div style={{ width: '280px', borderRight: '1px solid var(--panel-border)', background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px' }}>
           <button 
-            onClick={() => setIsDeployed(false)}
+            onClick={() => {
+              setIsDeployed(false);
+              setDeployedAgent(null);
+              setTelemetryLogs([]);
+            }}
             className="gh-btn" 
             style={{ width: '100%', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', background: 'var(--bg-subtle)' }}
           >
@@ -150,7 +196,17 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
               </div>
             ) : (
               history.map((agent, idx) => (
-                <div key={agent.id || idx} style={{ padding: '8px', borderRadius: '6px', display: 'flex', gap: '8px' }}>
+                <button
+                  key={agent.id || idx}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAgentId(agent.id);
+                    onSelectAgent?.();
+                  }}
+                  title={`Open ${agent.name}'s profile`}
+                  style={{ padding: '8px', border: 0, borderRadius: '6px', display: 'flex', gap: '8px', width: '100%', background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
+                  className="hover-bg-gray"
+                >
                   <div style={{ paddingTop: '2px' }}>
                     {agent.status === 'Active' || agent.status === 'running'
                       ? <Activity size={14} color="var(--success)" className="pulse-green" />
@@ -162,7 +218,7 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
                       {agent.status} · {agent.id}
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </div>
@@ -295,11 +351,11 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                   <h2 style={{ fontSize: '1.25rem', margin: '0 0 4px 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={20} color="var(--success)" className="pulse-green" /> 
-                    Deployment registered
+                    <Activity size={20} color={deploymentColor} className={isRunning ? 'pulse-green' : undefined} />
+                    {deploymentHeading}
                   </h2>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                    The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.
+                    {deploymentMessage}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '16px' }}>
