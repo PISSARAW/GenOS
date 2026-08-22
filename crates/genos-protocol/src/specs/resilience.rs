@@ -5,6 +5,16 @@ use crate::types::ToolSpec;
 pub fn resilience_specs() -> Vec<ToolSpec> {
     vec![
         SpecBuilder::new(
+            "parasitic_pressure",
+            "Run Parasitic Pressure",
+            "Evaluate and optionally evolve parasite genomes against an agent population in an isolated manifest.",
+        )
+        .schema(object_schema(
+            [("input", string_schema("JSON parasitism input manifest")), ("output", string_schema("JSON report output path")), ("evolve", string_schema("Whether to evolve parasites: true or false"))],
+            &["input", "output"],
+        ))
+        .build(),
+        SpecBuilder::new(
             "resilience_apoptosis",
             "Trigger Apoptosis",
             "Gracefully shutdown an agent to prevent state corruption.",
