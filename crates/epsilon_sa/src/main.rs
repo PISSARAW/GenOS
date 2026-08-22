@@ -1,6 +1,6 @@
+use rand::Rng;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use rand::Rng;
 
 #[derive(Clone)]
 struct State {
@@ -52,12 +52,12 @@ fn step_flat(grid: &[u32; 20], next: &mut [u32; 20]) {
 fn evaluate_grid(grid: &[u32; 20], target: &[u32; 20], state: &mut State) {
     let mut g1 = *grid;
     let mut g2 = [0; 20];
-    
+
     step_flat(&g1, &mut g2);
     step_flat(&g2, &mut g1);
     step_flat(&g1, &mut g2);
     step_flat(&g2, &mut g1);
-    step_flat(&g1, &mut g2); 
+    step_flat(&g1, &mut g2);
 
     let mut new_score = 0;
     let mut new_err_mask = [0; 20];
@@ -93,7 +93,11 @@ struct MutateCtx<'a, R: Rng> {
     rng: &'a mut R,
 }
 
-fn try_mutate(ctx: &mut MutateCtx<impl Rng>, target_err: (u32, u32), iter: usize) -> Option<([u32; 20], usize, usize)> {
+fn try_mutate(
+    ctx: &mut MutateCtx<impl Rng>,
+    target_err: (u32, u32),
+    iter: usize,
+) -> Option<([u32; 20], usize, usize)> {
     let ex = target_err.0;
     let ey = target_err.1;
 
@@ -127,14 +131,18 @@ struct WorkerCtx<'a> {
 
 fn ultimate_alpha_sa_worker(ctx: &WorkerCtx) -> State {
     let mut rng = rand::thread_rng();
-    let mut current_state = State { grid: [0; 20], score: 0, err_mask: [0; 20] };
-    
+    let mut current_state = State {
+        grid: [0; 20],
+        score: 0,
+        err_mask: [0; 20],
+    };
+
     evaluate_grid(&[0; 20], ctx.target, &mut current_state);
     let mut best_state = current_state.clone();
-    
+
     let max_mutations = if ctx.is_deep { 10_000_000 } else { 1_000_000 };
     let cooling_rate = if ctx.is_deep { 0.999999631 } else { 0.99999631 };
-    
+
     let mut temp = 0.5;
     let mut tabu_list = vec![0; 400];
     let mut iter = 0;
@@ -142,35 +150,39 @@ fn ultimate_alpha_sa_worker(ctx: &WorkerCtx) -> State {
 
     while iter < max_mutations && !ctx.stop_signal.load(Ordering::Relaxed) {
         iter += 1;
-        
+
         let total_errors = 400 - current_state.score;
         if total_errors == 0 {
             ctx.stop_signal.store(true, Ordering::Relaxed);
             return current_state;
         }
-        
+
         let target_err = find_random_error(&current_state.err_mask, total_errors, &mut rng);
-        
-        let mut mut_ctx = MutateCtx { grid: &current_state.grid, tabu: &tabu_list, rng: &mut rng };
+
+        let mut mut_ctx = MutateCtx {
+            grid: &current_state.grid,
+            tabu: &tabu_list,
+            rng: &mut rng,
+        };
         let mutation = try_mutate(&mut mut_ctx, target_err, iter);
-        
+
         if let Some((next_grid, flipped_x, flipped_y)) = mutation {
             let mut next_state = current_state.clone();
             evaluate_grid(&next_grid, ctx.target, &mut next_state);
 
             let delta = next_state.score as f64 - current_state.score as f64;
-            
+
             if delta > 0.0 || rng.gen::<f64>() < (delta / temp).exp() {
                 current_state = next_state;
-                tabu_list[(flipped_y * 20 + flipped_x)] = iter + 10;
-                
+                tabu_list[flipped_y * 20 + flipped_x] = iter + 10;
+
                 if current_state.score > best_state.score {
                     best_state = current_state.clone();
-                    last_best_iter = iter; 
+                    last_best_iter = iter;
                 }
             }
         }
-        
+
         if iter - last_best_iter >= 50_000 {
             temp = (temp * 2.0).min(0.5);
             last_best_iter = iter;
@@ -178,7 +190,7 @@ fn ultimate_alpha_sa_worker(ctx: &WorkerCtx) -> State {
             temp = (temp * cooling_rate).max(0.01);
         }
     }
-    
+
     best_state
 }
 
@@ -188,7 +200,9 @@ fn load_target_grid(filename: &str) -> [u32; 20] {
     let mut y = 0;
     for line in content.lines() {
         let line = line.trim();
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
         let mut row = 0;
         for (x, ch) in line.chars().enumerate() {
             if ch == '1' {
@@ -205,18 +219,21 @@ fn load_target_grid(filename: &str) -> [u32; 20] {
 
 fn main() {
     println!("Démarrage Gen 17.1 Ultimate Alpha SA Contrôlée...");
-    let target = load_target_grid("target_grid.txt");
-    
+    let target = load_target_grid(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../research/reverse-game-of-life/data/target_grid.txt"
+    ));
+
     let stop_signal = Arc::new(AtomicBool::new(false));
     let mut handles = vec![];
-    
+
     for i in 0..16 {
         let stop_clone = Arc::clone(&stop_signal);
         let target_clone = target;
         handles.push(std::thread::spawn(move || {
             let ctx = WorkerCtx {
                 target: &target_clone,
-                is_deep: i < 4, 
+                is_deep: i < 4,
                 stop_signal: &stop_clone,
             };
             let best = ultimate_alpha_sa_worker(&ctx);
@@ -224,7 +241,7 @@ fn main() {
             best
         }));
     }
-    
+
     let mut global_best = 0;
     for handle in handles {
         let res = handle.join().unwrap();
@@ -232,6 +249,6 @@ fn main() {
             global_best = res.score;
         }
     }
-    
+
     println!("=== MEILLEUR SCORE GLOBAL: {}/400 ===", global_best);
 }
