@@ -30,7 +30,7 @@ async fn clone_without_llm_starts_identical_but_has_distinct_identity_and_stream
         .push(genos_core::MemoryId::new());
 
     snapshot_store
-        .save_snapshot(parent.clone())
+        .save_snapshot(&parent)
         .await
         .expect("save parent snapshot failed");
 
@@ -38,11 +38,11 @@ async fn clone_without_llm_starts_identical_but_has_distinct_identity_and_stream
     let clone_a2 = genos_core::fork_snapshot(&parent);
 
     snapshot_store
-        .save_snapshot(clone_a1.clone())
+        .save_snapshot(&clone_a1)
         .await
         .expect("save clone_a1 snapshot failed");
     snapshot_store
-        .save_snapshot(clone_a2.clone())
+        .save_snapshot(&clone_a2)
         .await
         .expect("save clone_a2 snapshot failed");
 

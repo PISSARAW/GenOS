@@ -1,6 +1,7 @@
 ﻿mod common;
 
 use common::{make_event, make_snapshot, temp_store_path};
+use genos_core::snapshot::{CasHash, SnapshotComponentManifest as LegacySnapshotManifest};
 use genos_core::{AgentEventType, CapsuleRelation, SnapshotId};
 use genos_store::{
     CapsuleStore, EventStore, LocalArtifactStore, LocalCapsuleStore, LocalEventStore,
@@ -139,7 +140,7 @@ async fn local_snapshot_store_save_and_get() {
     let snapshot_id = snapshot.snapshot_id.0.clone();
 
     store
-        .save_snapshot(snapshot)
+        .save_snapshot(&snapshot)
         .await
         .expect("save snapshot failed");
 
@@ -180,15 +181,15 @@ async fn local_snapshot_store_lists_unique_ids() {
     let snapshot3 = make_snapshot(3);
 
     store
-        .save_snapshot(snapshot1.clone())
+        .save_snapshot(&snapshot1)
         .await
         .expect("save snapshot1 failed");
     store
-        .save_snapshot(snapshot2)
+        .save_snapshot(&snapshot2)
         .await
         .expect("save snapshot2 failed");
     store
-        .save_snapshot(snapshot3.clone())
+        .save_snapshot(&snapshot3)
         .await
         .expect("save snapshot3 failed");
 
@@ -204,6 +205,66 @@ async fn local_snapshot_store_lists_unique_ids() {
     if fs::try_exists(&path).await.expect("try_exists failed") {
         fs::remove_file(path).await.expect("cleanup failed");
     }
+}
+
+#[tokio::test]
+async fn local_snapshot_store_preserves_legacy_manifest_index() {
+    let root = temp_store_path().with_extension("legacy-snapshot-root");
+    let snapshots_dir = root.join("snapshots");
+    let legacy_path = snapshots_dir.join("agent-snapshots-manifests.jsonl");
+    fs::create_dir_all(&snapshots_dir)
+        .await
+        .expect("create snapshots directory failed");
+
+    let snapshot = make_snapshot(4);
+    let legacy_manifest = LegacySnapshotManifest {
+        snapshot_id: snapshot.snapshot_id.clone(),
+        agent_id: snapshot.agent_id.clone(),
+        branch_id: snapshot.branch_id.clone(),
+        genome_hash: CasHash("legacy-genome-placeholder".to_string()),
+        state_hash: CasHash("legacy-state-placeholder".to_string()),
+        ssm_state_hash: None,
+    };
+    let mut legacy_line = serde_json::to_vec(&legacy_manifest).expect("serialize legacy manifest");
+    legacy_line.push(b'\n');
+    fs::write(&legacy_path, legacy_line)
+        .await
+        .expect("write legacy manifest failed");
+
+    // Older callers passed the manifest path directly to `new`; that public
+    // construction pattern must also select the new sibling journal safely.
+    let store = LocalSnapshotStore::new(&legacy_path);
+    assert_eq!(
+        store
+            .list_snapshot_ids()
+            .await
+            .expect("list legacy snapshots failed"),
+        vec![snapshot.snapshot_id.0.clone()]
+    );
+    assert!(store
+        .load_snapshot(&snapshot.snapshot_id)
+        .await
+        .expect("legacy lookup failed")
+        .is_none());
+
+    store
+        .save_snapshot(&snapshot)
+        .await
+        .expect("save full snapshot failed");
+    assert_eq!(
+        store
+            .load_snapshot(&snapshot.snapshot_id)
+            .await
+            .expect("load migrated snapshot failed"),
+        Some(snapshot)
+    );
+    assert!(fs::try_exists(&legacy_path)
+        .await
+        .expect("legacy manifest existence check failed"));
+
+    fs::remove_dir_all(root)
+        .await
+        .expect("legacy snapshot cleanup failed");
 }
 
 #[tokio::test]

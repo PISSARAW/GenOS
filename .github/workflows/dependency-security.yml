@@ -39,9 +39,9 @@ jobs:
         run: cargo install cargo-audit --locked
 
       - name: Run cargo audit
-        # `paste` is an unmaintained compile-time macro pulled in by the latest
-        # Metal backend; it has no known vulnerability and no fixed upgrade.
-        # Keep the exception pinned to this one RustSec advisory.
+        # `paste` is an unmaintained compile-time macro pulled in by metal 0.32.
+        # Owner: GenOS maintainers. Review by 2026-09-30 or before next release;
+        # track gfx-rs/metal-rs and keep the exception pinned to this advisory.
         run: cargo audit --deny warnings --ignore RUSTSEC-2024-0436
 
   npm-audit:

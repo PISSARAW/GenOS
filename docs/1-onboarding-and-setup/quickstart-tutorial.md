@@ -82,7 +82,7 @@ sample output are illustrative; actual values are generated locally.
 
 ## Step 1: Initialize the Local Workspace
 
-Initialize local metadata catalogs, Content-Addressable Storage (CAS), and the SQLite snapshot index:
+Initialize local metadata catalogs, Content-Addressable Storage (CAS), and the append-only snapshot journal:
 
 ```bash
 genos agent init
@@ -91,9 +91,13 @@ genos agent init
 *Expected Terminal Output:*
 ```text
 [INFO genos_store::cas] Initialized Content-Addressable Storage at ~/.genos/data/cas
-[INFO genos_store::snapshot] Initialized local snapshot index at ~/.genos/data/snapshots/agent-snapshots-manifests.jsonl
+[INFO genos_store::snapshot] Initialized local snapshot journal at .genos/data/snapshots/agent-snapshots.jsonl
 [SUCCESS] GenOS local environment initialized successfully at .genos/
 ```
+
+Workspaces created by earlier builds may also contain
+`agent-snapshots-manifests.jsonl`. GenOS keeps that legacy manifest file as a
+read-only index and writes complete, replayable snapshots to the new journal.
 
 ---
 

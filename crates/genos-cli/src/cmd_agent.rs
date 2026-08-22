@@ -387,7 +387,7 @@ async fn build_fork_entry(
     };
 
     if save {
-        snapshot_store.save_snapshot(fork.clone()).await?;
+        snapshot_store.save_snapshot(&fork).await?;
     }
 
     Ok(ForkEntry {

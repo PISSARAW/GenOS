@@ -221,8 +221,9 @@ GenOS maintains an immutable, content-addressable storage topology under `.genos
 │   │       │   └── 8f190e2...       # 256-bit SHA-256 content-addressed chunk
 │   │       └── e7/
 │   │           └── 4c901a8...       # AST node, genome fragment, or tool output
-│   ├── snapshots/                   # Capsule checkpoint manifests
-│   │   └── agent-snapshots-manifests.jsonl
+│   ├── snapshots/                   # Replayable snapshot journal
+│   │   ├── agent-snapshots.jsonl
+│   │   └── agent-snapshots-manifests.jsonl # Legacy read-only index, when present
 │   ├── events/                      # Causal event log stream
 │   │   └── events.jsonl
 │   └── genos.db                     # Metadata index (SQLite database)
