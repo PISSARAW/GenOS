@@ -25,6 +25,49 @@ pub struct LocalSnapshotStore {
     write_lock: Mutex<()>,
 }
 
+enum SnapshotJournalRecord {
+    LegacyManifest(LegacySnapshotManifest),
+    FullSnapshot(Box<AgentSnapshot>),
+}
+
+fn parse_journal_record(line: &str, line_number: usize) -> anyhow::Result<SnapshotJournalRecord> {
+    let value: serde_json::Value = serde_json::from_str(line)
+        .map_err(|e| anyhow::anyhow!("invalid snapshot JSON at line {line_number}: {e}"))?;
+    let is_legacy_manifest = value.as_object().is_some_and(|object| {
+        [
+            "snapshot_id",
+            "agent_id",
+            "branch_id",
+            "genome_hash",
+            "state_hash",
+        ]
+        .iter()
+        .all(|key| object.contains_key(*key))
+            && [
+                "genome",
+                "state",
+                "world_id",
+                "tool_state",
+                "runtime_metadata",
+            ]
+            .iter()
+            .all(|key| !object.contains_key(*key))
+    });
+
+    if is_legacy_manifest {
+        return serde_json::from_value(value)
+            .map(SnapshotJournalRecord::LegacyManifest)
+            .map_err(|e| {
+                anyhow::anyhow!("invalid legacy snapshot manifest at line {line_number}: {e}")
+            });
+    }
+
+    serde_json::from_value(value)
+        .map(Box::new)
+        .map(SnapshotJournalRecord::FullSnapshot)
+        .map_err(|e| anyhow::anyhow!("invalid snapshot at line {line_number}: {e}"))
+}
+
 impl LocalSnapshotStore {
     pub fn new(file_path: impl Into<PathBuf>) -> Self {
         let requested_path = file_path.into();
@@ -98,11 +141,13 @@ impl LocalSnapshotStore {
                 if line.trim().is_empty() {
                     continue;
                 }
-                let snapshot: AgentSnapshot = serde_json::from_str(line)
-                    .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
+                let snapshot_id = match parse_journal_record(line, idx + 1)? {
+                    SnapshotJournalRecord::LegacyManifest(manifest) => manifest.snapshot_id,
+                    SnapshotJournalRecord::FullSnapshot(snapshot) => snapshot.snapshot_id,
+                };
 
-                if seen.insert(snapshot.snapshot_id.0.clone()) {
-                    ids.push(snapshot.snapshot_id.0);
+                if seen.insert(snapshot_id.0.clone()) {
+                    ids.push(snapshot_id.0);
                 }
             }
         }
@@ -127,10 +172,12 @@ impl SnapshotStore for LocalSnapshotStore {
                 continue;
             }
 
-            let snapshot: AgentSnapshot = serde_json::from_str(line)
-                .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
-            if snapshot.snapshot_id == *id {
-                found = Some(snapshot);
+            match parse_journal_record(line, idx + 1)? {
+                SnapshotJournalRecord::LegacyManifest(_) => {}
+                SnapshotJournalRecord::FullSnapshot(snapshot) if snapshot.snapshot_id == *id => {
+                    found = Some(*snapshot);
+                }
+                SnapshotJournalRecord::FullSnapshot(_) => {}
             }
         }
 
