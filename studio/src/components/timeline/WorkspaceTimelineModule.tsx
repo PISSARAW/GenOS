@@ -18,7 +18,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
             <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recorded Workspace Changes</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Compare durable workspace revisions. Bisection runs the invariant command in an isolated copy; rollback creates a safety snapshot first.
+            Compare durable workspace revisions. Bisection runs the invariant command in a temporary workspace copy; rollback creates a safety snapshot first.
           </p>
         </div>
 

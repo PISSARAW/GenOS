@@ -13,7 +13,7 @@ router.use(attachTenant);
 router.get('/', workspaceController.listWorkspaces);
 router.post('/', requirePermission('workspace:write'), workspaceController.createWorkspace);
 router.get('/diff', workspaceController.getDiff);
-router.post('/bisect', workspaceController.bisect);
+router.post('/bisect', requirePermission('workspace:write'), workspaceController.bisect);
 router.post('/rollback', requirePermission('workspace:write'), workspaceController.rollback);
 router.get('/:id/files', workspaceController.getWorkspaceFiles);
 router.get('/:id/rollback-preview', workspaceController.previewRollback);

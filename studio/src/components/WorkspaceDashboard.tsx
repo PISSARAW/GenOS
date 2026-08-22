@@ -187,12 +187,14 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <div 
+              <button
+                type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 style={{ 
                   display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', cursor: 'pointer',
-                  borderBottom: isActive ? '2px solid #fd8c73' : '2px solid transparent',
+                  border: 0, borderBottom: isActive ? '2px solid #fd8c73' : '2px solid transparent',
+                  background: 'transparent', fontFamily: 'inherit',
                   color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                   fontWeight: isActive ? 600 : 400,
                   fontSize: '0.85rem'
@@ -206,7 +208,7 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
                     New
                   </span>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

@@ -42,11 +42,22 @@ async function listTools(req, res) {
   res.json(formatted);
 }
 
-function testTool(req, res) {
+async function testTool(req, res) {
   const { toolName = 'genos_inspect', args = {} } = req.body || {};
-  return mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 15000 })
-    .then((result) => res.status(result.success ? 200 : result.configured ? 502 : 503).json(result))
-    .catch((error) => res.status(502).json({ success: false, status: 'failed', error: error.message }));
+  const db = await getDatabase();
+  const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+  if (!tool) return res.status(404).json({ success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` });
+  const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
+  if (!check.allowed) return res.status(503).json({ success: false, status: 'blocked', error: check.message });
+  try {
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 15000 });
+    if (result.success) circuitBreaker.recordSuccess(toolName);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || 'MCP test failed.');
+    return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
+  } catch (error) {
+    circuitBreaker.recordFailure(toolName, error.message);
+    return res.status(502).json({ success: false, status: 'failed', error: error.message });
+  }
 }
 
 async function toggleCircuitBreaker(req, res) {
