@@ -546,6 +546,57 @@ CREATE TABLE IF NOT EXISTS integrations (id TEXT PRIMARY KEY, name TEXT NOT NULL
 -- 31. Controlled workflow releases and rollback state
 CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, version INTEGER NOT NULL, environment TEXT NOT NULL DEFAULT 'staging', traffic REAL NOT NULL DEFAULT 100, status TEXT NOT NULL DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(workflow_id) REFERENCES workflows(id) ON DELETE CASCADE);
 
+-- 31b. Progressive delivery, SLOs and attributable project usage
+CREATE TABLE IF NOT EXISTS release_rollouts (
+    id TEXT PRIMARY KEY,
+    release_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    strategy TEXT NOT NULL CHECK (strategy IN ('canary', 'ab')),
+    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'promoted', 'rolled_back', 'paused')),
+    config_json TEXT NOT NULL DEFAULT '{}',
+    decision_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(release_id) REFERENCES releases(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS release_rollout_metrics (
+    rollout_id TEXT NOT NULL,
+    variant TEXT NOT NULL,
+    requests INTEGER NOT NULL DEFAULT 0,
+    errors INTEGER NOT NULL DEFAULT 0,
+    latency_ms_total REAL NOT NULL DEFAULT 0,
+    tokens INTEGER NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(rollout_id, variant),
+    FOREIGN KEY(rollout_id) REFERENCES release_rollouts(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS release_slo_policies (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    max_error_rate REAL NOT NULL DEFAULT 0.01,
+    max_p95_latency_ms REAL NOT NULL DEFAULT 3000,
+    min_requests INTEGER NOT NULL DEFAULT 100,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_id, project_id, name)
+);
+CREATE TABLE IF NOT EXISTS usage_ledger (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    release_id TEXT,
+    category TEXT NOT NULL,
+    quantity REAL NOT NULL DEFAULT 0,
+    cost_usd REAL NOT NULL DEFAULT 0,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    occurred_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(release_id) REFERENCES releases(id) ON DELETE SET NULL
+);
+
 -- 33. Provider playground jobs with retry and timeout policy
 CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, models_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, timeout_ms INTEGER NOT NULL DEFAULT 30000, result_json TEXT, error_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME);
 CREATE TABLE IF NOT EXISTS model_job_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, model TEXT NOT NULL, token_index INTEGER NOT NULL, token TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES model_jobs(id) ON DELETE CASCADE);
@@ -586,6 +637,8 @@ CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_document ON rag_chunks(document_id, chunk_index);
 CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_release_rollouts_scope ON release_rollouts(organization_id, project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_ledger_scope ON usage_ledger(organization_id, project_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_model_job_tokens ON model_job_tokens(job_id, id);
 CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
