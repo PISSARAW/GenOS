@@ -37,6 +37,7 @@ const workflowRoutes = require('./routes/workflowRoutes');
 const promptRoutes = require('./routes/promptRoutes');
 const traceRoutes = require('./routes/traceRoutes');
 const evalRoutes = require('./routes/evalRoutes');
+const ragRoutes = require('./routes/ragRoutes');
 
 function createApp() {
   const app = express();
@@ -70,6 +71,7 @@ function createApp() {
   app.use('/api/prompts', promptRoutes);
   app.use('/api/traces', traceRoutes);
   app.use('/api/evals', evalRoutes);
+  app.use('/api/rag', ragRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);

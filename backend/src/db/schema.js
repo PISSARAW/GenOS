@@ -533,6 +533,10 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 CREATE TABLE IF NOT EXISTS datasets (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS dataset_cases (id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}', expected_json TEXT, labels_json TEXT NOT NULL DEFAULT '[]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
+
+-- 29. RAG document, chunk and retrieval records
+CREATE TABLE IF NOT EXISTS rag_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, content_length INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS rag_chunks (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, chunk_index INTEGER NOT NULL, content TEXT NOT NULL, embedding_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(document_id) REFERENCES rag_documents(id) ON DELETE CASCADE);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -559,6 +563,7 @@ CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, up
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_rag_chunks_document ON rag_chunks(document_id, chunk_index);
 `;
 
 async function migrateLegacySchema(db) {
