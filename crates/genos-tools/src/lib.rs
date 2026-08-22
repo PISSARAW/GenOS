@@ -97,6 +97,8 @@ pub trait ToolExecutor: Send + Sync {
 
 pub mod gateway;
 pub use gateway::*;
+pub mod controlled;
+pub use controlled::*;
 
 #[cfg(test)]
 mod tests {
