@@ -164,7 +164,7 @@ export const api = {
   // Agent Fleet & Deploy
   deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
     apiRequest('/api/deploy', { method: 'POST', body: payload }),
-  deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[] }) =>
+  deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[]; workspaceId?: string }) =>
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
   listTrinityWorlds: () => apiRequest('/api/deploy/trinity'),
   listAgents: () => apiRequest('/api/agents'),
