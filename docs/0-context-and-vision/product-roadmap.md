@@ -2,7 +2,10 @@
 
 ## 1. Vision & Strategy
 
-GenOS is evolving from an innovative research runtime into the standard **Counterfactual Operating System and Runtime for Enterprise Autonomous Agents**. The product roadmap is structured around progressive milestones that systematically advance developer experience, runtime resilience, multi-agent coordination, and enterprise-grade distributed scaling.
+GenOS is an experimental runtime for **Git-like branching and deterministic
+replay of AI-agent state**. This roadmap describes intended milestones toward
+a dependable counterfactual runtime; future milestones are targets, not claims
+about capabilities available today.
 
 ```text
 [v0.0.1 Foundations] ---> [v0.1.0 Developer Preview] ---> [v0.2.0 Biomimetic Swarms]
@@ -70,8 +73,8 @@ GenOS is evolving from an innovative research runtime into the standard **Counte
 
 ---
 
-### Milestone 5: v1.0.0 — Production-Ready Distributed Counterfactual OS
-*Objective: Enterprise-grade scale, zero-trust sandboxing, high-availability storage, and regulatory compliance.*
+### Milestone 5: v1.0.0 — Production-readiness target
+*Objective: validate distributed scale, zero-trust sandboxing, high-availability storage, and documented compliance controls.*
 
 #### Deliverables:
 1. **Distributed CAS Storage**: High-throughput distributed content-addressable storage supporting S3, GCS, and Azure Blob storage with edge caching.

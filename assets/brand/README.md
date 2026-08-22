@@ -16,3 +16,7 @@ Current packaged copies:
 - `integrations/ide/vscode/assets/genos-logo.png`
 - `integrations/ide/jetbrains/resources/META-INF/pluginIcon.png`
 - `integrations/ide/antigravity/assets/genos-logo.png`
+
+`social-preview.png` is the 1280×640 repository sharing card. It composes the
+canonical logo with a real Studio screenshot and does not replace the logo.
+Upload it through GitHub's repository settings when preparing the public launch.
