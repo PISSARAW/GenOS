@@ -8,7 +8,10 @@ const path = require('path');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const strategyExecution = require('./strategyExecutionService');
+const strategyContracts = require('./strategyContractService');
 const { encodeMission, decodeEvents } = require('./runtimeProtocol');
+const agentAuthority = require('./agentAuthorityService');
+const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 
 const activeProcesses = new Map();
 
@@ -41,18 +44,78 @@ async function updateAgent(agentId, status, currentTask) {
   );
 }
 
+function autonomousWorkerId(orchestratorId, index) {
+  return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+async function createAutonomousWorkers(db, orchestrator, plan, mission) {
+  const assignments = plan.dispatchWorkers || [];
+  if (!assignments.length) return [];
+  const parent = await db.get(
+    'SELECT id, name, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task FROM agents WHERE id = ?',
+    orchestrator.id
+  );
+  if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
+  const perWorkerTokens = Math.max(1, Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
+  const workers = [];
+  for (const [index, assignment] of assignments.entries()) {
+    const id = autonomousWorkerId(orchestrator.id, index + 1);
+    const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`].join('\n');
+    await db.run(
+      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
+       VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
+      id, `${parent.name} · ${assignment.label}`, assignment.role, parent.agent_type || 'GenOS',
+      parent.workspace_id || null, parent.fleet_id || null, assignment.modelTier || parent.model_tier || 'standard',
+      parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
+      `Autonomous branch created by ${parent.name}.`, prompt
+    );
+    workers.push({
+      agentId: id, name: `${parent.name} · ${assignment.label}`, role: assignment.role, prompt,
+      modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
+      workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
+      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id
+    });
+  }
+  return workers;
+}
+
 async function startMission(mission) {
   const agentId = mission.agentId || mission.id;
   const normalizedMission = { ...mission, agentId };
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable();
-  if (activeProcesses.has(agentId)) return { started: true, duplicate: true };
-
   const db = await getDatabase();
+  const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  if (activeProcesses.has(agentId)) return { started: true, duplicate: true };
+  let contractRecord = await strategyContracts.getLatestContract(db, agentId);
+  if (!contractRecord && normalizedMission.orchestratorAgentId) {
+    contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId);
+  }
+  if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
+  const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
+    ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
+    : null;
+  const runtimeBudget = autonomyPlan
+    ? {
+      ...normalizedMission.executionBudget,
+      tokens: Math.max(1, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
+    }
+    : normalizedMission.executionBudget;
   const executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
-    budget: normalizedMission.executionBudget
+    budget: runtimeBudget,
+    contractRecord
   });
+
+  // The orchestrator creates and dispatches its own bounded worker fleet. A worker
+  // never recurses here: authority is deliberately one-way.
+  let autonomousWorkers = [];
+  if (dispatchedAgent.execution_mode === 'orchestrator' && normalizedMission.autonomousOrchestration !== false) {
+    autonomousWorkers = await createAutonomousWorkers(db, dispatchedAgent, autonomyPlan, normalizedMission);
+    for (const worker of autonomousWorkers) {
+      emit(agentId, 'AUTONOMOUS_WORKER_CREATED', 'FORK', `Created autonomous worker '${worker.name}'.`, { workerId: worker.agentId, role: worker.role, tokenBudget: worker.executionBudget.tokens });
+    }
+  }
 
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.
@@ -116,18 +179,28 @@ async function startMission(mission) {
     }
   });
   await updateAgent(agentId, 'running', mission.prompt);
-  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id }, 'info', 'running');
+  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
   child.stdin.end(encodeMission({
     agentId,
-    name: normalizedMission.name || '',
+    name: normalizedMission.name || dispatchedAgent.name || '',
     role: normalizedMission.role || '',
     prompt: normalizedMission.prompt || normalizedMission.currentTask || '',
     modelTier: normalizedMission.modelTier || '',
     workspaceRoot,
     workspaceIsolation: normalizedMission.workspaceIsolation || '',
     agentType: normalizedMission.agentType || '',
-    strategyContractJson: JSON.stringify(runtimeStrategyContract)
+    strategyContractJson: JSON.stringify(runtimeStrategyContract),
+    executionMode: dispatchedAgent.execution_mode,
+    orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
+    autonomyPlanJson: JSON.stringify(autonomyPlan || {})
   }));
+  // Dispatch after the parent mission is framed so workers cannot be mistaken for
+  // independent roots. They inherit the immutable strategy contract above.
+  for (const worker of autonomousWorkers) {
+    startMission({ ...worker, strategyContract: contractRecord.contract, autonomousOrchestration: false }).catch((error) => {
+      emit(agentId, 'AUTONOMOUS_WORKER_DISPATCH_FAILED', 'DISPATCH', error.message, { workerId: worker.agentId }, 'error');
+    });
+  }
   return { started: true, executionRun };
 }
 

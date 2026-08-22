@@ -87,6 +87,28 @@ GenOS orchestrators support two mutually exclusive invocation modes: **Manifest 
 1. **Mutual Exclusivity**: Passing both `--manifest` and direct input flags (`--repo`, `--plan`) produces an immediate validation error.
 2. **Atomic Ingestion**: CLI flags are mapped directly to corresponding manifest AST nodes before being passed into the type-safe `genos-runtime` orchestration engine.
 
+## 3.1 Agent authority and strategy registry
+
+Every deployed agent has one explicit execution mode:
+
+| Mode | Authority |
+| --- | --- |
+| `orchestrator` | Selects a strategy contract, owns planning, dispatches workers, evaluates evidence, and promotes a result. |
+| `worker` | Is bound to one parent orchestrator and remains idle until that orchestrator dispatches a mission. It cannot start itself or select its own contract. |
+
+`POST /api/deploy` defaults to `executionMode: "orchestrator"`. A worker requires
+`executionMode: "worker"` and `parentAgentId` referencing an orchestrator. Dispatch
+is explicit through `POST /api/agents/:id/workers/:workerId/dispatch`; direct worker
+startup returns `WORKER_REQUIRES_ORCHESTRATOR`.
+
+An orchestrator contract evaluates the complete 77-strategy registry before choosing
+a constrained portfolio. The immutable contract stores all 77 selection decisions,
+while `/api/strategies` exposes the complete catalogue. Only the chosen portfolio is
+sent to a model runtime, so the registry remains available without consuming context
+on irrelevant strategies. When `genos` and `genos-mcp` binaries are present, the
+orchestrator runtime attaches the GenOS MCP server automatically; workers inherit
+that evidence surface only after an explicit dispatch.
+
 ---
 
 ## 4. Primitive Trace Audit Structure
