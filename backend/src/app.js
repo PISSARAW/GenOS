@@ -32,6 +32,7 @@ const evaluationRoutes = require('./routes/evaluationRoutes');
 const complianceRoutes = require('./routes/complianceRoutes');
 const ideRoutes = require('./routes/ideRoutes');
 const schemaRoutes = require('./routes/schemaRoutes');
+const strategyRoutes = require('./routes/strategyRoutes');
 
 function createApp() {
   const app = express();
@@ -71,6 +72,7 @@ function createApp() {
   app.use('/api/evaluation', evaluationRoutes);
   app.use('/api/compliance', complianceRoutes);
   app.use('/api/ide', ideRoutes);
+  app.use('/api/strategies', strategyRoutes);
   app.use('/api', schemaRoutes);
 
   // Root /api scoped route aggregators

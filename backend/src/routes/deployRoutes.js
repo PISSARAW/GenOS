@@ -5,12 +5,19 @@
 const express = require('express');
 const router = express.Router();
 const deployController = require('../controllers/deployController');
+const strategyExecutionController = require('../controllers/strategyExecutionController');
 const { requirePermission } = require('../middleware/auth');
 
 router.post('/deploy', requirePermission('workspace:write'), deployController.deployAgent);
 router.post('/deploy/trinity', requirePermission('workspace:write'), deployController.deployTrinity);
 router.get('/deploy/trinity', deployController.listTrinityWorlds);
 router.get('/agents', deployController.listAgents);
+router.get('/agents/:id/strategy-contract', deployController.getStrategyContract);
+router.get('/agents/:id/strategy-contracts', deployController.getStrategyContractHistory);
+router.post('/agents/:id/strategy-contracts', requirePermission('workspace:write'), deployController.selectStrategyContract);
+router.get('/agents/:id/execution-runs/latest', strategyExecutionController.latest);
+router.get('/agents/:id/execution-runs', strategyExecutionController.list);
+router.post('/execution-runs/:runId/approve', requirePermission('workspace:write'), strategyExecutionController.approve);
 router.post('/agents/:id/subscribe', deployController.subscribeAgent);
 router.get('/agents/history', deployController.getAgentHistory);
 router.post('/agents/:id/ping', deployController.pingAgent);
