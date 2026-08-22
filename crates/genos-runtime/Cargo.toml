@@ -17,6 +17,7 @@ anyhow.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 genos-core = { path = "../genos-core" }
+genos-observability = { path = "../genos-observability" }
 genos-eval = { path = "../genos-eval" }
 genos-protocol = { path = "../genos-protocol" }
 genos-store = { path = "../genos-store" }

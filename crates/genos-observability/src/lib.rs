@@ -2,7 +2,11 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -74,6 +78,54 @@ pub struct Span {
     #[serde(default)]
     pub attributes: BTreeMap<String, Value>,
     pub status: String,
+}
+
+#[derive(Clone, Default)]
+pub struct SpanCollector {
+    spans: Arc<Mutex<Vec<Span>>>,
+}
+
+impl SpanCollector {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    pub fn record(
+        &self,
+        context: &TraceContext,
+        name: impl Into<String>,
+        attributes: BTreeMap<String, Value>,
+        duration_ms: u64,
+        status: impl Into<String>,
+    ) {
+        let end = now_nanos();
+        let start = end.saturating_sub(duration_ms.saturating_mul(1_000_000));
+        self.spans
+            .lock()
+            .expect("span collector mutex poisoned")
+            .push(Span {
+                trace_id: context.trace_id.clone(),
+                span_id: context.span_id.clone(),
+                parent_span_id: None,
+                name: name.into(),
+                start_unix_nano: start,
+                end_unix_nano: end,
+                attributes,
+                status: status.into(),
+            });
+    }
+    pub fn snapshot(&self) -> Vec<Span> {
+        self.spans
+            .lock()
+            .expect("span collector mutex poisoned")
+            .clone()
+    }
+}
+
+fn now_nanos() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_nanos() as u64)
+        .unwrap_or_default()
 }
 
 #[derive(Clone, Debug, Default)]
