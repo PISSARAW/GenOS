@@ -28,7 +28,10 @@ const Sparkline: React.FC<{ data: number[]; color: string }> = ({ data, color })
   );
 };
 
-export const WorkspacesList: React.FC = () => {
+export const WorkspacesList: React.FC<{
+  selectedWorkspaceId?: string | null;
+  onWorkspaceSelected?: (workspaceId: string | null) => void;
+}> = ({ selectedWorkspaceId = null, onWorkspaceSelected }) => {
   const [activeFilter, setActiveFilter] = useState('Active Swarms (Supervised)');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
@@ -51,6 +54,12 @@ export const WorkspacesList: React.FC = () => {
     fetchWorkspaces();
   }, []);
 
+  useEffect(() => {
+    if (!selectedWorkspaceId) return;
+    const workspace = workspaces.find((item) => item.id === selectedWorkspaceId);
+    if (workspace) setSelectedWorkspace(workspace);
+  }, [selectedWorkspaceId, workspaces]);
+
   const handleInit = async () => {
     if (!newWsName) return;
     try {
@@ -66,7 +75,7 @@ export const WorkspacesList: React.FC = () => {
   };
 
   if (selectedWorkspace) {
-    return <WorkspaceDashboard workspace={selectedWorkspace} onBack={() => setSelectedWorkspace(null)} />;
+    return <WorkspaceDashboard workspace={selectedWorkspace} onBack={() => { setSelectedWorkspace(null); onWorkspaceSelected?.(null); }} />;
   }
 
   const filters = [
@@ -157,7 +166,7 @@ export const WorkspacesList: React.FC = () => {
               <div 
                 key={ws.id || ws.title || i}  
                 className="hover-bg-gray"
-                onClick={() => setSelectedWorkspace(ws)}
+                onClick={() => { setSelectedWorkspace(ws); onWorkspaceSelected?.(ws.id); }}
                 style={{ 
                   display: 'flex', 
                   padding: '20px 0', 

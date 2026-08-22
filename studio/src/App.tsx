@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Menu, ChevronDown, Activity as ActivityIcon, AlertOctagon,
   Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot, Bug, Workflow
@@ -56,9 +56,25 @@ const App: React.FC = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeAgentsCount, setActiveAgentsCount] = useState<number | string>('Syncing...');
   const [workspaces, setWorkspaces] = useState<any[] | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
   const initializeLiveSync = useGenOSStore((state) => state.initializeLiveSync);
   const showToast = useToastStore((state) => state.showToast);
+
+  const refreshWorkspaces = useCallback(async () => {
+    try {
+      const list = await api.listWorkspaces();
+      if (!Array.isArray(list)) return;
+      setWorkspaces(list);
+      setActiveWorkspaceId((current) => current && list.some((workspace) => workspace.id === current)
+        ? current
+        : list[0]?.id || null);
+    } catch {
+      setWorkspaces([]);
+      setActiveWorkspaceId(null);
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = initializeLiveSync();
@@ -74,24 +90,22 @@ const App: React.FC = () => {
       }
     };
     
-    const fetchWorkspaces = async () => {
-      try {
-        const list = await api.listWorkspaces();
-        if (Array.isArray(list)) setWorkspaces(list);
-      } catch {
-        setWorkspaces([]);
-      }
-    };
-
     fetchStatus();
-    fetchWorkspaces();
+    void refreshWorkspaces();
     const interval = setInterval(fetchStatus, 5000);
 
     return () => {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [initializeLiveSync]);
+  }, [initializeLiveSync, refreshWorkspaces]);
+
+  const activeWorkspace = (workspaces || []).find((workspace) => workspace.id === activeWorkspaceId);
+  const selectWorkspace = (workspaceId: string) => {
+    setActiveWorkspaceId(workspaceId);
+    setWorkspaceMenuOpen(false);
+    setActiveView('workspaces');
+  };
 
   const handleHaltAll = async () => {
     try {
@@ -148,9 +162,29 @@ const App: React.FC = () => {
           {isSidebarOpen && (
             <div className="gh-sidebar" style={{ padding: '16px' }}>
               
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', marginBottom: '16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-main)', border: '1px solid var(--panel-border)' }}>
-                <img src="/genos-logo.png" width="18" height="18" alt="" style={{ objectFit: 'contain' }} />
-                PISSARAW / GenOS <ChevronDown size={14} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}/>
+              <div style={{ position: 'relative', marginBottom: '16px' }}>
+                <button
+                  type="button"
+                  aria-expanded={workspaceMenuOpen}
+                  aria-haspopup="listbox"
+                  onClick={() => { setWorkspaceMenuOpen((open) => !open); void refreshWorkspaces(); }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', textAlign: 'left' }}
+                >
+                  <img src="/genos-logo.png" width="18" height="18" alt="" style={{ objectFit: 'contain' }} />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeWorkspace?.title || activeWorkspace?.name || 'Select a project'}</span>
+                  <ChevronDown size={14} style={{ marginLeft: 'auto', color: 'var(--text-muted)' }}/>
+                </button>
+                {workspaceMenuOpen && (
+                  <div role="listbox" aria-label="Projects" style={{ position: 'absolute', zIndex: 20, top: 'calc(100% + 4px)', left: 0, right: 0, padding: '4px', borderRadius: '6px', background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', boxShadow: '0 8px 24px rgba(0,0,0,.3)' }}>
+                    {(workspaces || []).map((workspace) => (
+                      <button key={workspace.id} type="button" role="option" aria-selected={workspace.id === activeWorkspaceId} onClick={() => selectWorkspace(workspace.id)} style={{ width: '100%', display: 'block', padding: '8px', border: 0, borderRadius: '4px', cursor: 'pointer', textAlign: 'left', color: 'var(--text-primary)', background: workspace.id === activeWorkspaceId ? 'var(--bg-subtle)' : 'transparent' }}>
+                        <strong style={{ display: 'block', fontSize: '0.82rem' }}>{workspace.title || workspace.name}</strong>
+                        <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7rem', color: 'var(--text-muted)' }}>{workspace.path}</span>
+                      </button>
+                    ))}
+                    {(workspaces || []).length === 0 && <span style={{ display: 'block', padding: '8px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No projects found under the mounted root.</span>}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '16px' }}>
@@ -268,7 +302,7 @@ const App: React.FC = () => {
               {/* Repo List */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 8px' }}>
                 {(workspaces || []).filter((repo) => (repo.title || repo.name || '').toLowerCase().includes(repoSearch.toLowerCase())).map((repo, i) => (
-                  <div key={repo.id || repo.title || repo.name || i} onClick={() => setActiveView('workspaces')} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)' }} className="hover-bg-gray">
+                  <div key={repo.id || repo.title || repo.name || i} onClick={() => selectWorkspace(repo.id)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 8px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)' }} className="hover-bg-gray">
                     <div style={{ width: '14px', height: '14px', borderRadius: '3px', background: '#1f6feb', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontSize: '9px', fontWeight: 'bold' }}>G</div>
                     {repo.title || repo.name}
                   </div>
@@ -304,7 +338,7 @@ const App: React.FC = () => {
             {activeView === 'experiments' && <div style={{width:'100%', height:'100%'}}><ExperimentsLab /></div>}
             {activeView === 'agent_profile' && <div style={{width:'100%', height:'100%'}}><AgentProfile /></div>}
             {activeView === 'alerts' && <div style={{width:'100%', height:'100%'}}><GlobalAlerts onNavigateDeploy={() => setActiveView('agent_deployment')} /></div>}
-            {activeView === 'workspaces' && <div style={{width:'100%', height:'100%'}}><WorkspacesList /></div>}
+            {activeView === 'workspaces' && <div style={{width:'100%', height:'100%'}}><WorkspacesList selectedWorkspaceId={activeWorkspaceId} onWorkspaceSelected={setActiveWorkspaceId} /></div>}
             {activeView === 'compliance' && <ComplianceAndIntegrations />}
             {activeView === 'live_matrix' && <div style={{width:'100%', height:'100%'}}><LiveMatrix /></div>}
             {activeView === 'platform_safety' && <PlatformSafetyCenter />}

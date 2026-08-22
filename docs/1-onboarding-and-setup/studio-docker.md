@@ -1,10 +1,10 @@
 # Run GenOS Studio with Docker Compose
 
-The Compose stack is a local, single-workspace evaluation environment, not the
+The Compose stack is a local, trusted-projects evaluation environment, not the
 hardened production topology described in the operations guide. It binds both
-services to loopback, mounts one explicit host workspace, persists the SQLite
-database in a named volume, and waits for the backend health check before
-starting Studio.
+services to loopback, mounts one explicit host projects root, persists the
+SQLite database in a named volume, and waits for the backend health check
+before starting Studio.
 
 ## Start
 
@@ -16,17 +16,18 @@ From the repository root, mount the current repository:
 docker compose up --build --wait
 ```
 
-To inspect another repository, put its absolute path in an uncommitted `.env`
-file next to `compose.yaml`:
+To browse multiple repositories, mount their common parent directory in an
+uncommitted `.env` file next to `compose.yaml`:
 
 ```dotenv
-GENOS_WORKSPACE_PATH=/absolute/path/to/the/workspace
-GENOS_WORKSPACE_NAME=my-workspace
+GENOS_WORKSPACES_PATH=/absolute/path/to/trusted/projects
 ```
 
-Compose mounts that path read/write at `/workspace`. Studio registers it as
-`ws-local`; creating additional workspaces through the API is intentionally
-disabled in this mode.
+Compose mounts that path read/write at `/workspaces`. Studio discovers the
+root itself and its direct child directories when they contain a Git checkout,
+`README.md`, `Cargo.toml`, `package.json`, `pyproject.toml`, or a
+`.genos-workspace` marker. The project selector and Workspaces page are backed
+by this registry. New workspaces created in Studio receive that marker.
 
 Open <http://localhost:3000>. The backend health endpoint is available at
 <http://localhost:4000/api/health>. In the Compose build, Studio sends API and
@@ -83,8 +84,9 @@ is configured yet.
 
 - Ports `3000` and `4000` must be available locally.
 - The stack is intentionally reachable only from `127.0.0.1`.
-- It manages exactly one bind-mounted workspace and is unsuitable for hosting
-  untrusted repositories or users.
+- It manages projects only below the bind-mounted root. Mount a dedicated,
+  trusted projects directory, never your home directory or a directory holding
+  untrusted repositories.
 - TLS, external identity, backups, multi-node storage, and production secrets
   are outside this local stack's scope.
 - The production Compose Studio image uses same-origin `/api` requests; only
