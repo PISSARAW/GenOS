@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Activity, Plus, ThumbsUp, ThumbsDown, CheckCircle2, Route } from 'lucide-react';
+import { Search, Activity, Plus, ThumbsUp, ThumbsDown, CheckCircle2, Route, Square, Trash2 } from 'lucide-react';
 import { useGenOSStore } from '../store/useGenOSStore';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+import { RBAC_Gate } from './RBAC_Gate';
 
 interface SwarmControlCenterProps {
   onSelectAgent?: () => void;
@@ -49,6 +50,32 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
       showToast('success', 'Ping Acknowledged', `${name} was acknowledged by the API in ${Number(result.latencyMs || 0).toFixed(2)}ms.`);
     } catch (e: any) {
       showToast('error', 'Ping Failed', e.message);
+    }
+  };
+
+  const handleDelete = async (agent: any) => {
+    if (agent.status === 'running') {
+      showToast('error', 'Agent Running', 'Stop the agent before deleting it.');
+      return;
+    }
+    if (!window.confirm(`Delete agent "${agent.name}"? This cannot be undone.`)) return;
+    try {
+      await api.deleteAgent(agent.id);
+      showToast('success', 'Agent Deleted', `${agent.name} was removed from the fleet.`);
+      await fetchAgents();
+    } catch (e: any) {
+      showToast('error', 'Delete Failed', e.message);
+    }
+  };
+
+  const handleStop = async (agent: any) => {
+    if (!window.confirm(`Stop "${agent.name}"? Its execution run will be cancelled.`)) return;
+    try {
+      const result = await api.stopAgent(agent.id);
+      showToast('success', result.stopped ? 'Stop Requested' : 'Agent Reconciled', result.stopped ? `${agent.name} is stopping.` : `${agent.name} had no active runtime and is now idle.`);
+      await fetchAgents();
+    } catch (e: any) {
+      showToast('error', 'Stop Failed', e.message);
     }
   };
 
@@ -189,6 +216,12 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                   <button onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
                     Inspect Profile
                   </button>
+                  {agent.status === 'running' && <RBAC_Gate><button onClick={() => handleStop(agent)} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px', color: 'var(--warning, #d29922)' }} title="Stop this agent">
+                    <Square size={12} /> Stop
+                  </button></RBAC_Gate>}
+                  <RBAC_Gate><button onClick={() => handleDelete(agent)} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px', color: 'var(--danger)' }} title={agent.status === 'running' ? 'Stop this agent before deleting it.' : 'Delete agent'}>
+                    <Trash2 size={12} /> Delete
+                  </button></RBAC_Gate>
                 </div>
 
               </div>

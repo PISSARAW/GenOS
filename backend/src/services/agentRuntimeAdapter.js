@@ -387,7 +387,8 @@ async function startMission(mission) {
   });
   child.on('close', async (code, signal) => {
     activeProcesses.delete(agentId);
-    const outcome = runtimeExitOutcome(termination, code, signal, stderrBuffer);
+    const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
+    const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
     await updateAgent(agentId, outcome.status, outcome.task);
     emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
   });
@@ -421,6 +422,9 @@ async function startMission(mission) {
 function stopMission(agentId) {
   const child = activeProcesses.get(agentId);
   if (!child) return false;
+  // The close handler recognizes this marker as an operator-requested halt,
+  // rather than reporting SIGTERM as a runtime failure.
+  child.genosStopRequested = true;
   child.kill('SIGTERM');
   return true;
 }
