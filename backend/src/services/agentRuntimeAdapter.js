@@ -52,6 +52,13 @@ function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function workerToolLease(role) {
+  const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay'];
+  if (/reviewer|observer/i.test(role || '')) lease.push('genos_adversarial_review');
+  if (/red_team|blue_team/i.test(role || '')) lease.push('genos_security_coevolution');
+  return lease;
+}
+
 async function createIsolatedWorkspace(sourceRoot, workerId) {
   const source = path.resolve(sourceRoot);
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
@@ -148,7 +155,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
       agentId: id, name: `${parent.name} · ${assignment.label}`, role: assignment.role, prompt,
       modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
-      workspaceRoot, localModel: localRoute.selectedModel, localRoutingCriteria: localRoute.criteria,
+      workspaceRoot, localModel: localRoute.selectedModel, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
       executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id
     });
   }
@@ -274,6 +281,7 @@ async function startMission(mission) {
     executionMode: dispatchedAgent.execution_mode,
     orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
     autonomyPlanJson: JSON.stringify(autonomyPlan || {})
+    ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || [])
   }));
   // Dispatch after the parent mission is framed so workers cannot be mistaken for
   // independent roots. They inherit the immutable strategy contract above.
