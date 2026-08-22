@@ -303,6 +303,84 @@ CREATE TABLE IF NOT EXISTS global_alerts (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 20. Platform & Safety control plane (Zero Trust, approvals and providers)
+CREATE TABLE IF NOT EXISTS agent_permissions (
+    agent_id TEXT PRIMARY KEY,
+    permissions_json TEXT NOT NULL DEFAULT '[]',
+    denied_tools_json TEXT NOT NULL DEFAULT '[]',
+    taint_policy TEXT NOT NULL DEFAULT 'block_external'
+);
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT NOT NULL,
+    agent_id TEXT,
+    action TEXT NOT NULL,
+    resource TEXT,
+    decision TEXT NOT NULL,
+    reason TEXT,
+    payload_json TEXT DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS platform_approvals (
+    id TEXT PRIMARY KEY,
+    action TEXT NOT NULL,
+    agent_id TEXT,
+    risk TEXT NOT NULL,
+    uncertainty REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    requested_by TEXT NOT NULL,
+    decision_by TEXT,
+    reason TEXT,
+    payload_json TEXT DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    decided_at DATETIME
+);
+CREATE TABLE IF NOT EXISTS provider_configs (
+    id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    model TEXT NOT NULL,
+    endpoint TEXT,
+    capabilities_json TEXT DEFAULT '[]',
+    cost_input REAL DEFAULT 0,
+    cost_output REAL DEFAULT 0,
+    latency_ms REAL DEFAULT 0,
+    enabled INTEGER DEFAULT 1,
+    UNIQUE(provider, model)
+);
+
+-- 20. Versioned Studio migrations (safe, idempotent upgrades)
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version TEXT PRIMARY KEY,
+    description TEXT NOT NULL,
+    applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 21. Compliance report history and export metadata
+CREATE TABLE IF NOT EXISTS compliance_reports (
+    id TEXT PRIMARY KEY,
+    framework TEXT NOT NULL CHECK (framework IN ('EU_AI_ACT', 'SOC_2', 'HIPAA')),
+    workspace_id TEXT,
+    status TEXT NOT NULL DEFAULT 'generated' CHECK (status IN ('generated', 'archived')),
+    score REAL NOT NULL,
+    findings_json TEXT NOT NULL DEFAULT '[]',
+    evidence_json TEXT NOT NULL DEFAULT '[]',
+    generated_by TEXT NOT NULL DEFAULT 'studio',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+);
+
+-- 22. IDE installations use the same signed command contract
+CREATE TABLE IF NOT EXISTS ide_integrations (
+    id TEXT PRIMARY KEY,
+    ide TEXT NOT NULL CHECK (ide IN ('vscode', 'jetbrains', 'antigravity')),
+    workspace_id TEXT,
+    version TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'revoked')),
+    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+);
+
 -- Compatibility / Dashboard stats
 CREATE TABLE IF NOT EXISTS heatmap_activity (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -315,6 +393,39 @@ CREATE TABLE IF NOT EXISTS system_stats (
     total_snapshots INTEGER,
     total_tasks INTEGER,
     total_swarms INTEGER
+);
+
+CREATE TABLE IF NOT EXISTS evaluation_runs (
+    id TEXT PRIMARY KEY,
+    benchmark TEXT NOT NULL,
+    model_version TEXT,
+    prompt_hash TEXT,
+    genome_hash TEXT,
+    config_hash TEXT,
+    score REAL,
+    brier_score REAL,
+    abstained INTEGER DEFAULT 0,
+    result_json TEXT DEFAULT '{}',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS provenance_records (
+    id TEXT PRIMARY KEY,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    parent_hash TEXT,
+    algorithm TEXT NOT NULL DEFAULT 'sha256',
+    payload_json TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notification_preferences (
+    event_type TEXT PRIMARY KEY,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    channels_json TEXT NOT NULL DEFAULT '["studio"]',
+    threshold REAL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 `;
 
@@ -329,6 +440,12 @@ CREATE INDEX IF NOT EXISTS idx_experiments_status ON experiments(status);
 CREATE INDEX IF NOT EXISTS idx_snapshots_workspace ON workspace_snapshots(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_votes_proposal ON swarm_votes(proposal_id);
 CREATE INDEX IF NOT EXISTS idx_trinity_worlds_agent ON trinity_worlds(agent_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON platform_approvals(status);
+CREATE INDEX IF NOT EXISTS idx_compliance_framework ON compliance_reports(framework, created_at);
+CREATE INDEX IF NOT EXISTS idx_ide_workspace ON ide_integrations(workspace_id, ide);
+CREATE INDEX IF NOT EXISTS idx_provenance_subject ON provenance_records(subject_type, subject_id);
+CREATE INDEX IF NOT EXISTS idx_evaluation_benchmark ON evaluation_runs(benchmark, created_at);
 `;
 
 async function migrateLegacySchema(db) {
@@ -365,8 +482,21 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA foreign_keys = ON;');
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
+  await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
+  for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {
+    await db.run('INSERT OR IGNORE INTO notification_preferences (event_type) VALUES (?)', eventType);
+  }
   await db.exec(CREATE_INDEXES_SQL);
+}
+
+async function applyVersionedMigrations(db) {
+  const migrations = [
+    ['001-compliance-ide', 'Add compliance reports and IDE integration contracts']
+  ];
+  for (const [version, description] of migrations) {
+    await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
+  }
 }
 
 module.exports = {

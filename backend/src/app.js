@@ -27,6 +27,11 @@ const securityRoutes = require('./routes/securityRoutes');
 const arenaRoutes = require('./routes/arenaRoutes');
 const resilienceRoutes = require('./routes/resilienceRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
+const platformRoutes = require('./routes/platformRoutes');
+const evaluationRoutes = require('./routes/evaluationRoutes');
+const complianceRoutes = require('./routes/complianceRoutes');
+const ideRoutes = require('./routes/ideRoutes');
+const schemaRoutes = require('./routes/schemaRoutes');
 
 function createApp() {
   const app = express();
@@ -62,6 +67,11 @@ function createApp() {
   app.use('/api/arena', arenaRoutes);
   app.use('/api/resilience', resilienceRoutes);
   app.use('/api/memory', memoryRoutes);
+  app.use('/api', platformRoutes);
+  app.use('/api/evaluation', evaluationRoutes);
+  app.use('/api/compliance', complianceRoutes);
+  app.use('/api/ide', ideRoutes);
+  app.use('/api', schemaRoutes);
 
   // Root /api scoped route aggregators
   app.use('/api', configRoutes);

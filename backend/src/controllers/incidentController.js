@@ -4,10 +4,14 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const platformSafety = require('../services/platformSafetyService');
 
 async function getAlerts(req, res) {
   const db = await getDatabase();
-  const alerts = await db.all('SELECT * FROM global_alerts ORDER BY created_at DESC');
+  const workspaceName = String(req.query.workspaceId || '').trim();
+  const alerts = workspaceName
+    ? await db.all('SELECT * FROM global_alerts WHERE workspace_name = ? OR workspace_name = (SELECT name FROM workspaces WHERE id = ?) ORDER BY created_at DESC', workspaceName, workspaceName)
+    : await db.all('SELECT * FROM global_alerts ORDER BY created_at DESC');
 
   const formatted = alerts.map(a => ({
     id: a.id,
@@ -45,12 +49,8 @@ async function replayIncident(req, res) {
     severity: 'info'
   });
 
-  res.json({
-    success: true,
-    incidentId,
-    totalSteps: 0,
-    timeline: []
-  });
+  const events = await db.all('SELECT * FROM telemetry_events ORDER BY created_at ASC');
+  res.json({ success: true, ...platformSafety.buildReplay(incidentId, events, stepSpeed) });
 }
 
 async function killTask(req, res) {

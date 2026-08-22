@@ -7,7 +7,11 @@ const telemetry = require('../services/telemetryObserver');
 
 async function listExperiments(req, res) {
   const db = await getDatabase();
-  const list = await db.all('SELECT * FROM experiments ORDER BY created_at DESC');
+  const workspaceId = String(req.query.workspaceId || '').trim();
+  const workspace = workspaceId ? await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId) : null;
+  const list = workspaceId
+    ? await db.all('SELECT * FROM experiments WHERE workspace_id = ? ORDER BY created_at DESC', workspace?.id || workspaceId)
+    : await db.all('SELECT * FROM experiments ORDER BY created_at DESC');
 
   const formatted = list.map(e => ({
     id: e.id,

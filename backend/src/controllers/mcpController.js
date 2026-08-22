@@ -5,6 +5,7 @@
 const { getDatabase } = require('../db');
 const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
+const platformSafety = require('../services/platformSafetyService');
 
 async function listTools(req, res) {
   const db = await getDatabase();
@@ -98,6 +99,24 @@ async function equipTool(req, res) {
 async function executeTool(req, res) {
   const { toolName, args = {} } = req.body || {};
   const userRole = (req.user && req.user.role) || 'viewer';
+
+  // Zero Trust gate is deliberately before the circuit breaker: a healthy
+  // tool is still forbidden when the calling agent lacks authority or carries
+  // tainted input. Admins retain a full permission set, while high-impact
+  // operations still enter the human approval workflow.
+  const db = await getDatabase();
+  const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  const permissions = req.user?.role === 'admin' ? ['*'] : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
+  const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
+  const zeroTrust = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
+  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust));
+  if (zeroTrust.decision === 'deny') return res.status(403).json({ error: { code: 'ZERO_TRUST_DENIED', message: zeroTrust.reason }, policy: zeroTrust });
+  if (zeroTrust.decision === 'approval_required') {
+    const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, JSON.stringify({ toolName, args }));
+    return res.status(202).json({ success: false, approvalRequired: true, approvalId, policy: zeroTrust });
+  }
 
   const check = circuitBreaker.canExecute(toolName, userRole);
   if (!check.allowed) {

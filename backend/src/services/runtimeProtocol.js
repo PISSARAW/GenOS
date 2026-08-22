@@ -38,6 +38,20 @@ function decodeMission(buffer) {
   return Mission.toObject(message, { defaults: false });
 }
 
+function decodeMissionInput(buffer) {
+  try {
+    return decodeMission(buffer);
+  } catch (binaryError) {
+    try {
+      const value = JSON.parse(buffer.toString('utf8').trim());
+      if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Mission must be a JSON object');
+      return value;
+    } catch {
+      throw binaryError;
+    }
+  }
+}
+
 function decodeEvents(buffer, onEvent) {
   let remaining = buffer;
   while (remaining.length >= 4) {
@@ -50,4 +64,4 @@ function decodeEvents(buffer, onEvent) {
   return remaining;
 }
 
-module.exports = { encodeMission, encodeEvent, decodeMission, decodeEvents };
+module.exports = { encodeMission, encodeEvent, decodeMission, decodeMissionInput, decodeEvents };
