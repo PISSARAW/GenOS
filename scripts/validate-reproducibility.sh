@@ -39,7 +39,10 @@ require_command rustc
 printf 'GenOS validation (%s)\n' "$MODE"
 printf 'Node %s / npm %s / Rust %s\n' "$(node --version)" "$(npm --version)" "$(rustc --version)"
 
-for lockfile in package-lock.json backend/package-lock.json studio/package-lock.json; do
+for lockfile in \
+  research/reverse-game-of-life/package-lock.json \
+  backend/package-lock.json \
+  studio/package-lock.json; do
   test -f "${REPO_ROOT}/${lockfile}" || {
     printf 'Missing lockfile: %s\n' "$lockfile" >&2
     exit 1
@@ -49,7 +52,7 @@ done
 printf '\nChecking Cargo workspace metadata\n'
 (cd "$REPO_ROOT" && cargo metadata --locked --no-deps --format-version 1 >/dev/null)
 
-install_node_dependencies .
+install_node_dependencies research/reverse-game-of-life
 install_node_dependencies backend
 install_node_dependencies studio
 
