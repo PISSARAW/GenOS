@@ -27,7 +27,7 @@ async function graph(req, res) {
   // valid causal source, so expose their parent relationships immediately.
   if (!nodes.length) {
     const agents = await db.all('SELECT id,name,role,status,parent_agent_id,current_task FROM agents ORDER BY created_at');
-    nodes = agents.map(a => ({ id: a.id, label: a.name, node_type: 'agent', score: a.status === 'running' ? 1 : 0.5, visits: 1, state_summary: a.current_task || a.role, agent_id: a.id }));
+    nodes = agents.map(a => ({ id: a.id, label: a.name, node_type: 'agent', status: a.status, state_summary: a.current_task || a.role, agent_id: a.id }));
     edges = agents.filter(a => a.parent_agent_id).map((a, i) => ({ id: `agent-edge-${i}`, source: a.parent_agent_id, target: a.id, type: 'parent' }));
   }
   res.json({ nodes, edges, generatedAt: new Date().toISOString() });
