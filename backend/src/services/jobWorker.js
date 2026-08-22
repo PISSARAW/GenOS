@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
-const modelProvider = require('./modelProvider');
+const modelRouter = require('./modelRouter');
 const mcpExecutor = require('./mcpExecutor');
 
 let timer = null;
@@ -40,15 +40,18 @@ async function executeWorkflow(db, run) {
     const kind = node.kind || node.data?.kind || node.type || node.data?.label || '';
     try {
       if (/\b(llm|agent|model)\b/i.test(kind)) {
-        const model = node.model || node.data?.model || process.env.GENOS_DEFAULT_MODEL;
+        const model = node.model || node.data?.model;
         const promptTemplate = node.prompt || node.data?.prompt || `Execute the workflow step: ${String(node.data?.label || node.id)}`;
-        const generated = await modelProvider.generate({
+        const generated = await modelRouter.generate({
+          db,
+          agentId: node.agentId || node.data?.agentId || node.id,
           model,
           prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {} }),
           timeoutMs: Number(node.timeout_ms || node.data?.timeoutMs || 30000),
-          onToken: (token) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model } })
+          policy: node.modelRouting || node.data?.modelRouting,
+          onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model: selectedModel } })
         });
-        nodeOutput = { status: 'completed', model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens };
+        nodeOutput = { status: 'completed', model: generated.model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, route: generated.route };
       }
       if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
       if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); if (!toolResult.success) throw new Error(toolResult.error || toolResult.policy?.reason || `MCP tool '${toolName}' is unavailable (${toolResult.status || 'unknown status'}).`); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
@@ -74,7 +77,7 @@ async function executeWorkflow(db, run) {
 
 async function executeEvaluation(db, job) {
   const cases = job.dataset_id ? await db.all('SELECT * FROM dataset_cases WHERE dataset_id = ?', job.dataset_id) : [];
-  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const judgeModel = config.judgeModel || process.env.GENOS_DEFAULT_MODEL || ''; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
+  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const judgeModel = config.judgeModel || ''; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let passed = 0; const results = [];
   for (const item of cases) {
     const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const text = String(input.output || input.answer || input.response || ''); const exact = expected == null || text.trim() === String(expected).trim(); const grounded = expected == null || String(expected).toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.toLowerCase().includes(term)); const safe = !/ignore previous|system prompt|api key/i.test(text);
@@ -82,7 +85,7 @@ async function executeEvaluation(db, job) {
     if (graders.includes('llm_judge')) {
       try {
         const judgePrompt = `Return JSON only: {"score": number, "passed": boolean, "reason": string}.\nRubric: ${rubric}\nExpected: ${JSON.stringify(expected)}\nAnswer: ${text}`;
-        const judgeResult = await modelProvider.generate({ model: judgeModel, prompt: judgePrompt, timeoutMs: Number(config.timeoutMs || 30000), onToken: (token) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id } }) });
+        const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: Number(config.timeoutMs || 30000), onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         const json = judgeResult.text.match(/\{[\s\S]*\}/)?.[0]; judge = json ? JSON.parse(json) : null;
       } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable: ${error.message}` }; }
     }
@@ -94,11 +97,11 @@ async function executeEvaluation(db, job) {
 }
 
 async function executeModelJob(db, job) {
-  const models = JSON.parse(job.models_json || '[]'); const outputs = [];
-  for (const model of models) {
+  const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}'); const outputs = [];
+  for (const model of (models.length ? models : [null])) {
     const tokens = []; const started = Date.now();
-    const generated = await modelProvider.generate({ model, prompt: job.prompt, timeoutMs: job.timeout_ms, onToken: async (token) => { tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, model, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model, index: tokens.length - 1 } }); } });
-    outputs.push({ model, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length });
+    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: job.timeout_ms, policy: config.modelRouting, onToken: async (token, selectedModel) => { tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, selectedModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: selectedModel, index: tokens.length - 1 } }); } });
+    outputs.push({ model: generated.model, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length });
   }
   await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs }), job.id);
 }
