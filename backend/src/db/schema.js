@@ -597,6 +597,54 @@ CREATE TABLE IF NOT EXISTS usage_ledger (
     FOREIGN KEY(release_id) REFERENCES releases(id) ON DELETE SET NULL
 );
 
+-- 31c. Immutable artifact registries and shareable marketplace listings
+CREATE TABLE IF NOT EXISTS registry_artifacts (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('model', 'prompt', 'tool', 'workflow')),
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    current_version INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(organization_id, project_id, kind, name)
+);
+CREATE TABLE IF NOT EXISTS registry_artifact_versions (
+    id TEXT PRIMARY KEY,
+    artifact_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    manifest_json TEXT NOT NULL,
+    digest TEXT NOT NULL,
+    labels_json TEXT NOT NULL DEFAULT '[]',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(artifact_id) REFERENCES registry_artifacts(id) ON DELETE CASCADE,
+    UNIQUE(artifact_id, version)
+);
+CREATE TABLE IF NOT EXISTS marketplace_listings (
+    id TEXT PRIMARY KEY,
+    artifact_id TEXT NOT NULL UNIQUE,
+    publisher_organization_id TEXT NOT NULL,
+    publisher_project_id TEXT NOT NULL,
+    slug TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published', 'withdrawn')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(artifact_id) REFERENCES registry_artifacts(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS marketplace_installs (
+    id TEXT PRIMARY KEY,
+    listing_id TEXT NOT NULL,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    artifact_id TEXT NOT NULL,
+    installed_version INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(listing_id, project_id),
+    FOREIGN KEY(listing_id) REFERENCES marketplace_listings(id) ON DELETE CASCADE,
+    FOREIGN KEY(artifact_id) REFERENCES registry_artifacts(id) ON DELETE CASCADE
+);
+
 -- 33. Provider playground jobs with retry and timeout policy
 CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, models_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, timeout_ms INTEGER NOT NULL DEFAULT 30000, result_json TEXT, error_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME);
 CREATE TABLE IF NOT EXISTS model_job_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, model TEXT NOT NULL, token_index INTEGER NOT NULL, token TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES model_jobs(id) ON DELETE CASCADE);
@@ -639,6 +687,8 @@ CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status, creat
 CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_release_rollouts_scope ON release_rollouts(organization_id, project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_usage_ledger_scope ON usage_ledger(organization_id, project_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_registry_artifacts_scope ON registry_artifacts(organization_id, project_id, kind, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_model_job_tokens ON model_job_tokens(job_id, id);
 CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
