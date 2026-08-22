@@ -21,7 +21,9 @@ async function removeAgentWithHistory(db, agentId) {
   // Runs reference strategy contracts with RESTRICT while both ultimately
   // belong to the agent. Remove the dependent graph explicitly before the
   // agent row so SQLite can enforce every foreign key deterministically.
-  await db.run('DELETE FROM strategy_execution_runs WHERE agent_id = ?', agentId);
+  // Workers inherit their orchestrator's contract, so their runs can point to
+  // a contract owned by another agent. Delete both ownership paths first.
+  await db.run('DELETE FROM strategy_execution_runs WHERE agent_id = ? OR contract_id IN (SELECT id FROM strategy_contracts WHERE agent_id = ?)', agentId, agentId);
   await db.run('DELETE FROM strategy_contracts WHERE agent_id = ?', agentId);
   await db.run('DELETE FROM agents WHERE id = ?', agentId);
 }
@@ -92,6 +94,9 @@ async function deployAgent(req, res) {
   const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
+  if (!workspaceId) {
+    return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'Select a workspace before deploying an agent.' } });
+  }
   const workspace = workspaceId ? await db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId) : null;
   if (workspaceId && !workspace) {
     return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace ${workspaceId} not found` } });
@@ -190,6 +195,9 @@ async function deployTrinity(req, res) {
   const { prompt, agentType, workspaceId = null } = req.body || {};
   const resolvedAgentType = normalizeAgentType(agentType);
   const db = await getDatabase();
+  if (!workspaceId) {
+    return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'Select a workspace before deploying Trinity agents.' } });
+  }
   const workspace = workspaceId ? await db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId) : null;
   if (workspaceId && !workspace) {
     return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace ${workspaceId} not found` } });
@@ -518,7 +526,11 @@ async function dispatchWorker(req, res) {
   const db = await getDatabase();
   try {
     const orchestrator = await agentAuthority.requireOrchestrator(db, orchestratorId);
-    const worker = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType, execution_mode as executionMode, parent_agent_id as parentAgentId FROM agents WHERE id = ?', workerId);
+    const worker = await db.get(`SELECT a.id, a.name, a.role, a.current_task as prompt, a.model_tier as modelTier,
+      a.isolation_mode as workspaceIsolation, a.workspace_id as workspaceId, w.path as workspaceRoot,
+      a.fleet_id as fleetId, a.agent_type as agentType, a.execution_mode as executionMode,
+      a.parent_agent_id as parentAgentId
+      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`, workerId);
     if (!worker) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Worker '${workerId}' was not found.` } });
     if (worker.executionMode !== 'worker') return res.status(409).json({ error: { code: 'WORKER_REQUIRED', message: `Agent '${workerId}' is an orchestrator; dispatch it through its own start endpoint.` } });
     if (worker.parentAgentId !== orchestrator.id) return res.status(409).json({ error: { code: 'WORKER_ORCHESTRATOR_MISMATCH', message: `Worker '${worker.name}' is not assigned to '${orchestrator.id}'.` } });
