@@ -15,10 +15,10 @@ export const WorkspaceTimelineModule: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <GitBranch size={20} color="var(--accent-blue)" />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Workspace Timeline & Causal Incidents</h1>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recorded Workspace Changes</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            N-Way temporal branch tree diffing, O(log N) causal anomaly bisection, and atomic rollback generator.
+            Compare persisted trajectory entries. Causal bisection and rollback remain unavailable until durable revisions and a test runner are configured.
           </p>
         </div>
 
@@ -32,7 +32,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
               color: activeTab === 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <GitCompare size={14} /> Multi-Branch Diff
+            <GitCompare size={14} /> Recorded Diff
           </button>
           <button 
             onClick={() => setActiveTab('bisection')}
@@ -42,7 +42,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
               color: activeTab === 'bisection' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <Bug size={14} /> Causal Bisection
+            <Bug size={14} /> Bisection unavailable
           </button>
           <button 
             onClick={() => setActiveTab('rollback')}
@@ -52,7 +52,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
               color: activeTab === 'rollback' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <RotateCcw size={14} /> Atomic Rollback
+            <RotateCcw size={14} /> Rollback unavailable
           </button>
         </div>
       </div>

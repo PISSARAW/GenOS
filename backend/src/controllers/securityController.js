@@ -12,7 +12,7 @@ function triggerKillSwitch(req, res) {
   const result = circuitBreaker.triggerHalt(reason, source);
   res.json({
     success: true,
-    message: 'Global cryptobiosis initiated. All active swarms halted.',
+    message: 'MCP kill switch engaged. New MCP tool invocations are blocked; existing external runtimes are not terminated.',
     result
   });
 }
@@ -23,7 +23,7 @@ function resetKillSwitch(req, res) {
 
   res.json({
     success: true,
-    message: 'System runtime restored. Circuit breaker reset.',
+    message: 'MCP kill switch reset. New MCP tool invocations may resume.',
     result
   });
 }

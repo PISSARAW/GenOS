@@ -185,55 +185,20 @@ async function getSnapshots(req, res) {
 }
 
 async function createSnapshot(req, res) {
-  const { id } = req.params;
-  const { label = 'Manual Snapshot', reason = 'User checkpoint', author = 'operator' } = req.body || {};
-  const snapId = `snp-${Date.now()}`;
-  const hash = snapId.slice(-7);
-
-  const db = await getDatabase();
-  const countRecord = await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', id);
-  const nextStep = (countRecord ? countRecord.count : 0) + 1;
-
-  await db.run(
-    `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    snapId, id, hash, nextStep, label, author, reason
-  );
-
-  telemetry.emitEvent({
-    eventType: 'SNAPSHOT_CREATED',
-    agentId: author,
-    action: 'SNAPSHOT',
-    detail: `Created snapshot '${label}' (step ${nextStep}) for workspace ${id}`,
-    severity: 'info'
+  return res.status(501).json({
+    error: {
+      code: 'SNAPSHOT_STORAGE_UNAVAILABLE',
+      message: 'Workspace state capture is unavailable because this backend has no durable snapshot storage provider.'
+    }
   });
-
-  res.status(201).json({ success: true, snapshot: { id: snapId, workspaceId: id, stepNumber: nextStep, label, hash } });
 }
 
 async function restoreSnapshot(req, res) {
-  const { id } = req.params;
-  const { snapshotId, stepNumber } = req.body || {};
-  const db = await getDatabase();
-  const workspace = await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', id, id);
-  if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
-  const snapshot = snapshotId
-    ? await db.get('SELECT * FROM workspace_snapshots WHERE id = ? AND workspace_id = ?', snapshotId, workspace.id)
-    : await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? AND step_number = ?', workspace.id, Number(stepNumber));
-  if (!snapshot) return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: 'The requested snapshot does not exist in this workspace.' } });
-
-  telemetry.emitEvent({
-    eventType: 'WORKSPACE_RESTORED',
-    agentId: 'operator',
-    action: 'RESTORE',
-    detail: `Restored workspace ${workspace.id} to snapshot ${snapshot.id}`,
-    severity: 'warning'
-  });
-
-  res.json({
-    success: true,
-    message: `Workspace '${workspace.id}' successfully restored to checkpoint.`,
-    snapshot,
-    restoredAt: new Date().toISOString()
+  return res.status(501).json({
+    error: {
+      code: 'SNAPSHOT_STORAGE_UNAVAILABLE',
+      message: 'Workspace restore is unavailable because no durable workspace state was captured.'
+    }
   });
 }
 
@@ -269,85 +234,15 @@ async function getDiff(req, res, next) {
 }
 
 async function bisect(req, res, next) {
-  try {
-    const { workspaceId, testCommand, snapshots: suppliedSnapshots = [] } = req.body || {};
-    const db = await getDatabase();
-    let snapshots = suppliedSnapshots;
-    if (workspaceId) {
-      const workspace = await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId);
-      if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
-      snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', workspace.id);
-      snapshots = snapshots.map((snapshot) => {
-        let metadata = {};
-        try { metadata = JSON.parse(snapshot.metadata || '{}'); } catch (_) {}
-        return { ...snapshot, step: snapshot.step_number, hash: snapshot.snapshot_hash, agent: snapshot.author, healthy: metadata.healthy !== false && !/anomal|regress|fail|error/i.test(`${snapshot.label} ${snapshot.reason || ''} ${snapshot.diff_summary || ''}`), desc: snapshot.reason || snapshot.label };
-      });
-    }
-    const result = bisectionService.bisectAnomaly(snapshots);
-    result.workspaceId = workspaceId;
-    result.testCommand = testCommand || null;
-
-    telemetry.emitEvent({
-      eventType: 'CAUSAL_BISECTION_COMPLETED',
-      agentId: 'bisection_sentinel',
-      action: 'BISECT',
-      detail: result.culpritReport
-        ? `Isolated culprit step ${result.culpritReport.stepNumber} in ${result.bisectionIterationsRequired} iterations`
-        : `Bisection completed without an isolated culprit in ${result.bisectionIterationsRequired} iterations`,
-      severity: 'warning',
-      payload: result
-    });
-
-    res.status(200).json(result);
-  } catch (err) {
-    next(err);
-  }
+  return res.status(501).json({ error: { code: 'BISECTION_RUNNER_UNAVAILABLE', message: 'Causal bisection is unavailable because this backend cannot execute the supplied test command against durable workspace revisions.' } });
 }
 
 async function rollback(req, res, next) {
-  try {
-    const { workspaceId = 'ws-genos-core', culpritReport = {} } = req.body || {};
-    const db = await getDatabase();
-    const workspace = await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId);
-    if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
-    const targetStep = Number(culpritReport.stepNumber || req.body.stepNumber || 0);
-    const targetSnapshot = targetStep ? await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? AND step_number = ?', workspace.id, targetStep) : null;
-    if (targetStep && !targetSnapshot) return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `Snapshot step ${targetStep} not found in ${workspace.id}` } });
-    const result = bisectionService.remediateRollback(workspaceId, culpritReport);
-    result.targetSnapshot = targetSnapshot || null;
-
-    telemetry.emitEvent({
-      eventType: 'INVARIANT_ROLLBACK_EXECUTED',
-      agentId: 'operator',
-      action: 'ROLLBACK',
-      detail: `Executed surgical invariant rollback on workspace ${workspaceId}`,
-      severity: 'warning',
-      payload: result
-    });
-
-    res.status(200).json(result);
-  } catch (err) {
-    next(err);
-  }
+  return res.status(501).json({ error: { code: 'SNAPSHOT_STORAGE_UNAVAILABLE', message: 'Atomic rollback is unavailable because this backend cannot restore durable workspace state.' } });
 }
 
 async function previewRollback(req, res, next) {
-  try {
-    const { id } = req.params;
-    const step = Number(req.query.step);
-    if (!Number.isInteger(step) || step < 1) return res.status(400).json({ error: { code: 'INVALID_STEP', message: 'A positive snapshot step is required.' } });
-    const db = await getDatabase();
-    const workspace = await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', id, id);
-    if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
-    const snapshot = await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? AND step_number = ?', workspace.id, step);
-    if (!snapshot) return res.status(404).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `Snapshot step ${step} not found in ${workspace.id}` } });
-    const trajectories = await db.all('SELECT diff_file, diff_lines FROM trajectories WHERE workspace_id = ?', workspace.id);
-    const affectedFiles = [...new Set(trajectories.flatMap((t) => {
-      let lines = []; try { lines = JSON.parse(t.diff_lines || '[]'); } catch (_) {}
-      return lines.length ? [t.diff_file || 'unknown'] : [];
-    }))];
-    res.json({ workspaceId: workspace.id, step, targetSnapshot: snapshot, affectedFiles, reversePatch: snapshot.diff_summary || 'No reverse diff recorded for this snapshot.', canApply: true });
-  } catch (err) { next(err); }
+  return res.status(501).json({ error: { code: 'SNAPSHOT_STORAGE_UNAVAILABLE', message: 'Rollback previews are unavailable because this backend has no durable workspace state to compare.' } });
 }
 
 module.exports = {

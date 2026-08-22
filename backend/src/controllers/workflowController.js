@@ -23,6 +23,12 @@ function validateGraph(graph) {
   if (nodes.length > 1 && nodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
     errors.push('Every non-trigger node must have an incoming edge.');
   }
+  const requiresModel = (node) => /\b(llm|agent|model)\b/i.test([node.kind, node.data?.kind, node.data?.label, node.type].filter(Boolean).join(' '));
+  nodes.filter(requiresModel).forEach((node) => {
+    if (!(node.model || node.data?.model || process.env.GENOS_DEFAULT_MODEL)) {
+      errors.push(`Node ${node.id} requires a real model URI or GENOS_DEFAULT_MODEL.`);
+    }
+  });
   return { valid: errors.length === 0, errors, nodeCount: nodes.length, edgeCount: edges.length };
 }
 

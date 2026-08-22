@@ -4,7 +4,6 @@ import {
   X, RotateCcw
 } from 'lucide-react';
 import { api } from '../api/client';
-import { useToastStore } from '../store/useToastStore';
 
 interface TimeMachineProps {
   workspace: any;
@@ -16,7 +15,6 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [snapshots, setSnapshots] = useState<any[]>([]);
-  const showToast = useToastStore((state) => state.showToast);
 
   const workspaceId = workspace.id || workspace.title || 'ws-main';
 
@@ -75,16 +73,6 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
     return () => clearInterval(interval);
   }, [isPlaying, maxStep]);
 
-  const handleRestore = async (step: number) => {
-    try {
-      await api.restoreSnapshot(workspaceId, step);
-      showToast('success', 'Workspace Rolled Back', `Restored workspace state to Step ${step}.`);
-      setSelectedNode(null);
-    } catch (e: any) {
-      showToast('error', 'Restore Failed', e.message);
-    }
-  };
-
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', position: 'relative' }}>
       
@@ -96,7 +84,7 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
           </button>
           <div>
             <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)' }}>{workspace.title || workspace.name}</h1>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Timeline Explorer & Lineage Playback · {agentCount} agents · {snapshots.length} contributions</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Snapshot metadata timeline · {agentCount} authors · {snapshots.length} records · restore unavailable</div>
           </div>
         </div>
         <div style={{ padding: '4px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--panel-border)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -207,7 +195,7 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
             <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{selectedNode.title}</h3>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Commit: <span style={{ fontFamily: 'monospace' }}>{selectedNode.hash}</span> · Step {selectedNode.id}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Snapshot identifier: <span style={{ fontFamily: 'monospace' }}>{selectedNode.hash}</span> · Step {selectedNode.id}</div>
               </div>
               <button onClick={() => setSelectedNode(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                 <X size={18} />
@@ -230,8 +218,8 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
             {/* Modal Footer */}
             <div style={{ padding: '12px 24px', borderTop: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setSelectedNode(null)} className="gh-btn">Close</button>
-              <button onClick={() => handleRestore(selectedNode.id)} className="gh-btn gh-btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <RotateCcw size={14} /> Rollback to this Snapshot
+              <button disabled title="No durable workspace state is available to restore." className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RotateCcw size={14} /> Restore unavailable
               </button>
             </div>
 

@@ -35,7 +35,7 @@ export const McpSandboxModule: React.FC = () => {
       const elapsed = Math.round(performance.now() - start);
       
       setDryRunResult({ ...res, latencyMs: elapsed });
-      showToast('success', 'Dry-Run Completed', `Backend execution completed in ${elapsed}ms.`);
+      showToast('success', 'Dry-Run Completed', `Backend dry-run analysis completed in ${elapsed}ms; no MCP transport was executed.`);
     } catch (e: any) {
       showToast('error', 'Execution Error', e.message);
     } finally {
@@ -51,7 +51,7 @@ export const McpSandboxModule: React.FC = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Wrench size={20} color="var(--accent-blue)" />
-            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>MCP Arsenal & Execution Sandbox</h1>
+            <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>MCP Arsenal & Dry-Run Sandbox</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Model Context Protocol server testing, dynamic schema parameter builder, and VFS dry-run simulation.
@@ -74,7 +74,7 @@ export const McpSandboxModule: React.FC = () => {
             className="gh-btn gh-btn-primary" 
             style={{ padding: '6px 16px', fontSize: '0.85rem' }}
           >
-            <Play size={14} /> {isRunning ? 'Running VFS...' : 'Execute in Dry-Run Sandbox'}
+            <Play size={14} /> {isRunning ? 'Analysing VFS...' : 'Run VFS Dry-Run'}
           </button>
         </div>
       </div>

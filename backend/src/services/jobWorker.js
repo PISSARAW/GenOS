@@ -30,20 +30,40 @@ async function executeWorkflow(db, run) {
     const match = String(condition).match(/^input\.([\w-]+)\s*={2,3}\s*["']?([^"']+)["']?$/);
     return !match || String(input[match[1]]) === match[2];
   };
+  const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
   const runNode = async (node) => {
     if (!node || visited.has(node.id) || !shouldRun(node)) return;
     visited.add(node.id);
     const spanId = `span-${crypto.randomUUID()}`;
     const spanStart = Date.now();
     let nodeOutput = { status: 'completed' };
-    const kind = node.kind || node.data?.kind || node.type || '';
-    if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
-    if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
-    if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
-    output[node.id] = nodeOutput;
-    await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
-    await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
-    telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
+    const kind = node.kind || node.data?.kind || node.type || node.data?.label || '';
+    try {
+      if (/\b(llm|agent|model)\b/i.test(kind)) {
+        const model = node.model || node.data?.model || process.env.GENOS_DEFAULT_MODEL;
+        const promptTemplate = node.prompt || node.data?.prompt || `Execute the workflow step: ${String(node.data?.label || node.id)}`;
+        const generated = await modelProvider.generate({
+          model,
+          prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {} }),
+          timeoutMs: Number(node.timeout_ms || node.data?.timeoutMs || 30000),
+          onToken: (token) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model } })
+        });
+        nodeOutput = { status: 'completed', model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens };
+      }
+      if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
+      if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); if (!toolResult.success) throw new Error(toolResult.error || toolResult.policy?.reason || `MCP tool '${toolName}' is unavailable (${toolResult.status || 'unknown status'}).`); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
+      if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
+      output[node.id] = nodeOutput;
+      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
+      await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
+      telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
+    } catch (error) {
+      const failedOutput = { status: 'failed', error: error.message };
+      output[node.id] = failedOutput;
+      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, end_time, inputs_json, outputs_json, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, Date.now(), JSON.stringify(input), JSON.stringify(failedOutput), error.message);
+      telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_FAILED', agentId: node.id, action: 'WORKFLOW_STEP', detail: error.message, severity: 'error', payload: { runId: run.id, traceId, nodeId: node.id } });
+      throw error;
+    }
     const next = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
     if (!/parallel/i.test(kind)) for (const child of next) await runNode(child);
   };
@@ -98,7 +118,7 @@ async function processOnce() {
     const db = await getDatabase();
     const workflow = await db.get("SELECT * FROM workflow_runs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
-      try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ? WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
+      try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
     }
     const evaluation = await db.get("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
@@ -117,4 +137,13 @@ function startJobWorker(intervalMs = 250) {
 }
 
 function stopJobWorker() { if (timer) clearInterval(timer); timer = null; }
-module.exports = { startJobWorker, stopJobWorker, processOnce };
+
+function getWorkerStatus() {
+  return {
+    running: Boolean(timer),
+    busy,
+    processId: process.pid
+  };
+}
+
+module.exports = { startJobWorker, stopJobWorker, processOnce, getWorkerStatus };

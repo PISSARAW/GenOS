@@ -534,7 +534,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 -- 28. Workspace evaluation datasets and batch jobs
 CREATE TABLE IF NOT EXISTS datasets (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS dataset_cases (id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}', expected_json TEXT, labels_json TEXT NOT NULL DEFAULT '[]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, error_json TEXT, attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
 
 -- 29. RAG document, chunk and retrieval records
 CREATE TABLE IF NOT EXISTS rag_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, content_length INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -758,7 +758,8 @@ async function applyVersionedMigrations(db) {
   const migrations = [
     ['001-compliance-ide', 'Add compliance reports and IDE integration contracts'],
     ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts'],
-    ['003-tenant-scopes', 'Add organization, project and membership isolation']
+    ['003-tenant-scopes', 'Add organization, project and membership isolation'],
+    ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors']
   ];
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
@@ -775,6 +776,11 @@ async function applyVersionedMigrations(db) {
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
   }
+  const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
+  const evaluationNames = new Set(evaluationColumns.map(column => column.name));
+  if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
+  if (!evaluationNames.has('attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
+  if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
   }
