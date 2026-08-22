@@ -31,8 +31,7 @@ export const CircuitBreakerHealthMatrix: React.FC = () => {
   const handleResetAll = async () => {
     try {
       await api.resetKillSwitch();
-      setNodes((prev) => prev.map((n) => ({ ...n, status: 'closed', failureRate: 0 })));
-      showToast('success', 'Circuit Breakers Reset', 'All quarantined tools and bridges re-enabled.');
+      showToast('success', 'Global Halt Reset', 'The backend kill switch was reset. Tool locks are managed in MCP Sandbox.');
     } catch (e: any) {
       showToast('error', 'Reset Failed', e.message);
     }
@@ -46,7 +45,7 @@ export const CircuitBreakerHealthMatrix: React.FC = () => {
           <Zap size={14} color="var(--success)" /> Circuit Breaker & Blast-Radius Health Matrix
         </div>
         <button onClick={handleResetAll} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-          <RefreshCw size={12} /> Reset All Breakers
+          <RefreshCw size={12} /> Reset Global Halt
         </button>
       </div>
 
