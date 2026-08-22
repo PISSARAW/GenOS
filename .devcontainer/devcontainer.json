@@ -1,0 +1,21 @@
+{
+  "name": "GenOS reproducible development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "NODE_VERSION": "22.14.0"
+    }
+  },
+  "remoteUser": "root",
+  "workspaceFolder": "/workspaces/GenOS",
+  "postCreateCommand": "./scripts/quickstart.sh --smoke",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}
