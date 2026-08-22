@@ -7,7 +7,7 @@ async fn main() -> anyhow::Result<()> {
         temperature: Some(1.0),
         ..Default::default()
     };
-    
+
     let messages = vec![Message {
         role: Role::User,
         content: "INPUT A".to_string(),
@@ -31,9 +31,9 @@ async fn main() -> anyhow::Result<()> {
     println!("RandomModel(42): {:?}", r42b_res.content);
     println!("RandomModel(99): {:?}", r99_res.content);
     println!("OpenAiAdapter:   {:?}", openai_res.content);
-    
+
     assert_eq!(r42a_res.content, r42b_res.content);
     assert_ne!(r42a_res.content, r99_res.content);
-    
+
     Ok(())
 }

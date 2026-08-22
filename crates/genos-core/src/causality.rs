@@ -14,19 +14,19 @@ pub enum BoundaryState {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CausalBoundary {
     pub boundary_id: String,
-    
+
     /// Pour remonter l'arbre causal
     pub parent_boundary_id: Option<String>,
-    
+
     /// État du monde avant l'IA (instantané)
     pub state_snapshot_before: Option<AgentState>,
-    
+
     /// État du monde après l'IA (instantané)
     pub state_snapshot_after: Option<AgentState>,
-    
+
     /// Historique ou trace des décisions prises dans cette frontière
     pub decisions_made: Vec<String>,
-    
+
     pub status: BoundaryState,
 }
 
@@ -69,9 +69,8 @@ impl CausalBoundary {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ids::{BranchId, GenomeId, WorldId};
     use crate::state::*;
-    use chrono::Utc;
-    use crate::ids::{GenomeId, WorldId, BranchId};
 
     fn dummy_agent_state() -> AgentState {
         AgentState {

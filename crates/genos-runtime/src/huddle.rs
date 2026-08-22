@@ -33,7 +33,7 @@ pub struct StandardBrierConsensus;
 impl BrierConsensus for StandardBrierConsensus {
     fn compute_agent_weight(&self, _agent_id: &str) -> f64 {
         // En vrai: va lire genos_store pour le Brier score historique
-        1.0 
+        1.0
     }
 
     fn reach_consensus(&self, huddle: &DistributedHuddle) -> Option<String> {
@@ -45,7 +45,8 @@ impl BrierConsensus for StandardBrierConsensus {
             *scores.entry(belief.payload.clone()).or_insert(0.0) += score;
         }
 
-        scores.into_iter()
+        scores
+            .into_iter()
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(payload, _)| payload)
     }

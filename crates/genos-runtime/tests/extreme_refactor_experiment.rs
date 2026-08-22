@@ -24,6 +24,7 @@ fn write(path: &Path, contents: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn fork_event(parent: &SnapshotId, child: &SnapshotId, label: &str, sequence: u64) -> AgentEvent {
     AgentEvent {
         event_id: EventId::new(),
@@ -66,6 +67,7 @@ fn metric(objective: &str, score: f64) -> ObjectiveScore {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn evaluation(
     branch: &str,
     hypothesis: &str,

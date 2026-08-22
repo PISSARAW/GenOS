@@ -43,21 +43,22 @@ pub struct ProtocolResult {
     pub stderr: String,
 }
 
+pub struct CommandOutcome {
+    pub exit_code: i32,
+    pub stdout: String,
+    pub stderr: String,
+}
+
 impl ProtocolResult {
-    pub fn new(
-        operation: impl Into<String>,
-        exit_code: i32,
-        stdout: String,
-        stderr: String,
-    ) -> Self {
-        let output = serde_json::from_str(stdout.trim()).ok();
+    pub fn new(operation: impl Into<String>, outcome: CommandOutcome) -> Self {
+        let output = serde_json::from_str(outcome.stdout.trim()).ok();
         Self {
             protocol_version: PROTOCOL_VERSION.to_string(),
             operation: operation.into(),
-            exit_code,
+            exit_code: outcome.exit_code,
             output,
-            stdout,
-            stderr,
+            stdout: outcome.stdout,
+            stderr: outcome.stderr,
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿use anyhow::bail;
+use anyhow::bail;
 use chrono::{Duration, Utc};
 use genos_core::{LineageDag, LineageEdge, LineageRelation, SnapshotId};
 use serde_json::json;
@@ -107,7 +107,14 @@ pub fn run_security_coevolution(
         }
     }
 
-    let primitive_trace = build_security_trace(&manifest, &initial_worlds, &final_worlds, &evolution, &world_lineage, total_genomes_evaluated);
+    let primitive_trace = build_security_trace(
+        &manifest,
+        &initial_worlds,
+        &final_worlds,
+        &evolution,
+        &world_lineage,
+        total_genomes_evaluated,
+    );
 
     Ok(SecurityCoevolutionReport {
         name: manifest.name,

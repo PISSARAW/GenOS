@@ -91,7 +91,14 @@ fn mutually_exclusive_replay_anchors_are_rejected() {
 
 #[test]
 fn protocol_result_parses_structured_cli_output() {
-    let result = ProtocolResult::new("diff", 0, "{\"empty\":true}\n".into(), String::new());
+    let result = ProtocolResult::new(
+        "diff",
+        genos_protocol::CommandOutcome {
+            exit_code: 0,
+            stdout: "{\"empty\":true}\n".into(),
+            stderr: String::new(),
+        },
+    );
     assert_eq!(result.output, Some(json!({"empty": true})));
     assert_eq!(result.protocol_version, PROTOCOL_VERSION);
 }
@@ -121,8 +128,8 @@ fn diagnose_maps_arrays_to_repeated_safe_arguments() {
 
 #[test]
 fn future_ci_rejects_an_empty_world_set() {
-    let error = plan_tool_call("genos_future_ci", &json!({"target":"patch-A", "worlds":[]}))
-        .unwrap_err();
+    let error =
+        plan_tool_call("genos_future_ci", &json!({"target":"patch-A", "worlds":[]})).unwrap_err();
     assert!(error.to_string().contains("non-empty"));
 }
 

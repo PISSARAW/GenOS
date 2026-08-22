@@ -1,4 +1,4 @@
-﻿use genos_core::{
+use genos_core::{
     fork_snapshot_with_hypothesis, AgentSnapshot, AgentWorldCapsule, CapsuleLifecycle,
     CapsuleRelation, WorldId,
 };
@@ -86,7 +86,10 @@ pub async fn fork_lineaged_counterfactual_capsules(
 
 fn validate_unique_branch_ids(specs: &[LineagedCounterfactualBranchSpec]) -> anyhow::Result<()> {
     let mut seen = std::collections::HashSet::new();
-    if specs.iter().any(|spec| !seen.insert(spec.branch_id.0.clone())) {
+    if specs
+        .iter()
+        .any(|spec| !seen.insert(spec.branch_id.0.clone()))
+    {
         anyhow::bail!("lineaged branch ids must be unique");
     }
     Ok(())

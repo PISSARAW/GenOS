@@ -21,7 +21,6 @@ genos-eval = { version = "0.0.1", path = "../genos-eval" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
-sqlx.workspace = true
 tokio.workspace = true
 zstd = "0.13.3"
 

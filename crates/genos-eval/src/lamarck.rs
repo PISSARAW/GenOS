@@ -1,10 +1,10 @@
-﻿use genos_core::{AgentGenome, LamarckianMutation};
+use genos_core::{AgentGenome, LamarckianMutation};
 
 /// Run a single step of Lamarckian evolution.
 /// Evaluates the agent, infers what needs to change, and proposes mutations for the child.
 pub fn lamarckian_evolution_step(parent: &mut AgentGenome) -> Vec<LamarckianMutation> {
     let mut mutations = Vec::new();
-    
+
     // 1. Evaluate parent
     // 2. Infer trait claims
     // 3. Propose mutations (simple heuristic for now)

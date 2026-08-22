@@ -8,7 +8,7 @@ pub enum TaskTier {
     Tier2,
 }
 
-/// Moteur de routage adaptatif qui décide dynamiquement quel backend d'inférence utiliser 
+/// Moteur de routage adaptatif qui décide dynamiquement quel backend d'inférence utiliser
 /// (SLM vs Frontier) en fonction de l'entropie sémantique calculée.
 pub struct ModelRouter {
     /// Le modèle de petit langage (SLM) local exécuté en premier ressort.
@@ -20,15 +20,15 @@ pub struct ModelRouter {
 }
 
 impl ModelRouter {
-    /// Aiguille et exécute la requête : tente l'inférence via le SLM local, 
+    /// Aiguille et exécute la requête : tente l'inférence via le SLM local,
     /// puis escalade vers le modèle Frontier si l'entropie générée dépasse `entropy_threshold`.
     pub fn route_and_execute(&self, prompt: &str) -> Result<InferenceResult, std::io::Error> {
         let slm_result = self.slm.generate(prompt)?;
-        
+
         if slm_result.semantic_entropy > self.entropy_threshold {
             return self.frontier.generate(prompt);
         }
-        
+
         Ok(slm_result)
     }
 }

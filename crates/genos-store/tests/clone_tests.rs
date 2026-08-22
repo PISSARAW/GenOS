@@ -1,7 +1,7 @@
-﻿mod common;
+mod common;
 
-use common::{make_snapshot, temp_store_path};
 use chrono::Utc;
+use common::{make_snapshot, temp_store_path};
 use genos_core::{AgentEvent, AgentEventType, CorrelationId, EventId};
 use genos_store::{EventStore, LocalEventStore, LocalSnapshotStore, SnapshotStore};
 use serde_json::json;

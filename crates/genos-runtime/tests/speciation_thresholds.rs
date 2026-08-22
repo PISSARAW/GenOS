@@ -1,6 +1,6 @@
-﻿use genos_core::{AgentGenome, Chromosome, Locus, RecombinationStrategy};
-use genos_runtime::{breed_genomes, compute_genetic_distance, BreedingTraitMapping};
+use genos_core::{AgentGenome, Chromosome, Locus, RecombinationStrategy};
 use genos_eval::{RecombinedTraitTarget, TraitEstimate};
+use genos_runtime::{breed_genomes, compute_genetic_distance, BreedingTraitMapping};
 
 fn dummy_genome(val1: f32, val2: f32) -> AgentGenome {
     let mut g: AgentGenome = serde_json::from_str(r#"{
@@ -18,6 +18,7 @@ fn dummy_genome(val1: f32, val2: f32) -> AgentGenome {
 
     g.cognition.chromosomes = vec![Chromosome {
         name: "chrom1".to_string(),
+        operons: vec![],
         loci: vec![
             Locus {
                 gene_name: "trait1".to_string(),
@@ -28,8 +29,8 @@ fn dummy_genome(val1: f32, val2: f32) -> AgentGenome {
                 gene_name: "trait2".to_string(),
                 value: val2,
                 epigenetic_marker: 0.0,
-            }
-        ]
+            },
+        ],
     }];
     g
 }
@@ -61,13 +62,24 @@ fn run_speciation_experiment() {
             evaluation_suite: "suite".to_string(),
         },
     };
-    let mappings = vec![BreedingTraitMapping { genome_field: "T".to_string(), target }];
+    let mappings = vec![BreedingTraitMapping {
+        genome_field: "T".to_string(),
+        target,
+    }];
     let strategy = RecombinationStrategy::HomologousRecombination;
 
     let thresholds = vec![0.5, 1.0, 5.0, 10.0, 20.0];
-    
+
     for &threshold in &thresholds {
-        let result = breed_genomes(&alice, &bob, "child", &mappings, &strategy, Some(threshold), &[]);
+        let result = breed_genomes(
+            &alice,
+            &bob,
+            "child",
+            &mappings,
+            &strategy,
+            Some(threshold),
+            &[],
+        );
         if let Err(e) = result {
             println!("Threshold {:.1}: Rejected ({})", threshold, e);
         } else {

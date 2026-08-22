@@ -1,9 +1,9 @@
-﻿use super::*;
-use async_trait::async_trait;
+use super::*;
 use crate::{
     default_capsule_components, BranchExperience, ClaimRelation, CognitiveClaim,
     CognitiveMergeConfig, EpistemicKind,
 };
+use async_trait::async_trait;
 use genos_core::{AgentWorldCapsule, CapsuleRelation};
 use genos_store::{CapsuleStore, LocalCapsuleStore};
 use genos_world::{DirectoryWorldProvider, WorldProvider};

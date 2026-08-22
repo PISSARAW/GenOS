@@ -238,7 +238,7 @@ fn denied_network_tool_is_audited_without_execution() {
             tool_name: "http",
             scope: "network",
             input: json!({ "url": "https://example.com" }),
-        }
+        },
     );
 
     assert_eq!(write.completed_event.event_type, AgentEventType::ToolFailed);
@@ -273,7 +273,7 @@ fn sibling_branches_can_use_different_environment_permissions() {
             tool_name: "http",
             scope: "network",
             input: json!({ "url": "https://example.com" }),
-        }
+        },
     );
     let denied = record_checked_tool_call_on_branch(
         &mut branch_b,
@@ -282,7 +282,7 @@ fn sibling_branches_can_use_different_environment_permissions() {
             tool_name: "http",
             scope: "network",
             input: json!({ "url": "https://example.com" }),
-        }
+        },
     );
 
     assert_eq!(

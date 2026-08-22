@@ -1,15 +1,15 @@
-﻿use crate::args::{
-    BugInvestigationArgs, IncidentExperimentArgs, ScientificExperimentArgs, SecurityCoevolutionArgs,
-    WorkspaceExperimentArgs,
+use crate::args::{
+    BugInvestigationArgs, IncidentExperimentArgs, ScientificExperimentArgs,
+    SecurityCoevolutionArgs, WorkspaceExperimentArgs,
 };
 use anyhow::{bail, Context};
 use genos_runtime::{
     AgentPrimitive, AgentPrimitiveTrace, BranchEvolutionConfig, BranchExperience,
     BugInvestigationManifest, ClaimRelation, CognitiveClaim, CognitiveMergeApplication,
     CognitiveMergeConfig, CognitiveMergeReport, CohortControls, EvolutionBranchSpec,
-    HeredityCohortMember, IncidentSearchManifest, PairedBehaviorTrial,
-    ReproducibilityThresholds, ScientificExperimentManifest, SecurityCoevolutionManifest,
-    SelectionCandidate, SelectionConstraints, WorkspaceExperimentManifest,
+    HeredityCohortMember, IncidentSearchManifest, PairedBehaviorTrial, ReproducibilityThresholds,
+    ScientificExperimentManifest, SecurityCoevolutionManifest, SelectionCandidate,
+    SelectionConstraints, WorkspaceExperimentManifest,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
@@ -140,6 +140,7 @@ pub fn read_value(path: &Path) -> anyhow::Result<Value> {
     read_manifest(path)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn set_object_field(
     value: &mut Value,
     field: &str,

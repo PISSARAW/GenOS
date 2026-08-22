@@ -1,7 +1,7 @@
-﻿use genos_core::{AgentGenome, GenomeId, SnapshotId};
+use crate::snapshot::{LocalSnapshotStore, SnapshotStore};
+use genos_core::{AgentGenome, GenomeId, SnapshotId};
 use genos_eval::phylogeny::PhylogenyTree;
 use std::path::{Path, PathBuf};
-use crate::snapshot::{LocalSnapshotStore, SnapshotStore};
 
 /// Registre Fossile pour l'analyse cladistique et Ã©volutive
 pub struct FossilRegistry {
@@ -32,7 +32,7 @@ impl FossilRegistry {
                 genomes.push(snapshot.genome);
             }
         }
-        
+
         // Deduplicate genomes since multiple snapshots could have the same genome (if they are just different states of the same agent)
         let mut unique_genomes = Vec::new();
         let mut seen = std::collections::HashSet::new();
@@ -52,7 +52,10 @@ impl FossilRegistry {
     }
 
     /// Remonte la lignÃ©e exacte d'un agent spÃ©cifique
-    pub async fn extract_lineage(&self, target_genome_id: &GenomeId) -> anyhow::Result<Vec<AgentGenome>> {
+    pub async fn extract_lineage(
+        &self,
+        target_genome_id: &GenomeId,
+    ) -> anyhow::Result<Vec<AgentGenome>> {
         let genomes = self.extract_all_genomes().await?;
         let mut lineage = Vec::new();
         let mut current_id = target_genome_id.clone();

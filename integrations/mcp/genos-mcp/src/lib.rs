@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use genos_protocol::{plan_tool_call, tool_specs, ProtocolResult};
+use genos_protocol::{plan_tool_call, tool_specs, CommandOutcome, ProtocolResult};
 use serde_json::{json, Value};
 use std::{env, path::PathBuf, sync::Arc};
 use tokio::{
@@ -159,9 +159,11 @@ impl McpServer {
             Ok(execution) => {
                 let result = ProtocolResult::new(
                     planned.operation,
-                    execution.exit_code,
-                    execution.stdout,
-                    execution.stderr,
+                    CommandOutcome {
+                        exit_code: execution.exit_code,
+                        stdout: execution.stdout,
+                        stderr: execution.stderr,
+                    },
                 );
                 let text = serde_json::to_string_pretty(&result)
                     .unwrap_or_else(|error| format!("failed to serialize GenOS result: {error}"));

@@ -105,6 +105,7 @@ impl AgentSnapshot {
 
     /// Find a belief by its `(subject, predicate, object_value)` triple on this
     /// branch, or `None` when no such belief exists.
+    #[allow(clippy::too_many_arguments)]
     pub fn find_belief(
         &self,
         subject: &str,
@@ -122,6 +123,7 @@ impl AgentSnapshot {
     /// object_value)`: same `subject` and `predicate`, different `object_value`.
     /// Used by contradiction detection â€” the rules are "same `(subject,
     /// predicate)`, opposite objects on the same branch" only.
+    #[allow(clippy::too_many_arguments)]
     pub fn find_opposing_beliefs(
         &self,
         subject: &str,

@@ -29,17 +29,27 @@ pub fn initialize_project_snapshot(
                 role: role.to_string(),
             },
             cognition: CognitionConfig {
-                chromosomes: vec![
-                    genos_core::Chromosome {
-                        name: "C1".to_string(),
-                        loci: vec![
-                            genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
-                            genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                            genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
-                        ],
-                        operons: vec![],
-                    }
-                ],
+                chromosomes: vec![genos_core::Chromosome {
+                    name: "C1".to_string(),
+                    loci: vec![
+                        genos_core::Locus {
+                            gene_name: "exploration".to_string(),
+                            value: 0.7,
+                            epigenetic_marker: 0.0,
+                        },
+                        genos_core::Locus {
+                            gene_name: "risk_tolerance".to_string(),
+                            value: 0.25,
+                            epigenetic_marker: 0.0,
+                        },
+                        genos_core::Locus {
+                            gene_name: "verification_threshold".to_string(),
+                            value: 0.8,
+                            epigenetic_marker: 0.0,
+                        },
+                    ],
+                    operons: vec![],
+                }],
                 planning_depth: 6,
                 regulators: vec![],
             },
@@ -112,7 +122,7 @@ pub enum AgentPrimitive {
     Merge,
     Lineage,
     Replay,
-    /// Représente un aveu d'incompétence de l'agent. Mécanisme de mitigation des hallucinations 
+    /// Représente un aveu d'incompétence de l'agent. Mécanisme de mitigation des hallucinations
     /// (via R-Tuning) pour s'abstenir formellement d'agir plutôt que de "tricher".
     ActiveRefusal,
 }

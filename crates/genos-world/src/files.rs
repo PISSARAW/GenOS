@@ -78,6 +78,7 @@ pub struct FileIsolationCheck<'a> {
 }
 
 impl<'a> FileIsolationCheck<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         provider: &'a dyn WorldProvider,
         path: &'a str,
@@ -187,6 +188,7 @@ fn render(contents: &Option<String>) -> String {
 
 /// Free-function wrapper kept for backward compatibility with call sites
 /// that have not been migrated to the [`FileIsolationCheck`] builder yet.
+#[allow(clippy::too_many_arguments)]
 pub async fn check_file_isolation(
     provider: &dyn WorldProvider,
     path: &str,

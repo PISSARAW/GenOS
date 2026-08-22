@@ -1,10 +1,6 @@
-﻿use super::types::ActiveBranch;
+use super::types::ActiveBranch;
 
-pub(crate) fn weighted_allocations(
-    total: u64,
-    minimum: u64,
-    active: &[ActiveBranch],
-) -> Vec<u64> {
+pub(crate) fn weighted_allocations(total: u64, minimum: u64, active: &[ActiveBranch]) -> Vec<u64> {
     let baseline = minimum * active.len() as u64;
     let weighted = active
         .iter()
@@ -42,11 +38,7 @@ fn distribute_even_bonus(total: u64, count: usize) -> Vec<u64> {
         .collect()
 }
 
-fn distribute_remainder(
-    remainder: u64,
-    weighted: &[(usize, f64)],
-    result: &mut [u64],
-) {
+fn distribute_remainder(remainder: u64, weighted: &[(usize, f64)], result: &mut [u64]) {
     let mut order = weighted.iter().enumerate().collect::<Vec<_>>();
     order.sort_by(|(left_pos, (_, left)), (right_pos, (_, right))| {
         right.total_cmp(left).then_with(|| left_pos.cmp(right_pos))

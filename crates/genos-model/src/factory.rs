@@ -13,10 +13,7 @@ impl ModelFactory {
     /// - "fake://test" -> FakeModel
     /// - "random://42" -> RandomModel(42)
     /// - "openai://gpt-4o" -> OpenAiAdapter
-    pub fn create(
-        uri: &str,
-        api_key: Option<String>,
-    ) -> anyhow::Result<Box<dyn LlmProvider>> {
+    pub fn create(uri: &str, api_key: Option<String>) -> anyhow::Result<Box<dyn LlmProvider>> {
         if uri.starts_with("fake://") {
             Ok(Box::new(FakeModel::new()))
         } else if uri.starts_with("random://") {

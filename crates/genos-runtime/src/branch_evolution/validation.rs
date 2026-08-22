@@ -1,5 +1,5 @@
-﻿use std::collections::{HashMap, HashSet};
 use super::types::{BranchEvolutionConfig, EvolutionBranchSpec};
+use std::collections::{HashMap, HashSet};
 
 pub(crate) fn validate(
     specs: &[EvolutionBranchSpec],

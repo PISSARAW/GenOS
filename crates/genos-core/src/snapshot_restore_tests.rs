@@ -9,6 +9,7 @@ use crate::AgentEventType;
 use crate::WorkingMemoryItem;
 use chrono::TimeZone;
 
+#[allow(clippy::too_many_arguments)]
 fn at(year: i32, month: u32, day: u32, hour: u32, min: u32, sec: u32) -> chrono::DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, hour, min, sec)
         .unwrap()
