@@ -7,6 +7,10 @@ const path = require('path');
 function actionArguments(decision, event, workspaceRoot) {
   const payload = event.payload || {};
   if (decision.tool === 'genos_replay') {
+    // A replay without an event source is not evidence. Keep the decision
+    // visible but defer it until the worker returns a concrete branch or
+    // snapshot rather than issuing a guaranteed-failing CLI call.
+    if (!payload.snapshot && !payload.branchId) return null;
     return { root: workspaceRoot, ...(payload.snapshot ? { snapshot: payload.snapshot } : {}), ...(payload.branchId ? { branch_id: payload.branchId } : {}) };
   }
   if (decision.tool === 'genos_record_experience' && payload.strategy && payload.outcome) {
