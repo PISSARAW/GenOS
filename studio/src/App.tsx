@@ -35,6 +35,7 @@ import { MemoryExperienceModule } from './components/memory/MemoryExperienceModu
 import { WorkspaceTimelineModule } from './components/timeline/WorkspaceTimelineModule';
 import { ComplianceAndIntegrations } from './components/ComplianceAndIntegrations';
 import { PlatformSafetyCenter } from './components/PlatformSafetyCenter';
+import { RagPlayground } from './components/RagPlayground';
 import { StudioBuilder } from './components/StudioBuilder';
 
 import { useGenOSStore } from './store/useGenOSStore';
@@ -44,6 +45,7 @@ import { api } from './api/client';
 type StudioView = 
   | 'home' | 'safe_debugging' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience'
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
+  | 'rag_playground'
   | 'evaluation_lineage'
   | 'studio_builder' | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments'
   | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
@@ -194,6 +196,9 @@ const App: React.FC = () => {
                 <div onClick={() => setActiveView('memory_engine')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'memory_engine' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'memory_engine' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Database size={16} color="var(--accent-blue)" /> Memory & Experience
                 </div>
+                <div onClick={() => setActiveView('rag_playground')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'rag_playground' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'rag_playground' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <SearchIcon size={16} color="var(--accent-blue)" /> RAG Playground
+                </div>
 
                 <div onClick={() => setActiveView('timeline_bisection')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'timeline_bisection' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'timeline_bisection' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <GitBranch size={16} color="var(--accent-blue)" /> Workspace Timeline & Diff
@@ -285,6 +290,7 @@ const App: React.FC = () => {
             {activeView === 'resilience' && <BiologyResilienceModule />}
             {activeView === 'genome_factory' && <GenomeFactoryModule />}
             {activeView === 'memory_engine' && <MemoryExperienceModule />}
+            {activeView === 'rag_playground' && <RagPlayground />}
             {activeView === 'timeline_bisection' && <WorkspaceTimelineModule />}
             {activeView === 'fleets' && <FleetPage />}
             {activeView === 'agents' && <AgentsPage onSelectAgent={() => setActiveView('agent_profile')} />}
@@ -317,6 +323,9 @@ const GitPullRequestIcon = ({size, color}: any) => (
 );
 const HomeIcon = ({size, color}: any) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+);
+const SearchIcon = ({size, color}: any) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg>
 );
 const IssueIcon = ({size, color}: any) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
