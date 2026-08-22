@@ -1,0 +1,143 @@
+name: Release alpha
+
+on:
+  push:
+    tags:
+      - "v*-alpha.*"
+  release:
+    types: [prereleased]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-alpha-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-cli:
+    name: genos (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar.gz
+            binary: genos
+          - label: macos-x86_64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            archive: tar.gz
+            binary: genos
+          - label: macos-aarch64
+            os: macos-15
+            target: aarch64-apple-darwin
+            archive: tar.gz
+            binary: genos
+          - label: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+            binary: genos.exe
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.target }}
+
+      - name: Build CLI
+        run: cargo build --locked --release -p genos-cli --target ${{ matrix.target }}
+
+      - name: Package CLI
+        shell: bash
+        env:
+          ARCHIVE_FORMAT: ${{ matrix.archive }}
+          BINARY_NAME: ${{ matrix.binary }}
+          PACKAGE_NAME: genos-${{ matrix.target }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          mkdir -p "dist" "staging/$PACKAGE_NAME"
+          cp "target/$TARGET/release/$BINARY_NAME" "staging/$PACKAGE_NAME/"
+          cp LICENSE README.md "staging/$PACKAGE_NAME/"
+
+          if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
+            7z a "dist/$PACKAGE_NAME.zip" "./staging/$PACKAGE_NAME/*"
+          else
+            tar -C staging -czf "dist/$PACKAGE_NAME.tar.gz" "$PACKAGE_NAME"
+          fi
+
+      - name: Upload packaged CLI
+        uses: actions/upload-artifact@v4
+        with:
+          name: genos-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  checksums:
+    name: SHA-256 checksums
+    needs: build-cli
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: genos-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksum manifest
+        working-directory: dist
+        run: sha256sum genos-* > SHA256SUMS.txt
+
+      - name: Upload checksum manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-checksums
+          path: dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  attach-prerelease:
+    name: Attach prerelease assets
+    if: github.event_name == 'push' || github.event_name == 'release'
+    needs: [build-cli, checksums]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create or update GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$RELEASE_TAG" dist/* \
+              --prerelease \
+              --generate-notes \
+              --title "GenOS $RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY"
+          fi

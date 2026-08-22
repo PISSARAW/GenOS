@@ -29,6 +29,7 @@ pub use hallucination::*;
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
 #[command(about = "Genome Operating System for Agents")]
+#[command(version)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
