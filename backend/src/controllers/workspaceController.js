@@ -15,10 +15,23 @@ const WORKSPACES_ROOT = process.env.GENOS_WORKSPACES_ROOT
   ? path.resolve(process.env.GENOS_WORKSPACES_ROOT)
   : path.resolve(process.cwd(), 'workspaces');
 
+async function findWorkspace(db, req, reference) {
+  if (req.tenant) {
+    return db.get(
+      'SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id = ? AND project_id = ?',
+      reference,
+      reference,
+      req.tenant.organizationId,
+      req.tenant.projectId
+    );
+  }
+  return db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', reference, reference);
+}
+
 async function getWorkspaceFiles(req, res) {
   const db = await getDatabase();
   const requestedId = String(req.params.id || '').trim();
-  const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', requestedId, requestedId);
+  const workspace = await findWorkspace(db, req, requestedId);
   if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${requestedId}` } });
 
   const workspacePath = workspace.path;
@@ -162,9 +175,7 @@ async function createWorkspace(req, res) {
 async function getWorkspaceById(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  const ws = req.tenant
-    ? await db.get('SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id = ? AND project_id = ?', id, id, req.tenant.organizationId, req.tenant.projectId)
-    : await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', id, id);
+  const ws = await findWorkspace(db, req, id);
 
   if (!ws) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
@@ -181,14 +192,16 @@ async function getWorkspaceById(req, res) {
 async function getSnapshots(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? OR workspace_id = ? ORDER BY step_number ASC', id, `ws-${id}`);
+  const workspace = await findWorkspace(db, req, id);
+  if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
+  const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', workspace.id);
   res.json(snapshots);
 }
 
 async function createSnapshot(req, res) {
   try {
     const db = await getDatabase();
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', req.params.id, req.params.id);
+    const workspace = await findWorkspace(db, req, req.params.id);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${req.params.id}` } });
     const snapshot = await snapshotStore.capture({
       db,
@@ -207,7 +220,7 @@ async function createSnapshot(req, res) {
 async function restoreSnapshot(req, res) {
   try {
     const db = await getDatabase();
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', req.params.id, req.params.id);
+    const workspace = await findWorkspace(db, req, req.params.id);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${req.params.id}` } });
     const reference = req.body?.stepNumber ?? req.body?.step ?? req.body?.snapshotId;
     if (reference == null || String(reference).trim() === '') return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'stepNumber, step, or snapshotId is required.' } });
@@ -228,7 +241,7 @@ async function getDiff(req, res, next) {
     const base = req.query.base;
     const target = req.query.target;
     if (!base || !target) return res.status(400).json({ error: { code: 'MISSING_BRANCHES', message: 'Both base and target workspaces are required.' } });
-    const targetWorkspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', target, target);
+    const targetWorkspace = await findWorkspace(db, req, target);
     if (!targetWorkspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${target}` } });
     const trajectories = await db.all('SELECT * FROM trajectories WHERE workspace_id = ? ORDER BY created_at ASC', targetWorkspace.id);
     const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', targetWorkspace.id);
@@ -256,13 +269,13 @@ async function bisect(req, res, next) {
     const { workspaceId, testCommand, timeoutMs } = req.body || {};
     if (!workspaceId || !String(testCommand || '').trim()) return res.status(400).json({ error: { code: 'BISECTION_INPUT_REQUIRED', message: 'workspaceId and testCommand are required.' } });
     const db = await getDatabase();
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId);
+    const workspace = await findWorkspace(db, req, workspaceId);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
     const rows = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', workspace.id);
     const history = rows.filter((row) => {
       try { const metadata = JSON.parse(row.metadata || '{}'); return metadata.storage === 'durable-filesystem' && metadata.manifestPath; } catch (_) { return false; }
     });
-    if (!history.length) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
+    if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
     const result = await bisectionService.bisectAnomalyAsync(history, async (snapshot) => {
       const execution = await snapshotStore.runInSnapshot({ snapshot, command: testCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000) });
       snapshot._execution = execution;
@@ -278,7 +291,7 @@ async function rollback(req, res, next) {
     const { workspaceId, step, stepNumber, snapshotId } = req.body || {};
     const id = workspaceId || req.params.id;
     const db = await getDatabase();
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', id, id);
+    const workspace = await findWorkspace(db, req, id);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
     const reference = snapshotId ?? stepNumber ?? step;
     if (reference == null) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'A snapshot step or id is required.' } });
@@ -290,7 +303,7 @@ async function rollback(req, res, next) {
 async function previewRollback(req, res, next) {
   try {
     const db = await getDatabase();
-    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', req.params.id, req.params.id);
+    const workspace = await findWorkspace(db, req, req.params.id);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${req.params.id}` } });
     const reference = req.query.step ?? req.query.stepNumber ?? req.query.snapshotId;
     if (reference == null) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'A snapshot step or id is required.' } });

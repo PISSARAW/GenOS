@@ -4,6 +4,7 @@ import {
   X, RotateCcw
 } from 'lucide-react';
 import { api } from '../api/client';
+import { useToastStore } from '../store/useToastStore';
 
 interface TimeMachineProps {
   workspace: any;
@@ -15,6 +16,8 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [snapshots, setSnapshots] = useState<any[]>([]);
+  const [restoring, setRestoring] = useState(false);
+  const showToast = useToastStore((state) => state.showToast);
 
   const workspaceId = workspace.id || workspace.title || 'ws-main';
 
@@ -72,6 +75,20 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
     }
     return () => clearInterval(interval);
   }, [isPlaying, maxStep]);
+
+  const handleRestore = async () => {
+    if (!selectedNode) return;
+    setRestoring(true);
+    try {
+      await api.restoreSnapshot(workspaceId, selectedNode.raw.step_number);
+      showToast('success', 'Snapshot restored', `Workspace restored to snapshot step ${selectedNode.raw.step_number}.`);
+      setSelectedNode(null);
+    } catch (error: any) {
+      showToast('error', 'Restore failed', error?.message || 'The snapshot could not be restored.');
+    } finally {
+      setRestoring(false);
+    }
+  };
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', position: 'relative' }}>
@@ -218,8 +235,8 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
             {/* Modal Footer */}
             <div style={{ padding: '12px 24px', borderTop: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setSelectedNode(null)} className="gh-btn">Close</button>
-              <button onClick={async () => { if (!selectedNode) return; await api.restoreSnapshot(workspaceId, selectedNode.raw.step_number); setSelectedNode(null); }} className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <RotateCcw size={14} /> Restore this snapshot
+              <button onClick={handleRestore} disabled={restoring} className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RotateCcw size={14} /> {restoring ? 'Restoring…' : 'Restore this snapshot'}
               </button>
             </div>
 

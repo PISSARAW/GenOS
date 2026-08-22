@@ -393,7 +393,7 @@ export const api = {
   previewAtomicRollback: (workspaceId: string, step: number) =>
     apiRequest(`/api/workspaces/${workspaceId}/rollback-preview?step=${step}`, { method: 'GET' }),
   applyAtomicRollback: (workspaceId: string, step: number) =>
-    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { stepNumber: step } }),
+    apiRequest('/api/workspaces/rollback', { method: 'POST', body: { workspaceId, stepNumber: step } }),
 
   // Platform & Safety control plane
   getPlatformGraph: () => apiRequest('/api/platform/causal-graph'),
