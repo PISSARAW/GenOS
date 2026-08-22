@@ -46,6 +46,16 @@ impl ModelFactory {
                 endpoint,
                 "ollama",
             )))
+        } else if uri.starts_with("lmstudio://") {
+            let model_name = uri.trim_start_matches("lmstudio://").to_string();
+            let endpoint = env::var("GENOS_LMSTUDIO_ENDPOINT")
+                .unwrap_or_else(|_| "http://localhost:1234/v1/chat/completions".into());
+            Ok(Box::new(OpenAiAdapter::new_with_endpoint(
+                String::new(),
+                model_name,
+                endpoint,
+                "lmstudio",
+            )))
         } else if uri.starts_with("vllm://") {
             let model_name = uri.trim_start_matches("vllm://").to_string();
             let endpoint = env::var("GENOS_VLLM_ENDPOINT")
@@ -83,6 +93,12 @@ mod tests {
                 .unwrap()
                 .provider_name(),
             "ollama"
+        );
+        assert_eq!(
+            ModelFactory::create("lmstudio://local", None)
+                .unwrap()
+                .provider_name(),
+            "lmstudio"
         );
         assert_eq!(
             ModelFactory::create("vllm://qwen", None)
