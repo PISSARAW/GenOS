@@ -29,6 +29,7 @@ try {
   const failed = adapter.runtimeExitOutcome(null, 1, null, 'ERROR actual runtime failure');
   assert.equal(failed.status, 'error');
   assert.equal(failed.eventType, 'AGENT_FAILED');
+  assert.equal(adapter.evidenceScore({ evidenceReport: { claims: [{ evidence: ['source', 'calculation'] }], uncertainties: ['inclination'] } }), 19);
   console.log('Agent runtime adapter default and override checks passed.');
 } finally {
   if (previous === undefined) delete process.env.GENOS_AGENT_EXECUTOR;
