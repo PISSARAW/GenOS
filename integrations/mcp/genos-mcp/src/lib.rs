@@ -6,7 +6,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use genos_protocol::{plan_tool_call, tool_specs, CommandOutcome, ProtocolResult};
+use genos_protocol::{plan_tool_call, tool_specs, CommandOutcome, ProtocolResult, ToolAnnotations, ToolSpec, PROTOCOL_VERSION};
 use serde_json::{json, Value};
 use std::{env, path::PathBuf, sync::Arc};
 use tokio::{
@@ -16,6 +16,30 @@ use tokio::{
 
 pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 pub const SERVER_INSTRUCTIONS: &str = "GenOS versions complete agent-world state and software-development trajectories. Inspect and search negative knowledge before mutation. Diagnose with falsifiable hypotheses before solve; snapshot before risky work; fork when comparing alternatives; diff, adversarially review, and evaluate across relevant worlds before merge. Use project experiment tools for workspace refactors, causal replay, incident reproduction, scientific research, security coevolution, and unknown-cause debugging. Record decisions, assumptions, evidence, failures, and code/test lineage for future agents. genos_run and workspace-based project experiments may execute explicit commands in isolated GenOS worlds and change files. Never run a command the user did not authorize. Product clients such as Codex are tools users, not model providers stored in the genome.";
+
+fn expose_full_catalog() -> bool {
+    matches!(env::var("GENOS_MCP_EXPOSE_ALL").as_deref(), Ok("1") | Ok("true") | Ok("TRUE"))
+}
+
+fn orchestrator_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_orchestrate".into(),
+        title: "GenOS Orchestrator".into(),
+        description: "Start or continue an evidence-driven GenOS orchestration. Give a task on the first call. On later calls choose an operation (search_failures, diagnose, snapshot, fork, create, evaluate_trajectories, merge, replay, resilience_hypermutation, security_coevolution) and pass its arguments. The orchestrator decides when to delegate, fork, replay, or merge; workers receive only leased operations.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "task":{"type":"string","description":"Mission on the first call."},
+            "operation":{"type":"string","description":"Leased GenOS operation for this decision gate."},
+            "arguments":{"type":"object","description":"Arguments for the leased operation."}
+        },"required":[]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn public_tool_specs() -> Vec<ToolSpec> {
+    if expose_full_catalog() { tool_specs() } else { vec![orchestrator_tool()] }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutionOutput {
@@ -128,7 +152,7 @@ impl McpServer {
                 }),
             )),
             Some("ping") => Some(success_response(id, json!({}))),
-            Some("tools/list") => Some(success_response(id, json!({"tools": tool_specs()}))),
+            Some("tools/list") => Some(success_response(id, json!({"tools": public_tool_specs()}))),
             Some("tools/call") => Some(self.call_tool(id, request.get("params")).await),
             Some(method) => Some(error_response(
                 id,
@@ -150,7 +174,20 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let planned = match plan_tool_call(name, &arguments) {
+        let (operation_name, operation_arguments) = if name == "genos_orchestrate" {
+            let operation = arguments.get("operation").and_then(Value::as_str).unwrap_or("solve");
+            let operation_name = format!("genos_{}", operation.strip_prefix("genos_").unwrap_or(operation));
+            let task = arguments.get("task").and_then(Value::as_str).unwrap_or("Autonomous GenOS orchestration");
+            let operation_arguments = arguments.get("arguments").cloned().unwrap_or_else(|| {
+                if operation == "solve" { json!({"problem": task}) } else { json!({"query": task}) }
+            });
+            (operation_name, operation_arguments)
+        } else if expose_full_catalog() {
+            (name.to_string(), arguments)
+        } else {
+            return tool_error(id, "Only genos_orchestrate is public. Set GENOS_MCP_EXPOSE_ALL=true for an internal full-catalog client.".into());
+        };
+        let planned = match plan_tool_call(&operation_name, &operation_arguments) {
             Ok(planned) => planned,
             Err(error) => return tool_error(id, error.to_string()),
         };
@@ -315,7 +352,7 @@ mod tests {
                 "jsonrpc": "2.0",
                 "id": "call-1",
                 "method": "tools/call",
-                "params": {"name": "genos_inspect", "arguments": {"path": "agent.yaml"}}
+                "params": {"name": "genos_orchestrate", "arguments": {"operation": "inspect", "arguments": {"path": "agent.yaml"}}}
             }))
             .await
             .unwrap();
@@ -368,6 +405,8 @@ mod tests {
         assert_eq!(response.status(), StatusCode::OK);
         let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
         let value: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(value["result"]["tools"].as_array().unwrap().len(), 65);
+        let tools = value["result"]["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0]["name"], "genos_orchestrate");
     }
 }
