@@ -1,6 +1,9 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const safety = require('../services/platformSafetyService');
+const modelRouter = require('../services/modelRouter');
+const modelProvider = require('../services/modelProvider');
+const { resolveTenant } = require('../middleware/tenant');
 
 async function providers(req, res) {
   const db = await getDatabase();
@@ -17,6 +20,35 @@ async function registerProvider(req, res) {
   res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
 }
 async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); if (!list.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider configuration is registered for routing.' } }); const parsed = list.map(p => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })); res.json(safety.routeModel(req.body, parsed)); }
+async function routingPolicies(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const tenant = await resolveTenant(req);
+    if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required.' } });
+    const rows = tenant
+      ? await db.all('SELECT * FROM agent_model_routing_policies WHERE organization_id = ? AND project_id = ? ORDER BY agent_id', tenant.organizationId, tenant.projectId)
+      : await db.all('SELECT * FROM agent_model_routing_policies WHERE organization_id IS NULL AND project_id IS NULL ORDER BY agent_id');
+    res.json(rows.map((row) => ({ agentId: row.agent_id, policy: JSON.parse(row.policy_json || '{}'), updatedAt: row.updated_at })));
+  } catch (error) { next(error); }
+}
+async function saveRoutingPolicy(req, res, next) {
+  try {
+    const agentId = String(req.params.agentId || '').trim();
+    if (!agentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+    const policy = modelRouter.policyFrom(req.body?.policy || req.body || {});
+    const candidates = modelRouter.candidateModels(null, policy);
+    if (!candidates.length) return res.status(400).json({ error: { code: 'MODEL_ROUTE_REQUIRED', message: 'A primary model or fallback route is required.' } });
+    candidates.forEach((uri) => modelProvider.configuredModel(uri));
+    const tenant = await resolveTenant(req);
+    if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required.' } });
+    const organizationId = tenant?.organizationId || null; const projectId = tenant?.projectId || null;
+    const id = `model-route:${organizationId || 'global'}:${projectId || 'global'}:${agentId}`;
+    const db = await getDatabase();
+    await db.run('INSERT OR REPLACE INTO agent_model_routing_policies(id, agent_id, policy_json, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', id, agentId, JSON.stringify(policy), organizationId, projectId);
+    telemetry.emitEvent({ eventType: 'MODEL_ROUTING_POLICY_UPDATED', agentId, action: 'MODEL_ROUTE_POLICY', detail: `Updated model routing policy for ${agentId}.`, payload: { agentId, policy, organizationId, projectId } });
+    res.status(201).json({ success: true, agentId, policy, candidates });
+  } catch (error) { next(error); }
+}
 async function graph(req, res) {
   const db = await getDatabase();
   let [nodes, edges] = await Promise.all([
@@ -41,4 +73,4 @@ async function bisect(req, res) { return res.status(501).json({ error: { code: '
 async function approvals(req, res) { const db = await getDatabase(); if (req.method === 'GET') return res.json(await db.all('SELECT * FROM platform_approvals ORDER BY created_at DESC')); const body = req.body || {}; const id = `approval-${Date.now()}-${Math.random().toString(36).slice(2,7)}`; await db.run('INSERT INTO platform_approvals (id,action,agent_id,risk,uncertainty,requested_by,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', id, body.action || 'unknown', body.agentId || null, body.risk || 'high', Number(body.uncertainty || 0), req.user?.username || 'platform', JSON.stringify(body)); res.status(201).json({ id, status: 'pending', ...body }); }
 async function decideApproval(req, res) { const db = await getDatabase(); const status = req.body?.decision === 'approve' ? 'approved' : 'rejected'; await db.run('UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=?', status, req.user?.username || 'platform', req.body?.reason || null, req.params.id); await db.run('INSERT INTO audit_logs (actor,action,resource,decision,reason) VALUES (?, ?, ?, ?, ?)', req.user?.username || 'platform', 'APPROVAL_DECISION', req.params.id, status, req.body?.reason || 'operator decision'); res.json({ success: true, id: req.params.id, status }); }
 async function pareto(req, res) { res.json(safety.paretoFrontier(req.body?.items || [])); }
-module.exports = { providers, registerProvider, route, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto };
+module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto };

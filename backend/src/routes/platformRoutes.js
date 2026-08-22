@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const c = require('../controllers/platformController');
+const { requirePermission } = require('../middleware/auth');
 router.get('/platform/providers', c.providers);
 router.post('/platform/providers', c.registerProvider);
 router.post('/platform/route', c.route);
+router.get('/platform/model-routing/policies', requirePermission('read'), c.routingPolicies);
+router.put('/platform/model-routing/policies/:agentId', requirePermission('security:manage'), c.saveRoutingPolicy);
 router.get('/platform/causal-graph', c.graph);
 router.get('/platform/telemetry/summary', c.telemetrySummary);
 router.get('/platform/audit', c.audit);

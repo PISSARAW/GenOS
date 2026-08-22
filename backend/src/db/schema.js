@@ -350,6 +350,17 @@ CREATE TABLE IF NOT EXISTS provider_configs (
     UNIQUE(provider, model)
 );
 
+CREATE TABLE IF NOT EXISTS agent_model_routing_policies (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    policy_json TEXT NOT NULL DEFAULT '{}',
+    organization_id TEXT,
+    project_id TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(agent_id, organization_id, project_id)
+);
+
 -- 21. Versioned strategy contracts selected by orchestrator agents
 CREATE TABLE IF NOT EXISTS strategy_contracts (
     id TEXT PRIMARY KEY,
