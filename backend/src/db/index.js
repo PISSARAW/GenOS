@@ -15,7 +15,7 @@ async function getDatabase(dbFilePath) {
     return dbInstance;
   }
 
-  const defaultPath = path.resolve(__dirname, '../../genos.db');
+  const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
   const filename = dbFilePath || defaultPath;
 
   const db = await open({

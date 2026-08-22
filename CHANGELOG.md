@@ -2,6 +2,9 @@
 
 All notable changes to GenOS are documented in this file.
 
+No official GitHub release has been published yet. The `0.0.1` section below
+records a development milestone rather than a downloadable release.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once public compatibility guarantees begin. During pre-alpha development, breaking changes may occur in any release.
 
 ## [Unreleased]
@@ -12,13 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A public documentation index and examples catalogue.
 - ADR-0021, defining OpenAI Codex as a native MCP client target while keeping Codex product integration separate from the OpenAI model provider.
 - The `genos-protocol` crate, `genos-mcp` server, ten canonical MCP tools, STDIO and HTTP transport tests, and project-scoped Codex configuration.
+- A checksummed, four-platform CLI prerelease workflow.
+- A local Docker Compose stack for GenOS Studio with persistent storage and health checks.
 
 ### Changed
 
 - Reframed the README around reproducible counterfactual agent execution and the project's current pre-alpha boundary.
 - Clarified the project's authorship, use of AI assistance, and maintainer responsibility.
 
-## [0.0.1] - 2026-08-15
+## 0.0.1 development milestone - 2026-08-15
 
 ### Added
 
@@ -29,6 +34,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Counterfactual experiment workflows for code, temporal simulation, incidents, science, security co-evolution, heredity, reproducibility, causal replay, and bug investigation.
 - Multi-objective evaluation, constraints, Pareto selection, cognitive merge, and budgeted branch evolution.
 - A Rust CLI, portable JSON Schemas, architecture decision records, tests, and runnable examples.
-
-[Unreleased]: https://github.com/PISSARAW/GenOS/compare/v0.0.1...HEAD
-[0.0.1]: https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1
