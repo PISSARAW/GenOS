@@ -524,7 +524,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
     prompt_id TEXT NOT NULL,
     version INTEGER NOT NULL,
     template TEXT NOT NULL,
-    model TEXT NOT NULL DEFAULT 'fake://local',
+    model TEXT NOT NULL DEFAULT '',
     config_json TEXT NOT NULL DEFAULT '{}',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,

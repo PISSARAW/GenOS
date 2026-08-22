@@ -45,8 +45,8 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
 
   const handlePing = async (agentId: string, name: string) => {
     try {
-      await api.pingAgent(agentId);
-      showToast('success', 'Ping Received', `${name} responded: 12ms round-trip.`);
+      const result = await api.pingAgent(agentId);
+      showToast('success', 'Ping Acknowledged', `${name} was acknowledged by the API in ${Number(result.latencyMs || 0).toFixed(2)}ms.`);
     } catch (e: any) {
       showToast('error', 'Ping Failed', e.message);
     }

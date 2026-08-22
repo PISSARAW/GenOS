@@ -40,6 +40,15 @@ export const VectorSemanticSearch: React.FC = () => {
     }
   };
 
+  const copyReference = async (item: SearchResultItem) => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ id: item.id, title: item.title, summary: item.summary }));
+      showToast('success', 'Memory Reference Copied', `${item.id} was copied to the clipboard.`);
+    } catch {
+      showToast('error', 'Copy Failed', 'The memory reference could not be copied.');
+    }
+  };
+
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
       
@@ -110,11 +119,11 @@ export const VectorSemanticSearch: React.FC = () => {
                   </span>
                 ))}
               </div>
-              <button 
-                onClick={() => showToast('info', 'Few-Shot Injected', `Injected ${item.id} as few-shot reference into prompt scratchpad.`)} 
+              <button
+                onClick={() => copyReference(item)}
                 className="gh-btn" style={{ fontSize: '0.7rem', padding: '2px 8px' }}
               >
-                Inject into Prompt <ArrowRight size={10} />
+                Copy reference <ArrowRight size={10} />
               </button>
             </div>
 

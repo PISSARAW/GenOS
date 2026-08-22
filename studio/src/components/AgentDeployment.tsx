@@ -8,6 +8,7 @@ import { useToastStore } from '../store/useToastStore';
 
 export const AgentDeployment: React.FC = () => {
   const [isDeployed, setIsDeployed] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
   const [agentType, setAgentType] = useState('GenOS');
   const [modelTier, setModelTier] = useState('Flash');
   const [workspaceIsolation, setWorkspaceIsolation] = useState('Branch');
@@ -39,20 +40,24 @@ export const AgentDeployment: React.FC = () => {
     fetchHistory();
   }, []);
 
-  // Real telemetry via EventSource
+  const deployAgent = async () => {
+    if (!prompt || isDeploying) return;
+    setIsDeploying(true);
+    try {
+      const result = await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation });
+      setIsDeployed(true);
+      showToast('success', 'Agent Deployed', `${result.agent?.name || agentType} was persisted and queued with ${modelTier} tier in ${workspaceIsolation} isolation.`);
+      fetchHistory();
+    } catch (e: any) {
+      showToast('error', 'Deployment Failed', e.message || 'The agent could not be deployed.');
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  // Real telemetry via EventSource, after the deployment is persisted.
   useEffect(() => {
     if (isDeployed) {
-      const deploy = async () => {
-        try {
-          await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation });
-          showToast('success', 'Agent Deployed', `${agentType} subagent launched with ${modelTier} tier in ${workspaceIsolation} isolation.`);
-          fetchHistory();
-        } catch (e: any) {
-          showToast('error', 'Deployment Failed', e.message);
-        }
-      };
-      deploy();
-
       let eventSource: EventSource | null = null;
       try {
         eventSource = new EventSource(`${API_BASE_URL}/api/telemetry`);
@@ -145,7 +150,7 @@ export const AgentDeployment: React.FC = () => {
               </div>
             ) : (
               history.map((agent, idx) => (
-                <div key={agent.id || idx} style={{ padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', gap: '8px' }} className="hover-bg-gray">
+                <div key={agent.id || idx} style={{ padding: '8px', borderRadius: '6px', display: 'flex', gap: '8px' }}>
                   <div style={{ paddingTop: '2px' }}>
                     {agent.status === 'Active' || agent.status === 'running'
                       ? <Activity size={14} color="var(--success)" className="pulse-green" />
@@ -257,12 +262,12 @@ export const AgentDeployment: React.FC = () => {
                   </div>
 
                   <button 
-                    onClick={() => { if (prompt) setIsDeployed(true); }}
+                    onClick={deployAgent}
                     className="gh-btn gh-btn-primary" 
-                    disabled={!prompt}
+                    disabled={!prompt || isDeploying}
                     style={{ padding: '6px 20px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
-                    <Play size={14} /> Deploy Subagent
+                    <Play size={14} /> {isDeploying ? 'Deploying…' : 'Deploy Subagent'}
                   </button>
 
                 </div>
