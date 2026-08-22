@@ -10,9 +10,9 @@ const CSRF_KEY = 'genos_csrf_token';
 
 export function getAuthToken(): string {
   try {
-    return localStorage.getItem(TOKEN_KEY) || 'MILITARY-OVERRIDE-GENOS-2026';
+    return localStorage.getItem(TOKEN_KEY) || '';
   } catch {
-    return 'MILITARY-OVERRIDE-GENOS-2026';
+    return '';
   }
 }
 

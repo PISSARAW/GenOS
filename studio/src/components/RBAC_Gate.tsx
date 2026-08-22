@@ -55,7 +55,7 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
             </div>
             
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
-              This action requires Level 5 Override authentication. <br/>
+              This action requires administrator authentication. <br/>
               Please enter your cryptographic key to unlock high-risk controls.
             </p>
 

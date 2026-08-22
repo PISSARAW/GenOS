@@ -2,8 +2,8 @@
 
 GenOS has not published an official GitHub release yet. The `0.0.1` entry in
 the changelog records a development milestone; it is not an installable
-release. Until the first checksummed alpha is published, building from a reviewed
-commit is the supported installation path.
+release. Until the first checksummed alpha is published, building from a
+reviewed commit is the supported installation path.
 
 The CLI executable is named `genos`. The Rust package is named `genos-cli`
 inside this repository only: do not install or publish the unrelated
@@ -31,14 +31,15 @@ running unreviewed `curl | sh` installers or using `cargo install genos-cli`.
 
 ## Install a future alpha archive
 
-An alpha tag such as `v0.1.0-alpha.1` will produce these assets:
+For the current Cargo version `0.0.1`, an alpha tag such as
+`v0.0.1-alpha.1` will produce these assets:
 
 | Platform | Archive |
 | --- | --- |
-| Linux x86-64 | `genos-x86_64-unknown-linux-gnu.tar.gz` |
-| macOS Intel | `genos-x86_64-apple-darwin.tar.gz` |
-| macOS Apple Silicon | `genos-aarch64-apple-darwin.tar.gz` |
-| Windows x86-64 | `genos-x86_64-pc-windows-msvc.zip` |
+| Linux x86-64 | `genos-0.0.1-alpha.1-x86_64-unknown-linux-gnu.tar.gz` |
+| macOS Intel | `genos-0.0.1-alpha.1-x86_64-apple-darwin.tar.gz` |
+| macOS Apple Silicon | `genos-0.0.1-alpha.1-aarch64-apple-darwin.tar.gz` |
+| Windows x86-64 | `genos-0.0.1-alpha.1-x86_64-pc-windows-msvc.zip` |
 
 Download the archive and `SHA256SUMS.txt` from the same GitHub prerelease.
 Verify the archive before extracting it:
@@ -48,13 +49,13 @@ Verify the archive before extracting it:
 sha256sum --check --ignore-missing SHA256SUMS.txt
 
 # macOS Apple Silicon
-grep 'genos-aarch64-apple-darwin.tar.gz$' SHA256SUMS.txt | shasum -a 256 -c -
+grep 'genos-0.0.1-alpha.1-aarch64-apple-darwin.tar.gz$' SHA256SUMS.txt | shasum -a 256 -c -
 ```
 
 On Windows PowerShell, compare the published hash with:
 
 ```powershell
-Get-FileHash .\genos-x86_64-pc-windows-msvc.zip -Algorithm SHA256
+Get-FileHash .\genos-0.0.1-alpha.1-x86_64-pc-windows-msvc.zip -Algorithm SHA256
 ```
 
 The alpha archives contain the executable, license, and project README. They
@@ -66,12 +67,17 @@ The release workflow is intentionally limited to prereleases. Before tagging:
 
 1. ensure required CI checks are green on the exact commit;
 2. update `CHANGELOG.md` and confirm the version is marked pre-release;
-3. create an annotated tag such as `v0.1.0-alpha.1`;
+3. create an annotated tag whose base exactly matches `[workspace.package]`
+   in `Cargo.toml`, such as `v0.0.1-alpha.1` for version `0.0.1`;
 4. push that tag only after review.
 
 The tag starts `.github/workflows/release-alpha.yml`, which builds native CLI
-binaries on Linux, macOS Intel, macOS Apple Silicon, and Windows. It generates
-`SHA256SUMS.txt` and creates or updates a GitHub prerelease. A manual workflow
-run builds downloadable Actions artifacts but deliberately publishes nothing.
+binaries on Linux, macOS Intel, macOS Apple Silicon, and Windows. Before any
+publication, a dedicated job resolves the tag to an immutable commit, checks
+that the tag matches the Cargo version, and makes every build check out that
+verified SHA. Each archive records the source SHA and toolchain, and the
+publishing job re-verifies all four archives against `SHA256SUMS.txt`. A manual
+workflow run builds downloadable Actions artifacts but deliberately publishes
+nothing.
 
 No package is uploaded to crates.io by this workflow.

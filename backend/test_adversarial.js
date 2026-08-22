@@ -1,8 +1,9 @@
 const http = require('http');
+const { TEST_ADMIN_TOKEN, TEST_VIEWER_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const circuitBreaker = require('./src/services/circuitBreaker');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4199;
 let server;
@@ -47,7 +48,7 @@ async function runAdversarialTests() {
     const viewerToolRes = await request({
       method: 'POST',
       path: '/api/mcp/execute',
-      headers: { Authorization: 'Bearer genos_sk_viewer_2026' }
+      headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
     }, { toolName: 'genos_restore', args: {} });
     console.log('  Viewer destructive tool result:', viewerToolRes.status, viewerToolRes.body && viewerToolRes.body.error ? viewerToolRes.body.error.code : 'UNKNOWN');
     if (viewerToolRes.status === 403 || viewerToolRes.status === 503) {

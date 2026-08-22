@@ -7,10 +7,11 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const circuitBreaker = require('./src/services/circuitBreaker');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4499;
 let server = null;
@@ -120,7 +121,7 @@ async function runDestructiveArsenalTests() {
     const res = await sendReq({
       method: 'POST',
       path: '/api/mcp/execute',
-      headers: { Authorization: 'Bearer genos_sk_operator_2026' }
+      headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
     }, { toolName: tool, args: {} });
     assert(res.status === 503 && res.body.error.code === 'INSUFFICIENT_ROLE', `Operator blocked from executing destructive tool '${tool}' (503 INSUFFICIENT_ROLE)`);
   }
