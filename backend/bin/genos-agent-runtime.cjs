@@ -47,6 +47,9 @@ process.stdin.on('end', () => {
     !isWorker && autonomyPlan.schema
       ? `Autonomous orchestration plan (required tools/phases; do not claim completion until its replay-and-promote phase has been attempted):\n${JSON.stringify(autonomyPlan, null, 2)}`
       : '',
+    !isWorker && autonomyPlan.parasitism?.enabled
+      ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.'
+      : '',
     isWorker && toolLease.length ? `Your enforceable GenOS MCP lease is limited to: ${toolLease.join(', ')}.` : '',
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');

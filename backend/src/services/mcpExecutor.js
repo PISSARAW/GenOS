@@ -3,12 +3,19 @@ const circuitBreaker = require('./circuitBreaker');
 const telemetry = require('./telemetryObserver');
 const platformSafety = require('./platformSafetyService');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
   const command = process.env.GENOS_MCP_COMMAND;
   if (url) return { type: 'http', url };
   if (command) return { type: 'stdio', command, args: parseArgs(process.env.GENOS_MCP_ARGS || '') };
+  // The backend and bundled MCP are shipped together. Use that local, full
+  // control-plane endpoint for autonomous recovery actions; external callers
+  // still see only genos_orchestrate by default.
+  const bundled = path.resolve(__dirname, '../../../target/debug/genos-mcp');
+  if (fs.existsSync(bundled)) return { type: 'stdio', command: bundled, args: ['stdio'], bundled: true };
   return null;
 }
 
@@ -48,7 +55,8 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
-  const child = spawn(executable, [...tokens, ...args], { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_MCP_CLIENT: 'genos-backend' } });
+  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.resolve(workspaceRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
   let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
   child.stdout.on('data', (chunk) => {
