@@ -16,6 +16,30 @@ pub enum Auth {
     ApiKey { header: String, value: String },
 }
 
+impl Auth {
+    pub fn from_env_bearer(name: &str) -> Result<Self> {
+        let value = std::env::var(name).map_err(|_| anyhow::anyhow!("credential environment variable is missing: {name}"))?;
+        if value.is_empty() { anyhow::bail!("credential environment variable is empty: {name}"); }
+        Ok(Self::Bearer(value))
+    }
+    pub fn from_env_api_key(variable: &str, header: impl Into<String>) -> Result<Self> {
+        let value = std::env::var(variable).map_err(|_| anyhow::anyhow!("credential environment variable is missing: {variable}"))?;
+        if value.is_empty() { anyhow::bail!("credential environment variable is empty: {variable}"); }
+        Ok(Self::ApiKey { header: header.into(), value })
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct SecretStore;
+
+impl SecretStore {
+    pub fn resolve_env(&self, variable: &str) -> Result<String> {
+        let value = std::env::var(variable).map_err(|_| anyhow::anyhow!("credential environment variable is missing: {variable}"))?;
+        if value.is_empty() { anyhow::bail!("credential environment variable is empty: {variable}"); }
+        Ok(value)
+    }
+}
+
 #[derive(Clone)]
 pub struct ApiClient {
     client: Client,
@@ -167,5 +191,14 @@ mod tests {
         registry.register(manifest.clone()).unwrap();
         assert!(registry.register(manifest).is_err());
         assert_eq!(registry.list().len(), 1);
+    }
+
+    #[test]
+    fn credentials_are_resolved_without_persisting_them() {
+        std::env::set_var("GENOS_TEST_SECRET", "secret-value");
+        let auth = Auth::from_env_bearer("GENOS_TEST_SECRET").unwrap();
+        assert!(matches!(auth, Auth::Bearer(value) if value == "secret-value"));
+        assert_eq!(SecretStore.resolve_env("GENOS_TEST_SECRET").unwrap(), "secret-value");
+        std::env::remove_var("GENOS_TEST_SECRET");
     }
 }
