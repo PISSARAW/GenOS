@@ -21,6 +21,13 @@ fn expose_full_catalog() -> bool {
     matches!(env::var("GENOS_MCP_EXPOSE_ALL").as_deref(), Ok("1") | Ok("true") | Ok("TRUE"))
 }
 
+fn leased_operations() -> Option<Vec<String>> {
+    let values: Vec<String> = env::var("GENOS_MCP_LEASE").ok()?
+        .split(',').map(str::trim).filter(|value| !value.is_empty())
+        .map(|value| format!("genos_{}", value.strip_prefix("genos_").unwrap_or(value))).collect();
+    (!values.is_empty()).then_some(values)
+}
+
 fn orchestrator_tool() -> ToolSpec {
     ToolSpec {
         name: "genos_orchestrate".into(),
@@ -38,6 +45,9 @@ fn orchestrator_tool() -> ToolSpec {
 }
 
 fn public_tool_specs() -> Vec<ToolSpec> {
+    if let Some(lease) = leased_operations() {
+        return tool_specs().into_iter().filter(|tool| lease.contains(&tool.name)).collect();
+    }
     if expose_full_catalog() { tool_specs() } else { vec![orchestrator_tool()] }
 }
 
@@ -188,6 +198,11 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
+        if let Some(lease) = leased_operations() {
+            if !lease.contains(&name.to_string()) {
+                return tool_error(id, format!("Tool '{name}' is outside this worker's GenOS lease."));
+            }
+        }
         let (operation_name, operation_arguments) = if name == "genos_orchestrate" && arguments.get("operation").is_none() && expose_full_catalog() == false {
             ("__genos_backend_orchestrate__".to_string(), arguments)
         } else if name == "genos_orchestrate" {

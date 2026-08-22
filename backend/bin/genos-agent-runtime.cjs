@@ -29,6 +29,8 @@ process.stdin.on('end', () => {
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
   let autonomyPlan = {};
   try { autonomyPlan = JSON.parse(mission.autonomyPlanJson || '{}'); } catch {}
+  let toolLease = [];
+  try { toolLease = JSON.parse(mission.toolLeaseJson || '[]'); } catch {}
   const isWorker = mission.executionMode === 'worker';
   const authorityInstruction = isWorker
     ? `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result; return evidence to the orchestrator.`
@@ -45,6 +47,7 @@ process.stdin.on('end', () => {
     !isWorker && autonomyPlan.schema
       ? `Autonomous orchestration plan (required tools/phases; do not claim completion until its replay-and-promote phase has been attempted):\n${JSON.stringify(autonomyPlan, null, 2)}`
       : '',
+    isWorker && toolLease.length ? `Your enforceable GenOS MCP lease is limited to: ${toolLease.join(', ')}.` : '',
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
@@ -54,7 +57,7 @@ process.stdin.on('end', () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
