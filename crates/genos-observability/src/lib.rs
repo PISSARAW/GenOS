@@ -183,6 +183,32 @@ impl OtlpHttpExporter {
             redactor,
         }
     }
+
+    /// Builds an exporter from a named observability backend. The caller owns
+    /// credentials; they are attached to the HTTP client rather than recorded
+    /// in spans or audit bundles.
+    pub fn for_provider(
+        provider: ObservabilityProvider,
+        endpoint: impl Into<String>,
+        api_key: Option<&str>,
+        redactor: Redactor,
+    ) -> anyhow::Result<Self> {
+        let endpoint = endpoint.into();
+        let mut headers = reqwest::header::HeaderMap::new();
+        if let Some(key) = api_key.filter(|key| !key.is_empty()) {
+            let header = provider.credential_header();
+            headers.insert(
+                header,
+                reqwest::header::HeaderValue::from_str(key)
+                    .context("invalid observability provider credential")?,
+            );
+        }
+        Ok(Self {
+            endpoint: provider.otlp_endpoint(&endpoint),
+            client: reqwest::Client::builder().default_headers(headers).build()?,
+            redactor,
+        })
+    }
     pub async fn export(&self, spans: &[Span]) -> anyhow::Result<()> {
         let encoded = spans
             .iter()
@@ -217,6 +243,33 @@ impl OtlpHttpExporter {
             .error_for_status()
             .context("OTLP exporter rejected spans")?;
         Ok(())
+    }
+}
+
+/// Well-known OTLP-compatible providers. `endpoint` is the provider base URL,
+/// allowing self-hosted Jaeger, Tempo and Phoenix deployments as well as a
+/// Datadog OTLP gateway.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ObservabilityProvider {
+    Jaeger,
+    GrafanaTempo,
+    Datadog,
+    Phoenix,
+}
+
+impl ObservabilityProvider {
+    pub fn otlp_endpoint(self, base_url: &str) -> String {
+        format!("{}/v1/traces", base_url.trim_end_matches('/'))
+    }
+
+    pub fn credential_header(self) -> reqwest::header::HeaderName {
+        match self {
+            Self::Datadog => reqwest::header::HeaderName::from_static("dd-api-key"),
+            Self::Jaeger | Self::GrafanaTempo | Self::Phoenix => {
+                reqwest::header::HeaderName::from_static("authorization")
+            }
+        }
     }
 }
 
@@ -287,5 +340,21 @@ mod tests {
         assert!(bundle.verify());
         bundle.events.push(json!({"type":"changed"}));
         assert!(!bundle.verify());
+    }
+
+    #[test]
+    fn provider_profiles_preserve_otlp_path_and_credential_shape() {
+        assert_eq!(
+            ObservabilityProvider::Jaeger.otlp_endpoint("http://jaeger:4318/"),
+            "http://jaeger:4318/v1/traces"
+        );
+        assert_eq!(
+            ObservabilityProvider::Datadog.credential_header(),
+            reqwest::header::HeaderName::from_static("dd-api-key")
+        );
+        assert_eq!(
+            ObservabilityProvider::Phoenix.credential_header(),
+            reqwest::header::HeaderName::from_static("authorization")
+        );
     }
 }
