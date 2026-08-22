@@ -10,6 +10,15 @@ pub struct EvalCommand {
 pub enum EvalSubcommands {
     Import(EvalImportArgs),
     Run(EvalRunArgs),
+    Parasitism(EvalParasitismArgs),
+}
+#[derive(Args, Debug)]
+pub struct EvalParasitismArgs {
+    pub input: PathBuf,
+    #[arg(short, long)]
+    pub output: PathBuf,
+    #[arg(long)]
+    pub evolve: bool,
 }
 #[derive(Args, Debug)]
 pub struct EvalImportArgs {
