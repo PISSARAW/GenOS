@@ -279,6 +279,53 @@ async function listAgents(req, res) {
   res.json(agents);
 }
 
+async function deleteAgent(req, res, next) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    const agent = await db.get('SELECT id, name, status FROM agents WHERE id = ?', id);
+    if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+    if (agent.status === 'running') {
+      return res.status(409).json({ error: { code: 'RUNNING_AGENT', message: `Stop '${agent.name}' before deleting it.` } });
+    }
+
+    await db.run('DELETE FROM agents WHERE id = ?', id);
+    telemetry.emitEvent({
+      eventType: 'AGENT_DELETED', agentId: id, action: 'DELETE',
+      detail: `Deleted agent '${agent.name}'.`, severity: 'warning'
+    });
+    res.json({ success: true, agentId: id });
+  } catch (error) {
+    next(error);
+  }
+}
+
+async function stopAgent(req, res, next) {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    const agent = await db.get('SELECT id, name, status FROM agents WHERE id = ?', id);
+    if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+
+    const runtimeStopped = runtimeAdapter.stopMission(id);
+    const status = runtimeStopped ? 'blocked' : 'idle';
+    const task = runtimeStopped ? 'Stopping on operator request' : 'Reconciled: no runtime process was active';
+    await db.run('UPDATE agents SET status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, task, id);
+    await db.run("UPDATE strategy_execution_runs SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP WHERE agent_id = ? AND status IN ('planned', 'running', 'awaiting_approval')", id);
+    telemetry.emitEvent({
+      eventType: runtimeStopped ? 'AGENT_STOP_REQUESTED' : 'AGENT_STATE_RECONCILED',
+      agentId: id,
+      action: 'STOP',
+      detail: runtimeStopped ? `Stop requested for '${agent.name}'.` : `Reconciled '${agent.name}': no runtime process was active.`,
+      severity: 'info',
+      status
+    });
+    res.json({ success: true, agentId: id, stopped: runtimeStopped, status });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
   const agent = await db.get('SELECT id, execution_mode, parent_agent_id FROM agents WHERE id = ?', req.params.id);
@@ -444,6 +491,8 @@ module.exports = {
   deployTrinity,
   listTrinityWorlds,
   listAgents,
+  deleteAgent,
+  stopAgent,
   subscribeAgent,
   getAgentHistory,
   pingAgent,

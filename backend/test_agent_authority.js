@@ -81,6 +81,15 @@ async function run() {
     const wrongDispatcher = await request('POST', `/api/agents/not-the-parent/workers/${workerId}/dispatch`, {});
     assert.equal(wrongDispatcher.status, 404);
     assert.equal(wrongDispatcher.body.error.code, 'ORCHESTRATOR_NOT_FOUND');
+
+    // A Studio stop also reconciles stale "running" rows when no child
+    // process exists in this backend instance.
+    await db.run("UPDATE agents SET status = 'running' WHERE id = 'authority-orchestrator'");
+    const stopped = await request('POST', '/api/agents/authority-orchestrator/stop', {});
+    assert.equal(stopped.status, 200);
+    assert.equal(stopped.body.stopped, false);
+    assert.equal(stopped.body.status, 'idle');
+    assert.equal((await db.get("SELECT status FROM agents WHERE id = 'authority-orchestrator'"))?.status, 'idle');
     console.log('Agent authority: all assertions passed.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
