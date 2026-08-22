@@ -288,6 +288,7 @@ async function listAgents(req, res) {
   const agents = await db.all(`SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType, a.execution_mode as executionMode,
     a.model_tier as modelTier, a.language, a.isolation_mode as isolationMode,
     a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId,
+    w.name as workspaceName,
     a.parent_agent_id as parentAgentId, p.name as parentAgentName,
     a.lineage_relation as lineageRelation, a.hallucination_monitoring as hallucinationMonitoring,
     a.hallucination_count as hallucinationCount,
@@ -296,6 +297,7 @@ async function listAgents(req, res) {
     tw.mission as trinityMission, sc.primary_strategy as strategyPrimary,
     sc.version as strategyVersion, sc.status as strategyStatus
     FROM agents a
+    LEFT JOIN workspaces w ON w.id = a.workspace_id
     LEFT JOIN agents p ON p.id = a.parent_agent_id
     LEFT JOIN trinity_worlds tw ON tw.agent_id = a.id
     LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id

@@ -8,6 +8,7 @@ export interface Clone {
   status: 'idle' | 'running' | 'blocked' | 'error' | 'terminated';
   agentType: 'GenOS' | 'Antigravity' | 'Codex' | 'ChatGPT' | 'Claude' | 'Other' | string;
   workspaceId?: string | null;
+  workspaceName?: string | null;
   about?: string;
   parentAgentId?: string | null;
   parentAgentName?: string | null;
