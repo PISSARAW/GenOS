@@ -4,6 +4,7 @@
 
 const os = require('os');
 const { getDatabase } = require('../db');
+const modelProvider = require('../services/modelProvider');
 
 let customUsername = null;
 let maxTokens = 500000;
@@ -38,12 +39,27 @@ async function getConfig(req, res) {
     },
     activeAgents: agentCount ? agentCount.count : 0,
     totalWorkspaces: wsCount ? wsCount.count : 0,
+    model: modelProvider.getModelStatus(),
     presets: [
       { id: 'standard', name: 'Standard Swarm', computeLimit: '500k tokens', nodes: 4 },
       { id: 'deep_solve', name: 'Deep Scientific Solver', computeLimit: '1.5M tokens', nodes: 8 },
       { id: 'security_redteam', name: 'Adversarial Security Arena', computeLimit: '2.0M tokens', nodes: 6 }
     ]
   });
+}
+
+function getModelStatus(req, res) {
+  res.json(modelProvider.getModelStatus(req.query?.model));
+}
+
+async function testModel(req, res, next) {
+  try {
+    const prompt = String(req.body?.prompt || 'Reply with exactly: GENOS_MODEL_OK');
+    const result = await modelProvider.generate({ model: req.body?.model, prompt, timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
+    res.json({ success: true, provider: result.provider, text: result.text, usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens } });
+  } catch (error) {
+    res.status(502).json({ error: { code: 'MODEL_EXECUTION_FAILED', message: error.message } });
+  }
 }
 
 function updateProfile(req, res) {
@@ -72,6 +88,8 @@ function updateBudget(req, res) {
 
 module.exports = {
   getConfig,
+  getModelStatus,
+  testModel,
   updateProfile,
   getBudget,
   updateBudget

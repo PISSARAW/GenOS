@@ -42,7 +42,7 @@ export const AtomicRollbackPreview: React.FC = () => {
           <RotateCcw size={16} color="var(--warning)" />
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Invariant-Preserving Atomic Rollback Engine</span>
         </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Unavailable: no durable workspace snapshot provider</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Durable filesystem snapshots</span>
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
@@ -54,7 +54,7 @@ export const AtomicRollbackPreview: React.FC = () => {
               type="text" 
               value={workspaceId} 
               onChange={(e) => setWorkspaceId(e.target.value)} 
-              disabled
+              disabled={!workspaceId}
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
             />
           </div>
@@ -65,13 +65,13 @@ export const AtomicRollbackPreview: React.FC = () => {
               type="number" 
               value={targetStep} 
               onChange={(e) => setTargetStep(parseInt(e.target.value))} 
-              disabled
+              disabled={!workspaceId}
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
             />
           </div>
 
-          <button disabled title="Rollback previews require durable snapshots." className="gh-btn" style={{ padding: '6px 14px', fontSize: '0.8rem' }}>
-            Preview unavailable
+          <button onClick={handlePreview} disabled={!workspaceId || isApplying} className="gh-btn" style={{ padding: '6px 14px', fontSize: '0.8rem' }}>
+            Preview rollback
           </button>
         </div>
 

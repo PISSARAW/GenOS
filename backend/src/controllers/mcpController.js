@@ -6,6 +6,7 @@ const { getDatabase } = require('../db');
 const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
+const mcpExecutor = require('../services/mcpExecutor');
 
 async function listTools(req, res) {
   const db = await getDatabase();
@@ -42,10 +43,10 @@ async function listTools(req, res) {
 }
 
 function testTool(req, res) {
-  const { toolName = 'genos_inspect' } = req.body || {};
-  return res.status(501).json({
-    error: { code: 'TOOL_TRANSPORT_UNAVAILABLE', message: `MCP tool '${toolName}' has no configured executable transport. Use the dry-run endpoint for a declared simulation.` }
-  });
+  const { toolName = 'genos_inspect', args = {} } = req.body || {};
+  return mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 15000 })
+    .then((result) => res.status(result.success ? 200 : result.configured ? 502 : 503).json(result))
+    .catch((error) => res.status(502).json({ success: false, status: 'failed', error: error.message }));
 }
 
 async function toggleCircuitBreaker(req, res) {
@@ -86,7 +87,11 @@ async function executeTool(req, res) {
   const db = await getDatabase();
   const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
-  const permissions = req.user?.role === 'admin' ? ['*'] : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
+  const permissions = req.user?.role === 'admin'
+    ? ['*']
+    : req.user?.permissions?.includes('mcp:execute_safe')
+      ? ['tool:execute']
+      : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const zeroTrust = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust));
@@ -104,9 +109,16 @@ async function executeTool(req, res) {
     });
   }
 
-  return res.status(501).json({
-    error: { code: 'TOOL_TRANSPORT_UNAVAILABLE', message: `MCP tool '${toolName}' has no configured executable transport. Execution was not attempted.` }
-  });
+  try {
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 30000 });
+    if (result.success) circuitBreaker.recordSuccess(toolName);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`);
+    telemetry.emitEvent({ eventType: result.success ? 'MCP_TOOL_EXECUTED' : 'MCP_TOOL_EXECUTION_FAILED', agentId, action: 'MCP_EXECUTE', detail: result.success ? `Executed '${toolName}' over ${result.transport}.` : (result.error || `MCP tool '${toolName}' failed.`), severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
+    return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
+  } catch (error) {
+    circuitBreaker.recordFailure(toolName, error.message);
+    return res.status(502).json({ success: false, status: 'failed', error: error.message });
+  }
 }
 
 const vfsSandboxService = require('../services/vfsSandboxService');

@@ -142,17 +142,17 @@ export const WorkspaceTimelineManager: React.FC = () => {
             className="gh-btn"
             style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)' }}
           >
-            <PlayCircle size={16} /> Replay unavailable
+            <PlayCircle size={16} /> Replay lineage
           </button>
-          <button disabled title="A durable workspace snapshot provider is not configured." className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Camera size={16} /> Snapshot unavailable
+          <button disabled title="Select a workspace in the Time Machine to capture a filesystem snapshot." className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Camera size={16} /> Capture in Time Machine
           </button>
         </div>
       </div>
 
       {/* Graph */}
       <div style={{ flex: 1, position: 'relative' }}>
-        <p style={{ position: 'absolute', zIndex: 2, top: 8, left: 16, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>This view is an agent-lineage visualization. It does not represent filesystem snapshots or support replay.</p>
+        <p style={{ position: 'absolute', zIndex: 2, top: 8, left: 16, color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Agent-lineage observer. Filesystem snapshots and restore are available in Workspace Time Machine.</p>
         <ReactFlow
           nodes={nodes}
           edges={edges}

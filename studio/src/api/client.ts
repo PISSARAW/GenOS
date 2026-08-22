@@ -201,6 +201,8 @@ export const api = {
     apiRequest(`/api/workspaces/${id}/snapshots`, { method: 'POST', body: payload }),
   restoreSnapshot: (id: string, step: number) => 
     apiRequest(`/api/workspaces/${id}/restore`, { method: 'POST', body: { step } }),
+  getModelStatus: (model?: string) => apiRequest(`/api/model${model ? `?model=${encodeURIComponent(model)}` : ''}`),
+  testModel: (prompt: string, model?: string) => apiRequest('/api/model/test', { method: 'POST', body: { prompt, model } }),
 
   // Visual workflows
   listWorkflows: (workspaceId?: string) => apiRequest(`/api/workflows${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),

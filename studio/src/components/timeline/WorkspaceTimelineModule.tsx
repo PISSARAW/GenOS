@@ -18,7 +18,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
             <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recorded Workspace Changes</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Compare persisted trajectory entries. Causal bisection and rollback remain unavailable until durable revisions and a test runner are configured.
+            Compare durable workspace revisions. Bisection runs the invariant command in an isolated copy; rollback creates a safety snapshot first.
           </p>
         </div>
 
@@ -42,7 +42,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
               color: activeTab === 'bisection' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <Bug size={14} /> Bisection unavailable
+            <Bug size={14} /> Causal bisection
           </button>
           <button 
             onClick={() => setActiveTab('rollback')}
@@ -52,7 +52,7 @@ export const WorkspaceTimelineModule: React.FC = () => {
               color: activeTab === 'rollback' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <RotateCcw size={14} /> Rollback unavailable
+            <RotateCcw size={14} /> Atomic rollback
           </button>
         </div>
       </div>

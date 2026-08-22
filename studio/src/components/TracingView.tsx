@@ -15,7 +15,8 @@ export const TracingView: React.FC = () => {
   return (
     <div className="mac-panel flex-col" style={{ flexGrow: 1, overflow: 'hidden' }}>
       <div className="p-4" style={{ borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-main)' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Tracing Waterfall</h3>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Runtime trace waterfall</h3>
+        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>Live observer spans · persisted runtime events</div>
       </div>
       <div className="p-4" style={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--panel-border)', paddingBottom: '4px', marginBottom: '8px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
@@ -57,7 +58,7 @@ export const TracingView: React.FC = () => {
         })}
         {allSpans.length === 0 && (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '2rem' }}>
-            No trace spans recorded yet.
+            No runtime trace spans recorded yet.
           </div>
         )}
       </div>

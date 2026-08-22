@@ -33,7 +33,7 @@ export const CausalAnomalyBisection: React.FC = () => {
           <Bug size={16} color="var(--danger)" />
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Causal Bisection</span>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Unavailable: no revision checkout or test runner is configured</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Durable snapshots · isolated runner</span>
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
@@ -46,7 +46,7 @@ export const CausalAnomalyBisection: React.FC = () => {
               type="text" 
               value={workspaceId} 
               onChange={(e) => setWorkspaceId(e.target.value)}
-              disabled
+              disabled={!workspaceId}
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
             />
           </div>
@@ -57,18 +57,19 @@ export const CausalAnomalyBisection: React.FC = () => {
               type="text" 
               value={testAssertion} 
               onChange={(e) => setTestAssertion(e.target.value)}
-              disabled
-              placeholder="No executable test runner configured"
+              disabled={!workspaceId}
+              placeholder="npm test -- --runInBand"
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', fontFamily: 'monospace', outline: 'none' }}
             />
           </div>
 
           <button 
-            disabled
+            onClick={handleRunBisection}
+            disabled={isRunning || !workspaceId || !testAssertion.trim()}
             className="gh-btn gh-btn-primary" 
             style={{ padding: '6px 16px', fontSize: '0.8rem' }}
           >
-            <Play size={12} /> Bisection unavailable
+            <Play size={12} /> {isRunning ? 'Running…' : 'Run bisection'}
           </button>
         </div>
 
