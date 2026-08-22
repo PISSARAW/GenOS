@@ -45,9 +45,18 @@ const webhookRoutes = require('./routes/webhookRoutes');
 const secretRoutes = require('./routes/secretRoutes');
 const ssoRoutes = require('./routes/ssoRoutes');
 const pluginRoutes = require('./routes/pluginRoutes');
+const registryRoutes = require('./routes/registryRoutes');
+const healthController = require('./controllers/healthController');
 
 function createApp() {
   const app = express();
+
+  // Container/orchestrator probes are intentionally public and cheap. The
+  // dependency-aware probes still verify the SQLite store before reporting
+  // readiness, while liveness only answers whether the event loop responds.
+  app.get('/healthz', healthController.getLiveness);
+  app.get('/readyz', healthController.getReadiness);
+  app.get('/livez', healthController.getStartup);
 
   // 1. CORS Configuration
   app.use(cors({
@@ -86,6 +95,7 @@ function createApp() {
   app.use('/api/secrets', secretRoutes);
   app.use('/api/sso', ssoRoutes);
   app.use('/api/plugins', pluginRoutes);
+  app.use('/api/registry', registryRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);
