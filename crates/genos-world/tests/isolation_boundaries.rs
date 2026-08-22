@@ -25,10 +25,16 @@ async fn child_process_relative_writes_stay_in_the_forked_world() -> anyhow::Res
 
     assert_eq!(result.exit_code, 0);
     assert_eq!(
-        provider.read_file(&fork, "process-output.txt").await?.as_deref(),
+        provider
+            .read_file(&fork, "process-output.txt")
+            .await?
+            .as_deref(),
         Some("child")
     );
-    assert_eq!(provider.read_file(&parent, "process-output.txt").await?, None);
+    assert_eq!(
+        provider.read_file(&parent, "process-output.txt").await?,
+        None
+    );
     Ok(())
 }
 
@@ -50,7 +56,10 @@ async fn environment_is_inherited_by_child_processes_and_is_not_sandboxed() -> a
     std::env::remove_var("GENOS_ISOLATION_SENTINEL");
     assert_eq!(result.exit_code, 0);
     assert_eq!(
-        provider.read_file(&world, "inherited-env.txt").await?.as_deref(),
+        provider
+            .read_file(&world, "inherited-env.txt")
+            .await?
+            .as_deref(),
         Some(sentinel.as_str())
     );
     Ok(())
@@ -59,7 +68,7 @@ async fn environment_is_inherited_by_child_processes_and_is_not_sandboxed() -> a
 #[test]
 fn provider_layout_is_directory_scoped_not_an_os_sandbox() -> anyhow::Result<()> {
     let root = tempdir()?;
-    let provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
+    let _provider = DirectoryWorldProvider::new(root.path().join("state"), None)?;
     let state = root.path().join("state");
 
     assert!(state.join("worlds").is_dir());

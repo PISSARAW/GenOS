@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="studio/src/assets/hero.png" width="160" alt="GenOS layered state icon">
+  <img src="assets/brand/genos-logo.png" width="160" alt="GenOS official logo">
 </p>
 
 <h1 align="center">GenOS</h1>
@@ -227,6 +227,9 @@ cargo test --workspace
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 ```
+
+Reproducible replay and world-boundary checks are documented in
+[the reproducible benchmark protocol](docs/7-benchmarks-and-comparisons/reproducible-benchmark-protocol.md).
 
 Build the Studio frontend with:
 

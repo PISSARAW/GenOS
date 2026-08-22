@@ -1,5 +1,10 @@
 # Comprehensive Competitive Matrix & Architectural Analysis
 
+> **Evidence status:** this document contains architectural hypotheses and
+> historical claims. Quantitative values are not validated by the repository's
+> executable benchmark suite unless they are reproduced by the reproducible
+> benchmark protocol.
+
 An in-depth, multidimensional comparative analysis evaluating **GenOS** against leading agentic frameworks: **Microsoft AutoGen, CrewAI, LangGraph (LangChain), MetaGPT, ChatDev, and Microsoft Semantic Kernel**.
 
 ---
