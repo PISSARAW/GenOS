@@ -1,5 +1,6 @@
 use crate::{ToolExecutor, ToolInvocation, ToolResult};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -106,6 +107,7 @@ pub struct ToolGateway<T: ToolExecutor, P: PolicyPlane> {
     pub executor: Arc<T>,
     pub policy: Arc<P>,
     pub circuit: Mutex<CircuitBreaker>,
+    idempotency: Mutex<HashMap<String, SecureToolOutput>>,
 }
 
 impl<T: ToolExecutor, P: PolicyPlane> ToolGateway<T, P> {
@@ -115,6 +117,7 @@ impl<T: ToolExecutor, P: PolicyPlane> ToolGateway<T, P> {
             executor,
             policy,
             circuit: Mutex::new(CircuitBreaker::new(3, 5000)),
+            idempotency: Mutex::new(HashMap::new()),
         }
     }
 
@@ -145,5 +148,20 @@ impl<T: ToolExecutor, P: PolicyPlane> ToolGateway<T, P> {
                 Err(e)
             }
         }
+    }
+
+    /// Executes an idempotent call at most once for a caller-provided key.
+    pub async fn execute_idempotent(
+        &self,
+        key: impl Into<String>,
+        call: ToolInvocation,
+    ) -> anyhow::Result<SecureToolOutput> {
+        let key = key.into();
+        if let Some(result) = self.idempotency.lock().unwrap().get(&key).cloned() {
+            return Ok(result);
+        }
+        let result = self.execute_intercepted(call).await?;
+        self.idempotency.lock().unwrap().insert(key, result.clone());
+        Ok(result)
     }
 }
