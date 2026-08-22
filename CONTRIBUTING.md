@@ -76,6 +76,20 @@ Maintainers may ask for a change to be split when independent concerns are combi
 
 Use short, imperative commit subjects such as `Add branch budget validation`. Conventional Commits are welcome but not required. Keep formatting-only changes separate from behavioral changes when practical.
 
+## Human authorship policy
+
+Every commit must identify an accountable natural person as its author and
+committer. Generative AI tools may assist that person, but an AI system must
+never appear in Git metadata or trailers as an author, committer, co-author,
+signer, or contributor. The human named on the commit reviews the complete
+change and accepts responsibility for its correctness, licensing, security,
+and provenance.
+
+CI rejects known AI identities and AI attribution trailers. Purpose-built,
+non-generative service accounts such as Dependabot may author their narrowly
+scoped mechanical updates. Attempts to disguise an AI identity or bypass this
+policy may result in the contribution being closed.
+
 ## Licensing
 
 By submitting a contribution, you agree that it is licensed under the [Apache License 2.0](LICENSE) and that you have the right to submit it.
