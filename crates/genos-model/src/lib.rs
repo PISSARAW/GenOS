@@ -8,6 +8,7 @@ pub mod fake;
 pub mod inference;
 pub mod reliability;
 pub mod router;
+pub mod sigv4;
 pub mod ssm;
 
 /// Standardized roles for LLM messages
