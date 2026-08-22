@@ -1,5 +1,9 @@
 # Resilience & Failure-Recovery Benchmark Methodology
 
+> **Evidence status:** the methodology below is a design proposal. The
+> ChaosHarness example and the 1,000-run table are not executable in the
+> current workspace and must not be presented as measured results.
+
 A formal, reproducible evaluation methodology measuring agentic fault tolerance, state isolation, and self-healing under extreme chaos injection.
 
 ---
