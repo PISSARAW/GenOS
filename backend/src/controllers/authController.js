@@ -4,7 +4,7 @@
 
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
-const { MILITARY_OVERRIDE_TOKEN, ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
+const { ROLE_PERMISSIONS, resolveUserFromHeaders, tokenMatchesConfiguredAdmin, hashKey } = require('../middleware/auth');
 const telemetry = require('../services/telemetryObserver');
 
 async function verifyToken(req, res) {
@@ -16,20 +16,20 @@ async function verifyToken(req, res) {
 
   const rawToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
 
-  if (rawToken === MILITARY_OVERRIDE_TOKEN) {
+  if (tokenMatchesConfiguredAdmin(rawToken)) {
     telemetry.emitEvent({
-      eventType: 'AUTH_OVERRIDE_VERIFIED',
+      eventType: 'AUTH_BOOTSTRAP_VERIFIED',
       agentId: 'auth_service',
       action: 'LOGIN',
-      detail: 'Level 5 Military Override Token verified successfully',
+      detail: 'Environment-provided bootstrap administrator token verified.',
       severity: 'warning'
     });
     return res.json({
       valid: true,
       role: 'admin',
-      isOverride: true,
+      isBootstrap: true,
       permissions: ROLE_PERMISSIONS.admin,
-      user: { username: 'MILITARY_OVERRIDE_ROOT', role: 'admin' }
+      user: { username: 'bootstrap_admin', role: 'admin' }
     });
   }
 
@@ -69,7 +69,7 @@ async function getSession(req, res) {
       role: user.role,
       permissions: user.permissions,
       isAuthenticated: user.isAuthenticated,
-      isOverride: !!user.isOverride
+      isBootstrap: !!user.isBootstrap
     }
   });
 }

@@ -1,9 +1,10 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { TEST_ADMIN_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const port = 4117;
 const dbPath = path.join(__dirname, 'test_compliance_integrations.db');

@@ -1,12 +1,10 @@
 /**
  * GenOS RBAC & Authentication Middleware
- * Enforces 3-tier access control (admin, operator, viewer) and Level 5 military override.
+ * Enforces 3-tier access control (admin, operator, viewer).
  */
 
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
-
-const MILITARY_OVERRIDE_TOKEN = 'MILITARY-OVERRIDE-GENOS-2026';
 
 const ROLE_PERMISSIONS = {
   admin: ['all', 'read', 'workspace:write', 'workspace:delete', 'experiment:write', 'experiment:run', 'swarm:vote', 'swarm:propose', 'mcp:execute_safe', 'mcp:execute_destructive', 'security:manage', 'override_breaker', 'emergency_kill'],
@@ -18,6 +16,16 @@ function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
+function configuredAdminToken() {
+  return String(process.env.GENOS_ADMIN_TOKEN || '').trim();
+}
+
+function tokenMatchesConfiguredAdmin(rawToken) {
+  const configured = configuredAdminToken();
+  if (!configured || !rawToken || configured.length !== rawToken.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(configured), Buffer.from(rawToken));
+}
+
 async function resolveUserFromHeaders(headers) {
   const authHeader = headers.authorization || headers['x-access-key'];
   if (!authHeader) {
@@ -26,13 +34,13 @@ async function resolveUserFromHeaders(headers) {
 
   const rawToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
 
-  // 1. Level 5 Military Override Check
-  if (rawToken === MILITARY_OVERRIDE_TOKEN) {
+  // An environment-provided bootstrap token is optional and never compiled in.
+  if (tokenMatchesConfiguredAdmin(rawToken)) {
     return {
       role: 'admin',
       permissions: ROLE_PERMISSIONS.admin,
-      username: 'MILITARY_OVERRIDE_ROOT',
-      isOverride: true,
+      username: 'bootstrap_admin',
+      isBootstrap: true,
       isAuthenticated: true
     };
   }
@@ -114,8 +122,9 @@ function requireRole(allowedRoles) {
 }
 
 module.exports = {
-  MILITARY_OVERRIDE_TOKEN,
   ROLE_PERMISSIONS,
+  configuredAdminToken,
+  tokenMatchesConfiguredAdmin,
   resolveUserFromHeaders,
   requirePermission,
   requireRole,
