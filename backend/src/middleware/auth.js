@@ -51,6 +51,10 @@ async function resolveUserFromHeaders(headers) {
         isAuthenticated: true
       };
     }
+    const session = await db.get("SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP", tokenHash);
+    if (session) {
+      return { role: session.role, permissions: ROLE_PERMISSIONS[session.role] || ROLE_PERMISSIONS.viewer, username: session.username, keyId: session.id, isAuthenticated: true };
+    }
   } catch (err) {
     console.error('[Auth] Error querying access keys:', err.message);
   }
