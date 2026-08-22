@@ -49,23 +49,39 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
   const child = spawn(executable, [...tokens, ...args], { stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_MCP_CLIENT: 'genos-backend' } });
-  let buffer = ''; let stderr = '';
+  let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-  const waitFor = (id) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`)); }, timeoutMs);
-    const consume = () => {
-      const lines = buffer.split(/\r?\n/); buffer = lines.pop() || '';
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let payload; try { payload = JSON.parse(line); } catch (_) { continue; }
-        if (payload.id === id) { clearTimeout(timer); resolve(payload); return; }
+  child.stdout.on('data', (chunk) => {
+    buffer += chunk.toString();
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let payload; try { payload = JSON.parse(line); } catch (_) { continue; }
+      if (pending && payload.id === pending.id) {
+        const { resolve, timer } = pending;
+        pending = null;
+        clearTimeout(timer);
+        resolve(payload);
       }
-      child.stdout.once('data', (chunk) => { buffer += chunk.toString(); consume(); });
-    };
-    consume();
+    }
+  });
+  const waitFor = (id) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      pending = null;
+      child.kill('SIGKILL');
+      reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    pending = { id, resolve, reject, timer };
+  });
+  child.once('error', (error) => {
+    if (!pending) return;
+    const { reject, timer } = pending;
+    pending = null;
+    clearTimeout(timer);
+    reject(error);
   });
   try {
-    child.stdout.on('data', (chunk) => { buffer += chunk.toString(); });
     child.stdin.write(`${JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } }))}\n`);
     const initialized = await waitFor(1);
     if (initialized.error) throw new Error(initialized.error.message || 'MCP STDIO initialize failed.');

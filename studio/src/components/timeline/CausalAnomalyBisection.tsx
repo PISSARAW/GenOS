@@ -33,7 +33,7 @@ export const CausalAnomalyBisection: React.FC = () => {
           <Bug size={16} color="var(--danger)" />
           <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Causal Bisection</span>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Durable snapshots · isolated runner</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--success)' }}>Durable snapshots · temporary workspace runner</span>
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
