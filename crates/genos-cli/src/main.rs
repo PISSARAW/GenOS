@@ -6,9 +6,11 @@ mod cmd_dev;
 mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
+mod cmd_platform;
 mod cmd_replay;
 mod cmd_resilience;
 mod cmd_snapshot;
+mod cmd_workflow;
 mod cmd_world;
 mod output;
 mod resolve;
@@ -18,8 +20,9 @@ use clap::Parser;
 
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
-    ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands, ReplaySubcommands,
-    ResilienceSubcommands, SnapshotSubcommands, WorldSubcommands,
+    ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands, PlatformSubcommands,
+    ReplaySubcommands, ResilienceSubcommands, SnapshotSubcommands, WorkflowSubcommands,
+    WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -40,6 +43,7 @@ use crate::cmd_experiment::{
 };
 use crate::cmd_hallucination::*;
 use crate::cmd_inspect::cmd_inspect_belief;
+use crate::cmd_platform::{cmd_platform_ingest, cmd_platform_search, cmd_platform_status};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_resilience::*;
 use crate::cmd_snapshot::{
@@ -48,6 +52,7 @@ use crate::cmd_snapshot::{
     cmd_snapshot_record_tool_call, cmd_snapshot_restore, cmd_snapshot_save,
     cmd_snapshot_set_belief, cmd_snapshot_set_cognition, cmd_snapshot_set_var,
 };
+use crate::cmd_workflow::*;
 use crate::cmd_world::{
     cmd_world_check_file, cmd_world_create, cmd_world_destroy, cmd_world_diff, cmd_world_fork,
     cmd_world_read_file, cmd_world_run, cmd_world_snapshot, cmd_world_write_file,
@@ -184,6 +189,19 @@ async fn main() -> Result<()> {
             HallucinationSubcommands::Analyze(_args) => cmd_hallucination_analyze().await,
             HallucinationSubcommands::Correct(_args) => cmd_hallucination_correct().await,
             HallucinationSubcommands::Simulate(_args) => cmd_hallucination_simulate().await,
+        },
+        Commands::Workflow(workflow) => match workflow.command {
+            WorkflowSubcommands::Init(args) => cmd_workflow_init(args),
+            WorkflowSubcommands::Validate(args) => cmd_workflow_validate(args),
+            WorkflowSubcommands::Run(args) | WorkflowSubcommands::Playground(args) => {
+                cmd_workflow_run(args).await
+            }
+            WorkflowSubcommands::Resume(args) => cmd_workflow_resume(args).await,
+        },
+        Commands::Platform(platform) => match platform.command {
+            PlatformSubcommands::Ingest(args) => cmd_platform_ingest(args),
+            PlatformSubcommands::Search(args) => cmd_platform_search(args),
+            PlatformSubcommands::Status => cmd_platform_status(),
         },
     }
 }
