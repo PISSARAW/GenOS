@@ -1,10 +1,7 @@
 /**
  * GenOS Biology & Resilience Service
- * Adaptive Apoptosis engine, microsecond Cryptobiosis freeze/thaw, and hypermutation drift tracker.
+ * Adaptive apoptosis policy evaluation and hypermutation drift tracking.
  */
-
-// In-memory cryptobiosis state vault
-const CRYO_VAULT = new Map();
 
 /**
  * Calculates normalized Levenshtein distance between two strings
@@ -134,66 +131,19 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
 }
 
 /**
- * Freezes entire swarm runtime into an atomic cryptobiosis snapshot
+ * Durable runtime hibernation is intentionally unavailable until the runtime
+ * state, queues, and context are backed by a persistent snapshot store.
  */
-function freezeCryptobiosis(workspaceId = 'ws-genos-core', reason = 'Manual freeze checkpoint', statePayload = {}) {
-  const snapshotId = `cryo_${workspaceId}_${Date.now()}`;
-  const now = new Date().toISOString();
-
-  const cryoSnapshot = {
-    snapshotId,
-    workspaceId,
-    frozenAt: now,
-    reason,
-    checksum: `sha256-${Math.random().toString(36).substring(2)}${Date.now().toString(36)}`,
-    agentCount: statePayload.agents?.length || 4,
-    state: {
-      scratchpads: statePayload.scratchpads || { agent_1: 'L1 scratchpad state...', agent_2: 'Active turn state...' },
-      messageQueues: statePayload.messageQueues || [],
-      activeDagNodes: statePayload.activeDagNodes || ['node-root', 'node-001'],
-      circuitBreakerState: 'FROZEN_SECURE',
-      vfsCheckpointHash: 'chk-994827af'
-    }
-  };
-
-  CRYO_VAULT.set(snapshotId, cryoSnapshot);
-
-  return {
-    success: true,
-    snapshotId,
-    workspaceId,
-    frozenAt: now,
-    checksum: cryoSnapshot.checksum,
-    agentCount: cryoSnapshot.agentCount,
-    message: 'Swarm runtime placed in instantaneous Cryptobiosis suspension.'
-  };
+function freezeCryptobiosis() {
+  throw new Error('Durable cryptobiosis is not configured for this deployment.');
 }
 
 /**
- * Thaws / revives swarm runtime from cryptobiosis snapshot
+ * See freezeCryptobiosis: no in-memory fallback is provided because it could
+ * imply a restore capability that does not survive process restarts.
  */
-function thawCryptobiosis(snapshotId, targetWorkspaceId = null) {
-  if (!snapshotId) {
-    throw new Error('Snapshot ID is required to thaw cryptobiosis');
-  }
-
-  const snapshot = CRYO_VAULT.get(snapshotId) || {
-    snapshotId,
-    workspaceId: targetWorkspaceId || 'ws-genos-core',
-    frozenAt: new Date(Date.now() - 30000).toISOString(),
-    checksum: `sha256-restored-${Date.now()}`,
-    agentCount: 4
-  };
-
-  return {
-    success: true,
-    snapshotId,
-    workspaceId: snapshot.workspaceId,
-    thawedAt: new Date().toISOString(),
-    revivedAgentCount: snapshot.agentCount,
-    restorationLatencyMs: 4.8,
-    message: 'Swarm runtime revived successfully with 0 context loss.'
-  };
+function thawCryptobiosis() {
+  throw new Error('Durable cryptobiosis is not configured for this deployment.');
 }
 
 module.exports = {
