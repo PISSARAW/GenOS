@@ -116,11 +116,16 @@ treating a component or boundary as available.
 - [Operations Runbooks](6-operations-and-deployment/runbooks/) — Incident response, CAS maintenance, and telemetry.
 
 ### [Module 7: Benchmarks, Comparatifs et Théorie](7-benchmarks-and-comparisons/)
-- [Simple Agent vs. GenOS](7-benchmarks-and-comparisons/simple-agent-vs-genos.md) — In-depth head-to-head comparison and failure-cascade analysis.
+- [Linear Attempts and GenOS Branching](7-benchmarks-and-comparisons/simple-agent-vs-genos.md) — Evidence-bounded execution comparison with explicit non-claims.
 - [Competitive Evaluation Matrix](7-benchmarks-and-comparisons/competitive-matrix.md) — Evidence-gated comparison plan with no unvalidated leaderboard values.
 - [Resilience Benchmark Methodology](7-benchmarks-and-comparisons/resilience-benchmarks.md) — MTTR, CPR, CBIF, TWR, and ChaosAgent-Bench suite.
 - [Proof & Benchmark Status](7-benchmarks-and-comparisons/proof-and-benchmark-status.md) — What is measured, how to reproduce it, and what evidence is still missing.
 - [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Arguments, assumptions, and proposed models; not benchmark results.
+
+### [Launch Kit](launch/)
+- [Alpha Release Notes](launch/alpha-release-notes.md) — User-facing contents, verification, and limitations for `v0.0.1-alpha.1`.
+- [Technical Launch Post](launch/technical-launch-post.md) — The safe-parallel-debugging story and evidence boundaries.
+- [Community Post Drafts](launch/community-posts.md) — Launch copy and response checklist.
 
 ---
 
