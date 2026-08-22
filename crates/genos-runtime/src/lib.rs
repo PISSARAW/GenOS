@@ -47,6 +47,8 @@ mod huddle;
 pub use huddle::*;
 mod orchestration;
 pub use orchestration::*;
+mod workers;
+pub use workers::*;
 
 #[cfg(test)]
 pub(crate) mod test_support {
