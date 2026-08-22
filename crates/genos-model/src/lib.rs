@@ -130,23 +130,58 @@ pub fn parse_structured<T: serde::de::DeserializeOwned>(
 }
 
 pub fn validate_required_fields(value: &Value, schema: &Value) -> anyhow::Result<()> {
-    let object = value
-        .as_object()
-        .ok_or_else(|| anyhow::anyhow!("structured output must be a JSON object"))?;
-    for required in schema
-        .get("required")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        let field = required
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("schema required fields must be strings"))?;
-        if !object.contains_key(field) {
-            anyhow::bail!("structured output is missing required field {field}");
-        }
+    validate_json_schema(value, schema)
+}
+
+/// Validates the portable JSON-Schema subset used by GenOS contracts.
+/// Supports objects, arrays, primitive types, required fields, enums and
+/// `additionalProperties: false`, including nested values.
+pub fn validate_json_schema(value: &Value, schema: &Value) -> anyhow::Result<()> {
+    validate_schema_at(value, schema, "$" )
+}
+
+fn validate_schema_at(value: &Value, schema: &Value, path: &str) -> anyhow::Result<()> {
+    if let Some(expected) = schema.get("type").and_then(Value::as_str) {
+        let valid = match expected {
+            "object" => value.is_object(), "array" => value.is_array(), "string" => value.is_string(),
+            "number" => value.is_number(), "integer" => value.as_i64().is_some(), "boolean" => value.is_boolean(), "null" => value.is_null(), _ => true,
+        };
+        if !valid { anyhow::bail!("{path}: expected {expected}"); }
     }
+    if let Some(values) = schema.get("enum").and_then(Value::as_array) {
+        if !values.iter().any(|candidate| candidate == value) { anyhow::bail!("{path}: value is not in enum"); }
+    }
+    if let Some(object) = value.as_object() {
+        if let Some(required) = schema.get("required").and_then(Value::as_array) {
+            for field in required { let field = field.as_str().ok_or_else(|| anyhow::anyhow!("{path}: required fields must be strings"))?; if !object.contains_key(field) { anyhow::bail!("{path}.{field}: required field is missing"); } }
+        }
+        let properties = schema.get("properties").and_then(Value::as_object);
+        if schema.get("additionalProperties").and_then(Value::as_bool) == Some(false) {
+            if let Some(properties) = properties { if let Some(unknown) = object.keys().find(|key| !properties.contains_key(*key)) { anyhow::bail!("{path}.{unknown}: additional property is not allowed"); } }
+        }
+        if let Some(properties) = properties { for (key, child_schema) in properties { if let Some(child) = object.get(key) { validate_schema_at(child, child_schema, &format!("{path}.{key}"))?; } } }
+    }
+    if let Some(items) = value.as_array() { if let Some(item_schema) = schema.get("items") { for (index, item) in items.iter().enumerate() { validate_schema_at(item, item_schema, &format!("{path}[{index}]"))?; } } }
     Ok(())
+}
+
+pub fn parse_structured_with_schema<T: serde::de::DeserializeOwned>(response: &LlmResponse, schema: &Value) -> anyhow::Result<T> {
+    let content = response.content.as_deref().ok_or_else(|| anyhow::anyhow!("model returned no structured content"))?;
+    let value: Value = serde_json::from_str(content)?;
+    validate_json_schema(&value, schema)?;
+    Ok(serde_json::from_value(value)?)
+}
+
+#[cfg(test)]
+mod schema_tests {
+    use super::*;
+    #[test]
+    fn validates_nested_contracts() {
+        let schema = serde_json::json!({"type":"object","required":["items"],"additionalProperties":false,"properties":{"items":{"type":"array","items":{"type":"object","required":["name"],"properties":{"name":{"type":"string"}}}}}});
+        assert!(validate_json_schema(&serde_json::json!({"items":[{"name":"ok"}]}), &schema).is_ok());
+        assert!(validate_json_schema(&serde_json::json!({"items":[{}]}), &schema).is_err());
+        assert!(validate_json_schema(&serde_json::json!({"items":[],"extra":true}), &schema).is_err());
+    }
 }
 
 pub fn validate_tool_call(call: &ToolCall, tools: &[ToolDefinition]) -> anyhow::Result<Value> {
