@@ -12,6 +12,8 @@ router.post('/deploy', requirePermission('workspace:write'), deployController.de
 router.post('/deploy/trinity', requirePermission('workspace:write'), deployController.deployTrinity);
 router.get('/deploy/trinity', deployController.listTrinityWorlds);
 router.get('/agents', deployController.listAgents);
+router.post('/agents/:id/stop', requirePermission('workspace:write'), deployController.stopAgent);
+router.delete('/agents/:id', requirePermission('workspace:write'), deployController.deleteAgent);
 router.get('/agents/:id/strategy-contract', deployController.getStrategyContract);
 router.get('/agents/:id/strategy-contracts', deployController.getStrategyContractHistory);
 router.post('/agents/:id/strategy-contracts', requirePermission('workspace:write'), deployController.selectStrategyContract);
