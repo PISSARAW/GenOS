@@ -534,7 +534,7 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
 -- 28. Workspace evaluation datasets and batch jobs
 CREATE TABLE IF NOT EXISTS datasets (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS dataset_cases (id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}', expected_json TEXT, labels_json TEXT NOT NULL DEFAULT '[]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE);
-CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
 
 -- 29. RAG document, chunk and retrieval records
 CREATE TABLE IF NOT EXISTS rag_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, content_length INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -703,7 +703,7 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
