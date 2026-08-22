@@ -6,7 +6,7 @@ import {
 import { api, API_BASE_URL } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
-export const AgentDeployment: React.FC = () => {
+export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceName?: string }> = ({ workspaceId = null, workspaceName }) => {
   const [isDeployed, setIsDeployed] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [agentType, setAgentType] = useState('GenOS');
@@ -41,12 +41,12 @@ export const AgentDeployment: React.FC = () => {
   }, []);
 
   const deployAgent = async () => {
-    if (!prompt || isDeploying) return;
+    if (!prompt || !workspaceId || isDeploying) return;
     setIsDeploying(true);
     try {
-      const result = await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation });
+      const result = await api.deployAgent({ prompt, agentType, modelTier, workspaceIsolation, workspaceId });
       setIsDeployed(true);
-      showToast('success', 'Agent Deployed', `${result.agent?.name || agentType} was persisted and queued with ${modelTier} tier in ${workspaceIsolation} isolation.`);
+      showToast('success', 'Agent Deployed', `${result.agent?.name || agentType} was persisted for ${workspaceName || 'the selected workspace'} with ${modelTier} tier in ${workspaceIsolation} isolation.`);
       fetchHistory();
     } catch (e: any) {
       showToast('error', 'Deployment Failed', e.message || 'The agent could not be deployed.');
@@ -194,6 +194,7 @@ export const AgentDeployment: React.FC = () => {
               <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                 <Rocket size={48} color="var(--text-muted)" style={{ marginBottom: '16px' }} />
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>Define Mission Parameters</h1>
+                <p style={{ margin: '8px 0 0', color: workspaceId ? 'var(--success)' : 'var(--danger)', fontSize: '0.85rem' }}>Workspace: <strong>{workspaceName || (workspaceId ? workspaceId : 'Select a project first')}</strong></p>
               </div>
 
               {/* The Deployment Console */}
@@ -264,10 +265,10 @@ export const AgentDeployment: React.FC = () => {
                   <button 
                     onClick={deployAgent}
                     className="gh-btn gh-btn-primary" 
-                    disabled={!prompt || isDeploying}
+                    disabled={!prompt || !workspaceId || isDeploying}
                     style={{ padding: '6px 20px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
                   >
-                    <Play size={14} /> {isDeploying ? 'Deploying…' : 'Deploy Subagent'}
+                    <Play size={14} /> {isDeploying ? 'Deploying…' : workspaceId ? 'Deploy Subagent' : 'Select a project first'}
                   </button>
 
                 </div>
