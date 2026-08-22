@@ -1,2 +1,2 @@
-const express=require('express');const router=express.Router();const c=require('../controllers/releaseController');const {requirePermission}=require('../middleware/auth');
+const express=require('express');const router=express.Router();const c=require('../controllers/releaseController');const {requirePermission}=require('../middleware/auth');const {requireTenantScope}=require('../middleware/tenant');router.use(requireTenantScope());
 router.get('/',c.list);router.post('/',requirePermission('workspace:write'),c.create);router.post('/:id/promote',requirePermission('workspace:write'),c.promote);router.post('/:id/rollback',requirePermission('workspace:write'),c.rollback);module.exports=router;

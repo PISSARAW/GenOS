@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
+const { scopeSql } = require('../middleware/tenant');
 
 function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch (_) { return fallback; }
@@ -34,9 +35,10 @@ async function listWorkflows(req, res, next) {
   try {
     const db = await getDatabase();
     const workspaceId = req.query.workspaceId;
+    const s = scopeSql(req);
     const rows = workspaceId
-      ? await db.all('SELECT * FROM workflows WHERE workspace_id = ? ORDER BY updated_at DESC', workspaceId)
-      : await db.all('SELECT * FROM workflows ORDER BY updated_at DESC');
+      ? await db.all(`SELECT * FROM workflows WHERE workspace_id = ? AND ${s.clause} ORDER BY updated_at DESC`, workspaceId, ...s.params)
+      : await db.all(`SELECT * FROM workflows WHERE ${s.clause} ORDER BY updated_at DESC`, ...s.params);
     res.json(rows.map(mapWorkflow));
   } catch (error) { next(error); }
 }
@@ -49,7 +51,8 @@ async function createWorkflow(req, res, next) {
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const id = `wf-${crypto.randomUUID()}`;
-    await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json) VALUES (?, ?, ?, ?, 1, ?, ?, ?)', id, workspaceId, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata));
+    const s = scopeSql(req);
+    await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspaceId, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
     res.status(201).json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', id)));
   } catch (error) { next(error); }
 }
@@ -57,7 +60,7 @@ async function createWorkflow(req, res, next) {
 async function getWorkflow(req, res, next) {
   try {
     const db = await getDatabase();
-    const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', req.params.id);
+    const s = scopeSql(req); const workflow = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!workflow) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     res.json(mapWorkflow(workflow));
   } catch (error) { next(error); }
@@ -66,7 +69,7 @@ async function getWorkflow(req, res, next) {
 async function updateWorkflow(req, res, next) {
   try {
     const db = await getDatabase();
-    const existing = await db.get('SELECT * FROM workflows WHERE id = ?', req.params.id);
+    const s = scopeSql(req); const existing = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     const graph = req.body?.graph || parseJson(existing.graph_json, {});
     const validation = validateGraph(graph);
@@ -80,7 +83,7 @@ async function updateWorkflow(req, res, next) {
 async function validateWorkflow(req, res, next) {
   try {
     const db = await getDatabase();
-    const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', req.params.id);
+    const s = scopeSql(req); const workflow = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!workflow) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     res.json(validateGraph(req.body?.graph || parseJson(workflow.graph_json, {})));
   } catch (error) { next(error); }
@@ -89,7 +92,7 @@ async function validateWorkflow(req, res, next) {
 async function createRun(req, res, next) {
   try {
     const db = await getDatabase();
-    const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', req.params.id);
+    const s = scopeSql(req); const workflow = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!workflow) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     const graph = parseJson(workflow.graph_json, {});
     const validation = validateGraph(graph);
@@ -103,7 +106,7 @@ async function createRun(req, res, next) {
 async function listRuns(req, res, next) {
   try {
     const db = await getDatabase();
-    const rows = await db.all('SELECT * FROM workflow_runs WHERE workflow_id = ? ORDER BY created_at DESC', req.params.id);
+    const s = scopeSql(req); const rows = await db.all(`SELECT r.* FROM workflow_runs r JOIN workflows w ON w.id=r.workflow_id WHERE r.workflow_id = ? AND w.organization_id=? AND w.project_id=? ORDER BY r.created_at DESC`, req.params.id, ...s.params);
     res.json(rows.map((row) => ({ ...row, input: parseJson(row.input_json, {}), output: parseJson(row.output_json, null), error: parseJson(row.error_json, null) })));
   } catch (error) { next(error); }
 }
