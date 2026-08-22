@@ -4,7 +4,6 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
-const strategyContracts = require('../services/strategyContractService');
 
 async function getLineage(req, res) {
   const db = await getDatabase();
@@ -65,16 +64,16 @@ async function cloneNode(req, res) {
   const parentAgent = await db.get('SELECT * FROM agents WHERE id = ?', parentId);
   if (parentAgent) {
     const agentId = `agent_clone_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const orchestratorId = parentAgent.execution_mode === 'orchestrator'
+      ? parentAgent.id
+      : parentAgent.parent_agent_id;
+    if (!orchestratorId) {
+      return res.status(409).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: `Cannot clone worker '${parentAgent.name}' without an orchestrator.` } });
+    }
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      agentId, `Clone of ${parentAgent.name}`, parentAgent.role, 'idle', parentAgent.agent_type, parentAgent.workspace_id, parentAgent.fleet_id, parentAgent.model_tier, parentAgent.language, 'Branch', parentAgent.id, 'clone', parentAgent.about, `Clone ready for a mission from ${parentAgent.name}`
+      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      agentId, `Clone of ${parentAgent.name}`, parentAgent.role, 'idle', parentAgent.agent_type, 'worker', parentAgent.workspace_id, parentAgent.fleet_id, parentAgent.model_tier, parentAgent.language, 'Branch', orchestratorId, 'clone', parentAgent.about, `Clone ready for a mission from ${parentAgent.name}`
     );
-    await strategyContracts.saveContract(db, {
-      agentId,
-      workspaceId: parentAgent.workspace_id,
-      problem: `Clone of ${parentAgent.name}: ${parentAgent.current_task || 'Awaiting mission assignment'}`,
-      createdBy: 'lineage_clone'
-    });
     telemetry.emitEvent({
       eventType: 'AGENT_CLONED',
       agentId,

@@ -12,6 +12,9 @@ message AgentMission {
   string workspace_isolation = 7;
   string agent_type = 8;
   string strategy_contract_json = 9;
+  string execution_mode = 10;
+  string orchestrator_agent_id = 11;
+  string autonomy_plan_json = 12;
 }
 
 message AgentEvent {

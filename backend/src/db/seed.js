@@ -49,12 +49,13 @@ async function ensureWorkspaceDashboardData(db) {
 }
 
 async function ensureAgentStrategyContracts(db) {
-  const agents = await db.all(`SELECT a.id, a.workspace_id, a.current_task, a.role,
+  const agents = await db.all(`SELECT a.id, a.workspace_id, a.current_task, a.role, a.execution_mode,
       sc.contract_json AS latest_contract_json
     FROM agents a
     LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id
       AND sc.version = (SELECT MAX(latest.version) FROM strategy_contracts latest WHERE latest.agent_id = a.id)`);
   for (const agent of agents) {
+    if (agent.execution_mode === 'worker') continue;
     let latestContract = null;
     try {
       latestContract = agent.latest_contract_json ? JSON.parse(agent.latest_contract_json) : null;

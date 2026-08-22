@@ -5,7 +5,7 @@ const path = require('path');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const { ensureAgentStrategyContracts } = require('./src/db/seed');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const { TEST_ADMIN_TOKEN } = require('./testAuth');
 const { buildStrategyContract } = require('./src/services/strategyContractService');
 const { encodeMission, decodeMission } = require('./src/services/runtimeProtocol');
 const { listStrategies } = require('./src/strategies/strategyRegistry');
@@ -21,7 +21,7 @@ function request(method, route, body) {
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': 'strategy-contract-test',
-        Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`
+        Authorization: `Bearer ${TEST_ADMIN_TOKEN}`
       }
     }, (res) => {
       let data = '';
