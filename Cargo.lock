@@ -874,8 +874,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "genos-core",
+ "reqwest",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
