@@ -9,9 +9,8 @@ services:
       NODE_ENV: production
       PORT: 4000
       GENOS_DB_PATH: /data/genos.db
-      GENOS_WORKSPACE_ROOT: /workspace
-      GENOS_WORKSPACE_NAME: ${GENOS_WORKSPACE_NAME:-GenOS}
-      GENOS_SINGLE_WORKSPACE: "1"
+      GENOS_WORKSPACE_ROOT: /workspaces
+      GENOS_WORKSPACES_ROOT: /workspaces
       GENOS_ADMIN_TOKEN: ${GENOS_ADMIN_TOKEN:-}
       GENOS_ALLOWED_ORIGINS: ${GENOS_ALLOWED_ORIGINS:-}
       GENOS_CODEX_UNSAFE_BYPASS: ${GENOS_CODEX_UNSAFE_BYPASS:-0}
@@ -21,8 +20,8 @@ services:
     volumes:
       - genos-data:/data
       - type: bind
-        source: ${GENOS_WORKSPACE_PATH:-.}
-        target: /workspace
+        source: ${GENOS_WORKSPACES_PATH:-.}
+        target: /workspaces
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

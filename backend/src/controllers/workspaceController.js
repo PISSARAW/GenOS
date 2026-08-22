@@ -9,23 +9,29 @@ const { promisify } = require('util');
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const snapshotStore = require('../services/workspaceSnapshotStore');
+const {
+  isPathWithinRoot,
+  resolveWorkspacesRoot,
+  syncWorkspaceRegistry
+} = require('../services/workspaceRegistry');
 const execFileAsync = promisify(execFile);
 
-const WORKSPACES_ROOT = process.env.GENOS_WORKSPACES_ROOT
-  ? path.resolve(process.env.GENOS_WORKSPACES_ROOT)
-  : path.resolve(process.cwd(), 'workspaces');
+const WORKSPACES_ROOT = resolveWorkspacesRoot();
 
 async function findWorkspace(db, req, reference) {
+  let workspace;
   if (req.tenant) {
-    return db.get(
+    workspace = await db.get(
       'SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id = ? AND project_id = ?',
       reference,
       reference,
       req.tenant.organizationId,
       req.tenant.projectId
     );
+  } else {
+    workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', reference, reference);
   }
-  return db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', reference, reference);
+  return workspace && isPathWithinRoot(WORKSPACES_ROOT, workspace.path) ? workspace : null;
 }
 
 async function getWorkspaceFiles(req, res) {
@@ -76,9 +82,7 @@ async function getWorkspaceFiles(req, res) {
 
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
-  const dbWorkspaces = req.tenant
-    ? await db.all('SELECT * FROM workspaces WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC', req.tenant.organizationId, req.tenant.projectId)
-    : await db.all('SELECT * FROM workspaces ORDER BY created_at DESC');
+  const dbWorkspaces = await syncWorkspaceRegistry(db, WORKSPACES_ROOT);
   const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
   const activeCount = agentCount ? agentCount.count : 0;
 
@@ -124,17 +128,8 @@ async function listWorkspaces(req, res) {
 }
 
 async function createWorkspace(req, res) {
-  if (process.env.GENOS_SINGLE_WORKSPACE === '1') {
-    return res.status(409).json({
-      error: {
-        code: 'SINGLE_WORKSPACE_MODE',
-        message: 'This Studio instance manages only the workspace mounted through GENOS_WORKSPACE_ROOT.'
-      }
-    });
-  }
-
   const { name, language = 'TypeScript', description = '', visibility = 'Private' } = req.body || {};
-  if (!name) {
+  if (!name || path.basename(name) !== name || name === '.' || name === '..') {
     return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name is required' } });
   }
 
@@ -145,8 +140,10 @@ async function createWorkspace(req, res) {
     if (!fs.existsSync(wsPath)) {
       fs.mkdirSync(wsPath, { recursive: true });
     }
+    const markerPath = path.join(wsPath, '.genos-workspace');
+    if (!fs.existsSync(markerPath)) fs.writeFileSync(markerPath, 'GenOS managed workspace\n');
   } catch (err) {
-    // Filesystem may be mock or read-only in sandbox
+    return res.status(500).json({ error: { code: 'WORKSPACE_CREATE_FAILED', message: err.message } });
   }
 
   const db = await getDatabase();
