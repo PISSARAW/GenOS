@@ -666,6 +666,7 @@ dependencies = [
  "genos-core",
  "genos-eval",
  "genos-model",
+ "genos-platform",
  "genos-runtime",
  "genos-store",
  "genos-world",
@@ -740,6 +741,18 @@ dependencies = [
  "serde_json",
  "sha2",
  "uuid",
+]
+
+[[package]]
+name = "genos-platform"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

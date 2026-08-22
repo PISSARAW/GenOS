@@ -9,9 +9,11 @@ pub mod dev;
 pub mod experiment;
 pub mod hallucination;
 pub mod inspect;
+pub mod platform;
 pub mod replay;
 pub mod resilience;
 pub mod snapshot;
+pub mod workflow;
 pub mod world;
 
 pub use agent::*;
@@ -21,9 +23,11 @@ pub use dev::*;
 pub use experiment::*;
 pub use hallucination::*;
 pub use inspect::*;
+pub use platform::*;
 pub use replay::*;
 pub use resilience::*;
 pub use snapshot::*;
+pub use workflow::*;
 pub use world::*;
 
 #[derive(Parser, Debug)]
@@ -58,6 +62,10 @@ pub enum Commands {
     Biomimicry(BiomimicryCommand),
     /// Hallucination mitigation and detection commands.
     Hallucination(HallucinationCommand),
+    /// Configurable agent graphs, workflows, streaming and human approval.
+    Workflow(WorkflowCommand),
+    /// Platform primitives: RAG indexing, retrieval and citations.
+    Platform(PlatformCommand),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -155,6 +163,15 @@ mod tests {
         for command in commands {
             assert!(Cli::try_parse_from(command.clone()).is_ok(), "{command:?}");
         }
+    }
+
+    #[test]
+    fn platform_commands_parse() {
+        assert!(Cli::try_parse_from(["genos", "platform", "status"]).is_ok());
+        assert!(Cli::try_parse_from(["genos", "platform", "ingest", "guide.md"]).is_ok());
+        assert!(
+            Cli::try_parse_from(["genos", "platform", "search", "durable", "--limit", "3"]).is_ok()
+        );
     }
 
     #[test]

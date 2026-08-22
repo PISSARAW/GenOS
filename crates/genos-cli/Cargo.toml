@@ -22,10 +22,13 @@ chrono.workspace = true
 clap.workspace = true
 genos-core = { path = "../genos-core" }
 genos-eval = { path = "../genos-eval" }
+genos-model = { path = "../genos-model" }
+genos-platform = { path = "../genos-platform" }
 genos-runtime = { path = "../genos-runtime" }
 genos-store = { path = "../genos-store" }
 genos-world = { path = "../genos-world" }
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
+uuid.workspace = true
 tokio.workspace = true
