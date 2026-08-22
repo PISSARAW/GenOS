@@ -1,4 +1,5 @@
 const proof = require('../services/safeDebuggingProofService');
+const diagnostics = require('../services/workspaceDiagnosticsService');
 const telemetry = require('../services/telemetryObserver');
 
 async function getSafeDebugging(req, res, next) {
@@ -17,4 +18,16 @@ async function runSafeDebugging(req, res, next) {
   }
 }
 
-module.exports = { getSafeDebugging, runSafeDebugging };
+async function inspectWorkspace(req, res, next) {
+  try { res.json(await diagnostics.inspectWorkspace(req.params.workspaceId)); } catch (error) { next(error); }
+}
+
+async function runWorkspaceTest(req, res, next) {
+  try {
+    const result = await diagnostics.runWorkspaceTest(req.params.workspaceId, req.body?.commandId);
+    telemetry.emitEvent({ eventType: 'WORKSPACE_TEST_COMPLETED', agentId: req.user?.username || 'studio', action: 'SAFE_DEBUGGING_TEST', detail: `${result.command.label} finished for ${result.workspace.name}.`, severity: result.exitCode === 0 ? 'info' : 'warning', payload: { workspaceId: result.workspace.id, exitCode: result.exitCode, durationMs: result.durationMs } });
+    res.json(result);
+  } catch (error) { next(error); }
+}
+
+module.exports = { getSafeDebugging, runSafeDebugging, inspectWorkspace, runWorkspaceTest };

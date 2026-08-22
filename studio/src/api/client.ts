@@ -162,6 +162,8 @@ export const api = {
   updateBudget: (budget: any) => apiRequest('/api/budget', { method: 'POST', body: budget }),
   getSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging'),
   runSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging/run', { method: 'POST', body: {} }),
+  inspectSafeDebuggingWorkspace: (workspaceId: string) => apiRequest(`/api/product-proofs/safe-debugging/workspaces/${encodeURIComponent(workspaceId)}`),
+  runSafeDebuggingWorkspaceTest: (workspaceId: string, commandId: string) => apiRequest(`/api/product-proofs/safe-debugging/workspaces/${encodeURIComponent(workspaceId)}/run`, { method: 'POST', body: { commandId } }),
 
   // Agent Fleet & Deploy
   deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>

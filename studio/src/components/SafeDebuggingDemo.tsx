@@ -24,6 +24,22 @@ type Evidence = {
   limits: string[];
 };
 
+type WorkspaceDiagnostics = {
+  workspace: { id: string; name: string; path: string };
+  files: Array<{ name: string; type: 'file' | 'directory' }>;
+  testCommands: Array<{ id: string; label: string }>;
+  git: { available: boolean; changedFiles: string[]; error: string | null };
+};
+
+type TestResult = {
+  command: { id: string; label: string };
+  exitCode: number | null;
+  signal: string | null;
+  durationMs: number;
+  stdout: string;
+  stderr: string;
+};
+
 const stages = [
   { label: 'Bug reproduced', icon: Play },
   { label: 'Snapshot captured', icon: ShieldCheck },
@@ -36,11 +52,16 @@ function isEvidence(value: any): value is Evidence {
   return Boolean(value?.source?.command && value?.source?.fixture && Array.isArray(value.candidates) && value.selection && value.usage && value.runtime && Array.isArray(value.limits));
 }
 
-export const SafeDebuggingDemo: React.FC = () => {
+export const SafeDebuggingDemo: React.FC<{ workspaceId?: string | null; workspaceName?: string }> = ({ workspaceId, workspaceName }) => {
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [running, setRunning] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<WorkspaceDiagnostics | null>(null);
+  const [diagnosticsError, setDiagnosticsError] = useState('');
+  const [selectedCommand, setSelectedCommand] = useState('');
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [runningTest, setRunningTest] = useState(false);
 
   const loadProof = useCallback(async () => {
     const payload = await api.getSafeDebuggingProof() as { available: boolean; running: boolean; evidence: Evidence | null };
@@ -57,6 +78,22 @@ export const SafeDebuggingDemo: React.FC = () => {
     return () => { cancelled = true; };
   }, [loadProof]);
 
+  const loadDiagnostics = useCallback(async () => {
+    if (!workspaceId) {
+      setDiagnostics(null);
+      return;
+    }
+    const payload = await api.inspectSafeDebuggingWorkspace(workspaceId) as WorkspaceDiagnostics;
+    setDiagnostics(payload);
+    setSelectedCommand((current) => current && payload.testCommands.some((command) => command.id === current)
+      ? current
+      : payload.testCommands[0]?.id || '');
+  }, [workspaceId]);
+
+  useEffect(() => {
+    loadDiagnostics().catch((cause: any) => setDiagnosticsError(cause?.message || 'Workspace diagnostics unavailable.'));
+  }, [loadDiagnostics]);
+
   const runProof = async () => {
     setRunning(true); setError('');
     try {
@@ -66,6 +103,20 @@ export const SafeDebuggingDemo: React.FC = () => {
     } catch (cause: any) {
       setError(cause?.message || 'Backend proof failed.');
     } finally { setRunning(false); }
+  };
+
+  const runWorkspaceTest = async () => {
+    if (!workspaceId || !selectedCommand) return;
+    setRunningTest(true);
+    setDiagnosticsError('');
+    try {
+      setTestResult(await api.runSafeDebuggingWorkspaceTest(workspaceId, selectedCommand) as TestResult);
+      await loadDiagnostics();
+    } catch (cause: any) {
+      setDiagnosticsError(cause?.message || 'Workspace test failed to run.');
+    } finally {
+      setRunningTest(false);
+    }
   };
 
   const completed = evidence ? [
@@ -83,14 +134,28 @@ export const SafeDebuggingDemo: React.FC = () => {
     <section className="safe-demo" data-stage={completedCount}>
       <header className="safe-demo__header">
         <div>
-          <div className="safe-demo__eyebrow"><span /> BACKEND-EXECUTED PROOF</div>
-          <h1>One fixture. Three mutations. One verified replay.</h1>
-          <p>This page reads the evidence produced by the GenOS backend. Run proof invokes the scoped fixture on the backend and refreshes the resulting replay evidence.</p>
+          <div className="safe-demo__eyebrow"><span /> SAFE DEBUGGING WORKBENCH</div>
+          <h1>Inspect a real workspace. Run its tests. Keep the evidence.</h1>
+          <p>Workspace diagnostics and test runs are executed by the GenOS backend against the selected project. The deterministic fixture below remains a reference proof of the replay pipeline.</p>
         </div>
         <div className="safe-demo__command"><span>$</span><code>backend → GenOS CLI fixture</code><button type="button" onClick={runProof} disabled={running}>{running ? 'Running proof…' : 'Run real proof'}</button><small>Requires the backend execution permission; no model is invoked.</small></div>
       </header>
 
-      <div className="safe-demo__disclosure"><AlertTriangle size={16} /><div><strong>BACKEND-CONNECTED FIXTURE</strong><span>This is a real backend execution of the scoped deterministic fixture, not a production run and not a model-quality measurement.</span></div></div>
+      <section className="safe-demo__workspace" aria-labelledby="workspace-diagnostics-title">
+        <div className="safe-demo__workspace-head">
+          <div><div className="safe-demo__eyebrow"><span /> LIVE WORKSPACE</div><h2 id="workspace-diagnostics-title">{workspaceName || diagnostics?.workspace.name || 'Select a workspace'}</h2><p>{diagnostics ? diagnostics.workspace.path : 'Choose a project from the Studio sidebar to inspect its files and available test command.'}</p></div>
+          <button type="button" className="safe-demo__secondary" onClick={() => loadDiagnostics().catch((cause: any) => setDiagnosticsError(cause?.message || 'Workspace diagnostics unavailable.'))} disabled={!workspaceId}>Refresh diagnostics</button>
+        </div>
+        {diagnostics && <div className="safe-demo__workspace-grid">
+          <div><strong>Repository state</strong><span>{diagnostics.git.available ? `${diagnostics.git.changedFiles.length} changed file${diagnostics.git.changedFiles.length === 1 ? '' : 's'}` : 'Git status unavailable'}</span><code>{diagnostics.git.changedFiles.slice(0, 5).join('\n') || 'Working tree clean'}</code></div>
+          <div><strong>Available tests</strong>{diagnostics.testCommands.length ? <><select value={selectedCommand} onChange={(event) => setSelectedCommand(event.target.value)}>{diagnostics.testCommands.map((command) => <option key={command.id} value={command.id}>{command.label}</option>)}</select><button type="button" onClick={runWorkspaceTest} disabled={runningTest}>{runningTest ? 'Running test…' : 'Run selected test'}</button></> : <span>No supported test command was detected.</span>}</div>
+          <div><strong>Workspace files</strong><span>{diagnostics.files.length} top-level entries</span><code>{diagnostics.files.slice(0, 8).map((file) => `${file.type === 'directory' ? '▸' : '·'} ${file.name}`).join('\n')}</code></div>
+        </div>}
+        {testResult && <div className={`safe-demo__test-result ${testResult.exitCode === 0 ? 'is-success' : 'is-failure'}`}><strong>{testResult.command.label} {testResult.exitCode === 0 ? 'passed' : 'failed'}</strong><span>exit {testResult.exitCode ?? '—'} · {(testResult.durationMs / 1000).toFixed(2)} s</span><pre>{testResult.stdout || testResult.stderr || 'No output returned.'}</pre></div>}
+        {diagnosticsError && <div className="safe-demo__error"><AlertTriangle size={15} /> {diagnosticsError}</div>}
+      </section>
+
+      <div className="safe-demo__disclosure"><AlertTriangle size={16} /><div><strong>REFERENCE FIXTURE</strong><span>This backend-connected fixture proves the replay flow on a deterministic case. It does not modify your selected workspace.</span></div></div>
 
       {loading && <div className="safe-demo__error">Loading backend proof…</div>}
       {error && <div className="safe-demo__error"><AlertTriangle size={15} /> {error}</div>}

@@ -316,7 +316,7 @@ const App: React.FC = () => {
           <div className="gh-content-area">
             {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
             {activeView === 'studio_builder' && <StudioBuilder workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} />}
-            {activeView === 'safe_debugging' && <SafeDebuggingDemo />}
+            {activeView === 'safe_debugging' && <SafeDebuggingDemo workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} />}
             {activeView === 'arena' && <ArenaSolversModule />}
             {activeView === 'evaluation_lineage' && <EvaluationLineageConsole />}
             {activeView === 'mcp_sandbox' && <McpSandboxModule />}
