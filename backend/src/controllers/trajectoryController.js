@@ -50,7 +50,11 @@ async function getTrajectories(req, res) {
 
 async function getPending(req, res) {
   const db = await getDatabase();
-  const rows = await db.all("SELECT * FROM trajectories WHERE status = 'pending' ORDER BY created_at DESC");
+  const workspaceId = String(req.query.workspaceId || '').trim();
+  const workspace = workspaceId ? await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId) : null;
+  const rows = workspaceId
+    ? await db.all("SELECT * FROM trajectories WHERE status = 'pending' AND workspace_id = ? ORDER BY created_at DESC", workspace?.id || workspaceId)
+    : await db.all("SELECT * FROM trajectories WHERE status = 'pending' ORDER BY created_at DESC");
   const result = await Promise.all(rows.map(r => formatTrajectory(r)));
   res.json(result);
 }
