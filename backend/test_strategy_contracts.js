@@ -112,7 +112,7 @@ async function run() {
       eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Plan created', payload: {}
     });
     await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
-      eventType: 'AGENT_STEP', action: 'EXECUTE', detail: 'Implementation', payload: { usage: { input_tokens: 100, output_tokens: 50 } }
+      eventType: 'AGENT_STEP', action: 'EXECUTE', detail: 'Implementation', payload: { usage: { input_tokens: 100, cached_input_tokens: 60, output_tokens: 50 } }
     });
     await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
       eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Done', payload: {}
@@ -121,6 +121,8 @@ async function run() {
     assert.equal(executionLatest.status, 200);
     assert.equal(executionLatest.body.status, 'awaiting_approval');
     assert.equal(executionLatest.body.metrics.tokens, 150);
+    assert.equal(executionLatest.body.metrics.cachedInputTokens, 60);
+    assert.equal(executionLatest.body.metrics.billableTokens, 90);
     assert(executionLatest.body.adherence.deviations.some((item) => item.status === 'skipped'));
     const approved = await request('POST', `/api/execution-runs/${executionRun.id}/approve`);
     assert.equal(approved.status, 200);
