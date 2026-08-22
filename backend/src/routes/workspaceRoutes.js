@@ -6,6 +6,9 @@ const express = require('express');
 const router = express.Router();
 const workspaceController = require('../controllers/workspaceController');
 const { requirePermission } = require('../middleware/auth');
+const { attachTenant } = require('../middleware/tenant');
+
+router.use(attachTenant);
 
 router.get('/', workspaceController.listWorkspaces);
 router.post('/', requirePermission('workspace:write'), workspaceController.createWorkspace);

@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
     anomalies_count INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ,organization_id TEXT
+    ,project_id TEXT
 );
 
 -- 4. Workspace Snapshots (Time Machine)
@@ -550,6 +552,9 @@ CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL
 -- 32. Organization, project and environment tenancy
 CREATE TABLE IF NOT EXISTS organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, organization_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, organization_id TEXT NOT NULL, name TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(organization_id, name), FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS organization_memberships (principal_id TEXT NOT NULL, organization_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(principal_id, organization_id), FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS project_memberships (principal_id TEXT NOT NULL, project_id TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'viewer', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(principal_id, project_id), FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -580,6 +585,9 @@ CREATE INDEX IF NOT EXISTS idx_rag_chunks_document ON rag_chunks(document_id, ch
 CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
+CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
+CREATE INDEX IF NOT EXISTS idx_org_memberships_principal ON organization_memberships(principal_id, organization_id);
+CREATE INDEX IF NOT EXISTS idx_project_memberships_principal ON project_memberships(principal_id, project_id);
 `;
 
 async function migrateLegacySchema(db) {
@@ -627,8 +635,18 @@ async function initializeSchema(db) {
 async function applyVersionedMigrations(db) {
   const migrations = [
     ['001-compliance-ide', 'Add compliance reports and IDE integration contracts'],
-    ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts']
+    ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts'],
+    ['003-tenant-scopes', 'Add organization, project and membership isolation']
   ];
+  const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
+  const names = new Set(workspaceColumns.map(column => column.name));
+  if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
+  if (!names.has('project_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN project_id TEXT');
+  const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
+  if (organization) {
+    await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
+    await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
+  }
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
   }

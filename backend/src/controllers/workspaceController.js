@@ -62,7 +62,9 @@ async function getWorkspaceFiles(req, res) {
 
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
-  const dbWorkspaces = await db.all('SELECT * FROM workspaces ORDER BY created_at DESC');
+  const dbWorkspaces = req.tenant
+    ? await db.all('SELECT * FROM workspaces WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC', req.tenant.organizationId, req.tenant.projectId)
+    : await db.all('SELECT * FROM workspaces ORDER BY created_at DESC');
   const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
   const activeCount = agentCount ? agentCount.count : 0;
 
@@ -134,9 +136,12 @@ async function createWorkspace(req, res) {
   }
 
   const db = await getDatabase();
+  if (req.headers['x-organization-id'] || req.headers['x-project-id']) {
+    if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
+  }
   await db.run(
-    `INSERT OR REPLACE INTO workspaces (id, name, path, visibility, language, description, tags) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    id, name, wsPath, visibility, language, description, JSON.stringify([language.toLowerCase()])
+    `INSERT OR REPLACE INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, name, wsPath, visibility, language, description, JSON.stringify([language.toLowerCase()]), req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
 
   telemetry.emitEvent({
@@ -156,7 +161,9 @@ async function createWorkspace(req, res) {
 async function getWorkspaceById(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  const ws = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', id, id);
+  const ws = req.tenant
+    ? await db.get('SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id = ? AND project_id = ?', id, id, req.tenant.organizationId, req.tenant.projectId)
+    : await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', id, id);
 
   if (!ws) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${id}` } });
