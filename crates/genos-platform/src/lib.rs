@@ -9,6 +9,8 @@ use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fs, path::Path};
 use thiserror::Error;
 
+pub mod tenancy;
+
 const DIMENSIONS: usize = 64;
 
 #[derive(Debug, Error)]
