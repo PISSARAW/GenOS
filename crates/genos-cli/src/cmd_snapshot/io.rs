@@ -18,7 +18,7 @@ pub async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
     let store = snapshot_store_from(args.store, &args.root);
 
     let snapshot_id = snapshot.snapshot_id.0.clone();
-    store.save_snapshot(snapshot).await?;
+    store.save_snapshot(&snapshot).await?;
 
     let out = SnapshotSaveOutput {
         store_path: store.file_path().display().to_string(),
@@ -172,7 +172,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
     };
 
     if args.save {
-        snapshot_store.save_snapshot(write.snapshot.clone()).await?;
+        snapshot_store.save_snapshot(&write.snapshot).await?;
     }
 
     print_serialized(&out, args.format)?;
@@ -239,7 +239,7 @@ pub async fn cmd_snapshot_checkpoint(args: SnapshotCheckpointArgs) -> Result<()>
     };
 
     if args.save {
-        snapshot_store.save_snapshot(write.snapshot.clone()).await?;
+        snapshot_store.save_snapshot(&write.snapshot).await?;
     }
 
     let out = SnapshotCheckpointOutput {

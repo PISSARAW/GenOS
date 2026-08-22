@@ -44,6 +44,7 @@ pub(crate) fn parent_snapshot(sequence: u64) -> AgentSnapshot {
                 chromosomes: vec![
                     crate::Chromosome {
                         name: "C1".to_string(),
+                        operons: vec![],
                         loci: vec![
                             crate::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
                             crate::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },

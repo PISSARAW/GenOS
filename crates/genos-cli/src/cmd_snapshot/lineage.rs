@@ -5,7 +5,7 @@ use crate::output::{print_lineage_tree, print_serialized, SnapshotLineageOutput}
 use crate::resolve::{event_store_from, read_snapshot, snapshot_store_from};
 use anyhow::{bail, Result};
 use genos_core::build_lineage_dag;
-use genos_store::{EventStore, SnapshotStore};
+use genos_store::EventStore;
 
 pub async fn cmd_snapshot_lineage(args: SnapshotLineageArgs) -> Result<()> {
     let snapshot_store = snapshot_store_from(args.snapshots.clone(), &args.root_dir);

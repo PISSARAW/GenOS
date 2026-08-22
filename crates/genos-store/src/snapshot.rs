@@ -44,6 +44,16 @@ impl LocalSnapshotStore {
         &self.manifest_path
     }
 
+    /// Backwards-compatible name used by CLI output structures.
+    pub fn file_path(&self) -> &Path {
+        self.manifest_path()
+    }
+
+    /// Resolve a snapshot id through the store's high-level loading contract.
+    pub async fn get_snapshot(&self, id: String) -> anyhow::Result<Option<AgentSnapshot>> {
+        self.load_snapshot(&SnapshotId(id)).await
+    }
+
     pub async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>> {
         if !fs::try_exists(&self.manifest_path).await? {
             return Ok(Vec::new());

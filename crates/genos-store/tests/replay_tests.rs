@@ -134,3 +134,31 @@ fn replay_basic_state_from_snapshot_cursor() {
     assert_eq!(replay.tool_calls, 1);
     assert_eq!(replay.tool_failures, 1);
 }
+
+#[test]
+fn replay_fingerprint_is_stable_and_covers_each_event_and_final_state() {
+    let events = vec![
+        make_event(AgentEventType::AgentCreated, 1, "branch-a"),
+        make_event(AgentEventType::AgentStarted, 2, "branch-a"),
+        make_event(AgentEventType::MemoryUpdated, 3, "branch-a"),
+        make_event(AgentEventType::ModelResponded, 4, "branch-a"),
+    ];
+
+    let first = genos_store::fingerprint_replay(&events).expect("fingerprint succeeds");
+    let second = genos_store::fingerprint_replay(&events).expect("fingerprint succeeds");
+
+    assert_eq!(first, second);
+    assert_eq!(first.event_count, events.len());
+    assert_eq!(first.event_hashes.len(), events.len());
+    assert!(!first.final_state_hash.is_empty());
+}
+
+#[test]
+fn replay_fingerprint_detects_input_event_mutation() {
+    let mut original = vec![make_event(AgentEventType::AgentStep, 1, "branch-a")];
+    let baseline = genos_store::fingerprint_replay(&original).expect("fingerprint succeeds");
+    original[0].payload = json!({"sequence": 999});
+    let mutated = genos_store::fingerprint_replay(&original).expect("fingerprint succeeds");
+
+    assert_ne!(baseline.event_hashes, mutated.event_hashes);
+}

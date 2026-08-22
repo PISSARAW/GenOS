@@ -67,4 +67,3 @@ pub enum SnapshotSubcommands {
     /// scripts assert tree shape.
     Lineage(SnapshotLineageArgs),
 }
-

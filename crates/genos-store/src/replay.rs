@@ -1,5 +1,6 @@
 ﻿use genos_core::{AgentEvent, AgentEventType, AgentId, AgentSnapshot, BranchId, EventId};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +37,38 @@ pub struct BasicReplayState {
     #[serde(default)]
     pub variables: BTreeMap<String, String>,
     pub branch_status: BranchStatus,
+}
+
+/// Evidence produced by a deterministic replay run.
+///
+/// Event hashes preserve the exact serialized input sequence while the final
+/// state hash covers the materialized state reconstructed by the reducer.
+/// External effects must be captured separately.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReplayFingerprint {
+    pub event_hashes: Vec<String>,
+    pub final_state_hash: String,
+    pub event_count: usize,
+}
+
+pub fn fingerprint_replay(events: &[AgentEvent]) -> anyhow::Result<ReplayFingerprint> {
+    let event_hashes = events
+        .iter()
+        .map(hash_json)
+        .collect::<anyhow::Result<Vec<_>>>()?;
+    let state = replay_basic_state(events);
+    let final_state_hash = hash_json(&state)?;
+
+    Ok(ReplayFingerprint {
+        event_count: events.len(),
+        event_hashes,
+        final_state_hash,
+    })
+}
+
+fn hash_json<T: Serialize>(value: &T) -> anyhow::Result<String> {
+    let bytes = serde_json::to_vec(value)?;
+    Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
 impl Default for BasicReplayState {

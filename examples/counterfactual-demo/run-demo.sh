@@ -68,9 +68,9 @@ genos diff "$a1_path" "$a2_path" --expect-empty --format json
 # exploration of 0.7 and fork-2.json itself is left untouched, so the replay
 # below still sees the forks the CLI produced.
 echo "[6/7] change exactly one genome value on A2 and diff again"
-genos snapshot set-cognition --snapshot "$a2_path" --exploration 0.8 --out "$a2_explore_path" --format json
+genos snapshot set-cognition --snapshot "$a2_path" --drive exploration=0.8 --out "$a2_explore_path" --format json
 genos diff "$a1_path" "$a2_explore_path" \
-	--expect-changed-path genome.cognition.exploration \
+	--expect-changed-path 'genome.cognition.chromosomes[0].loci[0].value' \
 	--format text
 
 echo "[7/7] assert isolated event streams via replay"
