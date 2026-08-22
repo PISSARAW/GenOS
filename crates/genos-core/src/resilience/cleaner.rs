@@ -32,6 +32,12 @@ pub struct Autophagy {
     items: Vec<String>,
 }
 
+impl Default for Autophagy {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Autophagy {
     pub fn new() -> Self {
         Self { items: Vec::new() }
@@ -44,7 +50,7 @@ impl Autophagy {
     pub fn cleanup(&mut self, is_stale: fn(&String) -> bool) {
         self.items.retain(|item| !is_stale(item));
     }
-    
+
     pub fn count(&self) -> usize {
         self.items.len()
     }
@@ -59,7 +65,7 @@ impl Hypermutation {
         if input.is_empty() {
             return String::from(mutation_char);
         }
-        
+
         let mut result = String::from(input);
         result.replace_range(0..1, &mutation_char.to_string());
         result
@@ -70,6 +76,12 @@ impl Hypermutation {
 /// Assure la continuité en basculant sur un nœud de secours en cas de panne.
 pub struct HighAvailability {
     active_is_healthy: bool,
+}
+
+impl Default for HighAvailability {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HighAvailability {
@@ -127,7 +139,7 @@ mod tests {
         let mut ha = HighAvailability::new();
         let action = || "Active node".to_string();
         assert_eq!(ha.execute_action(action), "Active node");
-        
+
         ha.report_failure();
         assert_eq!(ha.execute_action(action), "Backup node executed action");
     }

@@ -17,6 +17,12 @@ pub struct DeadLetterQueue {
     failed_messages: Vec<String>,
 }
 
+impl Default for DeadLetterQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeadLetterQueue {
     pub fn new() -> Self {
         DeadLetterQueue {
@@ -76,7 +82,10 @@ impl Nociceptor {
 
 /// Apoptose: "Let it crash" - Mort cellulaire programmée
 pub fn trigger_apoptosis(component: &str) {
-    println!("[Apoptose] Déclenchement de la destruction de : {}", component);
+    println!(
+        "[Apoptose] Déclenchement de la destruction de : {}",
+        component
+    );
     // Simulation d'un crash intentionnel pour nettoyer l'état corrompu.
     // Dans un système réel, cela pourrait être un panic! ou une fin de thread.
     println!("[Apoptose] {} a été détruit proprement.", component);
@@ -99,7 +108,7 @@ impl ResilienceSystem {
     /// Traite un message avec sandboxing et DLQ. (max 2 paramètres)
     pub fn process_message(&mut self, message: String) {
         let msg_clone = message.clone();
-        
+
         let op = || -> Result<(), ErrorType> {
             if message.contains("corrupt") {
                 Err(ErrorType::CorruptedData)

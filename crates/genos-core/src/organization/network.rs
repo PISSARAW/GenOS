@@ -81,7 +81,7 @@ impl Zooid {
         if !self.active {
             return "Inactive";
         }
-        
+
         match self.role {
             ZooidRole::Propulsion => "Moving the colony",
             ZooidRole::Digestion => "Processing food",
@@ -92,6 +92,12 @@ impl Zooid {
 
 pub struct SiphonophoreColony {
     pub zooids: Vec<Zooid>,
+}
+
+impl Default for SiphonophoreColony {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SiphonophoreColony {

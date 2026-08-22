@@ -3,16 +3,12 @@ use std::hash::{Hash, Hasher};
 
 use genos_core::{
     AgentGenome, BreedingStatus, GenomeBreedingMetadata, GenomeBreedingTarget, GenomeId,
-    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion,
-    RecombinationStrategy,
+    GenomeMutationChange, GenomeMutationMetadata, GenomeVersion, RecombinationStrategy,
 };
 
 use super::selection::artificial_select;
-use super::types::{
-    BreedingTraitMapping, SelectionCandidate,
-    BreedingConfig,
-};
 use super::selection::{select_parent, SelectionPool};
+use super::types::{BreedingConfig, BreedingTraitMapping, SelectionCandidate};
 
 pub fn cantor_pairing(k1: u64, k2: u64) -> u64 {
     (k1 + k2) * (k1 + k2 + 1) / 2 + k2
@@ -33,9 +29,18 @@ pub fn extract_numeric_id(id: &GenomeId) -> u64 {
 pub fn compute_genetic_distance(alice: &AgentGenome, bob: &AgentGenome) -> f64 {
     let mut sum_sq = 0.0;
     for alice_chrom in &alice.cognition.chromosomes {
-        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+        if let Some(bob_chrom) = bob
+            .cognition
+            .chromosomes
+            .iter()
+            .find(|c| c.name == alice_chrom.name)
+        {
             for alice_locus in &alice_chrom.loci {
-                if let Some(bob_locus) = bob_chrom.loci.iter().find(|l| l.gene_name == alice_locus.gene_name) {
+                if let Some(bob_locus) = bob_chrom
+                    .loci
+                    .iter()
+                    .find(|l| l.gene_name == alice_locus.gene_name)
+                {
                     let diff = (alice_locus.value - bob_locus.value) as f64;
                     sum_sq += diff * diff;
                 }
@@ -81,11 +86,16 @@ pub fn breed_genomes(
     let mut prng_state = hasher.finish();
 
     let mut changes = Vec::new();
-    recombine_chromosomes(alice, bob, &mut child, RecombinationContext {
-        strategy,
-        prng_state: &mut prng_state,
-        changes: &mut changes,
-    });
+    recombine_chromosomes(
+        alice,
+        bob,
+        &mut child,
+        RecombinationContext {
+            strategy,
+            prng_state: &mut prng_state,
+            changes: &mut changes,
+        },
+    );
 
     for mut_req in lamarckian_mutations {
         for chrom in &mut child.cognition.chromosomes {
@@ -117,7 +127,12 @@ fn recombine_chromosomes(
 ) {
     for chrom_index in 0..child.cognition.chromosomes.len() {
         let alice_chrom = &alice.cognition.chromosomes[chrom_index];
-        if let Some(bob_chrom) = bob.cognition.chromosomes.iter().find(|c| c.name == alice_chrom.name) {
+        if let Some(bob_chrom) = bob
+            .cognition
+            .chromosomes
+            .iter()
+            .find(|c| c.name == alice_chrom.name)
+        {
             let mut new_loci = Vec::new();
             let crossover_point = alice_chrom.loci.len() / 2;
 
@@ -135,7 +150,7 @@ fn recombine_chromosomes(
                     ctx.strategy,
                     ctx.prng_state,
                 );
-                
+
                 // HÃ©rÃ©ditÃ© Lamarckienne avec dissipation Ã©pigÃ©nÃ©tique (ex: 70% conservÃ©)
                 chosen_locus.epigenetic_marker *= 0.7;
 
@@ -162,10 +177,10 @@ pub(crate) fn calculate_recombined_locus(
 ) -> genos_core::Locus {
     let mut rand_f32 = || {
         *prng_state = prng_state.wrapping_mul(6364136223846793005).wrapping_add(1);
-        (*prng_state >> 32) as f32 / (std::u32::MAX as f32)
+        (*prng_state >> 32) as f32 / (u32::MAX as f32)
     };
 
-    let result = match strategy {
+    match strategy {
         RecombinationStrategy::HomologousRecombination => {
             if after_crossover {
                 bob_locus.clone()
@@ -181,7 +196,11 @@ pub(crate) fn calculate_recombined_locus(
             }
         }
         RecombinationStrategy::NonHomologousEndJoining { error_rate } => {
-            let mut base_locus = if after_crossover { bob_locus.clone() } else { locus.clone() };
+            let mut base_locus = if after_crossover {
+                bob_locus.clone()
+            } else {
+                locus.clone()
+            };
             if rand_f32() < *error_rate {
                 let error = (rand_f32() - 0.5) * 0.2;
                 base_locus.value = (base_locus.value + error).clamp(0.0, 1.0);
@@ -207,7 +226,11 @@ pub(crate) fn calculate_recombined_locus(
             let diff = (locus.value - bob_locus.value).abs().max(0.01);
             // Approximation simple d'une gaussienne via sommation d'uniformes (Irwin-Hall)
             let noise = (rand_f32() + rand_f32() + rand_f32() - 1.5) * diff;
-            let mut child = if after_crossover { bob_locus.clone() } else { locus.clone() };
+            let mut child = if after_crossover {
+                bob_locus.clone()
+            } else {
+                locus.clone()
+            };
             child.value = (mean + noise).clamp(0.0, 1.0);
             child
         }
@@ -218,7 +241,11 @@ pub(crate) fn calculate_recombined_locus(
             } else if bob_locus.epigenetic_marker > 0.5 && locus.epigenetic_marker <= 0.5 {
                 bob_locus.clone()
             } else {
-                if after_crossover { bob_locus.clone() } else { locus.clone() }
+                if after_crossover {
+                    bob_locus.clone()
+                } else {
+                    locus.clone()
+                }
             }
         }
         RecombinationStrategy::UniformCrossover { mix_probability } => {
@@ -228,9 +255,7 @@ pub(crate) fn calculate_recombined_locus(
                 locus.clone()
             }
         }
-    };
-    
-    result
+    }
 }
 
 fn build_breeding_metadata(
@@ -249,7 +274,8 @@ fn build_breeding_metadata(
                 let actual_target = child
                     .cognition
                     .get_drive(drive_name)
-                    .unwrap_or(mapping.target.target as f32) as f64;
+                    .unwrap_or(mapping.target.target as f32)
+                    as f64;
                 GenomeBreedingTarget {
                     trait_name: mapping.target.trait_name.clone(),
                     genome_field: mapping.genome_field.clone(),
@@ -320,7 +346,7 @@ where
                 non_dominated_genomes.push(genome.clone());
             }
         }
-        
+
         let elites = config.elitism_count.min(non_dominated_genomes.len());
         for elite in &non_dominated_genomes[..elites] {
             next_population.push(elite.clone());
@@ -346,7 +372,15 @@ where
                 child_num_id + children_produced as u64
             );
 
-            match breed_genomes(alice, bob, &child_name, &config.trait_mappings, &config.recombination_strategy, config.speciation_threshold, &[]) {
+            match breed_genomes(
+                alice,
+                bob,
+                &child_name,
+                &config.trait_mappings,
+                &config.recombination_strategy,
+                config.speciation_threshold,
+                &[],
+            ) {
                 Ok(mut child) => {
                     if config.mutation_rate > 0.0 {
                         for chrom in &mut child.cognition.chromosomes {
@@ -354,7 +388,8 @@ where
                                 if rand_f32() < config.mutation_rate {
                                     let error = (rand_f32() - 0.5) * config.mutation_variance;
                                     locus.value = (locus.value + error).clamp(0.0, 1.0);
-                                    locus.epigenetic_marker = (locus.epigenetic_marker + error).clamp(0.0, 1.0);
+                                    locus.epigenetic_marker =
+                                        (locus.epigenetic_marker + error).clamp(0.0, 1.0);
                                 }
                             }
                         }

@@ -12,6 +12,12 @@ pub struct SharedState {
     pub data: HashMap<String, String>,
 }
 
+impl Default for SharedState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SharedState {
     pub fn new() -> Self {
         Self {
@@ -31,6 +37,12 @@ impl SharedState {
 /// Représente l'environnement où les phéromones sont déposées (Stigmergie).
 pub struct Environment {
     pheromones: HashMap<(i32, i32), f64>,
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Environment {
@@ -62,6 +74,12 @@ pub struct Consensus {
     votes: HashMap<Decision, usize>,
 }
 
+impl Default for Consensus {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Consensus {
     pub fn new() -> Self {
         Self {
@@ -86,6 +104,12 @@ impl Consensus {
 pub struct Nest {
     pub size: usize,
     pub food_stored: usize,
+}
+
+impl Default for Nest {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Nest {
@@ -151,6 +175,12 @@ pub struct Swarm {
     pub env: Environment,
     pub consensus: Consensus,
     pub shared_state: SharedState,
+}
+
+impl Default for Swarm {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Swarm {

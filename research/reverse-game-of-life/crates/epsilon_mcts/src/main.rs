@@ -30,45 +30,43 @@ fn count_neighbors(grid: &Grid, x: i32, y: i32) -> u32 {
 
 fn next_state(grid: &Grid) -> Grid {
     let mut new_grid = [0; SIZE];
-    for y in 0..SIZE {
+    for (y, next_row) in new_grid.iter_mut().enumerate() {
         let mut row = 0;
         for x in 0..SIZE {
             let n = count_neighbors(grid, x as i32, y as i32);
             let alive = get_bit(grid, x as i32, y as i32) == 1;
-            if (alive && (n == 2 || n == 3)) || (!alive && n == 3) {
+            if n == 3 || (alive && n == 2) {
                 row |= 1 << x;
             }
         }
-        new_grid[y] = row;
+        *next_row = row;
     }
     new_grid
 }
 
 fn evaluate(mut grid: Grid, max_steps: u32) -> u32 {
-    let mut prev_grid = [0; SIZE];
-    let mut prev_prev_grid = [0; SIZE];
-    
+    let mut prev_grid = grid;
+    let mut prev_prev_grid = None;
+
     for step in 0..max_steps {
-        prev_prev_grid = prev_grid;
-        prev_grid = grid;
         grid = next_state(&grid);
-        
-        let mut pop = 0;
-        for y in 0..SIZE {
-            pop += grid[y].count_ones();
-        }
-        
-        if pop == 0 || grid == prev_grid || grid == prev_prev_grid {
+
+        let pop: u32 = grid.iter().map(|row| row.count_ones()).sum();
+
+        if pop == 0 || grid == prev_grid || prev_prev_grid == Some(grid) {
             return step;
         }
+
+        prev_prev_grid = Some(prev_grid);
+        prev_grid = grid;
     }
     max_steps
 }
 
 fn random_grid() -> Grid {
     let mut grid = [0; SIZE];
-    for y in 0..SIZE {
-        grid[y] = rand::random::<u32>() & ((1 << SIZE) - 1);
+    for row in &mut grid {
+        *row = rand::random::<u32>() & ((1 << SIZE) - 1);
     }
     grid
 }
@@ -94,7 +92,7 @@ fn simulate_branch(time_limit: Duration) -> u32 {
 fn main() {
     println!("[TAG: DETERMINISTIC_HARDWARE_LOCK]");
     println!("Initialisation de la recherche MCTS sur CPU (grille 20x20)...");
-    
+
     let time_limit = Duration::from_secs(30);
     let threads = rayon::current_num_threads() * 4;
 
@@ -106,11 +104,15 @@ fn main() {
         .collect();
 
     let max_score = results.into_iter().max().unwrap_or(0);
-    
+
     println!("Score final : {}", max_score);
     if max_score > 194 {
-        println!("Objectif atteint ! La barrière de 194 a été pulvérisée par l'architecture parallèle.");
+        println!(
+            "Objectif atteint ! La barrière de 194 a été pulvérisée par l'architecture parallèle."
+        );
     } else {
-        println!("L'algorithme s'est stabilisé. La limite temporelle n'a pas permis de dépasser 194.");
+        println!(
+            "L'algorithme s'est stabilisé. La limite temporelle n'a pas permis de dépasser 194."
+        );
     }
 }

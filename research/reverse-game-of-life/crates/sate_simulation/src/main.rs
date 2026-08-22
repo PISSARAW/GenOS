@@ -15,29 +15,35 @@ impl SimpleRng {
     }
 
     fn next_f64(&mut self) -> f64 {
-        self.next_u32() as f64 / (std::u32::MAX as f64)
+        self.next_u32() as f64 / (u32::MAX as f64)
     }
 }
 
 #[derive(Clone)]
 struct Node {
-    id: usize,
     visits: u32,
     score: f64,
     children: Vec<usize>,
 }
 
-struct SATE {
+struct Sate {
     nodes: HashMap<usize, Node>,
     next_id: usize,
     stagnation_counter: u32,
     best_score: f64,
 }
 
-impl SATE {
+impl Sate {
     fn new() -> Self {
         let mut nodes = HashMap::new();
-        nodes.insert(0, Node { id: 0, visits: 0, score: 0.0, children: vec![] });
+        nodes.insert(
+            0,
+            Node {
+                visits: 0,
+                score: 0.0,
+                children: vec![],
+            },
+        );
         Self {
             nodes,
             next_id: 1,
@@ -69,16 +75,19 @@ impl SATE {
         for _ in 0..num_children {
             let child_id = self.next_id;
             self.next_id += 1;
-            
+
             let new_node = Node {
-                id: child_id,
                 visits: 0,
                 score: 0.0,
                 children: vec![],
             };
-            
+
             self.nodes.insert(child_id, new_node);
-            self.nodes.get_mut(&node_id).unwrap().children.push(child_id);
+            self.nodes
+                .get_mut(&node_id)
+                .unwrap()
+                .children
+                .push(child_id);
         }
     }
 
@@ -107,7 +116,7 @@ impl SATE {
             self.stagnation_counter += 1;
         }
     }
-    
+
     fn is_stagnant(&self) -> bool {
         self.stagnation_counter > 30
     }
@@ -117,7 +126,7 @@ impl SATE {
         println!("Purge des branches stagnantes. Hypermutation en cours...");
         self.stagnation_counter = 0;
         self.best_score = 0.0;
-        
+
         self.nodes.retain(|&k, _| k == 0);
         self.nodes.get_mut(&0).unwrap().children.clear();
         self.next_id = 1;
@@ -126,17 +135,19 @@ impl SATE {
 
 fn main() {
     println!("Initialisation Gamma-Zero: Algorithme SATE (Stochastic Adaptive Tree Explorer)");
-    let mut sate = SATE::new();
+    let mut sate = Sate::new();
     let mut rng = SimpleRng::new(42);
 
     for i in 1..=150 {
         sate.run_iteration(&mut rng);
-        
+
         if i % 10 == 0 {
-            println!("Itération {:3}: Meilleur Score = {:.2}, Stagnation = {}", 
-                     i, sate.best_score, sate.stagnation_counter);
+            println!(
+                "Itération {:3}: Meilleur Score = {:.2}, Stagnation = {}",
+                i, sate.best_score, sate.stagnation_counter
+            );
         }
-        
+
         if sate.is_stagnant() {
             println!("[ALERTE TABULA RASA] Stagnation (consanguinité algorithmique) détectée à l'itération {} !", i);
             sate.trigger_catastrophe();

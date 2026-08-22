@@ -68,6 +68,7 @@ pub enum WorldError {
     InvalidWorldPath { path: String, reason: String },
 }
 
+#[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait WorldProvider: Send + Sync {
     async fn create(&self, agent_id: AgentId, branch_id: BranchId) -> anyhow::Result<WorldId>;

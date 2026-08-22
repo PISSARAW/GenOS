@@ -4,6 +4,7 @@ use crate::ids::{AgentId, BranchId, EventId, SnapshotId};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
+#[allow(clippy::too_many_arguments)]
 fn evt(
     event_type: AgentEventType,
     payload: Value,

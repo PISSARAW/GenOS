@@ -1,4 +1,4 @@
-﻿//! Generic snapshot mutators â€” cognition, variables, memories, var-checks.
+//! Generic snapshot mutators â€” cognition, variables, memories, var-checks.
 //!
 //! Beliefs and tool-call records live in [`super::beliefs`] so this file stays
 //! under the 400-line rule. Each function follows the same shape: load the
@@ -37,9 +37,23 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
         });
         if !snapshot.genome.cognition.set_drive(&name, new_value) {
             if snapshot.genome.cognition.chromosomes.is_empty() {
-                snapshot.genome.cognition.chromosomes.push(genos_core::Chromosome { name: "C1".to_string(), loci: vec![], operons: vec![] });
+                snapshot
+                    .genome
+                    .cognition
+                    .chromosomes
+                    .push(genos_core::Chromosome {
+                        name: "C1".to_string(),
+                        loci: vec![],
+                        operons: vec![],
+                    });
             }
-            snapshot.genome.cognition.chromosomes[0].loci.push(genos_core::Locus { gene_name: name.clone(), value: new_value, epigenetic_marker: 0.0 });
+            snapshot.genome.cognition.chromosomes[0]
+                .loci
+                .push(genos_core::Locus {
+                    gene_name: name.clone(),
+                    value: new_value,
+                    epigenetic_marker: 0.0,
+                });
         }
     }
 
@@ -53,9 +67,7 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
     }
 
     if changed.is_empty() && args.planning_depth.is_none() {
-        bail!(
-            "nothing to change: pass at least one of --drive, --planning-depth"
-        );
+        bail!("nothing to change: pass at least one of --drive, --planning-depth");
     }
 
     // The genome id and version are left alone on purpose: this tunes a value
@@ -80,7 +92,7 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
     };
 
     if args.save {
-        snapshot_store.save_snapshot(&snapshot).await?;
+        snapshot_store.save_snapshot(snapshot.clone()).await?;
     }
 
     print_serialized(&out, args.format)
@@ -135,7 +147,7 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
     };
 
     if args.save {
-        snapshot_store.save_snapshot(&snapshot).await?;
+        snapshot_store.save_snapshot(snapshot.clone()).await?;
     }
 
     print_serialized(&out, args.format)
@@ -196,7 +208,7 @@ pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> 
     };
 
     if args.save {
-        snapshot_store.save_snapshot(&snapshot).await?;
+        snapshot_store.save_snapshot(snapshot.clone()).await?;
     }
 
     print_serialized(&out, args.format)

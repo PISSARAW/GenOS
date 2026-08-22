@@ -61,9 +61,12 @@ impl CircuitBreaker {
             cooldown_ms,
         }
     }
-    
+
     fn now() -> u64 {
-        SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis() as u64
     }
 
     /// Vérifie si le circuit autorise l'exécution.
@@ -90,7 +93,9 @@ impl CircuitBreaker {
         } else {
             self.failures += 1;
             if self.failures >= self.threshold || self.state == CircuitState::HalfOpen {
-                self.state = CircuitState::Open { opened_at: Self::now() };
+                self.state = CircuitState::Open {
+                    opened_at: Self::now(),
+                };
             }
         }
     }
@@ -114,16 +119,21 @@ impl<T: ToolExecutor, P: PolicyPlane> ToolGateway<T, P> {
     }
 
     /// Exécute un appel intercepté après validation et contrôle d'état (Half-Open).
-    pub async fn execute_intercepted(&self, call: ToolInvocation) -> anyhow::Result<SecureToolOutput> {
-        self.policy.validate(&call).map_err(|e| anyhow::anyhow!(e))?;
-        
+    pub async fn execute_intercepted(
+        &self,
+        call: ToolInvocation,
+    ) -> anyhow::Result<SecureToolOutput> {
+        self.policy
+            .validate(&call)
+            .map_err(|e| anyhow::anyhow!(e))?;
+
         {
             let mut cb = self.circuit.lock().unwrap();
             cb.check().map_err(|e| anyhow::anyhow!(e))?;
         }
 
         let result = self.executor.execute(call).await;
-        
+
         let mut cb = self.circuit.lock().unwrap();
         match result {
             Ok(res) => {

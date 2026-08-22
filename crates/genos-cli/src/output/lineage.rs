@@ -1,4 +1,4 @@
-﻿//! Lineage tree renderer for the `snapshot lineage` command.
+//! Lineage tree renderer for the `snapshot lineage` command.
 //!
 //! Extracted from `output.rs` so the parent module stays under the 400-line
 //! rule. The printer is plain-text only; structured output (JSON / YAML)
@@ -32,7 +32,11 @@ fn print_children(children: &[LineageChild], prefix: &str) {
     let count = children.len();
     for (index, child) in children.iter().enumerate() {
         let last = index + 1 == count;
-        let connector = if last { "â””â”€â”€ " } else { "â”œâ”€â”€ " };
+        let connector = if last {
+            "â””â”€â”€ "
+        } else {
+            "â”œâ”€â”€ "
+        };
         let next_prefix = format!("{prefix}{}", if last { "    " } else { "â”‚   " });
         println!(
             "{prefix}{connector}{} {}",

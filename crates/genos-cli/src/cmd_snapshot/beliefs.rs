@@ -137,7 +137,7 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
     };
 
     if args.save {
-        snapshot_store.save_snapshot(&snapshot).await?;
+        snapshot_store.save_snapshot(snapshot.clone()).await?;
     }
 
     print_serialized(&out, args.format)?;
@@ -238,7 +238,7 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
     };
 
     if args.save {
-        snapshot_store.save_snapshot(&snapshot).await?;
+        snapshot_store.save_snapshot(snapshot.clone()).await?;
     }
 
     print_serialized(&out, args.format)

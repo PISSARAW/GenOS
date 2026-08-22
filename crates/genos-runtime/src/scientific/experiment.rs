@@ -1,4 +1,4 @@
-﻿use anyhow::bail;
+use anyhow::bail;
 use chrono::{Duration, Utc};
 use genos_core::{LineageDag, LineageEdge, LineageRelation, SnapshotId};
 use serde_json::json;
@@ -135,7 +135,14 @@ pub fn run_scientific_experiment(
         &mut artifacts,
     )?;
 
-    let rewinds = process_rewinds(&manifest, &by_id, &root, started, &mut artifacts, &mut lineage)?;
+    let rewinds = process_rewinds(
+        &manifest,
+        &by_id,
+        &root,
+        started,
+        &mut artifacts,
+        &mut lineage,
+    )?;
 
     let final_beliefs = compute_final_beliefs(&outcomes, &reproductions, &rewinds);
     let primitive_trace = build_scientific_primitive_trace(

@@ -36,10 +36,10 @@ impl LlmProvider for FakeModel {
         _config: &GenerationConfig,
     ) -> anyhow::Result<LlmResponse> {
         let serialized_input = serialize_messages(messages);
-        
+
         // Very basic mock behavior based on last message
         let last_msg = messages.last().map(|m| m.content.as_str()).unwrap_or("");
-        
+
         let content = match last_msg {
             "INPUT A" => "RESPONSE A",
             prompt => prompt,
@@ -98,7 +98,7 @@ impl LlmProvider for RandomModel {
         _config: &GenerationConfig,
     ) -> anyhow::Result<LlmResponse> {
         let serialized_input = serialize_messages(messages);
-        
+
         let content = if self.seed == 42 {
             "RESPONSE A"
         } else {
@@ -151,7 +151,7 @@ mod tests {
 
         let first = model.generate(&msgs, &config).await.expect("failed");
         let second = model.generate(&msgs, &config).await.expect("failed");
-        
+
         assert_eq!(first.content.as_deref(), Some("RESPONSE A"));
         assert_eq!(first.content, second.content);
         assert_eq!(first.request_hash, second.request_hash);
@@ -164,14 +164,23 @@ mod tests {
         let msgs = test_messages();
         let config = GenerationConfig::default();
 
-        let a1 = RandomModel::new(42).generate(&msgs, &config).await.expect("failed");
-        let a2 = RandomModel::new(42).generate(&msgs, &config).await.expect("failed");
-        let b = RandomModel::new(99).generate(&msgs, &config).await.expect("failed");
+        let a1 = RandomModel::new(42)
+            .generate(&msgs, &config)
+            .await
+            .expect("failed");
+        let a2 = RandomModel::new(42)
+            .generate(&msgs, &config)
+            .await
+            .expect("failed");
+        let b = RandomModel::new(99)
+            .generate(&msgs, &config)
+            .await
+            .expect("failed");
 
         assert_eq!(a1.content.as_deref(), Some("RESPONSE A"));
         assert_eq!(a1.content, a2.content);
         assert_eq!(a1.request_hash, a2.request_hash);
-        
+
         assert_eq!(b.content.as_deref(), Some("RESPONSE B"));
         assert_ne!(a1.content, b.content);
         assert_ne!(a1.request_hash, b.request_hash);

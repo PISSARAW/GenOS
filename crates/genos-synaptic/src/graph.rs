@@ -13,8 +13,8 @@ pub struct PlasticityConfig {
 
 /// Graphe de mémoire associative simulant la plasticité synaptique.
 ///
-/// Implémente la règle STDP (Spike-Timing Dependent Plasticity) pour lier 
-/// causalement les concepts mémorisés (LTP/LTD) ainsi que le scaling de 
+/// Implémente la règle STDP (Spike-Timing Dependent Plasticity) pour lier
+/// causalement les concepts mémorisés (LTP/LTD) ainsi que le scaling de
 /// Turrigiano pour prévenir la saturation du contexte par des nœuds hyperactifs.
 pub struct SynapticMemoryGraph {
     pub weights: HashMap<(String, String), f32>,
@@ -61,10 +61,12 @@ impl SynapticMemoryGraph {
 
         for ((_, post), w) in self.weights.iter_mut() {
             let total_act = in_activity.get(post).copied().unwrap_or(0.0);
-            let scale_factor = (self.config.target_activity / total_act.max(1e-6)).powf(self.config.scaling_gamma);
+            let scale_factor =
+                (self.config.target_activity / total_act.max(1e-6)).powf(self.config.scaling_gamma);
             *w = (*w * scale_factor).clamp(0.0, 10.0);
         }
 
-        self.weights.retain(|_, &mut w| w >= self.config.prune_threshold);
+        self.weights
+            .retain(|_, &mut w| w >= self.config.prune_threshold);
     }
 }

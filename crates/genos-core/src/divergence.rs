@@ -1,5 +1,7 @@
 use crate::loop_detection::IterationSnapshot;
-use crate::noise::{CompositeNoiseFilter, NoiseFilter, ChronologicalFilter, EphemeralIdFilter, StructuralFilter};
+use crate::noise::{
+    ChronologicalFilter, CompositeNoiseFilter, EphemeralIdFilter, NoiseFilter, StructuralFilter,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -10,14 +12,14 @@ pub enum DivergenceCause {
         expected_hash: u64,
         actual_hash: u64,
     },
-    
+
     #[error("Belief Signature Mismatch at step {step}: semantic similarity {similarity} is below threshold {threshold}")]
     BeliefSignatureMismatch {
         step: usize,
         similarity: f32,
         threshold: f32,
     },
-    
+
     #[error("Contract Violation at step {step}: tool signature expected '{expected_tool}', got '{actual_tool}'")]
     ContractViolation {
         step: usize,
@@ -70,6 +72,7 @@ impl DivergenceDetector {
 
     /// Compare le snapshot "Golden" (original) et le snapshot "Current" (en cours de rejeu).
     /// `is_experiment` indique si l'humain a volontairement modifié le contexte pour forcer un test.
+    #[allow(clippy::too_many_arguments)]
     pub fn check_step(
         &self,
         step_index: usize,
@@ -86,7 +89,9 @@ impl DivergenceDetector {
         // 1. Violation de Contrat (Signature des appels)
         match (&golden.tool_signature, &current.tool_signature) {
             (Some(g_sig), Some(c_sig)) => {
-                if g_sig.tool_name != c_sig.tool_name || g_sig.arguments_hash != c_sig.arguments_hash {
+                if g_sig.tool_name != c_sig.tool_name
+                    || g_sig.arguments_hash != c_sig.arguments_hash
+                {
                     return Err(DivergenceEvent {
                         cause: DivergenceCause::ContractViolation {
                             step: step_index,
@@ -144,7 +149,8 @@ impl DivergenceDetector {
         }
 
         // 3. Évaluation des Croyances (Semantic Similarity)
-        if let (Some(g_emb), Some(c_emb)) = (&golden.thought_embedding, &current.thought_embedding) {
+        if let (Some(g_emb), Some(c_emb)) = (&golden.thought_embedding, &current.thought_embedding)
+        {
             let similarity = Self::cosine_similarity(g_emb, c_emb);
             if similarity < self.belief_similarity_threshold {
                 return Err(DivergenceEvent {
@@ -168,7 +174,7 @@ impl DivergenceDetector {
         let dot_product: f32 = v1.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
         let norm_v1: f32 = v1.iter().map(|a| a * a).sum::<f32>().sqrt();
         let norm_v2: f32 = v2.iter().map(|b| b * b).sum::<f32>().sqrt();
-        
+
         if norm_v1 == 0.0 || norm_v2 == 0.0 {
             0.0
         } else {
@@ -185,14 +191,14 @@ mod tests {
     #[test]
     fn test_unintentional_state_mismatch() {
         let detector = DivergenceDetector::default();
-        
+
         let golden = IterationSnapshot {
             tool_signature: None,
             world_state_hash: 100,
             world_state_content: None,
             thought_embedding: None,
         };
-        
+
         let current = IterationSnapshot {
             tool_signature: None,
             world_state_hash: 101, // Décalage (Bruit)
@@ -203,7 +209,12 @@ mod tests {
         match detector.check_step(1, &golden, &current, false) {
             Err(event) => {
                 assert_eq!(event.nature, DivergenceNature::UnintentionalNoise);
-                if let DivergenceCause::StateFingerprintMismatch { expected_hash, actual_hash, .. } = event.cause {
+                if let DivergenceCause::StateFingerprintMismatch {
+                    expected_hash,
+                    actual_hash,
+                    ..
+                } = event.cause
+                {
                     assert_eq!(expected_hash, 100);
                     assert_eq!(actual_hash, 101);
                 } else {
@@ -217,16 +228,22 @@ mod tests {
     #[test]
     fn test_intentional_contract_violation() {
         let detector = DivergenceDetector::default();
-        
+
         let golden = IterationSnapshot {
-            tool_signature: Some(ToolCallSignature { tool_name: "A".to_string(), arguments_hash: 1 }),
+            tool_signature: Some(ToolCallSignature {
+                tool_name: "A".to_string(),
+                arguments_hash: 1,
+            }),
             world_state_hash: 100,
             world_state_content: None,
             thought_embedding: None,
         };
-        
+
         let current = IterationSnapshot {
-            tool_signature: Some(ToolCallSignature { tool_name: "B".to_string(), arguments_hash: 2 }), // Nouveau choix (Expérience)
+            tool_signature: Some(ToolCallSignature {
+                tool_name: "B".to_string(),
+                arguments_hash: 2,
+            }), // Nouveau choix (Expérience)
             world_state_hash: 100,
             world_state_content: None,
             thought_embedding: None,
@@ -235,7 +252,12 @@ mod tests {
         match detector.check_step(2, &golden, &current, true) {
             Err(event) => {
                 assert_eq!(event.nature, DivergenceNature::Intentional);
-                if let DivergenceCause::ContractViolation { expected_tool, actual_tool, .. } = event.cause {
+                if let DivergenceCause::ContractViolation {
+                    expected_tool,
+                    actual_tool,
+                    ..
+                } = event.cause
+                {
                     assert_eq!(expected_tool, "A");
                     assert_eq!(actual_tool, "B");
                 } else {

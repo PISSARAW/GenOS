@@ -23,18 +23,36 @@ fn test_gene_conversion_dominant_alice() {
     alice.id = genos_core::ids::GenomeId::new();
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.1,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.2,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
     let mut bob = dummy_genome();
     bob.id = genos_core::ids::GenomeId::new();
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.9,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.8,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
 
@@ -84,18 +102,36 @@ fn test_gene_conversion_dominant_bob() {
     alice.id = genos_core::ids::GenomeId::new();
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.1,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.2,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
     let mut bob = dummy_genome();
     bob.id = genos_core::ids::GenomeId::new();
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.9,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.8,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
 
@@ -145,18 +181,36 @@ fn test_nhej_deterministic_prng() {
     alice.id = genos_core::ids::GenomeId::new();
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.1,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.2,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
     let mut bob = dummy_genome();
     bob.id = genos_core::ids::GenomeId::new();
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.9,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.8,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
 
@@ -226,18 +280,36 @@ fn test_site_specific() {
     alice.id = genos_core::ids::GenomeId::new();
     alice.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.1, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.2, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.1,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.2,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
     let mut bob = dummy_genome();
     bob.id = genos_core::ids::GenomeId::new();
     bob.cognition.chromosomes = vec![genos_core::Chromosome {
         name: "C1".to_string(),
+        operons: vec![],
         loci: vec![
-            genos_core::Locus { gene_name: "A".to_string(), value: 0.9, epigenetic_marker: 0.0 },
-            genos_core::Locus { gene_name: "B".to_string(), value: 0.8, epigenetic_marker: 0.0 },
+            genos_core::Locus {
+                gene_name: "A".to_string(),
+                value: 0.9,
+                epigenetic_marker: 0.0,
+            },
+            genos_core::Locus {
+                gene_name: "B".to_string(),
+                value: 0.8,
+                epigenetic_marker: 0.0,
+            },
         ],
     }];
 
@@ -355,11 +427,7 @@ fn test_run_breeding_program_loop() {
         mutation_variance: 0.05,
     };
 
-    let result = super::run_breeding_program(
-        initial_population,
-        &config,
-        &batch_evaluator,
-    );
+    let result = super::run_breeding_program(initial_population, &config, &batch_evaluator);
 
     assert!(result.is_ok());
     let final_pop = result.unwrap();

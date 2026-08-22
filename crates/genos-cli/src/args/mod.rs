@@ -3,28 +3,28 @@ use genos_core::MemoryKind;
 use std::path::PathBuf;
 
 pub mod agent;
+pub mod biomimicry;
 pub mod capsule;
 pub mod dev;
 pub mod experiment;
+pub mod hallucination;
 pub mod inspect;
 pub mod replay;
+pub mod resilience;
 pub mod snapshot;
 pub mod world;
-pub mod resilience;
-pub mod biomimicry;
-pub mod hallucination;
 
 pub use agent::*;
+pub use biomimicry::*;
 pub use capsule::*;
 pub use dev::*;
 pub use experiment::*;
+pub use hallucination::*;
 pub use inspect::*;
 pub use replay::*;
+pub use resilience::*;
 pub use snapshot::*;
 pub use world::*;
-pub use resilience::*;
-pub use biomimicry::*;
-pub use hallucination::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]

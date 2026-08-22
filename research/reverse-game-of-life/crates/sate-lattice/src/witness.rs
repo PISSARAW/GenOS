@@ -1,10 +1,10 @@
-use std::fs;
 use crate::scorer::Scorer;
+use std::fs;
 
 pub fn read_witness(filepath: &str) -> Scorer {
     let content = fs::read_to_string(filepath).expect("Unable to read witness file");
     let mut grid = Vec::new();
-    
+
     for line in content.lines() {
         let line = line.trim();
         if line.is_empty() {
@@ -13,10 +13,10 @@ pub fn read_witness(filepath: &str) -> Scorer {
         let row: Vec<bool> = line.chars().map(|c| c == '#' || c == '1').collect();
         grid.push(row);
     }
-    
+
     let height = grid.len();
     let width = if height > 0 { grid[0].len() } else { 0 };
-    
+
     Scorer::new(width, height, grid)
 }
 

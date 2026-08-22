@@ -1,12 +1,7 @@
-﻿use super::*;
+use super::*;
 use genos_core::BranchId;
 
-fn branch(
-    id: &str,
-    parent: Option<&str>,
-    score: f64,
-    children: &[&str],
-) -> EvolutionBranchSpec {
+fn branch(id: &str, parent: Option<&str>, score: f64, children: &[&str]) -> EvolutionBranchSpec {
     EvolutionBranchSpec {
         branch_id: BranchId(id.to_string()),
         parent_branch_id: parent.map(|value| BranchId(value.to_string())),

@@ -4,10 +4,17 @@
 use std::collections::{HashMap, HashSet};
 
 /// 1. Autotomie (Honeypot / Lezard Tail)
+///
 /// Consiste à sacrifier une partie non critique pour protéger le cœur du système.
 pub struct AutotomyModule {
     honeypots: HashMap<String, bool>,
     pub core_safe: bool,
+}
+
+impl Default for AutotomyModule {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AutotomyModule {
@@ -36,6 +43,7 @@ impl AutotomyModule {
 }
 
 /// 2. Gossip Protocol (Réseau Mycorhizien)
+///
 /// Les noeuds partagent l'information de menace de proche en proche.
 pub struct GossipNode {
     pub id: String,
@@ -62,10 +70,17 @@ impl GossipNode {
 }
 
 /// 3. Régénération (Cellules Souches)
+///
 /// Capacité de recréer des services tombés à partir de plans initiaux.
 pub struct StemCellRegenerator {
     active_services: HashSet<String>,
     blueprints: HashSet<String>,
+}
+
+impl Default for StemCellRegenerator {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl StemCellRegenerator {
@@ -99,6 +114,7 @@ impl StemCellRegenerator {
 }
 
 /// 4. Circuit Breaker (Coagulation)
+///
 /// Bloque les requêtes vers un service défaillant pour éviter l'hémorragie en cascade.
 pub enum CircuitState {
     Closed, // Le sang coule normalement

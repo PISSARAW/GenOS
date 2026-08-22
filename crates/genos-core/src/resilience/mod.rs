@@ -33,6 +33,6 @@ pub trait ResilienceProtocol {
 }
 
 pub mod cellular;
+pub mod cleaner;
 pub mod cyber_immune;
 pub mod disaster;
-pub mod cleaner;

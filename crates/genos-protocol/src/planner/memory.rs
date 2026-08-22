@@ -17,14 +17,20 @@ pub fn plan_memory(planner: &mut CommandPlanner) -> Result<bool, ProtocolError> 
             planner.args.push("--post-node-id".into());
             planner.args.push(planner.req_str("post_node_id")?.into());
             planner.args.push("--delta-t-ms".into());
-            planner.args.push(planner.req_num("delta_t_ms")?.to_string());
+            planner
+                .args
+                .push(planner.req_num("delta_t_ms")?.to_string());
         }
         "synaptic_prune_scale" => {
             planner.args = vec!["memory".into(), "synaptic-prune-scale".into()];
             planner.args.push("--prune-threshold".into());
-            planner.args.push(planner.req_num("prune_threshold")?.to_string());
+            planner
+                .args
+                .push(planner.req_num("prune_threshold")?.to_string());
             planner.args.push("--target-activity".into());
-            planner.args.push(planner.req_num("target_activity")?.to_string());
+            planner
+                .args
+                .push(planner.req_num("target_activity")?.to_string());
         }
         _ => return Ok(false),
     }

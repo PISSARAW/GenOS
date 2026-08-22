@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use serde_json::Value;
 use std::collections::HashSet;
 
@@ -41,7 +41,8 @@ pub fn replay_personal_counterfactual(
         Some(intervention),
     )?;
     let comparison = compare_timelines(&reality, &counterfactual, intervention);
-    let primitive_trace = build_primitive_trace(&checkpoint, &reality, &counterfactual, &comparison);
+    let primitive_trace =
+        build_primitive_trace(&checkpoint, &reality, &counterfactual, &comparison);
 
     Ok(PersonalCausalReplayReport {
         checkpoint,

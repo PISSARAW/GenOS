@@ -1,4 +1,4 @@
-﻿use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use super::types::{
     BranchExperience, ClaimKey, ClaimRelation, ClaimRelationKind, CognitiveClaim, CognitiveGraph,
@@ -284,10 +284,7 @@ fn populate_relation_edges(
     }
 }
 
-fn populate_implicit_conflicts(
-    candidates: &[MergedClaim],
-    edges: &mut Vec<CognitiveGraphEdge>,
-) {
+fn populate_implicit_conflicts(candidates: &[MergedClaim], edges: &mut Vec<CognitiveGraphEdge>) {
     let mut explicit_conflicts = HashSet::new();
     for edge in edges.iter() {
         if edge.kind == CognitiveGraphEdgeKind::Contradicts {
