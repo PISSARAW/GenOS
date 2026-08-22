@@ -8,6 +8,7 @@
 
 ## Verification
 
+- [ ] Every commit names an accountable human author; no AI is credited as an author, committer, co-author, signer, or contributor
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --workspace --all-targets --all-features -- -D warnings`
 - [ ] `cargo test --workspace --all-targets`
