@@ -11,6 +11,14 @@ function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
+function workspaceInitializationAlertId(workspaceId) {
+  // A slug is not unique (`foo_bar` and `foo-bar` produce the same one).  Use
+  // a bounded, deterministic hash so every workspace has a collision-resistant
+  // bootstrap key that remains stable across restarts.
+  const digest = crypto.createHash('sha256').update(String(workspaceId)).digest('hex').slice(0, 24);
+  return `alert-workspace-${digest}-initialized`;
+}
+
 async function ensureConfiguredWorkspace(db) {
   // A multi-workspace deployment discovers projects under the plural root.
   // Keep this legacy bootstrap only for single explicit workspace installs.
@@ -33,13 +41,13 @@ async function ensureWorkspaceDashboardData(db) {
   const workspaces = await db.all('SELECT id, name FROM workspaces ORDER BY created_at ASC');
 
   for (const workspace of workspaces) {
-    const slug = workspace.id.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
     const alert = await db.get('SELECT id FROM global_alerts WHERE workspace_name = ? LIMIT 1', workspace.name);
     if (!alert) {
       await db.run(
         `INSERT INTO global_alerts (id, title, status, agent_name, workspace_name, severity, confidence, context_snapshot)
-         VALUES (?, ?, 'running', 'workspace_controller', ?, 'low', '100%', ?)`,
-        `alert-${slug}-initialized`,
+         VALUES (?, ?, 'running', 'workspace_controller', ?, 'low', '100%', ?)
+         ON CONFLICT(id) DO NOTHING`,
+        workspaceInitializationAlertId(workspace.id),
         `Workspace ${workspace.name} initialized`,
         workspace.name,
         'Workspace dashboard is connected to the GenOS backend.'
@@ -123,4 +131,4 @@ async function seedDatabase(db) {
   await ensureAgentStrategyContracts(db);
 }
 
-module.exports = { seedDatabase, hashKey, ensureAgentStrategyContracts };
+module.exports = { seedDatabase, hashKey, ensureAgentStrategyContracts, workspaceInitializationAlertId };
