@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { selectStrategyPortfolio } = require('../strategies/strategySelector');
+const { listStrategies } = require('../strategies/strategyRegistry');
 
 const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
 
@@ -27,6 +28,11 @@ function buildStrategyContract(input = {}) {
       score: selection.decisions.find((decision) => decision.strategy.id === strategy.id)?.score
     })),
     strategy_decision_summary: selection.summary,
+    strategy_registry: {
+      total: selection.decisions.length,
+      selection_complete: selection.decisions.length === 77,
+      endpoint: '/api/strategies'
+    },
     strategy_decisions: selection.decisions.map((decision) => ({
       id: decision.strategy.id, name: decision.strategy.name, family: decision.strategy.family,
       maturity: decision.strategy.maturity, status: decision.status,
@@ -57,6 +63,11 @@ function validateContract(contract) {
   if (!contract || contract.schema !== CONTRACT_SCHEMA) throw new Error(`Contract schema must be ${CONTRACT_SCHEMA}`);
   if (!contract.problem_profile?.type) throw new Error('problem_profile.type is required');
   if (!contract.selected_strategy?.primary) throw new Error('selected_strategy.primary is required');
+  const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
+  const decisionIds = new Set((contract.strategy_decisions || []).map((decision) => decision.id));
+  if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
+    throw new Error('strategy_decisions must contain the complete 77-strategy registry');
+  }
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
@@ -85,6 +96,13 @@ function parseRow(row) {
 }
 
 async function saveContract(db, context = {}) {
+  const agent = await db.get('SELECT id, execution_mode FROM agents WHERE id = ?', context.agentId);
+  if (!agent) throw new Error(`Agent '${context.agentId}' was not found`);
+  if (agent.execution_mode === 'worker') {
+    const error = new Error(`Worker '${context.agentId}' cannot select a strategy contract; its orchestrator owns strategy selection.`);
+    error.code = 'WORKER_REQUIRES_ORCHESTRATOR';
+    throw error;
+  }
   const contract = validateContract(context.contract || buildStrategyContract(context));
   const previous = await db.get('SELECT version FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', context.agentId);
   const version = (previous?.version || 0) + 1;

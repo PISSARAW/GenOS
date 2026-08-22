@@ -6,6 +6,7 @@ const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const strategyContracts = require('../services/strategyContractService');
+const agentAuthority = require('../services/agentAuthorityService');
 const fs = require('fs');
 const path = require('path');
 
@@ -71,21 +72,49 @@ function discoverGenosGenomes() {
 
 async function deployAgent(req, res) {
   const { prompt, modelTier = 'Flash', workspaceIsolation = 'Branch', role = 'Autonomous Node', name, about, agentType, language = 'TypeScript', workspaceId = null, fleetId = null, parentAgentId = null, lineageRelation = 'independent', executionBudget } = req.body || {};
+  let executionMode;
+  try {
+    executionMode = agentAuthority.normalizeExecutionMode(req.body?.executionMode);
+  } catch (error) {
+    return res.status(400).json({ error: { code: error.code, message: error.message } });
+  }
   const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const agentName = name || `Swarm Worker ${agentId.slice(-4)}`;
   const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
+  let inheritedStrategyContract = null;
+  if (executionMode === 'worker') {
+    if (!parentAgentId) {
+      return res.status(400).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: 'A worker must declare parentAgentId for its orchestrator.' } });
+    }
+    try {
+      await agentAuthority.requireOrchestrator(db, parentAgentId);
+      inheritedStrategyContract = await strategyContracts.getLatestContract(db, parentAgentId);
+      if (!inheritedStrategyContract) {
+        inheritedStrategyContract = await strategyContracts.saveContract(db, {
+          agentId: parentAgentId,
+          workspaceId,
+          problem: prompt || `Worker orchestration for ${role}`,
+          createdBy: 'worker_deployment'
+        });
+      }
+    } catch (error) {
+      return res.status(409).json({ error: { code: error.code, message: error.message } });
+    }
+  }
   await db.run(
-    `INSERT INTO agents (id, name, role, status, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    agentId, agentName, role, 'idle', resolvedAgentType, workspaceId, fleetId, modelTier, language, workspaceIsolation, parentAgentId, lineageRelation, about || prompt || `Autonomous agent for ${role}.`, prompt || 'Autonomous task execution'
+    `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    agentId, agentName, role, 'idle', resolvedAgentType, executionMode, workspaceId, fleetId, modelTier, language, workspaceIsolation, parentAgentId, lineageRelation, about || prompt || `Autonomous agent for ${role}.`, prompt || 'Autonomous task execution'
   );
-  const strategyContract = await strategyContracts.saveContract(db, {
-    agentId,
-    workspaceId,
-    problem: prompt || `Autonomous task execution for ${role}`,
-    createdBy: 'deployment_orchestrator'
-  });
+  const strategyContract = executionMode === 'orchestrator'
+    ? await strategyContracts.saveContract(db, {
+      agentId,
+      workspaceId,
+      problem: prompt || `Autonomous task execution for ${role}`,
+      createdBy: 'deployment_orchestrator'
+    })
+    : inheritedStrategyContract;
 
   telemetry.emitEvent({
     eventType: 'AGENT_QUEUED',
@@ -95,18 +124,27 @@ async function deployAgent(req, res) {
     severity: 'info',
     payload: {
       prompt, agentType: resolvedAgentType, modelTier, workspaceIsolation,
-      strategyContractId: strategyContract.id,
-      primaryStrategy: strategyContract.primaryStrategy
+      executionMode,
+      parentAgentId,
+      strategyContractId: strategyContract?.id,
+      primaryStrategy: strategyContract?.primaryStrategy
     }
   });
-  runtimeAdapter.startMission({
-    agentId, name: agentName, role, prompt: prompt || '', modelTier,
-    workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
-    strategyContract: strategyContract.contract,
-    executionBudget
-  }).catch((error) => telemetry.emitEvent({
-    eventType: 'AGENT_RUNTIME_ERROR', agentId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
-  }));
+  if (executionMode === 'orchestrator') {
+    runtimeAdapter.startMission({
+      agentId, name: agentName, role, prompt: prompt || '', modelTier,
+      workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
+      strategyContract: strategyContract.contract,
+      executionBudget
+    }).catch((error) => telemetry.emitEvent({
+      eventType: 'AGENT_RUNTIME_ERROR', agentId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
+    }));
+  } else {
+    telemetry.emitEvent({
+      eventType: 'AGENT_AWAITING_ORCHESTRATOR', agentId, action: 'AWAIT_DISPATCH',
+      detail: `Worker '${agentName}' is idle until orchestrator '${parentAgentId}' dispatches it.`, severity: 'info'
+    });
+  }
 
   res.status(201).json({
     success: true,
@@ -116,6 +154,7 @@ async function deployAgent(req, res) {
       id: agentId,
       name: agentName,
       role,
+      executionMode,
       status: 'idle',
       agentType: resolvedAgentType,
       workspaceId,
@@ -128,7 +167,8 @@ async function deployAgent(req, res) {
       isolationMode: workspaceIsolation,
       currentTask: prompt
     },
-    strategyContract
+    strategyContract,
+    dispatchRequired: executionMode === 'worker'
   });
 }
 
@@ -145,6 +185,18 @@ async function deployTrinity(req, res) {
   ];
 
   const missionId = `trinity_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const orchestratorId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const orchestratorName = `Trinity Orchestrator ${missionId.slice(-4)}`;
+  await db.run(
+    `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    orchestratorId, orchestratorName, 'Trinity Orchestrator', 'idle', resolvedAgentType, 'orchestrator', 'Pro', 'Branch', missionId,
+    `Orchestrator for Trinity mission: ${prompt || 'Autonomous task execution'}`, prompt || 'Trinity mission'
+  );
+  const orchestratorContract = await strategyContracts.saveContract(db, {
+    agentId: orchestratorId,
+    problem: prompt || 'Trinity mission',
+    createdBy: 'trinity_orchestrator'
+  });
   const agentIds = [];
   const persistedWorlds = [];
   for (let index = 0; index < worlds.length; index += 1) {
@@ -153,14 +205,9 @@ async function deployTrinity(req, res) {
     agentIds.push(id);
     const worldId = `${missionId}_world_${index + 1}`;
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, w.name, w.role, 'idle', resolvedAgentType, 'Pro', 'Branch', missionId, `Trinity world ${index + 1} for: ${prompt}`, `${prompt || 'Trinity mission'} — ${w.task}`
+      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, model_tier, isolation_mode, fleet_id, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, w.name, w.role, 'idle', resolvedAgentType, 'worker', 'Pro', 'Branch', missionId, orchestratorId, 'orchestrator_dispatch', `Trinity world ${index + 1} for: ${prompt}`, `${prompt || 'Trinity mission'} — ${w.task}`
     );
-    const strategyContract = await strategyContracts.saveContract(db, {
-      agentId: id,
-      problem: `${prompt || 'Trinity mission'} — ${w.task}`,
-      createdBy: 'trinity_orchestrator'
-    });
     await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'queued', id);
     persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'queued', agentId: id, fleetId: missionId });
     telemetry.emitEvent({
@@ -170,20 +217,21 @@ async function deployTrinity(req, res) {
       detail: `Spawned ${w.name}`,
       severity: 'info'
     });
-    runtimeAdapter.startMission({
-      agentId: id, name: w.name, role: w.role,
-      prompt: `${prompt || 'Trinity mission'}\n\nWorld strategy: ${w.task}`,
-      modelTier: 'Pro', workspaceIsolation: 'Branch', fleetId: missionId,
-      agentType: resolvedAgentType, strategyContract: strategyContract.contract
-    }).catch((error) => telemetry.emitEvent({
-      eventType: 'AGENT_RUNTIME_ERROR', agentId: id, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
-    }));
   }
+
+  runtimeAdapter.startMission({
+    agentId: orchestratorId, name: orchestratorName, role: 'Trinity Orchestrator', prompt: prompt || 'Trinity mission',
+    modelTier: 'Pro', workspaceIsolation: 'Branch', fleetId: missionId,
+    agentType: resolvedAgentType, strategyContract: orchestratorContract.contract
+  }).catch((error) => telemetry.emitEvent({
+    eventType: 'AGENT_RUNTIME_ERROR', agentId: orchestratorId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
+  }));
 
   res.status(201).json({
     success: true,
     message: 'Trinity worlds spawned',
     missionId,
+    orchestrator: { id: orchestratorId, name: orchestratorName, strategyContract: orchestratorContract },
     worlds: persistedWorlds,
     agents: agentIds
   });
@@ -210,7 +258,7 @@ async function listTrinityWorlds(req, res) {
 async function listAgents(req, res) {
   const db = await getDatabase();
   await backfillLegacyTrinityWorlds(db);
-  const agents = await db.all(`SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType,
+  const agents = await db.all(`SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType, a.execution_mode as executionMode,
     a.model_tier as modelTier, a.language, a.isolation_mode as isolationMode,
     a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId,
     a.parent_agent_id as parentAgentId, p.name as parentAgentName,
@@ -232,11 +280,12 @@ async function listAgents(req, res) {
 
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
-  const agent = await db.get('SELECT id FROM agents WHERE id = ?', req.params.id);
+  const agent = await db.get('SELECT id, execution_mode, parent_agent_id FROM agents WHERE id = ?', req.params.id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${req.params.id} not found` } });
-  const contract = await strategyContracts.getLatestContract(db, req.params.id);
+  const ownerId = agent.execution_mode === 'worker' ? agent.parent_agent_id : agent.id;
+  const contract = ownerId ? await strategyContracts.getLatestContract(db, ownerId) : null;
   if (!contract) return res.status(404).json({ error: { code: 'NO_STRATEGY_CONTRACT', message: 'No strategy contract has been selected for this agent.' } });
-  res.json(contract);
+  res.json({ ...contract, inheritedByWorker: agent.execution_mode === 'worker' });
 }
 
 async function getStrategyContractHistory(req, res) {
@@ -246,7 +295,7 @@ async function getStrategyContractHistory(req, res) {
 
 async function selectStrategyContract(req, res) {
   const db = await getDatabase();
-  const agent = await db.get('SELECT id, workspace_id, current_task FROM agents WHERE id = ?', req.params.id);
+  const agent = await db.get('SELECT id, workspace_id, current_task, execution_mode FROM agents WHERE id = ?', req.params.id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${req.params.id} not found` } });
   try {
     const selected = await strategyContracts.saveContract(db, {
@@ -265,7 +314,7 @@ async function selectStrategyContract(req, res) {
     });
     res.status(201).json(selected);
   } catch (error) {
-    res.status(400).json({ error: { code: 'INVALID_STRATEGY_CONTRACT', message: error.message } });
+    res.status(error.code === 'WORKER_REQUIRES_ORCHESTRATOR' ? 409 : 400).json({ error: { code: error.code || 'INVALID_STRATEGY_CONTRACT', message: error.message } });
   }
 }
 
@@ -338,8 +387,11 @@ async function ingestAgentEvent(req, res) {
 async function startAgent(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  const agent = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType FROM agents WHERE id = ?', id);
+  const agent = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType, execution_mode as executionMode, parent_agent_id as parentAgentId FROM agents WHERE id = ?', id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
+  if (agent.executionMode === 'worker') {
+    return res.status(409).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: `Worker '${agent.name}' cannot start itself. Dispatch it from orchestrator '${agent.parentAgentId}'.` } });
+  }
   let strategyContract = await strategyContracts.getLatestContract(db, id);
   if (!strategyContract) {
     strategyContract = await strategyContracts.saveContract(db, {
@@ -349,6 +401,41 @@ async function startAgent(req, res) {
   }
   const result = await runtimeAdapter.startMission({ ...agent, strategyContract: strategyContract.contract, executionBudget: req.body?.executionBudget });
   res.json({ success: true, agentId: id, strategyContract, ...result });
+}
+
+async function dispatchWorker(req, res) {
+  const { id: orchestratorId, workerId } = req.params;
+  const db = await getDatabase();
+  try {
+    const orchestrator = await agentAuthority.requireOrchestrator(db, orchestratorId);
+    const worker = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType, execution_mode as executionMode, parent_agent_id as parentAgentId FROM agents WHERE id = ?', workerId);
+    if (!worker) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Worker '${workerId}' was not found.` } });
+    if (worker.executionMode !== 'worker') return res.status(409).json({ error: { code: 'WORKER_REQUIRED', message: `Agent '${workerId}' is an orchestrator; dispatch it through its own start endpoint.` } });
+    if (worker.parentAgentId !== orchestrator.id) return res.status(409).json({ error: { code: 'WORKER_ORCHESTRATOR_MISMATCH', message: `Worker '${worker.name}' is not assigned to '${orchestrator.id}'.` } });
+    let strategyContract = await strategyContracts.getLatestContract(db, orchestrator.id);
+    if (!strategyContract) {
+      strategyContract = await strategyContracts.saveContract(db, {
+        agentId: orchestrator.id,
+        workspaceId: worker.workspaceId,
+        problem: worker.prompt || `Mission dispatched to ${worker.name}`,
+        createdBy: 'worker_dispatch'
+      });
+    }
+    const result = await runtimeAdapter.startMission({
+      ...worker,
+      orchestratorAgentId: orchestrator.id,
+      strategyContract: strategyContract.contract,
+      executionBudget: req.body?.executionBudget
+    });
+    telemetry.emitEvent({
+      eventType: 'ORCHESTRATOR_DISPATCHED_WORKER', agentId: orchestrator.id, action: 'DISPATCH',
+      detail: `Dispatched worker '${worker.name}'.`, payload: { workerId: worker.id, strategyContractId: strategyContract.id }, severity: 'info'
+    });
+    res.json({ success: true, orchestratorId: orchestrator.id, workerId: worker.id, strategyContract, ...result });
+  } catch (error) {
+    const status = ['ORCHESTRATOR_NOT_FOUND'].includes(error.code) ? 404 : 409;
+    res.status(status).json({ error: { code: error.code || 'WORKER_DISPATCH_FAILED', message: error.message } });
+  }
 }
 
 module.exports = {
@@ -361,6 +448,7 @@ module.exports = {
   pingAgent,
   ingestAgentEvent,
   startAgent,
+  dispatchWorker,
   getStrategyContract,
   getStrategyContractHistory,
   selectStrategyContract

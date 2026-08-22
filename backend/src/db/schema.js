@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS agents (
     role TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
     agent_type TEXT NOT NULL DEFAULT 'GenOS',
+    execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),
     workspace_id TEXT,
     fleet_id TEXT,
     hallucination_monitoring INTEGER NOT NULL DEFAULT 0,
@@ -734,6 +735,7 @@ async function migrateLegacySchema(db) {
       } else {
         if (!colNames.includes('fleet_id')) await db.exec('ALTER TABLE agents ADD COLUMN fleet_id TEXT;');
         if (!colNames.includes('hallucination_monitoring')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_monitoring INTEGER NOT NULL DEFAULT 0;');
+        if (!colNames.includes('execution_mode')) await db.exec("ALTER TABLE agents ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'orchestrator';");
       }
       if (!colNames.includes('lineage_relation')) {
         await db.exec("ALTER TABLE agents ADD COLUMN lineage_relation TEXT DEFAULT 'independent';");
@@ -770,7 +772,8 @@ async function applyVersionedMigrations(db) {
     ['001-compliance-ide', 'Add compliance reports and IDE integration contracts'],
     ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts'],
     ['003-tenant-scopes', 'Add organization, project and membership isolation'],
-    ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors']
+    ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors'],
+    ['005-agent-authority', 'Require an orchestrator to dispatch worker agents']
   ];
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));

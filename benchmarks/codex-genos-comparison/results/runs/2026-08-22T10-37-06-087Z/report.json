@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "benchmark": "codex-genos-vs-standard-smoke",
+  "generated_at": "2026-08-22T10:38:41.021Z",
+  "source_revision": "2b9f67a9024f6177551be4e02c37a74d4453843e",
+  "codex_version": "codex-cli 0.145.0",
+  "models": [
+    "gpt-5.6-luna"
+  ],
+  "reasoning_effort": "medium",
+  "controls": {
+    "identical_prompt": true,
+    "fresh_fixture_copy_per_run": true,
+    "standard": "Codex with user configuration ignored and no MCP server",
+    "genos": "Same Codex invocation with only the local GenOS MCP server added"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64"
+  },
+  "aggregate": {
+    "standard": {
+      "runs": 1,
+      "successful_runs": 1,
+      "mean_score": 8.5,
+      "mean_duration_ms": 46931,
+      "total_input_tokens": 88214,
+      "total_output_tokens": 2023,
+      "tool_calls": 7
+    },
+    "genos": {
+      "runs": 1,
+      "successful_runs": 1,
+      "mean_score": 8.5,
+      "mean_duration_ms": 45100,
+      "total_input_tokens": 96396,
+      "total_output_tokens": 1920,
+      "tool_calls": 5
+    }
+  },
+  "samples": [
+    {
+      "model": "gpt-5.6-luna",
+      "condition": "standard",
+      "exit_code": 0,
+      "duration_ms": 46931,
+      "usage": {
+        "input_tokens": 88214,
+        "cached_input_tokens": 67328,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 2023,
+        "reasoning_output_tokens": 239
+      },
+      "tool_calls": [
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc \"pwd && rg --files -g '\"'!target'\"' -g '\"'!*.lock'\"' | sort && git status --short\""
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc \"sed -n '1,240p' Cargo.toml; sed -n '1,260p' src/lib.rs; sed -n '1,260p' src/bin/trace_212.rs; sed -n '1,320p' tests/reproduction.rs; sed -n '1,320p' tests/test_18.rs\""
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo test'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo test --test reproduction -- --nocapture'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo test --test test_18 -- --nocapture'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo run --bin trace_212'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'nl -ba src/lib.rs; nl -ba tests/test_18.rs; nl -ba tests/reproduction.rs; nl -ba src/bin/trace_212.rs; git diff -- src/lib.rs src/bin/trace_212.rs tests/test_18.rs tests/reproduction.rs; git status --short -- src/lib.rs src/bin/trace_212.rs tests/test_18.rs tests/reproduction.rs'"
+        }
+      ],
+      "score": 8.5,
+      "max_score": 10,
+      "checks": {
+        "valid_json": true,
+        "exact_fault": true,
+        "correct_patch": true,
+        "quote_evidence": false,
+        "freshness_evidence": true,
+        "targeted_tests": true,
+        "alternatives_rejected": true,
+        "correct_file": true
+      },
+      "artifacts": "benchmarks/codex-genos-comparison/results/runs/2026-08-22T10-37-06-087Z/gpt-5.6-luna-standard"
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "condition": "genos",
+      "exit_code": 0,
+      "duration_ms": 45100,
+      "usage": {
+        "input_tokens": 96396,
+        "cached_input_tokens": 75520,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 1920,
+        "reasoning_output_tokens": 531
+      },
+      "tool_calls": [
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc \"pwd && rg --files -g '\"'!target'\"' | sort && echo '--- git status ---' && git status --short\""
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc \"sed -n '1,240p' Cargo.toml && echo '--- src/lib.rs ---' && nl -ba src/lib.rs && echo '--- trace ---' && nl -ba src/bin/trace_212.rs && echo '--- reproduction ---' && nl -ba tests/reproduction.rs && echo '--- test_18 ---' && nl -ba tests/test_18.rs\""
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo test --all-targets'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo test --test test_18 && cargo run --bin trace_212; trace_status=$?; cargo test --test reproduction; reproduction_status=$?; printf '\"'trace_status=%s reproduction_status=%s\\\\n' \\\"\"'$trace_status\" \"$reproduction_status\"; exit 0'"
+        },
+        {
+          "type": "command_execution",
+          "name": "/bin/zsh -lc 'cargo run --bin trace_212; status=$?; printf '\"'status=%s\\\\n' \\\"\"'$status\"; exit 0'"
+        }
+      ],
+      "score": 8.5,
+      "max_score": 10,
+      "checks": {
+        "valid_json": true,
+        "exact_fault": true,
+        "correct_patch": true,
+        "quote_evidence": false,
+        "freshness_evidence": true,
+        "targeted_tests": true,
+        "alternatives_rejected": true,
+        "correct_file": true
+      },
+      "artifacts": "benchmarks/codex-genos-comparison/results/runs/2026-08-22T10-37-06-087Z/gpt-5.6-luna-genos"
+    }
+  ],
+  "limitations": [
+    "One deterministic debugging task is a smoke benchmark, not evidence of general superiority.",
+    "Each model-condition pair is executed once; stochastic variance is not estimated.",
+    "The rubric measures correctness and evidence coverage, not prose style or user preference.",
+    "MCP availability changes the model-visible tool catalog and server instructions, which is the treatment being measured."
+  ]
+}
