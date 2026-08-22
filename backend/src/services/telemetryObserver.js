@@ -9,6 +9,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const { EventEmitter } = require('events');
 const { getDatabase } = require('../db');
+const webhookService = require('./webhookService');
 
 const MAX_RING_BUFFER_SIZE = 10000;
 const STREAM_CANDIDATE_FILES = [
@@ -75,6 +76,7 @@ class TelemetryObserver extends EventEmitter {
     this.broadcastSSE(event);
     this.persistAsync(event);
     this.emit('telemetry', event);
+    webhookService.dispatch(event);
     return event;
   }
 

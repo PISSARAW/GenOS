@@ -1,0 +1,3 @@
+const crypto = require('crypto'); const { getDatabase } = require('../db');
+async function dispatch(event) { try { const db = await getDatabase(); const hooks = await db.all('SELECT * FROM webhook_subscriptions WHERE enabled = 1'); for (const hook of hooks) { const secret = process.env.GENOS_WEBHOOK_SECRET || hook.secret; const body = JSON.stringify({ event, sentAt: new Date().toISOString() }); const signature = crypto.createHmac('sha256', secret).update(body).digest('hex'); fetch(hook.url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-genos-signature': signature }, body }).catch(() => {}); } } catch (_) {} }
+module.exports = { dispatch };
