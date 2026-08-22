@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   ArrowLeft, Code, CircleDot, GitPullRequest, PlayCircle, History, 
-  ShieldCheck, LayoutGrid, FileText, Folder, Book, Activity, Settings
+  ShieldCheck, LayoutGrid, FileText, Folder, FolderOpen, ChevronRight, ChevronDown, Book, Activity, Settings
 } from 'lucide-react';
 import { WorkspaceTimeMachine } from './WorkspaceTimeMachine';
 import { useToastStore } from '../store/useToastStore';
@@ -12,6 +12,30 @@ interface WorkspaceDashboardProps {
   onBack: () => void;
 }
 
+type WorkspaceFile = { name: string; type: string; message: string; time: string; status?: string };
+type FileTreeNode = { name: string; path: string; folder: boolean; file?: WorkspaceFile; children: FileTreeNode[] };
+
+function buildFileTree(files: WorkspaceFile[]): FileTreeNode[] {
+  const root: FileTreeNode[] = [];
+  for (const file of files) {
+    let level = root;
+    const parts = file.name.split('/');
+    parts.forEach((part, index) => {
+      const path = parts.slice(0, index + 1).join('/');
+      let node = level.find(item => item.name === part);
+      if (!node) {
+        node = { name: part, path, folder: index < parts.length - 1, file: index === parts.length - 1 ? file : undefined, children: [] };
+        level.push(node);
+      }
+      level = node.children;
+    });
+  }
+  const sort = (nodes: FileTreeNode[]) => nodes.sort((a, b) => Number(b.folder) - Number(a.folder) || a.name.localeCompare(b.name));
+  const walk = (nodes: FileTreeNode[]) => { sort(nodes); nodes.forEach(node => walk(node.children)); };
+  walk(root);
+  return root;
+}
+
 export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspace, onBack }) => {
   const [activeTab, setActiveTab] = useState('code');
   const [tabData, setTabData] = useState<any[]>([]);
@@ -19,6 +43,7 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
   const [tabError, setTabError] = useState('');
   const [tabReload, setTabReload] = useState(0);
   const showToast = useToastStore((state) => state.showToast);
+  const workspaceKey = workspace?.id || workspace?.title || workspace?.name || '';
 
   const tabs = [
     { id: 'code', label: 'Code', icon: Code },
@@ -30,7 +55,46 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
     { id: 'timelines', label: 'GenOS Timelines', icon: History, highlight: true }
   ];
 
-  const files: { name: string; type: string; message: string; time: string }[] = [];
+  const [files, setFiles] = useState<WorkspaceFile[]>([]);
+  const [readme, setReadme] = useState('');
+  const [codeLoading, setCodeLoading] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const fileTree = buildFileTree(files);
+
+  const renderFileTree = (nodes: FileTreeNode[], depth = 0): React.ReactNode => nodes.map(node => {
+    const expanded = expandedFolders[node.path] ?? depth === 0;
+    if (node.folder) {
+      const hasChanges = node.children.some(child => child.file?.status && child.file.status !== 'clean') || node.children.some(child => child.folder && child.children.some(grandchild => grandchild.file?.status && grandchild.file.status !== 'clean'));
+      return <React.Fragment key={node.path}>
+        <button onClick={() => setExpandedFolders(current => ({ ...current, [node.path]: !expanded }))} style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', padding: '10px 16px', paddingLeft: `${16 + depth * 22}px`, border: 0, borderBottom: '1px solid var(--panel-border)', background: 'transparent', color: 'var(--text-primary)', textAlign: 'left', cursor: 'pointer', fontSize: '0.85rem' }} className="hover-bg-gray">
+          {expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+          {expanded ? <FolderOpen size={16} color="#58a6ff" /> : <Folder size={16} color="#58a6ff" />}
+          <span>{node.name}</span>{hasChanges && <span style={{ color: '#d29922', marginLeft: 4 }}>Git changes</span>}
+        </button>
+        {expanded && renderFileTree(node.children, depth + 1)}
+      </React.Fragment>;
+    }
+    const file = node.file!;
+    return <div key={node.path} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', paddingLeft: `${38 + depth * 22}px`, borderBottom: '1px solid var(--panel-border)', fontSize: '0.85rem' }} className="hover-bg-gray">
+      <FileText size={16} color="var(--text-muted)" />
+      <span style={{ flex: 1, color: 'var(--text-primary)' }}>{node.name}</span>
+      <span style={{ color: file.status !== 'clean' ? '#d29922' : 'var(--text-secondary)' }}>{file.status !== 'clean' ? `Git ${file.status}` : file.message}</span>
+      <span style={{ width: '170px', textAlign: 'right', color: 'var(--text-muted)' }}>{file.time}</span>
+    </div>;
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    setCodeLoading(true);
+    api.getWorkspaceFiles(workspaceKey).then((result: any) => {
+      if (cancelled) return;
+      setFiles(Array.isArray(result?.files) ? result.files : []);
+      setReadme(result?.readme || '');
+    }).catch(() => {
+      if (!cancelled) { setFiles([]); setReadme(''); }
+    }).finally(() => { if (!cancelled) setCodeLoading(false); });
+    return () => { cancelled = true; };
+  }, [workspaceKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,17 +103,22 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
       if (activeTab === 'code' || activeTab === 'timelines') return;
       setTabLoading(true);
       setTabError('');
+      setTabData([]);
 
       try {
         let result: any;
-        if (activeTab === 'issues') result = await api.getAlerts();
-        if (activeTab === 'pulls') result = await api.getPendingTrajectories();
+        if (activeTab === 'issues') result = await api.getAlerts(workspaceKey);
+        if (activeTab === 'pulls') result = await api.getPendingTrajectories(workspaceKey);
         if (activeTab === 'actions') result = await api.getTelemetryEvents(25);
-        if (activeTab === 'projects') result = await api.listExperiments();
+        if (activeTab === 'projects') result = await api.listExperiments(workspaceKey);
         if (activeTab === 'security') result = await api.getSecurityStatus();
 
         if (!cancelled) {
-          const rows = activeTab === 'actions' ? result?.events : activeTab === 'security' ? [result?.securityPosture] : result;
+          const rows = activeTab === 'actions'
+            ? result?.events
+            : activeTab === 'security'
+              ? [result?.securityPosture]
+              : Array.isArray(result) ? result : result?.items || result?.data || [];
           setTabData(Array.isArray(rows) ? rows.filter(Boolean) : []);
         }
       } catch (error: any) {
@@ -61,7 +130,7 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
 
     loadTab();
     return () => { cancelled = true; };
-  }, [activeTab, tabReload]);
+  }, [activeTab, tabReload, workspaceKey]);
 
   const formatDate = (value: any) => value ? new Date(value).toLocaleString() : '—';
 
@@ -187,17 +256,9 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
 
                 {/* File List */}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {files.length === 0 && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>No repository files are connected to this workspace.</div>}
-                  {files.map((f, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', borderBottom: i < files.length - 1 ? '1px solid var(--panel-border)' : 'none', fontSize: '0.85rem' }} className="hover-bg-gray">
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '200px' }}>
-                        {f.type === 'folder' ? <Folder size={16} color="#58a6ff" /> : <FileText size={16} color="var(--text-muted)" />}
-                        <span style={{ color: 'var(--text-primary)', cursor: 'pointer' }} className="hover-blue">{f.name}</span>
-                      </div>
-                      <div style={{ flex: 1, color: 'var(--text-secondary)' }} className="hover-blue cursor-pointer">{f.message}</div>
-                      <div style={{ width: '100px', textAlign: 'right', color: 'var(--text-muted)' }}>{f.time}</div>
-                    </div>
-                  ))}
+                  {codeLoading && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>Loading workspace files…</div>}
+                  {!codeLoading && files.length === 0 && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>No modified files in this workspace.</div>}
+                  {!codeLoading && files.length > 0 && renderFileTree(fileTree)}
                 </div>
               </div>
 
@@ -207,10 +268,7 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
                   <FileText size={16} color="var(--text-muted)"/> README.md
                 </div>
                   <div style={{ padding: '32px', fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6 }}>
-                    <p style={{ color: 'var(--text-secondary)' }}>No README content is connected to the backend for this workspace.</p>
-                  <h1 style={{ borderBottom: '1px solid var(--panel-border)', paddingBottom: '8px', margin: '0 0 16px 0' }}>{workspace.title || workspace.name}</h1>
-                  <p style={{ color: 'var(--text-secondary)' }}>Welcome to the {workspace.title || workspace.name} workspace.</p>
-                  <p style={{ color: 'var(--text-secondary)' }}>This workspace is managed by <strong>GenOS Swarm Fleet</strong>. It is connected to the live telemetry stream and auto-resolves its own issues.</p>
+                  {readme ? <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{readme}</pre> : <p style={{ color: 'var(--text-secondary)' }}>No README content is connected to the backend for this workspace.</p>}
                 </div>
               </div>
             </div>
