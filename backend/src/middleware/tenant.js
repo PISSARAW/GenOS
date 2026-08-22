@@ -51,3 +51,11 @@ async function attachTenant(req, res, next) {
 }
 
 module.exports = { attachTenant, requireTenantScope, resolveTenant };
+
+function scopeSql(req, alias = '') {
+  const prefix = alias ? `${alias}.` : '';
+  if (!req.tenant) throw new Error('Tenant scope has not been resolved');
+  return { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] };
+}
+
+module.exports.scopeSql = scopeSql;

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/workflowController');
 const { requirePermission } = require('../middleware/auth');
+const { requireTenantScope } = require('../middleware/tenant');
+router.use(requireTenantScope());
 
 router.get('/', controller.listWorkflows);
 router.post('/', requirePermission('workspace:write'), controller.createWorkflow);
