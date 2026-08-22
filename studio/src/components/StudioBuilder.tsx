@@ -123,6 +123,10 @@ export const StudioBuilder: React.FC = () => {
   const addWorkflowNode = (label: string) => {
     const id = `${label.toLowerCase().replace(/\W+/g, '-')}-${Date.now()}`;
     setNodes((current) => [...current, { id, position: { x: 420, y: 360 }, data: { label: `${label}\nNew node` }, type: 'default' }]);
+    setEdges((current) => {
+      const source = selectedNode && nodes.some((node) => node.id === selectedNode) ? selectedNode : 'trigger';
+      return [...current, { id: `edge-${source}-${id}`, source, target: id, animated: true }];
+    });
   };
   const updateNodeLabel = (id: string, label: string) => setNodes((current) => current.map((node) => node.id === id ? { ...node, data: { ...node.data, label } } : node));
 
