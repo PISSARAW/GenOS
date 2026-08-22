@@ -88,11 +88,11 @@ function workerToolLease(role) {
   return lease;
 }
 
-async function createIsolatedWorkspace(sourceRoot, workerId) {
+async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride) {
   const source = path.resolve(sourceRoot);
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
-  const capsuleRoot = process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
+  const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
   const destination = path.join(capsuleRoot, path.basename(source), workerId);
   // Capsules must never recursively copy previous capsules, build products, or
   // VCS metadata. They remain on disk for replay and evidence-aware merging.
@@ -103,6 +103,16 @@ async function createIsolatedWorkspace(sourceRoot, workerId) {
     filter: (entry) => !excluded.has(path.basename(entry))
   });
   return destination;
+}
+
+async function provisionMissionWorkspace(mission, executionMode) {
+  // An orchestrator is the authority boundary for a mission and must never
+  // operate directly in the caller's workspace. Workers already receive a
+  // capsule from their orchestrator, so preserve their assigned root.
+  if (executionMode !== 'orchestrator' || mission.workspaceProvisioned === true) return mission;
+  const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, mission.agentId);
+  return { ...mission, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
 }
 
 async function consultLocalModels(db, agentId, mission, plan) {
@@ -181,7 +191,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
-    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id);
+    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(assignment.role);
     const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`].join('\n');
     await db.run(
@@ -210,6 +220,12 @@ async function startMission(mission) {
   const executable = configuredExecutable();
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
+  if (dispatchedAgent.execution_mode === 'orchestrator') {
+    emit(agentId, 'ORCHESTRATOR_WORKSPACE_CREATED', 'CAPSULE', `Created isolated workspace for orchestrator ${agentId}.`, {
+      workspaceRoot: normalizedMission.workspaceRoot
+    }, 'info');
+  }
   // Monitoring is automatic for every mission created by the orchestrator.
   // The counter is mission-scoped, so a previously resolved incident cannot
   // terminate a new mission.
@@ -373,4 +389,4 @@ function stopMission(agentId) {
   return true;
 }
 
-module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, runtimeExitOutcome };
+module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome };
