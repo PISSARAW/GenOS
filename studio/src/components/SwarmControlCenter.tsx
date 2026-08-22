@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ChevronDown, Activity, Plus, ThumbsUp, ThumbsDown, CheckCircle2 } from 'lucide-react';
+import { Search, Activity, Plus, ThumbsUp, ThumbsDown, CheckCircle2, Route } from 'lucide-react';
 import { useGenOSStore } from '../store/useGenOSStore';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
@@ -161,6 +161,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                     {agent.role}
                   </span>
                   {agent.trinityWorldName && <span style={{ fontSize: '0.75rem', padding: '2px 8px', border: '1px solid var(--accent-purple)', borderRadius: '12px', color: 'var(--accent-purple)', fontWeight: 500 }}>{agent.trinityWorldName}</span>}
+                  {agent.strategyPrimary && <span title={`Strategy contract v${agent.strategyVersion || 1}`} style={{ fontSize: '0.75rem', padding: '2px 8px', border: '1px solid var(--accent-blue)', borderRadius: '12px', color: 'var(--accent-blue)', fontWeight: 500, display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Route size={11} /> {agent.strategyPrimary.replaceAll('_', ' ')}</span>}
                   </div>
 
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 8px 0', maxWidth: '85%' }}>

@@ -1,0 +1,113 @@
+const crypto = require('crypto');
+const { selectStrategyPortfolio } = require('../strategies/strategySelector');
+
+const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
+
+function buildStrategyContract(input = {}) {
+  const selection = selectStrategyPortfolio(input);
+  const problem = selection.problem;
+  const problemProfile = selection.profile;
+  const selected = selection.primary;
+  const highRisk = problemProfile.risk === 'high';
+  return {
+    schema: CONTRACT_SCHEMA,
+    mission: problem || 'Autonomous task execution',
+    problem_profile: problemProfile,
+    selected_strategy: {
+      primary: selected.id,
+      allocation: selection.policies.allocation,
+      evaluation: selection.policies.evaluation,
+      merge: selection.policies.merge,
+      maturity: selected.maturity,
+      rationale: `Selected ${selected.id} from 77 strategies for a ${problemProfile.type} problem with uncertainty ${problemProfile.uncertainty.toFixed(2)} and ${problemProfile.risk} risk.`
+    },
+    strategy_portfolio: selection.portfolio.map((strategy) => ({
+      id: strategy.id, name: strategy.name, family: strategy.family, role: strategy.role,
+      maturity: strategy.maturity, primitives: strategy.primitives,
+      score: selection.decisions.find((decision) => decision.strategy.id === strategy.id)?.score
+    })),
+    strategy_decision_summary: selection.summary,
+    strategy_decisions: selection.decisions.map((decision) => ({
+      id: decision.strategy.id, name: decision.strategy.name, family: decision.strategy.family,
+      maturity: decision.strategy.maturity, status: decision.status,
+      score: decision.score, reason: decision.reason
+    })),
+    selection_policy: selection.options,
+    execution_pipeline: ['memory_retrieval', 'snapshot', 'isolated_forks', 'instrumented_run', 'adaptive_evaluation', 'diff_and_replay', 'audit', 'conditional_promotion'],
+    branches: selection.branches.map((hypothesis, index) => ({
+      label: `branch_${index + 1}`,
+      hypothesis,
+      budget_share: Number((1 / selection.branches.length).toFixed(3)),
+      isolation: 'agent_world_capsule'
+    })),
+    stop_conditions: ['hard_invariant_failure', 'circuit_breaker_open', 'dominated_after_minimum_evidence', 'budget_exhausted'],
+    promotion: {
+      require_replay: problemProfile.requires_reproducibility || highRisk,
+      require_independent_verification: true,
+      require_human_approval: highRisk || problemProfile.reversibility === 'low' || selection.portfolio.some((strategy) => strategy.maturity !== 'implemented'),
+      preserve_rejected_branches: true,
+      merge_workspace_automatically: false
+    },
+    observability: ['events', 'cost_usd', 'tokens', 'latency_ms', 'tool_receipts', 'lineage', 'diff'],
+    created_at: new Date().toISOString()
+  };
+}
+
+function validateContract(contract) {
+  if (!contract || contract.schema !== CONTRACT_SCHEMA) throw new Error(`Contract schema must be ${CONTRACT_SCHEMA}`);
+  if (!contract.problem_profile?.type) throw new Error('problem_profile.type is required');
+  if (!contract.selected_strategy?.primary) throw new Error('selected_strategy.primary is required');
+  if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
+  if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
+  if (!contract.promotion) throw new Error('promotion policy is required');
+  return contract;
+}
+
+function hashContract(contract) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex')}`;
+}
+
+function parseRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    agentId: row.agent_id,
+    workspaceId: row.workspace_id,
+    version: row.version,
+    status: row.status,
+    primaryStrategy: row.primary_strategy,
+    contractHash: row.contract_hash,
+    decisionReason: row.decision_reason,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+    contract: JSON.parse(row.contract_json)
+  };
+}
+
+async function saveContract(db, context = {}) {
+  const contract = validateContract(context.contract || buildStrategyContract(context));
+  const previous = await db.get('SELECT version FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', context.agentId);
+  const version = (previous?.version || 0) + 1;
+  const id = `strategy_${context.agentId}_${version}`;
+  const hash = hashContract(contract);
+  await db.run("UPDATE strategy_contracts SET status = 'superseded' WHERE agent_id = ? AND status = 'active'", context.agentId);
+  await db.run(
+    `INSERT INTO strategy_contracts (id, agent_id, workspace_id, version, status, primary_strategy, contract_hash, contract_json, decision_reason, created_by)
+     VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
+    id, context.agentId, context.workspaceId || null, version, contract.selected_strategy.primary,
+    hash, JSON.stringify(contract), context.decisionReason || contract.selected_strategy.rationale,
+    context.createdBy || 'orchestrator'
+  );
+  return getLatestContract(db, context.agentId);
+}
+
+async function getLatestContract(db, agentId) {
+  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', agentId));
+}
+
+async function listContracts(db, agentId) {
+  const rows = await db.all('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC', agentId);
+  return rows.map(parseRow);
+}
+
+module.exports = { CONTRACT_SCHEMA, buildStrategyContract, validateContract, saveContract, getLatestContract, listContracts };

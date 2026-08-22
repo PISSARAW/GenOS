@@ -21,6 +21,9 @@ export interface Clone {
   trinityWorldName?: string | null;
   trinityStrategy?: string | null;
   trinityMission?: string | null;
+  strategyPrimary?: string | null;
+  strategyVersion?: number | null;
+  strategyStatus?: string | null;
 }
 
 export interface MCTSTreeNode {

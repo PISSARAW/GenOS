@@ -5,6 +5,7 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const strategyContracts = require('../services/strategyContractService');
 const fs = require('fs');
 const path = require('path');
 
@@ -69,7 +70,7 @@ function discoverGenosGenomes() {
 }
 
 async function deployAgent(req, res) {
-  const { prompt, modelTier = 'Flash', workspaceIsolation = 'Branch', role = 'Autonomous Node', name, about, agentType, language = 'TypeScript', workspaceId = null, fleetId = null, parentAgentId = null, lineageRelation = 'independent' } = req.body || {};
+  const { prompt, modelTier = 'Flash', workspaceIsolation = 'Branch', role = 'Autonomous Node', name, about, agentType, language = 'TypeScript', workspaceId = null, fleetId = null, parentAgentId = null, lineageRelation = 'independent', executionBudget } = req.body || {};
   const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const agentName = name || `Swarm Worker ${agentId.slice(-4)}`;
   const resolvedAgentType = normalizeAgentType(agentType);
@@ -79,6 +80,12 @@ async function deployAgent(req, res) {
     `INSERT INTO agents (id, name, role, status, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     agentId, agentName, role, 'idle', resolvedAgentType, workspaceId, fleetId, modelTier, language, workspaceIsolation, parentAgentId, lineageRelation, about || prompt || `Autonomous agent for ${role}.`, prompt || 'Autonomous task execution'
   );
+  const strategyContract = await strategyContracts.saveContract(db, {
+    agentId,
+    workspaceId,
+    problem: prompt || `Autonomous task execution for ${role}`,
+    createdBy: 'deployment_orchestrator'
+  });
 
   telemetry.emitEvent({
     eventType: 'AGENT_QUEUED',
@@ -86,11 +93,17 @@ async function deployAgent(req, res) {
     action: 'DEPLOY',
     detail: `Spawned agent '${agentName}' with tier ${modelTier}`,
     severity: 'info',
-    payload: { prompt, agentType: resolvedAgentType, modelTier, workspaceIsolation }
+    payload: {
+      prompt, agentType: resolvedAgentType, modelTier, workspaceIsolation,
+      strategyContractId: strategyContract.id,
+      primaryStrategy: strategyContract.primaryStrategy
+    }
   });
   runtimeAdapter.startMission({
     agentId, name: agentName, role, prompt: prompt || '', modelTier,
-    workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType
+    workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
+    strategyContract: strategyContract.contract,
+    executionBudget
   }).catch((error) => telemetry.emitEvent({
     eventType: 'AGENT_RUNTIME_ERROR', agentId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
   }));
@@ -114,7 +127,8 @@ async function deployAgent(req, res) {
       modelTier,
       isolationMode: workspaceIsolation,
       currentTask: prompt
-    }
+    },
+    strategyContract
   });
 }
 
@@ -142,6 +156,11 @@ async function deployTrinity(req, res) {
       `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id, w.name, w.role, 'running', resolvedAgentType, 'Pro', 'Branch', missionId, `Trinity world ${index + 1} for: ${prompt}`, w.task
     );
+    await strategyContracts.saveContract(db, {
+      agentId: id,
+      problem: `${prompt || 'Trinity mission'} — ${w.task}`,
+      createdBy: 'trinity_orchestrator'
+    });
     await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'running', id);
     persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'running', agentId: id, fleetId: missionId });
     telemetry.emitEvent({
@@ -181,10 +200,63 @@ async function listTrinityWorlds(req, res) {
 async function listAgents(req, res) {
   const db = await getDatabase();
   await backfillLegacyTrinityWorlds(db);
-  const agents = await db.all("SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType, a.model_tier as modelTier, a.language, a.isolation_mode as isolationMode, a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId, a.parent_agent_id as parentAgentId, p.name as parentAgentName, a.lineage_relation as lineageRelation, a.hallucination_monitoring as hallucinationMonitoring, COALESCE(a.about, a.current_task, 'Autonomous GenOS agent.') as about, tw.id as trinityWorldId, tw.name as trinityWorldName, tw.strategy as trinityStrategy, tw.mission as trinityMission FROM agents a LEFT JOIN agents p ON p.id = a.parent_agent_id LEFT JOIN trinity_worlds tw ON tw.agent_id = a.id WHERE a.status != 'terminated'");
+  const agents = await db.all(`SELECT a.id, a.name, a.role, a.status, a.agent_type as agentType,
+    a.model_tier as modelTier, a.language, a.isolation_mode as isolationMode,
+    a.current_task as currentTask, a.workspace_id as workspaceId, a.fleet_id as fleetId,
+    a.parent_agent_id as parentAgentId, p.name as parentAgentName,
+    a.lineage_relation as lineageRelation, a.hallucination_monitoring as hallucinationMonitoring,
+    COALESCE(a.about, a.current_task, 'Autonomous GenOS agent.') as about,
+    tw.id as trinityWorldId, tw.name as trinityWorldName, tw.strategy as trinityStrategy,
+    tw.mission as trinityMission, sc.primary_strategy as strategyPrimary,
+    sc.version as strategyVersion, sc.status as strategyStatus
+    FROM agents a
+    LEFT JOIN agents p ON p.id = a.parent_agent_id
+    LEFT JOIN trinity_worlds tw ON tw.agent_id = a.id
+    LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id
+      AND sc.version = (SELECT MAX(latest.version) FROM strategy_contracts latest WHERE latest.agent_id = a.id)
+    WHERE a.status != 'terminated'`);
   // Local genome files are definitions available for deployment, not active
   // fleet members. Only persisted agent records belong in the fleet view.
   res.json(agents);
+}
+
+async function getStrategyContract(req, res) {
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id FROM agents WHERE id = ?', req.params.id);
+  if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${req.params.id} not found` } });
+  const contract = await strategyContracts.getLatestContract(db, req.params.id);
+  if (!contract) return res.status(404).json({ error: { code: 'NO_STRATEGY_CONTRACT', message: 'No strategy contract has been selected for this agent.' } });
+  res.json(contract);
+}
+
+async function getStrategyContractHistory(req, res) {
+  const db = await getDatabase();
+  res.json(await strategyContracts.listContracts(db, req.params.id));
+}
+
+async function selectStrategyContract(req, res) {
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id, workspace_id, current_task FROM agents WHERE id = ?', req.params.id);
+  if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${req.params.id} not found` } });
+  try {
+    const selected = await strategyContracts.saveContract(db, {
+      agentId: agent.id,
+      workspaceId: agent.workspace_id,
+      problem: req.body?.problem || agent.current_task,
+      contract: req.body?.contract,
+      decisionReason: req.body?.decisionReason,
+      createdBy: req.user?.username || 'orchestrator'
+    });
+    telemetry.emitEvent({
+      eventType: 'STRATEGY_CONTRACT_SELECTED', agentId: agent.id, action: 'SELECT_STRATEGY',
+      detail: `${selected.primaryStrategy} selected as strategy contract v${selected.version}`,
+      payload: { contractId: selected.id, contractHash: selected.contractHash, version: selected.version },
+      severity: 'info'
+    });
+    res.status(201).json(selected);
+  } catch (error) {
+    res.status(400).json({ error: { code: 'INVALID_STRATEGY_CONTRACT', message: error.message } });
+  }
 }
 
 async function subscribeAgent(req, res) {
@@ -246,8 +318,15 @@ async function startAgent(req, res) {
   const db = await getDatabase();
   const agent = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType FROM agents WHERE id = ?', id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
-  const result = await runtimeAdapter.startMission(agent);
-  res.json({ success: true, agentId: id, ...result });
+  let strategyContract = await strategyContracts.getLatestContract(db, id);
+  if (!strategyContract) {
+    strategyContract = await strategyContracts.saveContract(db, {
+      agentId: id, workspaceId: agent.workspaceId, problem: agent.prompt,
+      createdBy: 'mission_orchestrator'
+    });
+  }
+  const result = await runtimeAdapter.startMission({ ...agent, strategyContract: strategyContract.contract, executionBudget: req.body?.executionBudget });
+  res.json({ success: true, agentId: id, strategyContract, ...result });
 }
 
 module.exports = {
@@ -259,5 +338,8 @@ module.exports = {
   getAgentHistory,
   pingAgent,
   ingestAgentEvent,
-  startAgent
+  startAgent,
+  getStrategyContract,
+  getStrategyContractHistory,
+  selectStrategyContract
 };

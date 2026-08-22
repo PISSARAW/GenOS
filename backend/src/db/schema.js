@@ -348,14 +348,65 @@ CREATE TABLE IF NOT EXISTS provider_configs (
     UNIQUE(provider, model)
 );
 
--- 20. Versioned Studio migrations (safe, idempotent upgrades)
+-- 21. Versioned strategy contracts selected by orchestrator agents
+CREATE TABLE IF NOT EXISTS strategy_contracts (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    workspace_id TEXT,
+    version INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('proposed', 'active', 'superseded', 'completed', 'rejected')),
+    primary_strategy TEXT NOT NULL,
+    contract_hash TEXT NOT NULL,
+    contract_json TEXT NOT NULL,
+    decision_reason TEXT,
+    created_by TEXT NOT NULL DEFAULT 'orchestrator',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,
+    UNIQUE(agent_id, version)
+);
+
+-- 22. Runtime execution of an immutable strategy contract
+CREATE TABLE IF NOT EXISTS strategy_execution_runs (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    contract_id TEXT NOT NULL,
+    contract_version INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'running', 'awaiting_approval', 'completed', 'failed', 'blocked', 'cancelled')),
+    budget_json TEXT NOT NULL DEFAULT '{}',
+    metrics_json TEXT NOT NULL DEFAULT '{}',
+    guardrail_reason TEXT,
+    started_at DATETIME,
+    completed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    FOREIGN KEY (contract_id) REFERENCES strategy_contracts(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS strategy_execution_steps (
+    id TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL,
+    sequence INTEGER NOT NULL,
+    stage_key TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'running', 'awaiting_approval', 'completed', 'failed', 'skipped', 'blocked')),
+    strategy_ids_json TEXT NOT NULL DEFAULT '[]',
+    planned_budget_json TEXT NOT NULL DEFAULT '{}',
+    actual_metrics_json TEXT NOT NULL DEFAULT '{}',
+    evidence_json TEXT NOT NULL DEFAULT '[]',
+    started_at DATETIME,
+    completed_at DATETIME,
+    UNIQUE(run_id, sequence),
+    FOREIGN KEY (run_id) REFERENCES strategy_execution_runs(id) ON DELETE CASCADE
+);
+
+-- 23. Versioned Studio migrations (safe, idempotent upgrades)
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version TEXT PRIMARY KEY,
     description TEXT NOT NULL,
     applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- 21. Compliance report history and export metadata
+-- 24. Compliance report history and export metadata
 CREATE TABLE IF NOT EXISTS compliance_reports (
     id TEXT PRIMARY KEY,
     framework TEXT NOT NULL CHECK (framework IN ('EU_AI_ACT', 'SOC_2', 'HIPAA')),
@@ -369,7 +420,7 @@ CREATE TABLE IF NOT EXISTS compliance_reports (
     FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
 );
 
--- 22. IDE installations use the same signed command contract
+-- 25. IDE installations use the same signed command contract
 CREATE TABLE IF NOT EXISTS ide_integrations (
     id TEXT PRIMARY KEY,
     ide TEXT NOT NULL CHECK (ide IN ('vscode', 'jetbrains', 'antigravity')),
@@ -446,6 +497,9 @@ CREATE INDEX IF NOT EXISTS idx_compliance_framework ON compliance_reports(framew
 CREATE INDEX IF NOT EXISTS idx_ide_workspace ON ide_integrations(workspace_id, ide);
 CREATE INDEX IF NOT EXISTS idx_provenance_subject ON provenance_records(subject_type, subject_id);
 CREATE INDEX IF NOT EXISTS idx_evaluation_benchmark ON evaluation_runs(benchmark, created_at);
+CREATE INDEX IF NOT EXISTS idx_strategy_contract_agent ON strategy_contracts(agent_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_runs(agent_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_steps(run_id, sequence);
 `;
 
 async function migrateLegacySchema(db) {
@@ -492,7 +546,8 @@ async function initializeSchema(db) {
 
 async function applyVersionedMigrations(db) {
   const migrations = [
-    ['001-compliance-ide', 'Add compliance reports and IDE integration contracts']
+    ['001-compliance-ide', 'Add compliance reports and IDE integration contracts'],
+    ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts']
   ];
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);

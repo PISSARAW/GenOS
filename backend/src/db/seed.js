@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const { SEED_KEYS, SEED_WORKSPACES, SEED_TRAJECTORIES } = require('./seedData');
 const { seedMcpTools } = require('./seedTools');
+const strategyContracts = require('../services/strategyContractService');
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -60,9 +61,35 @@ async function ensureWorkspaceDashboardData(db) {
   }
 }
 
+async function ensureAgentStrategyContracts(db) {
+  const agents = await db.all(`SELECT a.id, a.workspace_id, a.current_task, a.role,
+      sc.contract_json AS latest_contract_json
+    FROM agents a
+    LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id
+      AND sc.version = (SELECT MAX(latest.version) FROM strategy_contracts latest WHERE latest.agent_id = a.id)`);
+  for (const agent of agents) {
+    let latestContract = null;
+    try {
+      latestContract = agent.latest_contract_json ? JSON.parse(agent.latest_contract_json) : null;
+    } catch {
+      // A malformed legacy snapshot is replaced below while remaining in history.
+    }
+    if (latestContract?.strategy_decision_summary?.total_registry === 77
+      && latestContract?.strategy_decisions?.length === 77) continue;
+
+    await strategyContracts.saveContract(db, {
+      agentId: agent.id,
+      workspaceId: agent.workspace_id,
+      problem: agent.current_task || `Autonomous task execution for ${agent.role}`,
+      createdBy: latestContract ? 'strategy_registry_upgrade' : 'strategy_contract_migration'
+    });
+  }
+}
+
 async function seedDatabase(db) {
   // This runs on every boot so existing databases receive the migration too.
   await ensureWorkspaceDashboardData(db);
+  await ensureAgentStrategyContracts(db);
 
   const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
   if (existing && existing.count > 0) return;
@@ -156,4 +183,4 @@ async function seedDatabase(db) {
   await stmt.finalize();
 }
 
-module.exports = { seedDatabase, hashKey };
+module.exports = { seedDatabase, hashKey, ensureAgentStrategyContracts };
