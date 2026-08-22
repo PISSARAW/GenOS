@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Cell } from 'recharts';
-import { Target, Zap, Award } from 'lucide-react';
+import { Target, Award } from 'lucide-react';
 import { useToastStore } from '../../store/useToastStore';
 import { api } from '../../api/client';
 
@@ -32,25 +32,16 @@ export const ParetoFrontierView: React.FC = () => {
           isParetoOptimal: frontierIds.has(p.solverKey)
         }));
         setPoints(mapped);
+        setRecommendedId(result?.kneePointRecommendation?.solverKey || null);
       })
       .catch(() => setPoints([]));
   }, []);
 
-  const computeKneePoint = () => {
-    let bestScore = -1;
-    let bestPoint = points[0];
-    points.forEach((p) => {
-      const score = p.fitness / (p.timeMs * (p.costUsd * 1000));
-      if (score > bestScore) {
-        bestScore = score;
-        bestPoint = p;
-      }
-    });
-    if (bestPoint) {
-      setRecommendedId(bestPoint.id);
-      setSelectedPoint(bestPoint);
-      showToast('success', 'Knee-Point Calculated', `Optimal trade-off: ${bestPoint.solver} (${bestPoint.fitness}% at ${bestPoint.timeMs}ms)`);
-    }
+  const showKneePoint = () => {
+    const bestPoint = points.find((point) => point.id === recommendedId);
+    if (!bestPoint) return;
+    setSelectedPoint(bestPoint);
+    showToast('success', 'Backend Recommendation', `Optimal trade-off: ${bestPoint.solver} (${bestPoint.fitness}% at ${bestPoint.timeMs}ms)`);
   };
 
   return (
@@ -62,8 +53,8 @@ export const ParetoFrontierView: React.FC = () => {
           </h3>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Trade-off mapping: Execution Time (ms) vs Solution Fitness (%)</span>
         </div>
-        <button onClick={computeKneePoint} disabled={points.length === 0} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
-          <Award size={14} /> Calculate Knee-Point
+        <button onClick={showKneePoint} disabled={!recommendedId} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
+          <Award size={14} /> Show backend recommendation
         </button>
       </div>
 
@@ -72,8 +63,8 @@ export const ParetoFrontierView: React.FC = () => {
         {points.length > 0 && <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 10, right: 20, bottom: 20, left: 10 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--panel-border)" />
-            <XAxis type="number" dataKey="timeMs" name="Time" unit="ms" stroke="var(--text-secondary)" fontSize={11} domain={[100, 900]} />
-            <YAxis type="number" dataKey="fitness" name="Fitness" unit="%" stroke="var(--text-secondary)" fontSize={11} domain={[70, 100]} />
+            <XAxis type="number" dataKey="timeMs" name="Time" unit="ms" stroke="var(--text-secondary)" fontSize={11} domain={['auto', 'auto']} />
+            <YAxis type="number" dataKey="fitness" name="Fitness" unit="%" stroke="var(--text-secondary)" fontSize={11} domain={['auto', 'auto']} />
             <Tooltip 
               cursor={{ strokeDasharray: '3 3' }} 
               content={({ active, payload }) => {
@@ -119,12 +110,6 @@ export const ParetoFrontierView: React.FC = () => {
               Latency: <strong>{selectedPoint.timeMs}ms</strong> · Cost: <strong>${selectedPoint.costUsd}</strong> · Fitness: <strong style={{ color: 'var(--success)' }}>{selectedPoint.fitness}%</strong>
             </span>
           </div>
-          <button 
-            onClick={() => showToast('info', 'Heuristic Grafting', `Extracted AST patterns from ${selectedPoint.solver}`)} 
-            className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-          >
-            <Zap size={12} /> Graft Heuristics
-          </button>
         </div>
       )}
     </div>

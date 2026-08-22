@@ -9,7 +9,7 @@ import {
   type Connection, type Edge, type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { api } from '../api/client';
+import { api, openApiEventStream } from '../api/client';
 
 type StudioTab = 'build' | 'prompts' | 'runs' | 'evals' | 'rag' | 'integrations' | 'deploy';
 type SaveState = 'saved' | 'saving' | 'dirty' | 'offline';
@@ -129,7 +129,36 @@ function PromptLab() {
   const reset = () => { setSelectedId(''); setVersion(1); setName(''); setTemplate(''); setModels('local://runtime'); setVariables('{}'); setResult(null); setStatus(''); setError(''); };
   const parseVariables = () => { try { const parsed = JSON.parse(variables || '{}'); if (!parsed || Array.isArray(parsed)) throw new Error('Variables must be a JSON object.'); return parsed; } catch (cause: any) { throw new Error(messageOf(cause, 'Variables must be valid JSON.')); } };
   const save = async () => { setAction('Saving…'); setError(''); try { const response = selectedId ? await api.createPromptVersion(selectedId, { template, model: models }) : await api.createPrompt({ name: name || 'Untitled prompt', template, model: models }); if (!selectedId && response.id) setSelectedId(response.id); setStatus(`Saved prompt version ${response.version || version}`); await load(); } catch (cause: any) { setError(messageOf(cause, 'Prompt could not be saved.')); } finally { setAction(''); } };
-  const run = async () => { setAction('Running…'); setError(''); setStreamText(''); try { const response = await api.runPlayground({ prompt: template, models: models.split(',').map((item) => item.trim()).filter(Boolean), variables: parseVariables() }); setResult(response); setStatus(`Backend playground: ${response.status || 'accepted'}`); const source = new EventSource(api.streamModelJob(response.id)); source.addEventListener('token', (event) => { const token = JSON.parse((event as MessageEvent).data); setStreamText((current) => `${current}${current ? ' ' : ''}${token.token}`); }); source.addEventListener('done', () => { source.close(); setAction(''); }); source.onerror = () => { source.close(); setAction(''); setError('Token stream disconnected.'); }; } catch (cause: any) { setError(messageOf(cause, 'Playground run failed.')); setAction(''); } };
+  const run = async () => {
+    setAction('Running…'); setError(''); setStreamText('');
+    try {
+      const response = await api.runPlayground({ prompt: template, models: models.split(',').map((item) => item.trim()).filter(Boolean), variables: parseVariables() });
+      setResult(response); setStatus(`Backend playground: ${response.status || 'accepted'}`);
+      const stream = await openApiEventStream(api.streamModelJob(response.id));
+      if (!stream.body) throw new Error('The backend did not provide a readable token stream.');
+      const reader = stream.body.getReader(); const decoder = new TextDecoder(); let buffer = '';
+      let completed = false;
+      while (!completed) {
+        const { value, done } = await reader.read();
+        buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+        const messages = buffer.split(/\n\n/); buffer = messages.pop() || '';
+        for (const message of messages) {
+          const event = message.match(/^event:\s*(.+)$/m)?.[1] || 'message';
+          const raw = message.match(/^data:\s*(.+)$/m)?.[1];
+          if (!raw) continue;
+          const data = JSON.parse(raw);
+          if (event === 'token') setStreamText((current) => `${current}${current ? ' ' : ''}${data.token}`);
+          if (event === 'done') { completed = true; break; }
+        }
+        if (done) break;
+      }
+      if (!completed) throw new Error('Token stream ended before the backend completed the job.');
+    } catch (cause: any) {
+      setError(messageOf(cause, 'Playground run failed.'));
+    } finally {
+      setAction('');
+    }
+  };
   const render = async () => { if (!selectedId) { setError('Save the prompt before rendering a version.'); return; } setAction('Rendering…'); setError(''); try { setResult(await api.renderPrompt(selectedId, version, parseVariables())); setStatus('Prompt rendered by the backend.'); } catch (cause: any) { setError(messageOf(cause, 'Prompt rendering failed.')); } finally { setAction(''); } };
   return <div className="prompt-layout"><section className="prompt-editor"><div className="section-heading"><div><div className="eyebrow">PROMPT REGISTRY</div><h2>Versioned prompt editor</h2></div><button className="studio-button secondary" onClick={reset}><Plus size={13} /> New</button></div>{loading ? <p style={muted}>Loading prompts…</p> : <><label>Name<input value={name} onChange={(event) => setName(event.target.value)} placeholder="Prompt name" /></label><label>Existing prompt<select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}><option value="">New prompt</option>{prompts.map((prompt) => <option value={prompt.id} key={prompt.id}>{prompt.name} · v{prompt.current_version}</option>)}</select></label><textarea className="prompt-textarea" value={template} onChange={(event) => setTemplate(event.target.value)} placeholder="Write a prompt with {{variables}}" /><label>Model or models<input value={models} onChange={(event) => setModels(event.target.value)} placeholder="local://runtime, openai/gpt-4o-mini" /></label><label>Variables (JSON)<textarea className="variables-textarea" value={variables} onChange={(event) => setVariables(event.target.value)} placeholder='{"name":"Ada"}' /></label><div className="builder-actions"><button className="studio-button primary" onClick={save} disabled={!!action || !template.trim()}>{action === 'Saving…' ? 'Saving…' : 'Save version'}</button><button className="studio-button secondary" onClick={render} disabled={!!action || !selectedId || !template.trim()}>Render version</button></div></>}</section><section className="playground"><div className="section-heading"><div><div className="eyebrow">BACKEND PLAYGROUND</div><h2>Live provider stream</h2></div><button className="studio-button primary" onClick={run} disabled={!!action || !template.trim()}><Play size={13} /> {action === 'Running…' ? 'Streaming…' : 'Run'}</button></div><p style={muted}>Tokens arrive from the backend worker over Server-Sent Events.</p>{status && <div className="studio-notice">{status}</div>}{streamText && <pre className="stream-output">{streamText}</pre>}{error && <div className="studio-error">{error}</div>}{result && <div className="result-card"><div><strong>Backend response</strong><span className="result-meta">{result.status || (result.rendered ? 'rendered' : 'received')}</span></div>{result.rendered && <pre>{result.rendered}</pre>}{result.status === 'queued' && <p style={muted}>Run queued; stream is active above.</p>}</div>}</section></div>;
 }

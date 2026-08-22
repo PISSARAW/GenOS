@@ -68,7 +68,7 @@ export const SolverTournament: React.FC = () => {
         targetSolver: solvers[1].name,
         gene: genePayload
       });
-      showToast('success', 'Heuristic Transferred', `Injected gene from ${solvers[0].name} to ${solvers[1].name}`);
+      showToast('success', 'Heuristic Recorded', `Recorded a genome decision for review between ${solvers[0].name} and ${solvers[1].name}.`);
     } catch (e: any) {
       showToast('error', 'Cross-Pollination Failed', e.message);
     }
