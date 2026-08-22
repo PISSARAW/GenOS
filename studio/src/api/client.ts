@@ -144,6 +144,15 @@ export const api = {
   restoreSnapshot: (id: string, step: number) => 
     apiRequest(`/api/workspaces/${id}/restore`, { method: 'POST', body: { step } }),
 
+  // Visual workflows
+  listWorkflows: (workspaceId?: string) => apiRequest(`/api/workflows${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
+  createWorkflow: (payload: { name: string; workspaceId?: string | null; description?: string; graph?: any; metadata?: any }) => apiRequest('/api/workflows', { method: 'POST', body: payload }),
+  getWorkflow: (id: string) => apiRequest(`/api/workflows/${encodeURIComponent(id)}`),
+  updateWorkflow: (id: string, payload: { name?: string; description?: string; status?: string; graph: any; metadata?: any }) => apiRequest(`/api/workflows/${encodeURIComponent(id)}`, { method: 'PUT', body: payload }),
+  validateWorkflow: (id: string, graph?: any) => apiRequest(`/api/workflows/${encodeURIComponent(id)}/validate`, { method: 'POST', body: graph ? { graph } : {} }),
+  runWorkflow: (id: string, input: any = {}) => apiRequest(`/api/workflows/${encodeURIComponent(id)}/runs`, { method: 'POST', body: { input } }),
+  listWorkflowRuns: (id: string) => apiRequest(`/api/workflows/${encodeURIComponent(id)}/runs`),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 

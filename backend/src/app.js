@@ -33,6 +33,7 @@ const complianceRoutes = require('./routes/complianceRoutes');
 const ideRoutes = require('./routes/ideRoutes');
 const schemaRoutes = require('./routes/schemaRoutes');
 const strategyRoutes = require('./routes/strategyRoutes');
+const workflowRoutes = require('./routes/workflowRoutes');
 
 function createApp() {
   const app = express();
@@ -62,6 +63,7 @@ function createApp() {
   // 3. Mount Modular API Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/workspaces', workspaceRoutes);
+  app.use('/api/workflows', workflowRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);
