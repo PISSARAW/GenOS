@@ -12,7 +12,12 @@ members = [
   "crates/genos-protocol",
   "crates/epsilon_sa", "crates/epsilon_wgpu",
   "crates/genos-synaptic",
-  "integrations/mcp/genos-mcp", "genos_v5_rust", "sigma_runner", "sate_simulation", "epsilon_mcts", "sate-lattice",
+  "integrations/mcp/genos-mcp",
+  "research/reverse-game-of-life/crates/genos_v5_rust",
+  "research/reverse-game-of-life/crates/sigma_runner",
+  "research/reverse-game-of-life/crates/sate_simulation",
+  "research/reverse-game-of-life/crates/epsilon_mcts",
+  "research/reverse-game-of-life/crates/sate-lattice",
 ]
 resolver = "2"
 
