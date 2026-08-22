@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const modelProvider = require('./modelProvider');
+const mcpExecutor = require('./mcpExecutor');
 
 let timer = null;
 let busy = false;
@@ -37,7 +38,7 @@ async function executeWorkflow(db, run) {
     let nodeOutput = { status: 'completed' };
     const kind = node.kind || node.data?.kind || node.type || '';
     if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
-    if (/tool/i.test(kind)) nodeOutput = { status: 'completed', tool: node.tool || node.data?.tool || 'configured-tool', toolCall: true };
+    if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
     if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
     output[node.id] = nodeOutput;
     await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
