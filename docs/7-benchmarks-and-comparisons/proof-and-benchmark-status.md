@@ -23,6 +23,7 @@ Run these commands from the repository root:
 
 | Claim under test | Command | Expected evidence |
 | --- | --- | --- |
+| Safe parallel debugging with conditional promotion | `./examples/safe-debugging-demo/run-demo.sh` | JSON report and JSONL operations under `examples/safe-debugging-demo/artifacts/` |
 | Snapshot, fork, isolated identity, and diff | `./run-demo.sh` | Ends with `Demo OK` |
 | Event reducer replay is stable for its supported inputs | `cargo test -p genos-store --test replay_tests` | Test process exits successfully |
 | Relative file changes remain isolated between directory worlds | `cargo test -p genos-world --test file_isolation` | Test process exits successfully |
