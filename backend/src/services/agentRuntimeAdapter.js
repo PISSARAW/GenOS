@@ -19,6 +19,8 @@ const localModelDiscovery = require('./localModelDiscovery');
 const { decideFromEvent } = require('./orchestrationDecisionService');
 const actionExecutor = require('./orchestrationActionExecutor');
 const localCodeWorker = require('./localCodeWorkerService');
+const hallucinationMonitor = require('./hallucinationMonitoringService');
+const resilienceService = require('./resilienceService');
 
 const activeProcesses = new Map();
 
@@ -184,6 +186,11 @@ async function startMission(mission) {
   const executable = configuredExecutable();
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  // Monitoring is automatic for every mission created by the orchestrator.
+  // The counter is mission-scoped, so a previously resolved incident cannot
+  // terminate a new mission.
+  await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
+  emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
   if (activeProcesses.has(agentId)) return { started: true, duplicate: true };
   let contractRecord = await strategyContracts.getLatestContract(db, agentId);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
@@ -238,18 +245,33 @@ async function startMission(mission) {
         actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
       }).catch(() => {});
     }
-    executionQueue = executionQueue.then(() => strategyExecution.recordExecutionEvent(db, agentId, event)).then((decision) => {
+    executionQueue = executionQueue
+      .then(() => strategyExecution.recordExecutionEvent(db, agentId, event))
+      .then(async (decision) => {
+        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
+        const observation = await hallucinationMonitor.recordObservation(db, event);
+        if (observation.monitored && observation.detected) {
+          emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
+            sourceEventId: event.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
+          }, 'warning');
+          const autopsy = await resilienceService.evaluateApoptosis(agentId, { hallucinations: observation.total }, db);
+          if (autopsy.apoptosisExecuted && !guardrailHalted && !finalEvent) {
+            guardrailHalted = true;
+            emit(agentId, 'APOPTOSIS_TRIGGERED', 'HALLUCINATION_LIMIT', autopsy.triggerReason, { autopsy }, 'critical', 'apoptosis');
+            child.kill('SIGTERM');
+            return;
+          }
+        }
       // A final runtime event may report that the mission exceeded its budget
       // only after the child has already completed. Record the guardrail on
       // the execution run, but never turn that completed child into a SIGTERM
       // failure and overwrite the agent's terminal state.
-      const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
       if (decision?.halt && !guardrailHalted && !finalEvent) {
         guardrailHalted = true;
         emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
         child.kill('SIGTERM');
       }
-    }).catch(() => {});
+      }).catch(() => {});
     return event;
   };
 
