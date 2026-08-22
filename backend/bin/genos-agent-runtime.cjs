@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 /**
  * GenOS mission runtime bridge.
- * Reads one mission JSON from stdin, delegates the implementation to Codex CLI,
+ * Reads one framed protobuf (or legacy JSON) mission from stdin, delegates the implementation to Codex CLI,
  * and emits one normalized NDJSON event per meaningful Codex lifecycle event.
  */
 const { spawn } = require('child_process');
 const path = require('path');
-const { decodeMission, encodeEvent } = require('../src/services/runtimeProtocol');
+const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
 process.stdin.on('end', () => {
   let mission;
-  try { mission = decodeMission(raw); } catch (error) {
-    process.stderr.write(`Invalid mission JSON: ${error.message}\n`);
+  try { mission = decodeMissionInput(raw); } catch (error) {
+    process.stderr.write(`Invalid mission payload (protobuf frame or JSON object): ${error.message}\n`);
     process.exitCode = 2;
     return;
   }
@@ -35,6 +35,7 @@ process.stdin.on('end', () => {
   ];
   const child = spawn(codex, args, { cwd: workspace, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   let buffer = '';
+  let stderr = '';
   const emit = (event) => process.stdout.write(encodeEvent({ ...event, payloadJson: JSON.stringify(event.payload || {}) }));
   emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Codex implementation runtime accepted the mission.', status: 'running', currentTask: mission.prompt });
 
@@ -52,9 +53,16 @@ process.stdin.on('end', () => {
       else if (type === 'turn.completed') emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
     });
   });
-  child.stderr.on('data', (chunk) => process.stderr.write(chunk));
+  child.stderr.on('data', (chunk) => {
+    const detail = chunk.toString();
+    stderr = `${stderr}${detail}`.slice(-4000);
+    process.stderr.write(detail);
+  });
   // Use stdin for the prompt. This prevents mission text beginning with a dash
   // (or exceeding the platform's argv limit) from being interpreted as CLI args.
+  child.stdin.on('error', (error) => {
+    if (error.code !== 'EPIPE') process.stderr.write(`Runtime stdin error: ${error.message}\n`);
+  });
   child.stdin.end(prompt);
   child.on('error', (error) => {
     emit({ eventType: 'AGENT_RUNTIME_ERROR', action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
@@ -62,7 +70,7 @@ process.stdin.on('end', () => {
   });
   child.on('close', (code, signal) => {
     if (code === 0) emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'idle', currentTask: 'Execution completed', payload: { code } });
-    else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}.`, severity: 'error', status: 'error', payload: { code, signal } });
+    else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     process.exitCode = code || 0;
   });
 });

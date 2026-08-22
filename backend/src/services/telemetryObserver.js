@@ -4,7 +4,9 @@
  */
 
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { EventEmitter } = require('events');
 const { getDatabase } = require('../db');
 
@@ -108,10 +110,94 @@ class TelemetryObserver extends EventEmitter {
           JSON.stringify(event.payload),
           event.severity
         );
+        const provenanceTypes = new Set(['BELIEF_CREATED', 'BELIEF_UPDATED', 'AGENT_COMPLETED', 'AGENT_FAILED', 'TOOL_CALL_COMPLETED', 'MCTS_NODE_PRUNED', 'EVALUATION_COMPLETED']);
+        if (provenanceTypes.has(event.eventType)) {
+          const payloadJson = JSON.stringify({ eventId: event.id, eventType: event.eventType, agentId: event.agentId, action: event.action, detail: event.detail, payload: event.payload });
+          const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
+          await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json) VALUES (?, ?, ?, ?, ?)', `prov-event-${event.id}`, event.eventType.toLowerCase(), event.id, payloadHash, payloadJson);
+        }
+        await this.persistWorkspaceMilestone(db, event);
+        if (event.eventType === 'AGENT_COMPLETED') {
+          await this.generateWorkspaceReadme(db, event.agentId);
+        }
       } catch (err) {
         // Silently catch in observer to never block runtime
       }
     });
+  }
+
+  async persistWorkspaceMilestone(db, event) {
+    const milestoneTypes = new Set([
+      'AGENT_QUEUED', 'AGENT_RUNTIME_STARTED', 'AGENT_PLAN_CREATED',
+      'AGENT_STEP', 'TOOL_CALL_COMPLETED', 'AGENT_COMPLETED', 'AGENT_FAILED',
+      'AGENT_RUNTIME_ERROR'
+    ]);
+    if (!event.agentId || !milestoneTypes.has(event.eventType)) return;
+
+    const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', event.agentId);
+    if (!agent?.workspace_id) return;
+    const workspace = await db.get('SELECT id FROM workspaces WHERE id = ?', agent.workspace_id);
+    if (!workspace) return;
+
+    const count = await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', workspace.id);
+    const step = Number(count?.count || 0) + 1;
+    const snapshotId = `snp-${event.id}`;
+    await db.run(
+      `INSERT OR IGNORE INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      snapshotId,
+      workspace.id,
+      String(event.id),
+      step,
+      `${event.eventType}: ${event.action}`,
+      event.agentId,
+      event.detail || 'Agent execution milestone',
+      JSON.stringify({ eventId: event.id, eventType: event.eventType, severity: event.severity, payload: event.payload })
+    );
+  }
+
+  async generateWorkspaceReadme(db, completedAgentId) {
+    const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', completedAgentId);
+    if (!agent?.workspace_id) return;
+    const workspace = await db.get('SELECT id, name, path FROM workspaces WHERE id = ?', agent.workspace_id);
+    if (!workspace?.path || !fs.existsSync(workspace.path)) return;
+
+    const allAgents = await db.all('SELECT id, name, about, current_task, status FROM agents WHERE workspace_id = ? ORDER BY name', workspace.id);
+    if (!allAgents.length || allAgents.some(item => item.status === 'running')) return;
+    const completions = await db.all("SELECT DISTINCT agent_id FROM telemetry_events WHERE event_type = 'AGENT_COMPLETED' AND agent_id IN (SELECT id FROM agents WHERE workspace_id = ?)", workspace.id);
+    const completedIds = new Set(completions.map(item => item.agent_id));
+    const agents = allAgents.filter(item => completedIds.has(item.id));
+    if (!agents.length) return;
+
+    let changedFiles = [];
+    try {
+      const status = execFileSync('git', ['-C', workspace.path, 'status', '--short'], { encoding: 'utf8', timeout: 5000 });
+      changedFiles = status.split('\n').filter(Boolean).map(line => line.slice(3).trim()).filter(file => file && file.toLowerCase() !== 'readme.md' && !file.startsWith('backend/genos.db-'));
+    } catch (_) {}
+
+    const summarize = (agentInfo) => {
+      const source = agentInfo.about || agentInfo.current_task || 'Tâche d’implémentation GenOS';
+      return source.replace(/\s+/g, ' ').trim().slice(0, 420);
+    };
+    const generatedAt = new Date().toISOString();
+    const lines = [
+      `# ${workspace.name}`,
+      '',
+      '> README généré automatiquement à la fin du travail des agents.',
+      `> Dernière génération : ${generatedAt}`,
+      '',
+      '## Travaux effectués',
+      '',
+      ...agents.map(item => `- **${item.name}** — ${summarize(item)}`),
+      '',
+      '## Fichiers touchés',
+      '',
+      ...(changedFiles.length ? changedFiles.map(file => `- \`${file}\``) : ['- Aucun fichier modifié détecté.']),
+      '',
+      '## État',
+      '',
+      'Les agents listés ci-dessus ont terminé leur session et sont actuellement inactifs.'
+    ];
+    fs.writeFileSync(path.join(workspace.path, 'README.md'), `${lines.join('\n')}\n`, 'utf8');
   }
 
   getRecentEvents(limit = 100, filterType = null) {

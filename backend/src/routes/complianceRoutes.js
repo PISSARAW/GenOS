@@ -1,0 +1,10 @@
+const express = require('express');
+const router = express.Router();
+const controller = require('../controllers/complianceController');
+const { requirePermission } = require('../middleware/auth');
+router.get('/frameworks', controller.listFrameworks);
+router.get('/reports', controller.listReports);
+router.post('/reports', requirePermission('workspace:write'), controller.createReport);
+router.get('/reports/:id', controller.getReport);
+router.get('/reports/:id/export', controller.exportReport);
+module.exports = router;
