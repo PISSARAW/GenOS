@@ -1,0 +1,73 @@
+{
+  "id": "diag_01a02925f5077f40a8bfccf7a555e253",
+  "problem": "Repair ledger.mjs so applyBatch is atomic, exactly-once by event id, deterministic for out-of-order input, rejects id collisions, ignores stale events at or below committed version, applies new events in version order, and leaves state unchanged on any invalid batch condition.",
+  "root": "hyp_01a02925f5077f40a8bfccb47fcba89a",
+  "hypotheses": {
+    "hyp_01a02925f5077f40a8bfccb47fcba89a": {
+      "id": "hyp_01a02925f5077f40a8bfccb47fcba89a",
+      "parent": null,
+      "statement": "root problem",
+      "confidence": 1.0,
+      "status": "testing",
+      "evidence": [],
+      "experiments": [],
+      "children": [
+        "hyp_01a02925f5077f40a8bfcccd6921390c",
+        "hyp_01a02925f5077f40a8bfccde12defbfc",
+        "hyp_01a02925f5077f40a8bfcce616c06d5f"
+      ]
+    },
+    "hyp_01a02925f5077f40a8bfcccd6921390c": {
+      "id": "hyp_01a02925f5077f40a8bfcccd6921390c",
+      "parent": "hyp_01a02925f5077f40a8bfccb47fcba89a",
+      "statement": "applyBatch currently mutates state before validating the whole batch, so any later error leaves partial writes.",
+      "confidence": 0.98,
+      "status": "supported",
+      "evidence": [
+        {
+          "claim": "applyBatch mutates state before validating the whole batch, causing partial writes on later failure.",
+          "source": "node probe: batch with valid first event and invalid second event left balance at 15 and version at 1 after throwing unknown account",
+          "supports": true,
+          "artifact": null
+        }
+      ],
+      "experiments": [],
+      "children": []
+    },
+    "hyp_01a02925f5077f40a8bfccde12defbfc": {
+      "id": "hyp_01a02925f5077f40a8bfccde12defbfc",
+      "parent": "hyp_01a02925f5077f40a8bfccb47fcba89a",
+      "statement": "Exactly-once/id-collision handling is missing, so duplicate event ids or identical replays are not distinguished from conflicting payloads.",
+      "confidence": 0.97,
+      "status": "supported",
+      "evidence": [
+        {
+          "claim": "The implementation lacks id-collision detection and does not preserve exactly-once semantics by event id.",
+          "source": "node probe: batch with duplicate id and different payload committed both without error, overwriting the stored event and balance to 21",
+          "supports": true,
+          "artifact": null
+        }
+      ],
+      "experiments": [],
+      "children": []
+    },
+    "hyp_01a02925f5077f40a8bfcce616c06d5f": {
+      "id": "hyp_01a02925f5077f40a8bfcce616c06d5f",
+      "parent": "hyp_01a02925f5077f40a8bfccb47fcba89a",
+      "statement": "Version ordering and stale-event rules are not implemented, so out-of-order batches and skipped versions are processed incorrectly.",
+      "confidence": 0.96,
+      "status": "supported",
+      "evidence": [
+        {
+          "claim": "applyBatch does not sort by version or enforce contiguous version progression, so out-of-order input and skipped versions are processed incorrectly.",
+          "source": "node probe: batch with out-of-order versions 2 then 1 committed in input order and a version-3-only batch advanced the account directly to 3",
+          "supports": true,
+          "artifact": null
+        }
+      ],
+      "experiments": [],
+      "children": []
+    }
+  },
+  "created_at": "2026-08-22T11:05:48.551874Z"
+}
