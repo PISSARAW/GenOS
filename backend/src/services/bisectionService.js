@@ -35,7 +35,7 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
 /**
  * Algorithmic O(log N) causal bisection search isolating the exact culprit agent step
  */
-function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
+async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null) {
   const history = snapshotHistory;
   if (history.length === 0) {
     return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
@@ -50,13 +50,13 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const snap = history[mid];
-    const isHealthy = failurePredicate ? failurePredicate(snap) : snap.healthy !== false;
+    const isHealthy = failurePredicate ? await failurePredicate(snap) : snap.healthy !== false;
 
     bisectionSteps.push({
       iteration: bisectionSteps.length + 1,
       testedIndex: mid,
-      stepNumber: snap.step,
-      snapshotHash: snap.hash,
+      stepNumber: snap.step ?? snap.step_number,
+      snapshotHash: snap.hash ?? snap.snapshot_hash,
       evaluatedStatus: isHealthy ? 'PASS (HEALTHY)' : 'FAIL (ANOMALY_PRESENT)'
     });
 
@@ -76,6 +76,7 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
       anomalyFound: false,
       totalSnapshotsSearched: history.length,
       bisectionIterationsRequired: bisectionSteps.length,
+      bisectionSteps: bisectionSteps.length,
       theoreticalComplexity: `O(log ${history.length}) = ${Math.ceil(Math.log2(history.length || 1))} steps`,
       bisectionAuditTrace: bisectionSteps,
       reason: 'All available snapshots satisfy the invariant.'
@@ -86,20 +87,40 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
 
   return {
     bisectionComplete: true,
+    anomalyFound: true,
     totalSnapshotsSearched: history.length,
     bisectionIterationsRequired: bisectionSteps.length,
+    bisectionSteps: bisectionSteps.length,
     theoreticalComplexity: `O(log ${history.length}) = ${Math.ceil(Math.log2(history.length || 1))} steps`,
     bisectionAuditTrace: bisectionSteps,
     culpritReport: {
-      stepNumber: culpritSnap.step,
-      snapshotHash: culpritSnap.hash,
+      stepNumber: culpritSnap.step ?? culpritSnap.step_number,
+      snapshotHash: culpritSnap.hash ?? culpritSnap.snapshot_hash,
       culpritAgentId: culpritSnap.agent || 'worker_fast_coder',
-      actionDescription: culpritSnap.desc,
-      toolCall: 'replace_file_content',
-      targetFile: 'src/services/parser.js',
-      rootCauseSummary: 'Removed boundary validation leading to infinite recursion anomaly'
+      actionDescription: culpritSnap._execution
+        ? `Invariant command exited with ${culpritSnap._execution.exitCode}.\n${culpritSnap._execution.stderr || culpritSnap._execution.stdout || ''}`.trim()
+        : culpritSnap.reason || culpritSnap.label,
+      toolCall: 'isolated_test_runner',
+      targetFile: null,
+      rootCauseSummary: culpritSnap._execution?.stderr || `First snapshot failing the supplied invariant: ${culpritSnap.label}`
     }
   };
+}
+
+// Synchronous compatibility surface for in-process benchmark callers. HTTP
+// bisection uses bisectAnomalyAsync because its predicate runs a real command.
+function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
+  if (snapshotHistory.length === 0) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
+  let low = 0; let high = snapshotHistory.length - 1; let culpritIdx = -1; const steps = [];
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2); const snapshot = snapshotHistory[mid];
+    const healthy = failurePredicate ? failurePredicate(snapshot) : snapshot.healthy !== false;
+    if (healthy && healthy.then) throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
+    steps.push({ iteration: steps.length + 1, testedIndex: mid, stepNumber: snapshot.step, snapshotHash: snapshot.hash, evaluatedStatus: healthy ? 'PASS (HEALTHY)' : 'FAIL (ANOMALY_PRESENT)' });
+    if (healthy) low = mid + 1; else { culpritIdx = mid; high = mid - 1; }
+  }
+  const base = { bisectionComplete: true, anomalyFound: culpritIdx >= 0, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: steps.length, bisectionSteps: steps.length, theoreticalComplexity: `O(log ${snapshotHistory.length}) = ${Math.ceil(Math.log2(snapshotHistory.length || 1))} steps`, bisectionAuditTrace: steps };
+  return culpritIdx < 0 ? { ...base, reason: 'All available snapshots satisfy the invariant.' } : { ...base, culpritReport: { stepNumber: snapshotHistory[culpritIdx].step, snapshotHash: snapshotHistory[culpritIdx].hash, culpritAgentId: snapshotHistory[culpritIdx].agent || 'worker_fast_coder', actionDescription: snapshotHistory[culpritIdx].desc, toolCall: 'isolated_test_runner', targetFile: null, rootCauseSummary: snapshotHistory[culpritIdx].reason || snapshotHistory[culpritIdx].label } };
 }
 
 /**
@@ -135,5 +156,6 @@ function remediateRollback(workspaceId = 'ws-genos-core', culpritReport = {}, cu
 module.exports = {
   diffWorkspaces,
   bisectAnomaly,
+  bisectAnomalyAsync,
   remediateRollback
 };

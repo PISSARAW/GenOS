@@ -10,6 +10,7 @@ const { execFileSync } = require('child_process');
 const { EventEmitter } = require('events');
 const { getDatabase } = require('../db');
 const webhookService = require('./webhookService');
+const snapshotStore = require('./workspaceSnapshotStore');
 
 const MAX_RING_BUFFER_SIZE = 10000;
 const STREAM_CANDIDATE_FILES = [
@@ -141,20 +142,16 @@ class TelemetryObserver extends EventEmitter {
     const workspace = await db.get('SELECT id FROM workspaces WHERE id = ?', agent.workspace_id);
     if (!workspace) return;
 
-    const count = await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', workspace.id);
-    const step = Number(count?.count || 0) + 1;
-    const snapshotId = `snp-${event.id}`;
-    await db.run(
-      `INSERT OR IGNORE INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      snapshotId,
-      workspace.id,
-      String(event.id),
-      step,
-      `${event.eventType}: ${event.action}`,
-      event.agentId,
-      event.detail || 'Agent execution milestone',
-      JSON.stringify({ eventId: event.id, eventType: event.eventType, severity: event.severity, payload: event.payload })
-    );
+    // Capture the actual workspace payload before indexing the milestone. The
+    // previous implementation wrote only a telemetry-shaped metadata row,
+    // which made restore and test bisection impossible.
+    await snapshotStore.capture({
+      db,
+      workspace,
+      label: `${event.eventType}: ${event.action}`,
+      reason: event.detail || 'Agent execution milestone',
+      author: event.agentId
+    });
   }
 
   async generateWorkspaceReadme(db, completedAgentId) {

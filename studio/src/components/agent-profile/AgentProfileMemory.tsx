@@ -38,7 +38,7 @@ export const AgentProfileMemory: React.FC<AgentProfileMemoryProps> = ({ activeAg
   const memoryStream = useMemo<MemoryItem[]>(() => {
     const traceItems = (traces || []).map((trace: any) => ({
       content: trace.outputs ? `${trace.name}: ${typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)}` : `Action exécutée : ${trace.name}`,
-      type: 'Trace agent', time: timeOf(trace.startTime)
+      type: 'Runtime observer span', time: timeOf(trace.startTime)
     }));
     const eventItems = events.map((event) => ({
       content: event.detail || event.action || event.event_type || 'Événement agent',

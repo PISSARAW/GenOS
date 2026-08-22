@@ -30,7 +30,7 @@ export const AgentProfileTasks: React.FC<AgentProfileTasksProps> = ({ traces }) 
         {displayTraces.map((trace, i) => {
           const actionType = trace.type || trace.name || 'TASK_EXECUTION';
           const contentText = typeof trace.content === 'string' ? trace.content : typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs || trace.content || 'No payload recorded');
-          const timeText = trace.time || (trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'Timestamp not recorded');
+          const timeText = trace.time || (trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'Timestamp unavailable');
 
           return (
             <div key={i} style={{ borderBottom: i < displayTraces.length - 1 ? '1px solid var(--panel-border)' : 'none' }}>
@@ -50,7 +50,7 @@ export const AgentProfileTasks: React.FC<AgentProfileTasksProps> = ({ traces }) 
               </div>
               {expandedTask === i && (
                 <div style={{ padding: '16px 16px 16px 44px', background: 'var(--bg-main)', borderTop: '1px solid var(--panel-border)', fontSize: '0.85rem' }}>
-                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Task Execution Details</div>
+                  <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Runtime observer event details</div>
                   <pre style={{ margin: 0, padding: '12px', background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflowX: 'auto', color: 'var(--text-primary)', fontSize: '0.8rem' }}>
 {JSON.stringify({
   action: actionType,
