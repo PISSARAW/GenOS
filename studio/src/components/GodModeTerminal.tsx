@@ -24,7 +24,14 @@ export const GodModeTerminal: React.FC = () => {
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
     term.open(terminalRef.current);
-    fitAddon.fit();
+    const fit = () => {
+      if (!terminalRef.current || !term.element) return;
+      if (terminalRef.current.clientWidth === 0 || terminalRef.current.clientHeight === 0) return;
+      fitAddon.fit();
+    };
+    const frame = window.requestAnimationFrame(fit);
+    const resizeObserver = new ResizeObserver(fit);
+    resizeObserver.observe(terminalRef.current);
     xtermRef.current = term;
 
     term.writeln('\x1b[1;31m=== GenOS OPERATIONS TERMINAL ===\x1b[0m');
@@ -63,7 +70,10 @@ export const GodModeTerminal: React.FC = () => {
     });
 
     return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver.disconnect();
       term.dispose();
+      xtermRef.current = null;
     };
   }, []);
 
