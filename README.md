@@ -51,7 +51,8 @@ The command needs no model key and writes the raw operations plus measured
 runtime, token use, and cost to
 [`examples/safe-debugging-demo/artifacts/`](examples/safe-debugging-demo/artifacts/).
 Open the same evidence in **Studio → Safe Parallel Debugging**. A short
-[MP4 capture](assets/demo/safe-debugging.mp4) is also available.
+[MP4 capture](assets/demo/safe-debugging.mp4) and the
+[repeated benchmark](benchmarks/safe-debugging/) are also available.
 
 ## Why GenOS?
 
