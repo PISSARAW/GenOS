@@ -100,3 +100,37 @@
   .safe-demo__proof div:nth-child(2n) { border-right: 0; }
   .safe-demo__proof div:nth-child(-n + 4) { border-bottom: 1px solid var(--panel-border); }
 }
+
+.repair-workbench { min-height: 100%; padding: 28px 32px; overflow: auto; background: var(--bg-main); }
+.repair-workbench__header, .repair-workbench__workspace, .repair-workbench__result, .repair-workbench__triage, .repair-workbench__notice, .repair-workbench__error { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.repair-workbench__header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-bottom: 22px; }
+.repair-workbench__eyebrow { display: flex; align-items: center; gap: 8px; color: var(--accent-blue); font-size: .7rem; font-weight: 700; letter-spacing: .08em; }
+.repair-workbench__eyebrow span { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
+.repair-workbench h1 { margin: 7px 0; font-size: 1.8rem; }
+.repair-workbench__header p, .repair-workbench article p, .repair-workbench aside p { color: var(--text-secondary); line-height: 1.5; }
+.repair-workbench__refresh, .repair-workbench__workspace button, .repair-workbench__create, .repair-workbench__agent button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; color: #fff; background: var(--accent-blue); border: 0; border-radius: 5px; cursor: pointer; font-size: .75rem; font-weight: 700; }
+.repair-workbench button:disabled { cursor: not-allowed; opacity: .55; }
+.repair-workbench__notice, .repair-workbench__error { display: flex; gap: 9px; padding: 12px; border-radius: 6px; font-size: .8rem; }
+.repair-workbench__notice { border: 1px solid var(--warning); color: var(--warning); }
+.repair-workbench__error { margin-bottom: 14px; border: 1px solid var(--danger); color: #ffb4ae; background: rgba(248,81,73,.1); }
+.repair-workbench__workspace { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.repair-workbench__workspace > div, .repair-workbench__result, .repair-workbench__triage > * { padding: 15px; background: var(--bg-panel); border: 1px solid var(--panel-border); border-radius: 6px; }
+.repair-workbench__workspace > div { display: flex; flex-direction: column; gap: 8px; min-height: 132px; }
+.repair-workbench__workspace span, .repair-workbench__result span { color: var(--text-muted); font-size: .68rem; text-transform: uppercase; }
+.repair-workbench__workspace code { color: var(--text-secondary); font: .68rem ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; }
+.repair-workbench__workspace select { padding: 7px; color: var(--text-primary); background: var(--bg-subtle); border: 1px solid var(--panel-border); border-radius: 4px; }
+.repair-workbench__result { margin-top: 16px; border-left: 3px solid var(--danger); }
+.repair-workbench__result.is-success { border-left-color: var(--success); }
+.repair-workbench__result > div { display: flex; align-items: center; gap: 8px; }
+.repair-workbench__result pre { max-height: 300px; margin: 12px 0 0; overflow: auto; color: #c9d1d9; font: .75rem/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; }
+.repair-workbench__triage { display: grid; grid-template-columns: minmax(320px, .9fr) 1.1fr; gap: 14px; margin-top: 16px; }
+.repair-workbench__section-title { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700; }
+.repair-workbench aside button { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-bottom: 7px; padding: 10px; color: var(--text-primary); text-align: left; background: var(--bg-main); border: 1px solid var(--panel-border); border-radius: 5px; cursor: pointer; }
+.repair-workbench aside button.is-selected { border-color: var(--accent-blue); background: var(--accent-light); }
+.repair-workbench aside button span { color: var(--text-secondary); font-size: .72rem; }
+.repair-workbench article h2 { margin: 0 0 8px; font: .85rem ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+.repair-workbench dl { display: grid; gap: 8px; margin: 16px 0; }
+.repair-workbench dl div { display: grid; grid-template-columns: 100px 1fr; gap: 10px; font-size: .78rem; }
+.repair-workbench dt { color: var(--text-muted); }.repair-workbench dd { margin: 0; color: var(--text-secondary); }
+.repair-workbench__agent { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 1px solid var(--success); border-radius: 5px; color: var(--success); }
+@media (max-width: 850px) { .repair-workbench__workspace, .repair-workbench__triage { grid-template-columns: 1fr; }.repair-workbench__header { flex-direction: column; } }
