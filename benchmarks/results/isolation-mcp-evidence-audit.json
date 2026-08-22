@@ -1,0 +1,290 @@
+{
+  "schema_version": "genos-evidence-audit-v1",
+  "generated_at": "2026-08-22T05:08:52.683Z",
+  "auditor_role": "benchmark_evidence_auditor",
+  "requested_tasks": [
+    "B02",
+    "B05"
+  ],
+  "repository_revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+  "overall_decision": "approved_scoped_claims_only",
+  "claim_policy": {
+    "internal_claims": "Only the explicitly verified metrics and stated limitations are approved.",
+    "public_claims": "Withheld until dataset, runtime, comparison-condition, and human-approval gates pass.",
+    "comparative_claims": "Withheld until version-pinned external adapters execute under matched conditions."
+  },
+  "tasks": [
+    {
+      "task_id": "B02",
+      "benchmark_id": "genos.isolation",
+      "deliverable": "isolation-boundary-report.json",
+      "report_sha256": "ed25167d3b8b7e9362ad9010758b70d3e94bcf43ed11291d8903d9eeebb33c24",
+      "report_path": "benchmarks/results/isolation-boundary-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/scenarios/agent-runtime-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: benchmarks/scenarios/agent-runtime-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/src/utils.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/src/utils.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/tests/file_isolation.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/tests/file_isolation.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/tests/isolation_boundaries.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/tests/isolation_boundaries.rs",
+          "passed": true
+        },
+        {
+          "name": "command passed: world-file-isolation",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: world-file-isolation",
+          "passed": true
+        },
+        {
+          "name": "command passed: world-boundary-audit",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: world-boundary-audit",
+          "passed": true
+        },
+        {
+          "name": "local isolation execution passed",
+          "passed": true
+        },
+        {
+          "name": "metric is present: process_isolation",
+          "passed": true
+        },
+        {
+          "name": "process_isolation status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "process_isolation value is null",
+          "passed": true
+        },
+        {
+          "name": "metric is present: network_policy",
+          "passed": true
+        },
+        {
+          "name": "network_policy status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "network_policy value is null",
+          "passed": true
+        },
+        {
+          "name": "environment boundary is explicitly reported",
+          "passed": true
+        },
+        {
+          "name": "copy/sandbox limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "Directory worlds are copied directories, not Copy-on-Write or OS sandbox primitives.",
+        "Commands execute through the host shell with inherited environment and can address host paths.",
+        "No network namespace, syscall filter, container, or VM boundary is installed."
+      ],
+      "reviewed_at": "2026-08-22T05:08:52.683Z"
+    },
+    {
+      "task_id": "B05",
+      "benchmark_id": "genos.mcp-safety",
+      "deliverable": "mcp-safety-report.json",
+      "report_sha256": "ea82e713dcd16d3fcfd4b0044075011f649701040827476ff2ccccee5a95e013",
+      "report_path": "benchmarks/results/mcp-safety-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/scenarios/mcp-safety-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: benchmarks/scenarios/mcp-safety-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/platformSafetyService.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/platformSafetyService.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/vfsSandboxService.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/vfsSandboxService.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-tools/src/gateway.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-tools/src/gateway.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-protocol/src/planner/builder.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-protocol/src/planner/builder.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: integrations/mcp/genos-mcp/src/lib.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: integrations/mcp/genos-mcp/src/lib.rs",
+          "passed": true
+        },
+        {
+          "name": "command passed: backend-platform-safety",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: backend-platform-safety",
+          "passed": true
+        },
+        {
+          "name": "command passed: backend-mcp-vfs-stress",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: backend-mcp-vfs-stress",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-tools-gateway",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-tools-gateway",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-protocol-planner",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-protocol-planner",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-mcp-server",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-mcp-server",
+          "passed": true
+        },
+        {
+          "name": "local MCP safety execution passed",
+          "passed": true
+        },
+        {
+          "name": "all deterministic MCP predicates passed",
+          "passed": true
+        },
+        {
+          "name": "all required MCP command suites passed",
+          "passed": true
+        },
+        {
+          "name": "metric is present: direct_mcp_identity_and_approval_integration",
+          "passed": true
+        },
+        {
+          "name": "direct_mcp_identity_and_approval_integration status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "direct_mcp_identity_and_approval_integration value is null",
+          "passed": true
+        },
+        {
+          "name": "unreviewed production claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "MCP integration limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "The Rust MCP transport tests validate protocol and argv boundaries but do not establish end-to-end caller identity or per-call human approval.",
+        "The backend policy, circuit breaker, Rust gateway, and Rust MCP server are exercised as distinct layers; this benchmark does not claim they are wired into one production deployment.",
+        "All execution is local and uses no external model or network service."
+      ],
+      "reviewed_at": "2026-08-22T05:08:52.683Z"
+    }
+  ]
+}
