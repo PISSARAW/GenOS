@@ -41,6 +41,7 @@ const ragRoutes = require('./routes/ragRoutes');
 const integrationRoutes = require('./routes/integrationRoutes');
 const releaseRoutes = require('./routes/releaseRoutes');
 const controlPlaneRoutes = require('./routes/controlPlaneRoutes');
+const webhookRoutes = require('./routes/webhookRoutes');
 
 function createApp() {
   const app = express();
@@ -78,6 +79,7 @@ function createApp() {
   app.use('/api/integrations', integrationRoutes);
   app.use('/api/releases', releaseRoutes);
   app.use('/api/control-plane', controlPlaneRoutes);
+  app.use('/api/webhooks', webhookRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);

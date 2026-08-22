@@ -1,0 +1,4 @@
+const express=require('express');const crypto=require('crypto');const router=express.Router();const {getDatabase}=require('../db');const {requirePermission}=require('../middleware/auth');
+router.get('/',async(req,res,next)=>{try{res.json(await (await getDatabase()).all('SELECT id,url,events,enabled,created_at FROM webhook_subscriptions ORDER BY created_at DESC'));}catch(e){next(e);}});
+router.post('/',requirePermission('workspace:write'),async(req,res,next)=>{try{const db=await getDatabase();const {url,events=['*'],secret}=req.body||{};if(!/^https:\/\//.test(url||''))return res.status(400).json({error:{code:'INVALID_URL',message:'Webhook URL must use HTTPS.'}});const id=`hook-${crypto.randomUUID()}`;await db.run('INSERT INTO webhook_subscriptions(id,url,events,secret) VALUES(?,?,?,?)',id,url,JSON.stringify(events),secret||crypto.randomBytes(32).toString('hex'));res.status(201).json({id,url,events});}catch(e){next(e);}});
+module.exports=router;
