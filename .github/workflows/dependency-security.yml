@@ -23,7 +23,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Check dependency changes
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: high
 
@@ -31,7 +31,7 @@ jobs:
     name: Audit Cargo dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -52,7 +52,7 @@ jobs:
       matrix:
         directory: [research/reverse-game-of-life, backend, studio]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Audit locked npm dependencies
         working-directory: ${{ matrix.directory }}
