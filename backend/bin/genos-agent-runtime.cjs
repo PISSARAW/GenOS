@@ -9,6 +9,35 @@ const fs = require('fs');
 const path = require('path');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 
+function compactStrategyContract(contract = {}) {
+  return {
+    schema: contract.schema,
+    mission: contract.mission,
+    problem_profile: contract.problem_profile,
+    selected_strategy: contract.selected_strategy,
+    strategy_portfolio: (contract.strategy_portfolio || []).map(({ id, role, primitives, score }) => ({ id, role, primitives, score })),
+    execution_pipeline: contract.execution_pipeline,
+    branches: (contract.branches || []).slice(0, 3),
+    stop_conditions: contract.stop_conditions,
+    promotion: contract.promotion
+  };
+}
+
+function compactAutonomyPlan(plan = {}) {
+  return {
+    schema: plan.schema,
+    profile: plan.profile,
+    organization: plan.organization,
+    phases: (plan.phases || []).map(({ key, requiredTools, purpose }) => ({ key, requiredTools, purpose })),
+    requiredTools: plan.requiredTools,
+    dispatchWorkers: (plan.dispatchWorkers || []).map(({ label, hypothesis, role, modelTier }) => ({ label, hypothesis, role, modelTier })),
+    competition: plan.competition,
+    evolution: plan.evolution,
+    parasitism: plan.parasitism,
+    tokenPolicy: plan.tokenPolicy
+  };
+}
+
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
 process.stdin.on('end', () => {
@@ -35,6 +64,8 @@ process.stdin.on('end', () => {
   const authorityInstruction = isWorker
     ? `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result; return evidence to the orchestrator.`
     : 'You are the GenOS orchestrator. You own strategy selection, task decomposition, worker dispatch, evaluation, replay, and promotion. The control plane evaluated the complete 77-strategy registry before producing this contract; use the selected portfolio rather than treating every strategy as mandatory. You hold the decision authority in the autonomous plan: at every decision gate, assess your evidence and worker evidence, choose the smallest safe action, invoke its GenOS MCP tool, and record the reason. Do not follow a fixed branch count: create, stop, fork, replay, merge, or re-organize GenOS workers only when the gate conditions and token policy justify it. Before a risky mutation, retrieve negative knowledge or diagnose, snapshot/fork when comparing alternatives, evaluate evidence, and record the decision. Change the organization only on evidence, keep parasite/adversarial branches isolated, and stop or reallocate branches using the token policy.';
+  const runtimeContract = compactStrategyContract(strategyContract);
+  const runtimeAutonomyPlan = compactAutonomyPlan(autonomyPlan);
   const prompt = [
     `You are a GenOS implementation agent (${mission.name || mission.agentId}).`,
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
@@ -42,10 +73,10 @@ process.stdin.on('end', () => {
     'Work directly in the assigned repository and implement the mission completely.',
     'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"]}. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.',
     strategyContract.selected_strategy?.primary
-      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(strategyContract, null, 2)}`
+      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
     !isWorker && autonomyPlan.schema
-      ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(autonomyPlan, null, 2)}`
+      ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`
       : '',
     !isWorker && autonomyPlan.parasitism?.enabled
       ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.'
