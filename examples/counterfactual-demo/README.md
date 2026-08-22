@@ -134,16 +134,16 @@ state", not "same object compared twice".
 `--format text` prints the same result as a report rather than a document:
 
 ```bash
-genos snapshot set-cognition --snapshot fork-2.json --exploration 0.8 \
+genos snapshot set-cognition --snapshot fork-2.json --drive exploration=0.8 \
   --out fork-2-explore.json
 genos diff fork-1.json fork-2-explore.json \
-  --expect-changed-path genome.cognition.exploration --format text
+  --expect-changed-path 'genome.cognition.chromosomes[0].loci[0].value' --format text
 ```
 
 ```text
 diff a=01a0…4236 b=01a0…0bd5
 GenomeDiff
-  genome.cognition.exploration
+  genome.cognition.chromosomes[0].loci[0].value
     old: 0.7
     new: 0.8
 1 changed path
@@ -160,11 +160,11 @@ Tunes the genome's cognition values on one snapshot, so a single-field change
 can be made without hand-editing JSON:
 
 ```bash
-genos snapshot set-cognition --snapshot fork-2.json --exploration 0.8
+genos snapshot set-cognition --snapshot fork-2.json --drive exploration=0.8
 ```
 
-`--exploration` and `--verification-threshold` are probabilities and are
-rejected outside `0..=1`; `--planning-depth` is a count. The updated snapshot is
+Drive values are probabilities and are rejected outside `0..=1`;
+`--planning-depth` is a count. The updated snapshot is
 written back to the `--snapshot` file unless `--out` says otherwise, and `--save`
 appends it to the store. The genome's `id` and `version` are deliberately left
 alone: this tunes a value on one branch, it does not publish a new genome

@@ -99,9 +99,9 @@ try {
 	# default exploration of 0.7 and fork-2.json itself is left untouched, so
 	# the replay below still sees the forks the CLI produced.
 	Write-Host "[6/7] change exactly one genome value on A2 and diff again"
-	Invoke-Genos snapshot set-cognition --snapshot $a2Path --exploration 0.8 --out $a2ExplorePath --format json
+	Invoke-Genos snapshot set-cognition --snapshot $a2Path --drive exploration=0.8 --out $a2ExplorePath --format json
 	Invoke-Genos diff $a1Path $a2ExplorePath `
-		--expect-changed-path genome.cognition.exploration `
+		--expect-changed-path 'genome.cognition.chromosomes[0].loci[0].value' `
 		--format text
 
 	Write-Host "[7/7] assert isolated event streams via replay"

@@ -1,7 +1,7 @@
 ﻿use crate::args::WorldProviderKind;
 use anyhow::{bail, Context, Result};
 use genos_core::{AgentGenome, AgentSnapshot, WorkingMemoryItem};
-use genos_store::{LocalEventStore, LocalSnapshotStore, SnapshotStore};
+use genos_store::{LocalEventStore, LocalSnapshotStore};
 use genos_world::{DirectoryWorldProvider, GitWorktreeWorldProvider, WorldProvider};
 use std::fs;
 use std::path::{Path, PathBuf};

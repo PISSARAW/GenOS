@@ -64,6 +64,7 @@ pub fn make_snapshot(sequence: u64) -> AgentSnapshot {
                 chromosomes: vec![
                     genos_core::Chromosome {
                         name: "C1".to_string(),
+                        operons: vec![],
                         loci: vec![
                             genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
                             genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
