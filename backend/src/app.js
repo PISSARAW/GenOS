@@ -44,6 +44,7 @@ const controlPlaneRoutes = require('./routes/controlPlaneRoutes');
 const webhookRoutes = require('./routes/webhookRoutes');
 const secretRoutes = require('./routes/secretRoutes');
 const ssoRoutes = require('./routes/ssoRoutes');
+const pluginRoutes = require('./routes/pluginRoutes');
 
 function createApp() {
   const app = express();
@@ -84,6 +85,7 @@ function createApp() {
   app.use('/api/webhooks', webhookRoutes);
   app.use('/api/secrets', secretRoutes);
   app.use('/api/sso', ssoRoutes);
+  app.use('/api/plugins', pluginRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);
