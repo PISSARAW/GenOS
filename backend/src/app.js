@@ -39,6 +39,7 @@ const traceRoutes = require('./routes/traceRoutes');
 const evalRoutes = require('./routes/evalRoutes');
 const ragRoutes = require('./routes/ragRoutes');
 const integrationRoutes = require('./routes/integrationRoutes');
+const releaseRoutes = require('./routes/releaseRoutes');
 
 function createApp() {
   const app = express();
@@ -74,6 +75,7 @@ function createApp() {
   app.use('/api/evals', evalRoutes);
   app.use('/api/rag', ragRoutes);
   app.use('/api/integrations', integrationRoutes);
+  app.use('/api/releases', releaseRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);

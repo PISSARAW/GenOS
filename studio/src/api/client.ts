@@ -187,6 +187,12 @@ export const api = {
   disableIntegration: (id: string) => apiRequest(`/api/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   testIntegration: (id: string) => apiRequest(`/api/integrations/${encodeURIComponent(id)}/test`, { method: 'POST', body: {} }),
 
+  // Controlled releases and rollback
+  listReleases: () => apiRequest('/api/releases'),
+  createRelease: (payload: any) => apiRequest('/api/releases', { method: 'POST', body: payload }),
+  promoteRelease: (id: string, environment = 'production') => apiRequest(`/api/releases/${encodeURIComponent(id)}/promote`, { method: 'POST', body: { environment } }),
+  rollbackRelease: (id: string) => apiRequest(`/api/releases/${encodeURIComponent(id)}/rollback`, { method: 'POST', body: {} }),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 

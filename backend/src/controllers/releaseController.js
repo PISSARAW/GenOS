@@ -1,0 +1,6 @@
+const crypto=require('crypto');const {getDatabase}=require('../db');
+async function list(req,res,next){try{const db=await getDatabase();res.json(await db.all('SELECT * FROM releases ORDER BY created_at DESC'));}catch(e){next(e);}}
+async function create(req,res,next){try{const db=await getDatabase();const {workflowId,version=1,environment='staging',traffic=100}=req.body||{};if(!workflowId)return res.status(400).json({error:{code:'INVALID_WORKFLOW',message:'workflowId is required.'}});const id=`rel-${crypto.randomUUID()}`;await db.run('INSERT INTO releases(id,workflow_id,version,environment,traffic,status) VALUES(?,?,?,?,?,?)',id,workflowId,version,environment,traffic,'pending');res.status(201).json({id,workflowId,version,environment,traffic,status:'pending'});}catch(e){next(e);}}
+async function promote(req,res,next){try{const db=await getDatabase();await db.run('UPDATE releases SET environment=?,status=? WHERE id=?',req.body?.environment||'production','active',req.params.id);res.json({id:req.params.id,status:'active',environment:req.body?.environment||'production'});}catch(e){next(e);}}
+async function rollback(req,res,next){try{const db=await getDatabase();await db.run('UPDATE releases SET status=? WHERE id=?','rolled_back',req.params.id);res.json({id:req.params.id,status:'rolled_back'});}catch(e){next(e);}}
+module.exports={list,create,promote,rollback};
