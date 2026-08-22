@@ -1,6 +1,20 @@
 # GenOS Quickstart Tutorial: End-to-End Autonomous Agent Lifecycle
 
-This tutorial provides a complete, hands-on walkthrough of creating an autonomous agent, capturing point-in-time snapshots, provisioning isolated execution capsules, exploring counterfactual hypotheses across sibling branches, diffing states, performing Cognitive Merge, and verifying causal determinism.
+This tutorial provides a hands-on walkthrough of creating an agent genome,
+capturing a snapshot, provisioning isolated execution capsules, exploring
+counterfactual hypotheses across sibling branches, diffing states, performing
+Cognitive Merge, and replaying the resulting event stream.
+
+The commands below are implemented by the Rust CLI in `crates/genos-cli`.
+From the repository root, build it first:
+
+```bash
+cargo build -p genos-cli
+```
+
+Use `cargo run -p genos-cli -- ...` in place of `genos ...` unless the binary
+has been installed or added to `PATH`. Identifiers and timestamps in the
+sample output are illustrative; actual values are generated locally.
 
 ---
 
@@ -157,7 +171,9 @@ genos capsule create --snapshot atlas-s0.json --budget-steps 100
 Fork two isolated sibling branches from capsule `cap-018f-atlas` to test competing remediation strategies:
 
 ```bash
-genos agent fork cap-018f-atlas -b branch-a -b branch-b
+genos agent fork cap-018f-atlas \
+  --branch branch-a=patch-strategy \
+  --branch branch-b=refactor-strategy
 ```
 
 *Expected Terminal Output:*
