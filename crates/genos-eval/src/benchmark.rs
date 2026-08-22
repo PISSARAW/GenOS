@@ -255,24 +255,66 @@ pub fn evaluate_rag_case(case: &EvaluationCase, output: &Value) -> RagMetrics {
     let cited = string_set(output.get("citations"));
     let retrieval_recall = ratio(relevant.intersection(&retrieved).count(), relevant.len());
     let citation_correctness = ratio(cited.intersection(&relevant).count(), cited.len());
-    let answer = output.get("answer").and_then(Value::as_str).unwrap_or_default();
-    let question = case.input.as_str().unwrap_or_else(|| case.input.get("query").and_then(Value::as_str).unwrap_or_default());
-    let contexts = case.metadata.get("contexts").and_then(Value::as_array).map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>()).unwrap_or_default();
+    let answer = output
+        .get("answer")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let question = case.input.as_str().unwrap_or_else(|| {
+        case.input
+            .get("query")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+    });
+    let contexts = case
+        .metadata
+        .get("contexts")
+        .and_then(Value::as_array)
+        .map(|items| items.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+        .unwrap_or_default();
     let context_text = contexts.join(" ").to_lowercase();
     let answer_terms = terms(answer);
-    let supported = answer_terms.iter().filter(|term| context_text.contains(term.as_str())).count();
+    let supported = answer_terms
+        .iter()
+        .filter(|term| context_text.contains(term.as_str()))
+        .count();
     let faithfulness = ratio(supported, answer_terms.len());
     let question_terms = terms(question);
-    let relevant_terms = answer_terms.iter().filter(|term| question_terms.contains(*term)).count();
+    let relevant_terms = answer_terms
+        .iter()
+        .filter(|term| question_terms.contains(*term))
+        .count();
     let answer_relevancy = ratio(relevant_terms, answer_terms.len());
-    RagMetrics { retrieval_recall, faithfulness, answer_relevancy, citation_correctness }
+    RagMetrics {
+        retrieval_recall,
+        faithfulness,
+        answer_relevancy,
+        citation_correctness,
+    }
 }
 
 fn string_set(value: Option<&Value>) -> std::collections::BTreeSet<String> {
-    value.and_then(Value::as_array).into_iter().flatten().filter_map(Value::as_str).map(str::to_owned).collect()
+    value
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect()
 }
-fn ratio(numerator: usize, denominator: usize) -> f64 { if denominator == 0 { 1.0 } else { numerator as f64 / denominator as f64 } }
-fn terms(value: &str) -> std::collections::BTreeSet<String> { value.split(|character: char| !character.is_alphanumeric()).filter(|term| term.len() > 1).map(|term| term.to_lowercase()).collect() }
+fn ratio(numerator: usize, denominator: usize) -> f64 {
+    if denominator == 0 {
+        1.0
+    } else {
+        numerator as f64 / denominator as f64
+    }
+}
+fn terms(value: &str) -> std::collections::BTreeSet<String> {
+    value
+        .split(|character: char| !character.is_alphanumeric())
+        .filter(|term| term.len() > 1)
+        .map(|term| term.to_lowercase())
+        .collect()
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReportComparison {
@@ -355,10 +397,18 @@ mod tests {
 
     #[test]
     fn rag_metrics_capture_retrieval_grounding_and_citations() {
-        let case = EvaluationCase { id: "rag".into(), input: Value::String("What supports durable replay?".into()), expected: None, metadata: BTreeMap::from([
-            ("relevant_chunk_ids".into(), serde_json::json!(["a", "b"])),
-            ("contexts".into(), serde_json::json!(["Durable replay is supported by snapshots."])),
-        ]) };
+        let case = EvaluationCase {
+            id: "rag".into(),
+            input: Value::String("What supports durable replay?".into()),
+            expected: None,
+            metadata: BTreeMap::from([
+                ("relevant_chunk_ids".into(), serde_json::json!(["a", "b"])),
+                (
+                    "contexts".into(),
+                    serde_json::json!(["Durable replay is supported by snapshots."]),
+                ),
+            ]),
+        };
         let output = serde_json::json!({"answer":"Snapshots support durable replay", "retrieved_chunk_ids":["a", "x"], "citations":["a"]});
         let metrics = evaluate_rag_case(&case, &output);
         assert_eq!(metrics.retrieval_recall, 0.5);

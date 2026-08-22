@@ -205,7 +205,9 @@ impl OtlpHttpExporter {
         }
         Ok(Self {
             endpoint: provider.otlp_endpoint(&endpoint),
-            client: reqwest::Client::builder().default_headers(headers).build()?,
+            client: reqwest::Client::builder()
+                .default_headers(headers)
+                .build()?,
             redactor,
         })
     }
@@ -291,13 +293,28 @@ pub struct AuditBundle {
 }
 
 impl AuditBundle {
-    pub fn new(run_id: impl Into<String>, manifest: Value, spans: Vec<Span>, events: Vec<Value>) -> Self {
+    pub fn new(
+        run_id: impl Into<String>,
+        manifest: Value,
+        spans: Vec<Span>,
+        events: Vec<Value>,
+    ) -> Self {
         let run_id = run_id.into();
-        let payload = serde_json::to_vec(&(run_id.clone(), &manifest, &spans, &events)).unwrap_or_default();
-        Self { version: 1, run_id, manifest, spans, events, digest: digest_bytes(&payload) }
+        let payload =
+            serde_json::to_vec(&(run_id.clone(), &manifest, &spans, &events)).unwrap_or_default();
+        Self {
+            version: 1,
+            run_id,
+            manifest,
+            spans,
+            events,
+            digest: digest_bytes(&payload),
+        }
     }
     pub fn verify(&self) -> bool {
-        let payload = serde_json::to_vec(&(&self.run_id, &self.manifest, &self.spans, &self.events)).unwrap_or_default();
+        let payload =
+            serde_json::to_vec(&(&self.run_id, &self.manifest, &self.spans, &self.events))
+                .unwrap_or_default();
         self.digest == digest_bytes(&payload)
     }
     pub fn save(&self, path: impl AsRef<std::path::Path>) -> anyhow::Result<()> {

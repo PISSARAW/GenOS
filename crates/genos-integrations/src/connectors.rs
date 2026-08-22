@@ -109,18 +109,49 @@ impl JiraClient {
     }
 }
 impl NotionClient {
-    pub fn new(api: ApiClient) -> Self { Self { api } }
-    pub async fn search(&self, query: &str, page_size: usize) -> Result<NotionSearchResponse> {
-        self.api.request_json(Method::POST, "/v1/search", Some(&json!({"query":query,"page_size":page_size}))).await
+    pub fn new(api: ApiClient) -> Self {
+        Self { api }
     }
-    pub async fn create_page(&self, parent: Value, properties: Value, children: Option<Value>) -> Result<NotionPage> {
-        self.api.request_json(Method::POST, "/v1/pages", Some(&json!({"parent":parent,"properties":properties,"children":children}))).await
+    pub async fn search(&self, query: &str, page_size: usize) -> Result<NotionSearchResponse> {
+        self.api
+            .request_json(
+                Method::POST,
+                "/v1/search",
+                Some(&json!({"query":query,"page_size":page_size})),
+            )
+            .await
+    }
+    pub async fn create_page(
+        &self,
+        parent: Value,
+        properties: Value,
+        children: Option<Value>,
+    ) -> Result<NotionPage> {
+        self.api
+            .request_json(
+                Method::POST,
+                "/v1/pages",
+                Some(&json!({"parent":parent,"properties":properties,"children":children})),
+            )
+            .await
     }
 }
 #[derive(Clone, Debug, Deserialize)]
-pub struct NotionSearchResponse { pub results: Vec<NotionPage>, #[serde(default)] pub has_more: bool, #[serde(default)] pub next_cursor: Option<String> }
+pub struct NotionSearchResponse {
+    pub results: Vec<NotionPage>,
+    #[serde(default)]
+    pub has_more: bool,
+    #[serde(default)]
+    pub next_cursor: Option<String>,
+}
 #[derive(Clone, Debug, Deserialize)]
-pub struct NotionPage { pub id: String, #[serde(default)] pub url: Option<String>, #[serde(default)] pub object: Option<String> }
+pub struct NotionPage {
+    pub id: String,
+    #[serde(default)]
+    pub url: Option<String>,
+    #[serde(default)]
+    pub object: Option<String>,
+}
 #[derive(Clone, Debug, Deserialize)]
 pub struct JiraIssue {
     pub id: String,
@@ -244,7 +275,11 @@ mod tests {
             payload: None,
         };
         assert_eq!(point.vector, vec![1.0]);
-        let notion = NotionPage { id: "page".into(), url: None, object: Some("page".into()) };
+        let notion = NotionPage {
+            id: "page".into(),
+            url: None,
+            object: Some("page".into()),
+        };
         assert_eq!(notion.object.as_deref(), Some("page"));
     }
 }
