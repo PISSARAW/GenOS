@@ -21,6 +21,7 @@ import { LiveMatrix } from './components/LiveMatrix';
 import { GodModeTerminal } from './components/GodModeTerminal';
 import { ToastContainer } from './components/ToastContainer';
 import { RBAC_Gate } from './components/RBAC_Gate';
+import { EvaluationLineageConsole } from './components/EvaluationLineageConsole';
 
 // 7 Innovative Breakthrough Modules
 import { ArenaSolversModule } from './components/arena/ArenaSolversModule';
@@ -30,6 +31,8 @@ import { BiologyResilienceModule } from './components/resilience/BiologyResilien
 import { GenomeFactoryModule } from './components/genome/GenomeFactoryModule';
 import { MemoryExperienceModule } from './components/memory/MemoryExperienceModule';
 import { WorkspaceTimelineModule } from './components/timeline/WorkspaceTimelineModule';
+import { ComplianceAndIntegrations } from './components/ComplianceAndIntegrations';
+import { PlatformSafetyCenter } from './components/PlatformSafetyCenter';
 
 import { useGenOSStore } from './store/useGenOSStore';
 import { useToastStore } from './store/useToastStore';
@@ -38,9 +41,10 @@ import { api } from './api/client';
 type StudioView = 
   | 'home' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience' 
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
+  | 'evaluation_lineage'
   | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments' 
   | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
-  | 'live_matrix' | 'terminal';
+  | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<StudioView>('home');
@@ -154,6 +158,9 @@ const App: React.FC = () => {
                 <div onClick={() => setActiveView('arena')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'arena' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'arena' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Swords size={16} color="var(--accent-blue)" /> Arena & Solvers
                 </div>
+                <div onClick={() => setActiveView('evaluation_lineage')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'evaluation_lineage' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'evaluation_lineage' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <ActivityIcon size={16} color="var(--accent-purple)" /> Evaluation & Lineage
+                </div>
 
                 <div onClick={() => setActiveView('mcp_sandbox')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'mcp_sandbox' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'mcp_sandbox' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Wrench size={16} color="var(--accent-blue)" /> MCP Sandbox & Tools
@@ -204,6 +211,9 @@ const App: React.FC = () => {
                 <div onClick={() => setActiveView('workspaces')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'workspaces' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'workspaces' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <PackageIcon size={16} color="var(--text-secondary)" /> Workspaces List
                 </div>
+                <div onClick={() => setActiveView('compliance')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'compliance' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'compliance' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <ShieldAlert size={16} color="var(--accent-purple)" /> Compliance & IDEs
+                </div>
                 <div onClick={() => setActiveView('experiments')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'experiments' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'experiments' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <DiscussionIcon size={16} color="var(--text-secondary)" /> Experiments Lab
                 </div>
@@ -213,6 +223,9 @@ const App: React.FC = () => {
                 
                 <div onClick={() => setActiveView('live_matrix')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'live_matrix' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'live_matrix' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Cpu size={16} color="#3fb950" /> Live Neural Matrix
+                </div>
+                <div onClick={() => setActiveView('platform_safety')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'platform_safety' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'platform_safety' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <ShieldAlert size={16} color="var(--warning)" /> Platform & Safety Center
                 </div>
                 <div onClick={() => setActiveView('terminal')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'terminal' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'terminal' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Terminal size={16} color="#f85149" /> God Mode Terminal
@@ -251,6 +264,7 @@ const App: React.FC = () => {
           <div className="gh-content-area">
             {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
             {activeView === 'arena' && <ArenaSolversModule />}
+            {activeView === 'evaluation_lineage' && <EvaluationLineageConsole />}
             {activeView === 'mcp_sandbox' && <McpSandboxModule />}
             {activeView === 'swarm_monitor' && <SwarmMonitorModule />}
             {activeView === 'resilience' && <BiologyResilienceModule />}
@@ -270,7 +284,9 @@ const App: React.FC = () => {
             {activeView === 'agent_profile' && <div style={{width:'100%', height:'100%'}}><AgentProfile /></div>}
             {activeView === 'alerts' && <div style={{width:'100%', height:'100%'}}><GlobalAlerts onNavigateDeploy={() => setActiveView('agent_deployment')} /></div>}
             {activeView === 'workspaces' && <div style={{width:'100%', height:'100%'}}><WorkspacesList /></div>}
+            {activeView === 'compliance' && <ComplianceAndIntegrations />}
             {activeView === 'live_matrix' && <div style={{width:'100%', height:'100%'}}><LiveMatrix /></div>}
+            {activeView === 'platform_safety' && <PlatformSafetyCenter />}
             {activeView === 'terminal' && <div style={{width:'100%', height:'100%'}}><GodModeTerminal /></div>}
           </div>
 
