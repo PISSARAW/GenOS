@@ -19,6 +19,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const showToast = useToastStore((state) => state.showToast);
 
   const fetchConsensus = () => {
@@ -109,6 +110,17 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   );
   const agentTypes = [...new Set(agents.map((a) => a.agentType).filter(Boolean))];
   const worlds = agents.filter((a) => a.trinityWorldId).reduce((all: any[], a) => all.some((w) => w.id === a.trinityWorldId) ? all : [...all, { id: a.trinityWorldId, name: a.trinityWorldName }], []);
+  const selected = filteredAgents.filter((agent) => selectedIds.includes(agent.id));
+  const toggleSelected = (id: string) => setSelectedIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+  const toggleAll = () => setSelectedIds(selected.length === filteredAgents.length ? [] : filteredAgents.map((agent) => agent.id));
+  const stopSelected = async () => {
+    if (!selected.length || !window.confirm(`Stop ${selected.length} selected agent(s)?`)) return;
+    try { await api.stopAgents(selected.map((agent) => agent.id)); showToast('success', 'Agents Stopped', `${selected.length} agent(s) reconciled or stopped.`); await fetchAgents(); } catch (e: any) { showToast('error', 'Bulk Stop Failed', e.message); }
+  };
+  const deleteSelected = async () => {
+    if (!selected.length || !window.confirm(`Permanently delete ${selected.length} selected agent(s)?`)) return;
+    try { const result = await api.deleteAgents(selected.map((agent) => agent.id)); setSelectedIds([]); showToast(result.blocked?.length ? 'warning' : 'success', 'Bulk Delete', `${result.deleted?.length || 0} deleted${result.blocked?.length ? `; ${result.blocked.length} still running` : ''}.`); await fetchAgents(); } catch (e: any) { showToast('error', 'Bulk Delete Failed', e.message); }
+  };
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', width: '100%', height: '100%', overflowY: 'auto', background: 'var(--bg-main)' }}>
@@ -168,14 +180,17 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
 
         {/* List of Agents */}
         <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)', overflow: 'hidden' }}>
-          <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+          <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <input type="checkbox" checked={filteredAgents.length > 0 && selected.length === filteredAgents.length} onChange={toggleAll} aria-label="Select all filtered agents" />
             Active Fleet Swarm Nodes ({filteredAgents.length})
+            {selected.length > 0 && <span style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center' }}><span>{selected.length} selected</span><RBAC_Gate><button onClick={stopSelected} className="gh-btn"><Square size={12} /> Stop selected</button></RBAC_Gate><RBAC_Gate><button onClick={deleteSelected} className="gh-btn" style={{ color: 'var(--danger)' }}><Trash2 size={12} /> Delete selected</button></RBAC_Gate></span>}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {filteredAgents.map((agent, index) => (
               <div key={agent.id || index} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderBottom: index < filteredAgents.length - 1 ? '1px solid var(--panel-border)' : 'none' }} className="hover-bg-gray">
                 
+                <input type="checkbox" checked={selectedIds.includes(agent.id)} onChange={() => toggleSelected(agent.id)} aria-label={`Select ${agent.name}`} style={{ alignSelf: 'flex-start', margin: '5px 12px 0 0' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                     <h3 onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent-blue)', margin: 0, cursor: 'pointer' }} className="hover-underline">
