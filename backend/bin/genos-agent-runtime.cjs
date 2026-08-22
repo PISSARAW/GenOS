@@ -34,10 +34,11 @@ process.stdin.on('end', () => {
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
-  const args = [
-    'exec', '--json', '--ephemeral', '--dangerously-bypass-approvals-and-sandbox',
-    '-C', workspace, '-'
-  ];
+  const args = ['exec', '--json', '--ephemeral'];
+  if (/^(1|true)$/i.test(String(process.env.GENOS_CODEX_UNSAFE_BYPASS || ''))) {
+    args.push('--dangerously-bypass-approvals-and-sandbox');
+  }
+  args.push('-C', workspace, '-');
   const child = spawn(codex, args, { cwd: workspace, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
   let buffer = '';
   let stderr = '';

@@ -5,6 +5,7 @@
  */
 
 import http from 'http';
+import crypto from 'crypto';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -25,9 +26,10 @@ globalThis.localStorage = {
   clear: () => storage.clear()
 };
 
-// Set Military Override Token & CSRF in mock storage
-const MILITARY_OVERRIDE_TOKEN = 'MILITARY-OVERRIDE-GENOS-2026';
-globalThis.localStorage.setItem('genos_auth_token', MILITARY_OVERRIDE_TOKEN);
+// Use an ephemeral test-only administrator token inherited by the backend.
+const ADMIN_TEST_TOKEN = `genos_test_admin_${crypto.randomBytes(16).toString('hex')}`;
+process.env.GENOS_ADMIN_TOKEN = ADMIN_TEST_TOKEN;
+globalThis.localStorage.setItem('genos_auth_token', ADMIN_TEST_TOKEN);
 globalThis.localStorage.setItem('genos_csrf_token', 'csrf-e2e-challenger-2-token');
 
 // Compile and load client.ts and useToastStore.ts dynamically
@@ -156,7 +158,7 @@ async function runE2EVerification() {
   // Section 1: Auth & RBAC Endpoints
   console.log('--- 1. Auth & Session Management ---');
   try {
-    const verifyValid = await api.verifyToken(MILITARY_OVERRIDE_TOKEN);
+    const verifyValid = await api.verifyToken(ADMIN_TEST_TOKEN);
     assert(verifyValid.valid === true && verifyValid.role === 'admin', 'api.verifyToken() succeeds with military override token');
 
     let rejectInvalid = false;
@@ -367,7 +369,7 @@ async function runE2EVerification() {
     assert(false, 'MCP Tools Section Exception', err.message);
   }
 
-  await runPart2(api, apiRequest, assert, MILITARY_OVERRIDE_TOKEN, useToastStore);
+  await runPart2(api, apiRequest, assert, ADMIN_TEST_TOKEN, useToastStore);
   // Summary
   console.log('\n===============================================================');
   console.log(` E2E API & RESILIENCE AUDIT SUMMARY:`);

@@ -6,10 +6,12 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const { TEST_ADMIN_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const circuitBreaker = require('./src/services/circuitBreaker');
-const { MILITARY_OVERRIDE_TOKEN, hashKey } = require('./src/middleware/auth');
+const { hashKey } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 const { sanitizeString } = require('./src/middleware/security');
 
 
@@ -137,10 +139,10 @@ async function testRbacBoundaries(keys) {
 async function testMilitaryOverride() {
   console.log('\n--- 2. Level 5 Military Override Elevation ---');
   const authRes = await request({ method: 'POST', path: '/api/auth/verify-token' }, { token: MILITARY_OVERRIDE_TOKEN });
-  assert(authRes.status === 200 && authRes.body.valid === true && authRes.body.role === 'admin' && authRes.body.isOverride === true, 'Military token validated with admin role');
+  assert(authRes.status === 200 && authRes.body.valid === true && authRes.body.role === 'admin' && authRes.body.isBootstrap === true, 'Bootstrap token validated with admin role');
 
   const sessRes = await request({ method: 'GET', path: '/api/auth/session', headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` } });
-  assert(sessRes.status === 200 && sessRes.body.user.role === 'admin' && sessRes.body.user.isOverride === true, 'Session reflects MILITARY_OVERRIDE_ROOT via Bearer');
+  assert(sessRes.status === 200 && sessRes.body.user.role === 'admin' && sessRes.body.user.isBootstrap === true, 'Session reflects the environment bootstrap administrator via Bearer');
 
   const sessKeyRes = await request({ method: 'GET', path: '/api/auth/session', headers: { 'X-Access-Key': MILITARY_OVERRIDE_TOKEN } });
   assert(sessKeyRes.status === 200 && sessKeyRes.body.user.role === 'admin', 'Session reflects admin context via X-Access-Key header');

@@ -19,9 +19,79 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  verify-source:
+    name: Verify tagged source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      cargo_version: ${{ steps.source.outputs.cargo_version }}
+      release_id: ${{ steps.source.outputs.release_id }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      tag: ${{ steps.source.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - name: Verify tag, commit, and Cargo version
+        id: source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          cargo_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
+          test -n "$cargo_version"
+          source_sha="$(git rev-parse HEAD)"
+          tag=""
+          release_id="${cargo_version}-manual.${GITHUB_RUN_NUMBER}"
+
+          if [[ "$EVENT_NAME" != "workflow_dispatch" ]]; then
+            tag="$EVENT_TAG"
+            git show-ref --verify --quiet "refs/tags/$tag"
+            tagged_sha="$(git rev-parse "$tag^{commit}")"
+            test "$tagged_sha" = "$source_sha"
+            if [[ "$EVENT_NAME" == "push" ]]; then
+              test "$tagged_sha" = "$GITHUB_SHA"
+            fi
+            if [[ ! "$tag" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)-alpha\.([0-9]+)$ ]] \
+              || [[ "${BASH_REMATCH[1]:-}" != "$cargo_version" ]]; then
+              echo "Tag '$tag' must match Cargo version $cargo_version (v${cargo_version}-alpha.N)." >&2
+              exit 1
+            fi
+            release_id="${tag#v}"
+          fi
+
+          {
+            echo "cargo_version=$cargo_version"
+            echo "release_id=$release_id"
+            echo "source_sha=$source_sha"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "release_id=$release_id"
+            echo "cargo_version=$cargo_version"
+            echo "source_sha=$source_sha"
+            echo "tag=${tag:-manual-build}"
+          } > SOURCE-PROVENANCE.txt
+
+      - name: Upload source provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-provenance
+          path: SOURCE-PROVENANCE.txt
+          if-no-files-found: error
+          retention-days: 14
+
   build-cli:
     name: genos (${{ matrix.label }})
+    needs: verify-source
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +120,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          persist-credentials: false
+          ref: ${{ needs.verify-source.outputs.source_sha }}
 
       - uses: dtolnay/rust-toolchain@1.88.0
         with:
@@ -68,13 +139,23 @@ jobs:
         env:
           ARCHIVE_FORMAT: ${{ matrix.archive }}
           BINARY_NAME: ${{ matrix.binary }}
-          PACKAGE_NAME: genos-${{ matrix.target }}
+          CARGO_VERSION: ${{ needs.verify-source.outputs.cargo_version }}
+          PACKAGE_NAME: genos-${{ needs.verify-source.outputs.release_id }}-${{ matrix.target }}
+          SOURCE_SHA: ${{ needs.verify-source.outputs.source_sha }}
           TARGET: ${{ matrix.target }}
         run: |
           set -euo pipefail
+          version_output="$("target/$TARGET/release/$BINARY_NAME" --version)"
+          test "$version_output" = "genos $CARGO_VERSION"
           mkdir -p "dist" "staging/$PACKAGE_NAME"
           cp "target/$TARGET/release/$BINARY_NAME" "staging/$PACKAGE_NAME/"
           cp LICENSE README.md "staging/$PACKAGE_NAME/"
+          {
+            echo "cargo_version=$CARGO_VERSION"
+            echo "source_sha=$SOURCE_SHA"
+            echo "target=$TARGET"
+            rustc --version
+          } > "staging/$PACKAGE_NAME/BUILD-PROVENANCE.txt"
 
           if [[ "$ARCHIVE_FORMAT" == "zip" ]]; then
             7z a "dist/$PACKAGE_NAME.zip" "./staging/$PACKAGE_NAME/*"
@@ -88,10 +169,11 @@ jobs:
           name: genos-${{ matrix.target }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 14
 
   checksums:
     name: SHA-256 checksums
-    needs: build-cli
+    needs: [verify-source, build-cli]
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
@@ -103,7 +185,14 @@ jobs:
 
       - name: Generate checksum manifest
         working-directory: dist
-        run: sha256sum genos-* > SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          count="$(find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l)"
+          test "$count" -eq 4
+          find . -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) -print0 \
+            | sort -z \
+            | xargs -0 sha256sum > SHA256SUMS.txt
+          sha256sum --check SHA256SUMS.txt
 
       - name: Upload checksum manifest
         uses: actions/upload-artifact@v4
@@ -111,11 +200,12 @@ jobs:
           name: release-checksums
           path: dist/SHA256SUMS.txt
           if-no-files-found: error
+          retention-days: 14
 
   attach-prerelease:
     name: Attach prerelease assets
     if: github.event_name == 'push' || github.event_name == 'release'
-    needs: [build-cli, checksums]
+    needs: [verify-source, build-cli, checksums]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -129,15 +219,23 @@ jobs:
       - name: Create or update GitHub prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          RELEASE_ID: ${{ needs.verify-source.outputs.release_id }}
+          RELEASE_TAG: ${{ needs.verify-source.outputs.tag }}
+          SOURCE_SHA: ${{ needs.verify-source.outputs.source_sha }}
         run: |
           set -euo pipefail
+          test -n "$RELEASE_TAG"
+          test "$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l)" -eq 4
+          (cd dist && sha256sum --check SHA256SUMS.txt)
+          find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) \
+            -name "genos-$RELEASE_ID-*" | grep -q .
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$RELEASE_TAG" dist/* \
               --prerelease \
               --generate-notes \
+              --target "$SOURCE_SHA" \
               --title "GenOS $RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY"
           fi

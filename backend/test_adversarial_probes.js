@@ -6,11 +6,12 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const { TEST_ADMIN_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const { sanitizeString } = require('./src/middleware/security');
 const circuitBreaker = require('./src/services/circuitBreaker');
-const { MILITARY_OVERRIDE_TOKEN } = require('./src/middleware/auth');
+const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4299;
 let server = null;
