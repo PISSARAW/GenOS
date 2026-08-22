@@ -88,16 +88,52 @@ function workerToolLease(role) {
   return lease;
 }
 
+function runCommand(command, args, { cwd, input } = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`)));
+    child.stdin.end(input || '');
+  });
+}
+
+async function availableBytes(directory) {
+  const stats = await fs.statfs(directory);
+  return Number(stats.bavail) * Number(stats.bsize);
+}
+
 async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride) {
   const source = path.resolve(sourceRoot);
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
   const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
   const destination = path.join(capsuleRoot, path.basename(source), workerId);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  // Git worktrees share the object database and prevent a multi-gigabyte copy
+  // of dependencies. Replay the tracked dirty diff so the capsule starts from
+  // the caller's real working state without altering that source workspace.
+  try {
+    await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: source });
+    const { stdout: diff } = await runCommand('git', ['diff', '--binary'], { cwd: source });
+    await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
+    if (diff) await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
+    return destination;
+  } catch (gitError) {
+    // Non-Git workspaces retain the copy fallback below. A partially created
+    // worktree is deliberately surfaced instead of silently copying into it.
+    const destinationExists = await fs.access(destination).then(() => true, () => false);
+    if (destinationExists) throw gitError;
+  }
   // Capsules must never recursively copy previous capsules, build products, or
   // VCS metadata. They remain on disk for replay and evidence-aware merging.
+  if (await availableBytes(path.dirname(destination)) < 1024 * 1024 * 1024) {
+    throw new Error('Insufficient disk space for a non-Git isolated workspace; free at least 1 GiB or use a Git workspace.');
+  }
   const excluded = new Set(['.git', '.genos', 'node_modules', 'target']);
-  await fs.mkdir(path.dirname(destination), { recursive: true });
   await fs.cp(source, destination, {
     recursive: true,
     filter: (entry) => !excluded.has(path.basename(entry))
