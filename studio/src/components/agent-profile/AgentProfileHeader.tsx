@@ -17,6 +17,7 @@ interface AgentProfileHeaderProps {
     status: string;
     role?: string;
     workspaceId?: string | null;
+    workspaceName?: string | null;
     hallucinationMonitoring?: boolean | number;
   };
   clonesCount: number;
@@ -71,7 +72,7 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
             </div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
               <span style={{ color: activeAgent.workspaceId ? 'var(--text-accent)' : 'var(--text-secondary)' }} className={activeAgent.workspaceId ? 'hover-underline' : undefined}>
-                {activeAgent.workspaceId || 'No workspace attached'}
+                {activeAgent.workspaceName || activeAgent.workspaceId || 'No workspace attached'}
               </span>
               <span style={{ margin: '0 4px', color: 'var(--text-muted)' }}>/</span>
               <span style={{ fontWeight: 600, cursor: 'pointer' }} className="hover-underline">{activeAgent.name}</span>
