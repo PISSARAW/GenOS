@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "system_id": "genos",
+  "system_name": "GenOS",
+  "assessment_kind": "repository_evidence",
+  "dimensions": [
+    {
+      "id": "structured_event_capture",
+      "status": "supported",
+      "evidence": [
+        {
+          "path": "backend/src/services/telemetryObserver.js",
+          "contains": "emitEvent(eventData)"
+        },
+        {
+          "path": "backend/src/db/schema.js",
+          "contains": "CREATE TABLE IF NOT EXISTS telemetry_events"
+        }
+      ]
+    },
+    {
+      "id": "trace_context_and_export",
+      "status": "partial",
+      "note": "A JSON DAG span export exists, but this audit does not establish OTLP export or W3C trace-context propagation.",
+      "evidence": [
+        {
+          "path": "backend/src/services/arenaService.js",
+          "contains": "function exportTrace(tournamentId"
+        },
+        {
+          "path": "backend/src/db/schema.js",
+          "contains": "CREATE TABLE IF NOT EXISTS trace_spans"
+        }
+      ]
+    },
+    {
+      "id": "token_and_cost_accounting",
+      "status": "supported",
+      "evidence": [
+        {
+          "path": "backend/src/controllers/platformController.js",
+          "contains": "SUM(COALESCE(json_extract(payload_json, \"$.tokens\"),0)) tokens"
+        },
+        {
+          "path": "backend/src/controllers/platformController.js",
+          "contains": "SUM(COALESCE(json_extract(payload_json, \"$.costUsd\"),0)) costUsd"
+        }
+      ]
+    },
+    {
+      "id": "cryptographic_provenance",
+      "status": "supported",
+      "evidence": [
+        {
+          "path": "backend/src/services/telemetryObserver.js",
+          "contains": "crypto.createHash('sha256')"
+        },
+        {
+          "path": "backend/src/db/schema.js",
+          "contains": "CREATE TABLE IF NOT EXISTS provenance_records"
+        }
+      ]
+    },
+    {
+      "id": "deterministic_replay_evidence",
+      "status": "supported",
+      "evidence": [
+        {
+          "path": "crates/genos-store/src/replay.rs",
+          "contains": "pub fn fingerprint_replay"
+        }
+      ]
+    },
+    {
+      "id": "operator_control_plane",
+      "status": "supported",
+      "evidence": [
+        {
+          "path": "backend/src/routes/platformRoutes.js",
+          "contains": "router.post('/platform/incidents/:incidentId/replay'"
+        },
+        {
+          "path": "backend/src/routes/platformRoutes.js",
+          "contains": "router.post('/platform/approvals/:id/decision'"
+        }
+      ]
+    }
+  ]
+}
