@@ -700,11 +700,14 @@ name = "genos-eval"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "async-trait",
  "chrono",
  "genos-core",
+ "genos-model",
  "rand",
  "serde",
  "serde_json",
+ "tokio",
 ]
 
 [[package]]
