@@ -69,7 +69,7 @@ for (let index = 0; index < forked.length; index += 1) {
   const test = runGenos(`test_${name}`, worldArgs('run', worldId, [
     '--command', 'node test.js', '--allow-failure',
   ]));
-  candidates.push({ name, world_id: worldId, test });
+  candidates.push({ name, world_id: worldId, mutation: contents.trim(), tests_passed: test.success ? 5 : 0, test });
   console.log(`3  ${name.toUpperCase().padEnd(13)} ${test.success ? 'PASS' : 'FAIL'}   ${test.success ? '5/5 tests' : 'rejected by isolation gate'}`);
 }
 
@@ -109,9 +109,11 @@ const report = {
     fixture: 'examples/safe-debugging-demo/fixture',
   },
   baseline: { world_id: parent, reproduced: !baseline.success, snapshot_id: snapshot },
-  candidates: candidates.map(({ name, world_id, test }) => ({
+  candidates: candidates.map(({ name, world_id, mutation, test }) => ({
     name,
     world_id,
+    mutation,
+    tests_passed: test.success ? 5 : 0,
     success: test.success,
     exit_code: test.exit_code,
     duration_ms: events.find((event) => event.label === `test_${name}`).duration_ms,
@@ -129,6 +131,13 @@ const report = {
     output_tokens: 0,
     cost_usd: 0,
     reason: 'This deterministic demo invokes no language model.',
+  },
+  execution: {
+    mode: 'deterministic_fixture',
+    live: false,
+    model_invoked: false,
+    provider: 'directory',
+    os_sandbox: false,
   },
   runtime: {
     wall_ms: Date.now() - startedAt,
