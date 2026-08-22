@@ -165,7 +165,9 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) 
       archetype: SOLVER_PROFILES[key]?.archetype || 'Custom',
       roundsCompleted: rounds,
       totalSteps,
-      executionTimeMs: Math.max(1, Math.round(totalTime / rounds)),
+      // Preserve the measured local execution time. Rounding every fast run up
+      // to one millisecond made the UI display a synthetic latency.
+      executionTimeMs: Number((totalTime / rounds).toFixed(3)),
       tokenCostUSD: Number((totalCost / rounds).toFixed(4)),
       fitnessScore: avgFitness,
       adversarialPassRate: avgPassRate,

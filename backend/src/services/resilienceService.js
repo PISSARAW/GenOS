@@ -82,7 +82,23 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
 
-  // Generate autopsy report
+  // Build the report from persisted agent telemetry. Do not invent call stacks
+  // or failed tool calls when the evaluation found no termination condition.
+  let lastActions = [];
+  if (db) {
+    const events = await db.all(
+      'SELECT event_type, action, detail, severity, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY id DESC LIMIT 3',
+      agent
+    );
+    lastActions = events.reverse().map((event, index) => ({
+      step: index + 1,
+      tool: event.action || event.event_type,
+      status: String(event.severity || 'info').toUpperCase(),
+      detail: event.detail || ''
+    }));
+  }
+
+  // Generate an evidence-bounded autopsy report.
   const autopsyReport = {
     reportId: `autopsy_${agent}_${Date.now()}`,
     agentId: agent,
@@ -96,18 +112,10 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
       semanticDivergence,
       hallucinations
     },
-    terminalCallStack: [
-      `at AgentRunner.executeAction (${agent}/runner.js:142:15)`,
-      `at CircuitBreaker.guardCall (services/circuitBreaker.js:88:9)`,
-      `at MCPProxy.dispatch (controllers/mcpController.js:65:21)`
-    ],
-    lastActions: [
-      { step: 1, tool: 'genos_inspect', status: 'SUCCESS' },
-      { step: 2, tool: 'genos_run', status: 'FAILED', error: 'Process timeout after 5000ms' },
-      { step: 3, tool: 'genos_run', status: 'FAILED', error: 'Invariant violation' }
-    ],
-    failingInvariant: 'Max 3 consecutive tool failures allowed before isolation',
-    recommendedPromptPatch: 'Enforce pre-condition AST check and reduce tool retry recursion depth.'
+    terminalCallStack: shouldTerminate ? ['Termination requested by resilience policy.'] : [],
+    lastActions,
+    failingInvariant: shouldTerminate ? primaryReason : null,
+    recommendedPromptPatch: shouldTerminate ? 'Review the recorded telemetry and adjust the mission guardrails before restarting.' : null
   };
 
   // If DB available and apoptosis executed, update agent status

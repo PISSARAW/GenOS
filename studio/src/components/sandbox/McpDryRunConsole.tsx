@@ -1,17 +1,18 @@
 import React from 'react';
-import { Terminal, ShieldAlert, Cpu, DollarSign, Clock } from 'lucide-react';
+import { Terminal, ShieldAlert, Clock } from 'lucide-react';
 
 interface DryRunResult {
-  output: string;
+  toolName: string;
   latencyMs: number;
-  tokensUsed: { input: number; output: number; total: number };
-  estimatedCostUsd: number;
-  blastRadius: {
-    score: number;
+  blastRadiusScore: number;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  sideEffects: {
+    filesCreated: string[];
     filesModified: string[];
+    filesDeleted: string[];
     subprocesses: string[];
-    riskLevel: 'Low' | 'Moderate' | 'High';
   };
+  predictedVfsDiff: { totalChanges: number; simulatedPaths: string[] };
 }
 
 export const McpDryRunConsole: React.FC<{ result: DryRunResult | null; isRunning: boolean }> = ({ result, isRunning }) => {
@@ -30,10 +31,7 @@ export const McpDryRunConsole: React.FC<{ result: DryRunResult | null; isRunning
               <Clock size={12} color="var(--accent-blue)" /> {result.latencyMs} ms
             </span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Cpu size={12} color="var(--success)" /> {result.tokensUsed.total} tokens
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <DollarSign size={12} color="#d29922" /> ${result.estimatedCostUsd}
+              {result.toolName}
             </span>
           </div>
         )}
@@ -50,19 +48,19 @@ export const McpDryRunConsole: React.FC<{ result: DryRunResult | null; isRunning
           }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-                <ShieldAlert size={14} color={result.blastRadius.score > 50 ? 'var(--danger)' : 'var(--success)'} />
-                Pre-Flight Blast Radius: <span style={{ color: result.blastRadius.score > 50 ? 'var(--danger)' : 'var(--success)' }}>Risk Score {result.blastRadius.score}/100</span>
+                <ShieldAlert size={14} color={result.blastRadiusScore > 50 ? 'var(--danger)' : 'var(--success)'} />
+                Pre-Flight Blast Radius: <span style={{ color: result.blastRadiusScore > 50 ? 'var(--danger)' : 'var(--success)' }}>Risk Score {result.blastRadiusScore}/100</span>
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Target Files: {result.blastRadius.filesModified.join(', ') || 'No file mutations detected (pure read/analysis)'}
+                Target Files: {[...result.sideEffects.filesCreated, ...result.sideEffects.filesModified, ...result.sideEffects.filesDeleted].join(', ') || 'No file mutations predicted (read/analysis only)'}
               </div>
             </div>
             <div style={{ 
               padding: '2px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600,
-              border: `1px solid ${result.blastRadius.riskLevel === 'High' ? 'var(--danger)' : 'var(--success)'}`,
-              color: result.blastRadius.riskLevel === 'High' ? 'var(--danger)' : 'var(--success)'
+              border: `1px solid ${result.riskLevel === 'HIGH' ? 'var(--danger)' : 'var(--success)'}`,
+              color: result.riskLevel === 'HIGH' ? 'var(--danger)' : 'var(--success)'
             }}>
-              {result.blastRadius.riskLevel} Risk
+              {result.riskLevel} Risk
             </div>
           </div>
         )}
@@ -73,9 +71,9 @@ export const McpDryRunConsole: React.FC<{ result: DryRunResult | null; isRunning
             <div style={{ color: 'var(--accent-blue)' }}>&gt; Simulating tool execution in isolated VFS sandbox...</div>
           ) : result ? (
             <div>
-              <div style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>// Dry-Run Simulation Output</div>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>// Backend dry-run result</div>
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: '#3fb950', lineHeight: 1.5 }}>
-                {result.output}
+                {JSON.stringify({ sideEffects: result.sideEffects, predictedVfsDiff: result.predictedVfsDiff }, null, 2)}
               </pre>
             </div>
           ) : (
