@@ -15,6 +15,7 @@ categories.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 genos-core = { path = "../genos-core" }
 genos-eval = { version = "0.0.1", path = "../genos-eval" }
 serde.workspace = true
@@ -25,4 +26,3 @@ tokio.workspace = true
 zstd = "0.13.3"
 
 [dev-dependencies]
-chrono.workspace = true

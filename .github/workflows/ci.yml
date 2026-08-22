@@ -109,7 +109,7 @@ jobs:
           # One genome value changed -> exactly one entry, reported by path and
           # at the precision the f32 field actually holds.
           assert_output 'GenomeDiff'
-          assert_output '  genome.cognition.exploration'
+          assert_output '  genome.cognition.chromosomes[0].loci[0].value'
           assert_output '    old: 0.7'
           assert_output '    new: 0.8'
           assert_output '1 changed path'

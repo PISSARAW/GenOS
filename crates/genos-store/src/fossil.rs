@@ -1,4 +1,4 @@
-﻿use genos_core::{AgentGenome, GenomeId};
+﻿use genos_core::{AgentGenome, GenomeId, SnapshotId};
 use genos_eval::phylogeny::PhylogenyTree;
 use std::path::{Path, PathBuf};
 use crate::snapshot::{LocalSnapshotStore, SnapshotStore};
@@ -27,7 +27,8 @@ impl FossilRegistry {
         let mut genomes = Vec::new();
 
         for id in snapshot_ids {
-            if let Some(snapshot) = self.store.get_snapshot(id).await? {
+            let snapshot_id = SnapshotId(id);
+            if let Some(snapshot) = self.store.load_snapshot(&snapshot_id).await? {
                 genomes.push(snapshot.genome);
             }
         }
