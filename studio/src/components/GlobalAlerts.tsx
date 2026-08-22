@@ -29,7 +29,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
   const handleKillTask = async (id: string) => {
     try {
       await api.killTask(id);
-      showToast('warning', 'Task Terminated', `Sent emergency termination to task ${id}`);
+      showToast('warning', 'Alert Resolved', `Alert ${id} was marked resolved. No runtime process was terminated.`);
       fetchAlerts();
     } catch (e: any) {
       showToast('error', 'Kill Failed', e.message);
@@ -179,7 +179,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                           </pre>
                           <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
                             <button disabled title="Direct navigation to an alert's agent profile is not available in this view." className="gh-btn gh-btn-primary" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>Agent profile unavailable</button>
-                            <button onClick={() => handleKillTask(issue.id)} className="gh-btn" style={{ padding: '4px 12px', fontSize: '0.75rem', color: 'var(--danger)' }}>Kill Task</button>
+                            <button onClick={() => handleKillTask(issue.id)} className="gh-btn" style={{ padding: '4px 12px', fontSize: '0.75rem', color: 'var(--danger)' }}>Resolve Alert</button>
                           </div>
                         </div>
                       )}

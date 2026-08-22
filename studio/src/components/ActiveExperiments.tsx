@@ -137,7 +137,7 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button onClick={handleHaltNonCritical} className="gh-btn" style={{ padding: '6px 16px', fontWeight: 600, color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Octagon size={16} /> Engage Global Halt
+                <Octagon size={16} /> Engage MCP Kill Switch
               </button>
               <button onClick={onOpenLab} className="gh-btn gh-btn-primary" style={{ padding: '6px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FlaskConical size={16} /> Design Experiment

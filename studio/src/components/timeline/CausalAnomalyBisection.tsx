@@ -5,7 +5,7 @@ import { useToastStore } from '../../store/useToastStore';
 
 export const CausalAnomalyBisection: React.FC = () => {
   const [workspaceId, setWorkspaceId] = useState('');
-  const [testAssertion, setTestAssertion] = useState('npm test -- --grep "invariant_type_check"');
+  const [testAssertion, setTestAssertion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [bisectionReport, setBisectionReport] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
@@ -31,9 +31,9 @@ export const CausalAnomalyBisection: React.FC = () => {
       <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Bug size={16} color="var(--danger)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Automated Causal Anomaly Bisection Engine (O(log N))</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Causal Bisection</span>
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Automated git-bisect for AI swarms</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Unavailable: no revision checkout or test runner is configured</span>
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
@@ -46,6 +46,7 @@ export const CausalAnomalyBisection: React.FC = () => {
               type="text" 
               value={workspaceId} 
               onChange={(e) => setWorkspaceId(e.target.value)}
+              disabled
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
             />
           </div>
@@ -56,17 +57,18 @@ export const CausalAnomalyBisection: React.FC = () => {
               type="text" 
               value={testAssertion} 
               onChange={(e) => setTestAssertion(e.target.value)}
+              disabled
+              placeholder="No executable test runner configured"
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', fontFamily: 'monospace', outline: 'none' }}
             />
           </div>
 
           <button 
-            onClick={handleRunBisection} 
-            disabled={isRunning} 
+            disabled
             className="gh-btn gh-btn-primary" 
             style={{ padding: '6px 16px', fontSize: '0.8rem' }}
           >
-            <Play size={12} /> {isRunning ? 'Bisecting...' : 'Start Bisection'}
+            <Play size={12} /> Bisection unavailable
           </button>
         </div>
 
