@@ -70,6 +70,12 @@ unprivileged `node` user and stores its database at `/data/genos.db`. Both
 containers expose health checks consumed by Compose and run with
 `no-new-privileges`.
 
+The Dockerfiles pin their Node and nginx base-image manifests by digest so a
+tag cannot silently change a build. The human-readable tags remain alongside
+the digests for maintenance. Review and refresh both the tag and digest
+together when applying upstream security updates; no automated image updater
+is configured yet.
+
 ## Boundaries
 
 - Ports `3000` and `4000` must be available locally.
