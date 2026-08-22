@@ -15,11 +15,9 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   if (!tool) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
   const circuit = circuitBreaker.canExecute(toolName, 'operator');
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
-  const started = Date.now();
-  const output = { toolName, status: 'executed', args, provider: tool.provider || 'genos', simulated: false };
-  circuitBreaker.recordSuccess(toolName);
-  telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_COMPLETED', agentId, action: 'MCP_EXECUTE', detail: `Executed ${toolName}`, payload: { toolName, args, latencyMs: Date.now() - started, output } });
-  return { success: true, status: 'completed', output };
+  const error = `MCP tool '${toolName}' has no configured executable transport. Use its dry-run analysis or configure a real MCP server before adding it to a workflow.`;
+  telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_UNAVAILABLE', agentId, action: 'MCP_EXECUTE', detail: error, severity: 'warning', payload: { toolName, args } });
+  return { success: false, status: 'unavailable', error };
 }
 
 module.exports = { execute };

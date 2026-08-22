@@ -42,30 +42,9 @@ async function listTools(req, res) {
 }
 
 function testTool(req, res) {
-  const { toolName = 'genos_inspect', args = {} } = req.body || {};
-  const userRole = (req.user && req.user.role) || 'viewer';
-
-  const check = circuitBreaker.canExecute(toolName, userRole);
-  if (!check.allowed) {
-    return res.status(503).json({
-      error: { code: check.reason, message: check.message }
-    });
-  }
-
-  circuitBreaker.recordSuccess(toolName);
-
-  telemetry.emitEvent({
-    eventType: 'TOOL_TEST_EXECUTED',
-    agentId: 'mcp_controller',
-    action: 'TEST',
-    detail: `Tested tool '${toolName}' in sandbox successfully`,
-    severity: 'info',
-    payload: { toolName, args }
-  });
-
-  res.json({
-    success: true,
-    result: `Sandbox test of tool '${toolName}' succeeded. State: ${check.state}. Args: ${JSON.stringify(args)}`
+  const { toolName = 'genos_inspect' } = req.body || {};
+  return res.status(501).json({
+    error: { code: 'TOOL_TRANSPORT_UNAVAILABLE', message: `MCP tool '${toolName}' has no configured executable transport. Use the dry-run endpoint for a declared simulation.` }
   });
 }
 
@@ -125,22 +104,8 @@ async function executeTool(req, res) {
     });
   }
 
-  circuitBreaker.recordSuccess(toolName);
-
-  telemetry.emitEvent({
-    eventType: 'TOOL_CALL_COMPLETED',
-    agentId: req.user ? req.user.username : 'mcp_controller',
-    action: 'EXECUTE',
-    detail: `Tool '${toolName}' executed successfully`,
-    severity: 'info',
-    payload: { toolName, args }
-  });
-
-  res.json({
-    success: true,
-    toolName,
-    output: `Execution of ${toolName} completed with output status: 0`,
-    executedAt: new Date().toISOString()
+  return res.status(501).json({
+    error: { code: 'TOOL_TRANSPORT_UNAVAILABLE', message: `MCP tool '${toolName}' has no configured executable transport. Execution was not attempted.` }
   });
 }
 

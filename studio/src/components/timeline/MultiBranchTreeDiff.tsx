@@ -22,7 +22,7 @@ export const MultiBranchTreeDiff: React.FC = () => {
       <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <GitCompare size={16} color="var(--accent-blue)" />
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>N-Way Multi-Branch Tree Diff Engine</span>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>Recorded Workspace Diff</span>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>

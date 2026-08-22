@@ -96,7 +96,7 @@ const App: React.FC = () => {
   const handleHaltAll = async () => {
     try {
       await api.haltAll();
-      showToast('warning', 'GLOBAL CRYPTOBIOSIS', 'Emergency halt broadcasted to all active swarm agents.');
+      showToast('warning', 'MCP KILL SWITCH ENGAGED', 'New MCP tool invocations are blocked. Existing external runtimes are not terminated.');
     } catch (e: any) {
       showToast('error', 'Halt Failed', e.message);
     }
@@ -124,7 +124,7 @@ const App: React.FC = () => {
           <div style={{ gap: '16px', display: 'flex', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px', background: 'var(--bg-main)', borderRadius: '20px', border: '1px solid var(--panel-border)' }}>
               <div style={{ paddingTop: '2px' }}><ActivityIcon size={14} color="#3fb950" className="pulse-green" /></div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: 600 }}>{activeAgentsCount} Agents</span>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)', fontWeight: 600 }}>{activeAgentsCount} active agents</span>
             </div>
 
             <RBAC_Gate>

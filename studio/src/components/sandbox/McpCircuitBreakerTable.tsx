@@ -37,9 +37,9 @@ export const McpCircuitBreakerTable: React.FC<{ tools: McpToolItem[]; onRefresh:
       
       <div style={{ padding: '10px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <AlertOctagon size={14} color="var(--danger)" /> Granular Per-Tool Hardware Kill-Switch & Circuit Breaker
+          <AlertOctagon size={14} color="var(--danger)" /> Per-Tool Circuit Breaker
         </div>
-        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>0ms quarantine propagation across active swarms</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Persisted backend quarantine controls</span>
       </div>
 
       <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
@@ -50,7 +50,7 @@ export const McpCircuitBreakerTable: React.FC<{ tools: McpToolItem[]; onRefresh:
               <th style={{ padding: '8px 12px' }}>Category</th>
               <th style={{ padding: '8px 12px' }}>Risk Rating</th>
               <th style={{ padding: '8px 12px' }}>Circuit Status</th>
-              <th style={{ padding: '8px 12px', textAlign: 'right' }}>Hardware Switch</th>
+              <th style={{ padding: '8px 12px', textAlign: 'right' }}>Software Lock</th>
             </tr>
           </thead>
           <tbody>
@@ -74,7 +74,7 @@ export const McpCircuitBreakerTable: React.FC<{ tools: McpToolItem[]; onRefresh:
                     color: tool.isLocked ? 'var(--danger)' : 'var(--success)',
                     border: `1px solid ${tool.isLocked ? 'var(--danger)' : 'var(--success)'}`
                   }}>
-                    {tool.isLocked ? 'QUARANTINED' : 'CLOSED (HEALTHY)'}
+                    {tool.isLocked ? 'QUARANTINED' : `${tool.circuitState || 'CLOSED'} (UNLOCKED)`}
                   </span>
                 </td>
                 <td style={{ padding: '8px 12px', textAlign: 'right' }}>

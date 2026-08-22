@@ -42,11 +42,11 @@ export const ToolArsenal: React.FC = () => {
     if (!simulatorQuery || !selectedTool) return;
     const currentQuery = simulatorQuery;
     setSimulatorQuery('');
-    setSimulatorOutput((prev) => [...prev, `> ${currentQuery}`, `[executing] Invoking ${selectedTool.name}...`]);
+    setSimulatorOutput((prev) => [...prev, `> ${currentQuery}`, `[dry-run] Analysing ${selectedTool.name} without executing it...`]);
 
     try {
-      const res = await api.testTool(selectedTool.name, { query: currentQuery });
-      setSimulatorOutput((prev) => [...prev, `[response] ${res.result || 'Success: Command executed.'}`]);
+      const res = await api.dryRunMcpTool(selectedTool.name, { query: currentQuery });
+      setSimulatorOutput((prev) => [...prev, `[response] ${JSON.stringify(res)}`]);
     } catch (err: any) {
       setSimulatorOutput((prev) => [...prev, `[error] ${err.message || 'Execution halted.'}`]);
     }
@@ -65,12 +65,12 @@ export const ToolArsenal: React.FC = () => {
     }
   };
 
-  const testTool = async (tool: any) => {
+  const dryRunTool = async (tool: any) => {
     try {
-      setSandboxResult(`Executing ${tool.name}...`);
-      const data = await api.testTool(tool.name, {});
-      setSandboxResult(data.result || `Success: ${tool.name} passed dry-run verification.`);
-      showToast('success', 'Tool Verified', `${tool.name} executed cleanly in sandbox.`);
+      setSandboxResult(`Calculating a dry-run for ${tool.name}...`);
+      const data = await api.dryRunMcpTool(tool.name, {});
+      setSandboxResult(JSON.stringify(data));
+      showToast('info', 'Dry Run Complete', `${tool.name} was analysed without executing an MCP transport.`);
     } catch (e: any) {
       setSandboxResult(`Error: ${e.message}`);
       showToast('error', 'Test Failed', e.message);
@@ -149,8 +149,8 @@ export const ToolArsenal: React.FC = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <button onClick={(e) => { e.stopPropagation(); testTool(tool); }} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
-                  Test Sandbox
+                <button onClick={(e) => { e.stopPropagation(); dryRunTool(tool); }} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
+                  Dry Run
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); setSelectedTool(tool); }} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>
                   Configure

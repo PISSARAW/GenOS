@@ -159,7 +159,7 @@ class CircuitBreakerService {
       eventType: 'KILL_SWITCH_RESET',
       agentId: source,
       action: 'SYSTEM_RESUME',
-      detail: 'Emergency kill switch disarmed. System runtime resumed.',
+      detail: 'MCP kill switch reset. New MCP tool invocations may resume.',
       severity: 'info'
     });
 

@@ -21,20 +21,11 @@ async function handleCommand(req, res) {
 
   switch (action) {
     case 'fork_agent': {
-      const newId = `agent_fork_${Date.now()}`;
-      const parent = agentId ? await db.get('SELECT agent_type, language FROM agents WHERE id = ?', agentId) : null;
-      await db.run(
-        `INSERT INTO agents (id, name, role, status, agent_type, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        newId, `Clone of ${agentId || 'Node'}`, 'Forked Worker', 'running', parent?.agent_type || 'GenOS', parent?.language || 'TypeScript', 'Branch', agentId || null, 'clone', `Clone created from ${agentId || 'the GenOS fleet'}.`, 'Autonomous forked execution'
-      );
-      return res.json({ success: true, message: `Forked agent created: ${newId}`, agentId: newId });
+      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette agent forking is unavailable. Use a scoped Agent Profile clone instead.' } });
     }
 
     case 'kill_agent': {
-      if (agentId) {
-        await db.run("UPDATE agents SET status = 'Apoptosis' WHERE id = ?", agentId);
-      }
-      return res.json({ success: true, message: `Agent ${agentId || 'all'} apoptosis triggered.` });
+      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette agent termination is unavailable because it cannot stop a runtime process safely.' } });
     }
 
     case 'inspect_state': {
@@ -43,20 +34,15 @@ async function handleCommand(req, res) {
     }
 
     case 'reboot_studio': {
-      return res.json({ success: true, message: 'GenOS Studio hot reboot sequence completed.' });
+      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Studio reboot is not implemented by the backend.' } });
     }
 
     case 'snapshot_workspace': {
-      const snapId = `snp-${Date.now()}`;
-      await db.run(
-        `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        snapId, workspaceId || 'ws-genos-core', snapId.slice(-7), 10, 'Manual Command Snapshot', 'operator', 'Triggered via Command Palette'
-      );
-      return res.json({ success: true, message: `Snapshot ${snapId} created.`, snapshotId: snapId });
+      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette snapshots are unavailable because this command cannot capture workspace state. Use the Workspace Timeline snapshot flow.' } });
     }
 
     default:
-      return res.json({ success: true, message: `Action '${action}' executed successfully.` });
+      return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported command action: ${action}` } });
   }
 }
 
@@ -67,18 +53,18 @@ async function handleTerminal(req, res) {
 
   let output = '';
   if (cmd === 'help') {
-    output = 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Engage emergency kill switch\n  resume   - Reset kill switch and restore runtime\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
+    output = 'GenOS Terminal Available Commands:\n  status   - Show current backend and breaker status\n  halt     - Block new MCP tool invocations through the kill switch\n  resume   - Reset the MCP kill switch\n  agents   - List persisted agents\n  ping     - Show backend health\n  clear    - Clear terminal buffer';
   } else if (cmd === 'status') {
     const cb = circuitBreaker.getStatus();
     const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
     const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-    output = `[SYSTEM] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
+    output = `[SYSTEM] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
   } else if (cmd === 'halt' || cmd === 'abort') {
     circuitBreaker.triggerHalt('Terminal user command', 'terminal_user');
-    output = '[HALT ENGAGED] Global Cryptobiosis initiated. All active tasks suspended.';
+    output = '[HALT ENGAGED] New MCP tool invocations are blocked by the backend kill switch. Existing external runtimes are not terminated by this command.';
   } else if (cmd === 'resume') {
     circuitBreaker.resetHalt('terminal_user');
-    output = '[RESUMED] System runtime restored. Circuit breaker set to CLOSED.';
+    output = '[RESUMED] Backend kill switch reset. MCP tool invocations may resume.';
   } else if (cmd === 'agents') {
     const agents = await db.all("SELECT id, name, status FROM agents WHERE status != 'terminated' ORDER BY created_at DESC");
     output = agents.length > 0 ? agents.map((agent) => `${agent.name || agent.id} [${agent.status}]`).join('\n') : 'No persisted agents.';
