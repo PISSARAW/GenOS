@@ -7,6 +7,7 @@ mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
 mod cmd_platform;
+mod cmd_prompt;
 mod cmd_replay;
 mod cmd_resilience;
 mod cmd_snapshot;
@@ -21,8 +22,8 @@ use clap::Parser;
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
     ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands, PlatformSubcommands,
-    ReplaySubcommands, ResilienceSubcommands, SnapshotSubcommands, WorkflowSubcommands,
-    WorldSubcommands,
+    PromptSubcommands, ReplaySubcommands, ResilienceSubcommands, SnapshotSubcommands,
+    WorkflowSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -44,6 +45,7 @@ use crate::cmd_experiment::{
 use crate::cmd_hallucination::*;
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_platform::{cmd_platform_ingest, cmd_platform_search, cmd_platform_status};
+use crate::cmd_prompt::{cmd_prompt_diff, cmd_prompt_publish, cmd_prompt_render};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_resilience::*;
 use crate::cmd_snapshot::{
@@ -202,6 +204,11 @@ async fn main() -> Result<()> {
             PlatformSubcommands::Ingest(args) => cmd_platform_ingest(args),
             PlatformSubcommands::Search(args) => cmd_platform_search(args),
             PlatformSubcommands::Status => cmd_platform_status(),
+        },
+        Commands::Prompt(prompt) => match prompt.command {
+            PromptSubcommands::Publish(args) => cmd_prompt_publish(args),
+            PromptSubcommands::Render(args) => cmd_prompt_render(args),
+            PromptSubcommands::Diff(args) => cmd_prompt_diff(args),
         },
     }
 }
