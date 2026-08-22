@@ -1,13 +1,12 @@
 [mcp_servers.genos]
-command = "cargo"
-args = ["run", "--quiet", "-p", "genos-mcp", "--", "stdio"]
-cwd = "."
+command = "/Users/henripissa/Documents/GitHub.nosync/GenOS/target/debug/genos-mcp"
+args = ["stdio"]
+cwd = "/Users/henripissa/Documents/GitHub.nosync/GenOS"
 enabled = true
 required = false
-startup_timeout_sec = 120
-tool_timeout_sec = 300
-default_tools_approval_mode = "writes"
+startup_timeout_sec = 30
+tool_timeout_sec = 900
 
-[mcp_servers.genos.tools.genos_run]
-approval_mode = "prompt"
-
+[mcp_servers.genos.env]
+GENOS_WORKSPACE_ROOT = "/Users/henripissa/Documents/GitHub.nosync/GenOS"
+GENOS_BIN = "/Users/henripissa/Documents/GitHub.nosync/GenOS/target/debug/genos"
