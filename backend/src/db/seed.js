@@ -10,7 +10,60 @@ function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
+/**
+ * Keep the workspace dashboard useful for workspaces created before the
+ * workspace-scoped endpoints were introduced. This is intentionally
+ * idempotent: real records are preserved and each workspace is bootstrapped
+ * only when it has no record of the corresponding kind.
+ */
+async function ensureWorkspaceDashboardData(db) {
+  const workspaces = await db.all('SELECT id, name FROM workspaces ORDER BY created_at ASC');
+
+  for (const workspace of workspaces) {
+    const slug = workspace.id.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+
+    const alert = await db.get('SELECT id FROM global_alerts WHERE workspace_name = ? LIMIT 1', workspace.name);
+    if (!alert) {
+      await db.run(
+        `INSERT INTO global_alerts (id, title, status, agent_name, workspace_name, severity, confidence, context_snapshot)
+         VALUES (?, ?, 'running', 'workspace_controller', ?, 'low', '100%', ?)`,
+        `alert-${slug}-initialized`,
+        `Workspace ${workspace.name} initialized`,
+        workspace.name,
+        'Workspace dashboard is connected to the GenOS backend.'
+      );
+    }
+
+    const experiment = await db.get('SELECT id FROM experiments WHERE workspace_id = ? LIMIT 1', workspace.id);
+    if (!experiment) {
+      await db.run(
+        `INSERT INTO experiments (id, workspace_id, title, experiment_type, status, chaos_level, results_summary)
+         VALUES (?, ?, ?, 'scientific_experiment', 'Setup', 0, ?)`,
+        `exp-${slug}-initialized`,
+        workspace.id,
+        `Workspace ${workspace.name} baseline`,
+        'Baseline workspace project ready for activity.'
+      );
+    }
+
+    const pendingTrajectory = await db.get("SELECT id FROM trajectories WHERE workspace_id = ? AND status = 'pending' LIMIT 1", workspace.id);
+    if (!pendingTrajectory) {
+      await db.run(
+        `INSERT INTO trajectories (id, workspace_id, author_name, title, status, semantic_summary, diff_file, diff_lines, confidence)
+         VALUES (?, ?, 'workspace_controller', ?, 'pending', ?, 'README.md', '[]', 100)`,
+        `traj-${slug}-initialized`,
+        workspace.id,
+        `Initial workspace review for ${workspace.name}`,
+        'Workspace is ready for review and subsequent code trajectories.'
+      );
+    }
+  }
+}
+
 async function seedDatabase(db) {
+  // This runs on every boot so existing databases receive the migration too.
+  await ensureWorkspaceDashboardData(db);
+
   const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
   if (existing && existing.count > 0) return;
 
