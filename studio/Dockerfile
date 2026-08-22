@@ -2,7 +2,10 @@ FROM node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0
 
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# The production image serves static assets only. Keep platform bindings used
+# by Vite/Rolldown, but skip node-pty's native postinstall: the PTY server is a
+# local-development process and is never copied into the nginx image.
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
 

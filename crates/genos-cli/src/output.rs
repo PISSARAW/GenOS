@@ -79,6 +79,17 @@ pub struct WorldWriteFileOutput {
 }
 
 #[derive(Serialize)]
+pub struct WorldRunOutput {
+    pub provider: String,
+    pub world_id: String,
+    pub command: String,
+    pub exit_code: i32,
+    pub success: bool,
+    pub stdout: String,
+    pub stderr: String,
+}
+
+#[derive(Serialize)]
 pub struct WorldCheckFileOutput {
     pub provider: String,
     pub parent_world_id: String,

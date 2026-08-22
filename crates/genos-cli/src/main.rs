@@ -50,7 +50,7 @@ use crate::cmd_snapshot::{
 };
 use crate::cmd_world::{
     cmd_world_check_file, cmd_world_create, cmd_world_destroy, cmd_world_diff, cmd_world_fork,
-    cmd_world_read_file, cmd_world_snapshot, cmd_world_write_file,
+    cmd_world_read_file, cmd_world_run, cmd_world_snapshot, cmd_world_write_file,
 };
 
 #[tokio::main]
@@ -145,6 +145,7 @@ async fn main() -> Result<()> {
             WorldSubcommands::Destroy(args) => cmd_world_destroy(args).await,
             WorldSubcommands::ReadFile(args) => cmd_world_read_file(args).await,
             WorldSubcommands::WriteFile(args) => cmd_world_write_file(args).await,
+            WorldSubcommands::Run(args) => cmd_world_run(args).await,
             WorldSubcommands::CheckFile(args) => cmd_world_check_file(args).await,
         },
         Commands::Replay(replay) => match replay.command {

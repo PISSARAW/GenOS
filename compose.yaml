@@ -3,7 +3,8 @@ name: genos
 services:
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       NODE_ENV: production
       PORT: 4000

@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "scenario": "safe-parallel-debugging",
+  "generated_at": "2026-08-22T05:53:37.759Z",
+  "source": {
+    "command": "./examples/safe-debugging-demo/run-demo.sh",
+    "fixture": "examples/safe-debugging-demo/fixture"
+  },
+  "baseline": {
+    "world_id": "01a02808-244c-7f22-84b7-23da69fd1520",
+    "reproduced": true,
+    "snapshot_id": "01a02808-249c-7ce1-9ece-fee5048f19d6"
+  },
+  "candidates": [
+    {
+      "name": "candidate-a",
+      "world_id": "01a02808-24a5-7bd3-bf99-f4dceeda217c",
+      "success": true,
+      "exit_code": 0,
+      "duration_ms": 55.52
+    },
+    {
+      "name": "candidate-b",
+      "world_id": "01a02808-24a6-7011-a9b4-e19d5b4d2f4e",
+      "success": false,
+      "exit_code": 1,
+      "duration_ms": 56.75
+    },
+    {
+      "name": "candidate-c",
+      "world_id": "01a02808-24a6-7011-a9b4-e1a74662d656",
+      "success": false,
+      "exit_code": 1,
+      "duration_ms": 80.97
+    }
+  ],
+  "selection": {
+    "winner": "candidate-a",
+    "replay_world_id": "01a02808-258b-7ae1-acc2-3a07939eb47d",
+    "replay_verified": true,
+    "promoted_snapshot_id": "01a02808-25de-7e81-acc8-da85d851523b",
+    "merge_decision": "approved"
+  },
+  "usage": {
+    "model_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cost_usd": 0,
+    "reason": "This deterministic demo invokes no language model."
+  },
+  "runtime": {
+    "wall_ms": 1007,
+    "genos_operations": 15
+  },
+  "limits": [
+    "This proves isolation, replay and conditional selection; it does not measure model quality.",
+    "The directory provider isolates files by directory, not by an OS security sandbox."
+  ]
+}
