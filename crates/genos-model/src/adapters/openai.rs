@@ -55,14 +55,32 @@ struct OpenAiUsage {
 pub struct OpenAiAdapter {
     pub api_key: String,
     pub model: String,
+    pub endpoint: String,
+    provider: String,
     client: Client,
 }
 
 impl OpenAiAdapter {
     pub fn new(api_key: String, model: String) -> Self {
+        Self::new_with_endpoint(
+            api_key,
+            model,
+            "https://api.openai.com/v1/chat/completions",
+            "openai",
+        )
+    }
+
+    pub fn new_with_endpoint(
+        api_key: String,
+        model: String,
+        endpoint: impl Into<String>,
+        provider: impl Into<String>,
+    ) -> Self {
         Self {
             api_key,
             model,
+            endpoint: endpoint.into(),
+            provider: provider.into(),
             client: Client::new(),
         }
     }
@@ -90,7 +108,7 @@ fn map_messages(messages: &[Message]) -> Vec<OpenAiMessage> {
 #[async_trait]
 impl LlmProvider for OpenAiAdapter {
     fn provider_name(&self) -> &str {
-        "openai"
+        &self.provider
     }
 
     async fn generate(
@@ -112,7 +130,7 @@ impl LlmProvider for OpenAiAdapter {
 
         let response = self
             .client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(&self.endpoint)
             .bearer_auth(&self.api_key)
             .json(&req_body)
             .send()
