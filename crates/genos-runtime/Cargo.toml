@@ -22,6 +22,7 @@ genos-eval = { path = "../genos-eval" }
 genos-protocol = { path = "../genos-protocol" }
 genos-store = { path = "../genos-store" }
 genos-world = { path = "../genos-world" }
+redis.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

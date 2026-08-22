@@ -41,6 +41,7 @@ clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["json"] }
+redis = { version = "0.27", features = ["tokio-comp"] }
 serde_yaml = "0.9"
 sha2 = "0.10"
 thiserror = "2"
