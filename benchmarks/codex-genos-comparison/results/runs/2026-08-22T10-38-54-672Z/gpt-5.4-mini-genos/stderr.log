@@ -1,0 +1,21 @@
+Reading additional input from stdin...
+2026-08-22T10:47:53.909906Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:47:54.400021Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.401207Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.401789Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.402391Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.402964Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.403629Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.404263Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.405219Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.406056Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.406765Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.407318Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.407888Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:54.408463Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T10:47:56.256549Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:47:59.915563Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:48:08.321184Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:48:12.186622Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:48:15.169321Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T10:48:21.899405Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5

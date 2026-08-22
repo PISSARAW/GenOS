@@ -52,6 +52,45 @@ fn catalog_contains_canonical_and_software_development_tools() {
     ] {
         assert!(names.contains(format!("genos_{expected}").as_str()));
     }
+    for expected in ["configure_gateway", "inject_crispr_spacer"] {
+        assert!(names.contains(format!("genos_{expected}").as_str()));
+        assert!(!names.contains(format!("genos_genos_{expected}").as_str()));
+    }
+}
+
+#[test]
+fn security_tools_map_to_cli_arguments() {
+    let gateway = plan_tool_call(
+        "genos_configure_gateway",
+        &json!({"threshold": 3, "cooldown_ms": 1500}),
+    )
+    .unwrap();
+    assert_eq!(
+        gateway.args,
+        [
+            "security",
+            "configure-gateway",
+            "--threshold",
+            "3",
+            "--cooldown-ms",
+            "1500"
+        ]
+    );
+
+    let spacer = plan_tool_call(
+        "genos_inject_crispr_spacer",
+        &json!({"spacer_signature": "sha256:abc"}),
+    )
+    .unwrap();
+    assert_eq!(
+        spacer.args,
+        [
+            "security",
+            "inject-crispr-spacer",
+            "--spacer-signature",
+            "sha256:abc"
+        ]
+    );
 }
 
 #[test]
