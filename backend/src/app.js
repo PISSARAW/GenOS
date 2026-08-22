@@ -46,6 +46,7 @@ const secretRoutes = require('./routes/secretRoutes');
 const ssoRoutes = require('./routes/ssoRoutes');
 const pluginRoutes = require('./routes/pluginRoutes');
 const registryRoutes = require('./routes/registryRoutes');
+const frameworkRoutes = require('./routes/frameworkRoutes');
 const healthController = require('./controllers/healthController');
 
 function createApp() {
@@ -96,6 +97,7 @@ function createApp() {
   app.use('/api/sso', ssoRoutes);
   app.use('/api/plugins', pluginRoutes);
   app.use('/api/registry', registryRoutes);
+  app.use('/api/frameworks', frameworkRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);
