@@ -765,6 +765,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "genos-rag"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+]
+
+[[package]]
 name = "genos-runtime"
 version = "0.0.1"
 dependencies = [
