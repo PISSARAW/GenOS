@@ -14,16 +14,9 @@ pub struct ExperimentMergeReport {
 }
 
 /// L'Orchestrateur asynchrone responsable du lancement des expériences de Causal Replay.
+#[derive(Default)]
 pub struct CausalReplayOrchestrator {
     pub detector: DivergenceDetector,
-}
-
-impl Default for CausalReplayOrchestrator {
-    fn default() -> Self {
-        Self {
-            detector: DivergenceDetector::default(),
-        }
-    }
 }
 
 impl CausalReplayOrchestrator {
@@ -32,7 +25,7 @@ impl CausalReplayOrchestrator {
     }
 
     /// Orchestre une expérience de Causal Replay en direct.
-    /// Compare un flux d'exécution "Golden" avec la réalité courante de l'Agent, 
+    /// Compare un flux d'exécution "Golden" avec la réalité courante de l'Agent,
     /// et invoque `genos_fork` de manière dynamique au moment critique.
     pub async fn run_live_causal_experiment(
         &self,
@@ -42,14 +35,14 @@ impl CausalReplayOrchestrator {
     ) -> Result<ExperimentMergeReport, String> {
         let mut current_step = 0;
         let mut experimental_branch_id = golden_branch_id.to_string(); // Initialement sur la même branche
-        
+
         let mut fork_triggered = false;
         let mut fork_step = 0;
 
         // Boucle principale (Simulation d'exécution asynchrone live)
         for golden_snapshot in golden_stream {
             current_step += 1;
-            
+
             // Si on a déjà forké, on laisse l'agent continuer sur sa nouvelle branche isolée (Branche B)
             if fork_triggered {
                 // L'agent exécute sa nouvelle route causale sans contrainte...
@@ -72,8 +65,11 @@ impl CausalReplayOrchestrator {
                         // 1. L'Instant du Fork !
                         fork_triggered = true;
                         fork_step = current_step;
-                        experimental_branch_id = format!("{}_experiment_fork_at_step_{}", golden_branch_id, current_step);
-                        
+                        experimental_branch_id = format!(
+                            "{}_experiment_fork_at_step_{}",
+                            golden_branch_id, current_step
+                        );
+
                         // (Ici le système invoque l'API réelle `genos_fork` pour isoler la branche B)
                     }
                     DivergenceNature::UnintentionalNoise => {
@@ -91,7 +87,7 @@ impl CausalReplayOrchestrator {
         if fork_triggered {
             // L'agent a terminé d'explorer sa Branche B. On lance l'évaluation (Trajectory Evaluation)
             let improved_metrics = self.evaluate_trajectory(&experimental_branch_id);
-            
+
             Ok(ExperimentMergeReport {
                 golden_branch_id: golden_branch_id.to_string(),
                 experimental_branch_id,
@@ -112,7 +108,11 @@ impl CausalReplayOrchestrator {
     }
 
     /// (Mock Interne) Simule la lecture de l'état asynchrone de l'Agent.
-    fn poll_agent_live_state(&self, _step: usize, golden_snapshot: &IterationSnapshot) -> IterationSnapshot {
+    fn poll_agent_live_state(
+        &self,
+        _step: usize,
+        golden_snapshot: &IterationSnapshot,
+    ) -> IterationSnapshot {
         // En conditions normales, renvoie la même chose que le golden (Déterminisme parfait)
         golden_snapshot.clone()
     }

@@ -82,9 +82,9 @@ impl<'a> CommandPlanner<'a> {
         let values = match self.object.get(key) {
             Some(Value::Array(values)) if !values.is_empty() => values,
             _ => {
-                return Err(
-                    self.invalid(&format!("'{key}' must be a non-empty array of non-empty strings"))
-                )
+                return Err(self.invalid(&format!(
+                    "'{key}' must be a non-empty array of non-empty strings"
+                )))
             }
         };
         for value in values {
@@ -170,7 +170,9 @@ impl<'a> CommandPlanner<'a> {
         ];
         if let Some(path) = manifest {
             if values.iter().any(Option::is_some) {
-                return Err(self.invalid("'manifest' cannot be combined with direct experiment inputs"));
+                return Err(
+                    self.invalid("'manifest' cannot be combined with direct experiment inputs")
+                );
             }
             self.args.push(path.into());
             return Ok(());

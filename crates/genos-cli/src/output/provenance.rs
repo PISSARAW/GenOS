@@ -1,4 +1,4 @@
-﻿//! Provenance tree renderer for the `inspect belief` command.
+//! Provenance tree renderer for the `inspect belief` command.
 //!
 //! Extracted from `output.rs` so the parent module stays under the 400-line
 //! rule. The printer is plain-text only; structured output (JSON / YAML)
@@ -30,7 +30,11 @@ fn print_node(node: &ProvenanceNode, prefix: &str, is_last: bool) {
     let child_count = node.children.len();
     for (index, child) in node.children.iter().enumerate() {
         let last = index + 1 == child_count;
-        let connector = if last { "â””â”€â”€ " } else { "â”œâ”€â”€ " };
+        let connector = if last {
+            "â””â”€â”€ "
+        } else {
+            "â”œâ”€â”€ "
+        };
         let next_prefix = format!("{prefix}{}", if last { "    " } else { "â”‚   " });
         // Edge label sits between the connector and the child label.
         let edge_prefix = match child.edge.as_deref() {
@@ -43,7 +47,11 @@ fn print_node(node: &ProvenanceNode, prefix: &str, is_last: bool) {
         let grand_count = child.children.len();
         for (g_index, grand) in child.children.iter().enumerate() {
             let g_last = g_index + 1 == grand_count;
-            let g_connector = if g_last { "â””â”€â”€ " } else { "â”œâ”€â”€ " };
+            let g_connector = if g_last {
+                "â””â”€â”€ "
+            } else {
+                "â”œâ”€â”€ "
+            };
             let g_edge_prefix = match grand.edge.as_deref() {
                 Some(edge) => format!("{edge} "),
                 None => String::new(),
@@ -70,7 +78,11 @@ fn print_descendants(node: &ProvenanceNode, prefix: &str) {
     let last_index = node.children.len();
     for (index, child) in node.children.iter().enumerate() {
         let last = index + 1 == last_index;
-        let connector = if last { "â””â”€â”€ " } else { "â”œâ”€â”€ " };
+        let connector = if last {
+            "â””â”€â”€ "
+        } else {
+            "â”œâ”€â”€ "
+        };
         let edge_prefix = match child.edge.as_deref() {
             Some(edge) => format!("{edge} "),
             None => String::new(),

@@ -1,5 +1,5 @@
-use genos_core::{AgentGenome, BreedingStatus, PhenotypeObservation};
 use super::types::BreedingValidation;
+use genos_core::{AgentGenome, BreedingStatus, PhenotypeObservation};
 
 /// Valide un enfant généré par rapport à ses observations phénotypiques.
 /// Vérifie que les traits observés sont dans la `tolerance` des cibles génétiques prévues.

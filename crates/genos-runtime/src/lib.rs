@@ -3,32 +3,44 @@ use genos_core::{AgentState, BranchId, SnapshotId, WorldId};
 use genos_world::WorldProvider;
 use serde::{Deserialize, Serialize};
 
+#[allow(clippy::too_many_arguments)]
 mod temporal;
 pub use temporal::*;
+#[allow(clippy::too_many_arguments)]
 mod branch_evolution;
 pub use branch_evolution::*;
+#[allow(clippy::too_many_arguments)]
 mod causal_replay;
 pub use causal_replay::*;
+#[allow(clippy::too_many_arguments)]
 mod genome_os;
 pub use genome_os::*;
 mod experiment;
 pub use experiment::*;
+#[allow(clippy::too_many_arguments)]
 mod incident;
 pub use incident::*;
+#[allow(clippy::too_many_arguments)]
 mod scientific;
 pub use scientific::*;
+#[allow(clippy::too_many_arguments)]
 mod security_coevolution;
 pub use security_coevolution::*;
 mod bug_investigation;
 pub use bug_investigation::*;
+#[allow(clippy::too_many_arguments)]
 mod evolution;
 pub use evolution::*;
+#[allow(clippy::too_many_arguments)]
 mod reproducibility;
 pub use reproducibility::*;
+#[allow(clippy::too_many_arguments)]
 mod capsules;
 pub use capsules::*;
+#[allow(clippy::too_many_arguments)]
 mod cognitive_merge;
 pub use cognitive_merge::*;
+#[allow(clippy::too_many_arguments)]
 mod agent_primitives;
 pub use agent_primitives::*;
 mod huddle;
@@ -58,17 +70,27 @@ pub(crate) mod test_support {
                     role: "agent".to_string(),
                 },
                 cognition: CognitionConfig {
-                    chromosomes: vec![
-                        genos_core::Chromosome {
-                            name: "C1".to_string(),
-                            loci: vec![
-                                genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
-                                genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                                genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
-                            ],
-                            operons: vec![],
-                        }
-                    ],
+                    chromosomes: vec![genos_core::Chromosome {
+                        name: "C1".to_string(),
+                        loci: vec![
+                            genos_core::Locus {
+                                gene_name: "exploration".to_string(),
+                                value: 0.7,
+                                epigenetic_marker: 0.0,
+                            },
+                            genos_core::Locus {
+                                gene_name: "risk_tolerance".to_string(),
+                                value: 0.25,
+                                epigenetic_marker: 0.0,
+                            },
+                            genos_core::Locus {
+                                gene_name: "verification_threshold".to_string(),
+                                value: 0.8,
+                                epigenetic_marker: 0.0,
+                            },
+                        ],
+                        operons: vec![],
+                    }],
                     planning_depth: 6,
                     regulators: vec![],
                 },
@@ -172,6 +194,7 @@ pub struct CodeBranchOutcome {
 
 /// Execute independent code strategies from one workspace snapshot. A failed
 /// branch is retained in the outcomes and does not prevent sibling execution.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_code_experiment<P: WorldProvider>(
     provider: &P,
     base_world: &WorldId,
@@ -258,6 +281,7 @@ pub struct LongRunningBranchOutcome {
 /// Run a full verification pipeline in an already-selected lineage snapshot.
 /// Every stage is recorded; failure remains branch-local and stops only that
 /// branch's remaining stages.
+#[allow(clippy::too_many_arguments)]
 pub async fn run_long_branch<P: WorldProvider>(
     provider: &P,
     base_world: &WorldId,

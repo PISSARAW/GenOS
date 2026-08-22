@@ -1,8 +1,8 @@
-﻿use genos_core::{AgentGenome, PhenotypeObservation};
 use crate::qtl::map_qtl;
+use genos_core::{AgentGenome, PhenotypeObservation};
 
 /// Contient la dÃ©composition complÃ¨te de la variance d'un trait au sein d'une population.
-/// 
+///
 /// L'Ã©quation fondamentale modÃ©lisÃ©e est : `Vp = Va + Vd + Vi + Ve`
 #[derive(Debug, Clone, PartialEq)]
 pub struct VarianceDecomposition {
@@ -20,7 +20,7 @@ pub struct VarianceDecomposition {
 
 impl VarianceDecomposition {
     /// **HÃ©ritabilitÃ© au sens large (HÂ²)**
-    /// 
+    ///
     /// Mesure la part de la variance phÃ©notypique totale due Ã  *tous* les effets gÃ©nÃ©tiques.
     /// Formule : `HÂ² = (Va + Vd + Vi) / Vp`
     pub fn broad_sense_heritability(&self) -> f64 {
@@ -32,9 +32,9 @@ impl VarianceDecomposition {
     }
 
     /// **HÃ©ritabilitÃ© au sens Ã©troit (hÂ²)**
-    /// 
+    ///
     /// Mesure la part de la variance phÃ©notypique imputable *uniquement* Ã  la variance additive (Va).
-    /// C'est la mÃ©trique la plus utile en sÃ©lection artificielle pour prÃ©dire la rÃ©ponse Ã  la sÃ©lection 
+    /// C'est la mÃ©trique la plus utile en sÃ©lection artificielle pour prÃ©dire la rÃ©ponse Ã  la sÃ©lection
     /// (Ã‰quation de l'Ã‰leveur : `R = hÂ² * S`).
     /// Formule : `hÂ² = Va / Vp`
     pub fn narrow_sense_heritability(&self) -> f64 {
@@ -58,16 +58,16 @@ pub fn compute_variance(values: &[f64]) -> f64 {
 }
 
 /// DÃ©compose la variance gÃ©nÃ©tique (Vp = Va + Vd + Vi + Ve) d'une population.
-/// 
+///
 /// **Choix Architectural (GÃ©nÃ©tique Quantitative Moderne) :**
-/// PlutÃ´t que de s'appuyer sur un pedigree thÃ©orique (covariance parent-enfant) ou 
-/// sur un arbre phylogÃ©nÃ©tique (inadaptÃ© pour la variance intra-population / micro-Ã©volution), 
+/// PlutÃ´t que de s'appuyer sur un pedigree thÃ©orique (covariance parent-enfant) ou
+/// sur un arbre phylogÃ©nÃ©tique (inadaptÃ© pour la variance intra-population / micro-Ã©volution),
 /// cette fonction utilise une **approche gÃ©nomique directe (GBLUP-like / GWAS)**.
-/// Puisque le systÃ¨me a un accÃ¨s direct au code ADN exact des agents (les loci), 
+/// Puisque le systÃ¨me a un accÃ¨s direct au code ADN exact des agents (les loci),
 /// il effectue une rÃ©gression linÃ©aire liant la valeur des gÃ¨nes au phÃ©notype.
-/// 
-/// Cela permet d'estimer la **Variance Additive (Va)** avec une prÃ©cision molÃ©culaire, 
-/// capturant ainsi la rÃ©alitÃ© de la transmission gÃ©nÃ©tique bien mieux qu'une simple 
+///
+/// Cela permet d'estimer la **Variance Additive (Va)** avec une prÃ©cision molÃ©culaire,
+/// capturant ainsi la rÃ©alitÃ© de la transmission gÃ©nÃ©tique bien mieux qu'une simple
 /// attente thÃ©orique basÃ©e sur un pedigree.
 pub fn decompose_trait_variance(
     population: &[AgentGenome],
@@ -78,7 +78,7 @@ pub fn decompose_trait_variance(
     let mut scores = Vec::new();
     for p in phenotypes {
         if let Some(trait_obs) = p.traits.iter().find(|t| t.name == target_trait) {
-            scores.push(trait_obs.value as f64);
+            scores.push(trait_obs.value);
         }
     }
 
@@ -108,16 +108,16 @@ pub fn decompose_trait_variance(
     // Pour approximer GBLUP avec notre systÃ¨me actuel, on calcule la part de variance expliquÃ©e par chaque gÃ¨ne.
     // La somme de ces variances linÃ©aires isolÃ©es (Pearson) nous donne la Variance Additive (Va) proportionnelle Ã  Vp.
     let qtl_results = map_qtl(population, phenotypes, 0.0);
-    
+
     let mut total_additive_r2 = 0.0;
     let mut total_nonlinear_r2 = 0.0;
-    
+
     for qtl in qtl_results {
         if qtl.trait_name == target_trait {
             // La covariance au carrÃ© (Pearson RÂ²) indique la variance expliquÃ©e par un modÃ¨le strictement additif/linÃ©aire.
             total_additive_r2 += qtl.variance_explained;
-            
-            // Spearman RÂ² mesure la corrÃ©lation monotone. 
+
+            // Spearman RÂ² mesure la corrÃ©lation monotone.
             // La diffÃ©rence entre (Spearman RÂ²) et (Pearson RÂ²) peut capturer une partie des effets non-linÃ©aires (Dominance/Ã‰pistasie).
             // Ceci est une approximation gÃ©nomique simple.
             let spearman_r2 = qtl.spearman_correlation * qtl.spearman_correlation;
@@ -133,8 +133,8 @@ pub fn decompose_trait_variance(
     total_nonlinear_r2 = total_nonlinear_r2.clamp(0.0, remaining_for_nonlinear);
 
     let v_a = v_p * total_additive_r2;
-    
-    // Arbitrairement pour ce MVP, on assigne l'effet non-linÃ©aire Ã  l'Ã‰pistasie (interaction), car la Dominance intra-locus (Vd) 
+
+    // Arbitrairement pour ce MVP, on assigne l'effet non-linÃ©aire Ã  l'Ã‰pistasie (interaction), car la Dominance intra-locus (Vd)
     // nÃ©cessiterait un code diploÃ¯de, or notre systÃ¨me est haploÃ¯de/continu.
     let v_i = v_p * total_nonlinear_r2;
     let v_d = 0.0;
@@ -153,8 +153,11 @@ pub fn decompose_trait_variance(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use genos_core::{GenomeId, Identity, CognitionConfig, Chromosome, Locus, ObservedTrait, MemoryPolicy, ModelPolicy, ToolPolicy};
-    
+    use genos_core::{
+        Chromosome, CognitionConfig, GenomeId, Identity, Locus, MemoryPolicy, ModelPolicy,
+        ObservedTrait, ToolPolicy,
+    };
+
     fn make_genome(id_str: &str, exploration_val: f64, risk_val: f64) -> AgentGenome {
         AgentGenome {
             id: GenomeId(id_str.to_string()),
@@ -163,31 +166,51 @@ mod tests {
             mutation: None,
             ecological_niche: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
-            identity: Identity { name: "Test".to_string(), role: "Agent".to_string() },
+            identity: Identity {
+                name: "Test".to_string(),
+                role: "Agent".to_string(),
+            },
             cognition: CognitionConfig {
-                chromosomes: vec![
-                    Chromosome {
-                        name: "C1".to_string(),
-                        loci: vec![
-                            Locus { gene_name: "exploration".to_string(), value: exploration_val as f32, epigenetic_marker: 0.0 },
-                            Locus { gene_name: "risk".to_string(), value: risk_val as f32, epigenetic_marker: 0.0 },
-                        ]
-                    }
-                ],
+                chromosomes: vec![Chromosome {
+                    name: "C1".to_string(),
+                    operons: vec![],
+                    loci: vec![
+                        Locus {
+                            gene_name: "exploration".to_string(),
+                            value: exploration_val as f32,
+                            epigenetic_marker: 0.0,
+                        },
+                        Locus {
+                            gene_name: "risk".to_string(),
+                            value: risk_val as f32,
+                            epigenetic_marker: 0.0,
+                        },
+                    ],
+                }],
                 planning_depth: 3,
                 regulators: vec![],
             },
             objectives: vec![],
             policies: vec![],
             capabilities: vec![],
-            memory_policy: MemoryPolicy { working_max_items: 10, episodic_enabled: false, semantic_enabled: false },
-            model_policy: ModelPolicy { strategy: "none".to_string(), preferred_providers: vec![], allow_local: true },
-            tool_policy: ToolPolicy { permissions: vec![] },
+            memory_policy: MemoryPolicy {
+                working_max_items: 10,
+                episodic_enabled: false,
+                semantic_enabled: false,
+            },
+            model_policy: ModelPolicy {
+                strategy: "none".to_string(),
+                preferred_providers: vec![],
+                allow_local: true,
+            },
+            tool_policy: ToolPolicy {
+                permissions: vec![],
+            },
             inferred_traits: vec![],
             breeding: None,
         }
     }
-    
+
     fn make_phenotype(id_str: &str, score: f64) -> PhenotypeObservation {
         PhenotypeObservation {
             genome_id: GenomeId(id_str.to_string()),
@@ -195,13 +218,13 @@ mod tests {
             model: "test_model".to_string(),
             environment: "test_env".to_string(),
             measured_at: chrono::Utc::now(),
-            traits: vec![ObservedTrait { 
-                name: "success".to_string(), 
+            traits: vec![ObservedTrait {
+                name: "success".to_string(),
                 value: score,
                 confidence: 1.0,
                 observations: 1,
                 method: "Exact".to_string(),
-                evidence: vec![]
+                evidence: vec![],
             }],
         }
     }
@@ -229,9 +252,9 @@ mod tests {
             make_phenotype("g4", 40.0),
             make_phenotype("g5", 50.0),
         ];
-        
+
         let decomp = decompose_trait_variance(&pop, &phenotypes, "success");
-        
+
         assert!((decomp.v_p - 250.0).abs() < 1e-4);
         // Parfaitement corrÃ©lÃ© avec "exploration", donc Va = Vp, Ve = 0
         assert!((decomp.v_a - 250.0).abs() < 1e-4);

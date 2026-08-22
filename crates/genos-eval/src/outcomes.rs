@@ -6,7 +6,7 @@ pub enum StepOutcome {
     /// L'agent propose une suite valide.
     Proposal(AgentSnapshot),
     /// L'agent détecte une tâche impossible/paradoxale et s'abstient (US 2.4).
-    ActiveRefusal(String), 
+    ActiveRefusal(String),
     /// Échec technique ou erreur de parsing.
     Error(String),
 }

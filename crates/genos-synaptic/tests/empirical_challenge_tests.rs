@@ -49,7 +49,7 @@ fn test_bft_quorum_and_intersection_math() {
     let f_5 = (n_5 - 1) / 3; // f = 1
     let broken_q_5 = 2 * f_5 + 1; // 3
     let broken_intersection_5 = 2 * broken_q_5 - n_5; // 3 + 3 - 5 = 1
-    // Broken: only 1 node in intersection, and it can be Byzantine (f=1)!
+                                                      // Broken: only 1 node in intersection, and it can be Byzantine (f=1)!
     assert_eq!(broken_intersection_5 - f_5, 0); // ZERO guaranteed honest nodes!
 
     let n_6 = 6usize;
@@ -64,7 +64,7 @@ fn test_bft_quorum_and_intersection_math() {
         let correct_q = (n + f) / 2 + 1;
         assert!(correct_q <= n);
         let correct_intersection = 2 * correct_q - n;
-        assert!(correct_intersection >= f + 1);
+        assert!(correct_intersection > f);
         let guaranteed_honest = correct_intersection - f;
         assert!(guaranteed_honest >= 1);
     }

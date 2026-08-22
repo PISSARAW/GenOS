@@ -48,7 +48,11 @@ pub fn spawn_candidates(
         .map(|mutation_index| {
             let mut genes = parent.genes;
             let selector = ((ctx.generation + mutation_index) % 3) as usize;
-            let random = unit_random(ctx.seed, (ctx.generation, mutation_index), &parent.genome_id.0);
+            let random = unit_random(
+                ctx.seed,
+                (ctx.generation, mutation_index),
+                &parent.genome_id.0,
+            );
             let delta = (random * 2.0 - 1.0) * ctx.config.mutation_scale;
             let (field, previous, next) = apply_mutation_delta(&mut genes, selector, delta);
 

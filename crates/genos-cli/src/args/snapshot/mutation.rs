@@ -1,7 +1,9 @@
-﻿use super::{ArgsMacro, MemoryKindArg, OutputFormat};
+use super::{ArgsMacro, MemoryKindArg, OutputFormat};
 use std::path::PathBuf;
 
-pub fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
+pub fn parse_key_val<T, U>(
+    s: &str,
+) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
 where
     T: std::str::FromStr,
     T::Err: std::error::Error + Send + Sync + 'static,

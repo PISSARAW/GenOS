@@ -3,19 +3,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum CognitiveLoopError {
     #[error("Exact signature match loop detected: tool '{tool_name}' called {count} times with identical arguments.")]
-    ExactSignatureMatch {
-        tool_name: String,
-        count: usize,
-    },
+    ExactSignatureMatch { tool_name: String, count: usize },
     #[error("State stagnation detected: no state change observed for {count} iterations.")]
-    StateStagnation {
-        count: usize,
-    },
+    StateStagnation { count: usize },
     #[error("Semantic loop detected: thought similarity exceeded threshold ({similarity} > {threshold}).")]
-    SemanticSimilarity {
-        similarity: f32,
-        threshold: f32,
-    },
+    SemanticSimilarity { similarity: f32, threshold: f32 },
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -84,7 +76,8 @@ impl CircuitBreaker {
         for snapshot in self.history.iter().rev() {
             if let Some(sig) = &snapshot.tool_signature {
                 if let Some(last) = last_sig {
-                    if last.tool_name == sig.tool_name && last.arguments_hash == sig.arguments_hash {
+                    if last.tool_name == sig.tool_name && last.arguments_hash == sig.arguments_hash
+                    {
                         consecutive_matches += 1;
                         if consecutive_matches >= self.exact_match_threshold {
                             return Err(CognitiveLoopError::ExactSignatureMatch {
@@ -139,7 +132,10 @@ impl CircuitBreaker {
         let current = &self.history[len - 1];
         let previous_alternate = &self.history[len - 3]; // Compare N with N-2
 
-        if let (Some(emb1), Some(emb2)) = (&current.thought_embedding, &previous_alternate.thought_embedding) {
+        if let (Some(emb1), Some(emb2)) = (
+            &current.thought_embedding,
+            &previous_alternate.thought_embedding,
+        ) {
             let similarity = Self::cosine_similarity(emb1, emb2);
             if similarity >= self.semantic_similarity_threshold {
                 return Err(CognitiveLoopError::SemanticSimilarity {
@@ -159,7 +155,7 @@ impl CircuitBreaker {
         let dot_product: f32 = v1.iter().zip(v2.iter()).map(|(a, b)| a * b).sum();
         let norm_v1: f32 = v1.iter().map(|a| a * a).sum::<f32>().sqrt();
         let norm_v2: f32 = v2.iter().map(|b| b * b).sum::<f32>().sqrt();
-        
+
         if norm_v1 == 0.0 || norm_v2 == 0.0 {
             0.0
         } else {
@@ -209,7 +205,7 @@ mod tests {
     #[test]
     fn test_state_stagnation() {
         let mut breaker = CircuitBreaker::new(10, 3, 0.95);
-        for i in 0..2 {
+        for _ in 0..2 {
             breaker.record_iteration(IterationSnapshot {
                 tool_signature: None,
                 world_state_hash: 42,

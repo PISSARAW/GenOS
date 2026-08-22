@@ -22,7 +22,10 @@ impl ChronologicalFilter {
     pub fn new() -> Self {
         Self {
             // Match ISO8601 timestamps
-            timestamp_re: Regex::new(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})").unwrap(),
+            timestamp_re: Regex::new(
+                r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})",
+            )
+            .unwrap(),
             // Match latencies like 50ms, 1.2s
             latency_re: Regex::new(r"\b\d+(\.\d+)?(ms|s)\b").unwrap(),
         }
@@ -52,7 +55,10 @@ impl EphemeralIdFilter {
     pub fn new() -> Self {
         Self {
             // Match standard UUIDs
-            uuid_re: Regex::new(r"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").unwrap(),
+            uuid_re: Regex::new(
+                r"(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            )
+            .unwrap(),
             // Match /tmp/genos-1234 or \Temp\genos-1234
             tmp_re: Regex::new(r"(/tmp/|\\Temp\\)[A-Za-z0-9_-]+").unwrap(),
         }
@@ -113,7 +119,7 @@ mod tests {
     #[test]
     fn test_noise_normalization() {
         let golden = r#"{"status": "ok", "latency": "50ms", "tmp": "/tmp/genos-123", "id": "123e4567-e89b-12d3-a456-426614174000"}"#;
-        
+
         // Bruit introduit:
         // - latence de 200ms
         // - tmp folder a changé

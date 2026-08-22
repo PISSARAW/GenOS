@@ -1,4 +1,4 @@
-﻿use genos_core::*;
+use genos_core::*;
 use genos_eval::{recombine_measured_trait, ReproducibilityVerdict, TraitEstimate};
 use genos_runtime::*;
 use genos_store::{CapsuleStore, LocalCapsuleStore};
@@ -26,16 +26,27 @@ fn snapshot(name: &str) -> AgentSnapshot {
                 role: "researcher".to_string(),
             },
             cognition: genos_core::CognitionConfig {
-                chromosomes: vec![
-                    genos_core::Chromosome {
-                        name: "C1".to_string(),
-                        loci: vec![
-                            genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
-                            genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                            genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
-                        ],
-                    }
-                ],
+                chromosomes: vec![genos_core::Chromosome {
+                    name: "C1".to_string(),
+                    operons: vec![],
+                    loci: vec![
+                        genos_core::Locus {
+                            gene_name: "exploration".to_string(),
+                            value: 0.7,
+                            epigenetic_marker: 0.0,
+                        },
+                        genos_core::Locus {
+                            gene_name: "risk_tolerance".to_string(),
+                            value: 0.25,
+                            epigenetic_marker: 0.0,
+                        },
+                        genos_core::Locus {
+                            gene_name: "verification_threshold".to_string(),
+                            value: 0.8,
+                            epigenetic_marker: 0.0,
+                        },
+                    ],
+                }],
                 planning_depth: 6,
                 regulators: vec![],
             },
@@ -134,7 +145,15 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
     )
     .map_err(anyhow::Error::msg)?;
     assert_ne!(promoted.id, alice.genome.id);
-    assert!((promoted.cognition.get_drive("verification_threshold").unwrap() - 0.81).abs() < 1e-6);
+    assert!(
+        (promoted
+            .cognition
+            .get_drive("verification_threshold")
+            .unwrap()
+            - 0.81)
+            .abs()
+            < 1e-6
+    );
 
     // ADR-0009: sibling baselines share a genome and logical state while
     // treatments produce a measurable phenotype range.
@@ -176,7 +195,7 @@ async fn complete_genome_experiment_lifecycle_is_executable() -> anyhow::Result<
         "charlie",
         &[BreedingTraitMapping {
             genome_field: "cognition.drives.exploration".to_string(),
-            target: target,
+            target,
         }],
         &genos_core::RecombinationStrategy::HomologousRecombination,
         None,

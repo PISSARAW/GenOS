@@ -9,11 +9,11 @@ use serde::Serialize;
 use std::path::Path;
 use std::{fs, path::PathBuf};
 
+#[allow(dead_code)]
+pub mod divergence;
 pub mod lineage;
 pub mod provenance;
 pub mod snapshot_outputs;
-#[allow(dead_code)]
-pub mod divergence;
 
 // Re-export the snapshot-only output structs so callers can keep importing
 // them from `crate::output` (and don't have to learn the submodule).
@@ -349,6 +349,7 @@ pub fn snapshot_path_or_none(spec: &str) -> Option<PathBuf> {
 /// belief write found opposing beliefs on the same branch. Stays out of the
 /// stdout JSON/YAML output, which remains machine-parseable; the structured
 /// `contradictions` field on the output already carries the same data.
+#[allow(clippy::too_many_arguments)]
 pub fn print_contradiction_notice(
     belief_id: &str,
     object_value: &str,

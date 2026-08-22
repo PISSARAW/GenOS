@@ -58,6 +58,7 @@ pub struct MemoryWrite {
 /// its kind, so the index and the content stay in step. `created_in` is the
 /// snapshot's branch: that is the provenance a later diff reports. The returned
 /// event is the caller's to append to an event store.
+#[allow(clippy::too_many_arguments)]
 pub fn add_memory_on_branch(
     snapshot: &mut AgentSnapshot,
     kind: MemoryKind,
@@ -68,6 +69,7 @@ pub fn add_memory_on_branch(
 }
 
 /// [`add_memory_on_branch`] with an explicit timestamp, for deterministic tests.
+#[allow(clippy::too_many_arguments)]
 pub fn add_memory_on_branch_at(
     snapshot: &mut AgentSnapshot,
     kind: MemoryKind,

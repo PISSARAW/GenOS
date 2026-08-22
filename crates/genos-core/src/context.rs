@@ -4,16 +4,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContextSandbox {
     pub sandbox_id: String,
-    
+
     /// Le prompt système strict (ex: "Tu es un extracteur JSON")
     pub role_instruction: String,
-    
+
     /// Uniquement les chunks RAG autorisés pour cette tâche
     pub allowed_documents: Vec<String>,
-    
+
     /// Historique de conversation tronqué/limité
     pub memory_window: Vec<serde_json::Value>,
-    
+
     /// Mécanisme de sécurité : empêcher l'agent d'accéder au réseau extérieur
     pub network_access_allowed: bool,
 }

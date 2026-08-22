@@ -29,6 +29,7 @@ use serde_json::json;
 /// [`BeliefWriteKind::Updated`], overwrite `confidence` (and the `status`
 /// carried by the caller, if [`BeliefStatus`] is not the default) in place,
 /// and emit [`AgentEventType::MemoryUpdated`].
+#[allow(clippy::too_many_arguments)]
 pub fn upsert_belief(
     snapshot: &mut AgentSnapshot,
     subject: &str,
@@ -240,6 +241,7 @@ fn assert_unit_confidence(confidence: f32) {
 /// Explicit add helper. Fails if a belief with the same triple already exists
 /// on this branch; use [`upsert_belief`] when "create or update" is what you
 /// mean.
+#[allow(clippy::too_many_arguments)]
 pub fn add_belief(
     snapshot: &mut AgentSnapshot,
     subject: &str,

@@ -14,7 +14,11 @@ pub struct ScoreResult {
 
 impl Scorer {
     pub fn new(width: usize, height: usize, grid: Vec<Vec<bool>>) -> Self {
-        Scorer { width, height, grid }
+        Scorer {
+            width,
+            height,
+            grid,
+        }
     }
 
     pub fn get_degree(&self, x: usize, y: usize) -> usize {
@@ -24,9 +28,14 @@ impl Scorer {
 
         let mut degree = 0;
         let dirs = [
-            (-1, -1), (0, -1), (1, -1),
-            (-1,  0),          (1,  0),
-            (-1,  1), (0,  1), (1,  1),
+            (-1, -1),
+            (0, -1),
+            (1, -1),
+            (-1, 0),
+            (1, 0),
+            (-1, 1),
+            (0, 1),
+            (1, 1),
         ];
 
         for (dx, dy) in dirs.iter() {

@@ -1,4 +1,4 @@
-﻿mod common;
+mod common;
 
 use common::{make_snapshot, temp_store_path};
 use genos_core::{DiffKind, MemoryKind, VariableExpectation};
@@ -29,12 +29,8 @@ async fn a_memory_recorded_on_one_branch_survives_a_store_round_trip() {
     let mut a = genos_core::fork_snapshot(&parent);
     let b = genos_core::fork_snapshot(&parent);
 
-    let write = genos_core::add_memory_on_branch(
-        &mut a,
-        MemoryKind::Semantic,
-        FACT,
-        Some("schema-probe"),
-    );
+    let write =
+        genos_core::add_memory_on_branch(&mut a, MemoryKind::Semantic, FACT, Some("schema-probe"));
     event_store
         .append(write.event)
         .await
@@ -104,7 +100,10 @@ async fn a_memory_recorded_on_one_branch_survives_a_store_round_trip() {
         .expect("stream b failed");
     assert_eq!(stream_a.len(), 1);
     assert!(stream_b.is_empty());
-    assert_eq!(stream_a[0].event_type, genos_core::AgentEventType::MemoryCreated);
+    assert_eq!(
+        stream_a[0].event_type,
+        genos_core::AgentEventType::MemoryCreated
+    );
     assert_eq!(stream_a[0].payload["content"], FACT);
     assert_eq!(stream_a[0].payload["created_in"], stored_a.branch_id.0);
 
@@ -212,10 +211,8 @@ async fn diverging_branch_writes_survive_a_store_round_trip() {
     assert_eq!(stream_a1[0].agent_id, stored_a1.agent_id);
     assert_eq!(stream_a2[0].agent_id, stored_a2.agent_id);
 
-    let replay_a1 =
-        replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a1);
-    let replay_a2 =
-        replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a2);
+    let replay_a1 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a1);
+    let replay_a2 = replay_basic_state_from(basic_state_from_snapshot(&stored_parent), &stream_a2);
     assert_eq!(replay_a1.branch_id.as_ref(), Some(&stored_a1.branch_id));
     assert_eq!(replay_a2.branch_id.as_ref(), Some(&stored_a2.branch_id));
     assert_eq!(replay_a1.last_sequence, 1);
