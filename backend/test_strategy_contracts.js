@@ -131,13 +131,13 @@ async function run() {
     const blockedRun = await strategyExecution.createExecutionRun(db, {
       agentId: 'agent-strategy-test', budget: { tokens: 10, costUsd: 1, latencyMs: 60000, events: 20 }
     });
-    const blocked = await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
+    const overBudget = await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
       eventType: 'AGENT_STEP', action: 'EXECUTE', detail: 'Too expensive', payload: { tokens: 11 }
     });
-    assert.equal(blocked.halt, true);
-    assert.equal(blocked.run.status, 'blocked');
-    assert.match(blocked.run.guardrailReason, /tokens budget exceeded/);
-    assert.equal((await strategyExecution.getRun(db, blockedRun.id)).status, 'blocked');
+    assert.equal(overBudget.halt, false);
+    assert.equal(overBudget.run.status, 'running');
+    assert.equal(overBudget.run.guardrailReason, null);
+    assert.equal((await strategyExecution.getRun(db, blockedRun.id)).status, 'running');
 
     await db.run(`INSERT INTO agents (id, name, role, status, current_task)
       VALUES ('agent-legacy-contract', 'Legacy Contract', 'Project Orchestrator', 'idle', 'Choose an architecture trade-off')`);

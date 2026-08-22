@@ -114,7 +114,10 @@ function stepIndex(event, stepCount) {
 }
 
 function exceededGuardrail(metrics, budget) {
-  for (const key of ['tokens', 'costUsd', 'latencyMs', 'events']) {
+  // Consumption is recorded for observability, but it must not terminate an
+  // orchestration. Mission completion is governed by evidence and safety
+  // invariants, not a token or provider-cost ceiling.
+  for (const key of ['latencyMs', 'events']) {
     if (metrics[key] > budget[key]) return `${key} budget exceeded (${metrics[key]} > ${budget[key]})`;
   }
   return null;
