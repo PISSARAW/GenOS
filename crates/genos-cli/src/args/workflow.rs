@@ -19,6 +19,8 @@ pub enum WorkflowSubcommands {
     Resume(WorkflowResumeArgs),
     /// Run a manifest repeatedly with an input supplied on stdin or the CLI.
     Playground(WorkflowRunArgs),
+    /// Build a portable, integrity-checked workflow package.
+    Package(WorkflowPackageArgs),
 }
 
 #[derive(Args, Debug)]
@@ -49,4 +51,11 @@ pub struct WorkflowResumeArgs {
     /// approve, reject, or a JSON value replacing the pending action input.
     #[arg(long)]
     pub decision: String,
+}
+
+#[derive(Args, Debug)]
+pub struct WorkflowPackageArgs {
+    pub manifest: PathBuf,
+    #[arg(short, long, default_value = "workflow.genos-package.json")]
+    pub output: PathBuf,
 }

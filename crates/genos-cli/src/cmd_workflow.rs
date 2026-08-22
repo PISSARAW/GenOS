@@ -2,6 +2,7 @@ use anyhow::{bail, Context, Result};
 use genos_model::{factory::ModelFactory, GenerationConfig, Message, Role};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     future::Future,
@@ -12,7 +13,7 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::args::{WorkflowInitArgs, WorkflowManifestArgs, WorkflowResumeArgs, WorkflowRunArgs};
+use crate::args::{WorkflowInitArgs, WorkflowManifestArgs, WorkflowPackageArgs, WorkflowResumeArgs, WorkflowRunArgs};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkflowManifest {
@@ -121,6 +122,8 @@ pub struct PendingApproval {
     pub node: String,
     pub message: String,
 }
+#[derive(Debug, Serialize)]
+struct WorkflowPackage { format: &'static str, digest: String, manifest: WorkflowManifest }
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum Event {
@@ -258,6 +261,16 @@ pub fn cmd_workflow_validate(args: WorkflowManifestArgs) -> Result<()> {
         manifest.nodes.len(),
         manifest.agents.len()
     );
+    Ok(())
+}
+pub fn cmd_workflow_package(args: WorkflowPackageArgs) -> Result<()> {
+    let manifest = read_manifest(&args.manifest)?;
+    validate(&manifest)?;
+    let bytes = serde_json::to_vec(&manifest)?;
+    let package = WorkflowPackage { format: "genos.workflow.v1", digest: format!("sha256:{:x}", Sha256::digest(&bytes)), manifest };
+    if let Some(parent) = args.output.parent() { std::fs::create_dir_all(parent)?; }
+    std::fs::write(&args.output, serde_json::to_vec_pretty(&package)?)?;
+    println!("packaged {}", args.output.display());
     Ok(())
 }
 fn input_value(raw: Option<String>) -> Result<Value> {
