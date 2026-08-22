@@ -181,6 +181,12 @@ export const api = {
   listRagChunks: (id: string) => apiRequest(`/api/rag/documents/${encodeURIComponent(id)}/chunks`),
   searchRag: (query: string, limit = 8) => apiRequest('/api/rag/search', { method: 'POST', body: { query, limit } }),
 
+  // Connectors and plugins
+  listIntegrations: () => apiRequest('/api/integrations'),
+  installIntegration: (payload: any) => apiRequest('/api/integrations', { method: 'POST', body: payload }),
+  disableIntegration: (id: string) => apiRequest(`/api/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  testIntegration: (id: string) => apiRequest(`/api/integrations/${encodeURIComponent(id)}/test`, { method: 'POST', body: {} }),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
