@@ -30,8 +30,21 @@ async function executeWorkflow(db, run) {
 
 async function executeEvaluation(db, job) {
   const cases = job.dataset_id ? await db.all('SELECT * FROM dataset_cases WHERE dataset_id = ?', job.dataset_id) : [];
-  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match'];
-  let passed = 0; const results = cases.map((item) => { const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const text = String(input.output || input.answer || input.response || ''); const exact = expected == null || text.trim() === String(expected).trim(); const grounded = expected == null || String(expected).toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.toLowerCase().includes(term)); const safe = !/ignore previous|system prompt|api key/i.test(text); const ok = graders.every((grader) => grader === 'exact_match' ? exact : grader === 'groundedness' ? grounded : grader === 'safety' ? safe : true); if (ok) passed++; return { id: item.id, passed: ok, graders: { exact_match: exact, groundedness: grounded, safety: safe } }; });
+  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const judgeModel = config.judgeModel || 'fake://local'; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
+  let passed = 0; const results = [];
+  for (const item of cases) {
+    const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const text = String(input.output || input.answer || input.response || ''); const exact = expected == null || text.trim() === String(expected).trim(); const grounded = expected == null || String(expected).toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.toLowerCase().includes(term)); const safe = !/ignore previous|system prompt|api key/i.test(text);
+    let judge = null;
+    if (graders.includes('llm_judge')) {
+      try {
+        const judgePrompt = `Return JSON only: {"score": number, "passed": boolean, "reason": string}.\nRubric: ${rubric}\nExpected: ${JSON.stringify(expected)}\nAnswer: ${text}`;
+        const judgeResult = await modelProvider.generate({ model: judgeModel, prompt: judgePrompt, timeoutMs: Number(config.timeoutMs || 30000), onToken: (token) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id } }) });
+        const json = judgeResult.text.match(/\{[\s\S]*\}/)?.[0]; judge = json ? JSON.parse(json) : null;
+      } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable: ${error.message}` }; }
+    }
+    const ok = graders.every((grader) => grader === 'exact_match' ? exact : grader === 'groundedness' ? grounded : grader === 'safety' ? safe : grader === 'llm_judge' ? Boolean(judge?.passed) : true); if (ok) passed++;
+    results.push({ id: item.id, passed: ok, graders: { exact_match: exact, groundedness: grounded, safety: safe, ...(judge ? { llm_judge: judge } : {}) } });
+  }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results };
   await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify(result), job.id);
 }
