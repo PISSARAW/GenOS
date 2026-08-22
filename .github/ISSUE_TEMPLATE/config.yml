@@ -3,6 +3,6 @@ contact_links:
   - name: Security report
     url: https://github.com/PISSARAW/GenOS/security/advisories/new
     about: Report vulnerabilities privately. Do not open a public issue.
-  - name: Support guide
-    url: https://github.com/PISSARAW/GenOS/blob/main/SUPPORT.md
-    about: Read what information to include when asking for help.
+  - name: Contribution guide
+    url: https://github.com/PISSARAW/GenOS/blob/main/CONTRIBUTING.md
+    about: Learn how to prepare changes and local validation.
