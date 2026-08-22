@@ -543,6 +543,10 @@ CREATE TABLE IF NOT EXISTS integrations (id TEXT PRIMARY KEY, name TEXT NOT NULL
 
 -- 31. Controlled workflow releases and rollback state
 CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, workflow_id TEXT NOT NULL, version INTEGER NOT NULL, environment TEXT NOT NULL DEFAULT 'staging', traffic REAL NOT NULL DEFAULT 100, status TEXT NOT NULL DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(workflow_id) REFERENCES workflows(id) ON DELETE CASCADE);
+
+-- 32. Organization, project and environment tenancy
+CREATE TABLE IF NOT EXISTS organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS environments (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, organization_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(organization_id) REFERENCES organizations(id) ON DELETE CASCADE);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -572,6 +576,7 @@ CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id
 CREATE INDEX IF NOT EXISTS idx_rag_chunks_document ON rag_chunks(document_id, chunk_index);
 CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
 `;
 
 async function migrateLegacySchema(db) {
