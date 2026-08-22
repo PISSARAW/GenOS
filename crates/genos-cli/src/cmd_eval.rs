@@ -1,5 +1,7 @@
-use crate::args::{EvalImportArgs, EvalRunArgs};
+use crate::args::{EvalImportArgs, EvalParasitismArgs, EvalRunArgs};
 use anyhow::{Context, Result};
+use genos_core::AgentGenome;
+use genos_eval::parasitism::{evaluate_parasitic_pressure, evolve_parasites, ParasiteGenome};
 use genos_platform::{evaluate_response, EvalCase, EvalDataset};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs};
@@ -66,5 +68,19 @@ pub fn cmd_eval_run(args: EvalRunArgs) -> Result<()> {
     } else {
         println!("{}", String::from_utf8(encoded)?);
     }
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+struct ParasitismInput { parasites: Vec<ParasiteGenome>, agents: Vec<AgentGenome> }
+#[derive(Debug, Serialize)]
+struct ParasitismReport { parasites: Vec<ParasiteGenome>, agents: Vec<AgentGenome>, evolved: bool }
+
+pub fn cmd_eval_parasitism(args: EvalParasitismArgs) -> Result<()> {
+    let mut input: ParasitismInput = serde_json::from_slice(&fs::read(&args.input)?)?;
+    evaluate_parasitic_pressure(&input.parasites, &mut input.agents);
+    if args.evolve { evolve_parasites(&mut input.parasites, &input.agents); }
+    if let Some(parent) = args.output.parent() { fs::create_dir_all(parent)?; }
+    fs::write(args.output, serde_json::to_vec_pretty(&ParasitismReport { parasites: input.parasites, agents: input.agents, evolved: args.evolve })?)?;
     Ok(())
 }

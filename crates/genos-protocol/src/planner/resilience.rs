@@ -3,6 +3,10 @@ use crate::types::ProtocolError;
 
 pub fn plan_resilience(planner: &mut CommandPlanner) -> Result<bool, ProtocolError> {
     match planner.operation {
+        "parasitic_pressure" => {
+            planner.args = vec!["eval".into(), "parasitism".into(), planner.req_str("input")?.into(), "--output".into(), planner.req_str("output")?.into()];
+            if planner.opt_str("evolve")? == Some("true") { planner.args.push("--evolve".into()); }
+        }
         "resilience_apoptosis" => {
             planner.args = vec!["resilience".into(), "apoptosis".into()];
             planner.args.push("--agent-id".into());

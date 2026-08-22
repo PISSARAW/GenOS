@@ -36,7 +36,7 @@ use crate::cmd_capsule::{
     cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_dev::*;
-use crate::cmd_eval::{cmd_eval_import, cmd_eval_run};
+use crate::cmd_eval::{cmd_eval_import, cmd_eval_parasitism, cmd_eval_run};
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
     cmd_experiment_causal_replay, cmd_experiment_cognitive_merge, cmd_experiment_heredity,
@@ -216,6 +216,7 @@ async fn main() -> Result<()> {
         Commands::Eval(eval) => match eval.command {
             EvalSubcommands::Import(args) => cmd_eval_import(args),
             EvalSubcommands::Run(args) => cmd_eval_run(args),
+            EvalSubcommands::Parasitism(args) => cmd_eval_parasitism(args),
         },
     }
 }
