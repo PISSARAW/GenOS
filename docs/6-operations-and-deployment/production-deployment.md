@@ -167,12 +167,15 @@ echo "256" > /sys/fs/cgroup/genos/capsules/cap_98f12/pids.max
 
 ## 6. Health Probes & Readiness Checks
 
-The GenOS runtime exposes standard Kubernetes health endpoints:
+The target Kubernetes runtime exposes standard health endpoints. The shipped
+Docker Compose backend now exposes the same paths on port `4000`, but its
+implemented dependency is SQLite; CAS, worktree pools, index hydration, and
+Merkle verification are not wired into this deployment.
 
 ### Endpoints
 - **`/healthz` (Liveness)**: Returns `200 OK` if the process event loop is responsive.
-- **`/readyz` (Readiness)**: Validates connectivity to the CAS backend and availability of free worktree slots in the pool.
-- **`/livez` (Startup)**: Validates initial index hydration and Merkle root verification.
+- **`/readyz` (Readiness)**: In Compose, validates that SQLite is queryable. A future worker deployment must extend this to CAS and worktree capacity.
+- **`/livez` (Startup)**: In Compose, validates SQLite startup state. Index hydration and Merkle root verification remain target-runtime checks.
 
 ```yaml
 livenessProbe:

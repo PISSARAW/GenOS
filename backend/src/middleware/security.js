@@ -3,7 +3,7 @@
  * Origin verification, Double-Submit CSRF, XSS sanitization, and Hardened CSP headers.
  */
 
-const ALLOWED_ORIGINS = [
+const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:4000',
   'http://localhost:5173',
@@ -13,6 +13,12 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
   'http://127.0.0.1:5175'
 ];
+
+const configuredOrigins = String(process.env.GENOS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+const ALLOWED_ORIGINS = Array.from(new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredOrigins]));
 
 function sanitizeString(str) {
   if (typeof str !== 'string') return str;

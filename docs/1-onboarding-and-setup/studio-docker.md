@@ -29,7 +29,10 @@ Compose mounts that path read/write at `/workspace`. Studio registers it as
 disabled in this mode.
 
 Open <http://localhost:3000>. The backend health endpoint is available at
-<http://localhost:4000/api/health>.
+<http://localhost:4000/api/health>. In the Compose build, Studio sends API and
+SSE requests to its own origin and Nginx proxies `/api/` to the Compose
+`backend:4000` service. The standalone Vite development server uses
+`http://localhost:4000` instead.
 
 On the first boot of an empty database, the backend generates a random
 administrator token and prints it once. Retrieve and save it before signing in:
@@ -84,7 +87,8 @@ is configured yet.
   untrusted repositories or users.
 - TLS, external identity, backups, multi-node storage, and production secrets
   are outside this local stack's scope.
-- Studio currently expects the backend at `http://localhost:4000`.
+- The production Compose Studio image uses same-origin `/api` requests; only
+  the standalone Vite development server expects `http://localhost:4000`.
 - The bundled Codex adapter keeps normal approvals and sandboxing. The unsafe
   bypass can only be enabled explicitly with `GENOS_CODEX_UNSAFE_BYPASS=1`;
   use it solely for a disposable, trusted workspace. It is disabled by default.
