@@ -326,6 +326,49 @@ async function stopAgent(req, res, next) {
   }
 }
 
+function requestedAgentIds(body) {
+  const ids = Array.isArray(body?.agentIds) ? [...new Set(body.agentIds.filter((id) => typeof id === 'string' && id.trim()))] : [];
+  if (!ids.length || ids.length > 200) throw new Error('agentIds must contain between 1 and 200 agent IDs.');
+  return ids;
+}
+
+async function stopAgents(req, res, next) {
+  try {
+    const ids = requestedAgentIds(req.body);
+    const db = await getDatabase();
+    const stopped = [];
+    for (const id of ids) {
+      const agent = await db.get('SELECT id, name FROM agents WHERE id = ?', id);
+      if (!agent) continue;
+      const runtimeStopped = runtimeAdapter.stopMission(id);
+      const status = runtimeStopped ? 'blocked' : 'idle';
+      await db.run('UPDATE agents SET status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, runtimeStopped ? 'Stopping on operator request' : 'Reconciled: no runtime process was active', id);
+      await db.run("UPDATE strategy_execution_runs SET status = 'cancelled', completed_at = CURRENT_TIMESTAMP WHERE agent_id = ? AND status IN ('planned', 'running', 'awaiting_approval')", id);
+      telemetry.emitEvent({ eventType: runtimeStopped ? 'AGENT_STOP_REQUESTED' : 'AGENT_STATE_RECONCILED', agentId: id, action: 'STOP', detail: runtimeStopped ? `Stop requested for '${agent.name}'.` : `Reconciled '${agent.name}': no runtime process was active.`, severity: 'info', status });
+      stopped.push({ id, status, runtimeStopped });
+    }
+    res.json({ success: true, stopped });
+  } catch (error) { next(error); }
+}
+
+async function deleteAgents(req, res, next) {
+  try {
+    const ids = requestedAgentIds(req.body);
+    const db = await getDatabase();
+    const deleted = [];
+    const blocked = [];
+    for (const id of ids) {
+      const agent = await db.get('SELECT id, name, status FROM agents WHERE id = ?', id);
+      if (!agent) continue;
+      if (agent.status === 'running') { blocked.push(id); continue; }
+      await db.run('DELETE FROM agents WHERE id = ?', id);
+      telemetry.emitEvent({ eventType: 'AGENT_DELETED', agentId: id, action: 'DELETE', detail: `Deleted agent '${agent.name}'.`, severity: 'warning' });
+      deleted.push(id);
+    }
+    res.json({ success: true, deleted, blocked });
+  } catch (error) { next(error); }
+}
+
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
   const agent = await db.get('SELECT id, execution_mode, parent_agent_id FROM agents WHERE id = ?', req.params.id);
@@ -493,6 +536,8 @@ module.exports = {
   listAgents,
   deleteAgent,
   stopAgent,
+  stopAgents,
+  deleteAgents,
   subscribeAgent,
   getAgentHistory,
   pingAgent,
