@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/brand/genos-logo.png" width="128" alt="GenOS official logo">
+</p>
+
 # GenOS Documentation Portal
 
 [![GenOS Architecture](https://img.shields.io/badge/Architecture-Counterfactual_OS-blue.svg)](2-architecture/overview.md)
