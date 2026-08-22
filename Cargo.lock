@@ -650,8 +650,11 @@ name = "genos-api"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "futures",
  "genos-core",
+ "genos-model",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]
