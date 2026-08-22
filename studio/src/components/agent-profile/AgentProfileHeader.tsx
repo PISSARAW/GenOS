@@ -56,15 +56,6 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
     }
   };
 
-  const handleCircuitBreaker = async () => {
-    try {
-      await api.toggleCircuitBreaker(`agent_${activeAgent.id}`, true);
-      showToast('warning', 'Circuit Breaker Active', `Agent ${activeAgent.name} quarantined.`);
-    } catch {
-      showToast('warning', 'Circuit Breaker Active', `Quarantine applied to ${activeAgent.name}.`);
-    }
-  };
-
   return (
     <div style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--panel-border)', paddingTop: '24px' }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 32px' }}>
@@ -104,9 +95,9 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
                 <Eye size={14} color="var(--text-secondary)" /> {activeAgent.hallucinationMonitoring ? 'Subscribed' : 'Subscribe'} <ChevronDown size={12} color="var(--text-muted)"/>
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
-              <button className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px', fontWeight: 600 }}>
+              <span aria-label={`${activeAgent.hallucinationMonitoring ? 1 : 0} monitoring subscriptions`} style={{ padding: '4px 12px', fontWeight: 600 }}>
                 {activeAgent.hallucinationMonitoring ? 1 : 0}
-              </button>
+              </span>
             </div>
 
             <div className="gh-btn-group" style={{ display: 'flex', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
@@ -114,13 +105,13 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
                 <GitFork size={14} color="var(--text-secondary)" /> Clone Agent <ChevronDown size={12} color="var(--text-muted)"/>
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
-              <button className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px', fontWeight: 600 }}>
+              <span aria-label={`${clonesCount} agent clones`} style={{ padding: '4px 12px', fontWeight: 600 }}>
                 {clonesCount}
-              </button>
+              </span>
             </div>
 
-            <button onClick={handleCircuitBreaker} className="gh-btn" style={{ border: '1px solid var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
-              <Octagon size={14} color="var(--danger)" /> Circuit Breaker
+            <button disabled title="Agent quarantine is not available here. Tool circuit breakers are managed in MCP Sandbox." className="gh-btn" style={{ border: '1px solid var(--danger)', color: 'var(--danger)', background: 'transparent' }}>
+              <Octagon size={14} color="var(--danger)" /> Agent breaker unavailable
             </button>
           </div>
         </div>

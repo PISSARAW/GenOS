@@ -1,18 +1,19 @@
-const { setTimeout: delay } = require('timers/promises');
-
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
-async function generate({ model = 'fake://local', prompt = '', onToken = () => {}, timeoutMs = 30000 }) {
+function configuredModel(model) {
+  const value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
+  if (!value) throw new Error('No model provider is configured. Set GENOS_DEFAULT_MODEL or provide an openai://, anthropic://, or gemini:// model URI.');
+  if (!/^(openai|anthropic|gemini):\/\//.test(value)) throw new Error(`Unsupported model URI '${value}'. Use openai://, anthropic://, or gemini://.`);
+  return value;
+}
+
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000 }) {
   const run = async () => {
-    if (model === 'fake://local' || model === 'local://runtime') {
-      const output = `Local model response: ${prompt.slice(0, 240)}`;
-      for (const token of tokenize(output)) { await delay(2); await onToken(token); }
-      return { text: output, inputTokens: tokenize(prompt).length, outputTokens: tokenize(output).length, provider: 'local' };
-    }
-    const provider = model.startsWith('anthropic://') ? 'anthropic' : model.startsWith('gemini://') ? 'gemini' : 'openai';
+    const resolvedModel = configuredModel(model);
+    const provider = resolvedModel.startsWith('anthropic://') ? 'anthropic' : resolvedModel.startsWith('gemini://') ? 'gemini' : 'openai';
     const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
-    if (!apiKey) throw new Error(`No API key configured for model ${model}.`);
-    const modelName = model.replace(/^(openai|anthropic|gemini):\/\//, '');
+    if (!apiKey) throw new Error(`No API key configured for model ${resolvedModel}.`);
+    const modelName = resolvedModel.replace(/^(openai|anthropic|gemini):\/\//, '');
     const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages') : provider === 'gemini' ? `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}` : (process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
     const headers = provider === 'anthropic' ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } : { 'Content-Type': 'application/json', ...(provider === 'gemini' ? {} : { Authorization: `Bearer ${apiKey}` }) };
     const body = provider === 'anthropic' ? { model: modelName, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] } : provider === 'gemini' ? { contents: [{ parts: [{ text: prompt }] }] } : { model: modelName, messages: [{ role: 'user', content: prompt }], stream: false };
@@ -25,4 +26,4 @@ async function generate({ model = 'fake://local', prompt = '', onToken = () => {
   return Promise.race([run(), new Promise((_, reject) => setTimeout(() => reject(new Error(`Model timeout after ${timeoutMs}ms.`)), timeoutMs))]);
 }
 
-module.exports = { generate, tokenize };
+module.exports = { generate, tokenize, configuredModel };

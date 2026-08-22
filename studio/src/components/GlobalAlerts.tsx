@@ -100,7 +100,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
               />
               <Search size={14} color="var(--text-muted)" style={{ position: 'absolute', left: '10px', top: '8px' }} />
             </div>
-            <button onClick={() => onNavigateDeploy ? onNavigateDeploy() : showToast('info', 'Deploy Agent', 'Navigate to Agent Deployment')} className="gh-btn gh-btn-primary" style={{ padding: '6px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={onNavigateDeploy} disabled={!onNavigateDeploy} title={onNavigateDeploy ? undefined : 'Agent deployment navigation is unavailable.'} className="gh-btn gh-btn-primary" style={{ padding: '6px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Plus size={14} /> Delegate Goal (Spawn Agent)
             </button>
           </div>
@@ -178,7 +178,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                             {issue.contextSnapshot || 'No context snapshot recorded.'}
                           </pre>
                           <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                            <button onClick={() => showToast('info', 'Agent Profile', `Focusing context for ${issue.agent}`)} className="gh-btn gh-btn-primary" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>Jump to Agent</button>
+                            <button disabled title="Direct navigation to an alert's agent profile is not available in this view." className="gh-btn gh-btn-primary" style={{ padding: '4px 12px', fontSize: '0.75rem' }}>Agent profile unavailable</button>
                             <button onClick={() => handleKillTask(issue.id)} className="gh-btn" style={{ padding: '4px 12px', fontSize: '0.75rem', color: 'var(--danger)' }}>Kill Task</button>
                           </div>
                         </div>

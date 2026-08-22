@@ -222,7 +222,7 @@ export const WorkspacesList: React.FC = () => {
                 {/* Right Area (Sparkline & Settings) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <Sparkline data={ws.activityData || []} color={ws.activityColor || '#238636'} />
-                  <Settings size={18} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); showToast('info', 'Settings', 'Workspace configuration panel'); }} />
+                  <Settings size={18} color="var(--text-muted)" aria-label="Workspace configuration is read-only" />
                 </div>
               </div>
             ))}

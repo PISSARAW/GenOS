@@ -298,14 +298,26 @@ async function getAgentHistory(req, res) {
   res.json(formatted);
 }
 
-function pingAgent(req, res) {
+async function pingAgent(req, res, next) {
   const agentId = req.params.id || 'agent_core';
-  res.json({
-    status: 'pong',
-    agentId,
-    latencyMs: +(Math.random() * 1.5 + 0.8).toFixed(2),
-    timestamp: new Date().toISOString()
-  });
+  const startedAt = process.hrtime.bigint();
+  try {
+    const db = await getDatabase();
+    const agent = await db.get('SELECT id, status FROM agents WHERE id = ?', agentId);
+    if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${agentId} was not found.` } });
+    const latencyMs = Number(process.hrtime.bigint() - startedAt) / 1e6;
+    telemetry.emitEvent({
+      eventType: 'AGENT_PING_ACKNOWLEDGED',
+      agentId,
+      action: 'PING',
+      detail: `API ping acknowledged for ${agentId}`,
+      severity: 'info',
+      payload: { latencyMs }
+    });
+    res.json({ status: 'acknowledged', agentId, latencyMs, agentStatus: agent.status, timestamp: new Date().toISOString() });
+  } catch (error) {
+    next(error);
+  }
 }
 
 async function ingestAgentEvent(req, res) {
