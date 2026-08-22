@@ -35,9 +35,15 @@ readiness, or superiority over another framework.
 
 ## Published measurements
 
-No maintained quantitative result set is currently published in this
-repository. In particular, there is no validated cross-framework latency,
-token-cost, blast-radius, MTTR, or throughput table.
+The [safe-debugging execution benchmark](../../benchmarks/safe-debugging/)
+publishes repeated raw samples for the deterministic product fixture. It
+measures success under a declared candidate order, GenOS replay verification,
+merge-gate decisions, wall time, model calls, tokens, and model cost. Because
+the fixture invokes no model, its measured model usage is zero.
+
+This is not a validated cross-framework or model-quality result. There is
+still no maintained comparison of external agent runtimes, blast radius,
+MTTR, throughput, or real provider token cost.
 
 The benchmark executables can produce local measurements, but a result becomes
 publishable only when its raw JSON and environment metadata are reviewed and
