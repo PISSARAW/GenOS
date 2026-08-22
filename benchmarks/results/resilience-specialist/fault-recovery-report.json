@@ -1,0 +1,87 @@
+{
+  "benchmark": "genos.resilience.fault_injection_and_recovery",
+  "iterations": 500,
+  "warmups": 20,
+  "fault_profile": [
+    "apoptosis_threshold_crossing",
+    "apoptosis_boundary_non_trigger",
+    "rapid_snapshot_id_collision",
+    "snapshot_integrity_verification",
+    "missing_snapshot_recovery"
+  ],
+  "recovery": {
+    "successful_recoveries": 500,
+    "recovery_success_rate": 1,
+    "integrity_verification_rate": 1,
+    "missing_snapshot_rejection_rate": 1,
+    "unique_snapshot_id_rate": 1,
+    "threshold_detection_rate": 1
+  },
+  "injection_results": [
+    {
+      "fault": "consecutive_failures",
+      "expected_termination": true,
+      "observed_termination": true,
+      "passed": true
+    },
+    {
+      "fault": "budget_exhaustion",
+      "expected_termination": true,
+      "observed_termination": true,
+      "passed": true
+    },
+    {
+      "fault": "semantic_divergence",
+      "expected_termination": true,
+      "observed_termination": true,
+      "passed": true
+    },
+    {
+      "fault": "hallucination_limit",
+      "expected_termination": true,
+      "observed_termination": true,
+      "passed": true
+    },
+    {
+      "fault": "below_all_thresholds",
+      "expected_termination": false,
+      "observed_termination": false,
+      "passed": true
+    }
+  ],
+  "freeze_latency_ns": {
+    "p50": 10125.000000002161,
+    "p95": 18667.000000000655,
+    "p99": 68834.0000000025,
+    "mean": 12391.506000000025,
+    "stddev": 12701.60905924779,
+    "min": 8957.9999999998,
+    "max": 228459.00000000084
+  },
+  "thaw_latency_ns": {
+    "p50": 8666.99999999554,
+    "p95": 12999.999999998125,
+    "p99": 165250.00000000035,
+    "mean": 15585.389999999974,
+    "stddev": 63305.49070225967,
+    "min": 7582.999999996787,
+    "max": 917334.0000000038
+  },
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64",
+    "runtime": "v20.20.2",
+    "hostname": "MacBook-Air.local"
+  },
+  "repository_revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+  "command_line": [
+    "/Users/henripissa/.nvm/versions/node/v20.20.2/bin/node",
+    "/Users/henripissa/Documents/GitHub.nosync/GenOS/benchmarks/resilience-benchmark.cjs",
+    "--iterations",
+    "500",
+    "--warmups",
+    "20",
+    "--output",
+    "benchmarks/results/resilience-specialist/fault-recovery-report.json"
+  ]
+}

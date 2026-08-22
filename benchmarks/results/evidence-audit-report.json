@@ -1,0 +1,970 @@
+{
+  "schema_version": "genos-evidence-audit-v1",
+  "generated_at": "2026-08-22T05:10:08.884Z",
+  "auditor_role": "benchmark_evidence_auditor",
+  "requested_tasks": [
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08",
+    "B09",
+    "B10"
+  ],
+  "repository_revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+  "overall_decision": "approved_scoped_claims_only",
+  "claim_policy": {
+    "internal_claims": "Only the explicitly verified metrics and stated limitations are approved.",
+    "public_claims": "Withheld until dataset, runtime, comparison-condition, and human-approval gates pass.",
+    "comparative_claims": "Withheld until version-pinned external adapters execute under matched conditions."
+  },
+  "tasks": [
+    {
+      "task_id": "B01",
+      "benchmark_id": "genos.replay",
+      "deliverable": "replay-fidelity-report.json",
+      "report_sha256": "ef6bcd9e9d01372c051439f9e2da6d46d87f2e69aaad62403ab644509adf4bb3",
+      "report_path": "benchmarks/results/replay-fidelity-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "replay benchmark passed",
+          "passed": true
+        },
+        {
+          "name": "500 replay iterations were measured",
+          "passed": true
+        },
+        {
+          "name": "raw replay sample count matches iterations",
+          "passed": true
+        },
+        {
+          "name": "replay_fingerprint_match_rate is 1",
+          "passed": true
+        },
+        {
+          "name": "event_hash_match_rate is 1",
+          "passed": true
+        },
+        {
+          "name": "final_state_hash_match_rate is 1",
+          "passed": true
+        },
+        {
+          "name": "causal event mutation was detected",
+          "passed": true
+        },
+        {
+          "name": "causal state mutation was detected",
+          "passed": true
+        },
+        {
+          "name": "replay scope limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "Measures deterministic genos-store reducer replay only",
+        "Does not cover model, network, clock, scheduler, or external tool replay"
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B02",
+      "benchmark_id": "genos.isolation",
+      "deliverable": "isolation-boundary-report.json",
+      "report_sha256": "ed25167d3b8b7e9362ad9010758b70d3e94bcf43ed11291d8903d9eeebb33c24",
+      "report_path": "benchmarks/results/isolation-boundary-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/scenarios/agent-runtime-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: benchmarks/scenarios/agent-runtime-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/src/utils.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/src/utils.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/tests/file_isolation.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/tests/file_isolation.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-world/tests/isolation_boundaries.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-world/tests/isolation_boundaries.rs",
+          "passed": true
+        },
+        {
+          "name": "command passed: world-file-isolation",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: world-file-isolation",
+          "passed": true
+        },
+        {
+          "name": "command passed: world-boundary-audit",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: world-boundary-audit",
+          "passed": true
+        },
+        {
+          "name": "local isolation execution passed",
+          "passed": true
+        },
+        {
+          "name": "metric is present: process_isolation",
+          "passed": true
+        },
+        {
+          "name": "process_isolation status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "process_isolation value is null",
+          "passed": true
+        },
+        {
+          "name": "metric is present: network_policy",
+          "passed": true
+        },
+        {
+          "name": "network_policy status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "network_policy value is null",
+          "passed": true
+        },
+        {
+          "name": "environment boundary is explicitly reported",
+          "passed": true
+        },
+        {
+          "name": "copy/sandbox limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "Directory worlds are copied directories, not Copy-on-Write or OS sandbox primitives.",
+        "Commands execute through the host shell with inherited environment and can address host paths.",
+        "No network namespace, syscall filter, container, or VM boundary is installed."
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B03",
+      "benchmark_id": "genos.resilience",
+      "deliverable": "fault-recovery-report.json",
+      "report_sha256": "9dd747c11d3fb561e3c99be94ca2373cc39f0c602faf1c9a9d0ceec1aefe15b9",
+      "report_path": "benchmarks/results/fault-recovery-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-core/src/causality.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-core/src/causality.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-core/src/revert.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-core/src/revert.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-model/src/adapters/fallback.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-model/src/adapters/fallback.rs",
+          "passed": true
+        },
+        {
+          "name": "command passed: resilience-control-probe",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: resilience-control-probe",
+          "passed": true
+        },
+        {
+          "name": "command evidence log exists: resilience-control-probe",
+          "passed": true
+        },
+        {
+          "name": "command evidence hash matches: resilience-control-probe",
+          "passed": true
+        },
+        {
+          "name": "command passed: causal-rollback-test",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: causal-rollback-test",
+          "passed": true
+        },
+        {
+          "name": "command evidence log exists: causal-rollback-test",
+          "passed": true
+        },
+        {
+          "name": "command evidence hash matches: causal-rollback-test",
+          "passed": true
+        },
+        {
+          "name": "command passed: safest-revert-test",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: safest-revert-test",
+          "passed": true
+        },
+        {
+          "name": "command evidence log exists: safest-revert-test",
+          "passed": true
+        },
+        {
+          "name": "command evidence hash matches: safest-revert-test",
+          "passed": true
+        },
+        {
+          "name": "command passed: model-fallback-tests",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: model-fallback-tests",
+          "passed": true
+        },
+        {
+          "name": "command evidence log exists: model-fallback-tests",
+          "passed": true
+        },
+        {
+          "name": "command evidence hash matches: model-fallback-tests",
+          "passed": true
+        },
+        {
+          "name": "rollback, revert, and recovery evidence commands are present",
+          "passed": true
+        },
+        {
+          "name": "raw recovery evidence contains 500 measured iterations",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate successful_recoveries passed",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate recovery_success_rate passed",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate integrity_verification_rate passed",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate missing_snapshot_rejection_rate passed",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate unique_snapshot_id_rate passed",
+          "passed": true
+        },
+        {
+          "name": "raw recovery predicate threshold_detection_rate passed",
+          "passed": true
+        },
+        {
+          "name": "all threshold injection predicates passed",
+          "passed": true
+        },
+        {
+          "name": "raw resilience report hash recorded",
+          "passed": true,
+          "evidence": {
+            "path": "benchmarks/results/resilience-specialist/fault-recovery-report.json",
+            "sha256": "22ee6d92d92ab7a86cfc63fd2ae2657cc9810914726996b44117cc72b882b9ec"
+          }
+        },
+        {
+          "name": "recovery scope limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "The latency measurement covers in-process control transitions, not distributed recovery MTTR.",
+        "The probe injects deterministic tool failures; it does not kill an operating-system process.",
+        "Rollback tests validate logical AgentState restoration, not arbitrary external side-effect reversal."
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B04",
+      "benchmark_id": "genos.performance",
+      "deliverable": "performance-distribution.json",
+      "report_sha256": "805b843aeb03636e9eb16ee919b6db5c3d14a2e8b2454403991417e5594637de",
+      "report_path": "benchmarks/results/performance-distribution.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "performance benchmark completed",
+          "passed": true
+        },
+        {
+          "name": "raw distributions are included",
+          "passed": true
+        },
+        {
+          "name": "statistics were recomputed",
+          "passed": true
+        },
+        {
+          "name": "500 replay samples are present",
+          "passed": true
+        },
+        {
+          "name": "500 fork samples are present",
+          "passed": true
+        },
+        {
+          "name": "measurements used the same platform",
+          "passed": true
+        },
+        {
+          "name": "fork scope limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "These are local runtime microbenchmarks; they exclude model and network latency.",
+        "The directory-provider fork copies a directory and is not a Copy-on-Write measurement.",
+        "Population standard deviation describes the captured run and is not a cross-machine confidence bound."
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B05",
+      "benchmark_id": "genos.mcp-safety",
+      "deliverable": "mcp-safety-report.json",
+      "report_sha256": "ea82e713dcd16d3fcfd4b0044075011f649701040827476ff2ccccee5a95e013",
+      "report_path": "benchmarks/results/mcp-safety-report.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": true,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/scenarios/mcp-safety-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: benchmarks/scenarios/mcp-safety-boundaries.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/platformSafetyService.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/platformSafetyService.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/circuitBreaker.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: backend/src/services/vfsSandboxService.js",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: backend/src/services/vfsSandboxService.js",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-tools/src/gateway.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-tools/src/gateway.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: crates/genos-protocol/src/planner/builder.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: crates/genos-protocol/src/planner/builder.rs",
+          "passed": true
+        },
+        {
+          "name": "source exists: integrations/mcp/genos-mcp/src/lib.rs",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: integrations/mcp/genos-mcp/src/lib.rs",
+          "passed": true
+        },
+        {
+          "name": "command passed: backend-platform-safety",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: backend-platform-safety",
+          "passed": true
+        },
+        {
+          "name": "command passed: backend-mcp-vfs-stress",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: backend-mcp-vfs-stress",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-tools-gateway",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-tools-gateway",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-protocol-planner",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-protocol-planner",
+          "passed": true
+        },
+        {
+          "name": "command passed: genos-mcp-server",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: genos-mcp-server",
+          "passed": true
+        },
+        {
+          "name": "local MCP safety execution passed",
+          "passed": true
+        },
+        {
+          "name": "all deterministic MCP predicates passed",
+          "passed": true
+        },
+        {
+          "name": "all required MCP command suites passed",
+          "passed": true
+        },
+        {
+          "name": "metric is present: direct_mcp_identity_and_approval_integration",
+          "passed": true
+        },
+        {
+          "name": "direct_mcp_identity_and_approval_integration status is unsupported",
+          "passed": true
+        },
+        {
+          "name": "direct_mcp_identity_and_approval_integration value is null",
+          "passed": true
+        },
+        {
+          "name": "unreviewed production claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "MCP integration limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "The Rust MCP transport tests validate protocol and argv boundaries but do not establish end-to-end caller identity or per-call human approval.",
+        "The backend policy, circuit breaker, Rust gateway, and Rust MCP server are exercised as distinct layers; this benchmark does not claim they are wired into one production deployment.",
+        "All execution is local and uses no external model or network service."
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B06",
+      "benchmark_id": "public.swe",
+      "deliverable": "swe-public-report.json",
+      "report_sha256": "46de539a8ea5e77d23edbea2cfb79c78dfa4763344b17a5ec27ca77d38e9f849",
+      "report_path": "benchmarks/results/swe-public-report.json",
+      "decision": "withheld_external_dependencies",
+      "scoped_claim_allowed": false,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-gates.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-suites.json",
+          "passed": true
+        },
+        {
+          "name": "report is marked public",
+          "passed": true
+        },
+        {
+          "name": "execution is explicitly blocked",
+          "passed": true
+        },
+        {
+          "name": "public claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "score is null",
+          "passed": true
+        },
+        {
+          "name": "sample size is zero",
+          "passed": true
+        },
+        {
+          "name": "no external execution is represented",
+          "passed": true
+        },
+        {
+          "name": "all required external gates are recorded as missing",
+          "passed": true
+        },
+        {
+          "name": "specialist audit decision is withheld",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "dataset approval is missing",
+        "GENOS_SWE_BENCH_DATASET is not configured",
+        "GENOS_SWE_BENCH_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_SWE_BENCH_COMMAND is not configured",
+        "GENOS_SWE_BENCH_RUNTIME_IDENTITY is not configured",
+        "GENOS_TERMINAL_BENCH_DATASET is not configured",
+        "GENOS_TERMINAL_BENCH_SHA256 must contain a SHA-256 checksum",
+        "GENOS_TERMINAL_BENCH_COMMAND is not configured",
+        "GENOS_TERMINAL_BENCH_RUNTIME_IDENTITY is not configured"
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B07",
+      "benchmark_id": "public.tool-use",
+      "deliverable": "tool-use-public-report.json",
+      "report_sha256": "98a0ec776387e5735053a4eef4ca99d04fd333b4359b2a13743a0680896f441f",
+      "report_path": "benchmarks/results/tool-use-public-report.json",
+      "decision": "withheld_external_dependencies",
+      "scoped_claim_allowed": false,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-gates.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-suites.json",
+          "passed": true
+        },
+        {
+          "name": "report is marked public",
+          "passed": true
+        },
+        {
+          "name": "execution is explicitly blocked",
+          "passed": true
+        },
+        {
+          "name": "public claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "score is null",
+          "passed": true
+        },
+        {
+          "name": "sample size is zero",
+          "passed": true
+        },
+        {
+          "name": "no external execution is represented",
+          "passed": true
+        },
+        {
+          "name": "all required external gates are recorded as missing",
+          "passed": true
+        },
+        {
+          "name": "specialist audit decision is withheld",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "dataset approval is missing",
+        "GENOS_BFCL_DATASET is not configured",
+        "GENOS_BFCL_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_BFCL_COMMAND is not configured",
+        "GENOS_BFCL_RUNTIME_IDENTITY is not configured",
+        "GENOS_TAU_BENCH_DATASET is not configured",
+        "GENOS_TAU_BENCH_SHA256 must contain a SHA-256 checksum",
+        "GENOS_TAU_BENCH_COMMAND is not configured",
+        "GENOS_TAU_BENCH_RUNTIME_IDENTITY is not configured",
+        "GENOS_TOOLSANDBOX_DATASET is not configured",
+        "GENOS_TOOLSANDBOX_SHA256 must contain a SHA-256 checksum",
+        "GENOS_TOOLSANDBOX_COMMAND is not configured",
+        "GENOS_TOOLSANDBOX_RUNTIME_IDENTITY is not configured"
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B08",
+      "benchmark_id": "public.web",
+      "deliverable": "web-public-report.json",
+      "report_sha256": "7408c342af5ac24a751ae6dfcbea980b29f21b2c59ccc814c41b776e4212f35e",
+      "report_path": "benchmarks/results/web-public-report.json",
+      "decision": "withheld_external_dependencies",
+      "scoped_claim_allowed": false,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-gates.json",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-suites.json",
+          "passed": true
+        },
+        {
+          "name": "report is marked public",
+          "passed": true
+        },
+        {
+          "name": "execution is explicitly blocked",
+          "passed": true
+        },
+        {
+          "name": "public claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "score is null",
+          "passed": true
+        },
+        {
+          "name": "sample size is zero",
+          "passed": true
+        },
+        {
+          "name": "no external execution is represented",
+          "passed": true
+        },
+        {
+          "name": "all required external gates are recorded as missing",
+          "passed": true
+        },
+        {
+          "name": "specialist audit decision is withheld",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "dataset approval is missing",
+        "GENOS_WEBARENA_DATASET is not configured",
+        "GENOS_WEBARENA_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_WEBARENA_COMMAND is not configured",
+        "GENOS_WEBARENA_RUNTIME_IDENTITY is not configured",
+        "GENOS_BROWSERGYM_DATASET is not configured",
+        "GENOS_BROWSERGYM_SHA256 must contain a SHA-256 checksum",
+        "GENOS_BROWSERGYM_COMMAND is not configured",
+        "GENOS_BROWSERGYM_RUNTIME_IDENTITY is not configured",
+        "GENOS_OSWORLD_DATASET is not configured",
+        "GENOS_OSWORLD_SHA256 must contain a SHA-256 checksum",
+        "GENOS_OSWORLD_COMMAND is not configured",
+        "GENOS_OSWORLD_RUNTIME_IDENTITY is not configured"
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B09",
+      "benchmark_id": "public.safety",
+      "deliverable": "safety-public-report.json",
+      "report_sha256": "dec80a1601c83c354604df49d4a7841b50acc09c1a82e9d1ae57f1b5a5ab1f46",
+      "report_path": "benchmarks/results/safety-public-report.json",
+      "decision": "withheld_external_dependencies",
+      "scoped_claim_allowed": false,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "source exists: benchmarks/public-gates.json",
+          "passed": true
+        },
+        {
+          "name": "source hash matches: benchmarks/public-gates.json",
+          "passed": true
+        },
+        {
+          "name": "report is marked public",
+          "passed": true
+        },
+        {
+          "name": "execution is explicitly blocked",
+          "passed": true
+        },
+        {
+          "name": "public claim is withheld",
+          "passed": true
+        },
+        {
+          "name": "score is null",
+          "passed": true
+        },
+        {
+          "name": "sample size is zero",
+          "passed": true
+        },
+        {
+          "name": "no external execution is represented",
+          "passed": true
+        },
+        {
+          "name": "all required external gates are recorded as missing",
+          "passed": true
+        },
+        {
+          "name": "specialist audit decision is withheld",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "approved dataset snapshot",
+        "safety runtime adapter",
+        "adversarial grader configuration",
+        "human approval receipt"
+      ],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    },
+    {
+      "task_id": "B10",
+      "benchmark_id": "comparative.observability",
+      "deliverable": "observability-comparison.json",
+      "report_sha256": "f05ce6a29919177fad4d3a159ba638ad14a542d1a926130231be2df993b1aad7",
+      "report_path": "benchmarks/results/observability-comparison.json",
+      "decision": "approved_with_limitations",
+      "scoped_claim_allowed": false,
+      "checks": [
+        {
+          "name": "task identity matches",
+          "passed": true
+        },
+        {
+          "name": "benchmark identity matches",
+          "passed": true
+        },
+        {
+          "name": "deliverable name matches",
+          "passed": true
+        },
+        {
+          "name": "command passed: evaluation-observability",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: evaluation-observability",
+          "passed": true
+        },
+        {
+          "name": "command passed: platform-control-plane",
+          "passed": true
+        },
+        {
+          "name": "command exit code is zero: platform-control-plane",
+          "passed": true
+        },
+        {
+          "name": "cross-system comparison is not claimable",
+          "passed": true
+        },
+        {
+          "name": "external comparison systems are enumerated",
+          "passed": true
+        },
+        {
+          "name": "every external adapter is not_run or unsupported",
+          "passed": true
+        },
+        {
+          "name": "no external score is fabricated",
+          "passed": true
+        },
+        {
+          "name": "missing-adapter limitation is declared",
+          "passed": true
+        }
+      ],
+      "errors": [],
+      "limitations": [],
+      "reviewed_at": "2026-08-22T05:10:08.884Z"
+    }
+  ]
+}
