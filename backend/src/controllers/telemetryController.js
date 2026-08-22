@@ -5,6 +5,7 @@
 const os = require('os');
 const { getDatabase } = require('../db');
 const telemetryService = require('../services/telemetryObserver');
+const { resolveWorkspacesRoot, syncWorkspaceRegistry } = require('../services/workspaceRegistry');
 
 function streamSSE(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -97,7 +98,10 @@ async function getDashboard(req, res) {
 
   const statsRecord = await db.get('SELECT * FROM system_stats WHERE id = 1');
   const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-  const wsList = await db.all('SELECT * FROM workspaces LIMIT 2');
+  // Use the same filesystem-backed registry as the project selector. This
+  // prevents pinned cards from advertising stale database rows that Studio
+  // cannot actually open.
+  const wsList = await syncWorkspaceRegistry(db, resolveWorkspacesRoot());
   const heatmapRows = await db.all('SELECT actions FROM heatmap_activity ORDER BY day ASC LIMIT 364');
 
   // The dashboard contract is a full year (364 cells). Older/local databases
@@ -107,14 +111,20 @@ async function getDashboard(req, res) {
     ? heatmapRows.map(r => r.actions).concat(Array(Math.max(0, 364 - heatmapRows.length)).fill(0)).slice(0, 364)
     : [];
 
-  const pinned = wsList.map(w => ({
+  const pinned = (await Promise.all(wsList.slice(0, 2).map(async (w) => {
+    const workspaceAgents = await db.get(
+      "SELECT COUNT(*) as count FROM agents WHERE workspace_id = ? AND status = 'running'",
+      w.id
+    );
+    return {
     id: w.id,
     name: w.name,
     status: 'Active Workspace',
     language: w.language || 'TypeScript',
-    agents_count: agentCount ? agentCount.count : 0,
+    agents_count: workspaceAgents?.count || 0,
     progress: null
-  }));
+    };
+  }))).filter(Boolean);
 
   const achievements = [];
 
