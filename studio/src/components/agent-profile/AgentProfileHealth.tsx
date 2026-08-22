@@ -40,7 +40,7 @@ export const AgentProfileHealth: React.FC<Props> = ({ activeAgent }) => {
     </div>
     <div style={{ padding: '0 16px 16px' }}>
       <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '8px' }}>Last activity</div>
-      <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px', color: 'var(--text-primary)' }}>{lastEvent ? `${lastEvent.event_type || lastEvent.action || 'Event'} — ${lastEvent.detail || lastEvent.action || 'No detail'} · ${lastEvent.created_at || 'time unavailable'}` : loading ? 'Loading telemetry…' : 'No persisted diagnostic event for this agent.'}</div>
+      <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px', color: 'var(--text-primary)' }}>{lastEvent ? `${lastEvent.event_type || lastEvent.action || 'Event'} — ${lastEvent.detail || lastEvent.action || 'No detail'} · ${lastEvent.created_at || 'timestamp unavailable'}` : loading ? 'Loading telemetry…' : 'No persisted diagnostic event for this agent.'}</div>
     </div>
   </div>;
 };

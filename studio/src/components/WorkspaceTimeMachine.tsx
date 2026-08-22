@@ -84,7 +84,7 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
           </button>
           <div>
             <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)' }}>{workspace.title || workspace.name}</h1>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Snapshot metadata timeline · {agentCount} authors · {snapshots.length} records · restore unavailable</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Durable snapshot timeline · {agentCount} authors · {snapshots.length} revisions · restore available</div>
           </div>
         </div>
         <div style={{ padding: '4px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--panel-border)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -218,8 +218,8 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
             {/* Modal Footer */}
             <div style={{ padding: '12px 24px', borderTop: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setSelectedNode(null)} className="gh-btn">Close</button>
-              <button disabled title="No durable workspace state is available to restore." className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <RotateCcw size={14} /> Restore unavailable
+              <button onClick={async () => { if (!selectedNode) return; await api.restoreSnapshot(workspaceId, selectedNode.raw.step_number); setSelectedNode(null); }} className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <RotateCcw size={14} /> Restore this snapshot
               </button>
             </div>
 
