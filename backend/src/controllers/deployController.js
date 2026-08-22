@@ -388,7 +388,7 @@ async function ingestAgentEvent(req, res) {
 async function startAgent(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  const agent = await db.get('SELECT id, name, role, current_task as prompt, model_tier as modelTier, isolation_mode as workspaceIsolation, workspace_id as workspaceId, fleet_id as fleetId, agent_type as agentType, execution_mode as executionMode, parent_agent_id as parentAgentId FROM agents WHERE id = ?', id);
+  const agent = await db.get('SELECT a.id, a.name, a.role, a.current_task as prompt, a.model_tier as modelTier, a.isolation_mode as workspaceIsolation, a.workspace_id as workspaceId, w.path as workspaceRoot, a.fleet_id as fleetId, a.agent_type as agentType, a.execution_mode as executionMode, a.parent_agent_id as parentAgentId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', id);
   if (!agent) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${id} not found` } });
   if (agent.executionMode === 'worker') {
     return res.status(409).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: `Worker '${agent.name}' cannot start itself. Dispatch it from orchestrator '${agent.parentAgentId}'.` } });
@@ -400,7 +400,7 @@ async function startAgent(req, res) {
       createdBy: 'mission_orchestrator'
     });
   }
-  const result = await runtimeAdapter.startMission({ ...agent, strategyContract: strategyContract.contract, executionBudget: req.body?.executionBudget });
+  const result = await runtimeAdapter.startMission({ ...agent, workspaceProvisioned: Boolean(agent.workspaceRoot), strategyContract: strategyContract.contract, executionBudget: req.body?.executionBudget });
   res.json({ success: true, agentId: id, strategyContract, ...result });
 }
 
