@@ -1,0 +1,8 @@
+const express = require('express');
+const router = express.Router();
+const controller = require('../controllers/traceController');
+router.get('/', controller.listTraces);
+router.get('/:traceId', controller.getTrace);
+router.post('/ingest', controller.ingestSpan);
+router.post('/:traceId/replay', controller.replayTrace);
+module.exports = router;
