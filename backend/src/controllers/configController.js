@@ -5,6 +5,7 @@
 const os = require('os');
 const { getDatabase } = require('../db');
 const modelProvider = require('../services/modelProvider');
+const localModelDiscovery = require('../services/localModelDiscovery');
 
 let customUsername = null;
 let maxTokens = 500000;
@@ -52,6 +53,12 @@ function getModelStatus(req, res) {
   res.json(modelProvider.getModelStatus(req.query?.model));
 }
 
+async function getLocalModels(req, res, next) {
+  try {
+    res.json({ models: await localModelDiscovery.discoverLocalModels({ force: req.query?.refresh === '1' }) });
+  } catch (error) { next(error); }
+}
+
 async function testModel(req, res, next) {
   try {
     const prompt = String(req.body?.prompt || 'Reply with exactly: GENOS_MODEL_OK');
@@ -89,6 +96,7 @@ function updateBudget(req, res) {
 module.exports = {
   getConfig,
   getModelStatus,
+  getLocalModels,
   testModel,
   updateProfile,
   getBudget,

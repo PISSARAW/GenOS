@@ -9,6 +9,7 @@ const { requirePermission } = require('../middleware/auth');
 
 router.get('/config', configController.getConfig);
 router.get('/model', configController.getModelStatus);
+router.get('/model/local', configController.getLocalModels);
 router.post('/model/test', requirePermission('experiment:run'), configController.testModel);
 router.post('/profile', configController.updateProfile);
 router.get('/budget', configController.getBudget);
