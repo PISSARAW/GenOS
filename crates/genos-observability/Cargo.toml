@@ -1,0 +1,17 @@
+[package]
+name = "genos-observability"
+description = "W3C trace context, structured spans and OTLP/HTTP export for GenOS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+uuid.workspace = true
