@@ -18,7 +18,7 @@ Include the affected revision, impact, prerequisites, reproduction steps, and a 
 
 If private vulnerability reporting is unavailable, contact the maintainer through the private contact method listed on the maintainer's GitHub profile and mention `GenOS security` in the subject. Do not send exploit details through a public discussion.
 
-You should receive an acknowledgement within 7 days. Triage, remediation, disclosure timing, and credit will be coordinated privately. Please allow a reasonable remediation period before disclosure.
+Triage, remediation, disclosure timing, and credit will be coordinated privately. Please allow a reasonable remediation period before disclosure; no response or remediation timeline is guaranteed.
 
 ## Scope
 
