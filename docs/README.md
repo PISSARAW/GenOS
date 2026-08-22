@@ -4,15 +4,19 @@
 
 # GenOS Documentation Portal
 
-[![GenOS Architecture](https://img.shields.io/badge/Architecture-Counterfactual_OS-blue.svg)](2-architecture/overview.md)
-[![Resilience](https://img.shields.io/badge/Resilience-Apoptosis_&_Cryptobiosis-green.svg)](3-features-and-domain/resilience/cellular.md)
-[![MCP Native](https://img.shields.io/badge/MCP-Native_40+_Tools-orange.svg)](4-interfaces/mcp-tools-reference.md)
-[![Lineage CAS](https://img.shields.io/badge/CAS-Merkle_DAG_100%25_Replay-purple.svg)](7-benchmarks-and-comparisons/theoretical-foundations.md)
-[![Rust Core](https://img.shields.io/badge/Engine-Native_Rust_<2ms-red.svg)](1-onboarding-and-setup/architecture-tour.md)
+[![Status](https://img.shields.io/badge/status-pre--alpha-yellow.svg)](../README.md#what-works-today)
+[![Proof](https://img.shields.io/badge/evidence-reproducible-blue.svg)](7-benchmarks-and-comparisons/proof-and-benchmark-status.md)
+[![Rust Core](https://img.shields.io/badge/engine-Rust-orange.svg)](1-onboarding-and-setup/architecture-tour.md)
 
-Welcome to the official technical documentation for **GenOS**—the world's first **Counterfactual Operating System for Autonomous AI Agents**.
+GenOS explores **Git-like branching and deterministic replay for AI-agent
+state**. It is pre-alpha research software: the documentation separates
+implemented behavior, executable proofs, design proposals, and unmeasured
+claims.
 
-GenOS provides an event-sourced execution environment with Content-Addressable Storage (CAS), zero-cost speculative branching, bitwise replayability, epistemic cognitive merging, and biomimetic cellular resilience.
+The implemented core provides versioned agent state, event histories,
+snapshot/fork workflows, diff and replay primitives, and isolated-world
+experiments. Broader distributed, security, and resilience capabilities are
+roadmap targets unless linked to an executable proof.
 
 ---
 
@@ -27,6 +31,10 @@ If you are an autonomous AI agent operating on this repository, strictly adhere 
 
 ## 🏛️ System Architecture Overview
 
+The diagram is a conceptual target architecture. Consult the
+[implementation status](2-architecture/adrs/IMPLEMENTATION_STATUS.md) before
+treating a component or boundary as available.
+
 ```text
                                   ┌──────────────────────────────────┐
                                   │      AGENT GENOME (Genotype)     │
@@ -36,10 +44,10 @@ If you are an autonomous AI agent operating on this repository, strictly adhere 
                                   ┌──────────────────────────────────┐
                                   │   AGENT-WORLD CAPSULE (S0)       │
                                   │  - Beliefs & Epistemic State     │
-                                  │  - Virtual Filesystem & Sandbox  │
+                                  │  - Directory-backed World       │
                                   │  - Content-Addressable Event Log │
                                   └─────────┬──────────────┬─────────┘
-                                            │ Fork CoW     │ Fork CoW
+                                            │ Fork         │ Fork
                      ┌──────────────────────┴───┐      ┌───┴──────────────────────┐
                      │   Speculative Branch A   │      │   Speculative Branch B   │
                      │  - Strategy: Quick Patch │      │  - Strategy: Deep Refactor│
@@ -83,14 +91,14 @@ If you are an autonomous AI agent operating on this repository, strictly adhere 
 - [Agent Primitives & Lifecycle](3-features-and-domain/agent-primitives.md) — `fork`, `snapshot`, `restore`, `merge`, and `blame`.
 - [Phenotype & Genomic Adaptation](3-features-and-domain/phenotype.md) — Genetic evolution and runtime phenotypic traits.
 - [Counterfactual Simulation](3-features-and-domain/counterfactual-simulation.md) — Speculative multi-branch exploration.
-- [Causal & Contextual Isolation](3-features-and-domain/causal-and-contextual-isolation.md) — Zero-leak sandboxing boundaries.
-- [Determinism & Reproducibility](3-features-and-domain/determinism-and-reproducibility.md) — Bitwise CAS event replay guarantees.
+- [Causal & Contextual Isolation](3-features-and-domain/causal-and-contextual-isolation.md) — Logical and directory-world boundaries, including known limitations.
+- [Determinism & Reproducibility](3-features-and-domain/determinism-and-reproducibility.md) — Reducer replay scope and nondeterministic boundaries.
 - [Biomimicry & Multi-Agent Swarms](3-features-and-domain/biomimicry/) — Swarm consensus, flocking, network quorum, and distributed huddling.
 - [Cellular Resilience Suite](3-features-and-domain/resilience/) — Apoptosis, cryptobiosis, hypermutation, and cyber immune response.
 
 ### [Module 4: Interfaces et Protocoles](4-interfaces/)
 - [GenOS Protocol Specification](4-interfaces/genos-protocol.md) — Inter-agent messaging, event schemas, and RPC.
-- [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) — 40+ native Model Context Protocol tools.
+- [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) — Model Context Protocol interfaces and maturity notes.
 - [CLI Reference Manual](4-interfaces/cli-reference.md) — Comprehensive command-line interface documentation.
 - [External Integrations](4-interfaces/integrations/) — IDE, CI/CD, and external agent bridges.
 
@@ -98,16 +106,19 @@ If you are an autonomous AI agent operating on this repository, strictly adhere 
 - [Coding Guidelines](5-development-workflows/coding-guidelines.md) — Strict rules: Max 400 lines, Max 3 parameters, low complexity.
 - [Testing & Verification Strategy](5-development-workflows/testing-strategy.md) — Property-based, integration, and chaos testing.
 - [Contributing Guide](5-development-workflows/contributing-guide.md) — Contribution workflows and branch policies.
+- [Good First Issue Backlog](5-development-workflows/good-first-issues.md) — Five bounded, testable starter contributions.
+- [GitHub Launch Backlog](5-development-workflows/launch-backlog.md) — Trust, distribution, proof, evidence, and community gates.
 
 ### [Module 6: Opérations et Déploiement](6-operations-and-deployment/)
-- [Production Deployment Guide](6-operations-and-deployment/production-deployment.md) — Kubernetes, Docker, and bare-metal deployment.
+- [Deployment Design](6-operations-and-deployment/production-deployment.md) — Target Kubernetes, Docker, and bare-metal topology; verify current maturity before use.
 - [Operations Runbooks](6-operations-and-deployment/runbooks/) — Incident response, CAS maintenance, and telemetry.
 
 ### [Module 7: Benchmarks, Comparatifs et Théorie](7-benchmarks-and-comparisons/)
 - [Simple Agent vs. GenOS](7-benchmarks-and-comparisons/simple-agent-vs-genos.md) — In-depth head-to-head comparison and failure-cascade analysis.
-- [Comprehensive Competitive Matrix](7-benchmarks-and-comparisons/competitive-matrix.md) — 16-axis comparison with AutoGen, CrewAI, LangGraph, MetaGPT, ChatDev, and Semantic Kernel.
+- [Competitive Evaluation Matrix](7-benchmarks-and-comparisons/competitive-matrix.md) — Evidence-gated comparison plan with no unvalidated leaderboard values.
 - [Resilience Benchmark Methodology](7-benchmarks-and-comparisons/resilience-benchmarks.md) — MTTR, CPR, CBIF, TWR, and ChaosAgent-Bench suite.
-- [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Formal proofs for entropy reduction, cascade suppression bounds, and Pareto merge algebra.
+- [Proof & Benchmark Status](7-benchmarks-and-comparisons/proof-and-benchmark-status.md) — What is measured, how to reproduce it, and what evidence is still missing.
+- [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Arguments, assumptions, and proposed models; not benchmark results.
 
 ---
 

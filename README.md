@@ -5,12 +5,12 @@
 <h1 align="center">GenOS</h1>
 
 <p align="center">
-  <strong>Versioned, forkable execution for reproducible AI-agent experiments.</strong>
+  <strong>Git-like branching and deterministic replay for AI-agent state.</strong>
 </p>
 
 <p align="center">
-  Snapshot agent state, fork competing hypotheses, isolate their histories,
-  compare outcomes, and replay how a result was reached.
+  Snapshot agent state, fork competing hypotheses, run them in isolation,
+  compare outcomes, replay the evidence, and merge only what passes.
 </p>
 
 <p align="center">
@@ -169,7 +169,8 @@ and production build command.
 
 ## Examples
 
-The repository includes focused proofs as well as larger research scenarios:
+The repository includes focused product proofs. Exploratory solvers, datasets,
+and historical outputs live separately under [`research/`](research/):
 
 | Start here | Demonstrates |
 | --- | --- |
@@ -199,7 +200,7 @@ Choose the shortest path for what you need:
   [protocol specification](docs/4-interfaces/genos-protocol.md), and
   [MCP tools](docs/4-interfaces/mcp-tools-reference.md)
 - **Review direction and trade-offs:** [product roadmap](docs/0-context-and-vision/product-roadmap.md)
-  and [comparisons and benchmark methodology](docs/7-benchmarks-and-comparisons/)
+  and [proof and benchmark status](docs/7-benchmarks-and-comparisons/proof-and-benchmark-status.md)
 
 The [documentation portal](docs/README.md) contains the complete index and
 guided reading paths for application developers, system architects,
@@ -211,7 +212,8 @@ researchers, and operators.
 crates/        Rust models, runtime, stores, worlds, evaluation, API, and CLI
 backend/       Express + SQLite API for GenOS Studio
 studio/        React + TypeScript + Vite frontend
-examples/      Runnable proofs and research scenarios
+examples/      Runnable proofs, scenarios, and reusable agent manifests
+research/      Preserved exploratory solvers, datasets, and historical results
 docs/          Concepts, onboarding, architecture, interfaces, and operations
 spec/          JSON schemas for agents, snapshots, lineage, and experiments
 integrations/  MCP and IDE integrations
@@ -241,6 +243,8 @@ npm run build
 
 Before contributing, read [CONTRIBUTING.md](CONTRIBUTING.md). Architectural
 changes should include or update an ADR and the relevant executable proof.
+Small, bounded contributions are proposed in the
+[good first issue backlog](docs/5-development-workflows/good-first-issues.md).
 
 ## Community and project policy
 
