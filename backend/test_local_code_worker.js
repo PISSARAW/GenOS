@@ -1,0 +1,10 @@
+const assert = require('assert');
+const { parseProposal, safePath } = require('./src/services/localCodeWorkerService');
+assert.equal(safePath('src/lib.rs'), true);
+assert.equal(safePath('tests/security.rs'), false);
+assert.equal(safePath('src/lib.test.js'), false);
+assert.equal(safePath('Cargo.toml'), false);
+assert.throws(() => parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}'));
+const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
+assert.equal(proposal.patches[0].path, 'src/lib.rs');
+console.log('Local code worker safety checks passed.');
