@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use genos_core::ids::SnapshotId;
+use genos_core::snapshot::SnapshotComponentManifest as LegacySnapshotManifest;
 use genos_core::AgentSnapshot;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -15,28 +16,43 @@ use tokio::sync::Mutex;
 #[async_trait]
 pub trait SnapshotStore: Send + Sync {
     async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>>;
-    async fn save_snapshot(&self, snapshot: AgentSnapshot) -> anyhow::Result<()>;
+    async fn save_snapshot(&self, snapshot: &AgentSnapshot) -> anyhow::Result<()>;
 }
 
 pub struct LocalSnapshotStore {
     file_path: PathBuf,
+    legacy_manifest_path: Option<PathBuf>,
     write_lock: Mutex<()>,
 }
 
 impl LocalSnapshotStore {
     pub fn new(file_path: impl Into<PathBuf>) -> Self {
+        let requested_path = file_path.into();
+        let is_legacy_path = requested_path
+            .file_name()
+            .is_some_and(|name| name == std::ffi::OsStr::new("agent-snapshots-manifests.jsonl"));
+        let (file_path, legacy_manifest_path) = if is_legacy_path {
+            (
+                requested_path.with_file_name("agent-snapshots.jsonl"),
+                Some(requested_path),
+            )
+        } else {
+            (requested_path, None)
+        };
         Self {
-            file_path: file_path.into(),
+            file_path,
+            legacy_manifest_path,
             write_lock: Mutex::new(()),
         }
     }
 
     pub fn from_root(root: impl AsRef<Path>) -> Self {
-        let file_path = root
-            .as_ref()
-            .join("snapshots")
-            .join("agent-snapshots.jsonl");
-        Self::new(file_path)
+        let snapshots_dir = root.as_ref().join("snapshots");
+        Self {
+            file_path: snapshots_dir.join("agent-snapshots.jsonl"),
+            legacy_manifest_path: Some(snapshots_dir.join("agent-snapshots-manifests.jsonl")),
+            write_lock: Mutex::new(()),
+        }
     }
 
     pub fn file_path(&self) -> &Path {
@@ -49,23 +65,45 @@ impl LocalSnapshotStore {
     }
 
     pub async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>> {
-        if !fs::try_exists(&self.file_path).await? {
-            return Ok(Vec::new());
-        }
-
-        let raw = fs::read_to_string(&self.file_path).await?;
         let mut ids = Vec::new();
         let mut seen = HashSet::new();
 
-        for (idx, line) in raw.lines().enumerate() {
-            if line.trim().is_empty() {
-                continue;
+        // The legacy journal only contains component manifests with placeholder
+        // hashes, so it cannot be losslessly converted into full snapshots.
+        // Keep it as a read-only index rather than deleting or fabricating state.
+        if let Some(path) = &self.legacy_manifest_path {
+            if fs::try_exists(path).await? {
+                let raw = fs::read_to_string(path).await?;
+                for (idx, line) in raw.lines().enumerate() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    let manifest: LegacySnapshotManifest =
+                        serde_json::from_str(line).map_err(|e| {
+                            anyhow::anyhow!(
+                                "invalid legacy snapshot manifest at line {}: {e}",
+                                idx + 1
+                            )
+                        })?;
+                    if seen.insert(manifest.snapshot_id.0.clone()) {
+                        ids.push(manifest.snapshot_id.0);
+                    }
+                }
             }
-            let snapshot: AgentSnapshot = serde_json::from_str(line)
-                .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
+        }
 
-            if seen.insert(snapshot.snapshot_id.0.clone()) {
-                ids.push(snapshot.snapshot_id.0);
+        if fs::try_exists(&self.file_path).await? {
+            let raw = fs::read_to_string(&self.file_path).await?;
+            for (idx, line) in raw.lines().enumerate() {
+                if line.trim().is_empty() {
+                    continue;
+                }
+                let snapshot: AgentSnapshot = serde_json::from_str(line)
+                    .map_err(|e| anyhow::anyhow!("invalid snapshot at line {}: {e}", idx + 1))?;
+
+                if seen.insert(snapshot.snapshot_id.0.clone()) {
+                    ids.push(snapshot.snapshot_id.0);
+                }
             }
         }
         Ok(ids)
@@ -99,7 +137,7 @@ impl SnapshotStore for LocalSnapshotStore {
         Ok(found)
     }
 
-    async fn save_snapshot(&self, snapshot: AgentSnapshot) -> anyhow::Result<()> {
+    async fn save_snapshot(&self, snapshot: &AgentSnapshot) -> anyhow::Result<()> {
         let _guard = self.write_lock.lock().await;
 
         if let Some(parent) = self.file_path.parent() {
