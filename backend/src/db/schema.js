@@ -645,6 +645,21 @@ CREATE TABLE IF NOT EXISTS marketplace_installs (
     FOREIGN KEY(artifact_id) REFERENCES registry_artifacts(id) ON DELETE CASCADE
 );
 
+-- 31d. Executable external framework runs, scoped to the calling project
+CREATE TABLE IF NOT EXISTS framework_executions (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    framework TEXT NOT NULL,
+    trace_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    input_json TEXT NOT NULL DEFAULT '{}',
+    output_json TEXT,
+    error_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME
+);
+
 -- 33. Provider playground jobs with retry and timeout policy
 CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, models_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, timeout_ms INTEGER NOT NULL DEFAULT 30000, result_json TEXT, error_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME);
 CREATE TABLE IF NOT EXISTS model_job_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, model TEXT NOT NULL, token_index INTEGER NOT NULL, token TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES model_jobs(id) ON DELETE CASCADE);
@@ -689,6 +704,7 @@ CREATE INDEX IF NOT EXISTS idx_release_rollouts_scope ON release_rollouts(organi
 CREATE INDEX IF NOT EXISTS idx_usage_ledger_scope ON usage_ledger(organization_id, project_id, occurred_at DESC);
 CREATE INDEX IF NOT EXISTS idx_registry_artifacts_scope ON registry_artifacts(organization_id, project_id, kind, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status ON marketplace_listings(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_framework_executions_scope ON framework_executions(organization_id, project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_model_job_tokens ON model_job_tokens(job_id, id);
 CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
