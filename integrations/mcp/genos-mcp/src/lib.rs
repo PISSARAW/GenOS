@@ -57,6 +57,7 @@ pub trait CommandExecutor: Send + Sync {
 pub struct GenosCliExecutor {
     executable: Option<PathBuf>,
     workspace_root: PathBuf,
+    orchestrator_bridge: Option<PathBuf>,
 }
 
 impl GenosCliExecutor {
@@ -67,9 +68,15 @@ impl GenosCliExecutor {
         let executable = env::var_os("GENOS_BIN")
             .map(PathBuf::from)
             .or_else(sibling_genos_binary);
+        let orchestrator_bridge = env::var_os("GENOS_ORCHESTRATOR_BRIDGE").map(PathBuf::from)
+            .or_else(|| {
+                let candidate = workspace_root.join("backend/bin/genos-orchestrate.cjs");
+                candidate.is_file().then_some(candidate)
+            });
         Ok(Self {
             executable,
             workspace_root,
+            orchestrator_bridge,
         })
     }
 
@@ -77,6 +84,7 @@ impl GenosCliExecutor {
         Self {
             executable: Some(executable.into()),
             workspace_root: workspace_root.into(),
+            orchestrator_bridge: None,
         }
     }
 }
@@ -84,7 +92,13 @@ impl GenosCliExecutor {
 #[async_trait]
 impl CommandExecutor for GenosCliExecutor {
     async fn execute(&self, args: &[String]) -> anyhow::Result<ExecutionOutput> {
-        let mut command = match &self.executable {
+        let mut command = if args.first().map(String::as_str) == Some("__genos_backend_orchestrate__") {
+            let bridge = self.orchestrator_bridge.as_ref()
+                .ok_or_else(|| anyhow::anyhow!("backend/bin/genos-orchestrate.cjs was not found; set GENOS_ORCHESTRATOR_BRIDGE"))?;
+            let mut node = Command::new("node");
+            node.arg(bridge).args(&args[1..]);
+            node
+        } else { match &self.executable {
             Some(executable) => Command::new(executable),
             None => {
                 let mut cargo = Command::new("cargo");
@@ -102,7 +116,7 @@ impl CommandExecutor for GenosCliExecutor {
                 ]);
                 cargo
             }
-        };
+        }};
         let output = command
             .args(args)
             .current_dir(&self.workspace_root)
@@ -174,7 +188,9 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        let (operation_name, operation_arguments) = if name == "genos_orchestrate" {
+        let (operation_name, operation_arguments) = if name == "genos_orchestrate" && arguments.get("operation").is_none() && expose_full_catalog() == false {
+            ("__genos_backend_orchestrate__".to_string(), arguments)
+        } else if name == "genos_orchestrate" {
             let operation = arguments.get("operation").and_then(Value::as_str).unwrap_or("solve");
             let operation_name = format!("genos_{}", operation.strip_prefix("genos_").unwrap_or(operation));
             let task = arguments.get("task").and_then(Value::as_str).unwrap_or("Autonomous GenOS orchestration");
@@ -187,10 +203,12 @@ impl McpServer {
         } else {
             return tool_error(id, "Only genos_orchestrate is public. Set GENOS_MCP_EXPOSE_ALL=true for an internal full-catalog client.".into());
         };
-        let planned = match plan_tool_call(&operation_name, &operation_arguments) {
+        let planned = if operation_name == "__genos_backend_orchestrate__" {
+            genos_protocol::PlannedCommand { operation: "backend_orchestrate".into(), args: vec![operation_name, operation_arguments.to_string()] }
+        } else { match plan_tool_call(&operation_name, &operation_arguments) {
             Ok(planned) => planned,
             Err(error) => return tool_error(id, error.to_string()),
-        };
+        }};
 
         match self.executor.execute(&planned.args).await {
             Ok(execution) => {
