@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Menu, ChevronDown, Activity as ActivityIcon, AlertOctagon,
-  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot, Bug
+  Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot, Bug, Workflow
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
@@ -35,6 +35,7 @@ import { MemoryExperienceModule } from './components/memory/MemoryExperienceModu
 import { WorkspaceTimelineModule } from './components/timeline/WorkspaceTimelineModule';
 import { ComplianceAndIntegrations } from './components/ComplianceAndIntegrations';
 import { PlatformSafetyCenter } from './components/PlatformSafetyCenter';
+import { StudioBuilder } from './components/StudioBuilder';
 
 import { useGenOSStore } from './store/useGenOSStore';
 import { useToastStore } from './store/useToastStore';
@@ -44,7 +45,7 @@ type StudioView =
   | 'home' | 'safe_debugging' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience'
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
   | 'evaluation_lineage'
-  | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments' 
+  | 'studio_builder' | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments'
   | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
   | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety';
 
@@ -153,6 +154,10 @@ const App: React.FC = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginBottom: '16px' }}>
                 <div onClick={() => setActiveView('home')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'home' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'home' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <HomeIcon size={16} color="var(--text-secondary)" /> Home Dashboard
+                </div>
+
+                <div onClick={() => setActiveView('studio_builder')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'studio_builder' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'studio_builder' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <Workflow size={16} color="var(--accent-blue)" /> Studio Builder
                 </div>
 
                 <div style={{ padding: '8px 8px 4px 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--accent-blue)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Product Proof</div>
@@ -271,6 +276,7 @@ const App: React.FC = () => {
           {/* MAIN CONTENT AREA */}
           <div className="gh-content-area">
             {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
+            {activeView === 'studio_builder' && <StudioBuilder />}
             {activeView === 'safe_debugging' && <SafeDebuggingDemo />}
             {activeView === 'arena' && <ArenaSolversModule />}
             {activeView === 'evaluation_lineage' && <EvaluationLineageConsole />}
