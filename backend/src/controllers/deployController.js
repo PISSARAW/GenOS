@@ -17,6 +17,15 @@ function normalizeAgentType(value) {
   return AGENT_TYPES.includes(candidate) ? candidate : 'Other';
 }
 
+async function removeAgentWithHistory(db, agentId) {
+  // Runs reference strategy contracts with RESTRICT while both ultimately
+  // belong to the agent. Remove the dependent graph explicitly before the
+  // agent row so SQLite can enforce every foreign key deterministically.
+  await db.run('DELETE FROM strategy_execution_runs WHERE agent_id = ?', agentId);
+  await db.run('DELETE FROM strategy_contracts WHERE agent_id = ?', agentId);
+  await db.run('DELETE FROM agents WHERE id = ?', agentId);
+}
+
 function unquote(value) {
   return String(value || '').trim().replace(/^['"]|['"]$/g, '');
 }
@@ -83,6 +92,10 @@ async function deployAgent(req, res) {
   const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
+  const workspace = workspaceId ? await db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId) : null;
+  if (workspaceId && !workspace) {
+    return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace ${workspaceId} not found` } });
+  }
   let inheritedStrategyContract = null;
   if (executionMode === 'worker') {
     if (!parentAgentId) {
@@ -134,6 +147,7 @@ async function deployAgent(req, res) {
     runtimeAdapter.startMission({
       agentId, name: agentName, role, prompt: prompt || '', modelTier,
       workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
+      workspaceRoot: workspace?.path,
       strategyContract: strategyContract.contract,
       executionBudget
     }).catch((error) => telemetry.emitEvent({
@@ -173,9 +187,13 @@ async function deployAgent(req, res) {
 }
 
 async function deployTrinity(req, res) {
-  const { prompt, agentType } = req.body || {};
+  const { prompt, agentType, workspaceId = null } = req.body || {};
   const resolvedAgentType = normalizeAgentType(agentType);
   const db = await getDatabase();
+  const workspace = workspaceId ? await db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId) : null;
+  if (workspaceId && !workspace) {
+    return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace ${workspaceId} not found` } });
+  }
   
   // Create the 3 parallel agents
   const worlds = [
@@ -188,12 +206,13 @@ async function deployTrinity(req, res) {
   const orchestratorId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const orchestratorName = `Trinity Orchestrator ${missionId.slice(-4)}`;
   await db.run(
-    `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    orchestratorId, orchestratorName, 'Trinity Orchestrator', 'idle', resolvedAgentType, 'orchestrator', 'Pro', 'Branch', missionId,
+    `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    orchestratorId, orchestratorName, 'Trinity Orchestrator', 'idle', resolvedAgentType, 'orchestrator', workspaceId, 'Pro', 'Branch', missionId,
     `Orchestrator for Trinity mission: ${prompt || 'Autonomous task execution'}`, prompt || 'Trinity mission'
   );
   const orchestratorContract = await strategyContracts.saveContract(db, {
     agentId: orchestratorId,
+    workspaceId,
     problem: prompt || 'Trinity mission',
     createdBy: 'trinity_orchestrator'
   });
@@ -205,8 +224,8 @@ async function deployTrinity(req, res) {
     agentIds.push(id);
     const worldId = `${missionId}_world_${index + 1}`;
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, model_tier, isolation_mode, fleet_id, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, w.name, w.role, 'idle', resolvedAgentType, 'worker', 'Pro', 'Branch', missionId, orchestratorId, 'orchestrator_dispatch', `Trinity world ${index + 1} for: ${prompt}`, `${prompt || 'Trinity mission'} — ${w.task}`
+      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, isolation_mode, fleet_id, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, w.name, w.role, 'idle', resolvedAgentType, 'worker', workspaceId, 'Pro', 'Branch', missionId, orchestratorId, 'orchestrator_dispatch', `Trinity world ${index + 1} for: ${prompt}`, `${prompt || 'Trinity mission'} — ${w.task}`
     );
     await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'queued', id);
     persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'queued', agentId: id, fleetId: missionId });
@@ -221,7 +240,7 @@ async function deployTrinity(req, res) {
 
   runtimeAdapter.startMission({
     agentId: orchestratorId, name: orchestratorName, role: 'Trinity Orchestrator', prompt: prompt || 'Trinity mission',
-    modelTier: 'Pro', workspaceIsolation: 'Branch', fleetId: missionId,
+    modelTier: 'Pro', workspaceIsolation: 'Branch', workspaceId, workspaceRoot: workspace?.path, fleetId: missionId,
     agentType: resolvedAgentType, strategyContract: orchestratorContract.contract
   }).catch((error) => telemetry.emitEvent({
     eventType: 'AGENT_RUNTIME_ERROR', agentId: orchestratorId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
@@ -289,7 +308,7 @@ async function deleteAgent(req, res, next) {
       return res.status(409).json({ error: { code: 'RUNNING_AGENT', message: `Stop '${agent.name}' before deleting it.` } });
     }
 
-    await db.run('DELETE FROM agents WHERE id = ?', id);
+    await removeAgentWithHistory(db, id);
     telemetry.emitEvent({
       eventType: 'AGENT_DELETED', agentId: id, action: 'DELETE',
       detail: `Deleted agent '${agent.name}'.`, severity: 'warning'
@@ -361,7 +380,7 @@ async function deleteAgents(req, res, next) {
       const agent = await db.get('SELECT id, name, status FROM agents WHERE id = ?', id);
       if (!agent) continue;
       if (agent.status === 'running') { blocked.push(id); continue; }
-      await db.run('DELETE FROM agents WHERE id = ?', id);
+      await removeAgentWithHistory(db, id);
       telemetry.emitEvent({ eventType: 'AGENT_DELETED', agentId: id, action: 'DELETE', detail: `Deleted agent '${agent.name}'.`, severity: 'warning' });
       deleted.push(id);
     }

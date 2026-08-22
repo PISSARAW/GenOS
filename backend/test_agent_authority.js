@@ -90,6 +90,9 @@ async function run() {
     assert.equal(stopped.body.stopped, false);
     assert.equal(stopped.body.status, 'idle');
     assert.equal((await db.get("SELECT status FROM agents WHERE id = 'authority-orchestrator'"))?.status, 'idle');
+    const deleted = await request('DELETE', '/api/agents/authority-orchestrator');
+    assert.equal(deleted.status, 200);
+    assert.equal(await db.get("SELECT id FROM agents WHERE id = 'authority-orchestrator'"), undefined);
     console.log('Agent authority: all assertions passed.');
   } finally {
     await new Promise((resolve) => server.close(resolve));
