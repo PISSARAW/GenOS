@@ -1,0 +1,372 @@
+{
+  "schema_version": "genos-benchmark-report-v1",
+  "task_id": "B05",
+  "benchmark_id": "genos.mcp-safety",
+  "deliverable": "mcp-safety-report.json",
+  "scenario": "scenarios/mcp-safety-boundaries.json",
+  "generated_at": "2026-08-22T05:08:11.491Z",
+  "repository": {
+    "revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+    "dirty": true
+  },
+  "execution_status": "completed",
+  "local_execution": {
+    "status": "passed",
+    "started_at": "2026-08-22T05:08:00.484Z",
+    "finished_at": "2026-08-22T05:08:11.522Z",
+    "oracle": "deterministic",
+    "predicates": {
+      "passed": 11,
+      "failed": 0,
+      "total": 11
+    },
+    "command_suites": {
+      "passed": 5,
+      "failed": 0,
+      "total": 5
+    }
+  },
+  "predicate_results": [
+    {
+      "id": "ZT-01",
+      "control": "Missing permission is denied",
+      "status": "passed",
+      "evidence": {
+        "decision": "deny",
+        "reason": "agent_permission_missing",
+        "dangerous": false
+      }
+    },
+    {
+      "id": "ZT-02",
+      "control": "Explicit tool denial overrides a broad permission",
+      "status": "passed",
+      "evidence": {
+        "decision": "deny",
+        "reason": "tool_explicitly_denied",
+        "dangerous": false
+      }
+    },
+    {
+      "id": "ZT-03",
+      "control": "Tainted input is denied pending review",
+      "status": "passed",
+      "evidence": {
+        "decision": "deny",
+        "reason": "tainted_input_requires_review",
+        "dangerous": false
+      }
+    },
+    {
+      "id": "ZT-04",
+      "control": "Every declared high-impact operation requires approval",
+      "status": "passed",
+      "evidence": [
+        {
+          "toolName": "genos_run",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_merge",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_restore",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_resilience_apoptosis",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_resilience_circuit_breaker",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_resilience_cryptobiosis",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_resilience_hypermutation",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_invalidate_assumption",
+          "decision": "approval_required",
+          "dangerous": true
+        },
+        {
+          "toolName": "genos_security_coevolution",
+          "decision": "approval_required",
+          "dangerous": true
+        }
+      ]
+    },
+    {
+      "id": "ZT-05",
+      "control": "Permitted read-only operation is allowed",
+      "status": "passed",
+      "evidence": {
+        "decision": "allow",
+        "reason": "policy_pass",
+        "dangerous": false
+      }
+    },
+    {
+      "id": "CB-01",
+      "control": "Non-admin role cannot invoke a destructive tool",
+      "status": "passed",
+      "evidence": {
+        "allowed": false,
+        "reason": "INSUFFICIENT_ROLE",
+        "message": "High-risk tool 'genos_run' requires Level 5 Admin role."
+      }
+    },
+    {
+      "id": "CB-02",
+      "control": "Manual quarantine blocks an otherwise safe tool",
+      "status": "passed",
+      "evidence": {
+        "allowed": false,
+        "reason": "TOOL_LOCKED",
+        "message": "Tool 'genos_inspect' is manually locked in quarantine."
+      }
+    },
+    {
+      "id": "CB-03",
+      "control": "Three consecutive failures open the circuit",
+      "status": "passed",
+      "evidence": {
+        "status": {
+          "state": "OPEN",
+          "failureCount": 3,
+          "isHalted": false,
+          "haltReason": null,
+          "haltTimestamp": null,
+          "quarantinedTools": []
+        },
+        "destructive_call": {
+          "allowed": false,
+          "reason": "CIRCUIT_OPEN",
+          "message": "Circuit breaker is OPEN. High-risk tools are quarantined."
+        }
+      }
+    },
+    {
+      "id": "CB-04",
+      "control": "Global halt blocks a read-only tool",
+      "status": "passed",
+      "evidence": {
+        "allowed": false,
+        "reason": "SYSTEM_HALTED",
+        "message": "Execution blocked. System is halted: benchmark halt"
+      }
+    },
+    {
+      "id": "VFS-01",
+      "control": "Hostile command is captured by dry-run without execution",
+      "status": "passed",
+      "evidence": {
+        "dryRun": true,
+        "isDestructive": true,
+        "requiredPrivilege": "admin",
+        "blastRadiusScore": 55,
+        "capturedSubprocesses": 1
+      }
+    },
+    {
+      "id": "VFS-02",
+      "control": "Prototype-like tool names return an owned valid schema",
+      "status": "passed",
+      "evidence": {
+        "title": "__proto__",
+        "type": "object",
+        "schema": "http://json-schema.org/draft-07/schema#"
+      }
+    }
+  ],
+  "evidence": {
+    "commands": [
+      {
+        "id": "backend-platform-safety",
+        "status": "passed",
+        "command": [
+          "node",
+          "--test",
+          "test_platform_safety.js",
+          "test_mcp_safety_boundaries.js"
+        ],
+        "cwd": "backend",
+        "exit_code": 0,
+        "signal": null,
+        "duration_ms": 196,
+        "output_sha256": "80acf9126b862db1932ccdead7797d12e344ed4a631c6a27f5dc51c1fe07ea5b",
+        "stdout_tail": "  ---\n  duration_ms: 1.119375\n  ...\n1..8\n# tests 8\n# suites 0\n# pass 8\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 106.148541",
+        "stderr_tail": "",
+        "error": null,
+        "passed": true
+      },
+      {
+        "id": "backend-mcp-vfs-stress",
+        "status": "passed",
+        "command": [
+          "node",
+          "test_mcp_stress.js"
+        ],
+        "cwd": "backend",
+        "exit_code": 0,
+        "signal": null,
+        "duration_ms": 67,
+        "output_sha256": "6e58e805be60624b7849b258acb37975106c2d22b00b40008423f6a9055d9a69",
+        "stdout_tail": "  ✅ PASS: File modification score caps at +45 (5 + 45 = 50, got 50)\n  ✅ PASS: Max admin destructive score bounded in [90, 100] (got 100)\n  ✅ PASS: Zero file destructive operator score is 40 (5 + 35 = 40, got 40)\n\n--- MCP Challenge 4: Micro-Telemetry & Token Metering ---\n  ✅ PASS: Returns full suite of 8 monitored MCP tools\n  ✅ PASS: All tools report positive RTT latency\n  ✅ PASS: All tools report positive token cost\n  ✅ PASS: Filter returns exactly 1 tool match\n  ✅ PASS: Filtered tool is genos_inspect\n\nMCP Sandbox Suite Completed: 25 PASSED, 0 FAILED",
+        "stderr_tail": "",
+        "error": null,
+        "passed": true
+      },
+      {
+        "id": "genos-tools-gateway",
+        "status": "passed",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "genos-tools"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "signal": null,
+        "duration_ms": 10418,
+        "output_sha256": "187fe93dcfa398cb3ef9605e18a98cc3024ced8458e0fac09f68143d50acac8c",
+        "stdout_tail": "running 3 tests\ntest gateway::tests::future_open_timestamp_does_not_underflow ... ok\ntest gateway::tests::policy_denial_prevents_executor_invocation ... ok\ntest gateway::tests::failed_results_open_circuit_before_a_fourth_execution ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "stderr_tail": "   Compiling chrono v0.4.45\n   Compiling sha2 v0.10.9\n   Compiling regex-automata v0.4.18\n   Compiling ppv-lite86 v0.2.21\n   Compiling regex v1.13.1\n   Compiling rand_chacha v0.3.1\n   Compiling rand v0.8.7\n   Compiling genos-core v0.0.1 (/Users/henripissa/Documents/GitHub.nosync/GenOS/crates/genos-core)\n   Compiling genos-tools v0.0.1 (/Users/henripissa/Documents/GitHub.nosync/GenOS/crates/genos-tools)\n    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.14s\n     Running unittests src/lib.rs (target/debug/deps/genos_tools-7e815ea68d36612b)\n   Doc-tests genos_tools",
+        "error": null,
+        "passed": true
+      },
+      {
+        "id": "genos-protocol-planner",
+        "status": "passed",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "genos-protocol",
+          "--test",
+          "protocol_tests"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "signal": null,
+        "duration_ms": 93,
+        "output_sha256": "45736c387af5f6bcc961499115995015ef86e5faf6085989068f998a81b42640",
+        "stdout_tail": "running 9 tests\ntest protocol_result_parses_structured_cli_output ... ok\ntest fork_maps_to_distinct_process_arguments_without_shell_interpolation ... ok\ntest mutually_exclusive_replay_anchors_are_rejected ... ok\ntest project_experiment_rejects_mixed_manifest_and_direct_inputs ... ok\ntest workspace_experiment_maps_direct_inputs_without_shell_interpolation ... ok\ntest future_ci_rejects_an_empty_world_set ... ok\ntest diagnose_maps_arrays_to_repeated_safe_arguments ... ok\ntest incident_experiment_requires_manifest_or_complete_direct_inputs ... ok\ntest catalog_contains_canonical_and_software_development_tools ... ok\n\ntest result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "stderr_tail": "Finished `test` profile [unoptimized + debuginfo] target(s) in 0.05s\n     Running tests/protocol_tests.rs (target/debug/deps/protocol_tests-8d2810e343d61674)",
+        "error": null,
+        "passed": true
+      },
+      {
+        "id": "genos-mcp-server",
+        "status": "passed",
+        "command": [
+          "cargo",
+          "test",
+          "-p",
+          "genos-mcp"
+        ],
+        "cwd": ".",
+        "exit_code": 0,
+        "signal": null,
+        "duration_ms": 225,
+        "output_sha256": "70f59bf17126f7e4b75b7c0c832706a90646873893cc4a364abd5c50d18bc1ec",
+        "stdout_tail": "\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n\n\nrunning 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+        "stderr_tail": "Finished `test` profile [unoptimized + debuginfo] target(s) in 0.10s\n     Running unittests src/lib.rs (target/debug/deps/genos_mcp-385f88d085d3b7e0)\n     Running unittests src/main.rs (target/debug/deps/genos_mcp-030eea2e807a0abc)\n   Doc-tests genos_mcp",
+        "error": null,
+        "passed": true
+      }
+    ],
+    "sources": [
+      {
+        "path": "benchmarks/scenarios/mcp-safety-boundaries.json",
+        "sha256": "216f64a56cb7aaf94b699f6b0bfb9bd654336fd60fb6d0ceaf07a0026d0a9512",
+        "bytes": 1798
+      },
+      {
+        "path": "backend/src/services/platformSafetyService.js",
+        "sha256": "7cc04f5de67ce4130a9fc1924c2ec49f6b61fb19ee5f0ca818f43768facd9ed1",
+        "bytes": 5164
+      },
+      {
+        "path": "backend/src/services/circuitBreaker.js",
+        "sha256": "1963eb483bd8ba1a5a673d3e8c1ee162de57bfeb62a94b4b989ce3e4eb94a0d6",
+        "bytes": 5648
+      },
+      {
+        "path": "backend/src/services/vfsSandboxService.js",
+        "sha256": "f2e39c54d8acf9c6e058c125b0875cc262cb50f66a27d644ffb39b62fc237f46",
+        "bytes": 7415
+      },
+      {
+        "path": "crates/genos-tools/src/gateway.rs",
+        "sha256": "0ea67a6559e24a6babd696115384a8efa137352aaaed4cca701149beb5b61d03",
+        "bytes": 7424
+      },
+      {
+        "path": "crates/genos-protocol/src/planner/builder.rs",
+        "sha256": "565de7745140469c63a1cf615bf41f58ac92ef0a2f586e48c8fd63e32ec4fbc6",
+        "bytes": 7318
+      },
+      {
+        "path": "integrations/mcp/genos-mcp/src/lib.rs",
+        "sha256": "32403b3ab15359d592ddb285eedba20d277472b9cf90fae63f473f196f4c6b22",
+        "bytes": 12990
+      }
+    ]
+  },
+  "metrics": [
+    {
+      "name": "deterministic_safety_predicates",
+      "status": "verified",
+      "value": {
+        "passed": 11,
+        "total": 11
+      }
+    },
+    {
+      "name": "required_command_suites",
+      "status": "verified",
+      "value": {
+        "passed": 5,
+        "total": 5
+      }
+    },
+    {
+      "name": "direct_mcp_identity_and_approval_integration",
+      "status": "unsupported",
+      "value": null
+    }
+  ],
+  "findings": [
+    {
+      "severity": "info",
+      "code": "LOCAL_CONTROLS_PASS",
+      "detail": "All deterministic local controls and required suites passed."
+    }
+  ],
+  "limitations": [
+    "The Rust MCP transport tests validate protocol and argv boundaries but do not establish end-to-end caller identity or per-call human approval.",
+    "The backend policy, circuit breaker, Rust gateway, and Rust MCP server are exercised as distinct layers; this benchmark does not claim they are wired into one production deployment.",
+    "All execution is local and uses no external model or network service."
+  ],
+  "claim_allowed": false,
+  "audit": {
+    "agent_role": "mcp_tool_safety",
+    "decision": "withheld",
+    "rationale": "Local deterministic evidence passed; independent evidence-auditor approval is still required before merge or claim."
+  }
+}

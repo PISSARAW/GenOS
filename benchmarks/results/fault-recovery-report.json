@@ -1,0 +1,151 @@
+{
+  "schema_version": "genos-benchmark-report-v1",
+  "task_id": "B03",
+  "benchmark_id": "genos.resilience",
+  "deliverable": "fault-recovery-report.json",
+  "generated_at": "2026-08-22T05:05:42.691Z",
+  "repository": {
+    "revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+    "dirty": true,
+    "node": "v20.20.2",
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "os": "darwin",
+    "architecture": "arm64",
+    "hostname": "unknown"
+  },
+  "execution_status": "completed",
+  "evidence": {
+    "commands": [
+      {
+        "id": "resilience-control-probe",
+        "command": "node benchmarks/probes/resilience-probe.cjs --iterations 500",
+        "started_at": "2026-08-22T05:04:26.429Z",
+        "duration_ms": 116.001,
+        "exit_code": 0,
+        "signal": null,
+        "timed_out": false,
+        "passed": true,
+        "output_sha256": "f9f9216fee1cebb909f88b5f651f664dd0235b4604cbf709e05d014dc123c3ef",
+        "evidence_file": "benchmarks/results/evidence/B03/resilience-control-probe.log",
+        "error": null
+      },
+      {
+        "id": "causal-rollback-test",
+        "command": "cargo test -q -p genos-core causality::tests::test_causal_boundary_lifecycle",
+        "started_at": "2026-08-22T05:04:26.546Z",
+        "duration_ms": 31328.237,
+        "exit_code": 0,
+        "signal": null,
+        "timed_out": false,
+        "passed": true,
+        "output_sha256": "04c77b982bc88e450489af9d297f5c178565762fbee6bb12b084f30992f46244",
+        "evidence_file": "benchmarks/results/evidence/B03/causal-rollback-test.log",
+        "error": null
+      },
+      {
+        "id": "safest-revert-test",
+        "command": "cargo test -q -p genos-core revert::tests::test_find_last_known_good_state_and_cherry_pick",
+        "started_at": "2026-08-22T05:04:57.876Z",
+        "duration_ms": 575.089,
+        "exit_code": 0,
+        "signal": null,
+        "timed_out": false,
+        "passed": true,
+        "output_sha256": "04c77b982bc88e450489af9d297f5c178565762fbee6bb12b084f30992f46244",
+        "evidence_file": "benchmarks/results/evidence/B03/safest-revert-test.log",
+        "error": null
+      },
+      {
+        "id": "model-fallback-tests",
+        "command": "cargo test -q -p genos-model adapters::",
+        "started_at": "2026-08-22T05:04:58.452Z",
+        "duration_ms": 44236.941,
+        "exit_code": 0,
+        "signal": null,
+        "timed_out": false,
+        "passed": true,
+        "output_sha256": "6ad58ed4d07f206b850ce97b26086b8877798e0ebd3077e7409a93001850e01f",
+        "evidence_file": "benchmarks/results/evidence/B03/model-fallback-tests.log",
+        "error": null
+      }
+    ],
+    "sources": [
+      {
+        "path": "backend/src/services/circuitBreaker.js",
+        "sha256": "1963eb483bd8ba1a5a673d3e8c1ee162de57bfeb62a94b4b989ce3e4eb94a0d6",
+        "bytes": 5648
+      },
+      {
+        "path": "crates/genos-core/src/causality.rs",
+        "sha256": "7324dcdf69408d343d98a709d15eafe66a8cf1bbc55024f0c094694a5bd0dd4d",
+        "bytes": 4391
+      },
+      {
+        "path": "crates/genos-core/src/revert.rs",
+        "sha256": "7dcbd3e79e7bd24f0e746f41f8847141b2fb158a7c0f472f5c4579f3e295a075",
+        "bytes": 7268
+      },
+      {
+        "path": "crates/genos-model/src/adapters/fallback.rs",
+        "sha256": "51c0dbd571d06d23a7a9c62d60a99509db182eca023507691f24d11ca381d645",
+        "bytes": 2878
+      }
+    ]
+  },
+  "metrics": [
+    {
+      "name": "fault_control_predicates",
+      "status": "verified",
+      "value": {
+        "circuit_opens_at_threshold": true,
+        "destructive_call_quarantined": true,
+        "read_only_call_survives_open_circuit": true,
+        "half_open_canary_recovers": true,
+        "kill_switch_blocks_all_calls": true,
+        "reset_restores_execution": true
+      }
+    },
+    {
+      "name": "control_cycle_latency_ns",
+      "status": "measured",
+      "value": {
+        "p50": 4750,
+        "p95": 8250,
+        "p99": 59959,
+        "mean": 12264.612,
+        "min": 4292,
+        "max": 1927083
+      }
+    },
+    {
+      "name": "fault_injections",
+      "status": "measured",
+      "value": 1500
+    },
+    {
+      "name": "causal_rollback",
+      "status": "verified",
+      "value": true
+    },
+    {
+      "name": "dependency_aware_revert",
+      "status": "verified",
+      "value": true
+    },
+    {
+      "name": "model_fallback",
+      "status": "verified",
+      "value": true
+    }
+  ],
+  "limitations": [
+    "The latency measurement covers in-process control transitions, not distributed recovery MTTR.",
+    "The probe injects deterministic tool failures; it does not kill an operating-system process.",
+    "Rollback tests validate logical AgentState restoration, not arbitrary external side-effect reversal."
+  ],
+  "audit": {
+    "agent_role": "benchmark_evidence_auditor",
+    "decision": "approved_with_limitations",
+    "rationale": "Injected control-plane failures, circuit recovery, emergency halt/reset, causal rollback, safest revert, and model fallback predicates passed."
+  }
+}
