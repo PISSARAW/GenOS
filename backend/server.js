@@ -5,7 +5,7 @@
 
 const http = require('http');
 const { createApp } = require('./src/app');
-const { getDatabase } = require('./src/db');
+const { getDatabase, closeDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
 
@@ -34,6 +34,17 @@ async function startServer() {
         severity: 'info'
       });
     });
+
+    const shutdown = async (signal) => {
+      console.log(`[GenOS Backend] Received ${signal}; draining requests.`);
+      jobWorker.stopJobWorker();
+      server.close(async () => {
+        await closeDatabase();
+        console.log('[GenOS Backend] Shutdown complete.');
+      });
+    };
+    process.once('SIGTERM', shutdown);
+    process.once('SIGINT', shutdown);
 
     return { app, server, db };
   } catch (err) {
