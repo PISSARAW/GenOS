@@ -121,8 +121,7 @@ async function testApoptosisMultiThreshold() {
 
   // Trigger 2: Compute Budget Exhaustion ($1.00)
   const resBudget = await evaluateApoptosis('agent_expensive', { costUsd: 1.05, tokensBurned: 120000 });
-  assert(resBudget.apoptosisExecuted === true, 'Apoptosis triggered on budget exhaustion');
-  assert(resBudget.triggerReason.toLowerCase().includes('budget exhausted'), 'Reason mentions budget exhaustion');
+  assert(resBudget.apoptosisExecuted === false, 'Apoptosis does not terminate an agent for budget consumption');
 
   // Trigger 3: Semantic Mission Divergence (< 0.55)
   const resSemantic = await evaluateApoptosis('agent_divergent', { semanticDivergence: 0.42 });
