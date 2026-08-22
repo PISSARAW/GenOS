@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../assets/brand/genos-logo.png" width="128" alt="GenOS official logo">
+</p>
+
 # GenOS Studio
 
 GenOS Studio is the browser-based control plane for the GenOS project. It is the operational UI that wraps the backend APIs and exposes the live functionality implemented in the codebase.

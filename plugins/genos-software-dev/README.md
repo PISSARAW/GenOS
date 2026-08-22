@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../assets/brand/genos-logo.png" width="112" alt="GenOS official logo">
+</p>
+
 # GenOS Software Dev plugin
 
 This Codex plugin exposes GenOS trajectory-engineering primitives over MCP.
