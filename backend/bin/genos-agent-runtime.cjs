@@ -24,6 +24,7 @@ process.stdin.on('end', () => {
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
   const genosBinary = process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos');
   const mcpBinary = process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp');
+  const orchestratorBridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.resolve(__dirname, 'genos-orchestrate.cjs');
   let strategyContract = {};
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
   let autonomyPlan = {};
@@ -53,7 +54,7 @@ process.stdin.on('end', () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true"}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)}}`,
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
