@@ -162,6 +162,7 @@ export const api = {
   renderPrompt: (id: string, version: number, variables: any) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/render`, { method: 'POST', body: { version, variables } }),
   runPlayground: (payload: { prompt: string; models: string[]; variables?: any }) => apiRequest('/api/prompts/playground', { method: 'POST', body: payload }),
   listModelJobs: () => apiRequest('/api/prompts/jobs'),
+  streamModelJob: (id: string) => `${API_BASE_URL}/api/prompts/jobs/${encodeURIComponent(id)}/stream`,
 
   // OpenTelemetry-compatible trace storage and replay
   listTraces: (limit = 50) => apiRequest(`/api/traces?limit=${limit}`),
