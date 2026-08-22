@@ -16,6 +16,7 @@ const agentAuthority = require('./agentAuthorityService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
+const { decideFromEvent } = require('./orchestrationDecisionService');
 
 const activeProcesses = new Map();
 
@@ -215,6 +216,13 @@ async function startMission(mission) {
   let executionQueue = Promise.resolve();
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
     const event = emit(agentId, eventType, action, detail, payload, severity, status);
+    const decision = decideFromEvent(event);
+    if (decision) {
+      db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
+        const ownerId = agent?.parent_agent_id || agentId;
+        emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
+      }).catch(() => {});
+    }
     executionQueue = executionQueue.then(() => strategyExecution.recordExecutionEvent(db, agentId, event)).then((decision) => {
       // A final runtime event may report that the mission exceeded its budget
       // only after the child has already completed. Record the guardrail on
