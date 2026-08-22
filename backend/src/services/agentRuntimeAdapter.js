@@ -21,8 +21,10 @@ const actionExecutor = require('./orchestrationActionExecutor');
 const localCodeWorker = require('./localCodeWorkerService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
+const { selectSurvivors } = require('./tokenAllocationService');
 
 const activeProcesses = new Map();
+const autonomousRounds = new Map();
 
 function configuredExecutable() {
   const configured = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
@@ -80,6 +82,9 @@ function runtimeExitOutcome(termination, code, signal, stderr = '') {
 function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
 }
+
+function evidenceScore(payload = {}) { const report = payload.evidenceReport || payload.report || {}; const claims = Array.isArray(report.claims) ? report.claims : []; return claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0) + claims.length * 2 - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0); }
+async function advanceAutonomousRound(mission, event) { const round = mission.budgetRound; if (round?.stage !== 'initial' || !['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) return; const state = autonomousRounds.get(round.orchestratorId); if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return; state.results.set(mission.agentId, { agentId: mission.agentId, status: event.eventType === 'AGENT_COMPLETED' ? 'completed' : 'failed', evidenceScore: evidenceScore(event.payload), payload: event.payload || {} }); if (state.results.size < state.workerIds.size) return; state.advanced = true; const continuation = state.plan.tokenPolicy.rounds?.continuation; const survivors = selectSurvivors([...state.results.values()], continuation?.survivorCount); emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches.`, { allocation: state.plan.tokenPolicy.allocation, initial: state.plan.tokenPolicy.rounds.initial, continuation, survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score })) }, 'info'); for (const survivor of survivors) { const previous = state.workers.get(survivor.agentId); const dossier = JSON.stringify(survivor.payload.evidenceReport || {}).slice(0, 8000); startMission({ ...previous, prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${continuation.perWorkerTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`, executionBudget: { ...previous.executionBudget, tokens: continuation.perWorkerTokens }, budgetRound: { stage: 'continuation', orchestratorId: round.orchestratorId } }).catch((error) => emit(round.orchestratorId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: survivor.agentId }, 'error')); } autonomousRounds.delete(round.orchestratorId); }
 
 function workerToolLease(role) {
   const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay'];
@@ -222,28 +227,29 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     orchestrator.id
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
-  const perWorkerTokens = Math.max(1, Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
+  const initialRound = plan.tokenPolicy.rounds?.initial;
+  const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
   const workers = [];
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(assignment.role);
-    const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`].join('\n');
+    const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`, plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.` : `Budget allocation: ${perWorkerTokens} tokens.`].join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
        VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
       id, `${parent.name} · ${assignment.label}`, assignment.role, parent.agent_type || 'GenOS',
       parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
       parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
-      `Autonomous branch created by ${parent.name}.`, prompt
+      `Autonomous branch created by ${parent.name}. Budget round: initial; allocation: ${perWorkerTokens} tokens.`, prompt
     );
     workers.push({
       agentId: id, name: `${parent.name} · ${assignment.label}`, role: assignment.role, prompt,
       modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
       workspaceRoot, localModel: localRoute.selectedModel, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
-      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id
+      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }
     });
   }
   return workers;
@@ -301,6 +307,7 @@ async function startMission(mission) {
     for (const worker of autonomousWorkers) {
       emit(agentId, 'AUTONOMOUS_WORKER_CREATED', 'FORK', `Created autonomous worker '${worker.name}'.`, { workerId: worker.agentId, role: worker.role, tokenBudget: worker.executionBudget.tokens });
     }
+    if (autonomousWorkers.length && autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount) autonomousRounds.set(agentId, { plan: autonomyPlan, workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)), workers: new Map(autonomousWorkers.map((worker) => [worker.agentId, worker])), results: new Map(), advanced: false });
   }
 
   // Keep the default stable regardless of whether `npm start` was launched from
@@ -355,6 +362,7 @@ async function startMission(mission) {
         emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
         haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
       }
+      await advanceAutonomousRound(normalizedMission, event);
       }).catch(() => {});
     return event;
   };
@@ -429,4 +437,4 @@ function stopMission(agentId) {
   return true;
 }
 
-module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome };
+module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };
