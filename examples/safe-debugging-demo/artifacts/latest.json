@@ -1,44 +1,50 @@
 {
   "schema_version": 1,
   "scenario": "safe-parallel-debugging",
-  "generated_at": "2026-08-22T05:58:48.362Z",
+  "generated_at": "2026-08-22T06:57:53.367Z",
   "source": {
     "command": "./examples/safe-debugging-demo/run-demo.sh",
     "fixture": "examples/safe-debugging-demo/fixture"
   },
   "baseline": {
-    "world_id": "01a0280c-e1bb-7c03-8195-719b634d7c20",
+    "world_id": "01a02842-f967-7bb2-a1c3-b265486ab355",
     "reproduced": true,
-    "snapshot_id": "01a0280c-e200-7a91-a02f-011dbe8e3316"
+    "snapshot_id": "01a02842-f9b1-7f00-a502-5a561f9f17bc"
   },
   "candidates": [
     {
       "name": "candidate-a",
-      "world_id": "01a0280c-e209-7d20-998a-45e467d3628a",
+      "world_id": "01a02842-f9ba-7472-8301-59a984361e9a",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 100) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 5,
       "success": true,
       "exit_code": 0,
-      "duration_ms": 54.56
+      "duration_ms": 53.78
     },
     {
       "name": "candidate-b",
-      "world_id": "01a0280c-e209-7d20-998a-45f0f3080984",
+      "world_id": "01a02842-f9bb-7bf1-81d0-c1ca0996ec03",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total > 99) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 0,
       "success": false,
       "exit_code": 1,
-      "duration_ms": 54.28
+      "duration_ms": 56.43
     },
     {
       "name": "candidate-c",
-      "world_id": "01a0280c-e20a-7813-9d0b-42f0b63069aa",
+      "world_id": "01a02842-f9bb-7bf1-81d0-c1d654b329e2",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 90) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 0,
       "success": false,
       "exit_code": 1,
-      "duration_ms": 57.95
+      "duration_ms": 55.71
     }
   ],
   "selection": {
     "winner": "candidate-a",
-    "replay_world_id": "01a0280c-e2d4-75e3-ac23-8ee74a08f785",
+    "replay_world_id": "01a02842-fa87-7e51-a31d-8529c0ba8e72",
     "replay_verified": true,
-    "promoted_snapshot_id": "01a0280c-e329-78a0-abea-efd5027323a2",
+    "promoted_snapshot_id": "01a02842-fad6-7b12-96bf-a9f87e15e13c",
     "merge_decision": "approved"
   },
   "usage": {
@@ -48,8 +54,15 @@
     "cost_usd": 0,
     "reason": "This deterministic demo invokes no language model."
   },
+  "execution": {
+    "mode": "deterministic_fixture",
+    "live": false,
+    "model_invoked": false,
+    "provider": "directory",
+    "os_sandbox": false
+  },
   "runtime": {
-    "wall_ms": 785,
+    "wall_ms": 981,
     "genos_operations": 15
   },
   "limits": [
