@@ -177,4 +177,3 @@ mod tests {
         assert_ne!(a1.request_hash, b.request_hash);
     }
 }
-

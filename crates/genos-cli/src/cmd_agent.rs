@@ -56,6 +56,7 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
                         genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
                         genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
                     ],
+                    operons: vec![],
                 }
             ],
             planning_depth: 6,
@@ -368,7 +369,7 @@ async fn build_fork_entry(
     };
 
     if save {
-        snapshot_store.save_snapshot(fork.clone()).await?;
+        snapshot_store.save_snapshot(&fork).await?;
     }
 
     Ok(ForkEntry {

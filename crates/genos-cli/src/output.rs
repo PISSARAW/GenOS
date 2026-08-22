@@ -12,6 +12,7 @@ use std::{fs, path::PathBuf};
 pub mod lineage;
 pub mod provenance;
 pub mod snapshot_outputs;
+#[allow(dead_code)]
 pub mod divergence;
 
 // Re-export the snapshot-only output structs so callers can keep importing
@@ -20,8 +21,6 @@ pub use snapshot_outputs::{
     SnapshotCheckpointOutput, SnapshotGetOutput, SnapshotLineageOutput, SnapshotListOutput,
     SnapshotRestoreOutput, SnapshotSaveOutput,
 };
-
-pub use divergence::{DivergenceReport, print_divergence_handoff};
 
 // ---------- output structs ----------
 

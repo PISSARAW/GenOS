@@ -18,6 +18,7 @@ async-trait.workspace = true
 chrono.workspace = true
 genos-core = { path = "../genos-core" }
 genos-eval = { path = "../genos-eval" }
+genos-protocol = { path = "../genos-protocol" }
 genos-store = { path = "../genos-store" }
 genos-world = { path = "../genos-world" }
 serde.workspace = true
