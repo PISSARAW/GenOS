@@ -786,6 +786,7 @@ dependencies = [
  "chrono",
  "genos-core",
  "genos-eval",
+ "genos-observability",
  "genos-protocol",
  "genos-store",
  "genos-world",

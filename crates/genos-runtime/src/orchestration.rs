@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
+use genos_observability::{SpanCollector, TraceContext};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
@@ -138,6 +139,8 @@ pub struct WorkflowEngine {
     cancel: watch::Receiver<bool>,
     cancel_tx: watch::Sender<bool>,
     concurrency: Arc<Semaphore>,
+    tracer: SpanCollector,
+    trace_context: TraceContext,
 }
 impl WorkflowEngine {
     pub fn new(
@@ -165,6 +168,8 @@ impl WorkflowEngine {
             cancel,
             cancel_tx,
             concurrency: Arc::new(Semaphore::new(concurrency)),
+            tracer: SpanCollector::new(),
+            trace_context: TraceContext::root(),
         })
     }
     pub fn subscribe(&self) -> broadcast::Receiver<WorkflowEvent> {
@@ -172,6 +177,12 @@ impl WorkflowEngine {
     }
     pub fn cancel_handle(&self) -> watch::Sender<bool> {
         self.cancel_tx.clone()
+    }
+    pub fn tracer(&self) -> SpanCollector {
+        self.tracer.clone()
+    }
+    pub fn trace_context(&self) -> TraceContext {
+        self.trace_context.clone()
     }
     pub async fn run(&self, input: Value) -> Result<WorkflowState> {
         let mut state = self.store.load().await?.unwrap_or_else(|| WorkflowState {
@@ -247,6 +258,13 @@ impl WorkflowEngine {
                         let _ = self
                             .events
                             .send(WorkflowEvent::Completed { node: id, output });
+                        self.tracer.record(
+                            &self.trace_context.child(),
+                            "workflow.node",
+                            BTreeMap::new(),
+                            0,
+                            "ok",
+                        );
                     }
                     Err(error) => {
                         let message = error.to_string();
@@ -255,6 +273,13 @@ impl WorkflowEngine {
                             node: id,
                             error: message,
                         });
+                        self.tracer.record(
+                            &self.trace_context.child(),
+                            "workflow.node",
+                            BTreeMap::new(),
+                            0,
+                            "error",
+                        );
                         state.current = queue;
                         self.store.save(&state).await?;
                         return Ok(state);
