@@ -12,7 +12,7 @@ GenOS requires a 64-bit operating system with hardware virtualization or native 
 
 | Component | Minimum Specification | Recommended Specification | Purpose in GenOS |
 | :--- | :--- | :--- | :--- |
-| **Rust Toolchain** | `1.85.0` (Stable) | `1.85+` (Latest Stable) | Workspace compilation, Clippy lints, SIMD |
+| **Rust Toolchain** | `1.88.0` (Stable) | `1.88+` (Latest Stable) | Workspace compilation, Clippy lints, SIMD |
 | **Git Engine** | `2.30.0` | `2.42.0+` | Copy-on-write Git worktree isolation |
 | **C/C++ Compiler** | GCC 9+, Clang 11+, MSVC 2022 | Clang 16+ / MSVC 19.38+ | Native bindings (`sqlx`, `openssl-sys`, `sqlite3`) |
 | **Storage Engine** | Embedded SQLite 3.35+ | SQLite 3.40+ / PostgreSQL 16+ | Snapshot index, event sourcing, metadata DB |
@@ -289,6 +289,6 @@ Expected Health Output:
 | :--- | :--- | :--- |
 | `os error 1314: A required privilege is not held by the client` | Windows symlink privilege restriction when creating Git worktrees. | Enable **Developer Mode** in Windows Settings or run terminal with admin rights. |
 | `fatal error: 'openssl/ssl.h' file not found` | Missing C headers for OpenSSL during `sqlx` or `reqwest` native compilation. | Run `sudo apt-get install libssl-dev` (Linux) or `brew install openssl@3` (macOS). |
-| `error[E0658]: use of unstable library feature` | Rust compiler version is older than minimum supported `1.85.0`. | Execute `rustup update stable` to synchronize toolchain. |
+| `error[E0658]: use of unstable library feature` | Rust compiler version is older than minimum supported `1.88.0`. | Execute `rustup update stable` to synchronize toolchain. |
 | `database is locked (code 5)` | Concurrent SQLite write contention on `genos.db`. | Verify no orphaned background agent process is holding write locks, or configure WAL mode via `PRAGMA journal_mode=WAL;`. |
 | `git worktree add failed: fatal: not a valid object name` | Sandbox world creation attempted on a repository with no initial Git commit. | Execute `git commit --allow-empty -m "Initial commit"` before provisioning worktrees. |
