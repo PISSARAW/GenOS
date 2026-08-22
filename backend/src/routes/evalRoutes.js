@@ -1,0 +1,2 @@
+const express = require('express'); const router = express.Router(); const c = require('../controllers/evalController'); const { requirePermission } = require('../middleware/auth');
+router.get('/datasets', c.listDatasets); router.post('/datasets', requirePermission('workspace:write'), c.createDataset); router.post('/datasets/:id/cases', requirePermission('workspace:write'), c.addCase); router.get('/datasets/:id/cases', c.listCases); router.post('/jobs', requirePermission('experiment:run'), c.createJob); router.get('/jobs', c.listJobs); module.exports = router;
