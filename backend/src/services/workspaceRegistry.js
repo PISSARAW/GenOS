@@ -13,7 +13,14 @@ const PROJECT_MARKERS = ['.genos-workspace', 'Cargo.toml', 'package.json', 'READ
 
 function resolveWorkspacesRoot() {
   const configured = String(process.env.GENOS_WORKSPACES_ROOT || process.env.GENOS_WORKSPACE_ROOT || '').trim();
-  return path.resolve(configured || path.resolve(process.cwd(), 'workspaces'));
+  if (configured) return path.resolve(configured);
+
+  // In local development the backend is normally started from `backend/`.
+  // Defaulting from process.cwd() would then hide sibling repositories such as
+  // EkoRubix-AS in the trusted projects directory. Keep deployments explicit
+  // through GENOS_WORKSPACES_ROOT, while making the local default the parent
+  // directory that contains the GenOS checkout.
+  return path.resolve(__dirname, '../../../..');
 }
 
 function isPathWithinRoot(root, candidate) {
