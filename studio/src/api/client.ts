@@ -127,6 +127,7 @@ export const api = {
   createWorkspace: (name: string, description?: string) => 
     apiRequest('/api/workspaces', { method: 'POST', body: { name, description } }),
   getWorkspace: (id: string) => apiRequest(`/api/workspaces/${id}`),
+  getWorkspaceFiles: (id: string) => apiRequest(`/api/workspaces/${encodeURIComponent(id)}/files`),
   getSnapshots: (id: string) => apiRequest(`/api/workspaces/${id}/snapshots`),
   createSnapshot: (id: string, payload: { label?: string; reason?: string } = {}) => 
     apiRequest(`/api/workspaces/${id}/snapshots`, { method: 'POST', body: payload }),
@@ -134,7 +135,7 @@ export const api = {
     apiRequest(`/api/workspaces/${id}/restore`, { method: 'POST', body: { step } }),
 
   // Experiments
-  listExperiments: () => apiRequest('/api/experiments'),
+  listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
     apiRequest('/api/experiments', { method: 'POST', body: payload }),
   getExperimentAnalysis: (experimentId?: string) => apiRequest(`/api/experiments/analysis${experimentId ? `?experimentId=${encodeURIComponent(experimentId)}` : ''}`),
@@ -155,7 +156,7 @@ export const api = {
 
   // Trajectories
   getTrajectories: () => apiRequest('/api/trajectories'),
-  getPendingTrajectories: () => apiRequest('/api/trajectories/pending'),
+  getPendingTrajectories: (workspaceId?: string) => apiRequest(`/api/trajectories/pending${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   getActiveTrajectories: () => apiRequest('/api/trajectories/active'),
   approveTrajectory: (id: string) => apiRequest(`/api/trajectories/${id}/approve`, { method: 'POST' }),
   rejectTrajectory: (id: string, reason?: string) => apiRequest(`/api/trajectories/${id}/reject`, { method: 'POST', body: { reason } }),
@@ -180,7 +181,7 @@ export const api = {
     apiRequest('/api/mcp/equip', { method: 'POST', body: { toolName, targetAgents: agents } }),
 
   // Incidents & Alerts
-  getAlerts: () => apiRequest('/api/alerts'),
+  getAlerts: (workspaceId?: string) => apiRequest(`/api/alerts${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   getIncidents: () => apiRequest('/api/incidents'),
   replayIncident: (payload: { incidentId?: string; stepSpeed?: number }) =>
     apiRequest('/api/incidents/replay', { method: 'POST', body: payload }),
@@ -192,6 +193,16 @@ export const api = {
   resetKillSwitch: () => apiRequest('/api/security/kill-switch/reset', { method: 'POST' }),
   haltAll: () => apiRequest('/api/halt', { method: 'POST' }),
   getSecurityStatus: () => apiRequest('/api/security/status'),
+  // Compliance, IDE contracts & versioned schema control plane
+  listComplianceFrameworks: () => apiRequest('/api/compliance/frameworks'),
+  listComplianceReports: (framework?: string) => apiRequest(`/api/compliance/reports${framework ? `?framework=${encodeURIComponent(framework)}` : ''}`),
+  generateComplianceReport: (framework: string, workspaceId?: string) => apiRequest('/api/compliance/reports', { method: 'POST', body: { framework, workspaceId } }),
+  getComplianceExportUrl: (id: string, format = 'json') => `${API_BASE_URL}/api/compliance/reports/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`,
+  getIdeContract: () => apiRequest('/api/ide/contract'),
+  listIdeIntegrations: () => apiRequest('/api/ide/integrations'),
+  connectIde: (payload: { ide: string; workspaceId?: string; version?: string }) => apiRequest('/api/ide/integrations', { method: 'POST', body: payload }),
+  getSchemaStatus: () => apiRequest('/api/schema/status'),
+  applySchemaMigrations: () => apiRequest('/api/schema/migrate', { method: 'POST', body: {} }),
 
   // Telemetry & Status
   getStatus: () => apiRequest('/api/status'),
@@ -199,6 +210,12 @@ export const api = {
   getDashboard: () => apiRequest('/api/dashboard'),
   getAchievements: () => apiRequest('/api/achievements'),
   getTelemetryEvents: (limit: number = 50, agentId?: string) => apiRequest(`/api/telemetry/events?limit=${limit}${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`),
+
+  // Evaluation, MCTS controls, provenance and notification policy
+  getEvaluationOverview: () => apiRequest('/api/evaluation/overview'),
+  runImpossibleBench: (payload: { abstentionThreshold?: number; modelVersion?: string } = {}) => apiRequest('/api/evaluation/impossible-bench', { method: 'POST', body: payload }),
+  pruneMctsNode: (id: string) => apiRequest(`/api/evaluation/mcts/${encodeURIComponent(id)}/prune`, { method: 'POST' }),
+  updateNotificationPreferences: (preferences: any[]) => apiRequest('/api/evaluation/notifications', { method: 'POST', body: { preferences } }),
 
   // Module 1: Arena & Solvers
   getSolverTournament: () => apiRequest('/api/arena/tournament'),
@@ -248,5 +265,20 @@ export const api = {
   previewAtomicRollback: (workspaceId: string, step: number) =>
     apiRequest(`/api/workspaces/${workspaceId}/rollback-preview?step=${step}`, { method: 'GET' }),
   applyAtomicRollback: (workspaceId: string, step: number) =>
-    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { stepNumber: step } })
+    apiRequest(`/api/workspaces/${workspaceId}/restore`, { method: 'POST', body: { stepNumber: step } }),
+
+  // Platform & Safety control plane
+  getPlatformGraph: () => apiRequest('/api/platform/causal-graph'),
+  getPlatformTelemetry: () => apiRequest('/api/platform/telemetry/summary'),
+  getPlatformProviders: () => apiRequest('/api/platform/providers'),
+  routePlatformModel: (payload: any) => apiRequest('/api/platform/route', { method: 'POST', body: payload }),
+  getPlatformPermissions: () => apiRequest('/api/platform/permissions'),
+  savePlatformPermission: (payload: any) => apiRequest('/api/platform/permissions', { method: 'POST', body: payload }),
+  validatePlatformToolCall: (payload: any) => apiRequest('/api/platform/tool-calls/validate', { method: 'POST', body: payload }),
+  getPlatformAudit: () => apiRequest('/api/platform/audit'),
+  getPlatformApprovals: () => apiRequest('/api/platform/approvals'),
+  decidePlatformApproval: (id: string, decision: string, reason?: string) => apiRequest(`/api/platform/approvals/${id}/decision`, { method: 'POST', body: { decision, reason } }),
+  replayPlatformIncident: (id: string, stepSpeed = 100) => apiRequest(`/api/platform/incidents/${encodeURIComponent(id)}/replay`, { method: 'POST', body: { stepSpeed } }),
+  bisectPlatformIncident: (workspaceId: string, firstBadStep?: number) => apiRequest('/api/platform/incidents/bisect', { method: 'POST', body: { workspaceId, firstBadStep } }),
+  paretoPlatformEvaluation: (items: any[]) => apiRequest('/api/platform/evaluations/pareto', { method: 'POST', body: { items } })
 };

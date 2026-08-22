@@ -55,13 +55,15 @@ The frontend expects the backend to be available at http://localhost:4000.
 
 ## Agent runtime adapter
 
-Deploying an agent registers its mission in Studio and starts the configured runtime adapter. Set `GENOS_AGENT_EXECUTOR` to an executable that reads one JSON mission from stdin and emits newline-delimited JSON events on stdout. For example:
+Deploying an agent registers its mission in Studio and starts the bundled runtime adapter automatically. The default is `backend/bin/genos-agent-runtime.cjs`, which reads one length-prefixed protobuf mission from stdin and emits length-prefixed protobuf events on stdout. The bundled runtime also accepts the legacy JSON mission format.
+
+To use a custom executor, override the default explicitly:
 
 ```bash
 GENOS_AGENT_EXECUTOR=/absolute/path/to/genos-agent-runtime npm start
 ```
 
-Events may include `eventType`, `action`, `detail`, `status`, `currentTask`, `severity`, and `payload`. Without this variable, agents remain `idle` and Studio explicitly reports that they are waiting for a runtime adapter.
+Events may include `eventType`, `action`, `detail`, `status`, `currentTask`, `severity`, and `payload`. If the custom variable is omitted, Studio uses the bundled runtime and agents no longer remain idle merely because the environment was not configured.
 
 ## Important note
 

@@ -30,24 +30,34 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
       .catch(() => setSnapshots([]));
   }, [workspaceId]);
 
-  const nodes = snapshots.map((s, i) => ({
-    id: i,
-    originalId: s.id,
-    x: 220 + (i % 2 === 1 ? 40 : 0),
-    y: 60 + i * 110,
-    title: s.label || `Snapshot #${s.step_number ?? i}`,
-    author: s.snapshot_type || 'system',
-    hash: s.commit_hash || 'c819fa2',
-    type: s.snapshot_type === 'merge' ? 'merge' : 'agent',
-    raw: s
-  }));
+  const authors = Array.from(new Set(snapshots.map(s => s.author || s.snapshot_type || 'system')));
+  const nodes = snapshots.map((s, i) => {
+    const author = s.author || s.snapshot_type || 'system';
+    return {
+      id: i,
+      originalId: s.id,
+      author,
+      x: 220 + authors.indexOf(author) * 210,
+      y: 60 + i * 110,
+      title: s.label || `Snapshot #${s.step_number ?? i}`,
+      hash: s.snapshot_hash || s.commit_hash || 'c819fa2',
+      type: s.snapshot_type === 'merge' || /merge|fusion/i.test(`${s.label || ''} ${s.reason || ''}`) ? 'merge' : 'agent',
+      raw: s
+    };
+  });
 
-  const edges = [];
-  for (let i = 0; i < nodes.length - 1; i++) {
-    edges.push({ from: i, to: i + 1 });
-  }
+  const edges: Array<{ from: number; to: number; crossBranch?: boolean }> = [];
+  const lastByAuthor = new Map<string, number>();
+  nodes.forEach((node) => {
+    const previous = lastByAuthor.get(node.author);
+    if (previous !== undefined) edges.push({ from: previous, to: node.id });
+    const latest = node.id > 0 ? nodes[node.id - 1] : undefined;
+    if (latest && latest.author !== node.author) edges.push({ from: latest.id, to: node.id, crossBranch: true });
+    lastByAuthor.set(node.author, node.id);
+  });
 
   const maxStep = Math.max(0, nodes.length - 1);
+  const agentCount = authors.length;
 
   useEffect(() => {
     let interval: any;
@@ -86,7 +96,7 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
           </button>
           <div>
             <h1 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)' }}>{workspace.title || workspace.name}</h1>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Timeline Explorer & Lineage Playback</div>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Timeline Explorer & Lineage Playback · {agentCount} agents · {snapshots.length} contributions</div>
           </div>
         </div>
         <div style={{ padding: '4px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--panel-border)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -94,10 +104,22 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
         </div>
       </div>
 
+      {agentCount > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', padding: '10px 32px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)' }}>
+          {authors.map((author, index) => (
+            <span key={author} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: index % 2 === 0 ? '#1f6feb' : '#238636' }} />
+              {author}
+            </span>
+          ))}
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>— lien pointillé : transition entre agents</span>
+        </div>
+      )}
+
       {/* Main SVG Graph Area */}
       <div style={{ flex: 1, overflow: 'auto', position: 'relative', background: 'var(--bg-main)' }}>
         
-        <svg width="100%" height={Math.max(600, nodes.length * 130 + 100)} style={{ display: 'block' }}>
+        <svg width={Math.max(900, authors.length * 210 + 300)} height={Math.max(600, nodes.length * 130 + 100)} style={{ display: 'block' }}>
           {/* Edges */}
           {edges.map((edge, i) => {
             const fromNode = nodes.find((n) => n.id === edge.from);
@@ -112,8 +134,9 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
                 key={i}
                 d={d}
                 fill="none"
-                stroke={isActive ? 'var(--accent-blue)' : 'var(--panel-border)'}
+                stroke={isActive ? edge.crossBranch ? 'var(--accent-green)' : 'var(--accent-blue)' : 'var(--panel-border)'}
                 strokeWidth="2"
+                strokeDasharray={edge.crossBranch ? '6 5' : undefined}
                 style={{ transition: 'stroke 0.3s ease' }}
               />
             );
