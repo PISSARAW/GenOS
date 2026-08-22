@@ -201,6 +201,7 @@ async fn main() -> Result<()> {
                 cmd_workflow_run(args).await
             }
             WorkflowSubcommands::Resume(args) => cmd_workflow_resume(args).await,
+            WorkflowSubcommands::Package(args) => cmd_workflow_package(args),
         },
         Commands::Platform(platform) => match platform.command {
             PlatformSubcommands::Ingest(args) => cmd_platform_ingest(args),
