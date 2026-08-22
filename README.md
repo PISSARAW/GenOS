@@ -33,6 +33,26 @@
 > GenOS is active research software at version `0.0.1`. Interfaces can change
 > before `0.1.0`, and the project is not yet a production security boundary.
 
+## See GenOS choose a safer future
+
+<p align="center">
+  <a href="examples/safe-debugging-demo/"><img src="assets/demo/safe-debugging.gif" alt="GenOS snapshots a failing program, tests three isolated fixes, replays the winner, and approves the merge" width="100%"></a>
+</p>
+
+One boundary bug becomes three isolated futures. Two fail the test gate; the
+winner is restored from the original snapshot, replayed, compared byte for
+byte, and promoted only after verification.
+
+```bash
+./examples/safe-debugging-demo/run-demo.sh
+```
+
+The command needs no model key and writes the raw operations plus measured
+runtime, token use, and cost to
+[`examples/safe-debugging-demo/artifacts/`](examples/safe-debugging-demo/artifacts/).
+Open the same evidence in **Studio → Safe Parallel Debugging**. A short
+[MP4 capture](assets/demo/safe-debugging.mp4) is also available.
+
 ## Why GenOS?
 
 Most agent workflows advance along one mutable timeline. When a tool call,
@@ -65,6 +85,7 @@ agent + world ─ snapshot S0 ──┼─ fork B ─ evaluate ─ keep ─ snap
 
 | Capability | Proof in this repository | Maturity |
 | --- | --- | --- |
+| Safe parallel debugging | [One-command debugging demo](examples/safe-debugging-demo/) | Runnable product proof |
 | Snapshot, fork, diff, and replay | [Counterfactual demo](examples/counterfactual-demo/) | Runnable CLI demo |
 | Independent sibling state | [Divergent writes](examples/divergent-writes-demo/) | Runnable CLI demo |
 | Isolated filesystem worlds | [Divergent worlds](examples/divergent-worlds-demo/) | Runnable CLI demo |
@@ -174,6 +195,7 @@ and historical outputs live separately under [`research/`](research/):
 
 | Start here | Demonstrates |
 | --- | --- |
+| [Safe parallel debugging](examples/safe-debugging-demo/) | Bug reproduction, three isolated fixes, deterministic replay, conditional promotion |
 | [Counterfactual fork](examples/counterfactual-demo/) | Same logical state, distinct identity, isolated event streams |
 | [Divergent writes](examples/divergent-writes-demo/) | Independent branch memory after a common snapshot |
 | [Divergent worlds](examples/divergent-worlds-demo/) | Filesystem isolation between sibling worlds |

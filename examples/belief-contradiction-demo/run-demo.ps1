@@ -31,7 +31,7 @@ function Invoke-Genos {
 		[string[]]$GenosArgs
 	)
 
-	Invoke-Cargo run --quiet -p genos-cli -- @GenosArgs
+	Invoke-Cargo -CargoArgs (@("run", "--quiet", "-p", "genos-cli", "--") + $GenosArgs)
 }
 
 function Invoke-GenosJson {
@@ -82,7 +82,7 @@ try {
 	New-Item -ItemType Directory -Path $demoDir | Out-Null
 
 	Write-Host "[0/5] build the genos CLI"
-	Invoke-Cargo build -p genos-cli
+	Invoke-Cargo -CargoArgs @("build", "-p", "genos-cli")
 
 	Write-Host "[1/5] init + create agent A and snapshot S0"
 	Invoke-Genos init

@@ -1,7 +1,10 @@
 const crypto = require('crypto');
+const path = require('path');
 const { getDatabase } = require('../db');
 
-const CONTRACT = require('../../../integrations/ide/genos-extension-contract.json');
+const contractPath = process.env.GENOS_IDE_CONTRACT_PATH
+  || path.resolve(__dirname, '../../../integrations/ide/genos-extension-contract.json');
+const CONTRACT = require(contractPath);
 
 async function contract(req, res) { res.json(CONTRACT); }
 async function connect(req, res) {

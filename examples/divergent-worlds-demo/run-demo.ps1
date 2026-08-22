@@ -31,7 +31,7 @@ function Invoke-Genos {
 		[string[]]$GenosArgs
 	)
 
-	Invoke-Cargo run --quiet -p genos-cli -- @GenosArgs
+	Invoke-Cargo -CargoArgs (@("run", "--quiet", "-p", "genos-cli", "--") + $GenosArgs)
 }
 
 # Same call, but the JSON is echoed *and* returned so ids can feed the next step.
@@ -64,7 +64,7 @@ try {
 	New-Item -ItemType Directory -Path $demoDir | Out-Null
 
 	Write-Host "[0/6] build the genos CLI"
-	Invoke-Cargo build -p genos-cli
+	Invoke-Cargo -CargoArgs @("build", "-p", "genos-cli")
 
 	Write-Host "[1/6] create the parent world W0"
 	$parent = (Invoke-GenosJson world create --provider directory --root $worldRoot --format json).world_id
