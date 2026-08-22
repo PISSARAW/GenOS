@@ -695,6 +695,7 @@ dependencies = [
 name = "genos-eval"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
  "chrono",
  "genos-core",
  "rand",

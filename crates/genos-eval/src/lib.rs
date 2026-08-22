@@ -1,3 +1,4 @@
+pub mod benchmark;
 pub mod cognitive_merge;
 pub mod counterfactual;
 pub mod ecosystem;
@@ -16,6 +17,7 @@ pub mod qtl;
 pub mod reproducibility;
 pub mod traits;
 pub mod variance;
+pub use benchmark::*;
 
 #[cfg(test)]
 mod tests;
