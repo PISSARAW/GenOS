@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { Terminal, Copy, Trash2, Power, Search } from 'lucide-react';
+import { Terminal, Search } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 import './CommandPalette.css';
@@ -32,8 +32,8 @@ export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
   const handleCommand = async (action: string, label: string) => {
     setOpen(false);
     try {
-      await api.sendCommand(action);
-      showToast('success', 'Command Dispatched', `Executed ${label}`);
+      const result = await api.sendCommand(action);
+      showToast('success', 'Command Completed', result.message || label);
     } catch (e: any) {
       showToast('error', 'Command Failed', e.message);
     }
@@ -62,28 +62,12 @@ export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
           <Command.Empty className="command-palette-empty">No results found.</Command.Empty>
           
           <Command.Group heading="Agent Actions" className="command-palette-group">
-            <Command.Item className="command-palette-item" onSelect={() => handleCommand('fork_agent', '/fork agent')}>
-              <Copy size={16} className="command-icon" />
-              <span>/fork agent</span>
-              <span className="command-shortcut">Ctrl F</span>
-            </Command.Item>
-            <Command.Item className="command-palette-item danger" onSelect={() => handleCommand('kill_agent', '/kill agent')}>
-              <Trash2 size={16} className="command-icon" />
-              <span>/kill agent</span>
-              <span className="command-shortcut">Ctrl X</span>
-            </Command.Item>
             <Command.Item className="command-palette-item" onSelect={() => handleCommand('inspect_state', '/inspect state')}>
               <Terminal size={16} className="command-icon" />
               <span>/inspect state</span>
             </Command.Item>
           </Command.Group>
 
-          <Command.Group heading="System" className="command-palette-group">
-            <Command.Item className="command-palette-item" onSelect={() => handleCommand('reboot_studio', 'Reboot Studio')}>
-              <Power size={16} className="command-icon" />
-              <span>Reboot Studio</span>
-            </Command.Item>
-          </Command.Group>
         </Command.List>
       </Command.Dialog>
     </div>
