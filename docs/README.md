@@ -143,31 +143,21 @@ If you are an autonomous AI agent operating on this repository, strictly adhere 
 
 ---
 
-## ⚡ Quick Start: Zero-Cost Speculative Forking
+## ⚡ Quick Start: Counterfactual Forking
 
-```rust
-use genos_core::{CapsuleManager, CapsuleId, Strategy};
+The maintained, end-to-end quickstart uses the `genos` CLI rather than an
+unstable library example. Build the CLI from the repository root, then follow
+the walkthrough for agent creation, snapshots, capsules, isolated branches,
+diffs, merge, lineage, and replay:
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let manager = CapsuleManager::init_default();
-    
-    // 1. Create root baseline capsule
-    let root_id = manager.create_root("baseline-v1")?;
-    
-    // 2. Fork zero-cost speculative branches (< 2ms)
-    let branch_a = manager.fork_branch(root_id, "patch-strategy-a")?;
-    let branch_b = manager.fork_branch(root_id, "patch-strategy-b")?;
-    
-    // 3. Execute isolated speculative search
-    manager.execute_branch(branch_a, Strategy::AggressiveFix)?;
-    manager.execute_branch(branch_b, Strategy::SafeRefactor)?;
-    
-    // 4. Reconcile optimal branch into baseline
-    let merged_id = manager.reconcile_optimal(root_id, &[branch_a, branch_b])?;
-    println!("Reconciled Capsule: {:?}", merged_id);
-    Ok(())
-}
+```bash
+cargo build -p genos-cli
+cargo run -p genos-cli -- --help
 ```
+
+See [Quickstart Tutorial](1-onboarding-and-setup/quickstart-tutorial.md).
+Command output contains generated identifiers and timestamps, so the values
+shown in the tutorial are illustrative rather than fixed fixtures.
 
 ---
 
