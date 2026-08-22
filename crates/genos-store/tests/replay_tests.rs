@@ -1,13 +1,15 @@
 ﻿mod common;
 
 use chrono::{Duration, Utc};
-use common::{make_event, make_snapshot};
+use common::{make_event, make_snapshot, temp_store_path};
+use genos_core::snapshot::{CasHash, SnapshotComponentManifest as LegacySnapshotManifest};
 use genos_core::AgentEventType;
 use genos_store::{
     basic_state_from_snapshot, replay_basic_state, replay_basic_state_from, AgentLifecycle,
-    BranchStatus,
+    BranchStatus, LocalSnapshotStore, SnapshotStore,
 };
 use serde_json::json;
+use tokio::fs;
 
 #[test]
 fn replay_basic_state_accumulates_counters() {
@@ -133,6 +135,78 @@ fn replay_basic_state_from_snapshot_cursor() {
     assert_eq!(replay.steps, 6);
     assert_eq!(replay.tool_calls, 1);
     assert_eq!(replay.tool_failures, 1);
+}
+
+#[tokio::test]
+async fn replay_resolves_latest_full_snapshot_from_mixed_legacy_journal() {
+    let path = temp_store_path();
+    let mut latest = make_snapshot(5);
+    let mut earlier = latest.clone();
+    earlier.state.event_cursor.sequence = 3;
+    earlier.state.execution.step = 3;
+
+    let legacy = LegacySnapshotManifest {
+        snapshot_id: latest.snapshot_id.clone(),
+        agent_id: latest.agent_id.clone(),
+        branch_id: latest.branch_id.clone(),
+        genome_hash: CasHash("dummy_hash".to_string()),
+        state_hash: CasHash("dummy_hash".to_string()),
+        ssm_state_hash: None,
+    };
+    let mut lines = Vec::new();
+    for _ in 0..12 {
+        lines.push(serde_json::to_string(&legacy).expect("serialize legacy manifest"));
+    }
+    lines.push(serde_json::to_string(&earlier).expect("serialize earlier snapshot"));
+    latest.runtime_metadata.budget_steps_remaining = 4;
+    lines.push(serde_json::to_string(&latest).expect("serialize latest snapshot"));
+    fs::write(&path, format!("{}\n", lines.join("\n")))
+        .await
+        .expect("write mixed journal");
+
+    let store = LocalSnapshotStore::new(&path);
+    let loaded = store
+        .load_snapshot(&latest.snapshot_id)
+        .await
+        .expect("resolve snapshot from mixed journal")
+        .expect("full snapshot missing");
+    assert_eq!(loaded.state.event_cursor.sequence, 5);
+    assert_eq!(loaded.runtime_metadata.budget_steps_remaining, 4);
+
+    let events = vec![
+        make_event(AgentEventType::ModelResponded, 6, &loaded.branch_id.0),
+        make_event(AgentEventType::ToolFailed, 7, &loaded.branch_id.0),
+    ];
+    let replay = replay_basic_state_from(basic_state_from_snapshot(&loaded), &events);
+    assert_eq!(replay.last_sequence, 7);
+    assert_eq!(replay.steps, 6);
+    assert_eq!(replay.tool_failures, 1);
+
+    fs::remove_file(path).await.expect("mixed journal cleanup");
+}
+
+#[tokio::test]
+async fn mixed_journal_still_rejects_an_invalid_full_snapshot() {
+    let path = temp_store_path();
+    let snapshot = make_snapshot(1);
+    let mut invalid = serde_json::to_value(&snapshot).expect("serialize snapshot");
+    invalid
+        .as_object_mut()
+        .expect("snapshot must be an object")
+        .remove("genome");
+    fs::write(&path, format!("{invalid}\n"))
+        .await
+        .expect("write invalid snapshot");
+
+    let error = LocalSnapshotStore::new(&path)
+        .load_snapshot(&snapshot.snapshot_id)
+        .await
+        .expect_err("invalid full snapshot must fail");
+    assert!(error.to_string().contains("missing field `genome`"));
+
+    fs::remove_file(path)
+        .await
+        .expect("invalid journal cleanup");
 }
 
 #[test]
