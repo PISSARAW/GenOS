@@ -9,6 +9,8 @@ use std::{
 };
 use tokio::sync::Mutex;
 
+pub mod sqlite;
+
 #[derive(Clone, Debug)]
 pub enum Auth {
     None,
