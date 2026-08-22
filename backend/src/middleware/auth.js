@@ -16,16 +16,6 @@ function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
-function configuredAdminToken() {
-  return String(process.env.GENOS_ADMIN_TOKEN || '').trim();
-}
-
-function tokenMatchesConfiguredAdmin(rawToken) {
-  const configured = configuredAdminToken();
-  if (!configured || !rawToken || configured.length !== rawToken.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(configured), Buffer.from(rawToken));
-}
-
 async function resolveUserFromHeaders(headers) {
   const authHeader = headers.authorization || headers['x-access-key'];
   if (!authHeader) {
@@ -34,24 +24,13 @@ async function resolveUserFromHeaders(headers) {
 
   const rawToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
 
-  // An environment-provided bootstrap token is optional and never compiled in.
-  if (tokenMatchesConfiguredAdmin(rawToken)) {
-    return {
-      role: 'admin',
-      permissions: ROLE_PERMISSIONS.admin,
-      username: 'bootstrap_admin',
-      isBootstrap: true,
-      isAuthenticated: true
-    };
-  }
-
-  // 2. Validate token against SQLite access_keys
+  // Validate only the token hash. Public record IDs are identifiers, not secrets.
   try {
     const db = await getDatabase();
     const tokenHash = hashKey(rawToken);
     const keyRecord = await db.get(
-      'SELECT * FROM access_keys WHERE (key_hash = ? OR id = ?) AND is_active = 1',
-      tokenHash, rawToken
+      'SELECT * FROM access_keys WHERE key_hash = ? AND is_active = 1',
+      tokenHash
     );
 
     if (keyRecord) {
@@ -123,8 +102,6 @@ function requireRole(allowedRoles) {
 
 module.exports = {
   ROLE_PERMISSIONS,
-  configuredAdminToken,
-  tokenMatchesConfiguredAdmin,
   resolveUserFromHeaders,
   requirePermission,
   requireRole,

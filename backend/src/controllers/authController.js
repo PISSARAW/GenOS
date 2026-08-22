@@ -4,8 +4,7 @@
 
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
-const { ROLE_PERMISSIONS, resolveUserFromHeaders, tokenMatchesConfiguredAdmin, hashKey } = require('../middleware/auth');
-const telemetry = require('../services/telemetryObserver');
+const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 
 async function verifyToken(req, res) {
   const token = (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
@@ -16,28 +15,11 @@ async function verifyToken(req, res) {
 
   const rawToken = token.startsWith('Bearer ') ? token.slice(7).trim() : token.trim();
 
-  if (tokenMatchesConfiguredAdmin(rawToken)) {
-    telemetry.emitEvent({
-      eventType: 'AUTH_BOOTSTRAP_VERIFIED',
-      agentId: 'auth_service',
-      action: 'LOGIN',
-      detail: 'Environment-provided bootstrap administrator token verified.',
-      severity: 'warning'
-    });
-    return res.json({
-      valid: true,
-      role: 'admin',
-      isBootstrap: true,
-      permissions: ROLE_PERMISSIONS.admin,
-      user: { username: 'bootstrap_admin', role: 'admin' }
-    });
-  }
-
   const db = await getDatabase();
   const tokenHash = hashKey(rawToken);
   const keyRecord = await db.get(
-    'SELECT * FROM access_keys WHERE (key_hash = ? OR id = ?) AND is_active = 1',
-    tokenHash, rawToken
+    'SELECT * FROM access_keys WHERE key_hash = ? AND is_active = 1',
+    tokenHash
   );
 
   if (keyRecord) {
@@ -69,7 +51,7 @@ async function getSession(req, res) {
       role: user.role,
       permissions: user.permissions,
       isAuthenticated: user.isAuthenticated,
-      isBootstrap: !!user.isBootstrap
+      isBootstrap: false
     }
   });
 }

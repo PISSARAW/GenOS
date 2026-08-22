@@ -75,9 +75,15 @@ The tag starts `.github/workflows/release-alpha.yml`, which builds native CLI
 binaries on Linux, macOS Intel, macOS Apple Silicon, and Windows. Before any
 publication, a dedicated job resolves the tag to an immutable commit, checks
 that the tag matches the Cargo version, and makes every build check out that
-verified SHA. Each archive records the source SHA and toolchain, and the
-publishing job re-verifies all four archives against `SHA256SUMS.txt`. A manual
-workflow run builds downloadable Actions artifacts but deliberately publishes
-nothing.
+verified SHA. A second required job asserts that exact checkout, exercises a
+deliberate mismatched-SHA rejection, tests the CLI and backend authentication,
+and builds Studio. Only after that job and all platform builds succeed can the
+workflow create a new prerelease. It refuses to modify a prerelease that already
+exists. Each archive records the source SHA and toolchain, and the publishing
+job re-verifies all four archives against `SHA256SUMS.txt`. A manual workflow
+run builds downloadable Actions artifacts but deliberately publishes nothing.
+
+Third-party actions in this workflow are pinned to full commit SHAs. Review
+their upstream tags and refresh those pins intentionally when upgrading them.
 
 No package is uploaded to crates.io by this workflow.
