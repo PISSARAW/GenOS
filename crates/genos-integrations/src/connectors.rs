@@ -17,6 +17,10 @@ pub struct JiraClient {
     api: ApiClient,
 }
 #[derive(Clone)]
+pub struct NotionClient {
+    api: ApiClient,
+}
+#[derive(Clone)]
 pub struct QdrantClient {
     api: ApiClient,
     collection: String,
@@ -104,6 +108,19 @@ impl JiraClient {
         self.api.request_json(Method::POST, "/rest/api/3/issue", Some(&json!({"fields":{"project":{"key":project},"summary":summary,"description":{"type":"doc","version":1,"content":[{"type":"paragraph","content":[{"type":"text","text":description}]}]},"issuetype":{"name":issue_type}}}))).await
     }
 }
+impl NotionClient {
+    pub fn new(api: ApiClient) -> Self { Self { api } }
+    pub async fn search(&self, query: &str, page_size: usize) -> Result<NotionSearchResponse> {
+        self.api.request_json(Method::POST, "/v1/search", Some(&json!({"query":query,"page_size":page_size}))).await
+    }
+    pub async fn create_page(&self, parent: Value, properties: Value, children: Option<Value>) -> Result<NotionPage> {
+        self.api.request_json(Method::POST, "/v1/pages", Some(&json!({"parent":parent,"properties":properties,"children":children}))).await
+    }
+}
+#[derive(Clone, Debug, Deserialize)]
+pub struct NotionSearchResponse { pub results: Vec<NotionPage>, #[serde(default)] pub has_more: bool, #[serde(default)] pub next_cursor: Option<String> }
+#[derive(Clone, Debug, Deserialize)]
+pub struct NotionPage { pub id: String, #[serde(default)] pub url: Option<String>, #[serde(default)] pub object: Option<String> }
 #[derive(Clone, Debug, Deserialize)]
 pub struct JiraIssue {
     pub id: String,
@@ -227,5 +244,7 @@ mod tests {
             payload: None,
         };
         assert_eq!(point.vector, vec![1.0]);
+        let notion = NotionPage { id: "page".into(), url: None, object: Some("page".into()) };
+        assert_eq!(notion.object.as_deref(), Some("page"));
     }
 }
