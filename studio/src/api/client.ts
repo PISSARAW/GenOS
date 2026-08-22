@@ -167,6 +167,14 @@ export const api = {
   ingestSpan: (span: any) => apiRequest('/api/traces/ingest', { method: 'POST', body: span }),
   replayTrace: (traceId: string, override?: any) => apiRequest(`/api/traces/${encodeURIComponent(traceId)}/replay`, { method: 'POST', body: { override } }),
 
+  // Evaluation datasets and batch jobs
+  listDatasets: () => apiRequest('/api/evals/datasets'),
+  createDataset: (payload: any) => apiRequest('/api/evals/datasets', { method: 'POST', body: payload }),
+  addDatasetCase: (id: string, payload: any) => apiRequest(`/api/evals/datasets/${encodeURIComponent(id)}/cases`, { method: 'POST', body: payload }),
+  listDatasetCases: (id: string) => apiRequest(`/api/evals/datasets/${encodeURIComponent(id)}/cases`),
+  launchEvaluation: (payload: any) => apiRequest('/api/evals/jobs', { method: 'POST', body: payload }),
+  listEvaluationJobs: () => apiRequest('/api/evals/jobs'),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
