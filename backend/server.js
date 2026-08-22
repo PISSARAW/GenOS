@@ -7,6 +7,7 @@ const http = require('http');
 const { createApp } = require('./src/app');
 const { getDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
+const jobWorker = require('./src/services/jobWorker');
 
 const PORT = process.env.PORT || 4000;
 
@@ -15,6 +16,7 @@ async function startServer() {
     // 1. Initialize SQLite Database & Schema
     console.log('[GenOS Backend] Initializing SQLite database...');
     const db = await getDatabase();
+    jobWorker.startJobWorker();
     console.log('[GenOS Backend] SQLite database & 18 tables ready.');
 
     // 2. Create Express App
