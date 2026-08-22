@@ -53,6 +53,30 @@ async function updateAgent(agentId, status, currentTask) {
   );
 }
 
+function runtimeExitOutcome(termination, code, signal, stderr = '') {
+  if (termination) {
+    return {
+      status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
+      task: `Runtime halted: ${termination.reason}`,
+      detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
+      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
+    };
+  }
+  if (code === 0) {
+    return {
+      status: 'idle', eventType: 'AGENT_COMPLETED', action: 'COMPLETE', severity: 'info', task: 'Execution completed',
+      detail: 'Runtime completed successfully.', payload: { code }
+    };
+  }
+  const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
+  return {
+    status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
+    task: `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`,
+    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
+    payload: { code, signal, stderr: String(stderr).trim() }
+  };
+}
+
 function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -233,8 +257,18 @@ async function startMission(mission) {
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const child = spawn(resolvedExecutable, [], { cwd: workspaceRoot, env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot }, stdio: ['pipe', 'pipe', 'pipe'] });
   activeProcesses.set(agentId, child);
-  let guardrailHalted = false;
+  // This marker distinguishes a deliberate control-plane stop from a runtime
+  // failure.  SIGTERM makes a child exit non-zero on many platforms, so the
+  // close handler must not turn our own guardrail into AGENT_FAILED.
+  let termination = null;
   let executionQueue = Promise.resolve();
+  const haltRuntime = (kind, reason, detail, payload = {}) => {
+    if (termination) return false;
+    termination = { kind, reason };
+    emit(agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail, { reason, ...payload }, 'critical', 'blocked');
+    child.kill('SIGTERM');
+    return true;
+  };
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
     const event = emit(agentId, eventType, action, detail, payload, severity, status);
     const decision = decideFromEvent(event);
@@ -255,10 +289,9 @@ async function startMission(mission) {
             sourceEventId: event.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
           }, 'warning');
           const autopsy = await resilienceService.evaluateApoptosis(agentId, { hallucinations: observation.total }, db);
-          if (autopsy.apoptosisExecuted && !guardrailHalted && !finalEvent) {
-            guardrailHalted = true;
+          if (autopsy.apoptosisExecuted && !termination && !finalEvent) {
             emit(agentId, 'APOPTOSIS_TRIGGERED', 'HALLUCINATION_LIMIT', autopsy.triggerReason, { autopsy }, 'critical', 'apoptosis');
-            child.kill('SIGTERM');
+            haltRuntime('apoptosis', autopsy.triggerReason, 'Runtime halted after the hallucination limit was reached.', { autopsy });
             return;
           }
         }
@@ -266,10 +299,9 @@ async function startMission(mission) {
       // only after the child has already completed. Record the guardrail on
       // the execution run, but never turn that completed child into a SIGTERM
       // failure and overwrite the agent's terminal state.
-      if (decision?.halt && !guardrailHalted && !finalEvent) {
-        guardrailHalted = true;
+      if (decision?.halt && !termination && !finalEvent) {
         emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
-        child.kill('SIGTERM');
+        haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
       }
       }).catch(() => {});
     return event;
@@ -297,19 +329,15 @@ async function startMission(mission) {
   });
   child.on('error', async (error) => {
     activeProcesses.delete(agentId);
+    if (termination) return;
     await updateAgent(agentId, 'error', error.message);
     emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
   child.on('close', async (code, signal) => {
     activeProcesses.delete(agentId);
-    if (code === 0) {
-      await updateAgent(agentId, 'idle', 'Execution completed');
-      emitTracked('AGENT_COMPLETED', 'COMPLETE', 'Runtime completed successfully.', { code }, 'info', 'idle');
-    } else {
-      await updateAgent(agentId, 'error', `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`);
-      const lastError = stderrBuffer.trim().split(/\r?\n/).filter(Boolean).pop();
-      emitTracked('AGENT_FAILED', 'ERROR', `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`, { code, signal, stderr: stderrBuffer.trim() }, 'error', 'error');
-    }
+    const outcome = runtimeExitOutcome(termination, code, signal, stderrBuffer);
+    await updateAgent(agentId, outcome.status, outcome.task);
+    emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
   });
   await updateAgent(agentId, 'running', mission.prompt);
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
@@ -345,4 +373,4 @@ function stopMission(agentId) {
   return true;
 }
 
-module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace };
+module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, runtimeExitOutcome };
