@@ -1,0 +1,216 @@
+{
+  "schema_version": "genos-benchmark-report-v1",
+  "task_id": "B08",
+  "benchmark_id": "public.web",
+  "deliverable": "web-public-report.json",
+  "title": "WebArena, BrowserGym and OSWorld",
+  "generated_at": "2026-08-22T05:04:36.647Z",
+  "repository_revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8",
+  "repository": {
+    "revision": "1db27e8d2e2628d227c0e2486ed4fd034f6e0ae8"
+  },
+  "public_benchmark": true,
+  "execution_status": "blocked_external_dataset",
+  "execution": {
+    "status": "blocked_external_dataset",
+    "attempted": false
+  },
+  "approvals": {
+    "approval_id": null,
+    "approved_by": null,
+    "approved_at": null,
+    "dataset_approved": false,
+    "runtime_approved": false,
+    "comparison_approved": false,
+    "dataset_checksums": {},
+    "runtime_identities": {},
+    "comparison_conditions_sha256": null
+  },
+  "aggregate_score": null,
+  "aggregate_score_reason": "Constituent public benchmark scores use different scales and are not averaged.",
+  "score": null,
+  "sample_size": 0,
+  "components": [
+    {
+      "id": "webarena",
+      "status": "blocked",
+      "score": null,
+      "metrics": null,
+      "dataset": {
+        "environment_variable": "GENOS_WEBARENA_DATASET",
+        "checksum_environment_variable": "GENOS_WEBARENA_SHA256",
+        "configured": false,
+        "available": false,
+        "locator_sha256": null,
+        "checksum": null,
+        "checksum_valid": false,
+        "error": null,
+        "approved_checksum": null,
+        "approval_match": false
+      },
+      "runtime": {
+        "environment_variable": "GENOS_WEBARENA_COMMAND",
+        "identity_environment_variable": "GENOS_WEBARENA_RUNTIME_IDENTITY",
+        "configured": false,
+        "identity": null,
+        "approved_identity": null,
+        "approval_match": false,
+        "command": null,
+        "command_sha256": null
+      },
+      "blockers": [
+        "dataset approval is missing",
+        "GENOS_WEBARENA_DATASET is not configured",
+        "GENOS_WEBARENA_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_WEBARENA_COMMAND is not configured",
+        "GENOS_WEBARENA_RUNTIME_IDENTITY is not configured"
+      ]
+    },
+    {
+      "id": "browsergym",
+      "status": "blocked",
+      "score": null,
+      "metrics": null,
+      "dataset": {
+        "environment_variable": "GENOS_BROWSERGYM_DATASET",
+        "checksum_environment_variable": "GENOS_BROWSERGYM_SHA256",
+        "configured": false,
+        "available": false,
+        "locator_sha256": null,
+        "checksum": null,
+        "checksum_valid": false,
+        "error": null,
+        "approved_checksum": null,
+        "approval_match": false
+      },
+      "runtime": {
+        "environment_variable": "GENOS_BROWSERGYM_COMMAND",
+        "identity_environment_variable": "GENOS_BROWSERGYM_RUNTIME_IDENTITY",
+        "configured": false,
+        "identity": null,
+        "approved_identity": null,
+        "approval_match": false,
+        "command": null,
+        "command_sha256": null
+      },
+      "blockers": [
+        "dataset approval is missing",
+        "GENOS_BROWSERGYM_DATASET is not configured",
+        "GENOS_BROWSERGYM_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_BROWSERGYM_COMMAND is not configured",
+        "GENOS_BROWSERGYM_RUNTIME_IDENTITY is not configured"
+      ]
+    },
+    {
+      "id": "osworld",
+      "status": "blocked",
+      "score": null,
+      "metrics": null,
+      "dataset": {
+        "environment_variable": "GENOS_OSWORLD_DATASET",
+        "checksum_environment_variable": "GENOS_OSWORLD_SHA256",
+        "configured": false,
+        "available": false,
+        "locator_sha256": null,
+        "checksum": null,
+        "checksum_valid": false,
+        "error": null,
+        "approved_checksum": null,
+        "approval_match": false
+      },
+      "runtime": {
+        "environment_variable": "GENOS_OSWORLD_COMMAND",
+        "identity_environment_variable": "GENOS_OSWORLD_RUNTIME_IDENTITY",
+        "configured": false,
+        "identity": null,
+        "approved_identity": null,
+        "approval_match": false,
+        "command": null,
+        "command_sha256": null
+      },
+      "blockers": [
+        "dataset approval is missing",
+        "GENOS_OSWORLD_DATASET is not configured",
+        "GENOS_OSWORLD_SHA256 must contain a SHA-256 checksum",
+        "runtime approval is missing",
+        "comparison conditions are not approved",
+        "GENOS_OSWORLD_COMMAND is not configured",
+        "GENOS_OSWORLD_RUNTIME_IDENTITY is not configured"
+      ]
+    }
+  ],
+  "metrics": [],
+  "evidence": {
+    "commands": [],
+    "sources": [
+      "benchmarks/public-gates.json",
+      "benchmarks/public-suites.json"
+    ]
+  },
+  "audit": {
+    "status": "not_submitted",
+    "decision": "withheld",
+    "agent_role": "benchmark_evidence_auditor",
+    "review_agent": "evidence-auditor",
+    "rationale": "No public claim is permitted while external gates are missing or execution has failed."
+  },
+  "claim_status": "not_claimable",
+  "claim_allowed": false,
+  "gate_policy": "genos-public-benchmark-gates-v1",
+  "gates": [
+    {
+      "name": "dataset_identity_and_checksum",
+      "status": "missing"
+    },
+    {
+      "name": "runtime_and_model_identity",
+      "status": "missing"
+    },
+    {
+      "name": "comparison_conditions",
+      "status": "missing"
+    },
+    {
+      "name": "human_approval_receipt",
+      "status": "missing"
+    }
+  ],
+  "blockers": [
+    "dataset approval is missing",
+    "GENOS_WEBARENA_DATASET is not configured",
+    "GENOS_WEBARENA_SHA256 must contain a SHA-256 checksum",
+    "runtime approval is missing",
+    "comparison conditions are not approved",
+    "GENOS_WEBARENA_COMMAND is not configured",
+    "GENOS_WEBARENA_RUNTIME_IDENTITY is not configured",
+    "GENOS_BROWSERGYM_DATASET is not configured",
+    "GENOS_BROWSERGYM_SHA256 must contain a SHA-256 checksum",
+    "GENOS_BROWSERGYM_COMMAND is not configured",
+    "GENOS_BROWSERGYM_RUNTIME_IDENTITY is not configured",
+    "GENOS_OSWORLD_DATASET is not configured",
+    "GENOS_OSWORLD_SHA256 must contain a SHA-256 checksum",
+    "GENOS_OSWORLD_COMMAND is not configured",
+    "GENOS_OSWORLD_RUNTIME_IDENTITY is not configured"
+  ],
+  "limitations": [
+    "dataset approval is missing",
+    "GENOS_WEBARENA_DATASET is not configured",
+    "GENOS_WEBARENA_SHA256 must contain a SHA-256 checksum",
+    "runtime approval is missing",
+    "comparison conditions are not approved",
+    "GENOS_WEBARENA_COMMAND is not configured",
+    "GENOS_WEBARENA_RUNTIME_IDENTITY is not configured",
+    "GENOS_BROWSERGYM_DATASET is not configured",
+    "GENOS_BROWSERGYM_SHA256 must contain a SHA-256 checksum",
+    "GENOS_BROWSERGYM_COMMAND is not configured",
+    "GENOS_BROWSERGYM_RUNTIME_IDENTITY is not configured",
+    "GENOS_OSWORLD_DATASET is not configured",
+    "GENOS_OSWORLD_SHA256 must contain a SHA-256 checksum",
+    "GENOS_OSWORLD_COMMAND is not configured",
+    "GENOS_OSWORLD_RUNTIME_IDENTITY is not configured"
+  ]
+}
