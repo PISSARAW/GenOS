@@ -10,7 +10,7 @@ pub fn integer_schema(description: &str) -> serde_json::Value {
 pub fn security_specs() -> Vec<ToolSpec> {
     vec![
         SpecBuilder::new(
-            "genos_configure_gateway",
+            "configure_gateway",
             "Configure Tool Gateway",
             "Configures the Half-Open circuit breaker for the Tool Gateway.",
         )
@@ -29,7 +29,7 @@ pub fn security_specs() -> Vec<ToolSpec> {
         ))
         .build(),
         SpecBuilder::new(
-            "genos_inject_crispr_spacer",
+            "inject_crispr_spacer",
             "Inject CRISPR Spacer",
             "Injects an adversarial spacer footprint to block malicious payloads.",
         )

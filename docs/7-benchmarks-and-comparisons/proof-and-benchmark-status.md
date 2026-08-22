@@ -45,6 +45,20 @@ This is not a validated cross-framework or model-quality result. There is
 still no maintained comparison of external agent runtimes, blast radius,
 MTTR, throughput, or real provider token cost.
 
+### GenOS AgentBench pilot
+
+[`benchmarks/genos-agentbench`](../../benchmarks/genos-agentbench/) adds an
+active, model-backed comparison between standard Codex and the same model with
+the GenOS MCP server. Three stateful repair tasks are graded after agent exit by
+eight task-specific checks. The publication profile requires every visible
+Codex model, all tasks, at least three repetitions, paired bootstrap confidence
+intervals, raw traces, and a clean revision.
+
+The committed pilot is intentionally not a published superiority result: one
+GPT-5.4 Mini pair on `lease-ledger` passed 8/8 checks in both conditions. The
+GenOS arm made four MCP calls, proving active integration, while the paired
+quality delta remained zero. Its `publication_gate.publishable` value is false.
+
 The benchmark executables can produce local measurements, but a result becomes
 publishable only when its raw JSON and environment metadata are reviewed and
 committed. Use the [reproducible benchmark protocol](reproducible-benchmark-protocol.md)
