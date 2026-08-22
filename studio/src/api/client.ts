@@ -193,6 +193,12 @@ export const api = {
   promoteRelease: (id: string, environment = 'production') => apiRequest(`/api/releases/${encodeURIComponent(id)}/promote`, { method: 'POST', body: { environment } }),
   rollbackRelease: (id: string) => apiRequest(`/api/releases/${encodeURIComponent(id)}/rollback`, { method: 'POST', body: {} }),
 
+  // Tenancy and worker health
+  listOrganizations: () => apiRequest('/api/control-plane/organizations'),
+  createOrganization: (name: string) => apiRequest('/api/control-plane/organizations', { method: 'POST', body: { name } }),
+  listEnvironments: () => apiRequest('/api/control-plane/environments'),
+  getWorkerHealth: () => apiRequest('/api/control-plane/workers'),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
