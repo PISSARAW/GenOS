@@ -23,25 +23,19 @@ pub struct DetectArgs {
 }
 
 #[derive(Args, Debug)]
-pub struct InjectArgs {
-}
+pub struct InjectArgs {}
 
 #[derive(Args, Debug)]
-pub struct TestArgs {
-}
+pub struct TestArgs {}
 
 #[derive(Args, Debug)]
-pub struct ExtractArgs {
-}
+pub struct ExtractArgs {}
 
 #[derive(Args, Debug)]
-pub struct AnalyzeArgs {
-}
+pub struct AnalyzeArgs {}
 
 #[derive(Args, Debug)]
-pub struct CorrectArgs {
-}
+pub struct CorrectArgs {}
 
 #[derive(Args, Debug)]
-pub struct SimulateArgs {
-}
+pub struct SimulateArgs {}

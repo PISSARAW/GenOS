@@ -1,4 +1,4 @@
-﻿use genos_core::{AgentGenome, PhenotypeObservation};
+use genos_core::{AgentGenome, PhenotypeObservation};
 use std::collections::HashMap;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -48,7 +48,7 @@ pub fn compute_spearman_correlation(data: &[QtlDataPoint]) -> f64 {
     fn rank(values: &[f64]) -> Vec<f64> {
         let mut indexed: Vec<(usize, f64)> = values.iter().copied().enumerate().collect();
         indexed.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         let mut ranks = vec![0.0; values.len()];
         let mut i = 0;
         while i < indexed.len() {
@@ -83,7 +83,11 @@ pub fn compute_spearman_correlation(data: &[QtlDataPoint]) -> f64 {
     compute_pearson_correlation(&rank_data)
 }
 
-pub fn map_qtl(genomes: &[AgentGenome], phenotypes: &[PhenotypeObservation], min_variance_explained: f64) -> Vec<QtlAnalysis> {
+pub fn map_qtl(
+    genomes: &[AgentGenome],
+    phenotypes: &[PhenotypeObservation],
+    min_variance_explained: f64,
+) -> Vec<QtlAnalysis> {
     // Create a map from genome_id -> PhenotypeObservation
     let mut phenotype_map = HashMap::new();
     for p in phenotypes {
@@ -112,7 +116,10 @@ pub fn map_qtl(genomes: &[AgentGenome], phenotypes: &[PhenotypeObservation], min
                             .or_default()
                             .entry(trait_name.clone())
                             .or_default()
-                            .push(QtlDataPoint { gene_value: gene_val, trait_value: trait_val });
+                            .push(QtlDataPoint {
+                                gene_value: gene_val,
+                                trait_value: trait_val,
+                            });
                     }
                 }
             }
@@ -128,11 +135,11 @@ pub fn map_qtl(genomes: &[AgentGenome], phenotypes: &[PhenotypeObservation], min
             }
             let pearson = compute_pearson_correlation(&data);
             let spearman = compute_spearman_correlation(&data);
-            
+
             // We can use pearson for variance_explained (R^2), or the max of both depending on preference.
             // Pearson r^2 is standard.
             let variance_explained = pearson * pearson;
-            
+
             if variance_explained >= min_variance_explained {
                 results.push(QtlAnalysis {
                     gene_name: gene_name.clone(),
@@ -146,31 +153,53 @@ pub fn map_qtl(genomes: &[AgentGenome], phenotypes: &[PhenotypeObservation], min
     }
 
     // Sort descending by variance_explained
-    results.sort_by(|a, b| b.variance_explained.partial_cmp(&a.variance_explained).unwrap_or(std::cmp::Ordering::Equal));
-    
+    results.sort_by(|a, b| {
+        b.variance_explained
+            .partial_cmp(&a.variance_explained)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
     results
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use genos_core::{GenomeId, AgentGenome, CognitionConfig, Chromosome, Locus, ObservedTrait};
     use chrono::Utc;
+    use genos_core::{AgentGenome, Chromosome, GenomeId, Locus, ObservedTrait};
 
     #[test]
     fn test_compute_pearson() {
         let data = vec![
-            QtlDataPoint { gene_value: 1.0, trait_value: 2.0 },
-            QtlDataPoint { gene_value: 2.0, trait_value: 4.0 },
-            QtlDataPoint { gene_value: 3.0, trait_value: 6.0 },
+            QtlDataPoint {
+                gene_value: 1.0,
+                trait_value: 2.0,
+            },
+            QtlDataPoint {
+                gene_value: 2.0,
+                trait_value: 4.0,
+            },
+            QtlDataPoint {
+                gene_value: 3.0,
+                trait_value: 6.0,
+            },
         ];
         let p = compute_pearson_correlation(&data);
         assert!((p - 1.0).abs() < 1e-6);
 
         let data_inv = vec![
-            QtlDataPoint { gene_value: 1.0, trait_value: 6.0 },
-            QtlDataPoint { gene_value: 2.0, trait_value: 4.0 },
-            QtlDataPoint { gene_value: 3.0, trait_value: 2.0 },
+            QtlDataPoint {
+                gene_value: 1.0,
+                trait_value: 6.0,
+            },
+            QtlDataPoint {
+                gene_value: 2.0,
+                trait_value: 4.0,
+            },
+            QtlDataPoint {
+                gene_value: 3.0,
+                trait_value: 2.0,
+            },
         ];
         let p_inv = compute_pearson_correlation(&data_inv);
         assert!((p_inv - (-1.0)).abs() < 1e-6);
@@ -179,9 +208,18 @@ mod tests {
     #[test]
     fn test_compute_spearman() {
         let data = vec![
-            QtlDataPoint { gene_value: 1.0, trait_value: 10.0 },
-            QtlDataPoint { gene_value: 2.0, trait_value: 100.0 }, // non-linear but monotonic
-            QtlDataPoint { gene_value: 3.0, trait_value: 1000.0 },
+            QtlDataPoint {
+                gene_value: 1.0,
+                trait_value: 10.0,
+            },
+            QtlDataPoint {
+                gene_value: 2.0,
+                trait_value: 100.0,
+            }, // non-linear but monotonic
+            QtlDataPoint {
+                gene_value: 3.0,
+                trait_value: 1000.0,
+            },
         ];
         let s = compute_spearman_correlation(&data);
         assert!((s - 1.0).abs() < 1e-6);
@@ -212,11 +250,12 @@ mod tests {
             g.id = GenomeId(format!("g{}", i));
             g.cognition.chromosomes = vec![Chromosome {
                 name: "chrom1".to_string(),
+                operons: vec![],
                 loci: vec![Locus {
                     gene_name: "curiosity".to_string(),
                     value: i as f32 * 0.1,
                     epigenetic_marker: 0.0,
-                }]
+                }],
             }];
             genomes.push(g);
 
@@ -233,7 +272,7 @@ mod tests {
                     observations: 1,
                     method: "test".to_string(),
                     evidence: vec![],
-                }]
+                }],
             });
         }
 

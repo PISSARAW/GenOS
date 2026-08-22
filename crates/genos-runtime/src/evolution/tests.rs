@@ -1,7 +1,5 @@
-﻿use super::*;
-use genos_core::{
-    AgentSnapshot, BreedingStatus, GenomeId, ObservedTrait, PhenotypeObservation,
-};
+use super::*;
+use genos_core::{AgentSnapshot, BreedingStatus, GenomeId, ObservedTrait, PhenotypeObservation};
 use genos_eval::TraitEstimate;
 
 fn phenotype(snapshot: &AgentSnapshot, treatment: &str, value: f64) -> HeredityCohortMember {
@@ -60,8 +58,7 @@ fn breeding_records_both_parents_and_starts_without_inferred_claims() {
         sample_size: 100,
         evaluation_suite: "traits-v1".to_string(),
     };
-    let target =
-        genos_eval::recombine_measured_trait(estimate(0.9), estimate(0.4), 0.5).unwrap();
+    let target = genos_eval::recombine_measured_trait(estimate(0.9), estimate(0.4), 0.5).unwrap();
     let child = breed_genomes(
         &alice,
         &bob,
@@ -151,8 +148,7 @@ fn child_validation_updates_breeding_status_from_observed_traits() {
         sample_size: 100,
         evaluation_suite: "traits-v1".to_string(),
     };
-    let target =
-        genos_eval::recombine_measured_trait(estimate(0.9), estimate(0.4), 0.5).unwrap();
+    let target = genos_eval::recombine_measured_trait(estimate(0.9), estimate(0.4), 0.5).unwrap();
     let child = breed_genomes(
         &alice,
         &bob,

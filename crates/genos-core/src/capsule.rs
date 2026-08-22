@@ -71,6 +71,7 @@ pub struct AgentWorldCapsule {
 }
 
 impl AgentWorldCapsule {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         agent_snapshot: AgentSnapshot,
         world_snapshot_id: SnapshotId,

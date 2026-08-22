@@ -39,9 +39,7 @@ async fn main() -> anyhow::Result<()> {
     println!("Latency: {} ms", response.usage.latency_ms);
     println!(
         "Tokens used: {} (prompt: {}, completion: {})",
-        response.usage.total_tokens,
-        response.usage.prompt_tokens,
-        response.usage.completion_tokens
+        response.usage.total_tokens, response.usage.prompt_tokens, response.usage.completion_tokens
     );
 
     Ok(())

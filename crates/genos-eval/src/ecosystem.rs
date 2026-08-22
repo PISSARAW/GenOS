@@ -1,6 +1,6 @@
+use crate::parasitism::ParasiteGenome;
 use genos_core::AgentGenome;
 use std::collections::BTreeMap;
-use crate::parasitism::ParasiteGenome;
 
 /// Représente l'environnement inerte et ses ressources limitées.
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ pub struct Ecosystem {
 }
 
 /// Évalue une population d'agents dans un écosystème complet.
-/// Applique d'abord la compétition pour les ressources inertes (Biotope), 
+/// Applique d'abord la compétition pour les ressources inertes (Biotope),
 /// puis la pression parasitaire (Course aux armements).
 pub fn evaluate_ecosystem(ecosystem: &Ecosystem, agents: &mut [AgentGenome]) {
     evaluate_niche_competition(&ecosystem.biotope, agents);
@@ -52,7 +52,7 @@ pub fn evaluate_niche_competition(biotope: &Biotope, agents: &mut [AgentGenome])
                         // Ratio de survie sur cette ressource : (K / Demande Totale)
                         // Plus la demande est forte, plus la survie baisse (pÃ©nalitÃ© multiplicative).
                         let resource_survival_rate = k / total_demand;
-                        
+
                         // L'impact de la pÃ©nurie est pondÃ©rÃ© par le besoin de l'agent (demand).
                         // Ceci est une simplification mathÃ©matique du modÃ¨le de Lotka-Volterra.
                         survival_penalty *= resource_survival_rate.powf(*demand);
@@ -71,7 +71,7 @@ pub fn evaluate_niche_competition(biotope: &Biotope, agents: &mut [AgentGenome])
 #[cfg(test)]
 mod tests {
     use super::*;
-    use genos_core::{EcologicalNiche, ids::GenomeId, InferredGenomeTraitClaim};
+    use genos_core::{ids::GenomeId, EcologicalNiche, InferredGenomeTraitClaim};
 
     #[test]
     fn test_competitive_exclusion() {
@@ -87,21 +87,40 @@ mod tests {
             parent_genomes: vec![],
             mutation: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
-            identity: genos_core::Identity { name: "A1".to_string(), role: "".to_string() },
-            cognition: genos_core::CognitionConfig { chromosomes: vec![], planning_depth: 1, regulators: vec![] },
+            identity: genos_core::Identity {
+                name: "A1".to_string(),
+                role: "".to_string(),
+            },
+            cognition: genos_core::CognitionConfig {
+                chromosomes: vec![],
+                planning_depth: 1,
+                regulators: vec![],
+            },
             objectives: vec![],
             policies: vec![],
             capabilities: vec![],
-            memory_policy: genos_core::MemoryPolicy { working_max_items: 1, episodic_enabled: false, semantic_enabled: false },
-            model_policy: genos_core::ModelPolicy { strategy: "".to_string(), preferred_providers: vec![], allow_local: false },
-            tool_policy: genos_core::ToolPolicy { permissions: vec![] },
+            memory_policy: genos_core::MemoryPolicy {
+                working_max_items: 1,
+                episodic_enabled: false,
+                semantic_enabled: false,
+            },
+            model_policy: genos_core::ModelPolicy {
+                strategy: "".to_string(),
+                preferred_providers: vec![],
+                allow_local: false,
+            },
+            tool_policy: genos_core::ToolPolicy {
+                permissions: vec![],
+            },
             inferred_traits: vec![],
             breeding: None,
             ecological_niche: None,
         };
         let mut req1 = BTreeMap::new();
         req1.insert("cpu".to_string(), 1.0);
-        a1.ecological_niche = Some(EcologicalNiche { resource_requirements: req1 });
+        a1.ecological_niche = Some(EcologicalNiche {
+            resource_requirements: req1,
+        });
         a1.inferred_traits.push(InferredGenomeTraitClaim {
             trait_name: "survival_ability".to_string(),
             estimate: 1.0,
@@ -111,7 +130,11 @@ mod tests {
             status: genos_core::TraitClaimStatus::Candidate,
             contexts: vec![],
             evidence: vec![],
-            heritability: genos_core::HeritabilityEvidence { status: genos_core::HeritabilityStatus::Unknown, estimate: None, descendant_cohorts: vec![] },
+            heritability: genos_core::HeritabilityEvidence {
+                status: genos_core::HeritabilityStatus::Unknown,
+                estimate: None,
+                descendant_cohorts: vec![],
+            },
         });
 
         // Agent 2: Gros besoin en CPU
@@ -121,21 +144,40 @@ mod tests {
             parent_genomes: vec![],
             mutation: None,
             version: genos_core::GenomeVersion("0.1.0".to_string()),
-            identity: genos_core::Identity { name: "A2".to_string(), role: "".to_string() },
-            cognition: genos_core::CognitionConfig { chromosomes: vec![], planning_depth: 1, regulators: vec![] },
+            identity: genos_core::Identity {
+                name: "A2".to_string(),
+                role: "".to_string(),
+            },
+            cognition: genos_core::CognitionConfig {
+                chromosomes: vec![],
+                planning_depth: 1,
+                regulators: vec![],
+            },
             objectives: vec![],
             policies: vec![],
             capabilities: vec![],
-            memory_policy: genos_core::MemoryPolicy { working_max_items: 1, episodic_enabled: false, semantic_enabled: false },
-            model_policy: genos_core::ModelPolicy { strategy: "".to_string(), preferred_providers: vec![], allow_local: false },
-            tool_policy: genos_core::ToolPolicy { permissions: vec![] },
+            memory_policy: genos_core::MemoryPolicy {
+                working_max_items: 1,
+                episodic_enabled: false,
+                semantic_enabled: false,
+            },
+            model_policy: genos_core::ModelPolicy {
+                strategy: "".to_string(),
+                preferred_providers: vec![],
+                allow_local: false,
+            },
+            tool_policy: genos_core::ToolPolicy {
+                permissions: vec![],
+            },
             inferred_traits: vec![],
             breeding: None,
             ecological_niche: None,
         };
         let mut req2 = BTreeMap::new();
         req2.insert("cpu".to_string(), 3.0);
-        a2.ecological_niche = Some(EcologicalNiche { resource_requirements: req2 });
+        a2.ecological_niche = Some(EcologicalNiche {
+            resource_requirements: req2,
+        });
         a2.inferred_traits.push(InferredGenomeTraitClaim {
             trait_name: "survival_ability".to_string(),
             estimate: 1.0,
@@ -145,7 +187,11 @@ mod tests {
             status: genos_core::TraitClaimStatus::Candidate,
             contexts: vec![],
             evidence: vec![],
-            heritability: genos_core::HeritabilityEvidence { status: genos_core::HeritabilityStatus::Unknown, estimate: None, descendant_cohorts: vec![] },
+            heritability: genos_core::HeritabilityEvidence {
+                status: genos_core::HeritabilityStatus::Unknown,
+                estimate: None,
+                descendant_cohorts: vec![],
+            },
         });
 
         let mut population = vec![a1, a2];

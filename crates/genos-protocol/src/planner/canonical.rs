@@ -1,4 +1,4 @@
-﻿use serde_json::Value;
+use serde_json::Value;
 
 use crate::planner::builder::CommandPlanner;
 use crate::types::ProtocolError;
@@ -30,13 +30,17 @@ fn plan_create(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
 }
 
 fn plan_snapshot_or_restore(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
-    planner.args.push(planner.req_str("capsule_id")?.to_string());
+    planner
+        .args
+        .push(planner.req_str("capsule_id")?.to_string());
     planner.push_root("--root")?;
     Ok(())
 }
 
 fn plan_fork(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
-    planner.args.push(planner.req_str("capsule_id")?.to_string());
+    planner
+        .args
+        .push(planner.req_str("capsule_id")?.to_string());
     let branches = planner
         .object
         .get("branches")
@@ -67,7 +71,9 @@ fn plan_fork(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
 }
 
 fn plan_run(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
-    planner.args.push(planner.req_str("capsule_id")?.to_string());
+    planner
+        .args
+        .push(planner.req_str("capsule_id")?.to_string());
     planner.push_flag("--command", planner.req_str("command")?);
     planner.push_root("--root")?;
     if planner.opt_bool("allow_failure")?.unwrap_or(false) {

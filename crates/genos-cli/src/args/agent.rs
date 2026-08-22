@@ -1,4 +1,4 @@
-﻿use super::{
+use super::{
     ArgsMacro, CapsuleForkArgs, CapsuleIdArgs, DiffArgs, GenericExperimentArgs, OutputFormat,
     ReplayBasicArgs, SnapshotLineageArgs,
 };
@@ -97,7 +97,9 @@ pub struct AgentInferTraitsArgs {
     pub format: OutputFormat,
 }
 
-fn parse_key_val<T, U>(s: &str) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
+fn parse_key_val<T, U>(
+    s: &str,
+) -> Result<(T, U), Box<dyn std::error::Error + Send + Sync + 'static>>
 where
     T: std::str::FromStr,
     T::Err: std::error::Error + Send + Sync + 'static,

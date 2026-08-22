@@ -1,4 +1,4 @@
-﻿use crate::planner::builder::CommandPlanner;
+use crate::planner::builder::CommandPlanner;
 use crate::types::ProtocolError;
 
 pub fn plan_experiment(planner: &mut CommandPlanner) -> Result<bool, ProtocolError> {
@@ -43,7 +43,10 @@ fn plan_incident(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
 
 fn plan_scientific(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
     planner.args = vec!["experiment".into(), "scientific".into()];
-    planner.push_manifest_or_pair(("dataset", "--dataset"), ("research_plan", "--research-plan"))?;
+    planner.push_manifest_or_pair(
+        ("dataset", "--dataset"),
+        ("research_plan", "--research-plan"),
+    )?;
     planner.push_experiment_tail()?;
     Ok(())
 }

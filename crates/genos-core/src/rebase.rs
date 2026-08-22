@@ -22,13 +22,13 @@ impl TrajectoryRebaser {
     pub fn compute_rebase_plan(
         graph: &ActionDependencyGraph,
         injection_step: usize,
-        injected_writes: &Vec<EntityRef>,
+        injected_writes: &[EntityRef],
     ) -> RebasePlan {
         let mut cherry_picked_steps = Vec::new();
         let mut fast_forward_steps = Vec::new();
-        
+
         // L'ensemble des variables/fichiers qui ont été corrompus par notre modification temporelle.
-        let mut tainted_entities = injected_writes.clone();
+        let mut tainted_entities = injected_writes.to_owned();
 
         for action in &graph.actions {
             if action.step_index <= injection_step {
@@ -38,10 +38,12 @@ impl TrajectoryRebaser {
 
             // Une action est corrompue (Tainted) si elle lit une entité qui a été
             // modifiée par l'injection ou par une action préalablement corrompue.
-            let is_tainted_by_read = check_intersection(action.reads.iter(), tainted_entities.iter());
-            
+            let is_tainted_by_read =
+                check_intersection(action.reads.iter(), tainted_entities.iter());
+
             // Une action est aussi corrompue si elle écrase une entité corrompue (conflit direct)
-            let is_tainted_by_write = check_intersection(action.writes.iter(), tainted_entities.iter());
+            let is_tainted_by_write =
+                check_intersection(action.writes.iter(), tainted_entities.iter());
 
             if is_tainted_by_read || is_tainted_by_write {
                 // L'Effet Papillon: cette action "malade" contamine les fichiers/entités qu'elle touche.
@@ -77,7 +79,9 @@ mod tests {
             step_index: 1,
             boundary_id: "b1".to_string(),
             reads: vec![],
-            writes: vec![EntityRef::StateVar { key: "Init".to_string() }],
+            writes: vec![EntityRef::StateVar {
+                key: "Init".to_string(),
+            }],
         });
 
         // Étape 2: Injection ciblera cette étape (Modifie Config)
@@ -85,45 +89,70 @@ mod tests {
             step_index: 2,
             boundary_id: "b2".to_string(),
             reads: vec![],
-            writes: vec![EntityRef::StateVar { key: "Config".to_string() }],
+            writes: vec![EntityRef::StateVar {
+                key: "Config".to_string(),
+            }],
         });
 
         // Étape 3: Lit Config, Modifie Database -> Doit être classée fast_forward car elle lit Config (Effet papillon)
         graph.record_action(CausalAction {
             step_index: 3,
             boundary_id: "b3".to_string(),
-            reads: vec![EntityRef::StateVar { key: "Config".to_string() }],
-            writes: vec![EntityRef::StateVar { key: "Database".to_string() }],
+            reads: vec![EntityRef::StateVar {
+                key: "Config".to_string(),
+            }],
+            writes: vec![EntityRef::StateVar {
+                key: "Database".to_string(),
+            }],
         });
 
         // Étape 4: Lit UI, Modifie CSS -> Doit être cherry_picked (Indépendant)
         graph.record_action(CausalAction {
             step_index: 4,
             boundary_id: "b4".to_string(),
-            reads: vec![EntityRef::StateVar { key: "UI".to_string() }],
-            writes: vec![EntityRef::StateVar { key: "CSS".to_string() }],
+            reads: vec![EntityRef::StateVar {
+                key: "UI".to_string(),
+            }],
+            writes: vec![EntityRef::StateVar {
+                key: "CSS".to_string(),
+            }],
         });
 
         // Étape 5: Lit Database -> Doit être fast_forward car Database a été pollué par l'étape 3
         graph.record_action(CausalAction {
             step_index: 5,
             boundary_id: "b5".to_string(),
-            reads: vec![EntityRef::StateVar { key: "Database".to_string() }],
-            writes: vec![EntityRef::StateVar { key: "Logs".to_string() }],
+            reads: vec![EntityRef::StateVar {
+                key: "Database".to_string(),
+            }],
+            writes: vec![EntityRef::StateVar {
+                key: "Logs".to_string(),
+            }],
         });
 
         // Simulation d'une injection à l'étape 2 (Modifie Config)
         let injection_step = 2;
-        let injected_writes = vec![EntityRef::StateVar { key: "Config".to_string() }];
+        let injected_writes = vec![EntityRef::StateVar {
+            key: "Config".to_string(),
+        }];
 
         let plan = TrajectoryRebaser::compute_rebase_plan(&graph, injection_step, &injected_writes);
 
         // Vérifications
         assert_eq!(plan.cherry_picked_steps.len(), 1);
-        assert_eq!(plan.cherry_picked_steps[0].step_index, 4, "L'étape 4 (CSS) est indépendante.");
+        assert_eq!(
+            plan.cherry_picked_steps[0].step_index, 4,
+            "L'étape 4 (CSS) est indépendante."
+        );
 
         assert_eq!(plan.fast_forward_steps.len(), 2);
-        assert_eq!(plan.fast_forward_steps[0].step_index, 3, "L'étape 3 lit Config directement muté.");
-        assert_eq!(plan.fast_forward_steps[1].step_index, 5, "L'étape 5 lit Database, muté par l'étape 3.");
+        assert_eq!(
+            plan.fast_forward_steps[0].step_index, 3,
+            "L'étape 3 lit Config directement muté."
+        );
+        assert_eq!(
+            plan.fast_forward_steps[1].step_index, 5,
+            "L'étape 5 lit Database, muté par l'étape 3."
+        );
     }
 }

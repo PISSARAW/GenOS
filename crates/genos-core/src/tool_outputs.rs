@@ -41,6 +41,7 @@ impl AgentSnapshot {
     }
 
     /// Returns whether the genome explicitly enables this tool and scope.
+    #[allow(clippy::too_many_arguments)]
     pub fn tool_is_allowed(&self, policy: &ToolPolicy, tool: &str, scope: &str) -> bool {
         policy.permissions.iter().any(|permission| {
             permission.tool == tool && permission.scope == scope && permission.enabled

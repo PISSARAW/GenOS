@@ -10,7 +10,10 @@ pub fn evolution_specs() -> Vec<ToolSpec> {
             "Forcer l'assimilation d'un plasmide MCP pour le transfert horizontal de gènes.",
         )
         .schema(object_schema(
-            [("plasmid_id", string_schema("L'identifiant du plasmide à assimiler"))],
+            [(
+                "plasmid_id",
+                string_schema("L'identifiant du plasmide à assimiler"),
+            )],
             &["plasmid_id"],
         ))
         .build(),
@@ -20,7 +23,10 @@ pub fn evolution_specs() -> Vec<ToolSpec> {
             "Modifier le seuil d'entropie pour le routage dynamique des modèles (SLM vs Frontier).",
         )
         .schema(object_schema(
-            [("threshold", number_schema("La valeur du nouveau seuil d'entropie (ex. 0.8)"))],
+            [(
+                "threshold",
+                number_schema("La valeur du nouveau seuil d'entropie (ex. 0.8)"),
+            )],
             &["threshold"],
         ))
         .build(),

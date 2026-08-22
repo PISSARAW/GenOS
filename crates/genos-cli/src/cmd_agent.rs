@@ -1,4 +1,4 @@
-﻿use crate::args::{
+use crate::args::{
     AgentBreedArgs, AgentCreateArgs, AgentForkFromSnapshotArgs, AgentInferTraitsArgs,
     AgentInspectArgs, AgentMutateArgs, AgentPromoteTraitArgs, OutputFormat,
 };
@@ -41,24 +41,34 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
         parent_genome: None,
         parent_genomes: vec![],
         mutation: None,
-            ecological_niche: None,
+        ecological_niche: None,
         version: GenomeVersion("0.1.0".to_string()),
         identity: Identity {
             name: args.name.clone(),
             role: args.role,
         },
         cognition: CognitionConfig {
-            chromosomes: vec![
-                genos_core::Chromosome {
-                    name: "C1".to_string(),
-                    loci: vec![
-                        genos_core::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
-                        genos_core::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                        genos_core::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
-                    ],
-                    operons: vec![],
-                }
-            ],
+            chromosomes: vec![genos_core::Chromosome {
+                name: "C1".to_string(),
+                loci: vec![
+                    genos_core::Locus {
+                        gene_name: "exploration".to_string(),
+                        value: 0.7,
+                        epigenetic_marker: 0.0,
+                    },
+                    genos_core::Locus {
+                        gene_name: "risk_tolerance".to_string(),
+                        value: 0.25,
+                        epigenetic_marker: 0.0,
+                    },
+                    genos_core::Locus {
+                        gene_name: "verification_threshold".to_string(),
+                        value: 0.8,
+                        epigenetic_marker: 0.0,
+                    },
+                ],
+                operons: vec![],
+            }],
             planning_depth: 6,
             regulators: vec![],
         },
@@ -187,8 +197,16 @@ pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    let child =
-        breed_genomes(&alice, &bob, &manifest.child_name, &mappings, &genos_core::RecombinationStrategy::HomologousRecombination, manifest.speciation_threshold, &[]).map_err(anyhow::Error::msg)?;
+    let child = breed_genomes(
+        &alice,
+        &bob,
+        &manifest.child_name,
+        &mappings,
+        &genos_core::RecombinationStrategy::HomologousRecombination,
+        manifest.speciation_threshold,
+        &[],
+    )
+    .map_err(anyhow::Error::msg)?;
     write_serialized(&args.out, &child, args.format)?;
     println!("bred agent genome written to {}", args.out.display());
     Ok(())
@@ -369,7 +387,7 @@ async fn build_fork_entry(
     };
 
     if save {
-        snapshot_store.save_snapshot(&fork).await?;
+        snapshot_store.save_snapshot(fork.clone()).await?;
     }
 
     Ok(ForkEntry {

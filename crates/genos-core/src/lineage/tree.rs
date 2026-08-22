@@ -1,4 +1,4 @@
-﻿use crate::ids::SnapshotId;
+use crate::ids::SnapshotId;
 use crate::lineage::dag::{LineageDag, LineageEdge, LineageRelation};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -93,9 +93,7 @@ pub fn short_id(id: &str) -> String {
 
 /// Build a map: child_snapshot -> the parent_snapshot of its earliest
 /// incoming edge.
-pub fn earliest_parent_index(
-    edges: &[LineageEdge],
-) -> HashMap<SnapshotId, SnapshotId> {
+pub fn earliest_parent_index(edges: &[LineageEdge]) -> HashMap<SnapshotId, SnapshotId> {
     let mut index: HashMap<SnapshotId, SnapshotId> = HashMap::new();
     for edge in edges {
         match index.get(&edge.child_snapshot) {

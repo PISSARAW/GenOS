@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use crate::genome::{AgentGenome, Locus};
 use crate::operon::Operon;
+use serde::{Deserialize, Serialize};
 
 /// Unité génétique mobile (élément transposable) capable de s'insérer
 /// de manière autonome dans le génome pour propager des fragments (payload).

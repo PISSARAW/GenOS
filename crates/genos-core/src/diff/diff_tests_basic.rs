@@ -1,4 +1,4 @@
-﻿//! Tests for the structural diff that are not specific to memory records.
+//! Tests for the structural diff that are not specific to memory records.
 //!
 //! Memory-specific tests live in `diff_tests_memory.rs`.
 
@@ -285,7 +285,9 @@ fn float_fields_are_reported_at_their_own_precision() {
     let mut a2 = fork_snapshot(&parent);
 
     a2.genome.cognition.set_drive("exploration", 0.8);
-    a2.genome.cognition.set_drive("verification_threshold", 0.55);
+    a2.genome
+        .cognition
+        .set_drive("verification_threshold", 0.55);
 
     let diff = diff_snapshots(&a1, &a2);
     let rendered: Vec<(&str, &str)> = diff

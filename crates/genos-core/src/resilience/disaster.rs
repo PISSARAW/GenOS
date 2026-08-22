@@ -80,6 +80,12 @@ pub mod microbiome {
         actors: std::collections::HashMap<String, Actor>,
     }
 
+    impl Default for ZeroTrustEnv {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
     impl ZeroTrustEnv {
         pub fn new() -> Self {
             Self {

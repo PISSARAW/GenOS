@@ -1,13 +1,22 @@
-﻿use genos_core::{AgentGenome, GenomeId};
+use genos_core::{AgentGenome, GenomeId};
 use std::collections::HashMap;
 
 /// Calcule la distance gÃ©nÃ©tique Euclidienne (horloge molÃ©culaire) entre deux gÃ©nomes
 pub fn molecular_clock_distance(a: &AgentGenome, b: &AgentGenome) -> f64 {
     let mut sum_sq = 0.0;
     for a_chrom in &a.cognition.chromosomes {
-        if let Some(b_chrom) = b.cognition.chromosomes.iter().find(|c| c.name == a_chrom.name) {
+        if let Some(b_chrom) = b
+            .cognition
+            .chromosomes
+            .iter()
+            .find(|c| c.name == a_chrom.name)
+        {
             for a_locus in &a_chrom.loci {
-                if let Some(b_locus) = b_chrom.loci.iter().find(|l| l.gene_name == a_locus.gene_name) {
+                if let Some(b_locus) = b_chrom
+                    .loci
+                    .iter()
+                    .find(|l| l.gene_name == a_locus.gene_name)
+                {
                     let diff = (a_locus.expressed_value() - b_locus.expressed_value()) as f64;
                     sum_sq += diff * diff;
                 }
@@ -55,13 +64,16 @@ impl PhylogenyTree {
                     parents.push(p.clone());
                 }
             }
-            
+
             if parents.is_empty() {
                 roots.push(g.id.clone());
             }
 
             for p in &parents {
-                children_map.entry(p.clone()).or_default().push(g.id.clone());
+                children_map
+                    .entry(p.clone())
+                    .or_default()
+                    .push(g.id.clone());
             }
         }
 
@@ -85,12 +97,15 @@ impl PhylogenyTree {
                 }
             }
 
-            nodes.insert(g.id.clone(), PhylogenyNode {
-                id: g.id.clone(),
-                parents,
-                children,
-                distance_from_root,
-            });
+            nodes.insert(
+                g.id.clone(),
+                PhylogenyNode {
+                    id: g.id.clone(),
+                    parents,
+                    children,
+                    distance_from_root,
+                },
+            );
         }
 
         // Cumuler les distances depuis la racine pour l'horloge absolue
@@ -120,10 +135,7 @@ impl PhylogenyTree {
             }
         }
 
-        Self {
-            nodes,
-            roots,
-        }
+        Self { nodes, roots }
     }
 
     /// Exporte l'arbre au format texte standard Newick `((A,B),C);`
@@ -148,7 +160,12 @@ impl PhylogenyTree {
             for child_id in &node.children {
                 children_str.push(self.build_newick_for_node(child_id));
             }
-            return format!("({}){}:{:.3}", children_str.join(","), id.0, node.distance_from_root);
+            return format!(
+                "({}){}:{:.3}",
+                children_str.join(","),
+                id.0,
+                node.distance_from_root
+            );
         }
         String::new()
     }

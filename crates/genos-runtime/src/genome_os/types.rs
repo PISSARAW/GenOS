@@ -1,10 +1,8 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use genos_core::{AgentEvent, AgentWorldCapsule, BranchId};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    BranchExperience, CognitiveMergeApplication, CognitiveMergeReport,
-};
+use crate::{BranchExperience, CognitiveMergeApplication, CognitiveMergeReport};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AgentGenerationLineage {

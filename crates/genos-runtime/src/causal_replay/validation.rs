@@ -1,4 +1,4 @@
-﻿use chrono::{DateTime, Utc};
+use chrono::{DateTime, Utc};
 use std::collections::{HashMap, HashSet};
 
 use super::types::{CausalCheckpoint, CausalEventKind, CausalTimelineEvent, DecisionIntervention};
@@ -58,10 +58,7 @@ fn validate_intervention_target(
         .find(|event| event.event_id == intervention.target_event_id)
         .ok_or_else(|| "intervention target is absent from history".to_string())?;
 
-    let event_ids = events
-        .iter()
-        .map(|e| &e.event_id)
-        .collect::<HashSet<_>>();
+    let event_ids = events.iter().map(|e| &e.event_id).collect::<HashSet<_>>();
 
     if target.kind != CausalEventKind::Decision
         || intervention.replacement.kind != CausalEventKind::Decision

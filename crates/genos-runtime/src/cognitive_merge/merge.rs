@@ -1,4 +1,4 @@
-﻿use genos_core::BranchId;
+use genos_core::BranchId;
 use std::collections::{BTreeMap, HashMap};
 
 use super::graph::{add_experiences_to_graph, build_cognitive_graph, candidate_name};
@@ -257,10 +257,7 @@ fn apply_semantic_relations(
     }
 }
 
-fn finalize_candidate_statuses(
-    candidates: &mut [MergedClaim],
-    config: &CognitiveMergeConfig,
-) {
+fn finalize_candidate_statuses(candidates: &mut [MergedClaim], config: &CognitiveMergeConfig) {
     for candidate in candidates {
         candidate.status = if !candidate.superseded_by.is_empty() {
             MergeClaimStatus::Superseded
@@ -277,10 +274,7 @@ fn finalize_candidate_statuses(
     }
 }
 
-fn extract_names_by_status(
-    candidates: &[MergedClaim],
-    status: MergeClaimStatus,
-) -> Vec<String> {
+fn extract_names_by_status(candidates: &[MergedClaim], status: MergeClaimStatus) -> Vec<String> {
     candidates
         .iter()
         .filter(|candidate| candidate.status == status)

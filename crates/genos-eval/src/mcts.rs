@@ -1,5 +1,5 @@
-use crate::prm::{ProcessRewardModel, EvalContext};
-use crate::morphogenesis::{TuringGradient, MorphogenesisModel, SynapticPlasticity};
+use crate::morphogenesis::{MorphogenesisModel, SynapticPlasticity, TuringGradient};
+use crate::prm::{EvalContext, ProcessRewardModel};
 // use crate::outcomes::StepOutcome; // Réservé pour la logique d'expansion avancée
 
 /// Un instantané immuable de l'état de l'agent.
@@ -62,8 +62,8 @@ impl SynapticPlasticity for MctsNode {
 /// Moteur de recherche arborescente contrefactuelle MCTS (Monte Carlo Tree Search).
 ///
 /// Ce moteur hybride bio-inspiré utilise le `ProcessRewardModel` (PRM)
-/// pour évaluer, scorer et élaguer les branches de l'arbre contrefactuel. 
-/// 
+/// pour évaluer, scorer et élaguer les branches de l'arbre contrefactuel.
+///
 /// Il intègre nativement :
 /// - Les champs de Turing (Morphogenèse) pour différencier le rôle des agents au vol.
 /// - L'ATP/AMPK pour contraindre thermodynamiquement la profondeur de la recherche (Energy Charge).
@@ -81,14 +81,14 @@ impl<P: ProcessRewardModel> MctsEngine<P> {
     /// Évalue et étend un nœud, en appliquant l'élagage précoce.
     pub fn expand_node(&self, parent: &MctsNode) -> Vec<MctsNode> {
         let mut new_ctx = self.context.clone();
-        
+
         let u = new_ctx.positional_gradient as f64;
         let v = parent.synaptic_weight as f64;
         let diff = 0.1; // Diffusion locale
-        
+
         let new_u = MorphogenesisModel::update_activator(u, v, diff);
         new_ctx.positional_gradient = new_u as f32;
-        
+
         // L'implémentation de génération de candidats sera ajoutée ici.
         Vec::new()
     }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 /// Métadonnées attachées à une spore cryptobiotique.
 #[derive(Clone, Debug, Serialize, Deserialize)]
