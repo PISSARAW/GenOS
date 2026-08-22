@@ -6,7 +6,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use genos_protocol::{plan_tool_call, tool_specs, CommandOutcome, ProtocolResult, ToolAnnotations, ToolSpec, PROTOCOL_VERSION};
+use genos_protocol::{
+    plan_tool_call, tool_specs, CommandOutcome, ProtocolResult, ToolAnnotations, ToolSpec,
+    PROTOCOL_VERSION,
+};
 use serde_json::{json, Value};
 use std::{env, path::PathBuf, sync::Arc};
 use tokio::{
@@ -18,13 +21,20 @@ pub const MCP_PROTOCOL_VERSION: &str = "2025-06-18";
 pub const SERVER_INSTRUCTIONS: &str = "GenOS versions complete agent-world state and software-development trajectories. Inspect and search negative knowledge before mutation. Diagnose with falsifiable hypotheses before solve; snapshot before risky work; fork when comparing alternatives; diff, adversarially review, and evaluate across relevant worlds before merge. Use project experiment tools for workspace refactors, causal replay, incident reproduction, scientific research, security coevolution, and unknown-cause debugging. Record decisions, assumptions, evidence, failures, and code/test lineage for future agents. genos_run and workspace-based project experiments may execute explicit commands in isolated GenOS worlds and change files. Never run a command the user did not authorize. Product clients such as Codex are tools users, not model providers stored in the genome.";
 
 fn expose_full_catalog() -> bool {
-    matches!(env::var("GENOS_MCP_EXPOSE_ALL").as_deref(), Ok("1") | Ok("true") | Ok("TRUE"))
+    matches!(
+        env::var("GENOS_MCP_EXPOSE_ALL").as_deref(),
+        Ok("1") | Ok("true") | Ok("TRUE")
+    )
 }
 
 fn leased_operations() -> Option<Vec<String>> {
-    let values: Vec<String> = env::var("GENOS_MCP_LEASE").ok()?
-        .split(',').map(str::trim).filter(|value| !value.is_empty())
-        .map(|value| format!("genos_{}", value.strip_prefix("genos_").unwrap_or(value))).collect();
+    let values: Vec<String> = env::var("GENOS_MCP_LEASE")
+        .ok()?
+        .split(',')
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(|value| format!("genos_{}", value.strip_prefix("genos_").unwrap_or(value)))
+        .collect();
     (!values.is_empty()).then_some(values)
 }
 
@@ -46,9 +56,16 @@ fn orchestrator_tool() -> ToolSpec {
 
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
-        return tool_specs().into_iter().filter(|tool| lease.contains(&tool.name)).collect();
+        return tool_specs()
+            .into_iter()
+            .filter(|tool| lease.contains(&tool.name))
+            .collect();
     }
-    if expose_full_catalog() { tool_specs() } else { vec![orchestrator_tool()] }
+    if expose_full_catalog() {
+        tool_specs()
+    } else {
+        vec![orchestrator_tool()]
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -78,7 +95,8 @@ impl GenosCliExecutor {
         let executable = env::var_os("GENOS_BIN")
             .map(PathBuf::from)
             .or_else(sibling_genos_binary);
-        let orchestrator_bridge = env::var_os("GENOS_ORCHESTRATOR_BRIDGE").map(PathBuf::from)
+        let orchestrator_bridge = env::var_os("GENOS_ORCHESTRATOR_BRIDGE")
+            .map(PathBuf::from)
             .or_else(|| {
                 let candidate = workspace_root.join("backend/bin/genos-orchestrate.cjs");
                 candidate.is_file().then_some(candidate)
@@ -102,31 +120,35 @@ impl GenosCliExecutor {
 #[async_trait]
 impl CommandExecutor for GenosCliExecutor {
     async fn execute(&self, args: &[String]) -> anyhow::Result<ExecutionOutput> {
-        let mut command = if args.first().map(String::as_str) == Some("__genos_backend_orchestrate__") {
+        let mut command = if args.first().map(String::as_str)
+            == Some("__genos_backend_orchestrate__")
+        {
             let bridge = self.orchestrator_bridge.as_ref()
                 .ok_or_else(|| anyhow::anyhow!("backend/bin/genos-orchestrate.cjs was not found; set GENOS_ORCHESTRATOR_BRIDGE"))?;
             let mut node = Command::new("node");
             node.arg(bridge).args(&args[1..]);
             node
-        } else { match &self.executable {
-            Some(executable) => Command::new(executable),
-            None => {
-                let mut cargo = Command::new("cargo");
-                cargo.args([
-                    "run",
-                    "--quiet",
-                    "--manifest-path",
-                    self.workspace_root
-                        .join("Cargo.toml")
-                        .to_string_lossy()
-                        .as_ref(),
-                    "-p",
-                    "genos-cli",
-                    "--",
-                ]);
-                cargo
+        } else {
+            match &self.executable {
+                Some(executable) => Command::new(executable),
+                None => {
+                    let mut cargo = Command::new("cargo");
+                    cargo.args([
+                        "run",
+                        "--quiet",
+                        "--manifest-path",
+                        self.workspace_root
+                            .join("Cargo.toml")
+                            .to_string_lossy()
+                            .as_ref(),
+                        "-p",
+                        "genos-cli",
+                        "--",
+                    ]);
+                    cargo
+                }
             }
-        }};
+        };
         let output = command
             .args(args)
             .current_dir(&self.workspace_root)
@@ -200,17 +222,42 @@ impl McpServer {
             .unwrap_or_else(|| json!({}));
         if let Some(lease) = leased_operations() {
             if !lease.contains(&name.to_string()) {
-                return tool_error(id, format!("Tool '{name}' is outside this worker's GenOS lease."));
+                return tool_error(
+                    id,
+                    format!("Tool '{name}' is outside this worker's GenOS lease."),
+                );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_orchestrate" && arguments.get("operation").is_none() && expose_full_catalog() == false {
-            ("__genos_backend_orchestrate__".to_string(), arguments)
+        let (operation_name, operation_arguments) = if name == "genos_orchestrate"
+            && arguments.get("operation").is_none()
+            && expose_full_catalog() == false
+        {
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object
+                    .entry("background")
+                    .or_insert_with(|| Value::Bool(true));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
         } else if name == "genos_orchestrate" {
-            let operation = arguments.get("operation").and_then(Value::as_str).unwrap_or("solve");
-            let operation_name = format!("genos_{}", operation.strip_prefix("genos_").unwrap_or(operation));
-            let task = arguments.get("task").and_then(Value::as_str).unwrap_or("Autonomous GenOS orchestration");
+            let operation = arguments
+                .get("operation")
+                .and_then(Value::as_str)
+                .unwrap_or("solve");
+            let operation_name = format!(
+                "genos_{}",
+                operation.strip_prefix("genos_").unwrap_or(operation)
+            );
+            let task = arguments
+                .get("task")
+                .and_then(Value::as_str)
+                .unwrap_or("Autonomous GenOS orchestration");
             let operation_arguments = arguments.get("arguments").cloned().unwrap_or_else(|| {
-                if operation == "solve" { json!({"problem": task}) } else { json!({"query": task}) }
+                if operation == "solve" {
+                    json!({"problem": task})
+                } else {
+                    json!({"query": task})
+                }
             });
             (operation_name, operation_arguments)
         } else if expose_full_catalog() {
@@ -219,11 +266,16 @@ impl McpServer {
             return tool_error(id, "Only genos_orchestrate is public. Set GENOS_MCP_EXPOSE_ALL=true for an internal full-catalog client.".into());
         };
         let planned = if operation_name == "__genos_backend_orchestrate__" {
-            genos_protocol::PlannedCommand { operation: "backend_orchestrate".into(), args: vec![operation_name, operation_arguments.to_string()] }
-        } else { match plan_tool_call(&operation_name, &operation_arguments) {
-            Ok(planned) => planned,
-            Err(error) => return tool_error(id, error.to_string()),
-        }};
+            genos_protocol::PlannedCommand {
+                operation: "backend_orchestrate".into(),
+                args: vec![operation_name, operation_arguments.to_string()],
+            }
+        } else {
+            match plan_tool_call(&operation_name, &operation_arguments) {
+                Ok(planned) => planned,
+                Err(error) => return tool_error(id, error.to_string()),
+            }
+        };
 
         match self.executor.execute(&planned.args).await {
             Ok(execution) => {
@@ -331,6 +383,7 @@ mod tests {
         body::{to_bytes, Body},
         http::Request,
     };
+    use std::sync::Mutex;
     use tokio::io::{duplex, split, AsyncBufReadExt, AsyncWriteExt, BufReader};
     use tower::ServiceExt;
 
@@ -339,10 +392,27 @@ mod tests {
         output: ExecutionOutput,
     }
 
+    #[derive(Clone)]
+    struct CapturingExecutor {
+        args: Arc<Mutex<Vec<String>>>,
+    }
+
     #[async_trait]
     impl CommandExecutor for FakeExecutor {
         async fn execute(&self, _args: &[String]) -> anyhow::Result<ExecutionOutput> {
             Ok(self.output.clone())
+        }
+    }
+
+    #[async_trait]
+    impl CommandExecutor for CapturingExecutor {
+        async fn execute(&self, args: &[String]) -> anyhow::Result<ExecutionOutput> {
+            *self.args.lock().unwrap() = args.to_vec();
+            Ok(ExecutionOutput {
+                exit_code: 0,
+                stdout: "{}".into(),
+                stderr: String::new(),
+            })
         }
     }
 
@@ -398,6 +468,27 @@ mod tests {
             response["result"]["structuredContent"]["output"]["valid"],
             true
         );
+    }
+
+    #[tokio::test]
+    async fn initial_orchestration_returns_an_async_acceptance_request() {
+        let args = Arc::new(Mutex::new(Vec::new()));
+        let server = McpServer::new(Arc::new(CapturingExecutor { args: args.clone() }));
+        let response = server
+            .handle(json!({
+                "jsonrpc": "2.0",
+                "id": "start-1",
+                "method": "tools/call",
+                "params": {"name": "genos_orchestrate", "arguments": {"task": "Check startup"}}
+            }))
+            .await
+            .unwrap();
+
+        assert_eq!(response["result"]["isError"], false);
+        let captured = args.lock().unwrap();
+        assert_eq!(captured[0], "__genos_backend_orchestrate__");
+        let request: Value = serde_json::from_str(&captured[1]).unwrap();
+        assert_eq!(request["background"], true);
     }
 
     #[tokio::test]
