@@ -111,7 +111,7 @@ export const AgentProfile: React.FC = () => {
                   <div style={{ padding: '16px', borderBottom: agentTraces.length ? '1px solid var(--panel-border)' : 'none' }}>
                     <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Current execution</div>
                     <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>{activeAgent.currentTask}</div>
-                    <div style={{ marginTop: '6px', color: 'var(--success)', fontSize: '0.8rem' }}>running · source: agent state</div>
+                    <div style={{ marginTop: '6px', color: activeAgent.status === 'running' ? 'var(--success)' : 'var(--text-secondary)', fontSize: '0.8rem' }}>{activeAgent.status} · source: agent state</div>
                   </div>
                 )}
                 {agentTraces.map((trace, index) => {
@@ -165,7 +165,7 @@ export const AgentProfile: React.FC = () => {
               <div style={{ padding: '16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)' }}>
                 <h2 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}><PlayCircle size={16} color="var(--text-muted)" /> Live Experiment Activity</h2>
               </div>
-              {activeAgent.currentTask && <div style={{ padding: '16px', borderBottom: agentTraces.length ? '1px solid var(--panel-border)' : 'none' }}><div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Active assignment</div><div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>{activeAgent.currentTask}</div><div style={{ marginTop: '6px', color: 'var(--success)', fontSize: '0.8rem' }}>running · source: agent state</div></div>}
+              {activeAgent.currentTask && <div style={{ padding: '16px', borderBottom: agentTraces.length ? '1px solid var(--panel-border)' : 'none' }}><div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Active assignment</div><div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>{activeAgent.currentTask}</div><div style={{ marginTop: '6px', color: activeAgent.status === 'running' ? 'var(--success)' : 'var(--text-secondary)', fontSize: '0.8rem' }}>{activeAgent.status} · source: agent state</div></div>}
               {agentTraces.map((trace, index) => <div key={trace.id || index} style={{ padding: '16px', borderBottom: index < agentTraces.length - 1 ? '1px solid var(--panel-border)' : 'none' }}><div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{trace.name || 'Agent action'}</div><div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{trace.outputs ? (typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)) : 'No output recorded.'}</div><div style={{ marginTop: '6px', color: 'var(--text-muted)', fontSize: '0.75rem' }}>{trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'time unavailable'} · live trace</div></div>)}
               {!activeAgent.currentTask && agentTraces.length === 0 && <div style={{ padding: '24px', color: 'var(--text-secondary)' }}>No experiment assignment or execution trace recorded for this agent.</div>}
             </div>

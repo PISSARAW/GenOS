@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   ArrowLeft, Code, CircleDot, GitPullRequest, PlayCircle, History, 
   ShieldCheck, LayoutGrid, FileText, Folder, FolderOpen, ChevronRight, ChevronDown, Book, Activity, Settings
@@ -59,7 +59,10 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
   const [readme, setReadme] = useState('');
   const [codeLoading, setCodeLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
-  const fileTree = buildFileTree(files);
+  const [showFileSearch, setShowFileSearch] = useState(false);
+  const [fileQuery, setFileQuery] = useState('');
+  const fileSearchRef = useRef<HTMLInputElement>(null);
+  const visibleFiles = files.filter((file) => file.name.toLowerCase().includes(fileQuery.trim().toLowerCase()));
 
   const renderFileTree = (nodes: FileTreeNode[], depth = 0): React.ReactNode => nodes.map(node => {
     const expanded = expandedFolders[node.path] ?? depth === 0;
@@ -224,22 +227,23 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button className="gh-btn" style={{ background: 'var(--bg-subtle)' }}>
+                  <button className="gh-btn" disabled title="Branch management is not available for filesystem-backed workspaces." style={{ background: 'var(--bg-subtle)' }}>
                     <GitPullRequest size={14} style={{ transform: 'rotate(90deg)' }} /> main
                   </button>
-                  <button className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button className="gh-btn" disabled title="Branch management is not available for filesystem-backed workspaces." style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <GitPullRequest size={14} /> 1 Branch
                   </button>
-                  <button className="gh-btn" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button className="gh-btn" disabled title="Tag management is not available for filesystem-backed workspaces." style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <Book size={14} /> 0 Tags
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => showToast('info', 'File Search', 'Opening search index')} className="gh-btn">Go to file</button>
-                  <button onClick={() => showToast('info', 'Add File', 'Opening file creator')} className="gh-btn">Add file</button>
-                  <button onClick={() => showToast('info', 'Code Clone', 'https://github.com/GenOS/workspace.git')} className="gh-btn gh-btn-primary"><Code size={14} style={{ marginRight: '4px' }} /> Code</button>
+                  <button onClick={() => { setShowFileSearch(true); window.setTimeout(() => fileSearchRef.current?.focus(), 0); }} className="gh-btn">Go to file</button>
+                  <button disabled title="Creating files is not exposed by this workspace backend." className="gh-btn">Add file unavailable</button>
+                  <button onClick={async () => { try { await navigator.clipboard.writeText(workspaceKey); showToast('success', 'Workspace ID copied', workspaceKey); } catch { showToast('error', 'Copy failed', 'The workspace ID could not be copied.'); } }} className="gh-btn gh-btn-primary"><Code size={14} style={{ marginRight: '4px' }} /> Copy workspace ID</button>
                 </div>
               </div>
+              {showFileSearch && <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}><input ref={fileSearchRef} value={fileQuery} onChange={(event) => setFileQuery(event.target.value)} placeholder="Filter workspace files…" style={{ flex: 1, padding: '8px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)' }} /><button className="gh-btn" onClick={() => { setFileQuery(''); setShowFileSearch(false); }}>Close</button></div>}
 
               {/* Repo Box */}
               <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)' }}>
@@ -257,13 +261,14 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
                 {/* File List */}
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {codeLoading && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>Loading workspace files…</div>}
-                  {!codeLoading && files.length === 0 && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>No modified files in this workspace.</div>}
-                  {!codeLoading && files.length > 0 && renderFileTree(fileTree)}
+                  {!codeLoading && files.length === 0 && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>No files are exposed by this workspace backend.</div>}
+                  {!codeLoading && files.length > 0 && visibleFiles.length === 0 && <div style={{ padding: '32px 16px', color: 'var(--text-secondary)' }}>No file matches this filter.</div>}
+                  {!codeLoading && visibleFiles.length > 0 && renderFileTree(buildFileTree(visibleFiles))}
                 </div>
               </div>
 
               {/* Readme Box */}
-              <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)', marginTop: '24px' }}>
+              <div id="workspace-readme" style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-panel)', marginTop: '24px' }}>
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                   <FileText size={16} color="var(--text-muted)"/> README.md
                 </div>
@@ -277,21 +282,21 @@ export const WorkspaceDashboard: React.FC<WorkspaceDashboardProps> = ({ workspac
             <div style={{ width: '296px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               <div>
                 <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', justifyContent: 'space-between' }}>
-                  About <Settings size={16} color="var(--text-muted)" className="cursor-pointer" onClick={() => showToast('info', 'Settings', 'Workspace configuration')}/>
+                  About <Settings size={16} color="var(--text-muted)" aria-label="Workspace configuration is read-only" />
                 </h2>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
                   {workspace.description || `The root source code for ${workspace.title || workspace.name}.`}
                 </p>
                 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px', cursor: 'pointer' }} className="hover-blue">
+                <button onClick={() => document.getElementById('workspace-readme')?.scrollIntoView({ behavior: 'smooth' })} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0 }} className="hover-blue">
                   <Book size={16} color="var(--text-muted)" /> Readme
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px', cursor: 'pointer' }} className="hover-blue">
+                </button>
+                <button onClick={() => setActiveTab('security')} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '12px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0 }} className="hover-blue">
                   <ShieldCheck size={16} color="var(--text-muted)" /> Security Policy
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer' }} className="hover-blue">
+                </button>
+                <button onClick={() => setActiveTab('actions')} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0 }} className="hover-blue">
                   <Activity size={16} color="var(--text-muted)" /> Activity
-                </div>
+                </button>
               </div>
 
               <hr style={{ border: 'none', borderTop: '1px solid var(--panel-border)', margin: 0 }} />

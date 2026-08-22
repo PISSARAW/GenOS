@@ -1,6 +1,5 @@
 import React from 'react';
 import { Eye, GitFork, Book, Shield, Settings } from 'lucide-react';
-import { useToastStore } from '../../store/useToastStore';
 
 interface AgentProfileSidebarProps {
   activeAgent: any;
@@ -13,7 +12,6 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
   clonesCount,
   onSelectTab
 }) => {
-  const showToast = useToastStore((state) => state.showToast);
   const relationLabels: Record<string, string> = {
     child: 'Child of',
     mutation: 'Mutation of',
@@ -52,21 +50,13 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
     ...inferredCapabilities
   ].filter(Boolean).map((tag) => String(tag))));
 
-  const handleOpenSettings = () => {
-    showToast('info', 'Agent Configuration', `Configuration parameters for ${activeAgent.name}`);
-  };
-
-  const handleTagClick = (tag: string) => {
-    showToast('info', 'Filter Applied', `Filter applied: #${tag}`);
-  };
-
   return (
     <div style={{ width: '296px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div>
         <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           About 
-          <Settings size={16} color="var(--text-muted)" style={{ cursor: 'pointer' }} onClick={handleOpenSettings}/>
+          <Settings size={16} color="var(--text-muted)" aria-label="Agent configuration is read-only" />
         </h2>
         <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
           {about}
@@ -76,27 +66,26 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
             <strong>{relationLabel}</strong> {activeAgent.parentAgentName || activeAgent.parentAgentId}
           </p>
         )}
-        <div 
+        <button
           onClick={() => onSelectTab('state')}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0 }}
           className="hover-blue"
         >
           <Book size={16} color="var(--text-muted)" /> Readme
-        </div>
-        <div 
+        </button>
+        <button
           onClick={() => onSelectTab('health')}
-          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '16px', cursor: 'pointer', border: 0, background: 'transparent', padding: 0 }}
           className="hover-blue"
         >
           <Shield size={16} color="var(--text-muted)" /> Security policy
-        </div>
+        </button>
         
         {/* Tags */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
           {tags.map((tag) => (
             <span 
               key={tag} 
-              onClick={() => handleTagClick(tag)}
               style={{ 
                 background: 'var(--bg-subtle)', 
                 color: 'var(--accent-blue)', 
@@ -104,7 +93,6 @@ export const AgentProfileSidebar: React.FC<AgentProfileSidebarProps> = ({
                 borderRadius: '12px', 
                 fontSize: '0.75rem', 
                 fontWeight: 500, 
-                cursor: 'pointer',
                 border: '1px solid var(--panel-border)'
               }}
             >
