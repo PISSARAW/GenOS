@@ -548,6 +548,7 @@ CREATE TABLE IF NOT EXISTS releases (id TEXT PRIMARY KEY, workflow_id TEXT NOT N
 
 -- 33. Provider playground jobs with retry and timeout policy
 CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, models_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, timeout_ms INTEGER NOT NULL DEFAULT 30000, result_json TEXT, error_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME);
+CREATE TABLE IF NOT EXISTS model_job_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, model TEXT NOT NULL, token_index INTEGER NOT NULL, token TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES model_jobs(id) ON DELETE CASCADE);
 
 -- 32. Organization, project and environment tenancy
 CREATE TABLE IF NOT EXISTS organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -585,6 +586,7 @@ CREATE INDEX IF NOT EXISTS idx_rag_chunks_document ON rag_chunks(document_id, ch
 CREATE INDEX IF NOT EXISTS idx_integrations_status ON integrations(status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_releases_environment ON releases(environment, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_environments_org ON environments(organization_id, name);
+CREATE INDEX IF NOT EXISTS idx_model_job_tokens ON model_job_tokens(job_id, id);
 CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_org_memberships_principal ON organization_memberships(principal_id, organization_id);
 CREATE INDEX IF NOT EXISTS idx_project_memberships_principal ON project_memberships(principal_id, project_id);
@@ -646,6 +648,12 @@ async function applyVersionedMigrations(db) {
   if (organization) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
+  }
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs']) {
+    const columns = await db.all(`PRAGMA table_info(${table})`);
+    const columnNames = new Set(columns.map(column => column.name));
+    if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
+    if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
   }
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);

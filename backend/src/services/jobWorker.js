@@ -53,7 +53,7 @@ async function executeModelJob(db, job) {
   const models = JSON.parse(job.models_json || '[]'); const outputs = [];
   for (const model of models) {
     const tokens = []; const started = Date.now();
-    const generated = await modelProvider.generate({ model, prompt: job.prompt, timeoutMs: job.timeout_ms, onToken: (token) => { tokens.push(token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model, index: tokens.length - 1 } }); } });
+    const generated = await modelProvider.generate({ model, prompt: job.prompt, timeoutMs: job.timeout_ms, onToken: async (token) => { tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, model, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model, index: tokens.length - 1 } }); } });
     outputs.push({ model, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length });
   }
   await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs }), job.id);
