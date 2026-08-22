@@ -160,6 +160,8 @@ export const api = {
   updateProfile: (username: string) => apiRequest('/api/profile', { method: 'POST', body: { username } }),
   getBudget: () => apiRequest('/api/budget'),
   updateBudget: (budget: any) => apiRequest('/api/budget', { method: 'POST', body: budget }),
+  getSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging'),
+  runSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging/run', { method: 'POST', body: {} }),
 
   // Agent Fleet & Deploy
   deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
