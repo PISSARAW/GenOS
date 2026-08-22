@@ -29,8 +29,8 @@ export const AgentProfileTasks: React.FC<AgentProfileTasksProps> = ({ traces }) 
       <div style={{ display: 'flex', flexDirection: 'column' }}>
         {displayTraces.map((trace, i) => {
           const actionType = trace.type || trace.name || 'TASK_EXECUTION';
-          const contentText = typeof trace.content === 'string' ? trace.content : typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs || trace.content || 'Task completed');
-          const timeText = trace.time || (trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'Just now');
+          const contentText = typeof trace.content === 'string' ? trace.content : typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs || trace.content || 'No payload recorded');
+          const timeText = trace.time || (trace.startTime ? new Date(trace.startTime).toLocaleTimeString() : 'Timestamp not recorded');
 
           return (
             <div key={i} style={{ borderBottom: i < displayTraces.length - 1 ? '1px solid var(--panel-border)' : 'none' }}>
@@ -56,7 +56,7 @@ export const AgentProfileTasks: React.FC<AgentProfileTasksProps> = ({ traces }) 
   action: actionType,
   timestamp: timeText,
   payload: contentText,
-  status: "Completed successfully"
+  status: trace.outputs?.error ? "Recorded failure" : "Recorded event"
 }, null, 2)}
                   </pre>
                 </div>
