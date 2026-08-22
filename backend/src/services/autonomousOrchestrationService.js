@@ -69,6 +69,41 @@ function buildAutonomyPlan(contract, budget = {}) {
         { when: 'budget reserve reaches its stop threshold', to: 'network_silence', action: 'stop new branches and replay the best verified capsule' }
       ]
     },
+    // These are not a fixed script. They are authority gates: the orchestrator
+    // evaluates evidence from its own work and its workers, then elects the
+    // smallest safe action. Every elected action has a concrete GenOS tool.
+    decisionGates: [
+      {
+        id: 'retrieve_relevant_memory', scope: 'orchestrator_and_workers',
+        when: 'before retrying an approach or accepting a diagnosis',
+        actions: ['genos_search_failures', 'genos_compile_memory'],
+        decide: 'retrieve prior failures and relevant experience; skip only when no query can be made specific'
+      },
+      {
+        id: 'iterate_diagnosis', scope: 'orchestrator_and_workers',
+        when: 'a test, invariant, worker claim, or evidence item contradicts the current hypothesis',
+        actions: ['genos_diagnose', 'genos_hypothesis_evidence'],
+        decide: 'diagnose again with the new evidence; do not reuse a contradicted diagnosis'
+      },
+      {
+        id: 'fork_or_delegate', scope: 'orchestrator',
+        when: 'two hypotheses remain viable, a specialist is needed, or independent verification has value',
+        actions: ['genos_snapshot', 'genos_fork', 'genos_create'],
+        decide: 'snapshot first, then create only the minimum independent branches or GenOS workers justified by the remaining budget'
+      },
+      {
+        id: 'select_or_merge_hypotheses', scope: 'orchestrator',
+        when: 'branches return evidence or a branch is dominated',
+        actions: ['genos_evaluate_trajectories', 'genos_merge', 'genos_record_decision'],
+        decide: 'discard dominated branches; merge only evidence-backed compatible hypotheses, never unchecked workspaces'
+      },
+      {
+        id: 'replay_or_escalate', scope: 'orchestrator',
+        when: 'an error needs isolation, a mutation changed behaviour, or before promotion',
+        actions: ['genos_replay', 'genos_snapshot', 'genos_security_coevolution'],
+        decide: 'replay the smallest relevant capsule; escalate to an adversarial Red/Blue loop for security or recurring failures'
+      }
+    ],
     phases,
     requiredTools,
     workers,
