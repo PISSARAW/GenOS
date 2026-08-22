@@ -209,6 +209,70 @@ async fn mixed_journal_still_rejects_an_invalid_full_snapshot() {
         .expect("invalid journal cleanup");
 }
 
+#[tokio::test]
+async fn legacy_manifest_with_an_extra_field_is_rejected() {
+    let path = temp_store_path();
+    let snapshot = make_snapshot(1);
+    let mut legacy = serde_json::to_value(LegacySnapshotManifest {
+        snapshot_id: snapshot.snapshot_id.clone(),
+        agent_id: snapshot.agent_id.clone(),
+        branch_id: snapshot.branch_id.clone(),
+        genome_hash: CasHash("dummy_hash".to_string()),
+        state_hash: CasHash("dummy_hash".to_string()),
+        ssm_state_hash: None,
+    })
+    .expect("serialize legacy manifest");
+    legacy
+        .as_object_mut()
+        .expect("manifest must be an object")
+        .insert("unexpected".to_string(), json!(true));
+    fs::write(&path, format!("{legacy}\n"))
+        .await
+        .expect("write adversarial manifest");
+
+    let error = LocalSnapshotStore::new(&path)
+        .load_snapshot(&snapshot.snapshot_id)
+        .await
+        .expect_err("extra legacy field must fail");
+    assert!(error.to_string().starts_with("invalid snapshot at line 1:"));
+
+    fs::remove_file(path)
+        .await
+        .expect("adversarial journal cleanup");
+}
+
+#[tokio::test]
+async fn legacy_manifest_without_ssm_state_hash_is_rejected() {
+    let path = temp_store_path();
+    let snapshot = make_snapshot(1);
+    let mut legacy = serde_json::to_value(LegacySnapshotManifest {
+        snapshot_id: snapshot.snapshot_id.clone(),
+        agent_id: snapshot.agent_id.clone(),
+        branch_id: snapshot.branch_id.clone(),
+        genome_hash: CasHash("dummy_hash".to_string()),
+        state_hash: CasHash("dummy_hash".to_string()),
+        ssm_state_hash: None,
+    })
+    .expect("serialize legacy manifest");
+    legacy
+        .as_object_mut()
+        .expect("manifest must be an object")
+        .remove("ssm_state_hash");
+    fs::write(&path, format!("{legacy}\n"))
+        .await
+        .expect("write incomplete manifest");
+
+    let error = LocalSnapshotStore::new(&path)
+        .load_snapshot(&snapshot.snapshot_id)
+        .await
+        .expect_err("incomplete legacy manifest must fail");
+    assert!(error.to_string().starts_with("invalid snapshot at line 1:"));
+
+    fs::remove_file(path)
+        .await
+        .expect("incomplete journal cleanup");
+}
+
 #[test]
 fn replay_fingerprint_is_stable_and_covers_each_event_and_final_state() {
     let events = vec![
