@@ -119,6 +119,10 @@ fn plan_lineage(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
 }
 
 fn plan_replay(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
+    // `genos replay` is a clap command group; protocol replay maps to its
+    // basic event-stream implementation unless a dedicated snapshot operation
+    // is introduced.
+    planner.args.push("basic".into());
     let snapshot = planner.opt_str("snapshot")?;
     let branch_id = planner.opt_str("branch_id")?;
     if snapshot.is_some() && branch_id.is_some() {
