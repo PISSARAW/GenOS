@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const strategyExecution = require('./strategyExecutionService');
 const { encodeMission, decodeEvents } = require('./runtimeProtocol');
 
 const activeProcesses = new Map();
@@ -43,8 +44,15 @@ async function updateAgent(agentId, status, currentTask) {
 async function startMission(mission) {
   const agentId = mission.agentId || mission.id;
   const normalizedMission = { ...mission, agentId };
+  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable();
   if (activeProcesses.has(agentId)) return { started: true, duplicate: true };
+
+  const db = await getDatabase();
+  const executionRun = await strategyExecution.createExecutionRun(db, {
+    agentId,
+    budget: normalizedMission.executionBudget
+  });
 
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.
@@ -52,6 +60,19 @@ async function startMission(mission) {
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const child = spawn(resolvedExecutable, [], { cwd: workspaceRoot, env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot }, stdio: ['pipe', 'pipe', 'pipe'] });
   activeProcesses.set(agentId, child);
+  let guardrailHalted = false;
+  let executionQueue = Promise.resolve();
+  const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
+    const event = emit(agentId, eventType, action, detail, payload, severity, status);
+    executionQueue = executionQueue.then(() => strategyExecution.recordExecutionEvent(db, agentId, event)).then((decision) => {
+      if (decision?.halt && !guardrailHalted) {
+        guardrailHalted = true;
+        emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
+        child.kill('SIGTERM');
+      }
+    }).catch(() => {});
+    return event;
+  };
 
   let stdoutBuffer = Buffer.alloc(0);
   let stderrBuffer = '';
@@ -62,35 +83,35 @@ async function startMission(mission) {
       try { payload = event.payloadJson ? JSON.parse(event.payloadJson) : {}; } catch { payload = { raw: event.payloadJson }; }
       const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'idle' : undefined);
       if (nextStatus || event.currentTask) updateAgent(agentId, nextStatus, event.currentTask).catch(() => {});
-      emit(agentId, event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
+      emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
     });
   });
   child.stderr.on('data', (chunk) => {
     const detail = chunk.toString();
     stderrBuffer = `${stderrBuffer}${detail}`.slice(-4000);
-    if (detail.trim()) emit(agentId, 'AGENT_RUNTIME_LOG', 'STDERR', detail.trim(), {}, 'warning');
+    if (detail.trim()) emitTracked('AGENT_RUNTIME_LOG', 'STDERR', detail.trim(), {}, 'warning');
   });
   child.stdin.on('error', (error) => {
-    emit(agentId, 'AGENT_RUNTIME_ERROR', 'STDIN', error.message, {}, 'error', 'error');
+    emitTracked('AGENT_RUNTIME_ERROR', 'STDIN', error.message, {}, 'error', 'error');
   });
   child.on('error', async (error) => {
     activeProcesses.delete(agentId);
     await updateAgent(agentId, 'error', error.message);
-    emit(agentId, 'AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
+    emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
   child.on('close', async (code, signal) => {
     activeProcesses.delete(agentId);
     if (code === 0) {
       await updateAgent(agentId, 'idle', 'Execution completed');
-      emit(agentId, 'AGENT_COMPLETED', 'COMPLETE', 'Runtime completed successfully.', { code }, 'info', 'idle');
+      emitTracked('AGENT_COMPLETED', 'COMPLETE', 'Runtime completed successfully.', { code }, 'info', 'idle');
     } else {
       await updateAgent(agentId, 'error', `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`);
       const lastError = stderrBuffer.trim().split(/\r?\n/).filter(Boolean).pop();
-      emit(agentId, 'AGENT_FAILED', 'ERROR', `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`, { code, signal, stderr: stderrBuffer.trim() }, 'error', 'error');
+      emitTracked('AGENT_FAILED', 'ERROR', `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`, { code, signal, stderr: stderrBuffer.trim() }, 'error', 'error');
     }
   });
   await updateAgent(agentId, 'running', mission.prompt);
-  emit(agentId, 'AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable }, 'info', 'running');
+  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id }, 'info', 'running');
   child.stdin.end(encodeMission({
     agentId,
     name: normalizedMission.name || '',
@@ -99,9 +120,10 @@ async function startMission(mission) {
     modelTier: normalizedMission.modelTier || '',
     workspaceRoot,
     workspaceIsolation: normalizedMission.workspaceIsolation || '',
-    agentType: normalizedMission.agentType || ''
+    agentType: normalizedMission.agentType || '',
+    strategyContractJson: JSON.stringify(runtimeStrategyContract)
   }));
-  return { started: true };
+  return { started: true, executionRun };
 }
 
 function stopMission(agentId) {

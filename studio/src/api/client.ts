@@ -104,7 +104,7 @@ export const api = {
   updateBudget: (budget: any) => apiRequest('/api/budget', { method: 'POST', body: budget }),
 
   // Agent Fleet & Deploy
-  deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string }) => 
+  deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
     apiRequest('/api/deploy', { method: 'POST', body: payload }),
   deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[] }) =>
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
@@ -113,8 +113,18 @@ export const api = {
   getAgentHistory: () => apiRequest('/api/agents/history'),
   pingAgent: (id: string) => apiRequest(`/api/agents/${id}/ping`, { method: 'POST' }),
   ingestAgentEvent: (id: string, payload: any) => apiRequest(`/api/agents/${id}/events`, { method: 'POST', body: payload }),
-  startAgent: (id: string) => apiRequest(`/api/agents/${id}/start`, { method: 'POST' }),
+  startAgent: (id: string, executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number }) => apiRequest(`/api/agents/${id}/start`, { method: 'POST', body: executionBudget ? { executionBudget } : undefined }),
   subscribeAgent: (id: string) => apiRequest(`/api/agents/${id}/subscribe`, { method: 'POST' }),
+  getAgentStrategyContract: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/strategy-contract`),
+  getAgentStrategyContractHistory: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/strategy-contracts`),
+  selectAgentStrategyContract: (id: string, payload: { problem?: string; contract?: any; decisionReason?: string }) =>
+    apiRequest(`/api/agents/${encodeURIComponent(id)}/strategy-contracts`, { method: 'POST', body: payload }),
+  getLatestAgentExecutionRun: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/execution-runs/latest`),
+  getAgentExecutionRuns: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/execution-runs`),
+  approveExecutionRun: (runId: string) => apiRequest(`/api/execution-runs/${encodeURIComponent(runId)}/approve`, { method: 'POST' }),
+  listStrategyRegistry: (family?: string, maturity?: string) =>
+    apiRequest(`/api/strategies?${family ? `family=${encodeURIComponent(family)}&` : ''}${maturity ? `maturity=${encodeURIComponent(maturity)}` : ''}`),
+  previewStrategySelection: (payload: any) => apiRequest('/api/strategies/select', { method: 'POST', body: payload }),
 
   // Commands & Terminal
   sendCommand: (action: string, payload?: any) => 

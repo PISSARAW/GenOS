@@ -4,13 +4,13 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { useGenOSStore } from '../store/useGenOSStore';
-import { useToastStore } from '../store/useToastStore';
 import { AgentProfileHeader } from './agent-profile/AgentProfileHeader';
 import { AgentProfileState } from './agent-profile/AgentProfileState';
 import { AgentProfileTasks } from './agent-profile/AgentProfileTasks';
 import { AgentProfileMemory } from './agent-profile/AgentProfileMemory';
 import { AgentProfileSidebar } from './agent-profile/AgentProfileSidebar';
 import { AgentProfileHealth } from './agent-profile/AgentProfileHealth';
+import { AgentStrategyContract } from './agent-profile/AgentStrategyContract';
 
 export const AgentProfile: React.FC = () => {
   const [activeTab, setActiveTab] = useState('state');
@@ -18,7 +18,6 @@ export const AgentProfile: React.FC = () => {
   const traces = useGenOSStore((state) => state.traces);
   const selectedAgentId = useGenOSStore((state) => state.selectedAgentId);
   const fetchAgents = useGenOSStore((state) => state.fetchAgents);
-  const showToast = useToastStore((state) => state.showToast);
   
   const activeAgent = (selectedAgentId ? clones.find((c) => c.id === selectedAgentId) : null) || clones[0] || null;
 
@@ -50,6 +49,7 @@ export const AgentProfile: React.FC = () => {
 
   const tabs = [
     { id: 'state', label: 'State & Files', icon: Code },
+    { id: 'strategy', label: 'Strategy Contract', icon: ShieldCheck },
     { id: 'tasks', label: 'Tasks', icon: CircleDot, count: agentTraces.length },
     { id: 'trajectories', label: 'Trajectories', icon: GitPullRequest, count: 0 },
     { id: 'swarm', label: 'Swarm & Network', icon: LayoutGrid },
@@ -90,6 +90,10 @@ export const AgentProfile: React.FC = () => {
 
           {activeTab === 'tasks' && (
             <AgentProfileTasks traces={agentTraces} />
+          )}
+
+          {activeTab === 'strategy' && (
+            <AgentStrategyContract key={activeAgent.id} agentId={activeAgent.id} />
           )}
 
           {activeTab === 'trajectories' && (

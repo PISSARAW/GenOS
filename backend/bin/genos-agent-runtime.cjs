@@ -21,11 +21,16 @@ process.stdin.on('end', () => {
   // Resolve the repository relative to this bridge rather than the caller's cwd.
   // The backend can be started from either `backend/` or the repository root.
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
+  let strategyContract = {};
+  try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
   const prompt = [
     `You are a GenOS implementation agent (${mission.name || mission.agentId}).`,
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
     'Work directly in the assigned repository and implement the mission completely.',
     'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress.',
+    strategyContract.selected_strategy?.primary
+      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(strategyContract, null, 2)}`
+      : 'No explicit strategy contract was attached; use the safest verified execution path.',
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
