@@ -18,14 +18,37 @@ async function executeWorkflow(db, run) {
   const traceId = `trace-${run.id}`;
   const started = Date.now();
   const input = JSON.parse(run.input_json || '{}');
-  for (const node of graph.nodes || []) {
+  const nodes = new Map((graph.nodes || []).map((node) => [node.id, node]));
+  const edges = graph.edges || [];
+  const output = {};
+  const visited = new Set();
+  const shouldRun = (node) => {
+    const condition = node.when || node.data?.when;
+    if (!condition) return true;
+    if (/^false$/i.test(String(condition).trim())) return false;
+    const match = String(condition).match(/^input\.([\w-]+)\s*={2,3}\s*["']?([^"']+)["']?$/);
+    return !match || String(input[match[1]]) === match[2];
+  };
+  const runNode = async (node) => {
+    if (!node || visited.has(node.id) || !shouldRun(node)) return;
+    visited.add(node.id);
     const spanId = `span-${crypto.randomUUID()}`;
     const spanStart = Date.now();
-    await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify({ status: 'completed' }));
+    let nodeOutput = { status: 'completed' };
+    const kind = node.kind || node.data?.kind || node.type || '';
+    if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
+    if (/tool/i.test(kind)) nodeOutput = { status: 'completed', tool: node.tool || node.data?.tool || 'configured-tool', toolCall: true };
+    if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
+    output[node.id] = nodeOutput;
+    await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
     await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
     telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
-  }
-  await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: (graph.nodes || []).length }), run.id);
+    const next = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
+    if (!/parallel/i.test(kind)) for (const child of next) await runNode(child);
+  };
+  const roots = (graph.nodes || []).filter((node) => !edges.some((edge) => edge.target === node.id));
+  for (const root of roots.length ? roots : (graph.nodes || []).slice(0, 1)) await runNode(root);
+  await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, output }), run.id);
 }
 
 async function executeEvaluation(db, job) {
