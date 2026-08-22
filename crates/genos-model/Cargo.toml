@@ -15,11 +15,13 @@ categories.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait.workspace = true
+chrono.workspace = true
 genos-core = { path = "../genos-core" }
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
 sha2.workspace = true
+hmac = "0.12"
 tokio.workspace = true
 
 [dev-dependencies]
