@@ -1,0 +1,31 @@
+{
+  "active": [
+    "The recurrence is dp_g[i] = prefix[i]^2 + min_j(dp_{g-1}[j] + prefix[j]^2 - 2*prefix[j]*prefix[i]).",
+    "Non-negative values make both CHT slopes and query coordinates monotone.",
+    "All supplied tests pass after the src/lib.rs-only change.",
+    "Modify only src/lib.rs; do not modify tests or Cargo.toml.",
+    "Target time complexity must avoid quadratic work per DP layer."
+  ],
+  "facts": [
+    "The recurrence is dp_g[i] = prefix[i]^2 + min_j(dp_{g-1}[j] + prefix[j]^2 - 2*prefix[j]*prefix[i]).",
+    "Non-negative values make both CHT slopes and query coordinates monotone.",
+    "All supplied tests pass after the src/lib.rs-only change."
+  ],
+  "decisions": [
+    "Use a VecDeque monotone CHT with equal-slope replacement and i128 internal arithmetic."
+  ],
+  "failures": [
+    "The original implementation returned u128::MAX for every groups > 1 case.",
+    "No initialized agent-world capsule was available, so snapshot/fork/replay tool calls could not bind to a capsule."
+  ],
+  "constraints": [
+    "Modify only src/lib.rs; do not modify tests or Cargo.toml.",
+    "Target time complexity must avoid quadratic work per DP layer."
+  ],
+  "open_questions": [],
+  "source_refs": [
+    "TASK.md",
+    "src/lib.rs",
+    "cargo test"
+  ]
+}
