@@ -1,0 +1,46 @@
+name: genos
+
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      GENOS_DB_PATH: /data/genos.db
+    init: true
+    ports:
+      - "127.0.0.1:4000:4000"
+    volumes:
+      - genos-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:4000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+
+  studio:
+    build:
+      context: ./studio
+    depends_on:
+      backend:
+        condition: service_healthy
+    init: true
+    ports:
+      - "127.0.0.1:3000:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+volumes:
+  genos-data:
