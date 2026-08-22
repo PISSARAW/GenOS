@@ -12,6 +12,9 @@ function hashKey(key) {
 }
 
 async function ensureConfiguredWorkspace(db) {
+  // A multi-workspace deployment discovers projects under the plural root.
+  // Keep this legacy bootstrap only for single explicit workspace installs.
+  if (String(process.env.GENOS_WORKSPACES_ROOT || '').trim()) return;
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
 
