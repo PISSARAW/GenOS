@@ -17,3 +17,6 @@ coverage/
 *.exe
 *.pdb
 backend/genos.db
+backend/genos.db-shm
+backend/genos.db-wal
+backend/.genos-db-backups/
