@@ -50,7 +50,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     : branches.map((branch, index) => workerRole(branch.label, branch.hypothesis, index === 0 ? 'implementation' : 'independent_reviewer', index === 0 ? 'frontier' : 'standard'));
 
   const requiredTools = [...new Set(phases.flatMap((entry) => entry.requiredTools))];
-  const totalTokens = Number(budget.tokens || 120000);
+  const totalTokens = Number(budget.tokens || 300000);
   const minimumWorkerTokens = Number(budget.minimumWorkerTokens || 8000);
   const affordableWorkers = Math.max(0, Math.floor((totalTokens * 0.6) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));

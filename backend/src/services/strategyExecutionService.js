@@ -1,7 +1,10 @@
 const crypto = require('crypto');
 const strategyContracts = require('./strategyContractService');
 
-const DEFAULT_BUDGET = Object.freeze({ tokens: 120000, costUsd: 5, latencyMs: 30 * 60 * 1000, events: 500 });
+// A single Codex runtime turn includes the injected strategy contract and
+// Codex's own context.  120k falls below that fixed baseline and incorrectly
+// kills otherwise completed missions before their result can be recorded.
+const DEFAULT_BUDGET = Object.freeze({ tokens: 300000, costUsd: 5, latencyMs: 30 * 60 * 1000, events: 500 });
 const FINAL_EVENTS = new Set(['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR']);
 
 function json(value, fallback) {

@@ -54,7 +54,9 @@ process.stdin.on('end', () => {
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
-  const args = ['exec', '--json', '--ephemeral'];
+  // Worker capsules are intentionally plain copied directories rather than
+  // Git worktrees. Codex must therefore accept an isolated non-Git capsule.
+  const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check'];
   if (fs.existsSync(mcpBinary) && fs.existsSync(genosBinary)) {
     args.push(
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
