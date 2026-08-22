@@ -17,6 +17,8 @@ const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
 const { decideFromEvent } = require('./orchestrationDecisionService');
+const actionExecutor = require('./orchestrationActionExecutor');
+const localCodeWorker = require('./localCodeWorkerService');
 
 const activeProcesses = new Map();
 
@@ -97,8 +99,10 @@ async function localWorkerRoute(role) {
   const load = os.loadavg()[0];
   const freeMemoryRatio = os.freemem() / os.totalmem();
   const models = await localModelDiscovery.discoverLocalModels();
+  const localCodeEnabled = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1';
   const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
-  const eligible = reviewRole && cpuCount >= 4 && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
+  const implementationRole = /implementation|coder|developer/i.test(role || '');
+  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && cpuCount >= 4 && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
   const selected = eligible ? models.find((model) => model.chatCapable) : null;
   return {
     selectedModel: selected?.uri || null,
@@ -111,14 +115,24 @@ async function runLocalWorker(db, mission, executionRun) {
   const started = emit(mission.agentId, 'LOCAL_WORKER_STARTED', 'LOCAL_MODEL', `Started local-model worker with ${mission.localModel}.`, { model: mission.localModel, criteria: mission.localRoutingCriteria }, 'info', 'running');
   await strategyExecution.recordExecutionEvent(db, mission.agentId, started);
   try {
+    const codeWorker = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1' && /implementation|coder|developer/i.test(mission.role || '');
     const result = await modelRouter.generate({
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
       policy: { primary: mission.localModel, preferLocal: true },
-      prompt: `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
+      prompt: codeWorker
+        ? `You are a bounded GenOS local code worker. Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
+        : `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
+    const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     await updateAgent(mission.agentId, 'idle', 'Local review completed');
-    const completed = emit(mission.agentId, 'AGENT_COMPLETED', 'LOCAL_REVIEW', 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, advice: result.text, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'idle');
+    const completed = emit(mission.agentId, 'AGENT_COMPLETED', codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW', codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, advice: result.text, proposal, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'idle');
     await strategyExecution.recordExecutionEvent(db, mission.agentId, completed);
+    const decision = decideFromEvent(completed);
+    if (decision) {
+      const ownerId = mission.orchestratorAgentId || mission.agentId;
+      emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
+      actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision, event: completed, workspaceRoot: mission.workspaceRoot }).catch(() => {});
+    }
     return { started: true, executionRun, local: true, result };
   } catch (error) {
     await updateAgent(mission.agentId, 'error', error.message);
@@ -221,6 +235,7 @@ async function startMission(mission) {
       db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
         const ownerId = agent?.parent_agent_id || agentId;
         emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
+        actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
       }).catch(() => {});
     }
     executionQueue = executionQueue.then(() => strategyExecution.recordExecutionEvent(db, agentId, event)).then((decision) => {
