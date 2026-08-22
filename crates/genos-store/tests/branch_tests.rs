@@ -22,7 +22,7 @@ async fn a_memory_recorded_on_one_branch_survives_a_store_round_trip() {
     let parent = make_snapshot(0);
     assert!(parent.state.memories.is_empty());
     snapshot_store
-        .save_snapshot(parent.clone())
+        .save_snapshot(&parent)
         .await
         .expect("save parent snapshot failed");
 
@@ -36,11 +36,11 @@ async fn a_memory_recorded_on_one_branch_survives_a_store_round_trip() {
         .await
         .expect("append memory event failed");
     snapshot_store
-        .save_snapshot(a.clone())
+        .save_snapshot(&a)
         .await
         .expect("save a snapshot failed");
     snapshot_store
-        .save_snapshot(b.clone())
+        .save_snapshot(&b)
         .await
         .expect("save b snapshot failed");
 
@@ -140,7 +140,7 @@ async fn diverging_branch_writes_survive_a_store_round_trip() {
     let mut parent = make_snapshot(0);
     parent.set_variable("counter", INITIAL);
     snapshot_store
-        .save_snapshot(parent.clone())
+        .save_snapshot(&parent)
         .await
         .expect("save parent snapshot failed");
 
@@ -159,11 +159,11 @@ async fn diverging_branch_writes_survive_a_store_round_trip() {
         .await
         .expect("append a2 write failed");
     snapshot_store
-        .save_snapshot(a1.clone())
+        .save_snapshot(&a1)
         .await
         .expect("save a1 snapshot failed");
     snapshot_store
-        .save_snapshot(a2.clone())
+        .save_snapshot(&a2)
         .await
         .expect("save a2 snapshot failed");
 
