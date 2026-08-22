@@ -202,3 +202,5 @@ mod tests {
         std::env::remove_var("GENOS_TEST_SECRET");
     }
 }
+pub mod connectors;
+
