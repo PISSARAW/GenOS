@@ -178,8 +178,8 @@ export const ExperimentsLab: React.FC = () => {
 
           <div style={{ marginBottom: '24px', border: '1px dashed var(--panel-border)', borderRadius: '6px', padding: '24px', textAlign: 'center', background: 'var(--bg-main)' }}>
             <ServerCrash size={24} color="var(--text-muted)" style={{ marginBottom: '8px' }} />
-            <h4 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)', fontSize: '0.85rem' }}>Chaos & Perturbation Engine</h4>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Inject runtime perturbations (e.g. Memory pressure, Latency, Tool timeouts).</p>
+            <h4 style={{ margin: '0 0 4px 0', color: 'var(--text-primary)', fontSize: '0.85rem' }}>Perturbation Protocol</h4>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Stores the intended chaos level with the protocol; this Studio does not inject runtime faults.</p>
           </div>
         </div>
 
