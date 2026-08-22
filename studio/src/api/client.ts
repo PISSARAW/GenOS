@@ -175,6 +175,12 @@ export const api = {
   launchEvaluation: (payload: any) => apiRequest('/api/evals/jobs', { method: 'POST', body: payload }),
   listEvaluationJobs: () => apiRequest('/api/evals/jobs'),
 
+  // RAG ingestion and retrieval inspection
+  listRagDocuments: () => apiRequest('/api/rag/documents'),
+  ingestRagDocument: (payload: { name: string; content: string; chunkSize?: number }) => apiRequest('/api/rag/documents', { method: 'POST', body: payload }),
+  listRagChunks: (id: string) => apiRequest(`/api/rag/documents/${encodeURIComponent(id)}/chunks`),
+  searchRag: (query: string, limit = 8) => apiRequest('/api/rag/search', { method: 'POST', body: { query, limit } }),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
