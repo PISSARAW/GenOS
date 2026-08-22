@@ -55,7 +55,10 @@ npm install
 npm run dev
 ```
 
-The frontend expects the backend to be available at http://localhost:4000.
+The Vite development server expects the backend at http://localhost:4000. The
+production Docker image uses same-origin `/api` requests and proxies them to
+the Compose `backend` service, so browser clients do not depend on their own
+machine's `localhost`.
 Studio does not contain a default access token. On a new database, use the
 random bootstrap token printed by the backend or set `GENOS_ADMIN_TOKEN`
 before its first start, then enter that token in the RBAC gate.

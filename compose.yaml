@@ -13,6 +13,7 @@ services:
       GENOS_WORKSPACE_NAME: ${GENOS_WORKSPACE_NAME:-GenOS}
       GENOS_SINGLE_WORKSPACE: "1"
       GENOS_ADMIN_TOKEN: ${GENOS_ADMIN_TOKEN:-}
+      GENOS_ALLOWED_ORIGINS: ${GENOS_ALLOWED_ORIGINS:-}
       GENOS_CODEX_UNSAFE_BYPASS: ${GENOS_CODEX_UNSAFE_BYPASS:-0}
     init: true
     ports:
@@ -30,7 +31,7 @@ services:
         - CMD
         - node
         - -e
-        - "require('http').get('http://127.0.0.1:4000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+        - "require('http').get('http://127.0.0.1:4000/readyz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
       interval: 10s
       timeout: 3s
       start_period: 20s
