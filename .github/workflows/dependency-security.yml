@@ -31,7 +31,7 @@ jobs:
     name: Audit Cargo dependencies
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -52,7 +52,7 @@ jobs:
       matrix:
         directory: [research/reverse-game-of-life, backend, studio]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Audit locked npm dependencies
         working-directory: ${{ matrix.directory }}

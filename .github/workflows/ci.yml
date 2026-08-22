@@ -22,7 +22,7 @@ jobs:
     name: format, lint, build, and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -54,7 +54,7 @@ jobs:
           - os: windows-latest
             script: pwsh -NoProfile -File examples/counterfactual-demo/run-demo.ps1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -154,7 +154,7 @@ jobs:
           - os: windows-latest
             script: pwsh -NoProfile -File examples/divergent-writes-demo/run-demo.ps1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -282,7 +282,7 @@ jobs:
           - os: windows-latest
             script: pwsh -NoProfile -File examples/divergent-worlds-demo/run-demo.ps1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
 
