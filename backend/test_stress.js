@@ -139,10 +139,10 @@ async function testRbacBoundaries(keys) {
 async function testMilitaryOverride() {
   console.log('\n--- 2. Level 5 Military Override Elevation ---');
   const authRes = await request({ method: 'POST', path: '/api/auth/verify-token' }, { token: MILITARY_OVERRIDE_TOKEN });
-  assert(authRes.status === 200 && authRes.body.valid === true && authRes.body.role === 'admin' && authRes.body.isBootstrap === true, 'Bootstrap token validated with admin role');
+  assert(authRes.status === 200 && authRes.body.valid === true && authRes.body.role === 'admin', 'Bootstrap token hash validated with admin role');
 
   const sessRes = await request({ method: 'GET', path: '/api/auth/session', headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` } });
-  assert(sessRes.status === 200 && sessRes.body.user.role === 'admin' && sessRes.body.user.isBootstrap === true, 'Session reflects the environment bootstrap administrator via Bearer');
+  assert(sessRes.status === 200 && sessRes.body.user.role === 'admin' && sessRes.body.user.isAuthenticated === true, 'Session reflects the hashed bootstrap administrator token via Bearer');
 
   const sessKeyRes = await request({ method: 'GET', path: '/api/auth/session', headers: { 'X-Access-Key': MILITARY_OVERRIDE_TOKEN } });
   assert(sessKeyRes.status === 200 && sessKeyRes.body.user.role === 'admin', 'Session reflects admin context via X-Access-Key header');

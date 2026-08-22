@@ -4,15 +4,13 @@ on:
   push:
     tags:
       - "v*-alpha.*"
-  release:
-    types: [prereleased]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-alpha-${{ github.event.release.tag_name || github.ref_name }}
+  group: release-alpha-${{ github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -29,18 +27,18 @@ jobs:
       source_sha: ${{ steps.source.outputs.source_sha }}
       tag: ${{ steps.source.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
-          ref: ${{ github.event.release.tag_name || github.ref }}
+          ref: ${{ github.ref }}
 
       - name: Verify tag, commit, and Cargo version
         id: source
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          EVENT_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+          EVENT_TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           cargo_version="$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -n 1)"
@@ -80,12 +78,70 @@ jobs:
           } > SOURCE-PROVENANCE.txt
 
       - name: Upload source provenance
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: source-provenance
           path: SOURCE-PROVENANCE.txt
           if-no-files-found: error
           retention-days: 14
+
+  test-source:
+    name: Test verified source
+    needs: verify-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          ref: ${{ needs.verify-source.outputs.source_sha }}
+
+      - name: Assert exact verified source
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ needs.verify-source.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          scripts/assert-source-sha.sh "$SOURCE_SHA"
+          wrong_sha="0${SOURCE_SHA:1}"
+          if [[ "$wrong_sha" == "$SOURCE_SHA" ]]; then
+            wrong_sha="1${SOURCE_SHA:1}"
+          fi
+          if scripts/assert-source-sha.sh "$wrong_sha"; then
+            echo "Negative source-SHA gate unexpectedly accepted a mismatch." >&2
+            exit 1
+          fi
+
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master, pinned 2026-08-22
+        with:
+          toolchain: 1.88.0
+
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          key: source-tests
+
+      - name: Test CLI
+        run: cargo test --locked -p genos-cli
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci --omit=dev
+
+      - name: Test bootstrap authentication
+        working-directory: backend
+        run: node test_auth_bootstrap.js
+
+      - name: Test agent runtime adapter
+        working-directory: backend
+        run: node test_agent_runtime_adapter.js
+
+      - name: Build Studio
+        working-directory: studio
+        run: |
+          npm ci
+          npm run build
 
   build-cli:
     name: genos (${{ matrix.label }})
@@ -118,16 +174,17 @@ jobs:
             binary: genos.exe
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
           ref: ${{ needs.verify-source.outputs.source_sha }}
 
-      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # master, pinned 2026-08-22
         with:
+          toolchain: 1.88.0
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
         with:
           key: release-${{ matrix.target }}
 
@@ -164,7 +221,7 @@ jobs:
           fi
 
       - name: Upload packaged CLI
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: genos-${{ matrix.target }}
           path: dist/*
@@ -177,7 +234,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download packages
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: genos-*
           path: dist
@@ -195,7 +252,7 @@ jobs:
           sha256sum --check SHA256SUMS.txt
 
       - name: Upload checksum manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-checksums
           path: dist/SHA256SUMS.txt
@@ -204,14 +261,14 @@ jobs:
 
   attach-prerelease:
     name: Attach prerelease assets
-    if: github.event_name == 'push' || github.event_name == 'release'
-    needs: [verify-source, build-cli, checksums]
+    if: github.event_name == 'push'
+    needs: [verify-source, test-source, build-cli, checksums]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Download release assets
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist
           merge-multiple: true
@@ -230,12 +287,12 @@ jobs:
           find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) \
             -name "genos-$RELEASE_ID-*" | grep -q .
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
-          else
-            gh release create "$RELEASE_TAG" dist/* \
-              --prerelease \
-              --generate-notes \
-              --target "$SOURCE_SHA" \
-              --title "GenOS $RELEASE_TAG" \
-              --repo "$GITHUB_REPOSITORY"
+            echo "Release $RELEASE_TAG already exists; refusing to mutate a prerelease that may predate this source gate." >&2
+            exit 1
           fi
+          gh release create "$RELEASE_TAG" dist/* \
+            --prerelease \
+            --generate-notes \
+            --target "$SOURCE_SHA" \
+            --title "GenOS $RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY"
