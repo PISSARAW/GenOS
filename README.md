@@ -16,7 +16,7 @@
 <p align="center">
   <a href="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml"><img src="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
-  <img src="https://img.shields.io/badge/Rust-1.85%2B-orange.svg" alt="Rust 1.85 or newer">
+  <img src="https://img.shields.io/badge/Rust-1.88%2B-orange.svg" alt="Rust 1.88 or newer">
   <img src="https://img.shields.io/badge/status-pre--alpha-yellow.svg" alt="Pre-alpha status">
 </p>
 
@@ -80,7 +80,7 @@ still planned.
 
 ### Requirements
 
-- Rust `1.85` or newer
+- Rust `1.88` or newer
 - Git
 - Bash on Linux/macOS, or PowerShell on Windows
 
