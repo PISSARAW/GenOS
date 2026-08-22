@@ -9,4 +9,5 @@ router.get('/:id', controller.getPrompt);
 router.post('/:id/versions', requirePermission('workspace:write'), controller.createVersion);
 router.post('/:id/render', controller.renderPrompt);
 router.post('/playground', requirePermission('experiment:run'), controller.playground);
+router.get('/jobs', controller.listJobs);
 module.exports = router;
