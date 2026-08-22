@@ -161,6 +161,12 @@ export const api = {
   renderPrompt: (id: string, version: number, variables: any) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/render`, { method: 'POST', body: { version, variables } }),
   runPlayground: (payload: { prompt: string; models: string[]; variables?: any }) => apiRequest('/api/prompts/playground', { method: 'POST', body: payload }),
 
+  // OpenTelemetry-compatible trace storage and replay
+  listTraces: (limit = 50) => apiRequest(`/api/traces?limit=${limit}`),
+  getTrace: (traceId: string) => apiRequest(`/api/traces/${encodeURIComponent(traceId)}`),
+  ingestSpan: (span: any) => apiRequest('/api/traces/ingest', { method: 'POST', body: span }),
+  replayTrace: (traceId: string, override?: any) => apiRequest(`/api/traces/${encodeURIComponent(traceId)}/replay`, { method: 'POST', body: { override } }),
+
   // Experiments
   listExperiments: (workspaceId?: string) => apiRequest(`/api/experiments${workspaceId ? `?workspaceId=${encodeURIComponent(workspaceId)}` : ''}`),
   launchExperiment: (payload: { title: string; type?: string; chaosLevel?: number }) => 
