@@ -71,6 +71,7 @@ CREATE TABLE IF NOT EXISTS agents (
     workspace_id TEXT,
     fleet_id TEXT,
     hallucination_monitoring INTEGER NOT NULL DEFAULT 0,
+    hallucination_count INTEGER NOT NULL DEFAULT 0,
     model_tier TEXT DEFAULT 'Flash',
     language TEXT DEFAULT 'TypeScript',
     isolation_mode TEXT DEFAULT 'Branch',
@@ -735,6 +736,7 @@ async function migrateLegacySchema(db) {
       } else {
         if (!colNames.includes('fleet_id')) await db.exec('ALTER TABLE agents ADD COLUMN fleet_id TEXT;');
         if (!colNames.includes('hallucination_monitoring')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_monitoring INTEGER NOT NULL DEFAULT 0;');
+        if (!colNames.includes('hallucination_count')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_count INTEGER NOT NULL DEFAULT 0;');
         if (!colNames.includes('execution_mode')) await db.exec("ALTER TABLE agents ADD COLUMN execution_mode TEXT NOT NULL DEFAULT 'orchestrator';");
       }
       if (!colNames.includes('lineage_relation')) {
