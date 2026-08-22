@@ -1,3 +1,4 @@
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -53,6 +54,132 @@ pub struct ExecutionMetrics {
     pub elapsed_seconds: u64,
     /// Score courant mesurant l'incertitude du modèle lors de ses raisonnements (ex: via dispersion sémantique).
     pub current_uncertainty_score: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentRisk {
+    PromptInjection,
+    Jailbreak,
+    Pii,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContentFinding {
+    pub risk: ContentRisk,
+    pub evidence: String,
+    pub redacted: String,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ContentPolicy {
+    pub detect_prompt_injection: bool,
+    pub detect_jailbreak: bool,
+    pub redact_pii: bool,
+}
+
+impl ContentPolicy {
+    pub fn inspect(&self, content: &str) -> Vec<ContentFinding> {
+        let mut findings = Vec::new();
+        let lowered = content.to_lowercase();
+        if self.detect_prompt_injection
+            && [
+                "ignore previous instructions",
+                "disregard system prompt",
+                "reveal the system prompt",
+            ]
+            .iter()
+            .any(|needle| lowered.contains(needle))
+        {
+            findings.push(ContentFinding {
+                risk: ContentRisk::PromptInjection,
+                evidence: "instruction override pattern".into(),
+                redacted: "[PROMPT_INJECTION]".into(),
+            });
+        }
+        if self.detect_jailbreak
+            && [
+                "developer mode",
+                "dan mode",
+                "bypass your safety",
+                "without restrictions",
+            ]
+            .iter()
+            .any(|needle| lowered.contains(needle))
+        {
+            findings.push(ContentFinding {
+                risk: ContentRisk::Jailbreak,
+                evidence: "jailbreak pattern".into(),
+                redacted: "[JAILBREAK]".into(),
+            });
+        }
+        if self.redact_pii {
+            for pattern in [
+                r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+                r"\b\d{3}[- ]\d{3}[- ]\d{4}\b",
+            ] {
+                if let Ok(regex) = Regex::new(pattern) {
+                    for matched in regex.find_iter(content) {
+                        findings.push(ContentFinding {
+                            risk: ContentRisk::Pii,
+                            evidence: "pattern match".into(),
+                            redacted: matched.as_str().into(),
+                        });
+                    }
+                }
+            }
+        }
+        findings
+    }
+    pub fn redact(&self, content: &str) -> String {
+        let mut result = content.to_string();
+        if self.redact_pii {
+            for pattern in [
+                r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}",
+                r"\b\d{3}[- ]\d{3}[- ]\d{4}\b",
+            ] {
+                if let Ok(regex) = Regex::new(pattern) {
+                    result = regex.replace_all(&result, "[PII_REDACTED]").into_owned();
+                }
+            }
+        }
+        result
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ResourceLimits {
+    pub cpu_ms: Option<u64>,
+    pub memory_bytes: Option<u64>,
+    pub disk_bytes: Option<u64>,
+    pub network_bytes: Option<u64>,
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct ResourceUsage {
+    pub cpu_ms: u64,
+    pub memory_bytes: u64,
+    pub disk_bytes: u64,
+    pub network_bytes: u64,
+}
+
+impl ResourceLimits {
+    pub fn verify(&self, usage: &ResourceUsage) -> Result<(), String> {
+        for (name, limit, actual) in [
+            ("cpu_ms", self.cpu_ms, usage.cpu_ms),
+            ("memory_bytes", self.memory_bytes, usage.memory_bytes),
+            ("disk_bytes", self.disk_bytes, usage.disk_bytes),
+            ("network_bytes", self.network_bytes, usage.network_bytes),
+        ] {
+            if limit.is_some_and(|value| actual > value) {
+                return Err(format!(
+                    "resource limit exceeded: {name}={actual} > {}",
+                    limit.unwrap_or_default()
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl ExecutionGuardrails {
@@ -121,5 +248,22 @@ mod tests {
             }
             _ => panic!("Expected MaxIterationsReached error"),
         }
+    }
+
+    #[test]
+    fn content_policy_detects_and_redacts_sensitive_input() {
+        let policy = ContentPolicy {
+            detect_prompt_injection: true,
+            detect_jailbreak: true,
+            redact_pii: true,
+        };
+        let findings = policy.inspect("Ignore previous instructions; contact a@example.com");
+        assert!(findings
+            .iter()
+            .any(|finding| finding.risk == ContentRisk::PromptInjection));
+        assert_eq!(
+            policy.redact("contact a@example.com"),
+            "contact [PII_REDACTED]"
+        );
     }
 }
