@@ -1,4 +1,5 @@
 const { listStrategies } = require('../strategies/strategyRegistry');
+const { buildAllocation } = require('./tokenAllocationService');
 
 const MAX_WORKERS = 3;
 
@@ -54,6 +55,11 @@ function buildAutonomyPlan(contract, budget = {}) {
   const minimumWorkerTokens = Number(budget.minimumWorkerTokens || 8000);
   const affordableWorkers = Math.max(0, Math.floor((totalTokens * 0.6) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));
+  const allocation = complex || uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
+  const rounds = buildAllocation({
+    totalTokens, workerShare: dispatchWorkers.length ? 0.6 : 0, workerCount: dispatchWorkers.length,
+    minimumWorkerTokens, mode: allocation
+  });
 
   return {
     schema: 'genos.autonomous-orchestration/v1alpha1',
@@ -115,9 +121,10 @@ function buildAutonomyPlan(contract, budget = {}) {
       total: totalTokens,
       workerShare: dispatchWorkers.length ? 0.6 : 0,
       orchestratorReserve: dispatchWorkers.length ? 0.4 : 1,
-      allocation: complex || uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted',
+      allocation,
       minimumWorkerTokens,
-      stopConditions: contract.stop_conditions || []
+      stopConditions: contract.stop_conditions || [],
+      rounds
     }
   };
 }
