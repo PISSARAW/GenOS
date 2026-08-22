@@ -38,6 +38,10 @@ pub struct GenerationConfig {
     pub top_k: Option<u32>,
     pub max_tokens: Option<u32>,
     pub stop_sequences: Vec<String>,
+    #[serde(default)]
+    pub tools: Vec<ToolDefinition>,
+    #[serde(default)]
+    pub response_format: Option<Value>,
 }
 
 /// A standardized tool call request returned by the model
@@ -143,4 +147,16 @@ pub fn validate_required_fields(value: &Value, schema: &Value) -> anyhow::Result
         }
     }
     Ok(())
+}
+
+pub fn validate_tool_call(call: &ToolCall, tools: &[ToolDefinition]) -> anyhow::Result<Value> {
+    let tool = tools
+        .iter()
+        .find(|tool| tool.name == call.function_name)
+        .ok_or_else(|| anyhow::anyhow!("unknown tool {}", call.function_name))?;
+    let arguments: Value = serde_json::from_str(&call.arguments).map_err(|error| {
+        anyhow::anyhow!("invalid arguments for {}: {error}", call.function_name)
+    })?;
+    validate_required_fields(&arguments, &tool.parameters)?;
+    Ok(arguments)
 }

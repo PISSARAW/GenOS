@@ -1,4 +1,5 @@
 use crate::adapters::openai::OpenAiAdapter;
+use crate::adapters::providers::{JsonProvider, Protocol};
 use crate::fake::{FakeModel, RandomModel};
 use crate::LlmProvider;
 use anyhow::anyhow;
@@ -77,6 +78,67 @@ impl ModelFactory {
                 endpoint,
                 "openai-compatible",
             )))
+        } else if uri.starts_with("anthropic://") {
+            let model = uri.trim_start_matches("anthropic://").to_string();
+            let key = api_key
+                .or_else(|| env::var("ANTHROPIC_API_KEY").ok())
+                .unwrap_or_default();
+            Ok(Box::new(JsonProvider::new(
+                "anthropic",
+                model,
+                env::var("GENOS_ANTHROPIC_ENDPOINT")
+                    .unwrap_or_else(|_| "https://api.anthropic.com/v1/messages".into()),
+                key,
+                Protocol::Anthropic,
+            )))
+        } else if uri.starts_with("gemini://") {
+            let model = uri.trim_start_matches("gemini://").to_string();
+            let key = api_key
+                .or_else(|| env::var("GEMINI_API_KEY").ok())
+                .unwrap_or_default();
+            let endpoint = env::var("GENOS_GEMINI_ENDPOINT").unwrap_or_else(|_| format!("https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"));
+            Ok(Box::new(JsonProvider::new(
+                "gemini",
+                model,
+                endpoint,
+                key,
+                Protocol::Gemini,
+            )))
+        } else if uri.starts_with("cohere://") {
+            let model = uri.trim_start_matches("cohere://").to_string();
+            let key = api_key
+                .or_else(|| env::var("COHERE_API_KEY").ok())
+                .unwrap_or_default();
+            Ok(Box::new(JsonProvider::new(
+                "cohere",
+                model,
+                env::var("GENOS_COHERE_ENDPOINT")
+                    .unwrap_or_else(|_| "https://api.cohere.com/v2/chat".into()),
+                key,
+                Protocol::Cohere,
+            )))
+        } else if uri.starts_with("bedrock://") {
+            let model = uri.trim_start_matches("bedrock://").to_string();
+            let endpoint = env::var("GENOS_BEDROCK_ENDPOINT")
+                .map_err(|_| anyhow!("GENOS_BEDROCK_ENDPOINT is required for bedrock://"))?;
+            Ok(Box::new(JsonProvider::new(
+                "bedrock",
+                model,
+                endpoint,
+                api_key.unwrap_or_default(),
+                Protocol::Bedrock,
+            )))
+        } else if uri.starts_with("vertex://") {
+            let model = uri.trim_start_matches("vertex://").to_string();
+            let endpoint = env::var("GENOS_VERTEX_ENDPOINT")
+                .map_err(|_| anyhow!("GENOS_VERTEX_ENDPOINT is required for vertex://"))?;
+            Ok(Box::new(JsonProvider::new(
+                "vertex",
+                model,
+                endpoint,
+                api_key.unwrap_or_default(),
+                Protocol::Vertex,
+            )))
         } else {
             Err(anyhow!("Unknown model provider scheme: {}", uri))
         }
@@ -111,6 +173,24 @@ mod tests {
                 .unwrap()
                 .provider_name(),
             "mistral"
+        );
+        assert_eq!(
+            ModelFactory::create("anthropic://claude", Some("key".into()))
+                .unwrap()
+                .provider_name(),
+            "anthropic"
+        );
+        assert_eq!(
+            ModelFactory::create("gemini://flash", Some("key".into()))
+                .unwrap()
+                .provider_name(),
+            "gemini"
+        );
+        assert_eq!(
+            ModelFactory::create("cohere://command", Some("key".into()))
+                .unwrap()
+                .provider_name(),
+            "cohere"
         );
     }
 }

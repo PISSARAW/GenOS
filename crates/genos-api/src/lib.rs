@@ -1,5 +1,6 @@
 use axum::{
     extract::State,
+    http::HeaderMap,
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
@@ -12,6 +13,7 @@ use genos_model::{GenerationConfig, LlmProvider, Message, Role};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
+    collections::HashMap,
     convert::Infallible,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
@@ -24,6 +26,7 @@ struct Health {
 #[derive(Clone)]
 pub struct ApiState {
     pub provider: Arc<dyn LlmProvider>,
+    pub tenant_tokens: Arc<HashMap<String, String>>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionRequest {
@@ -78,10 +81,19 @@ pub fn router() -> Router {
     router_with_provider(Arc::from(provider))
 }
 pub fn router_with_provider(provider: Arc<dyn LlmProvider>) -> Router {
+    router_with_config(provider, HashMap::new())
+}
+pub fn router_with_config(
+    provider: Arc<dyn LlmProvider>,
+    tenant_tokens: HashMap<String, String>,
+) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/v1/chat/completions", post(chat_completions))
-        .with_state(ApiState { provider })
+        .with_state(ApiState {
+            provider,
+            tenant_tokens: Arc::new(tenant_tokens),
+        })
 }
 async fn health() -> Json<Health> {
     Json(Health { status: "ok" })
@@ -89,8 +101,25 @@ async fn health() -> Json<Health> {
 
 async fn chat_completions(
     State(state): State<ApiState>,
+    headers: HeaderMap,
     Json(request): Json<ChatCompletionRequest>,
 ) -> Response {
+    if !state.tenant_tokens.is_empty() {
+        let tenant = headers
+            .get("x-genos-tenant")
+            .and_then(|value| value.to_str().ok());
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "));
+        if tenant
+            .and_then(|tenant| state.tenant_tokens.get(tenant))
+            .zip(token)
+            .is_none_or(|(expected, actual)| expected != actual)
+        {
+            return (axum::http::StatusCode::UNAUTHORIZED, Json(json!({ "error": { "message": "invalid tenant credentials", "type": "authentication_error" } }))).into_response();
+        }
+    }
     let messages = request
         .messages
         .iter()
