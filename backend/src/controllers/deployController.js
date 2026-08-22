@@ -154,15 +154,15 @@ async function deployTrinity(req, res) {
     const worldId = `${missionId}_world_${index + 1}`;
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, model_tier, isolation_mode, fleet_id, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, w.name, w.role, 'running', resolvedAgentType, 'Pro', 'Branch', missionId, `Trinity world ${index + 1} for: ${prompt}`, w.task
+      id, w.name, w.role, 'idle', resolvedAgentType, 'Pro', 'Branch', missionId, `Trinity world ${index + 1} for: ${prompt}`, `${prompt || 'Trinity mission'} — ${w.task}`
     );
-    await strategyContracts.saveContract(db, {
+    const strategyContract = await strategyContracts.saveContract(db, {
       agentId: id,
       problem: `${prompt || 'Trinity mission'} — ${w.task}`,
       createdBy: 'trinity_orchestrator'
     });
-    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'running', id);
-    persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'running', agentId: id, fleetId: missionId });
+    await db.run(`INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)`, worldId, prompt || 'Trinity mission', index + 1, w.name, w.role, 'queued', id);
+    persistedWorlds.push({ id: worldId, mission: prompt, worldNumber: index + 1, name: w.name, strategy: w.role, status: 'queued', agentId: id, fleetId: missionId });
     telemetry.emitEvent({
       eventType: 'TRINITY_WORLD_SPAWNED',
       agentId: id,
@@ -170,6 +170,14 @@ async function deployTrinity(req, res) {
       detail: `Spawned ${w.name}`,
       severity: 'info'
     });
+    runtimeAdapter.startMission({
+      agentId: id, name: w.name, role: w.role,
+      prompt: `${prompt || 'Trinity mission'}\n\nWorld strategy: ${w.task}`,
+      modelTier: 'Pro', workspaceIsolation: 'Branch', fleetId: missionId,
+      agentType: resolvedAgentType, strategyContract: strategyContract.contract
+    }).catch((error) => telemetry.emitEvent({
+      eventType: 'AGENT_RUNTIME_ERROR', agentId: id, action: 'ERROR', detail: error.message, severity: 'error', status: 'error'
+    }));
   }
 
   res.status(201).json({
@@ -194,7 +202,9 @@ async function listTrinityWorlds(req, res) {
   const db = await getDatabase();
   await backfillLegacyTrinityWorlds(db);
   const rows = await db.all(`SELECT w.*, a.name as agentName, a.agent_type as agentType, a.status as agentStatus FROM trinity_worlds w LEFT JOIN agents a ON a.id = w.agent_id ORDER BY w.created_at DESC, w.world_number ASC`);
-  res.json(rows);
+  // The agent runtime owns lifecycle state. Reflect it here instead of leaving
+  // a Trinity world permanently at the initial queued status.
+  res.json(rows.map((world) => ({ ...world, status: world.agentStatus || world.status })));
 }
 
 async function listAgents(req, res) {
