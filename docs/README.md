@@ -4,7 +4,7 @@
 
 # GenOS Documentation Portal
 
-[![Status](https://img.shields.io/badge/status-pre--alpha-yellow.svg)](../README.md#what-works-today)
+[![Release](https://img.shields.io/badge/release-v0.0.1--alpha.1-blue.svg)](https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1-alpha.1)
 [![Proof](https://img.shields.io/badge/evidence-reproducible-blue.svg)](7-benchmarks-and-comparisons/proof-and-benchmark-status.md)
 [![Rust Core](https://img.shields.io/badge/engine-Rust-orange.svg)](1-onboarding-and-setup/architecture-tour.md)
 

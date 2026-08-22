@@ -17,11 +17,12 @@
   <a href="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml"><img src="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/Rust-1.88%2B-orange.svg" alt="Rust 1.88 or newer">
-  <img src="https://img.shields.io/badge/status-pre--alpha-yellow.svg" alt="Pre-alpha status">
+  <a href="https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1-alpha.1"><img src="https://img.shields.io/badge/release-v0.0.1--alpha.1-blue.svg" alt="GenOS v0.0.1 alpha 1"></a>
 </p>
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1-alpha.1">Download alpha</a> ·
   <a href="#genos-studio">Studio</a> ·
   <a href="examples/">Examples</a> ·
   <a href="docs/README.md">Documentation</a> ·
@@ -30,7 +31,7 @@
 </p>
 
 > [!IMPORTANT]
-> GenOS is active research software at version `0.0.1`. Interfaces can change
+> GenOS is active alpha research software at version `0.0.1`. Interfaces can change
 > before `0.1.0`, and the project is not yet a production security boundary.
 
 ## See GenOS choose a safer future
@@ -99,6 +100,10 @@ tracks which architectural decisions are implemented and which extensions are
 still planned.
 
 ## Quick start
+
+Download a checksummed CLI archive for Linux, macOS, or Windows from
+[`v0.0.1-alpha.1`](https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1-alpha.1),
+or build and run the source proof below.
 
 ### Requirements
 
