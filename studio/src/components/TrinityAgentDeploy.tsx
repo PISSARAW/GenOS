@@ -3,7 +3,7 @@ import { GitBranch, Activity } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
-export const TrinityAgentDeploy: React.FC = () => {
+export const TrinityAgentDeploy: React.FC<{ workspaceId?: string | null; workspaceName?: string }> = ({ workspaceId = null, workspaceName }) => {
   const [step, setStep] = useState<0 | 2>(0);
   const [prompt, setPrompt] = useState('');
   const [worlds, setWorlds] = useState<any[]>([]);
@@ -20,10 +20,10 @@ export const TrinityAgentDeploy: React.FC = () => {
   }, []);
 
   const startWorlds = async () => {
-    if (!prompt.trim()) return;
+    if (!prompt.trim() || !workspaceId) return;
     setDeploying(true);
     try {
-      const result = await api.deployTrinity({ prompt });
+      const result = await api.deployTrinity({ prompt, workspaceId });
       const agentIds = Array.isArray(result?.agents) ? result.agents : [];
       setWorlds(result.worlds || agentIds.map((id: string) => ({ id, name: id, status: 'running', agentId: id })));
       setStep(2);
@@ -48,6 +48,7 @@ export const TrinityAgentDeploy: React.FC = () => {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '20px', lineHeight: 1.5 }}>
             Deploys three isolated GenOS agents with distinct implementation strategies. Their runtime state and telemetry are supplied by the backend.
           </p>
+          <p style={{ color: workspaceId ? 'var(--success)' : 'var(--danger)', fontSize: '0.85rem', marginBottom: '16px' }}>Workspace: <strong>{workspaceName || (workspaceId ? workspaceId : 'Select a project first')}</strong></p>
           <textarea 
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -57,10 +58,10 @@ export const TrinityAgentDeploy: React.FC = () => {
           <button 
             onClick={startWorlds}
             className="gh-btn gh-btn-primary" 
-            disabled={!prompt.trim() || deploying}
+            disabled={!prompt.trim() || !workspaceId || deploying}
             style={{ padding: '8px 24px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
           >
-            <GitBranch size={16} /> {deploying ? 'Starting real runtimes…' : 'Deploy 3 real agents'}
+            <GitBranch size={16} /> {deploying ? 'Starting real runtimes…' : workspaceId ? 'Deploy 3 real agents' : 'Select a project first'}
           </button>
         </div>
       )}
