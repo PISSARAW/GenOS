@@ -10,6 +10,7 @@ pub mod experiment;
 pub mod hallucination;
 pub mod inspect;
 pub mod platform;
+pub mod prompt;
 pub mod replay;
 pub mod resilience;
 pub mod snapshot;
@@ -24,6 +25,7 @@ pub use experiment::*;
 pub use hallucination::*;
 pub use inspect::*;
 pub use platform::*;
+pub use prompt::*;
 pub use replay::*;
 pub use resilience::*;
 pub use snapshot::*;
@@ -66,6 +68,8 @@ pub enum Commands {
     Workflow(WorkflowCommand),
     /// Platform primitives: RAG indexing, retrieval and citations.
     Platform(PlatformCommand),
+    /// Versioned prompt templates and dynamic context rendering.
+    Prompt(PromptCommand),
 }
 
 #[derive(ArgsMacro, Debug)]
