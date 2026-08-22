@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "genos-studio-ide-contract",
+  "version": "1.0.0",
+  "apiBase": "/api/ide",
+  "ides": ["vscode", "jetbrains", "antigravity"],
+  "authentication": { "headers": ["Authorization", "X-CSRF-Token"], "tokenEndpoint": "/api/auth/session" },
+  "commands": [
+    { "id": "workspace.open", "title": "Open workspace in GenOS Studio", "method": "POST", "path": "/commands/workspace.open", "input": { "type": "object", "properties": { "workspaceId": { "type": "string" } }, "required": ["workspaceId"] } },
+    { "id": "compliance.generate", "title": "Generate compliance report", "method": "POST", "path": "/commands/compliance.generate", "input": { "type": "object", "properties": { "framework": { "enum": ["EU_AI_ACT", "SOC_2", "HIPAA"] } }, "required": ["framework"] } },
+    { "id": "schema.status", "title": "Show schema and migration status", "method": "GET", "path": "/commands/schema.status", "input": { "type": "object" } }
+  ]
+}
