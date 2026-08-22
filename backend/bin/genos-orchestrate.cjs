@@ -21,6 +21,14 @@ async function waitForCompletion(db) {
   throw new Error('GenOS orchestrator timed out');
 }
 
+function tokenUsage(runs) {
+  const executionRuns = runs.map((run) => {
+    let metrics = {}; try { metrics = JSON.parse(run.metrics_json || '{}'); } catch (_) {}
+    return { agentId: run.agent_id, status: run.status, tokens: Number(metrics.tokens || 0) };
+  });
+  return { executionRuns, totalTokens: executionRuns.reduce((sum, run) => sum + run.tokens, 0), allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
+}
+
 async function main() {
   // MCP tool calls are request/response interactions. Do not hold the response
   // open for the whole mission: return the durable agent ID immediately and
@@ -50,7 +58,8 @@ async function main() {
       modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {} });
     const agents = await waitForCompletion(db);
     const telemetry = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry }));
+    const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry, token_usage: tokenUsage(runs) }));
   } finally { await closeDatabase(); }
 }
 
