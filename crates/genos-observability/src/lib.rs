@@ -9,6 +9,9 @@ use std::{
 };
 use uuid::Uuid;
 
+pub mod search;
+pub use search::*;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TraceContext {
     pub trace_id: String,
