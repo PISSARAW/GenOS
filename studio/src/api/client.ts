@@ -8,6 +8,34 @@ export const API_BASE_URL = configuredApiBaseUrl || (import.meta.env.DEV ? 'http
 
 const TOKEN_KEY = 'genos_auth_token';
 const CSRF_KEY = 'genos_csrf_token';
+const ORGANIZATION_KEY = 'genos_organization_id';
+const PROJECT_KEY = 'genos_project_id';
+
+export type TenantScope = { organizationId: string; projectId: string };
+
+export function getTenantScope(): TenantScope | null {
+  try {
+    const organizationId = localStorage.getItem(ORGANIZATION_KEY) || '';
+    const projectId = localStorage.getItem(PROJECT_KEY) || '';
+    return organizationId && projectId ? { organizationId, projectId } : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setTenantScope(scope: TenantScope): void {
+  try {
+    localStorage.setItem(ORGANIZATION_KEY, scope.organizationId);
+    localStorage.setItem(PROJECT_KEY, scope.projectId);
+  } catch {}
+}
+
+export function clearTenantScope(): void {
+  try {
+    localStorage.removeItem(ORGANIZATION_KEY);
+    localStorage.removeItem(PROJECT_KEY);
+  } catch {}
+}
 
 export function getAuthToken(): string {
   try {
@@ -53,12 +81,14 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
   const method = options.method || 'GET';
   const token = getAuthToken();
   const csrf = getCsrfToken();
+  const tenantScope = getTenantScope();
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'X-CSRF-Token': csrf,
     'X-Access-Key': token,
     'Authorization': `Bearer ${token}`,
+    ...(tenantScope ? { 'X-Organization-Id': tenantScope.organizationId, 'X-Project-Id': tenantScope.projectId } : {}),
     ...(options.headers || {})
   };
 
@@ -89,6 +119,33 @@ export async function apiRequest<T = any>(endpoint: string, options: RequestOpti
     return response.json();
   }
   return response.text() as unknown as T;
+}
+
+/**
+ * Opens an SSE response with the same credentials and tenant scope as API calls.
+ * Native EventSource cannot attach these headers, which would make protected
+ * streams appear to start before immediately disconnecting.
+ */
+export async function openApiEventStream(endpoint: string): Promise<Response> {
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
+  const token = getAuthToken();
+  const tenantScope = getTenantScope();
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'text/event-stream',
+      'X-Access-Key': token,
+      Authorization: `Bearer ${token}`,
+      ...(tenantScope ? { 'X-Organization-Id': tenantScope.organizationId, 'X-Project-Id': tenantScope.projectId } : {})
+    },
+    credentials: 'omit'
+  });
+  if (!response.ok) {
+    let detail = `HTTP ${response.status} ${response.statusText}`;
+    try { detail = (await response.json())?.error?.message || detail; } catch {}
+    throw new Error(detail);
+  }
+  return response;
 }
 
 // API Service Modules (All functions <= 3 params)
@@ -199,6 +256,7 @@ export const api = {
   // Tenancy and worker health
   listOrganizations: () => apiRequest('/api/control-plane/organizations'),
   createOrganization: (name: string) => apiRequest('/api/control-plane/organizations', { method: 'POST', body: { name } }),
+  createProject: (organizationId: string, name: string) => apiRequest('/api/control-plane/projects', { method: 'POST', body: { organizationId, name } }),
   listEnvironments: () => apiRequest('/api/control-plane/environments'),
   getWorkerHealth: () => apiRequest('/api/control-plane/workers'),
 
@@ -350,3 +408,23 @@ export const api = {
   bisectPlatformIncident: (workspaceId: string, firstBadStep?: number) => apiRequest('/api/platform/incidents/bisect', { method: 'POST', body: { workspaceId, firstBadStep } }),
   paretoPlatformEvaluation: (items: any[]) => apiRequest('/api/platform/evaluations/pareto', { method: 'POST', body: { items } })
 };
+
+export async function ensureTenantScope(): Promise<TenantScope> {
+  const existing = getTenantScope();
+  if (existing) return existing;
+
+  const organizations = await api.listOrganizations();
+  const organization = Array.isArray(organizations) && organizations[0]
+    ? organizations[0]
+    : await api.createOrganization('GenOS Studio');
+  const baseName = 'Default Project';
+  let project: any;
+  try {
+    project = await api.createProject(organization.id, baseName);
+  } catch {
+    project = await api.createProject(organization.id, `${baseName} ${Date.now()}`);
+  }
+  const scope = { organizationId: organization.id, projectId: project.id };
+  setTenantScope(scope);
+  return scope;
+}

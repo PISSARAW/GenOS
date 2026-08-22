@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, Key, X } from 'lucide-react';
-import { api, setAuthToken } from '../api/client';
+import { api, ensureTenantScope, setAuthToken } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
 interface RBACGateProps {
@@ -20,9 +20,10 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
       const res = await api.verifyToken(key);
       if (res && (res.valid || res.success || res.role === 'admin' || res.username)) {
         setAuthToken(key);
+        await ensureTenantScope();
         setLocked(false);
         setShowModal(false);
-        showToast('success', 'Access Granted', `Unlocked with role: ${res.role || 'admin'}`);
+        showToast('success', 'Access Granted', `Unlocked with role: ${res.role || 'admin'} and an active project scope.`);
       } else {
         setErrorMsg('Invalid cryptographic token or insufficient privileges.');
       }

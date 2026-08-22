@@ -65,7 +65,12 @@ async function startMission(mission) {
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
     const event = emit(agentId, eventType, action, detail, payload, severity, status);
     executionQueue = executionQueue.then(() => strategyExecution.recordExecutionEvent(db, agentId, event)).then((decision) => {
-      if (decision?.halt && !guardrailHalted) {
+      // A final runtime event may report that the mission exceeded its budget
+      // only after the child has already completed. Record the guardrail on
+      // the execution run, but never turn that completed child into a SIGTERM
+      // failure and overwrite the agent's terminal state.
+      const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
+      if (decision?.halt && !guardrailHalted && !finalEvent) {
         guardrailHalted = true;
         emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
         child.kill('SIGTERM');

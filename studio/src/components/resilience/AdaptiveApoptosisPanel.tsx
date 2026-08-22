@@ -36,8 +36,8 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
       setSelectedAutopsy({
         ...report,
         trigger: report.triggerReason,
-        terminalAction: report.terminalCallStack?.join('\n'),
-        lastThoughts: (report.lastActions || []).map((action: any) => `${action.tool}: ${action.status}${action.error ? ` — ${action.error}` : ''}`),
+        terminalAction: report.terminalCallStack?.join('\n') || 'No termination action was taken.',
+        lastThoughts: (report.lastActions || []).map((action: any) => `${action.tool}: ${action.status}${action.detail ? ` — ${action.detail}` : ''}`),
         recommendedPatch: report.recommendedPromptPatch
       });
       showToast('success', 'Autopsy Evaluation Complete', `Agent ${agent.name} evaluated without forced termination.`);
@@ -127,8 +127,9 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
           </div>
 
           <div style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px', flex: 1 }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Last 3 Agent Thoughts Before Apoptosis</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px' }}>Recent persisted agent telemetry</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {selectedAutopsy.lastThoughts.length === 0 && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>No telemetry was recorded for this agent.</div>}
               {selectedAutopsy.lastThoughts.map((thought: string, i: number) => (
                 <div key={i} style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: thought.startsWith('[TRIGGER]') ? 'var(--danger)' : 'var(--text-primary)' }}>
                   {thought}
@@ -137,9 +138,9 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ background: 'rgba(56, 139, 253, 0.1)', border: '1px solid var(--accent-blue)', borderRadius: '6px', padding: '10px 12px', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
+          {selectedAutopsy.recommendedPatch && <div style={{ background: 'rgba(56, 139, 253, 0.1)', border: '1px solid var(--accent-blue)', borderRadius: '6px', padding: '10px 12px', fontSize: '0.75rem', color: 'var(--text-primary)' }}>
             <strong>Recommended Prompt Patch:</strong> {selectedAutopsy.recommendedPatch}
-          </div>
+          </div>}
 
           </>}
         </div>
