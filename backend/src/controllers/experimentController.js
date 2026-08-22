@@ -17,7 +17,7 @@ async function listExperiments(req, res) {
     id: e.id,
     title: e.title,
     type: e.experiment_type,
-    status: e.status,
+    status: e.status === 'Setup' ? 'registered' : e.status,
     chaosLevel: e.chaos_level,
     color: e.color || '#0969da',
     summary: e.results_summary
@@ -48,7 +48,7 @@ async function launchExperiment(req, res) {
   const db = await getDatabase();
   await db.run(
     `INSERT INTO experiments (id, workspace_id, title, experiment_type, status, chaos_level, color, results_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    expId, workspaceId, title, experimentType, 'Running', chaosLevel, color, 'Protocol registered; awaiting recorded observations.'
+    expId, workspaceId, title, experimentType, 'Setup', chaosLevel, color, 'Protocol registered; awaiting recorded observations.'
   );
 
   telemetry.emitEvent({
@@ -62,7 +62,7 @@ async function launchExperiment(req, res) {
   res.status(201).json({
     success: true,
     experimentId: expId,
-    status: 'Running'
+    status: 'registered'
   });
 }
 

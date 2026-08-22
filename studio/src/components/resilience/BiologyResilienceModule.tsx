@@ -18,7 +18,7 @@ export const BiologyResilienceModule: React.FC = () => {
             <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Biology, Resilience & Biomimicry Station</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Biomimetic self-healing mechanisms: adaptive apoptosis self-destruction, microsecond cryptobiosis, and blast-radius shields.
+            Persisted apoptosis policy and MCP safety status. Durable swarm hibernation is unavailable in this deployment.
           </p>
         </div>
 

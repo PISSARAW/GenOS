@@ -96,29 +96,29 @@ export const ExperimentsLab: React.FC = () => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Beaker size={20} color="var(--text-muted)" /> Scientific Experiments Lab
           </h2>
-          <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '0.85rem' }}>Design, execute, and inspect counterfactual agent simulations.</p>
+          <p style={{ color: 'var(--text-secondary)', margin: '4px 0 0 0', fontSize: '0.85rem' }}>Register protocols and inspect observations persisted by the backend.</p>
         </div>
         <button onClick={() => setView('setup')} className="gh-btn gh-btn-primary">
           <Sparkles size={14} /> Initialize Protocol
         </button>
       </div>
 
-      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid var(--panel-border)' }}>Active Arenas & Historical Protocols</h3>
+      <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid var(--panel-border)' }}>Registered & Historical Protocols</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', paddingBottom: '24px' }}>
         {experiments.map((exp: any, i: number) => (
-          <div key={exp.id || i} onClick={() => { setActiveExperimentId(exp.id); setWaveData([]); loadLabData(exp.id); setView(exp.status === 'Running' ? 'monitoring' : 'analysis'); }} style={{
+          <div key={exp.id || i} onClick={() => { setActiveExperimentId(exp.id); setWaveData([]); loadLabData(exp.id); setView(['running', 'registered'].includes(String(exp.status).toLowerCase()) ? 'monitoring' : 'analysis'); }} style={{
             background: 'var(--bg-panel)',
-            border: exp.status === 'Running' ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)',
+            border: ['running', 'registered'].includes(String(exp.status).toLowerCase()) ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)',
             borderRadius: '6px',
             padding: '16px',
             cursor: 'pointer',
             position: 'relative'
           }} className="hover-bg-gray">
-            {exp.status === 'Running' && <div style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-blue)', animation: 'pulse-green 2s infinite' }} />}
-            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: exp.status === 'Running' ? 'var(--accent-blue)' : 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>{exp.type}</div>
+            {['running', 'registered'].includes(String(exp.status).toLowerCase()) && <div style={{ position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-blue)' }} />}
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: ['running', 'registered'].includes(String(exp.status).toLowerCase()) ? 'var(--accent-blue)' : 'var(--text-secondary)', textTransform: 'uppercase', marginBottom: '8px' }}>{exp.type}</div>
             <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '12px' }} className="hover-blue">{exp.title}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              <CheckCircle2 size={14} color={exp.status === 'Running' ? 'var(--accent-blue)' : 'var(--success)'} /> {exp.status}
+              <CheckCircle2 size={14} color={['running', 'registered'].includes(String(exp.status).toLowerCase()) ? 'var(--accent-blue)' : 'var(--success)'} /> {exp.status}
             </div>
           </div>
         ))}
@@ -185,7 +185,7 @@ export const ExperimentsLab: React.FC = () => {
 
         <div style={{ padding: '16px', borderTop: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', borderRadius: '0 0 6px 6px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button className="gh-btn" onClick={() => setView('dashboard')}>Cancel</button>
-          <button className="gh-btn gh-btn-primary" onClick={handleLaunch}><Play size={14} style={{ marginRight: '4px' }} /> Launch Simulation</button>
+          <button className="gh-btn gh-btn-primary" onClick={handleLaunch}><Play size={14} style={{ marginRight: '4px' }} /> Register Protocol</button>
         </div>
       </div>
     </div>
@@ -197,8 +197,8 @@ export const ExperimentsLab: React.FC = () => {
       {/* Simulation Arena */}
       <div style={{ flex: 1, padding: '24px 32px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Simulation Arena Telemetry</h2>
-          <button onClick={() => setView('analysis')} className="gh-btn gh-btn-danger">Finish Experiment</button>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recorded Experiment Telemetry</h2>
+          <button onClick={() => setView('analysis')} className="gh-btn">View Analysis</button>
         </div>
         
         <div style={{ flex: 1, background: 'var(--bg-panel)', borderRadius: '6px', border: '1px solid var(--panel-border)', padding: '24px', position: 'relative', overflow: 'hidden' }}>
@@ -218,7 +218,7 @@ export const ExperimentsLab: React.FC = () => {
       {/* Thought Feed */}
       <div style={{ width: '350px', background: 'var(--bg-panel)', borderLeft: '1px solid var(--panel-border)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
-          <Cpu size={16} color="var(--text-muted)" /> Isolated Agent Thought Stream
+          <Cpu size={16} color="var(--text-muted)" /> Recorded Observations
         </div>
         <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {thoughtFeed.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No recorded observations yet.</div>}

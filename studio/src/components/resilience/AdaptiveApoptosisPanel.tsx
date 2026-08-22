@@ -94,7 +94,7 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
 
           <div style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
             <AlertTriangle size={12} color="var(--danger)" style={{ display: 'inline', marginRight: '4px' }} />
-            Automated apoptosis instantly terminates malfunctioning nodes before workspace state or repository corruption occurs.
+            This policy records an apoptosis decision and updates the persisted agent state when its supplied thresholds are met; it does not claim to stop an external runtime process.
           </div>
 
           <button onClick={handleSaveThresholds} className="gh-btn gh-btn-primary" style={{ justifyContent: 'center' }}>

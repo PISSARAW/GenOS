@@ -3,7 +3,6 @@ import {
   Activity, Shield, Zap, Archive, FlaskConical, Flame, Target, Octagon,
   User
 } from 'lucide-react';
-import { useGenOSStore } from '../store/useGenOSStore';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
@@ -30,11 +29,8 @@ const FlatSparkline: React.FC<{ data: number[]; color: string }> = ({ data, colo
 };
 
 export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenLab }) => {
-  const [activeFilter, setActiveFilter] = useState('Live Simulations');
+  const [activeFilter, setActiveFilter] = useState('Recorded Protocols');
   const [backendExperiments, setBackendExperiments] = useState<any[]>([]);
-  const traces = useGenOSStore((state) => state.traces);
-  const clones = useGenOSStore((state) => state.clones);
-  const evaluations = useGenOSStore((state) => state.evaluations);
   const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
@@ -48,65 +44,30 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
   const handleHaltNonCritical = async () => {
     try {
       await api.haltAll();
-      showToast('warning', 'Non-Critical Experiments Halted', 'Paused background experiment simulation tasks.');
-    } catch {
-      showToast('warning', 'Halt Broadcast Sent', 'Signal dispatched to running arenas.');
+      showToast('warning', 'Global Halt Enabled', 'The backend kill switch is now engaged.');
+    } catch (error: any) {
+      showToast('error', 'Global Halt Failed', error?.message || 'The backend kill switch could not be engaged.');
     }
   };
 
   const filters = [
-    { name: 'Live Simulations', icon: <Activity size={16} /> },
+    { name: 'Recorded Protocols', icon: <Activity size={16} /> },
     { name: 'Security Ring', icon: <Shield size={16} /> },
     { name: 'Chaos Engineering', icon: <Zap size={16} /> },
     { name: 'Archives & Results', icon: <Archive size={16} /> }
   ];
 
-  // Map real agent traces + backend experiments
-  const liveExperiments = Object.entries(traces).map(([agentId, agentTraces]) => {
-    const agent = clones.find((c) => c.id === agentId);
-    const agentName = agent ? agent.name : agentId;
-    const agentRole = agent ? agent.role : 'Specialist';
-    
-    let type = 'Live Simulation';
-    let color = '#238636';
-    if (agentTraces.some((t) => t.name.includes('security') || t.name.includes('adversarial'))) {
-      type = 'Security Ring';
-      color = '#f85149';
-    } else if (agentTraces.some((t) => t.name.includes('scientific') || t.name.includes('hypothesis'))) {
-      type = 'Chaos Engineering';
-      color = '#58a6ff';
-    }
-
-    const progress = Math.min(agentTraces.length * 10, 100);
-    const evalData = evaluations.filter((e) => e.agentId === agentId).map((e) => e.score);
-    const data = evalData;
-
-    return {
-      id: agentId,
-      title: `${agentName} - ${agentTraces[agentTraces.length - 1]?.name || 'Active Task'}`,
-      type,
-      progress,
-      agents: agent ? [{ name: agentName, role: agentRole }] : [],
-      color,
-      data
-    };
-  });
-
-  const mergedExperiments = [
-    ...liveExperiments,
-    ...backendExperiments.map((be) => ({
+  const mergedExperiments = backendExperiments.map((be) => ({
       id: be.id,
       title: be.title,
-      type: be.type || 'Live Simulation',
-      progress: typeof be.progress === 'number' ? be.progress : 0,
-      agents: Array.isArray(be.agents) ? be.agents : [],
+      type: be.type || 'Recorded Protocols',
+      observations: Array.isArray(be.data) ? be.data.length : 0,
       color: be.color || '#58a6ff',
       data: Array.isArray(be.data) ? be.data : []
-    }))
-  ];
+    }));
 
   const filteredExperiments = mergedExperiments.filter((exp) => {
-    if (activeFilter === 'Live Simulations') return true;
+    if (activeFilter === 'Recorded Protocols') return true;
     return exp.type === activeFilter;
   });
 
@@ -176,7 +137,7 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button onClick={handleHaltNonCritical} className="gh-btn" style={{ padding: '6px 16px', fontWeight: 600, color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Octagon size={16} /> Halt All Non-Critical
+                <Octagon size={16} /> Engage Global Halt
               </button>
               <button onClick={onOpenLab} className="gh-btn gh-btn-primary" style={{ padding: '6px 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FlaskConical size={16} /> Design Experiment
@@ -208,14 +169,12 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
 
                 {/* Agent Arena */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', padding: '12px', borderRadius: '6px' }}>
-                  {exp.agents.map((agent: any) => (
-                    <div key={agent.name} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                       <div style={{ width: '24px', height: '24px', borderRadius: '4px', background: 'var(--bg-subtle)', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                         <User size={14} color="var(--text-secondary)" />
                       </div>
-                      {agent.name}
+                      Persisted protocol
                     </div>
-                  ))}
                 </div>
 
                 {/* Sparkline */}
@@ -226,11 +185,11 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
                 {/* Progress */}
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>
-                    <span>Hypotheses tested</span>
-                    <span style={{ color: 'var(--text-primary)' }}>{exp.progress} / 100</span>
+                    <span>Recorded observations</span>
+                    <span style={{ color: 'var(--text-primary)' }}>{exp.observations}</span>
                   </div>
                   <div style={{ width: '100%', height: '4px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ width: `${exp.progress}%`, height: '100%', background: exp.color }}></div>
+                    <div style={{ width: `${Math.min(exp.observations, 100)}%`, height: '100%', background: exp.color }}></div>
                   </div>
                 </div>
 
