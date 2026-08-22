@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, ArrowRight, Check, ChevronRight, CircleDot, Clock3, Code2, Columns2,
   Copy, Database, GitBranch, GripVertical, Layers3, MessageSquare, Play, Plus,
@@ -10,6 +10,7 @@ import {
   type Connection, type Edge, type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { api } from '../api/client';
 
 type StudioTab = 'build' | 'prompts' | 'runs' | 'evals' | 'rag' | 'integrations' | 'deploy';
 
@@ -49,6 +50,32 @@ export const StudioBuilder: React.FC = () => {
   const [promptVersion, setPromptVersion] = useState('v12 · current');
   const [query, setQuery] = useState('');
   const [isRunning, setIsRunning] = useState(false);
+  const [workflowId, setWorkflowId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'offline'>('saved');
+
+  useEffect(() => {
+    let cancelled = false;
+    api.listWorkflows().then((workflows: any[]) => {
+      const workflow = Array.isArray(workflows) ? workflows[0] : null;
+      if (cancelled || !workflow?.graph) return;
+      setWorkflowId(workflow.id);
+      setNodes(workflow.graph.nodes || []);
+      setEdges(workflow.graph.edges || []);
+    }).catch(() => { if (!cancelled) setSaveState('offline'); });
+    return () => { cancelled = true; };
+  }, [setEdges, setNodes]);
+
+  const saveWorkflow = async () => {
+    setSaveState('saving');
+    const graph = { nodes, edges };
+    try {
+      const saved = workflowId
+        ? await api.updateWorkflow(workflowId, { graph })
+        : await api.createWorkflow({ name: 'Support triage agent', description: 'Visual workflow created in Studio', graph });
+      setWorkflowId(saved.id);
+      setSaveState('saved');
+    } catch (_) { setSaveState('offline'); }
+  };
 
   const onConnect = useCallback((connection: Connection) => setEdges((current) => addEdge({ ...connection, animated: true }, current)), [setEdges]);
   const addWorkflowNode = (label: string) => {
@@ -60,7 +87,7 @@ export const StudioBuilder: React.FC = () => {
   return <div className="studio-builder">
     <div className="studio-builder-header">
       <div><div className="eyebrow"><CircleDot size={12} color="var(--success)" /> STUDIO / WORKFLOW</div><h1>Support triage agent <span className="status-pill">Draft</span></h1><div style={muted}>Production workspace · updated just now · <span className="mono">agent_7f2c</span></div></div>
-      <div className="builder-actions"><button className="studio-button secondary"><Copy size={14} /> Import</button><button className="studio-button secondary"><Upload size={14} /> Export</button><button className="studio-button primary" onClick={() => { setIsRunning(true); setTimeout(() => setIsRunning(false), 1400); }}><Play size={14} /> {isRunning ? 'Running…' : 'Run test'}</button></div>
+      <div className="builder-actions"><button className="studio-button secondary"><Copy size={14} /> Import</button><button className="studio-button secondary"><Upload size={14} /> Export</button><button className="studio-button secondary" onClick={saveWorkflow}>{saveState === 'saving' ? 'Saving…' : saveState === 'offline' ? 'Retry save' : 'Save workflow'}</button><button className="studio-button primary" onClick={async () => { if (workflowId) await api.runWorkflow(workflowId).catch(() => undefined); setIsRunning(true); setTimeout(() => setIsRunning(false), 1400); }}><Play size={14} /> {isRunning ? 'Running…' : 'Run test'}</button></div>
     </div>
     <div className="studio-tabs">{tabItems.map((item) => <button key={item.id} className={tab === item.id ? 'active' : ''} onClick={() => setTab(item.id)}>{item.icon}{item.label}</button>)}</div>
     {tab === 'build' && <BuildView nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} onConnect={onConnect} selectedNode={selectedNode} setSelectedNode={setSelectedNode} addWorkflowNode={addWorkflowNode} />}
