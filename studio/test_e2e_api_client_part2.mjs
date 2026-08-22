@@ -243,7 +243,7 @@ export async function runPart2(api, apiRequest, assert, MILITARY_OVERRIDE_TOKEN,
   await new Promise((resolve) => {
     const sseReq = http.request({
       hostname: 'localhost',
-      port: 4000,
+      port: Number(process.env.GENOS_E2E_PORT || 4000),
       path: '/api/telemetry',
       method: 'GET',
       headers: {
