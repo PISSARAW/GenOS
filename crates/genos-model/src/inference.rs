@@ -13,7 +13,7 @@ pub trait InferenceBackend {
     fn generate(&self, prompt: &str) -> Result<InferenceResult, std::io::Error>;
 }
 
-/// Moteur d'inférence basé sur Candle, permettant d'exécuter localement des SLMs 
+/// Moteur d'inférence basé sur Candle, permettant d'exécuter localement des SLMs
 /// quantifiés (ex. 1B-8B) avec calcul natif de logprobs et d'entropie.
 pub struct CandleEngine {
     // Placeholder for model_weights, tokenizer, etc.

@@ -102,6 +102,7 @@ pub fn write_variable_on_branch(
 }
 
 /// [`write_variable_on_branch`] with an explicit timestamp, for deterministic tests.
+#[allow(clippy::too_many_arguments)]
 pub fn write_variable_on_branch_at(
     snapshot: &mut AgentSnapshot,
     key: &str,

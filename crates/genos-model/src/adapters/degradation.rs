@@ -59,7 +59,7 @@ impl LlmProvider for DegradationProvider {
 mod tests {
     use super::*;
     use crate::fake::FakeModel;
-    use crate::{Role, TokenUsage};
+    use crate::Role;
     use anyhow::anyhow;
 
     struct FailingModel;
@@ -95,7 +95,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_degradation_wrapper_returns_fallback_if_primary_fails() {
-        let wrapper = DegradationProvider::new(Box::new(FailingModel), "Degraded state".to_string());
+        let wrapper =
+            DegradationProvider::new(Box::new(FailingModel), "Degraded state".to_string());
         let messages = vec![];
         let config = GenerationConfig::default();
 

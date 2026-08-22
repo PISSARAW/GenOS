@@ -58,6 +58,7 @@ pub(super) fn diff_roots(roots: &[Root]) -> Vec<DiffEntry> {
 /// Walk two values in parallel, emitting one entry per differing leaf â€” except
 /// for a record present on one side only, which is one change, not one change
 /// per field it happens to carry.
+#[allow(clippy::too_many_arguments)]
 fn diff_values(path: &str, a: &Value, b: &Value, ctx: &mut DiffContext<'_>) {
     if a == b {
         return;

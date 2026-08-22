@@ -1,24 +1,24 @@
+pub mod biomimicry;
 pub mod canonical;
 pub mod dev;
-pub mod experiment;
-pub mod resilience;
-pub mod biomimicry;
-pub mod hallucination;
-pub mod security;
-pub mod mcts;
 pub mod evolution;
+pub mod experiment;
+pub mod hallucination;
+pub mod mcts;
 pub mod memory;
+pub mod resilience;
+pub mod security;
 
+use self::biomimicry::biomimicry_specs;
 use self::canonical::canonical_specs;
 use self::dev::dev_specs;
-use self::experiment::experiment_specs;
-use self::resilience::resilience_specs;
-use self::biomimicry::biomimicry_specs;
-use self::hallucination::hallucination_specs;
-use self::security::security_specs;
-use self::mcts::mcts_specs;
 use self::evolution::evolution_specs;
+use self::experiment::experiment_specs;
+use self::hallucination::hallucination_specs;
+use self::mcts::mcts_specs;
 use self::memory::memory_specs;
+use self::resilience::resilience_specs;
+use self::security::security_specs;
 use crate::types::ToolSpec;
 
 pub fn tool_specs() -> Vec<ToolSpec> {

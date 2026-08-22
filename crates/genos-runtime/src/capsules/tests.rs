@@ -1,4 +1,4 @@
-﻿use super::*;
+use super::*;
 use async_trait::async_trait;
 use genos_core::{AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation, RestorableComponent};
 use genos_store::{CapsuleStore, LocalCapsuleStore};
@@ -115,10 +115,9 @@ async fn eliminated_capsule_is_checkpointed_cancelled_and_its_world_destroyed() 
         CapsuleRelation::Genesis,
     );
     capsule.transition(CapsuleLifecycle::Running).unwrap();
-    let terminated =
-        terminate_capsule(&provider, &store, &capsule, CapsuleLifecycle::Cancelled)
-            .await
-            .unwrap();
+    let terminated = terminate_capsule(&provider, &store, &capsule, CapsuleLifecycle::Cancelled)
+        .await
+        .unwrap();
     assert_eq!(terminated.lifecycle, CapsuleLifecycle::Cancelled);
     assert!(terminated.live_world_id.is_none());
     assert!(terminated.verify_integrity());

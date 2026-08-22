@@ -34,7 +34,7 @@ impl Locus {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 /// Modélise les différentes stratégies de recombinaison (Reproduction Sexuelle).
-/// 
+///
 /// **Biologie Évolutive & Algorithmique (Opérateurs Linéaires vs Non-Linéaires)** :
 /// - **HomologousRecombination (Croisement en 1 point)** : L'enfant hérite de la première moitié du parent A, et de la deuxième du parent B.
 /// - **UniformCrossover (Croisement Uniforme)** : Extrêmement efficace pour explorer un large espace et maintenir l'hétérozygosité, chaque gène a X% de chance de venir de A ou B.
@@ -182,7 +182,11 @@ pub struct AgentGenome {
 }
 
 impl AgentGenome {
-    pub fn infer_trait_claim(&mut self, observations: &[crate::phenotype::PhenotypeObservation], trait_name: &str) {
+    pub fn infer_trait_claim(
+        &mut self,
+        observations: &[crate::phenotype::PhenotypeObservation],
+        trait_name: &str,
+    ) {
         if let Some(claim) = crate::phenotype::infer_trait_claim(observations, trait_name) {
             self.inferred_traits.push(claim);
         }
@@ -252,12 +256,20 @@ pub fn mutate_cognition(
         if !child.cognition.set_drive(&drive_name, new_value) {
             // If drive wasn't found in any chromosome, add it to a 'default' chromosome
             if child.cognition.chromosomes.is_empty() {
-                child.cognition.chromosomes.push(Chromosome { name: "C1".to_string(), loci: vec![], operons: vec![] });
+                child.cognition.chromosomes.push(Chromosome {
+                    name: "C1".to_string(),
+                    loci: vec![],
+                    operons: vec![],
+                });
             }
-            child.cognition.chromosomes[0].loci.push(Locus { gene_name: drive_name, value: new_value, epigenetic_marker: 0.0 });
+            child.cognition.chromosomes[0].loci.push(Locus {
+                gene_name: drive_name,
+                value: new_value,
+                epigenetic_marker: 0.0,
+            });
         }
     }
-    
+
     child.mutation = Some(GenomeMutationMetadata { changes });
     child
 }
@@ -280,17 +292,27 @@ mod tests {
                 role: "tester".to_string(),
             },
             cognition: CognitionConfig {
-                chromosomes: vec![
-                    Chromosome {
-                        name: "C1".to_string(),
-                        loci: vec![
-                            Locus { gene_name: "exploration".to_string(), value: exploration, epigenetic_marker: 0.0 },
-                            Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                            Locus { gene_name: "verification_threshold".to_string(), value: 0.5, epigenetic_marker: 0.0 },
-                        ],
-                        operons: vec![],
-                    }
-                ],
+                chromosomes: vec![Chromosome {
+                    name: "C1".to_string(),
+                    loci: vec![
+                        Locus {
+                            gene_name: "exploration".to_string(),
+                            value: exploration,
+                            epigenetic_marker: 0.0,
+                        },
+                        Locus {
+                            gene_name: "risk_tolerance".to_string(),
+                            value: 0.25,
+                            epigenetic_marker: 0.0,
+                        },
+                        Locus {
+                            gene_name: "verification_threshold".to_string(),
+                            value: 0.5,
+                            epigenetic_marker: 0.0,
+                        },
+                    ],
+                    operons: vec![],
+                }],
                 planning_depth: 4,
                 regulators: vec![],
             },
@@ -320,11 +342,11 @@ mod tests {
         let mut changes1 = std::collections::BTreeMap::new();
         changes1.insert("exploration".to_string(), 0.6);
         let g1 = mutate_cognition(&parent, changes1);
-        
+
         let mut changes2 = std::collections::BTreeMap::new();
         changes2.insert("exploration".to_string(), 0.4);
         let g2 = mutate_cognition(&parent, changes2);
-        
+
         assert_eq!(g1.parent_genome, Some(parent.id.clone()));
         assert_eq!(g2.parent_genome, Some(parent.id.clone()));
         assert_eq!(g1.cognition.get_drive("exploration").unwrap(), 0.6);
@@ -350,7 +372,7 @@ mod tests {
         let mut ch1 = std::collections::BTreeMap::new();
         ch1.insert("exploration".to_string(), 0.6);
         let g1 = mutate_cognition(&g0, ch1);
-        
+
         let mut ch2 = std::collections::BTreeMap::new();
         ch2.insert("exploration".to_string(), 0.7);
         let g2 = mutate_cognition(&g1, ch2);

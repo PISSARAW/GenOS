@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::genome::AgentGenome;
+use serde::{Deserialize, Serialize};
 
 /// Modélise la réponse globale à un stress environnemental extrême.
 /// Lorsque le seuil de stress est franchi, cela active une polymérase propice aux erreurs

@@ -1,15 +1,15 @@
 mod args;
 mod cmd_agent;
+mod cmd_biomimicry;
 mod cmd_capsule;
 mod cmd_dev;
 mod cmd_experiment;
+mod cmd_hallucination;
 mod cmd_inspect;
 mod cmd_replay;
+mod cmd_resilience;
 mod cmd_snapshot;
 mod cmd_world;
-mod cmd_resilience;
-mod cmd_biomimicry;
-mod cmd_hallucination;
 mod output;
 mod resolve;
 
@@ -17,14 +17,15 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::args::{
-    AgentSubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands, ExperimentSubcommands,
-    InspectSubcommands, ReplaySubcommands, SnapshotSubcommands, WorldSubcommands,
-    ResilienceSubcommands, BiomimicrySubcommands, HallucinationSubcommands,
+    AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
+    ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands, ReplaySubcommands,
+    ResilienceSubcommands, SnapshotSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
     cmd_agent_inspect, cmd_agent_mutate, cmd_agent_promote_trait, cmd_init,
 };
+use crate::cmd_biomimicry::*;
 use crate::cmd_capsule::{
     cmd_agent_run, cmd_capsule_checkpoint, cmd_capsule_create, cmd_capsule_fork,
     cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
@@ -37,8 +38,10 @@ use crate::cmd_experiment::{
     cmd_experiment_security_coevolution, cmd_experiment_select, cmd_experiment_temporal,
     cmd_experiment_workspace,
 };
+use crate::cmd_hallucination::*;
 use crate::cmd_inspect::cmd_inspect_belief;
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
+use crate::cmd_resilience::*;
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
     cmd_snapshot_create, cmd_snapshot_get, cmd_snapshot_lineage, cmd_snapshot_list,
@@ -49,9 +52,6 @@ use crate::cmd_world::{
     cmd_world_check_file, cmd_world_create, cmd_world_destroy, cmd_world_diff, cmd_world_fork,
     cmd_world_read_file, cmd_world_snapshot, cmd_world_write_file,
 };
-use crate::cmd_resilience::*;
-use crate::cmd_biomimicry::*;
-use crate::cmd_hallucination::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -159,13 +159,21 @@ async fn main() -> Result<()> {
             ResilienceSubcommands::Apoptosis(args) => cmd_resilience_apoptosis(args).await,
             ResilienceSubcommands::Cryptobiosis(args) => cmd_resilience_cryptobiosis(args).await,
             ResilienceSubcommands::Hypermutation(args) => cmd_resilience_hypermutation(args).await,
-            ResilienceSubcommands::CircuitBreaker(args) => cmd_resilience_circuit_breaker(args).await,
+            ResilienceSubcommands::CircuitBreaker(args) => {
+                cmd_resilience_circuit_breaker(args).await
+            }
         },
         Commands::Biomimicry(biomimicry) => match biomimicry.command {
-            BiomimicrySubcommands::SwarmConsensus(args) => cmd_biomimicry_swarm_consensus(args).await,
-            BiomimicrySubcommands::FlockingExplore(args) => cmd_biomimicry_flocking_explore(args).await,
+            BiomimicrySubcommands::SwarmConsensus(args) => {
+                cmd_biomimicry_swarm_consensus(args).await
+            }
+            BiomimicrySubcommands::FlockingExplore(args) => {
+                cmd_biomimicry_flocking_explore(args).await
+            }
             BiomimicrySubcommands::NetworkQuorum(args) => cmd_biomimicry_network_quorum(args).await,
-            BiomimicrySubcommands::DistributedHuddle(args) => cmd_biomimicry_distributed_huddle(args).await,
+            BiomimicrySubcommands::DistributedHuddle(args) => {
+                cmd_biomimicry_distributed_huddle(args).await
+            }
         },
         Commands::Hallucination(hallucination) => match hallucination.command {
             HallucinationSubcommands::Detect(_args) => cmd_hallucination_detect().await,

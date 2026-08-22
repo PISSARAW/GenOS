@@ -1,4 +1,4 @@
-﻿use std::collections::HashMap;
+use std::collections::HashMap;
 
 use super::graph::candidate_name;
 use super::types::{ContextualConclusion, KnowledgeSynthesis, MergedClaim};
@@ -78,10 +78,7 @@ fn extract_connected_component(
     component
 }
 
-fn build_conclusions(
-    component: &[usize],
-    candidates: &[MergedClaim],
-) -> Vec<ContextualConclusion> {
+fn build_conclusions(component: &[usize], candidates: &[MergedClaim]) -> Vec<ContextualConclusion> {
     let mut conclusions = component
         .iter()
         .map(|index| {
@@ -133,10 +130,7 @@ fn extract_topics(component: &[usize], candidates: &[MergedClaim]) -> Vec<String
     topics
 }
 
-fn extract_residual_conflicts(
-    component: &[usize],
-    candidates: &[MergedClaim],
-) -> Vec<String> {
+fn extract_residual_conflicts(component: &[usize], candidates: &[MergedClaim]) -> Vec<String> {
     let mut residual_conflicts = component
         .iter()
         .flat_map(|index| {

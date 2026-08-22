@@ -2,10 +2,10 @@ use crate::args::{
     DistributedHuddleArgs, FlockingExploreArgs, NetworkQuorumArgs, SwarmConsensusArgs,
 };
 use anyhow::Result;
-use genos_core::organization::swarm::{Consensus, Decision};
-use genos_core::organization::flocking::{Boid, Vec2, boid_cohesion};
+use genos_core::organization::distributed::{Agent, PenguinHuddle};
+use genos_core::organization::flocking::{boid_cohesion, Boid, Vec2};
 use genos_core::organization::network::BacteriaNode;
-use genos_core::organization::distributed::{PenguinHuddle, Agent};
+use genos_core::organization::swarm::{Consensus, Decision};
 
 pub async fn cmd_biomimicry_swarm_consensus(args: SwarmConsensusArgs) -> Result<()> {
     println!("Triggering swarm consensus for target: {}", args.target);

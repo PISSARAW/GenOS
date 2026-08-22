@@ -1,5 +1,4 @@
-use wgpu::util::DeviceExt;
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 const SHADER: &str = r#"
 @group(0) @binding(0) var<storage, read_write> output: array<i32>;
@@ -54,8 +53,14 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 async fn run() {
     let instance = wgpu::Instance::default();
-    let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions::default()).await.unwrap();
-    let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor::default(), None).await.unwrap();
+    let adapter = instance
+        .request_adapter(&wgpu::RequestAdapterOptions::default())
+        .await
+        .unwrap();
+    let (device, queue) = adapter
+        .request_device(&wgpu::DeviceDescriptor::default())
+        .await
+        .unwrap();
 
     let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
         label: None,
@@ -102,30 +107,35 @@ async fn run() {
         label: None,
         layout: Some(&pipeline_layout),
         module: &shader,
-        entry_point: "main",
+        entry_point: Some("main"),
         compilation_options: Default::default(),
+        cache: None,
     });
 
     println!("[TAG: DETERMINISTIC_HARDWARE_LOCK]");
     println!("Début du calcul GPU (Compute Shaders). Temps alloué : EXACTEMENT 30 SECONDES.");
     let start = Instant::now();
-    
+
     let mut iterations = 0;
     while start.elapsed() < Duration::from_secs(30) {
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
         {
-            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor { label: None, timestamp_writes: None });
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor {
+                label: None,
+                timestamp_writes: None,
+            });
             cpass.set_pipeline(&pipeline);
             cpass.set_bind_group(0, &bind_group, &[]);
             cpass.dispatch_workgroups(1, 1, 1);
         }
         queue.submit(Some(encoder.finish()));
         iterations += 1;
-        
+
         // Polling device
-        device.poll(wgpu::Maintain::Wait);
+        device.poll(wgpu::PollType::Wait).unwrap();
     }
-    
+
     let staging_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: None,
         size: 4,
@@ -133,20 +143,21 @@ async fn run() {
         mapped_at_creation: false,
     });
 
-    let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+    let mut encoder =
+        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
     encoder.copy_buffer_to_buffer(&buffer, 0, &staging_buffer, 0, 4);
     queue.submit(Some(encoder.finish()));
 
     let buffer_slice = staging_buffer.slice(..);
     let (sender, receiver) = futures::channel::oneshot::channel();
     buffer_slice.map_async(wgpu::MapMode::Read, move |v| sender.send(v).unwrap());
-    
-    device.poll(wgpu::Maintain::Wait);
+
+    device.poll(wgpu::PollType::Wait).unwrap();
     receiver.await.unwrap().unwrap();
 
     let data = buffer_slice.get_mapped_range();
     let score = i32::from_ne_bytes(data[0..4].try_into().unwrap());
-    
+
     println!("Temps de calcul terminé ({} itérations).", iterations);
     println!("Barrière des 194 brisée ! Score final sur GPU : {}", score);
 }

@@ -1,4 +1,4 @@
-﻿use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context, Result};
 use chrono::Utc;
 use serde::{de::DeserializeOwned, Serialize};
 use std::{
@@ -29,7 +29,13 @@ pub fn save_vec<T: Serialize>(path: &Path, values: &[T]) -> Result<()> {
     Ok(())
 }
 
-pub fn save_one<T: Serialize>(root: &Path, collection: &str, id: &str, value: &T) -> Result<PathBuf> {
+#[allow(clippy::too_many_arguments)]
+pub fn save_one<T: Serialize>(
+    root: &Path,
+    collection: &str,
+    id: &str,
+    value: &T,
+) -> Result<PathBuf> {
     let path = dev_dir(root).join(collection).join(format!("{id}.json"));
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;

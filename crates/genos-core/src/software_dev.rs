@@ -261,6 +261,7 @@ pub struct ExperienceArtifact {
 }
 
 impl ExperienceArtifact {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(strategy: String, context: String, outcome: String, successful: bool) -> Self {
         Self {
             id: id("exp"),

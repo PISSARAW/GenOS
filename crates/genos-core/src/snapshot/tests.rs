@@ -1,11 +1,11 @@
 use super::*;
-use crate::{
-    CognitionConfig, EpisodicMemory, EventCursor, ExecutionMetadata, GenomeId, GenomeRef,
-    GenomeVersion, Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, SemanticMemory,
-    ToolPolicy, WorkingMemory, WorkingMemoryItem,
-};
 use crate::ids::{AgentId, BranchId, SnapshotId, WorldId};
 use crate::AgentGenome;
+use crate::{
+    CognitionConfig, EpisodicMemory, EventCursor, ExecutionMetadata, GenomeId, GenomeRef,
+    GenomeVersion, Goal, Identity, MemoryId, MemoryPolicy, ModelPolicy, SemanticMemory, ToolPolicy,
+    WorkingMemory, WorkingMemoryItem,
+};
 use chrono::Utc;
 
 /// Parent snapshot holding a single branch-local variable, for the
@@ -41,17 +41,27 @@ pub(crate) fn parent_snapshot(sequence: u64) -> AgentSnapshot {
                 role: "tester".to_string(),
             },
             cognition: CognitionConfig {
-                chromosomes: vec![
-                    crate::Chromosome {
-                        name: "C1".to_string(),
-                        operons: vec![],
-                        loci: vec![
-                            crate::Locus { gene_name: "exploration".to_string(), value: 0.7, epigenetic_marker: 0.0 },
-                            crate::Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
-                            crate::Locus { gene_name: "verification_threshold".to_string(), value: 0.8, epigenetic_marker: 0.0 },
-                        ],
-                    }
-                ],
+                chromosomes: vec![crate::Chromosome {
+                    name: "C1".to_string(),
+                    operons: vec![],
+                    loci: vec![
+                        crate::Locus {
+                            gene_name: "exploration".to_string(),
+                            value: 0.7,
+                            epigenetic_marker: 0.0,
+                        },
+                        crate::Locus {
+                            gene_name: "risk_tolerance".to_string(),
+                            value: 0.25,
+                            epigenetic_marker: 0.0,
+                        },
+                        crate::Locus {
+                            gene_name: "verification_threshold".to_string(),
+                            value: 0.8,
+                            epigenetic_marker: 0.0,
+                        },
+                    ],
+                }],
                 planning_depth: 6,
                 regulators: vec![],
             },
@@ -184,8 +194,14 @@ fn different_genomes_can_start_with_identical_phenotype_state() {
     let comparison = compare_genome_and_state(&agent_a, &agent_b);
     assert!(!comparison.same_genome);
     assert!(comparison.same_phenotype_state);
-    assert_eq!(agent_a.genome.cognition.get_drive("exploration").unwrap(), 0.4);
-    assert_eq!(agent_b.genome.cognition.get_drive("exploration").unwrap(), 0.9);
+    assert_eq!(
+        agent_a.genome.cognition.get_drive("exploration").unwrap(),
+        0.4
+    );
+    assert_eq!(
+        agent_b.genome.cognition.get_drive("exploration").unwrap(),
+        0.9
+    );
 }
 
 #[test]

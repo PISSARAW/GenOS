@@ -1,8 +1,8 @@
+use super::types::ParentSelectionStrategy;
+use genos_core::AgentGenome;
 use genos_eval::{
     pareto_select, MultiObjectiveBranchScore, ObjectiveDirection, ObjectiveScore, ParetoObjective,
 };
-use genos_core::AgentGenome;
-use super::types::ParentSelectionStrategy;
 
 use super::types::{
     ArtificialSelectionReport, CanonicalAgentMetrics, ControlledBenchmarkRun, SelectionCandidate,
@@ -160,7 +160,11 @@ pub fn select_parent<'a>(
             &pool.non_dominated[idx]
         }
         ParentSelectionStrategy::Roulette => {
-            let sum_success: f64 = pool.candidates.iter().map(|c| c.metrics.success.max(0.01)).sum();
+            let sum_success: f64 = pool
+                .candidates
+                .iter()
+                .map(|c| c.metrics.success.max(0.01))
+                .sum();
             let mut pick = (rand_f32() as f64) * sum_success;
             for (i, c) in pool.candidates.iter().enumerate() {
                 pick -= c.metrics.success.max(0.01);
@@ -177,13 +181,18 @@ pub fn select_parent<'a>(
 
             for _ in 0..*size {
                 let idx = (rand_f32() * pool.genomes.len() as f32) as usize;
-                let is_pareto = pool.non_dominated.iter().any(|g| g.id == pool.genomes[idx].id);
-                
+                let is_pareto = pool
+                    .non_dominated
+                    .iter()
+                    .any(|g| g.id == pool.genomes[idx].id);
+
                 if is_pareto && !best_is_pareto {
                     best_idx = idx;
                     best_is_pareto = true;
                     best_success = pool.candidates[idx].metrics.success;
-                } else if is_pareto == best_is_pareto && pool.candidates[idx].metrics.success > best_success {
+                } else if is_pareto == best_is_pareto
+                    && pool.candidates[idx].metrics.success > best_success
+                {
                     best_idx = idx;
                     best_success = pool.candidates[idx].metrics.success;
                 }

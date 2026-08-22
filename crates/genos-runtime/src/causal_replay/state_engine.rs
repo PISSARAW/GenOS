@@ -1,7 +1,8 @@
-﻿use serde_json::Value;
+use serde_json::Value;
 
 use super::types::{
-    CausalState, CausalStateEffect, EffectOperation, PredicateOperation, StateChange, StatePredicate,
+    CausalState, CausalStateEffect, EffectOperation, PredicateOperation, StateChange,
+    StatePredicate,
 };
 
 pub(crate) fn predicate_matches(state: &CausalState, predicate: &StatePredicate) -> bool {

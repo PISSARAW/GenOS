@@ -73,8 +73,8 @@ fn evaluate_grid(grid: &[u32; 20], target: &[u32; 20], state: &mut State) {
 fn find_random_error(err_mask: &[u32; 20], total_errors: u32, rng: &mut impl Rng) -> (u32, u32) {
     let k = rng.gen_range(0..total_errors);
     let mut err_count = 0;
-    for y in 0..20 {
-        let mut mask = err_mask[y];
+    for (y, &row) in err_mask.iter().enumerate() {
+        let mut mask = row;
         while mask > 0 {
             let x = mask.trailing_zeros();
             if err_count == k {

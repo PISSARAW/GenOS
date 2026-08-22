@@ -33,7 +33,10 @@ impl CompactMessage {
 
     /// Sérialise le message en JSON très compact pour économiser les tokens
     pub fn to_json(&self) -> String {
-        format!(r#"{{"s":"{}","p":"{}"}}"#, self.sender_id, self.payload_ptr.path)
+        format!(
+            r#"{{"s":"{}","p":"{}"}}"#,
+            self.sender_id, self.payload_ptr.path
+        )
     }
 }
 
@@ -66,6 +69,7 @@ impl Agent {
 // -----------------------------------------------------------------------------
 
 /// Le cerveau central (cerveau de la pieuvre)
+#[derive(Default)]
 pub struct OctopusBrain {
     pub arms: HashMap<String, Agent>,
 }
@@ -93,7 +97,7 @@ impl OctopusBrain {
         }
         false
     }
-    
+
     /// Envoie un message sérialisé à un bras (optimisation de tokens)
     pub fn send_msg(&self, msg: &CompactMessage) -> String {
         msg.to_json()
@@ -105,6 +109,7 @@ impl OctopusBrain {
 // -----------------------------------------------------------------------------
 
 /// Un groupe de manchots se protégeant du froid
+#[derive(Default)]
 pub struct PenguinHuddle {
     pub members: Vec<Agent>,
 }
@@ -136,9 +141,8 @@ impl PenguinHuddle {
     pub fn share_heat(&mut self) {
         let total_energy: u32 = self.members.iter().map(|m| m.energy).sum();
         let count = self.members.len() as u32;
-        
-        if count > 0 {
-            let avg_energy = total_energy / count;
+
+        if let Some(avg_energy) = total_energy.checked_div(count) {
             for member in &mut self.members {
                 member.energy = avg_energy;
             }
@@ -176,6 +180,12 @@ pub struct FireflySwarm {
     pub bugs: Vec<Firefly>,
 }
 
+impl Default for FireflySwarm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FireflySwarm {
     pub fn new() -> Self {
         Self { bugs: Vec::new() }
@@ -190,7 +200,7 @@ impl FireflySwarm {
         if self.bugs.is_empty() {
             return;
         }
-        
+
         // Calcule la phase moyenne
         let total_phase: u32 = self.bugs.iter().map(|b| b.phase).sum();
         let avg_phase = total_phase / (self.bugs.len() as u32);

@@ -11,10 +11,10 @@ pub struct SsmHiddenState {
 pub trait SsmBackend: Send + Sync {
     /// Injecte un état caché préexistant dans le modèle
     async fn inject_state(&self, state: &SsmHiddenState) -> anyhow::Result<()>;
-    
+
     /// Extrait l'état caché courant (pour sauvegarde dans le CoW CAS)
     async fn extract_state(&self) -> anyhow::Result<SsmHiddenState>;
-    
+
     /// Inférence d'une séquence
     async fn forward(&self, tokens: &[u32]) -> anyhow::Result<Vec<f32>>;
 }

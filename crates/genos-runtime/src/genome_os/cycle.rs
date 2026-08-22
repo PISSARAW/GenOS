@@ -1,6 +1,4 @@
-﻿use genos_core::{
-    checkpoint_snapshot, AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation,
-};
+use genos_core::{checkpoint_snapshot, AgentWorldCapsule, CapsuleLifecycle, CapsuleRelation};
 use genos_store::CapsuleStore;
 use genos_world::WorldProvider;
 
@@ -61,8 +59,8 @@ pub async fn run_genome_os_cycle(
     let (experiences, terminal_capsules) =
         execute_and_cleanup_forks(provider, store, &fork_capsules, runner).await?;
 
-    let cognitive_merge = merge_experiences(&experiences, relations, merge_config)
-        .map_err(anyhow::Error::msg)?;
+    let cognitive_merge =
+        merge_experiences(&experiences, relations, merge_config).map_err(anyhow::Error::msg)?;
     let merge_application = apply_cognitive_merge(&state_s0.agent_snapshot, &cognitive_merge);
 
     let s1_world_snapshot = provider.snapshot(parent_world.clone()).await?;

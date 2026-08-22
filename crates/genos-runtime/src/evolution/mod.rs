@@ -17,13 +17,13 @@ pub use breeding::{
     run_breeding_program,
 };
 pub use heredity::{analyze_fixed_genome_cohort, analyze_genome_experience_interaction};
-pub use validation::validate_bred_child;
 pub use selection::{artificial_select, select_controlled_generation};
 pub use synthesis::{synthesize_branch_knowledge, validate_synthesis};
 pub use types::{
-    ArtificialSelectionReport, BranchFinding, BreedingTraitMapping, BreedingValidation,
-    CanonicalAgentMetrics, CohortControls, ControlledBenchmarkRun, ExperienceEffect,
-    FactorialTraitObservation, GenomeExperienceEffects, HeredityCohortMember, HeredityCohortReport,
-    KnowledgeSynthesisProposal, SelectionCandidate, SelectionConstraints, SynthesisStatus,
-    BreedingConfig, ParentSelectionStrategy,
+    ArtificialSelectionReport, BranchFinding, BreedingConfig, BreedingTraitMapping,
+    BreedingValidation, CanonicalAgentMetrics, CohortControls, ControlledBenchmarkRun,
+    ExperienceEffect, FactorialTraitObservation, GenomeExperienceEffects, HeredityCohortMember,
+    HeredityCohortReport, KnowledgeSynthesisProposal, ParentSelectionStrategy, SelectionCandidate,
+    SelectionConstraints, SynthesisStatus,
 };
+pub use validation::validate_bred_child;

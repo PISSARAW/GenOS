@@ -31,7 +31,7 @@ pub trait OrganizationProtocol {
     fn execute_strategy(strategy: &OrganizationStrategy, task_id: &str) -> Result<(), String>;
 }
 
-pub mod swarm;
+pub mod distributed;
 pub mod flocking;
 pub mod network;
-pub mod distributed;
+pub mod swarm;

@@ -51,7 +51,7 @@ impl LlmProvider for FallbackProvider {
 mod tests {
     use super::*;
     use crate::fake::FakeModel;
-    use crate::{Role, TokenUsage};
+    use crate::Role;
 
     struct FailingModel;
 

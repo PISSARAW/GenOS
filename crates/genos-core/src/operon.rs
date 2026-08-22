@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::genome::Locus;
+use serde::{Deserialize, Serialize};
 
 /// Représente l'état épigénétique d'un agent.
 /// `methylation_level` : Régule à long terme l'inhibition des gènes.
