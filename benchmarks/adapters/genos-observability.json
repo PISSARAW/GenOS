@@ -20,9 +20,17 @@
     },
     {
       "id": "trace_context_and_export",
-      "status": "partial",
-      "note": "A JSON DAG span export exists, but this audit does not establish OTLP export or W3C trace-context propagation.",
+      "status": "supported",
+      "note": "The Rust observability crate provides W3C traceparent extraction/injection, child spans, redaction and OTLP/HTTP JSON export.",
       "evidence": [
+        {
+          "path": "crates/genos-observability/src/lib.rs",
+          "contains": "pub fn inject"
+        },
+        {
+          "path": "crates/genos-observability/src/lib.rs",
+          "contains": "pub async fn export"
+        },
         {
           "path": "backend/src/services/arenaService.js",
           "contains": "function exportTrace(tournamentId"

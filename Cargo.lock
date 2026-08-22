@@ -665,6 +665,7 @@ dependencies = [
  "clap",
  "genos-core",
  "genos-eval",
+ "genos-model",
  "genos-runtime",
  "genos-store",
  "genos-world",
@@ -672,6 +673,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -729,6 +731,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "genos-observability"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
+
+[[package]]
 name = "genos-protocol"
 version = "0.0.1"
 dependencies = [
@@ -756,6 +770,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

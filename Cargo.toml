@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/genos-core",
+  "crates/genos-observability",
   "crates/genos-runtime",
   "crates/genos-world",
   "crates/genos-store",
@@ -10,6 +11,7 @@ members = [
   "crates/genos-api",
   "crates/genos-cli",
   "crates/genos-protocol",
+  "crates/genos-platform",
   "crates/epsilon_sa", "crates/epsilon_wgpu",
   "crates/genos-synaptic",
   "integrations/mcp/genos-mcp",

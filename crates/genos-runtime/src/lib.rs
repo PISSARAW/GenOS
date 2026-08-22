@@ -45,6 +45,8 @@ mod agent_primitives;
 pub use agent_primitives::*;
 mod huddle;
 pub use huddle::*;
+mod orchestration;
+pub use orchestration::*;
 
 #[cfg(test)]
 pub(crate) mod test_support {
