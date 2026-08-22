@@ -528,6 +528,11 @@ CREATE TABLE IF NOT EXISTS prompt_versions (
     FOREIGN KEY (prompt_id) REFERENCES prompts(id) ON DELETE CASCADE,
     UNIQUE(prompt_id, version)
 );
+
+-- 28. Workspace evaluation datasets and batch jobs
+CREATE TABLE IF NOT EXISTS datasets (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, description TEXT DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS dataset_cases (id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL, input_json TEXT NOT NULL DEFAULT '{}', expected_json TEXT, labels_json TEXT NOT NULL DEFAULT '[]', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE CASCADE);
+CREATE TABLE IF NOT EXISTS evaluation_jobs (id TEXT PRIMARY KEY, dataset_id TEXT, status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', result_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME, FOREIGN KEY(dataset_id) REFERENCES datasets(id) ON DELETE SET NULL);
 `;
 
 const CREATE_INDEXES_SQL = `
@@ -553,6 +558,7 @@ CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_st
 CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version DESC);
+CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id, created_at);
 `;
 
 async function migrateLegacySchema(db) {
