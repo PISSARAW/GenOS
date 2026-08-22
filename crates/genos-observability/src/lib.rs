@@ -223,6 +223,44 @@ pub fn stable_attribute_hash(value: &Value) -> String {
     format!("{:x}", h.finalize())
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AuditBundle {
+    pub version: u32,
+    pub run_id: String,
+    pub manifest: Value,
+    pub spans: Vec<Span>,
+    #[serde(default)]
+    pub events: Vec<Value>,
+    pub digest: String,
+}
+
+impl AuditBundle {
+    pub fn new(run_id: impl Into<String>, manifest: Value, spans: Vec<Span>, events: Vec<Value>) -> Self {
+        let run_id = run_id.into();
+        let payload = serde_json::to_vec(&(run_id.clone(), &manifest, &spans, &events)).unwrap_or_default();
+        Self { version: 1, run_id, manifest, spans, events, digest: digest_bytes(&payload) }
+    }
+    pub fn verify(&self) -> bool {
+        let payload = serde_json::to_vec(&(&self.run_id, &self.manifest, &self.spans, &self.events)).unwrap_or_default();
+        self.digest == digest_bytes(&payload)
+    }
+    pub fn save(&self, path: impl AsRef<std::path::Path>) -> anyhow::Result<()> {
+        std::fs::write(path, serde_json::to_vec_pretty(self)?)?;
+        Ok(())
+    }
+    pub fn load(path: impl AsRef<std::path::Path>) -> anyhow::Result<Self> {
+        let bundle: Self = serde_json::from_slice(&std::fs::read(path)?)?;
+        anyhow::ensure!(bundle.verify(), "audit bundle digest mismatch");
+        Ok(bundle)
+    }
+}
+
+fn digest_bytes(bytes: &[u8]) -> String {
+    let mut h = Sha256::new();
+    h.update(bytes);
+    format!("sha256:{:x}", h.finalize())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,5 +277,12 @@ mod tests {
     fn redacts_nested_values() {
         let r = Redactor::new(["token".into()]);
         assert_eq!(r.redact(json!({"x":"my-token"}))["x"], "my-[REDACTED]");
+    }
+    #[test]
+    fn audit_bundle_detects_tampering() {
+        let mut bundle = AuditBundle::new("run-1", json!({"workflow":"demo"}), vec![], vec![]);
+        assert!(bundle.verify());
+        bundle.events.push(json!({"type":"changed"}));
+        assert!(!bundle.verify());
     }
 }
