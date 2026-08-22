@@ -83,8 +83,6 @@ async function getWorkspaceFiles(req, res) {
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
   const dbWorkspaces = await syncWorkspaceRegistry(db, WORKSPACES_ROOT);
-  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-  const activeCount = agentCount ? agentCount.count : 0;
 
   const result = await Promise.all(dbWorkspaces.map(async (w) => {
     let tags = [];
@@ -98,6 +96,11 @@ async function listWorkspaces(req, res) {
     } else {
       categories.push('Active Swarms (Supervised)');
     }
+
+    const agentCount = await db.get(
+      "SELECT COUNT(*) as count FROM agents WHERE workspace_id = ? AND status = 'running'",
+      w.id
+    );
     if (w.name.includes('-fork') || w.name.includes('_fork')) {
       categories.push('Experimental Timelines (Forks)');
     } else {
@@ -112,7 +115,7 @@ async function listWorkspaces(req, res) {
       visibility: w.visibility || 'Private',
       tags,
       snapshots: (await db.get('SELECT COUNT(*) as count FROM workspace_snapshots WHERE workspace_id = ?', w.id))?.count || 0,
-      agents: `${activeCount} Active`,
+      agents: `${agentCount?.count || 0} Active`,
       trajectories: (await db.get('SELECT COUNT(*) as count FROM trajectories WHERE workspace_id = ?', w.id))?.count || 0,
       anomalies: w.anomalies_count || 0,
       updated: w.updated_at || w.created_at || null,
