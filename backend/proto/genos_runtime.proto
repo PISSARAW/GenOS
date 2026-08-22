@@ -15,6 +15,7 @@ message AgentMission {
   string execution_mode = 10;
   string orchestrator_agent_id = 11;
   string autonomy_plan_json = 12;
+  string tool_lease_json = 13;
 }
 
 message AgentEvent {
