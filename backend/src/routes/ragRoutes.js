@@ -1,0 +1,2 @@
+const express = require('express'); const router = express.Router(); const c = require('../controllers/ragController'); const { requirePermission } = require('../middleware/auth');
+router.get('/documents', c.listDocuments); router.post('/documents', requirePermission('workspace:write'), c.ingestDocument); router.get('/documents/:id/chunks', c.listChunks); router.post('/search', c.search); module.exports = router;
