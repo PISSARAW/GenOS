@@ -34,24 +34,15 @@ fn parse_journal_record(line: &str, line_number: usize) -> anyhow::Result<Snapsh
     let value: serde_json::Value = serde_json::from_str(line)
         .map_err(|e| anyhow::anyhow!("invalid snapshot JSON at line {line_number}: {e}"))?;
     let is_legacy_manifest = value.as_object().is_some_and(|object| {
-        [
+        let legacy_keys = [
             "snapshot_id",
             "agent_id",
             "branch_id",
             "genome_hash",
             "state_hash",
-        ]
-        .iter()
-        .all(|key| object.contains_key(*key))
-            && [
-                "genome",
-                "state",
-                "world_id",
-                "tool_state",
-                "runtime_metadata",
-            ]
-            .iter()
-            .all(|key| !object.contains_key(*key))
+            "ssm_state_hash",
+        ];
+        object.len() == legacy_keys.len() && legacy_keys.iter().all(|key| object.contains_key(*key))
     });
 
     if is_legacy_manifest {
