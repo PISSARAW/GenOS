@@ -168,6 +168,8 @@ export const api = {
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
   listTrinityWorlds: () => apiRequest('/api/deploy/trinity'),
   listAgents: () => apiRequest('/api/agents'),
+  stopAgent: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
+  deleteAgent: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getAgentHistory: () => apiRequest('/api/agents/history'),
   pingAgent: (id: string) => apiRequest(`/api/agents/${id}/ping`, { method: 'POST' }),
   ingestAgentEvent: (id: string, payload: any) => apiRequest(`/api/agents/${id}/events`, { method: 'POST', body: payload }),
