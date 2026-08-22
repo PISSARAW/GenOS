@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const modelProvider = require('./modelProvider');
 
 let timer = null;
 let busy = false;
@@ -29,8 +30,28 @@ async function executeWorkflow(db, run) {
 
 async function executeEvaluation(db, job) {
   const cases = job.dataset_id ? await db.all('SELECT * FROM dataset_cases WHERE dataset_id = ?', job.dataset_id) : [];
-  const result = { total: cases.length, passed: cases.length, failed: 0, score: cases.length ? 1 : 0 };
+  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match'];
+  let passed = 0; const results = cases.map((item) => { const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const text = String(input.output || input.answer || input.response || ''); const exact = expected == null || text.trim() === String(expected).trim(); const grounded = expected == null || String(expected).toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.toLowerCase().includes(term)); const safe = !/ignore previous|system prompt|api key/i.test(text); const ok = graders.every((grader) => grader === 'exact_match' ? exact : grader === 'groundedness' ? grounded : grader === 'safety' ? safe : true); if (ok) passed++; return { id: item.id, passed: ok, graders: { exact_match: exact, groundedness: grounded, safety: safe } }; });
+  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results };
   await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify(result), job.id);
+}
+
+async function executeModelJob(db, job) {
+  const models = JSON.parse(job.models_json || '[]'); const outputs = [];
+  for (const model of models) {
+    const tokens = []; const started = Date.now();
+    const generated = await modelProvider.generate({ model, prompt: job.prompt, timeoutMs: job.timeout_ms, onToken: (token) => { tokens.push(token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model, index: tokens.length - 1 } }); } });
+    outputs.push({ model, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length });
+  }
+  await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs }), job.id);
+}
+
+async function withRetry(db, table, job, executor) {
+  const max = Math.max(1, Number(job.max_attempts || 3));
+  for (let attempt = 1; attempt <= max; attempt++) {
+    await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
+    try { await executor(); return; } catch (error) { if (attempt === max) { await db.run(`UPDATE ${table} SET status = 'failed', error_json = ? WHERE id = ?`, JSON.stringify({ message: error.message, attempts: attempt }), job.id); } }
+  }
 }
 
 async function processOnce() {
@@ -44,8 +65,10 @@ async function processOnce() {
     }
     const evaluation = await db.get("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
-      try { await executeEvaluation(db, evaluation); } catch (error) { await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ? WHERE id = ?', 'failed', JSON.stringify({ error: error.message }), evaluation.id); }
+      await withRetry(db, 'evaluation_jobs', evaluation, () => executeEvaluation(db, evaluation));
     }
+    const model = await db.get("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
+    if (model && await claim(db, 'model_jobs', model.id)) await withRetry(db, 'model_jobs', model, () => executeModelJob(db, model));
   } finally { busy = false; }
 }
 

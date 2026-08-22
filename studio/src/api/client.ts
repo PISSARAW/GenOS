@@ -3,7 +3,8 @@
  * Strict typed endpoints with RBAC & Anti-CSRF header propagation.
  */
 
-export const API_BASE_URL = 'http://localhost:4000';
+const configuredApiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim().replace(/\/+$/, '');
+export const API_BASE_URL = configuredApiBaseUrl || (import.meta.env.DEV ? 'http://localhost:4000' : '');
 
 const TOKEN_KEY = 'genos_auth_token';
 const CSRF_KEY = 'genos_csrf_token';
@@ -160,6 +161,7 @@ export const api = {
   createPromptVersion: (id: string, payload: { template: string; model?: string; config?: any }) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/versions`, { method: 'POST', body: payload }),
   renderPrompt: (id: string, version: number, variables: any) => apiRequest(`/api/prompts/${encodeURIComponent(id)}/render`, { method: 'POST', body: { version, variables } }),
   runPlayground: (payload: { prompt: string; models: string[]; variables?: any }) => apiRequest('/api/prompts/playground', { method: 'POST', body: payload }),
+  listModelJobs: () => apiRequest('/api/prompts/jobs'),
 
   // OpenTelemetry-compatible trace storage and replay
   listTraces: (limit = 50) => apiRequest(`/api/traces?limit=${limit}`),
