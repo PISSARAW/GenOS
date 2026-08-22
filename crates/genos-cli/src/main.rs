@@ -3,6 +3,7 @@ mod cmd_agent;
 mod cmd_biomimicry;
 mod cmd_capsule;
 mod cmd_dev;
+mod cmd_eval;
 mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
@@ -21,9 +22,9 @@ use clap::Parser;
 
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
-    ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands, PlatformSubcommands,
-    PromptSubcommands, ReplaySubcommands, ResilienceSubcommands, SnapshotSubcommands,
-    WorkflowSubcommands, WorldSubcommands,
+    EvalSubcommands, ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands,
+    PlatformSubcommands, PromptSubcommands, ReplaySubcommands, ResilienceSubcommands,
+    SnapshotSubcommands, WorkflowSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -35,6 +36,7 @@ use crate::cmd_capsule::{
     cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_dev::*;
+use crate::cmd_eval::{cmd_eval_import, cmd_eval_run};
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
     cmd_experiment_causal_replay, cmd_experiment_cognitive_merge, cmd_experiment_heredity,
@@ -209,6 +211,10 @@ async fn main() -> Result<()> {
             PromptSubcommands::Publish(args) => cmd_prompt_publish(args),
             PromptSubcommands::Render(args) => cmd_prompt_render(args),
             PromptSubcommands::Diff(args) => cmd_prompt_diff(args),
+        },
+        Commands::Eval(eval) => match eval.command {
+            EvalSubcommands::Import(args) => cmd_eval_import(args),
+            EvalSubcommands::Run(args) => cmd_eval_run(args),
         },
     }
 }
