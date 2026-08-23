@@ -22,6 +22,7 @@ try {
   assert(adapterSource.includes("dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel"), 'every delegated worker must pass through local-model routing, not only autonomous workers');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
+  assert(runtimeSource.includes('autonomyPlan.synthesisOnly'), 'the official root turn must use synthesis-only authority');
   const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-orchestrate.cjs'), 'utf8');
   assert(orchestratorBridgeSource.includes("GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker'"), 'the root orchestration bridge must reject worker recursion');
   const environment = adapter.bundledRuntimeEnvironment();
@@ -32,6 +33,8 @@ try {
   assert(adapter.orchestratorToolLease({}).includes('genos_trinity_launch'));
   assert(adapter.orchestratorToolLease({}).includes('genos_change_strategy'));
   assert(adapter.orchestratorToolLease({}).includes('genos_report_progress'));
+  assert.strictEqual(typeof adapter.waitForAutonomousWorkerQuiescence, 'function');
+  assert.strictEqual(typeof adapter.buildWorkerSynthesisPrompt, 'function');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
