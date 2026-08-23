@@ -29,6 +29,8 @@ function isLocal(uri) {
   return /^(ollama|lmstudio|vllm):\/\//.test(uri);
 }
 
+function unique(values) { return [...new Set(values.filter(Boolean))]; }
+
 function candidateModels(explicitModel, policy) {
   const primary = String(explicitModel || policy.primary || '').trim();
   const ordered = [primary, ...policy.fallbacks, ...(policy.mode === 'parallel' ? policy.parallelReview : [])].filter(Boolean);
@@ -50,6 +52,20 @@ async function loadPolicy(db, { agentId, organizationId, projectId }) {
   const row = await db.get(query, ...params);
   if (!row) return null;
   try { return policyFrom(JSON.parse(row.policy_json || '{}')); } catch (_) { return null; }
+}
+
+async function localRoutingPolicy(db, context, discovered = []) {
+  const configured = await loadPolicy(db, context) || envPolicy();
+  const configuredLocal = candidateModels(null, configured).filter(isLocal);
+  const ordered = unique([...configuredLocal, ...discovered.filter(isLocal)]);
+  return {
+    primary: ordered[0] || null,
+    fallbacks: ordered.slice(1),
+    parallelReview: configured.mode === 'parallel' ? ordered.slice(1) : [],
+    mode: configured.mode,
+    preferLocal: true,
+    configured: configuredLocal.length > 0
+  };
 }
 
 async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, onToken = () => {}, policy: suppliedPolicy }) {
@@ -97,4 +113,4 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
 }
 
-module.exports = { generate, loadPolicy, policyFrom, candidateModels };
+module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal };

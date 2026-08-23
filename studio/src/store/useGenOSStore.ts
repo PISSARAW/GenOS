@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { api, API_BASE_URL } from '../api/client';
+import { useToastStore } from './useToastStore';
 
 export interface Clone {
   id: string;
@@ -197,6 +198,11 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
             const data = JSON.parse(e.data);
             if (data.eventType === 'AGENT_SPAWNED' || data.eventType === 'AGENT_STATE_CHANGE') {
               get().fetchAgents();
+            }
+            if (data.eventType === 'ORCHESTRATOR_USER_UPDATE' && data.payload?.audience === 'user') {
+              const phase = String(data.payload?.phase || data.action || 'working').toLowerCase();
+              const type = phase === 'completed' ? 'success' : phase === 'blocked' ? 'warning' : 'info';
+              useToastStore.getState().showToast(type, `Orchestrator · ${phase}`, data.detail || 'Mission update');
             }
             if (data.agentId && data.action) {
               get().addTraceSpan(data.agentId, {

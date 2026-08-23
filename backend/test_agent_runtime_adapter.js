@@ -30,6 +30,7 @@ try {
   assert(adapter.orchestratorToolLease({}).includes('genos_a_team_preview'));
   assert(adapter.orchestratorToolLease({}).includes('genos_trinity_launch'));
   assert(adapter.orchestratorToolLease({}).includes('genos_change_strategy'));
+  assert(adapter.orchestratorToolLease({}).includes('genos_report_progress'));
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
