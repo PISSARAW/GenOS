@@ -30,6 +30,7 @@ class CircuitBreakerService {
     this.haltReason = null;
     this.haltTimestamp = null;
     this.toolLockOverrides = new Map(); // toolName -> boolean
+    this.halfOpenProbe = null;
   }
 
   isDestructive(toolName) {
@@ -73,13 +74,21 @@ class CircuitBreakerService {
       return { allowed: false, reason: 'CIRCUIT_OPEN', message: `Circuit breaker is OPEN. High-risk tools are quarantined.` };
     }
 
+    if (state === 'HALF-OPEN' && isDestructive) {
+      if (this.halfOpenProbe && this.halfOpenProbe !== toolName) {
+        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
+      }
+      this.halfOpenProbe = toolName;
+    }
+
     return { allowed: true, state };
   }
 
   recordSuccess(toolName) {
-    if (this.state === 'HALF-OPEN') {
+    if (this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName) {
       this.state = 'CLOSED';
       this.failureCount = 0;
+      this.halfOpenProbe = null;
       this.lastStateChange = Date.now();
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_RESET',
@@ -108,8 +117,9 @@ class CircuitBreakerService {
       severity: 'warning'
     });
 
-    if (this.failureCount >= 3 || this.state === 'HALF-OPEN') {
+    if (this.failureCount >= 3 || (this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName)) {
       this.state = 'OPEN';
+      this.halfOpenProbe = null;
       this.lastStateChange = now;
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_TRIPPED',
@@ -154,6 +164,7 @@ class CircuitBreakerService {
     this.haltTimestamp = null;
     this.state = 'CLOSED';
     this.failureCount = 0;
+    this.halfOpenProbe = null;
 
     telemetry.emitEvent({
       eventType: 'KILL_SWITCH_RESET',
@@ -173,6 +184,7 @@ class CircuitBreakerService {
       isHalted: this.isHalted,
       haltReason: this.haltReason,
       haltTimestamp: this.haltTimestamp,
+      halfOpenProbe: this.halfOpenProbe,
       quarantinedTools: Array.from(this.toolLockOverrides.entries()).filter(([_, v]) => v).map(([k]) => k)
     };
   }

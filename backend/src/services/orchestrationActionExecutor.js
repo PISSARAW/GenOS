@@ -38,11 +38,11 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
     telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: orchestratorId, action: decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, reason: decision.reason, eventId: event.id } });
     return { executed: false, deferred: true, reason: 'missing_required_evidence' };
   }
-  const result = await mcp.executeConfiguredTransport({ toolName: decision.tool, args, timeoutMs: 30000 });
+  const result = await mcp.execute({ agentId: orchestratorId, toolName: decision.tool, args });
   telemetry.emitEvent({ eventType: result.success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: orchestratorId, action: decision.action, detail: result.success ? `Executed ${decision.tool}.` : `Could not execute ${decision.tool}: ${result.error || result.status}`, severity: result.success ? 'info' : 'warning', payload: { sourceAgentId, tool: decision.tool, args, result, eventId: event.id } });
   if (result.success && decision.tool === 'genos_record_experience') {
     const memoryArgs = { root: workspaceRoot, facts: [`${args.strategy}: ${args.outcome}`], decisions: [decision.reason], failures: args.successful ? [] : [args.outcome], constraints: ['Capsule changes are never merged automatically.'], source_refs: args.evidence || [] };
-    const memory = await mcp.executeConfiguredTransport({ toolName: 'genos_compile_memory', args: memoryArgs, timeoutMs: 30000 });
+    const memory = await mcp.execute({ agentId: orchestratorId, toolName: 'genos_compile_memory', args: memoryArgs });
     telemetry.emitEvent({ eventType: memory.success ? 'ORCHESTRATION_MEMORY_COMPILED' : 'ORCHESTRATION_MEMORY_DEFERRED', agentId: orchestratorId, action: 'compile_memory', detail: memory.success ? 'Compiled evidence-backed worker memory.' : 'Experience was recorded but memory compilation could not run.', severity: memory.success ? 'info' : 'warning', payload: { result: memory } });
   }
   return { executed: result.success, result };

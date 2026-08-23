@@ -59,6 +59,8 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const consecutiveFailures = triggerMetrics.consecutiveFailures || 0;
   const semanticDivergence = triggerMetrics.semanticDivergence !== undefined ? triggerMetrics.semanticDivergence : 0.8;
   const hallucinations = triggerMetrics.hallucinations || 0;
+  const tokensBurned = Number(triggerMetrics.tokensBurned || 0);
+  const costUsd = Number(triggerMetrics.costUsd || 0);
 
   // Multi-threshold criteria check
   const maxFailures = policy.maxConsecutiveFailures || 3;
@@ -66,13 +68,16 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const failureTrigger = consecutiveFailures >= maxFailures;
   const semanticTrigger = semanticDivergence < divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
+  const maxCostUsd = Number(policy.maxCostUsd);
+  const costTrigger = Number.isFinite(maxCostUsd) && maxCostUsd >= 0 && costUsd >= maxCostUsd;
 
-  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger;
+  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger || costTrigger;
 
   let primaryReason = 'No termination criteria met';
   if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
   else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
+  else if (costTrigger) primaryReason = `Execution cost limit breached (${costUsd} >= ${maxCostUsd} USD)`;
 
   // Build the report from persisted agent telemetry. Do not invent call stacks
   // or failed tool calls when the evaluation found no termination condition.
@@ -125,20 +130,52 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   return autopsyReport;
 }
 
-/**
- * Durable runtime hibernation is intentionally unavailable until the runtime
- * state, queues, and context are backed by a persistent snapshot store.
- */
-function freezeCryptobiosis() {
-  throw new Error('Durable cryptobiosis is not configured for this deployment.');
+const cryptobiosisSnapshots = new Map();
+const MAX_CRYPTOBIOSIS_SNAPSHOTS = 1024;
+
+function snapshotState(statePayload) {
+  return JSON.parse(JSON.stringify(statePayload || {}));
 }
 
-/**
- * See freezeCryptobiosis: no in-memory fallback is provided because it could
- * imply a restore capability that does not survive process restarts.
- */
-function thawCryptobiosis() {
-  throw new Error('Durable cryptobiosis is not configured for this deployment.');
+function trimSnapshots() {
+  while (cryptobiosisSnapshots.size > MAX_CRYPTOBIOSIS_SNAPSHOTS) {
+    cryptobiosisSnapshots.delete(cryptobiosisSnapshots.keys().next().value);
+  }
+}
+
+function freezeCryptobiosis(workspaceId = 'fleet', reason = '', statePayload = {}) {
+  const snapshotId = `cryptobiosis_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const snapshot = {
+    snapshotId,
+    workspaceId,
+    reason,
+    frozenAt: new Date().toISOString(),
+    state: snapshotState(statePayload)
+  };
+  cryptobiosisSnapshots.set(snapshotId, snapshot);
+  trimSnapshots();
+  return { success: true, ...snapshot, durability: 'process-memory' };
+}
+
+function thawCryptobiosis(snapshotId, targetWorkspaceId) {
+  const snapshot = cryptobiosisSnapshots.get(snapshotId);
+  if (!snapshot) throw new Error(`Cryptobiosis snapshot '${snapshotId}' was not found in this runtime.`);
+  const agents = Array.isArray(snapshot.state.agents) ? snapshot.state.agents : [];
+  return {
+    success: true,
+    snapshotId,
+    workspaceId: targetWorkspaceId || snapshot.workspaceId,
+    revivedAgentCount: agents.length,
+    state: snapshotState(snapshot.state),
+    durability: 'process-memory'
+  };
+}
+
+function hydrateCryptobiosis(snapshot) {
+  if (!snapshot?.snapshotId) throw new Error('A durable cryptobiosis snapshot is required.');
+  cryptobiosisSnapshots.set(snapshot.snapshotId, snapshotState(snapshot));
+  trimSnapshots();
+  return snapshot;
 }
 
 module.exports = {
@@ -146,5 +183,6 @@ module.exports = {
   trackHypermutationDrift,
   evaluateApoptosis,
   freezeCryptobiosis,
-  thawCryptobiosis
+  thawCryptobiosis,
+  hydrateCryptobiosis
 };

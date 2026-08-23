@@ -35,7 +35,13 @@ async function main() {
   await db.run('INSERT INTO projects(id,organization_id,name) VALUES(?,?,?)', projectB, org, projectB);
   const tenantA = { organizationId: org, projectId: projectA };
   const tenantB = { organizationId: org, projectId: projectB };
-  const job = await call(evals.createJob, { body: { config: { graders: ['exact_match'] } }, tenant: tenantA });
+  const dataset = await call(evals.createDataset, { body: { name: 'Scoped evaluation' }, tenant: tenantA });
+  assert.equal(dataset.code, 201);
+  const testCase = await call(evals.addCase, {
+    params: { id: dataset.body.id }, body: { input: { output: 'ok' }, expected: 'ok', labels: [] }, tenant: tenantA
+  });
+  assert.equal(testCase.code, 201);
+  const job = await call(evals.createJob, { body: { datasetId: dataset.body.id, config: { graders: ['exact_match'] } }, tenant: tenantA });
   assert.equal(job.code, 202);
   const visible = await call(evals.listJobs, { tenant: tenantA });
   assert.equal(visible.body.some(item => item.id === job.body.id), true);

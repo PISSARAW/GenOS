@@ -5,7 +5,7 @@ use std::collections::HashSet;
 #[test]
 fn catalog_contains_canonical_and_software_development_tools() {
     let specs = tool_specs();
-    assert_eq!(specs.len(), 65);
+    assert_eq!(specs.len(), 66);
     let names = specs
         .iter()
         .map(|tool| tool.name.as_str())
@@ -94,6 +94,37 @@ fn security_tools_map_to_cli_arguments() {
 }
 
 #[test]
+fn adversarial_review_maps_boolean_value_for_clap() {
+    let planned = plan_tool_call(
+        "genos_adversarial_review",
+        &json!({
+            "target": "solution.js",
+            "critics": ["correctness"],
+            "rounds": 2,
+            "blind": false,
+            "root": ".genos"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        planned.args,
+        [
+            "dev",
+            "adversarial-review",
+            "solution.js",
+            "--critic",
+            "correctness",
+            "--rounds",
+            "2",
+            "--blind",
+            "false",
+            "--root",
+            ".genos"
+        ]
+    );
+}
+
+#[test]
 fn fork_maps_to_distinct_process_arguments_without_shell_interpolation() {
     let planned = plan_tool_call(
         "genos_fork",
@@ -126,6 +157,28 @@ fn mutually_exclusive_replay_anchors_are_rejected() {
     )
     .unwrap_err();
     assert!(error.to_string().contains("mutually exclusive"));
+}
+
+#[test]
+fn replay_maps_directly_to_the_agent_replay_command() {
+    let planned = plan_tool_call(
+        "genos_replay",
+        &json!({"snapshot": "snap-1", "root": ".state"}),
+    )
+    .unwrap();
+    assert_eq!(
+        planned.args,
+        [
+            "agent",
+            "replay",
+            "--root",
+            ".state",
+            "--snapshot",
+            "snap-1",
+            "--format",
+            "json"
+        ]
+    );
 }
 
 #[test]

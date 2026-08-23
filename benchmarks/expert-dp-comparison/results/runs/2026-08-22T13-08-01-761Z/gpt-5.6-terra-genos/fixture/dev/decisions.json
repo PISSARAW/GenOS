@@ -1,0 +1,34 @@
+[
+  {
+    "id": "dec_01a0299ac0717fb0b90f11bd258127bd",
+    "title": "Promote overflow-safe Li Chao DP partition implementation",
+    "alternatives": [
+      "Quadratic DP per layer rejected by asymptotic constraint.",
+      "Signed affine evaluation rejected in favor of squared-distance evaluation to avoid subtraction underflow.",
+      "Saturating arithmetic rejected: unreachable u128::MAX DP sentinels were the sole observed overflow and are excluded from the hull."
+    ],
+    "evidence": [
+      "cargo test: 4/4 pass, including exact oracle, all-zero/repeated-prefix cases, large values, and 80,000×80 case.",
+      "cargo test --release --test expert_dp: 4/4 pass in 2.05s.",
+      "GenOS snapshot/fork/replay and blind-review calls could not create a capsule because this connector reports unknown capsules / unexpected CLI arguments; local evidence retained."
+    ],
+    "assumptions": [
+      "TASK constraints bound total prefix sum by 80,000*1,000,000, so all valid squared costs fit u128.",
+      "Prefix sums are nondecreasing and may repeat; the discrete Li Chao domain keeps duplicate coordinates."
+    ],
+    "expected": "Exact minimum partition cost in O(groups*n*log n) time and O(n) memory.",
+    "observed": "All supplied tests pass in debug and release; only src/lib.rs was changed.",
+    "status": "questionable",
+    "code_refs": [
+      "src/lib.rs"
+    ],
+    "test_refs": [
+      "tests/expert_dp.rs"
+    ],
+    "requirement_refs": [
+      "TASK.md: exact groups, contiguous non-empty blocks, O(groups*n*log n), only src/lib.rs"
+    ],
+    "parent_hypothesis": null,
+    "created_at": "2026-08-22T13:13:22.801271Z"
+  }
+]

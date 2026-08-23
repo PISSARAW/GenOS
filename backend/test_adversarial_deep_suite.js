@@ -230,13 +230,27 @@ async function runCircuitBreakerTests() {
   }, { toolName: 'genos_inspect', args: {} });
   assert(viewerExec.status === 403, 'Viewer blocked from MCP tool execution with 403 FORBIDDEN');
 
-  // 4.2 Operator trying to execute destructive tool genos_merge -> 503 INSUFFICIENT_ROLE
+  // 4.2 High-impact actions enter a one-shot admin approval workflow.
   const opDestructive = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
     headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   }, { toolName: 'genos_merge', args: {} });
-  assert(opDestructive.status === 503 && opDestructive.body.error.code === 'INSUFFICIENT_ROLE', 'Operator blocked from destructive genos_merge with 503 INSUFFICIENT_ROLE');
+  assert(opDestructive.status === 202 && opDestructive.body.approvalRequired === true, 'Operator destructive genos_merge deferred for explicit approval');
+
+  const approved = await sendReq({
+    method: 'POST',
+    path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+  }, { decision: 'approve', reason: 'Adversarial approval flow test' });
+  assert(approved.status === 200 && approved.body.status === 'approved' && approved.body.execution, 'Approved destructive action consumed and execution attempted');
+
+  const replayApproval = await sendReq({
+    method: 'POST',
+    path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+  }, { decision: 'approve' });
+  assert(replayApproval.status === 409, 'Approval cannot be consumed twice');
 
   // 4.3 Manual Tool Quarantine Lock via Admin
   const lockTool = await sendReq({

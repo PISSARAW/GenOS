@@ -28,9 +28,10 @@ async function main() {
 
     await initializeSchema(db);
     await db.run("UPDATE agents SET status = 'blocked' WHERE id = 'agent-existing'");
+    await db.run("UPDATE agents SET status = 'completed' WHERE id = 'agent-existing'");
 
     const agent = await db.get("SELECT status FROM agents WHERE id = 'agent-existing'");
-    assert.equal(agent.status, 'blocked', 'the migration must preserve agents and accept guarded status');
+    assert.equal(agent.status, 'completed', 'the migration must preserve agents and distinguish successful completion');
   } finally {
     await db.close();
     fs.rmSync(directory, { recursive: true, force: true });

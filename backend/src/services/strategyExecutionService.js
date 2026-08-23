@@ -5,7 +5,11 @@ const strategyContracts = require('./strategyContractService');
 // Codex's own context.  120k falls below that fixed baseline and incorrectly
 // kills otherwise completed missions before their result can be recorded.
 const DEFAULT_BUDGET = Object.freeze({ tokens: 500000, costUsd: 5, latencyMs: 30 * 60 * 1000, events: 500 });
-const FINAL_EVENTS = new Set(['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR']);
+const FINAL_EVENTS = new Set([
+  'AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN',
+  'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED',
+  'BUDGET_EXHAUSTED', 'AGENT_HALTED'
+]);
 
 function json(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -104,20 +108,18 @@ function metricDelta(payload = {}) {
 }
 
 function stepIndex(event, stepCount) {
+  if (stepCount <= 0) return -1;
   if (event.eventType === 'AGENT_RUNTIME_STARTED') return 0;
-  if (event.eventType === 'AGENT_PLAN_CREATED') return 1;
+  if (event.eventType === 'AGENT_PLAN_CREATED') return Math.min(1, stepCount - 1);
   if (event.eventType === 'AGENT_COMPLETED') return stepCount - 1;
-  if (event.action === 'THINK') return 2;
+  if (event.action === 'THINK') return Math.min(2, stepCount - 1);
   if (event.action === 'VERIFY') return Math.min(5, stepCount - 1);
   if (event.eventType === 'AGENT_STEP') return Math.min(3, stepCount - 1);
   return -1;
 }
 
 function exceededGuardrail(metrics, budget) {
-  // Consumption is recorded for observability, but it must not terminate an
-  // orchestration. Mission completion is governed by evidence and safety
-  // invariants, not a token or provider-cost ceiling.
-  for (const key of ['latencyMs', 'events']) {
+  for (const key of ['tokens', 'costUsd', 'latencyMs', 'events']) {
     if (metrics[key] > budget[key]) return `${key} budget exceeded (${metrics[key]} > ${budget[key]})`;
   }
   return null;
@@ -147,9 +149,12 @@ async function recordExecutionEvent(db, agentId, event) {
     events: Number(previousMetrics.events || 0) + 1
   };
   const budget = json(row.budget_json, DEFAULT_BUDGET);
-  const guardrailReason = policyViolation(event) || exceededGuardrail(metrics, budget);
-  const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType);
-  const completed = event.eventType === 'AGENT_COMPLETED';
+  const blocked = ['BUDGET_EXHAUSTED', 'AGENT_HALTED'].includes(event.eventType);
+  const guardrailReason = policyViolation(event)
+    || (blocked ? event.detail || 'execution blocked by runtime guardrail' : null)
+    || exceededGuardrail(metrics, budget);
+  const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType);
+  const completed = ['AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType);
   const contractRow = completed ? await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id) : null;
   const approvalRequired = completed && json(contractRow?.contract_json, {}).promotion?.require_human_approval === true;
   const index = stepIndex(event, steps.length);
@@ -157,13 +162,23 @@ async function recordExecutionEvent(db, agentId, event) {
 
   if (index >= 0 && steps[index]) {
     const step = steps[index];
+    if (index > 0) {
+      await db.run(
+        `UPDATE strategy_execution_steps
+            SET status = CASE WHEN status = 'running' THEN 'completed' ELSE 'skipped' END,
+                started_at = CASE WHEN status = 'running' THEN COALESCE(started_at, ?) ELSE started_at END,
+                completed_at = COALESCE(completed_at, ?)
+          WHERE run_id = ? AND sequence < ? AND status IN ('planned', 'running')`,
+        now, now, row.id, index
+      );
+    }
     const evidence = json(step.evidence_json, []);
     evidence.push({ eventType: event.eventType, action: event.action, detail: event.detail, timestamp: now });
     const stepMetrics = json(step.actual_metrics_json, {});
     await db.run(
       `UPDATE strategy_execution_steps SET status = ?, actual_metrics_json = ?, evidence_json = ?,
        started_at = COALESCE(started_at, ?), completed_at = ? WHERE id = ?`,
-      guardrailReason ? 'blocked' : (failed ? 'failed' : (approvalRequired ? 'awaiting_approval' : 'completed')),
+      guardrailReason ? 'blocked' : (failed ? 'failed' : (approvalRequired ? 'awaiting_approval' : (completed ? 'completed' : 'running'))),
       JSON.stringify({
         tokens: Number(stepMetrics.tokens || 0) + delta.tokens,
         inputTokens: Number(stepMetrics.inputTokens || 0) + delta.inputTokens,
