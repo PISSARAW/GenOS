@@ -6,6 +6,7 @@
 const { getDatabase } = require('../db');
 const resilienceService = require('../services/resilienceService');
 const telemetry = require('../services/telemetryObserver');
+const runtimeAdapter = require('../services/agentRuntimeAdapter');
 
 async function triggerApoptosis(req, res, next) {
   try {
@@ -13,6 +14,7 @@ async function triggerApoptosis(req, res, next) {
     const db = await getDatabase();
     const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold FROM resilience_policies WHERE id = 1');
     const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db, policy || {});
+    if (autopsy.apoptosisExecuted) runtimeAdapter.stopMission(agentId);
 
     telemetry.emitEvent({
       eventType: 'APOPTOSIS_EVALUATED',

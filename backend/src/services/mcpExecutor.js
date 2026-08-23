@@ -127,6 +127,8 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {
     const result = await executeConfiguredTransport({ toolName, args });
+    if (result.success) circuitBreaker.recordSuccess(toolName);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`);
     telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
     return result;
   } catch (error) {
