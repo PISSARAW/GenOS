@@ -35,8 +35,13 @@ async function run() {
   const dbPath = path.resolve(__dirname, 'agent-authority-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
-  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, current_task)
-    VALUES ('authority-orchestrator', 'Authority Orchestrator', 'Coordinator', 'idle', 'orchestrator', 'Repair a stateful defect')`);
+  const workspace = { id: 'authority-workspace' };
+  await db.run(
+    `INSERT INTO workspaces (id, name, path, description) VALUES (?, ?, ?, ?)`,
+    workspace.id, 'Authority workspace', __dirname, 'Workspace for agent authority tests'
+  );
+  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, current_task)
+    VALUES ('authority-orchestrator', 'Authority Orchestrator', 'Coordinator', 'idle', 'orchestrator', ?, 'Repair a stateful defect')`, workspace.id);
   await contracts.saveContract(db, {
     agentId: 'authority-orchestrator',
     problem: 'Repair a stateful defect with deterministic tests'
@@ -60,6 +65,7 @@ async function run() {
     const deployed = await request('POST', '/api/deploy', {
       executionMode: 'worker',
       parentAgentId: 'authority-orchestrator',
+      workspaceId: workspace.id,
       name: 'Bound Worker',
       prompt: 'Implement the assigned branch only'
     });
@@ -68,6 +74,16 @@ async function run() {
     assert.equal(deployed.body.dispatchRequired, true);
     assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length, 77);
     const workerId = deployed.body.agentId;
+
+    const missionNamed = await request('POST', '/api/deploy', {
+      executionMode: 'worker', parentAgentId: 'authority-orchestrator', workspaceId: workspace.id,
+      role: 'independent_reviewer', prompt: 'Verify token refresh race conditions'
+    });
+    assert.equal(missionNamed.status, 201);
+    assert.equal(missionNamed.body.agent.name, 'Verify · token refresh race conditions');
+    const garage = await request('GET', '/api/agents/authority-orchestrator/workers/garage');
+    assert.equal(garage.status, 200);
+    assert.deepEqual({ capacity: garage.body.capacity, occupied: garage.body.occupied, available: garage.body.available }, { capacity: 3, occupied: 0, available: 3 });
 
     const selfStart = await request('POST', `/api/agents/${workerId}/start`, {});
     assert.equal(selfStart.status, 409);

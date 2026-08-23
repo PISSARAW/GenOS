@@ -88,12 +88,16 @@ function csrfCheck(req, res, next) {
     return next();
   }
 
-  const csrfHeader = req.headers['x-csrf-token'];
+  const csrfHeader = String(req.headers['x-csrf-token'] || '');
   const hasAuth = req.headers.authorization || req.headers['x-access-key'];
   const origin = req.headers.origin;
+  const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => part.trim().split(/=(.*)/s)).filter(([key]) => key));
+  const csrfCookie = String(cookies.genos_csrf || '');
+  const validDoubleSubmit = csrfHeader.length >= 16 && csrfHeader.length === csrfCookie.length
+    && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
 
   // Local CLI, direct curl, or valid token/CSRF
-  if (csrfHeader || hasAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
+  if (validDoubleSubmit || hasAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
     return next();
   }
 
@@ -104,12 +108,8 @@ function csrfCheck(req, res, next) {
 }
 
 function xssSanitizer(req, res, next) {
-  if (req.body && typeof req.body === 'object') {
-    req.body = sanitizeObject(req.body);
-  }
-  if (req.query && typeof req.query === 'object') {
-    req.query = sanitizeObject(req.query);
-  }
+  // JSON payloads contain source code, prompts and templates where mutation is
+  // data corruption. HTML escaping belongs at the rendering boundary.
   next();
 }
 

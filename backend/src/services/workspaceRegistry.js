@@ -77,7 +77,7 @@ async function syncWorkspaceRegistry(db, root = resolveWorkspacesRoot()) {
     await db.run(
       `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
        VALUES (?, ?, ?, 'Private', 'Mixed', ?, '[]')
-       ON CONFLICT(name) DO UPDATE SET
+       ON CONFLICT(id) DO UPDATE SET
          path = excluded.path,
          language = excluded.language,
          updated_at = CURRENT_TIMESTAMP`,
@@ -86,7 +86,7 @@ async function syncWorkspaceRegistry(db, root = resolveWorkspacesRoot()) {
       workspacePath,
       'Workspace discovered inside GENOS_WORKSPACES_ROOT.'
     );
-    const workspace = await db.get('SELECT * FROM workspaces WHERE name = ?', name);
+    const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', id);
     if (workspace) workspaces.push(workspace);
   }
 

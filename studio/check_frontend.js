@@ -7,9 +7,11 @@
  * 4. 0 Emojis in source code
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC_DIR = path.join(__dirname, 'src');
 
 function getAllFiles(dir, exts = ['.ts', '.tsx', '.css', '.js', '.jsx']) {

@@ -8,9 +8,9 @@ router.use(requireTenantScope());
 router.get('/', controller.list);
 router.get('/marketplace', controller.marketplace);
 router.get('/:kind', controller.list);
-router.post('/:kind', requirePermission('workspace:write'), controller.create);
-router.post('/artifacts/:id/versions', requirePermission('workspace:write'), controller.addVersion);
-router.post('/artifacts/:id/publish', requirePermission('workspace:write'), controller.publish);
-router.post('/marketplace/:id/install', requirePermission('workspace:write'), controller.install);
+router.post('/:kind', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.create);
+router.post('/artifacts/:id/versions', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.addVersion);
+router.post('/artifacts/:id/publish', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.publish);
+router.post('/marketplace/:id/install', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.install);
 
 module.exports = router;

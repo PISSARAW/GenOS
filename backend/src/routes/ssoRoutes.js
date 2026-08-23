@@ -11,6 +11,7 @@ async function dbReady() {
   await db.exec("CREATE TABLE IF NOT EXISTS sso_providers (id TEXT PRIMARY KEY, issuer TEXT NOT NULL, client_id TEXT NOT NULL, redirect_uri TEXT NOT NULL, client_secret_json TEXT, scopes TEXT NOT NULL DEFAULT 'openid profile email', enabled INTEGER NOT NULL DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)");
   await db.exec('CREATE TABLE IF NOT EXISTS user_identities (id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, subject TEXT NOT NULL, email TEXT, display_name TEXT, role TEXT NOT NULL DEFAULT \'viewer\', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(provider_id, subject))');
   await db.exec('CREATE TABLE IF NOT EXISTS saml_requests (id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, value TEXT NOT NULL, expires_at INTEGER NOT NULL)');
+  await db.exec('CREATE TABLE IF NOT EXISTS oidc_requests (id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, nonce TEXT NOT NULL, code_verifier TEXT NOT NULL, expires_at INTEGER NOT NULL)');
   const columns = new Set((await db.all('PRAGMA table_info(sso_providers)')).map(column => column.name));
   if (!columns.has('protocol')) await db.exec("ALTER TABLE sso_providers ADD COLUMN protocol TEXT NOT NULL DEFAULT 'oidc'");
   if (!columns.has('entry_point')) await db.exec('ALTER TABLE sso_providers ADD COLUMN entry_point TEXT');
@@ -56,7 +57,55 @@ function buildSaml(provider, db) {
     cacheProvider: samlRequestCache(db, provider.id)
   });
 }
-function decodeJwt(token) { try { return JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')); } catch (_) { return {}; } }
+async function fetchJson(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    if (!response.ok) throw new Error(`OIDC endpoint returned ${response.status}`);
+    return response.json();
+  } finally { clearTimeout(timer); }
+}
+
+async function oidcDiscovery(provider) {
+  const issuer = String(provider.issuer || '').replace(/\/$/, '');
+  const discovery = await fetchJson(`${issuer}/.well-known/openid-configuration`);
+  if (discovery.issuer !== issuer || !discovery.authorization_endpoint || !discovery.token_endpoint || !discovery.jwks_uri) {
+    throw new Error('OIDC discovery metadata is incomplete or has an issuer mismatch.');
+  }
+  return discovery;
+}
+
+async function validateIdToken(token, provider, discovery, expectedNonce) {
+  const parts = String(token || '').split('.');
+  if (parts.length !== 3) throw new Error('OIDC identity token is malformed.');
+  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+  const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  const algorithms = {
+    RS256: 'RSA-SHA256', RS384: 'RSA-SHA384', RS512: 'RSA-SHA512',
+    PS256: 'RSA-SHA256', PS384: 'RSA-SHA384', PS512: 'RSA-SHA512',
+    ES256: 'SHA256', ES384: 'SHA384', ES512: 'SHA512'
+  };
+  if (!algorithms[header.alg] || !header.kid) throw new Error('OIDC identity token uses an unsupported algorithm or has no key id.');
+  const jwks = await fetchJson(discovery.jwks_uri);
+  const jwk = Array.isArray(jwks.keys) ? jwks.keys.find((key) => key.kid === header.kid && (!key.alg || key.alg === header.alg)) : null;
+  if (!jwk) throw new Error('OIDC signing key was not found.');
+  const key = crypto.createPublicKey({ key: jwk, format: 'jwk' });
+  const verifyOptions = { key };
+  if (header.alg.startsWith('PS')) {
+    verifyOptions.padding = crypto.constants.RSA_PKCS1_PSS_PADDING;
+    verifyOptions.saltLength = crypto.constants.RSA_PSS_SALTLEN_DIGEST;
+  }
+  if (header.alg.startsWith('ES')) verifyOptions.dsaEncoding = 'ieee-p1363';
+  const valid = crypto.verify(algorithms[header.alg], Buffer.from(`${parts[0]}.${parts[1]}`), verifyOptions, Buffer.from(parts[2], 'base64url'));
+  if (!valid) throw new Error('OIDC identity token signature is invalid.');
+  const now = Math.floor(Date.now() / 1000);
+  const audience = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  if (claims.iss !== discovery.issuer || !audience.includes(provider.client_id)) throw new Error('OIDC identity token issuer or audience is invalid.');
+  if (!Number.isFinite(Number(claims.exp)) || Number(claims.exp) <= now || Number(claims.nbf || 0) > now + 30) throw new Error('OIDC identity token is expired or not active.');
+  if (!expectedNonce || claims.nonce !== expectedNonce) throw new Error('OIDC identity token nonce is invalid.');
+  return claims;
+}
 router.get('/providers', async (req, res, next) => { try { const db = await dbReady(); res.json(await db.all('SELECT id,protocol,issuer,client_id,redirect_uri,entry_point,sp_entity_id,scopes,enabled FROM sso_providers ORDER BY id')); } catch (e) { next(e); } });
 router.post('/providers', requireRole(['admin']), async (req, res, next) => {
   try {
@@ -71,9 +120,44 @@ router.post('/providers', requireRole(['admin']), async (req, res, next) => {
     res.status(201).json({ id, issuer, clientId: clientId || null, redirectUri, scopes, protocol, entryPoint: entryPoint || null, spEntityId: spEntityId || null });
   } catch (e) { next(e); }
 });
-router.get('/start/:id', async (req, res, next) => { try { const db = await dbReady(); const provider = await db.get('SELECT * FROM sso_providers WHERE id=? AND enabled=1', req.params.id); if (!provider) return res.status(404).json({ error: { code: 'SSO_PROVIDER_NOT_FOUND', message: 'SSO provider not found.' } }); const state = crypto.randomBytes(18).toString('base64url'); res.redirect(`${provider.issuer}/authorize?${new URLSearchParams({ response_type: 'code', client_id: provider.client_id, redirect_uri: provider.redirect_uri, scope: provider.scopes, state })}`); } catch (e) { next(e); } });
+router.get('/start/:id', async (req, res, next) => {
+  try {
+    const db = await dbReady();
+    const provider = await db.get("SELECT * FROM sso_providers WHERE id=? AND enabled=1 AND protocol='oidc'", req.params.id);
+    if (!provider) return res.status(404).json({ error: { code: 'SSO_PROVIDER_NOT_FOUND', message: 'OIDC provider not found.' } });
+    const discovery = await oidcDiscovery(provider);
+    const state = crypto.randomBytes(24).toString('base64url');
+    const nonce = crypto.randomBytes(24).toString('base64url');
+    const codeVerifier = crypto.randomBytes(48).toString('base64url');
+    const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
+    await db.run('DELETE FROM oidc_requests WHERE expires_at <= ?', Date.now());
+    await db.run('INSERT INTO oidc_requests(id,provider_id,nonce,code_verifier,expires_at) VALUES(?,?,?,?,?)', state, provider.id, nonce, codeVerifier, Date.now() + 5 * 60 * 1000);
+    res.redirect(`${discovery.authorization_endpoint}?${new URLSearchParams({ response_type: 'code', client_id: provider.client_id, redirect_uri: provider.redirect_uri, scope: provider.scopes, state, nonce, code_challenge: codeChallenge, code_challenge_method: 'S256' })}`);
+  } catch (e) { next(e); }
+});
 router.get('/saml/:id/start', async (req, res, next) => { try { const db = await dbReady(); const provider = await db.get("SELECT * FROM sso_providers WHERE id=? AND enabled=1 AND protocol='saml'", req.params.id); if (!provider) return res.status(404).json({ error: { code: 'SAML_PROVIDER_NOT_FOUND', message: 'SAML provider not found.' } }); const relayState = crypto.randomBytes(18).toString('base64url'); res.redirect(await buildSaml(provider, db).getAuthorizeUrlAsync(relayState, req.get('host'))); } catch (e) { next(e); } });
-router.get('/callback/:id', async (req, res, next) => { try { const db = await dbReady(); const provider = await db.get('SELECT * FROM sso_providers WHERE id=? AND enabled=1', req.params.id); if (!provider || !req.query.code) return res.status(400).json({ error: { code: 'INVALID_SSO_CALLBACK', message: 'Provider and authorization code are required.' } }); const secret = provider.client_secret_json ? vault.decrypt(JSON.parse(provider.client_secret_json)) : undefined; const tokenResponse = await fetch(`${provider.issuer}/token`, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: String(req.query.code), redirect_uri: provider.redirect_uri, client_id: provider.client_id, ...(secret ? { client_secret: secret } : {}) }) }); if (!tokenResponse.ok) throw new Error(`OIDC token exchange returned ${tokenResponse.status}`); const tokens = await tokenResponse.json(); const claims = decodeJwt(tokens.id_token || ''); const subject = claims.sub || claims.email; if (!subject) throw new Error('OIDC identity token has no subject.'); const identityId = `identity-${crypto.randomUUID()}`; await db.run('INSERT INTO user_identities(id,provider_id,subject,email,display_name,role) VALUES(?,?,?,?,?,?) ON CONFLICT(provider_id,subject) DO UPDATE SET email=excluded.email, display_name=excluded.display_name', identityId, provider.id, subject, claims.email || null, claims.name || claims.preferred_username || subject, 'viewer'); const identity = await db.get('SELECT * FROM user_identities WHERE provider_id=? AND subject=?', provider.id, subject); const token = `sso_${crypto.randomBytes(32).toString('hex')}`; await db.run('INSERT INTO sessions(id,token_hash,role,username,expires_at) VALUES(?,?,?,?,datetime(\'now\',\'+8 hours\'))', `session-${crypto.randomUUID()}`, hashKey(token), identity.role, identity.display_name || identity.email || subject); res.json({ token, user: { id: identity.id, username: identity.display_name, email: identity.email, role: identity.role }, expiresIn: 28800 }); } catch (e) { next(e); } });
+router.get('/callback/:id', async (req, res, next) => {
+  try {
+    const db = await dbReady();
+    const provider = await db.get("SELECT * FROM sso_providers WHERE id=? AND enabled=1 AND protocol='oidc'", req.params.id);
+    const state = String(req.query.state || '');
+    const request = state ? await db.get('SELECT * FROM oidc_requests WHERE id=? AND provider_id=? AND expires_at>?', state, req.params.id, Date.now()) : null;
+    if (!provider || !req.query.code || !request) return res.status(400).json({ error: { code: 'INVALID_SSO_CALLBACK', message: 'Provider, authorization code and valid state are required.' } });
+    await db.run('DELETE FROM oidc_requests WHERE id=?', state);
+    const discovery = await oidcDiscovery(provider);
+    const secret = provider.client_secret_json ? vault.decrypt(JSON.parse(provider.client_secret_json)) : undefined;
+    const tokens = await fetchJson(discovery.token_endpoint, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ grant_type: 'authorization_code', code: String(req.query.code), redirect_uri: provider.redirect_uri, client_id: provider.client_id, code_verifier: request.code_verifier, ...(secret ? { client_secret: secret } : {}) }) });
+    const claims = await validateIdToken(tokens.id_token, provider, discovery, request.nonce);
+    const subject = claims.sub;
+    if (!subject) throw new Error('OIDC identity token has no subject.');
+    const identityId = `identity-${crypto.randomUUID()}`;
+    await db.run('INSERT INTO user_identities(id,provider_id,subject,email,display_name,role) VALUES(?,?,?,?,?,?) ON CONFLICT(provider_id,subject) DO UPDATE SET email=excluded.email, display_name=excluded.display_name', identityId, provider.id, subject, claims.email || null, claims.name || claims.preferred_username || subject, 'viewer');
+    const identity = await db.get('SELECT * FROM user_identities WHERE provider_id=? AND subject=?', provider.id, subject);
+    const token = `sso_${crypto.randomBytes(32).toString('hex')}`;
+    await db.run('INSERT INTO sessions(id,token_hash,role,username,expires_at) VALUES(?,?,?,?,datetime(\'now\',\'+8 hours\'))', `session-${crypto.randomUUID()}`, hashKey(token), identity.role, identity.display_name || identity.email || subject);
+    res.json({ token, user: { id: identity.id, username: identity.display_name, email: identity.email, role: identity.role }, expiresIn: 28800 });
+  } catch (e) { next(e); }
+});
 router.post('/saml/:id/acs', async (req, res, next) => {
   try {
     const db = await dbReady();

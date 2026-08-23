@@ -187,13 +187,49 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 
 ---
 
+## 10. Dynamic Strategy Selection
+
+### `genos_change_strategy`
+**Description**: Re-evaluates the complete 77-strategy registry when evidence shows that the active strategy no longer matches the mission need.
+**Parameters**:
+- `need` *(string)*: Current concrete need or newly discovered problem.
+- `reason` *(string)*: Evidence-backed reason for reconsidering the active strategy.
+- `problem_profile` *(object)*: Optional risk, uncertainty, complexity, evaluability, reversibility, or problem-type overrides.
+- `max_cost_level` *(integer)*: Optional maximum strategy cost from 1 to 5.
+- `allow_experimental`, `allow_prototype`, `allow_experimental_at_high_risk` *(boolean)*: Explicit maturity-policy overrides.
+**Usage**: Only the owning orchestrator receives this tool. GenOS scores all 77 strategies, retains the current contract when its portfolio is still the best fit, or creates a new immutable contract version when the need materially changes. The active execution run is superseded and the new run receives only the remaining tokens, cost, latency, and event budget. Existing workers finish under their inherited contract; workers dispatched afterward inherit the new one.
+
+---
+
 ## 11. Swarm Orchestration
 
 ### `genos_a_team_preview`
-**Description**: Dynamically provisions an elite GenOS A-Team (Swarm) to tackle a complex project.
+**Description**: Provisions a bounded GenOS A-Team when a mission spans at least two distinct competency domains. The control plane can also compose it automatically from mission analysis.
 **Parameters**:
 - `project_goal` *(string)*: Detailed description of the final objective.
-- `sub_systems` *(array of strings)*: List of decoupled subsystems.
-- `assigned_roles` *(array of strings)*: Tailored roles to create. Must include `telemetry_observer`.
-- `enforce_genos_rules` *(boolean)*: Forces agents to strictly respect GenOS constraints (max 400 lines/file, max 3 params/function).
-**Usage**: Allows the Lead Agent to simulate the `/teamwork-preview` behavior by delegating the project into a highly organized multi-agent Swarm.
+- `sub_systems` *(array of 2–3 strings)*: Distinct, bounded competency domains.
+- `assigned_roles` *(array of strings)*: Specialist roles aligned with the subsystems.
+- `model_tiers` *(array of strings)*: Optional model tiers aligned with the subsystems.
+- `enforce_genos_rules` *(boolean)*: Retained for compatibility; isolation, evidence, budgets, and leases are always enforced.
+**Usage**: The orchestrator receives the tool only through its lease. Each member occupies one of the three garage slots, inherits the root mission's execution policy, works in an isolated capsule, and returns evidence to the orchestrator. Workers cannot compose another A-Team.
+
+### `genos_trinity_launch`
+**Description**: Launches three isolated comparison worlds: the raw need, an implementation based on the user-interview plan, and an independently AI-corrected implementation.
+**Parameters**:
+- `mission` *(string)*: Concrete shared mission, including requirements learned during the interview.
+- `rationale` *(string)*: Optional explanation of why three comparative worlds are useful.
+- `execution_budget` *(object)*: Optional bounded budget inherited by each world.
+**Usage**: An explicit request for “Trinity” activates it when the three garage slots and token budget are available. A request such as “interview me to create a plan” creates a Trinity decision gate instead: the orchestrator conducts the interview first, then launches Trinity only if the resulting mission benefits from three comparative implementations. A-Team and Trinity cannot occupy the garage simultaneously, and workers cannot launch Trinity recursively.
+
+---
+
+## 12. User-Facing Mission Progress
+
+### `genos_report_progress`
+**Description**: Publishes a concise orchestrator milestone to the user through the persisted telemetry stream and live Studio SSE channel.
+**Parameters**:
+- `phase` *(string)*: `started`, `working`, `verifying`, `completed`, or `blocked`.
+- `message` *(string)*: User-facing summary without private chain-of-thought.
+- `progress_percent` *(number)*: Optional estimate from 0 to 100.
+- `completed`, `next`, `blockers` *(arrays of strings)*: Optional structured milestone details.
+**Usage**: Reporting is enabled by default. GenOS automatically reports mission start, worker dispatch, worker completion or failure, and final orchestrator outcome. The orchestrator uses this tool for meaningful intermediate changes such as a completed unit, a changed approach, a blocker, or entry into final verification. Studio renders these events as visible notifications. Set `silent_updates: true` on `genos_orchestrate`, or explicitly request silent execution in the mission text, to suppress every intermediate user update; the final mission result is still returned.

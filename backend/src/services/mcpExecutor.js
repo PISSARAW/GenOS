@@ -55,8 +55,9 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
-  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.resolve(workspaceRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
+  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
   let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
   child.stdout.on('data', (chunk) => {
@@ -121,10 +122,13 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
+  if (tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
   const circuit = circuitBreaker.canExecute(toolName, 'operator');
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {
     const result = await executeConfiguredTransport({ toolName, args });
+    if (result.success) circuitBreaker.recordSuccess(toolName);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`);
     telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
     return result;
   } catch (error) {

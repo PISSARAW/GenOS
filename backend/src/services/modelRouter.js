@@ -29,6 +29,8 @@ function isLocal(uri) {
   return /^(ollama|lmstudio|vllm):\/\//.test(uri);
 }
 
+function unique(values) { return [...new Set(values.filter(Boolean))]; }
+
 function candidateModels(explicitModel, policy) {
   const primary = String(explicitModel || policy.primary || '').trim();
   const ordered = [primary, ...policy.fallbacks, ...(policy.mode === 'parallel' ? policy.parallelReview : [])].filter(Boolean);
@@ -52,17 +54,35 @@ async function loadPolicy(db, { agentId, organizationId, projectId }) {
   try { return policyFrom(JSON.parse(row.policy_json || '{}')); } catch (_) { return null; }
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, onToken = () => {}, policy: suppliedPolicy }) {
+async function localRoutingPolicy(db, context, discovered = []) {
+  const configured = await loadPolicy(db, context) || envPolicy();
+  const configuredLocal = candidateModels(null, configured).filter(isLocal);
+  const ordered = unique([...configuredLocal, ...discovered.filter(isLocal)]);
+  return {
+    primary: ordered[0] || null,
+    fallbacks: ordered.slice(1),
+    parallelReview: configured.mode === 'parallel' ? ordered.slice(1) : [],
+    mode: configured.mode,
+    preferLocal: true,
+    configured: configuredLocal.length > 0
+  };
+}
+
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy }) {
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   const configuredCandidates = candidateModels(model, policy);
   const candidates = configuredCandidates.length ? configuredCandidates : await localModelDiscovery.discoverChatModelUris();
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {
+    const configuration = modelProvider.modelConfiguration(uri);
+    const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
     const result = await modelProvider.generate({
       model: uri,
       prompt,
       timeoutMs,
+      maxTokens,
+      endpoint: registered?.endpoint || undefined,
       onToken: (token) => onToken(token, uri)
     });
     return { ...result, model: uri };
@@ -94,4 +114,4 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
 }
 
-module.exports = { generate, loadPolicy, policyFrom, candidateModels };
+module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal };

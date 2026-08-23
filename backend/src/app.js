@@ -47,6 +47,7 @@ const ssoRoutes = require('./routes/ssoRoutes');
 const pluginRoutes = require('./routes/pluginRoutes');
 const registryRoutes = require('./routes/registryRoutes');
 const frameworkRoutes = require('./routes/frameworkRoutes');
+const productProofRoutes = require('./routes/productProofRoutes');
 const healthController = require('./controllers/healthController');
 
 function createApp() {
@@ -76,6 +77,7 @@ function createApp() {
 
   // 2. Request Parsing & Security Headers
   app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '2mb' }));
   app.use(securityHeaders);
   app.use(originCheck);
   app.use(csrfCheck);
@@ -98,6 +100,7 @@ function createApp() {
   app.use('/api/plugins', pluginRoutes);
   app.use('/api/registry', registryRoutes);
   app.use('/api/frameworks', frameworkRoutes);
+  app.use('/api/product-proofs', productProofRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);

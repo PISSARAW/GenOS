@@ -178,7 +178,7 @@ pub struct AdversarialReviewArgs {
     pub worlds: Vec<String>,
     #[arg(long, default_value_t = 1)]
     pub rounds: u32,
-    #[arg(long, default_value_t = true)]
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
     pub blind: bool,
     #[arg(long, default_value = ".genos")]
     pub root: PathBuf,

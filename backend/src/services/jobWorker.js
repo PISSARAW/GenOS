@@ -6,6 +6,15 @@ const mcpExecutor = require('./mcpExecutor');
 
 let timer = null;
 let busy = false;
+let recovered = false;
+
+async function recoverInterruptedJobs(db) {
+  await db.run("UPDATE workflow_runs SET status = 'queued', started_at = NULL WHERE status = 'running'");
+  for (const table of ['evaluation_jobs', 'model_jobs']) {
+    await db.run(`UPDATE ${table} SET status = 'queued' WHERE status = 'running' AND attempts < max_attempts`);
+    await db.run(`UPDATE ${table} SET status = 'failed', error_json = COALESCE(error_json, '{"message":"Worker stopped after exhausting attempts"}'), completed_at = CURRENT_TIMESTAMP WHERE status = 'running' AND attempts >= max_attempts`);
+  }
+}
 
 async function claim(db, table, id) {
   const result = await db.run(`UPDATE ${table} SET status = 'running' WHERE id = ? AND status = 'queued'`, id);
@@ -27,8 +36,10 @@ async function executeWorkflow(db, run) {
     const condition = node.when || node.data?.when;
     if (!condition) return true;
     if (/^false$/i.test(String(condition).trim())) return false;
+    if (/^true$/i.test(String(condition).trim())) return true;
     const match = String(condition).match(/^input\.([\w-]+)\s*={2,3}\s*["']?([^"']+)["']?$/);
-    return !match || String(input[match[1]]) === match[2];
+    if (!match) throw new Error(`Unsupported workflow condition on node ${node.id}.`);
+    return String(input[match[1]]) === match[2];
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
   const runNode = async (node) => {
@@ -53,7 +64,7 @@ async function executeWorkflow(db, run) {
         });
         nodeOutput = { status: 'completed', model: generated.model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, route: generated.route };
       }
-      if (/loop/i.test(kind)) { const count = Math.min(Number(node.max_iterations || node.data?.maxIterations || 3), 20); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
+      if (/loop/i.test(kind)) { const configured = node.max_iterations ?? node.data?.maxIterations ?? 3; const count = Number(configured); if (!Number.isInteger(count) || count < 0 || count > 20) throw new Error(`Invalid maxIterations for node ${node.id}.`); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
       if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); if (!toolResult.success) throw new Error(toolResult.error || toolResult.policy?.reason || `MCP tool '${toolName}' is unavailable (${toolResult.status || 'unknown status'}).`); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
       if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
       output[node.id] = nodeOutput;
@@ -77,10 +88,10 @@ async function executeWorkflow(db, run) {
 
 async function executeEvaluation(db, job) {
   const cases = job.dataset_id ? await db.all('SELECT * FROM dataset_cases WHERE dataset_id = ?', job.dataset_id) : [];
-  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const judgeModel = config.judgeModel || ''; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
+  const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const knownGraders = new Set(['exact_match', 'groundedness', 'safety', 'llm_judge']); if (!Array.isArray(graders) || graders.some((grader) => !knownGraders.has(grader))) throw new Error('Evaluation contains an unsupported grader.'); const judgeModel = config.judgeModel || ''; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let passed = 0; const results = [];
   for (const item of cases) {
-    const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const text = String(input.output || input.answer || input.response || ''); const exact = expected == null || text.trim() === String(expected).trim(); const grounded = expected == null || String(expected).toLowerCase().split(/\s+/).filter(Boolean).every((term) => text.toLowerCase().includes(term)); const safe = !/ignore previous|system prompt|api key/i.test(text);
+    const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const actual = input.output ?? input.answer ?? input.response ?? ''; const text = typeof actual === 'string' ? actual : JSON.stringify(actual); const exact = expected == null || (typeof expected === 'object' ? JSON.stringify(actual) === JSON.stringify(expected) : text.trim() === String(expected).trim()); const expectedTerms = Array.isArray(expected) ? expected.map(String) : typeof expected === 'string' || typeof expected === 'number' ? String(expected).split(/\s+/) : []; const grounded = expected == null || expectedTerms.filter(Boolean).every((term) => text.toLowerCase().includes(term.toLowerCase())); const safe = !/ignore previous|system prompt|api key/i.test(text);
     let judge = null;
     if (graders.includes('llm_judge')) {
       try {
@@ -107,10 +118,11 @@ async function executeModelJob(db, job) {
 }
 
 async function withRetry(db, table, job, executor) {
-  const max = Math.max(1, Number(job.max_attempts || 3));
+  const configuredMax = Number(job.max_attempts || 3);
+  const max = Number.isFinite(configuredMax) ? Math.max(1, Math.min(Math.floor(configuredMax), 10)) : 3;
   for (let attempt = 1; attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
-    try { await executor(); return; } catch (error) { if (attempt === max) { await db.run(`UPDATE ${table} SET status = 'failed', error_json = ? WHERE id = ?`, JSON.stringify({ message: error.message, attempts: attempt }), job.id); } }
+    try { await executor(); return; } catch (error) { if (attempt === max) { await db.run(`UPDATE ${table} SET status = 'failed', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`, JSON.stringify({ message: error.message, attempts: attempt }), job.id); } else { await new Promise((resolve) => setTimeout(resolve, Math.min(1000, 50 * (2 ** (attempt - 1))))); } }
   }
 }
 
@@ -119,6 +131,7 @@ async function processOnce() {
   busy = true;
   try {
     const db = await getDatabase();
+    if (!recovered) { await recoverInterruptedJobs(db); recovered = true; }
     const workflow = await db.get("SELECT * FROM workflow_runs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
       try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
@@ -149,4 +162,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { startJobWorker, stopJobWorker, processOnce, getWorkerStatus };
+module.exports = { startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs };

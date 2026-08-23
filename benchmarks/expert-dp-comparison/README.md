@@ -2,8 +2,11 @@
 
 This benchmark asks the same model to implement an optimized partition DP in a
 fresh Rust fixture. `standard` has no MCP server; `genos` receives the local
-GenOS MCP catalog. Correctness is graded only by `cargo test`; time and token
-figures are recorded from the Codex event stream.
+GenOS MCP catalog. Quality is graded by deterministic `cargo test` results
+(passed, failed, total, and pass-rate score). Token reporting separates caller
+input/output tokens from internal GenOS orchestrator/worker tokens and reports
+their sum. A run is marked orchestrated only if the MCP bridge succeeds and
+all reported GenOS agents finish idle.
 
 The default raw-MCP comparison measures the marginal cost of exposing the tool
 catalog. It is not an orchestrator benchmark. Run it with:

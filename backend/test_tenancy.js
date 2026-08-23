@@ -15,6 +15,7 @@ async function main() {
   await db.run("INSERT INTO access_keys(id,key_hash,label,role,permissions) VALUES(?,?,?,?,?)", 'key-tenant', hash, 'tenant-user', 'operator', '["read","workspace:write"]');
   await db.run("INSERT INTO organizations(id,name) VALUES('org-test','Test Organization')");
   await db.run("INSERT INTO projects(id,organization_id,name) VALUES('project-test','org-test','Test Project')");
+  await db.run("INSERT INTO projects(id,organization_id,name) VALUES('project-other','org-test','Other Project')");
   await db.run("INSERT INTO organization_memberships(principal_id,organization_id,role) VALUES('key-tenant','org-test','member')");
   await db.run("INSERT INTO project_memberships(principal_id,project_id,role) VALUES('key-tenant','project-test','member')");
 
@@ -22,6 +23,9 @@ async function main() {
   assert.equal(valid.projectId, 'project-test');
   const wrongProject = await resolveTenant({ headers: { authorization: `Bearer ${token}`, 'x-organization-id': 'org-test', 'x-project-id': 'project-other' } });
   assert.equal(wrongProject, null);
+  await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-one','same-name','/tmp/one','org-test','project-test')");
+  await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-two','same-name','/tmp/two','org-test','project-other')");
+  await assert.rejects(() => db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-three','same-name','/tmp/three','org-test','project-test')"), /UNIQUE/i);
   await closeDatabase();
   fs.rmSync(directory, { recursive: true, force: true });
   console.log('tenant isolation checks passed');

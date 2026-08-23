@@ -18,7 +18,9 @@ async function verifyToken(req, res) {
   const db = await getDatabase();
   const tokenHash = hashKey(rawToken);
   const keyRecord = await db.get(
-    'SELECT * FROM access_keys WHERE key_hash = ? AND is_active = 1',
+    `SELECT * FROM access_keys
+     WHERE key_hash = ? AND is_active = 1
+       AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
     tokenHash
   );
 
@@ -26,14 +28,29 @@ async function verifyToken(req, res) {
     const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
     let extraPerms = [];
     try {
-      extraPerms = JSON.parse(keyRecord.permissions || '[]');
+      const parsed = JSON.parse(keyRecord.permissions || '[]');
+      extraPerms = Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
     } catch (e) {}
 
+    await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
     return res.json({
       valid: true,
       role: keyRecord.role,
       permissions: Array.from(new Set([...rolePerms, ...extraPerms])),
       user: { username: keyRecord.label, role: keyRecord.role, keyId: keyRecord.id }
+    });
+  }
+
+  const session = await db.get(
+    'SELECT * FROM sessions WHERE token_hash = ? AND revoked = 0 AND expires_at > CURRENT_TIMESTAMP',
+    tokenHash
+  );
+  if (session) {
+    return res.json({
+      valid: true,
+      role: session.role,
+      permissions: ROLE_PERMISSIONS[session.role] || ROLE_PERMISSIONS.viewer,
+      user: { username: session.username, role: session.role, keyId: session.id }
     });
   }
 
@@ -74,9 +91,18 @@ async function listKeys(req, res) {
 }
 
 async function createKey(req, res) {
-  const { label, role = 'operator', permissions = ['read'] } = req.body || {};
+  const { label, role = 'operator', permissions = ['read'], expiresAt = null } = req.body || {};
   if (!label) {
     return res.status(400).json({ error: { code: 'INVALID_LABEL', message: 'Key label is required' } });
+  }
+  if (!Object.prototype.hasOwnProperty.call(ROLE_PERMISSIONS, role)) {
+    return res.status(400).json({ error: { code: 'INVALID_ROLE', message: 'role must be admin, operator, or viewer' } });
+  }
+  if (!Array.isArray(permissions) || permissions.some((permission) => typeof permission !== 'string')) {
+    return res.status(400).json({ error: { code: 'INVALID_PERMISSIONS', message: 'permissions must be an array of strings' } });
+  }
+  if (expiresAt != null && Number.isNaN(Date.parse(expiresAt))) {
+    return res.status(400).json({ error: { code: 'INVALID_EXPIRY', message: 'expiresAt must be a valid date' } });
   }
 
   const rawKey = `genos_sk_${role}_${crypto.randomBytes(16).toString('hex')}`;
@@ -85,12 +111,12 @@ async function createKey(req, res) {
 
   const db = await getDatabase();
   await db.run(
-    'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
-    id, keyHash, label, role, JSON.stringify(permissions)
+    'INSERT INTO access_keys (id, key_hash, label, role, permissions, expires_at) VALUES (?, ?, ?, ?, ?, ?)',
+    id, keyHash, label, role, JSON.stringify(permissions), expiresAt
   );
 
   res.status(201).json({
-    key: { id, label, role, permissions, rawKey }
+    key: { id, label, role, permissions, expiresAt, rawKey }
   });
 }
 

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -38,6 +38,65 @@ fn leased_operations() -> Option<Vec<String>> {
     (!values.is_empty()).then_some(values)
 }
 
+fn configured_allowed_commands() -> Vec<String> {
+    serde_json::from_str::<Vec<String>>(
+        &env::var("GENOS_ALLOWED_COMMANDS_JSON").unwrap_or_else(|_| "[]".into()),
+    )
+    .unwrap_or_default()
+    .into_iter()
+    .map(|command| command.trim().to_string())
+    .filter(|command| !command.is_empty())
+    .collect()
+}
+
+fn leased_run_authorization_error(
+    name: &str,
+    arguments: &Value,
+    leased: bool,
+    allowed_commands: &[String],
+) -> Option<String> {
+    if name != "genos_run" || !leased {
+        return None;
+    }
+    let command = arguments
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if allowed_commands.iter().any(|allowed| allowed == command) {
+        None
+    } else {
+        Some(format!(
+            "Command '{command}' is outside this agent's explicit execution allowlist."
+        ))
+    }
+}
+
+fn mark_preauthorized_run(tool: &mut ToolSpec, allowed_commands: &[String]) {
+    if tool.name == "genos_run" && !allowed_commands.is_empty() {
+        tool.annotations.destructive_hint = false;
+        tool.annotations.open_world_hint = false;
+        tool.meta["genos/preauthorized"] = Value::Bool(true);
+    }
+}
+
+fn halt_file_exists() -> bool {
+    let workspace = env::var_os("GENOS_WORKSPACE_ROOT")
+        .map(PathBuf::from)
+        .or_else(|| env::current_dir().ok());
+    workspace
+        .map(|root| root.join(".genos").join("mcp.halted").is_file())
+        .unwrap_or(false)
+}
+
+fn worker_authority(value: Option<&str>) -> bool {
+    value.is_some_and(|mode| mode.trim().eq_ignore_ascii_case("worker"))
+}
+
+fn running_as_worker() -> bool {
+    worker_authority(env::var("GENOS_EXECUTION_MODE").ok().as_deref())
+}
+
 fn orchestrator_tool() -> ToolSpec {
     ToolSpec {
         name: "genos_orchestrate".into(),
@@ -46,7 +105,11 @@ fn orchestrator_tool() -> ToolSpec {
         input_schema: json!({"type":"object","additionalProperties":false,"properties":{
             "task":{"type":"string","description":"Mission on the first call."},
             "operation":{"type":"string","description":"Leased GenOS operation for this decision gate."},
-            "arguments":{"type":"object","description":"Arguments for the leased operation."}
+            "arguments":{"type":"object","description":"Arguments for the leased operation."},
+            "allowed_commands":{"type":"array","items":{"type":"string"},"description":"Exact shell commands authorized for the whole mission. Every other shell command is denied synchronously."},
+            "allow_file_edits":{"type":"boolean","description":"Whether agents may edit files inside their isolated capsules. Defaults to false."},
+            "silent_updates":{"type":"boolean","description":"Suppress user-facing progress milestones. Defaults to false and should be true only when the user explicitly requests silence."},
+            "autonomous_orchestration":{"type":"boolean","description":"Whether the root orchestrator may dispatch its bounded worker fleet. Defaults to true."}
         },"required":[]}),
         output_schema: json!({"type":"object"}),
         annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
@@ -54,12 +117,204 @@ fn orchestrator_tool() -> ToolSpec {
     }
 }
 
+fn delegate_worker_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_delegate_worker".into(),
+        title: "Delegate GenOS Worker".into(),
+        description: "Dispatch one mission-named worker into the orchestrator's three-slot garage. GenOS first revives an idle specialist when the new mission matches its role and scope; otherwise it creates a worker. A completed or stopped worker releases its slot, and dispatch is refused while all three slots are occupied.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "mission":{"type":"string","minLength":1,"description":"Concrete bounded mission assigned to the worker."},
+            "role":{"type":"string","description":"Worker specialty, for example implementation, independent_reviewer, or security_reviewer."},
+            "name":{"type":"string","description":"Optional explicit display name. By default GenOS derives it from the mission."},
+            "model_tier":{"type":"string","description":"Optional worker model tier."},
+            "execution_budget":{"type":"object","description":"Optional bounded worker execution budget."}
+        },"required":["mission"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn a_team_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_a_team_preview".into(),
+        title: "Compose GenOS A-Team".into(),
+        description: "Compose two or three mission-scoped specialists when the project genuinely spans distinct competency domains. Members run in isolated capsules, inherit the root mission policy, occupy the three-slot worker garage, and return evidence to the orchestrator.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "project_goal":{"type":"string","minLength":1,"description":"Shared multidisciplinary project objective."},
+            "sub_systems":{"type":"array","minItems":2,"maxItems":3,"items":{"type":"string","minLength":1},"description":"Two or three distinct bounded competency domains."},
+            "assigned_roles":{"type":"array","maxItems":3,"items":{"type":"string","minLength":1},"description":"Specialist role aligned by index with each subsystem."},
+            "model_tiers":{"type":"array","maxItems":3,"items":{"type":"string"},"description":"Optional model tier aligned by index with each subsystem."},
+            "enforce_genos_rules":{"type":"boolean","description":"Keep GenOS isolation, evidence, budget, and tool-policy rules enabled. Always true in the runtime."}
+        },"required":["project_goal","sub_systems"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn trinity_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_trinity_launch".into(),
+        title: "Launch GenOS Trinity".into(),
+        description: "Launch Trinity's three isolated comparison worlds: raw need, interview-derived plan, and AI-corrected implementation. Use it when Trinity is explicitly requested, or after a requested planning interview has produced a concrete mission and comparison remains valuable.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "mission":{"type":"string","minLength":1,"description":"Concrete shared mission, including requirements learned during the interview."},
+            "rationale":{"type":"string","description":"Why three comparative Trinity worlds are useful for this mission."},
+            "execution_budget":{"type":"object","description":"Optional bounded budget inherited by each Trinity world."}
+        },"required":["mission"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn change_strategy_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_change_strategy".into(),
+        title: "Change GenOS Strategy".into(),
+        description: "Re-evaluate the complete 77-strategy registry against a materially changed mission need. If a different portfolio fits better, create a versioned strategy contract and continue with the remaining mission budget; otherwise retain the current strategy.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "need":{"type":"string","minLength":1,"description":"Current concrete need or newly discovered problem, including relevant evidence."},
+            "reason":{"type":"string","minLength":1,"description":"Evidence-backed reason why the current strategy may no longer fit."},
+            "problem_profile":{"type":"object","additionalProperties":false,"description":"Optional explicit problem-profile overrides.","properties":{
+                "type":{"type":"string","enum":["incident","unknown_cause_bug","critical_refactor","security","scientific_research","architecture_decision","implementation"]},
+                "complexity":{"type":"number","minimum":0,"maximum":1},
+                "uncertainty":{"type":"number","minimum":0,"maximum":1},
+                "risk":{"type":"string","enum":["low","medium","high"]},
+                "evaluability":{"type":"string"},
+                "reversibility":{"type":"string","enum":["low","medium","high"]},
+                "requires_reproducibility":{"type":"boolean"},
+                "objectives_conflict":{"type":"boolean"},
+                "temporal_dependency":{"type":"boolean"}
+            }},
+            "max_cost_level":{"type":"integer","minimum":1,"maximum":5},
+            "allow_experimental":{"type":"boolean","description":"Allow experimental strategies when policy and risk permit."},
+            "allow_prototype":{"type":"boolean","description":"Allow prototype strategies when policy and risk permit."},
+            "allow_experimental_at_high_risk":{"type":"boolean","description":"Explicitly allow non-implemented strategies for a high-risk need."}
+        },"required":["need","reason"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn report_progress_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_report_progress".into(),
+        title: "Report GenOS Progress".into(),
+        description: "Publish a concise user-facing mission milestone over the Studio telemetry stream. Report meaningful changes, completed units, blockers, and next steps; do not expose private chain-of-thought or emit one update per tool call. Explicit silent mode suppresses the event.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "phase":{"type":"string","enum":["started","working","completed","blocked","verifying"]},
+            "message":{"type":"string","minLength":1,"maxLength":1200},
+            "progress_percent":{"type":"number","minimum":0,"maximum":100},
+            "completed":{"type":"array","maxItems":10,"items":{"type":"string"}},
+            "next":{"type":"array","maxItems":10,"items":{"type":"string"}},
+            "blockers":{"type":"array","maxItems":10,"items":{"type":"string"}}
+        },"required":["phase","message"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator", "genos/audience":"user"}),
+    }
+}
+
+fn change_organization_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_change_organization".into(),
+        title: "Change GenOS Organization".into(),
+        description: "Change the owning orchestrator's worker topology at any runtime decision gate. The selected organization controls whether worker communication is direct, indirect, anonymous, implicit, buffered, competitive, or routed through the orchestrator.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "organization":{"type":"string","minLength":1,"description":"GenOS collective organization or runtime topology to activate."},
+            "reason":{"type":"string","minLength":1,"description":"Evidence-backed need that justifies the transition."}
+        },"required":["organization","reason"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn organization_state_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_organization_state".into(),
+        title: "Read GenOS Organization".into(),
+        description: "Read the current versioned organization, topology, visibility, and communication routing selected by the owning orchestrator.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{}}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: true, destructive_hint: false, idempotent_hint: true, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator_or_worker"}),
+    }
+}
+
+fn worker_publish_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_worker_publish".into(),
+        title: "Publish Worker Evidence".into(),
+        description: "Publish evidence, questions, challenges, traces, votes, handoffs, or critical signals through the current organization's enforced routing. Sender identity is supplied by the runtime lease.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "kind":{"type":"string","enum":["evidence","question","answer","challenge","proposal","vote","trace","budget","critical","success","handoff"]},
+            "content":{"type":"string","minLength":1,"maxLength":12000},
+            "recipient_agent_id":{"type":"string","description":"Optional intended peer. The organization may reroute or suppress direct delivery."},
+            "payload":{"type":"object","description":"Optional structured evidence metadata."}
+        },"required":["kind","content"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator_or_worker"}),
+    }
+}
+
+fn worker_inbox_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_worker_inbox".into(),
+        title: "Read Worker Organization Inbox".into(),
+        description: "Read peer evidence visible under the current organization. Use after_id as a cursor; anonymous and buffered modes are enforced by the control plane.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "after_id":{"type":"integer","minimum":0},
+            "limit":{"type":"integer","minimum":1,"maximum":50}
+        }}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: true, destructive_hint: false, idempotent_hint: true, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator_or_worker"}),
+    }
+}
+
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
-        return tool_specs()
+        let mut tools: Vec<ToolSpec> = tool_specs()
             .into_iter()
             .filter(|tool| lease.contains(&tool.name))
             .collect();
+        let allowed_commands = configured_allowed_commands();
+        for tool in &mut tools {
+            mark_preauthorized_run(tool, &allowed_commands);
+        }
+        if lease.contains(&"genos_delegate_worker".to_string()) {
+            tools.push(delegate_worker_tool());
+        }
+        if lease.contains(&"genos_a_team_preview".to_string()) {
+            tools.push(a_team_tool());
+        }
+        if lease.contains(&"genos_trinity_launch".to_string()) {
+            tools.push(trinity_tool());
+        }
+        if lease.contains(&"genos_change_strategy".to_string()) {
+            tools.push(change_strategy_tool());
+        }
+        if lease.contains(&"genos_report_progress".to_string()) {
+            tools.push(report_progress_tool());
+        }
+        if lease.contains(&"genos_change_organization".to_string()) {
+            tools.push(change_organization_tool());
+        }
+        if lease.contains(&"genos_organization_state".to_string()) {
+            tools.push(organization_state_tool());
+        }
+        if lease.contains(&"genos_worker_publish".to_string()) {
+            tools.push(worker_publish_tool());
+        }
+        if lease.contains(&"genos_worker_inbox".to_string()) {
+            tools.push(worker_inbox_tool());
+        }
+        return tools;
     }
     if expose_full_catalog() {
         tool_specs()
@@ -210,6 +465,9 @@ impl McpServer {
     }
 
     async fn call_tool(&self, id: Value, params: Option<&Value>) -> Value {
+        if halt_file_exists() {
+            return tool_error(id, "GenOS MCP is halted by the control plane.".into());
+        }
         let Some(params) = params.and_then(Value::as_object) else {
             return error_response(id, -32602, "tools/call params must be an object");
         };
@@ -220,7 +478,40 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
-        if let Some(lease) = leased_operations() {
+        let lease = leased_operations();
+        if let Some(error) = leased_run_authorization_error(
+            name,
+            &arguments,
+            lease.is_some(),
+            &configured_allowed_commands(),
+        ) {
+            return tool_error(id, error);
+        }
+        if name == "genos_orchestrate"
+            && arguments.get("operation").is_none()
+            && running_as_worker()
+        {
+            return tool_error(
+                id,
+                "GenOS worker recursion blocked: a delegated worker cannot create a root orchestrator; return evidence to the owning orchestrator instead.".into(),
+            );
+        }
+        if matches!(
+            name,
+            "genos_delegate_worker"
+                | "genos_a_team_preview"
+                | "genos_trinity_launch"
+                | "genos_change_strategy"
+                | "genos_report_progress"
+                | "genos_change_organization"
+        ) && running_as_worker()
+        {
+            return tool_error(
+                id,
+                "GenOS worker authority blocked: only the owning orchestrator may dispatch workers or change their organization.".into(),
+            );
+        }
+        if let Some(lease) = lease {
             if !lease.contains(&name.to_string()) {
                 return tool_error(
                     id,
@@ -228,7 +519,269 @@ impl McpServer {
                 );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_orchestrate"
+        let (operation_name, operation_arguments) = if name == "genos_report_progress" {
+            let Some(message) = arguments
+                .get("message")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_report_progress requires a user-facing message.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_report_progress requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("report_progress".into()));
+                object.insert("message".into(), Value::String(message));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_change_strategy" {
+            let Some(need) = arguments
+                .get("need")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(id, "genos_change_strategy requires a current need.".into());
+            };
+            let Some(reason) = arguments
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_change_strategy requires an evidence-backed reason.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_change_strategy requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("change_strategy".into()));
+                object.insert("need".into(), Value::String(need));
+                object.insert("reason".into(), Value::String(reason));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_change_organization" {
+            let Some(organization) = arguments
+                .get("organization")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_change_organization requires an organization.".into(),
+                );
+            };
+            let Some(reason) = arguments
+                .get("reason")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_change_organization requires an evidence-backed reason.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_change_organization requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("change_organization".into()));
+                object.insert("organization".into(), Value::String(organization));
+                object.insert("reason".into(), Value::String(reason));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if matches!(
+            name,
+            "genos_organization_state" | "genos_worker_publish" | "genos_worker_inbox"
+        ) {
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(id, format!("{name} requires an orchestrator authority ID."));
+            };
+            let Some(agent_id) = env::var("GENOS_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(id, format!("{name} requires a leased agent identity."));
+            };
+            if name == "genos_worker_publish" {
+                let content_present = arguments
+                    .get("content")
+                    .and_then(Value::as_str)
+                    .is_some_and(|value| !value.trim().is_empty());
+                if !content_present {
+                    return tool_error(
+                        id,
+                        "genos_worker_publish requires non-empty content.".into(),
+                    );
+                }
+            }
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                let action = match name {
+                    "genos_organization_state" => "organization_state",
+                    "genos_worker_publish" => "organization_publish",
+                    _ => "organization_inbox",
+                };
+                object.insert("action".into(), Value::String(action.into()));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("requesterAgentId".into(), Value::String(agent_id.clone()));
+                object.insert("senderAgentId".into(), Value::String(agent_id));
+                object.insert("background".into(), Value::Bool(false));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_trinity_launch" {
+            let Some(mission) = arguments
+                .get("mission")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_trinity_launch requires a concrete mission.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_trinity_launch requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_trinity".into()));
+                object.insert("mission".into(), Value::String(mission));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_a_team_preview" {
+            let Some(project_goal) = arguments
+                .get("project_goal")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(id, "genos_a_team_preview requires project_goal.".into());
+            };
+            let sub_system_count = arguments
+                .get("sub_systems")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            if !(2..=3).contains(&sub_system_count) {
+                return tool_error(
+                    id,
+                    "genos_a_team_preview requires two or three subsystems.".into(),
+                );
+            }
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_a_team_preview requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_team".into()));
+                object.insert("project_goal".into(), Value::String(project_goal));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_delegate_worker" {
+            let Some(mission) = arguments
+                .get("mission")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_delegate_worker requires a non-empty mission.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_delegate_worker requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_worker".into()));
+                object.insert("mission".into(), Value::String(mission));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(true));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_orchestrate"
             && arguments.get("operation").is_none()
             && expose_full_catalog() == false
         {
@@ -369,11 +922,46 @@ pub fn http_router(server: McpServer) -> Router {
         .with_state(server)
 }
 
+#[derive(Clone)]
+struct AuthenticatedHttpState {
+    server: McpServer,
+    bearer_token: String,
+}
+
+pub fn authenticated_http_router(server: McpServer, bearer_token: String) -> Router {
+    Router::new()
+        .route("/health", get(|| async { Json(json!({"status": "ok"})) }))
+        .route("/mcp", post(authenticated_mcp_http))
+        .with_state(AuthenticatedHttpState {
+            server,
+            bearer_token,
+        })
+}
+
 async fn mcp_http(State(server): State<McpServer>, Json(request): Json<Value>) -> Response {
     match server.handle(request).await {
         Some(response) => (StatusCode::OK, Json(response)).into_response(),
         None => StatusCode::ACCEPTED.into_response(),
     }
+}
+
+async fn authenticated_mcp_http(
+    State(state): State<AuthenticatedHttpState>,
+    headers: HeaderMap,
+    Json(request): Json<Value>,
+) -> Response {
+    let expected = format!("Bearer {}", state.bearer_token);
+    let supplied = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok());
+    if supplied != Some(expected.as_str()) {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"error": "unauthorized"})),
+        )
+            .into_response();
+    }
+    mcp_http(State(state.server), Json(request)).await
 }
 
 #[cfg(test)]
@@ -489,6 +1077,110 @@ mod tests {
         assert_eq!(captured[0], "__genos_backend_orchestrate__");
         let request: Value = serde_json::from_str(&captured[1]).unwrap();
         assert_eq!(request["background"], true);
+    }
+
+    #[test]
+    fn worker_authority_is_case_insensitive_and_explicit() {
+        assert!(worker_authority(Some("worker")));
+        assert!(worker_authority(Some(" Worker ")));
+        assert!(!worker_authority(Some("orchestrator")));
+        assert!(!worker_authority(None));
+    }
+
+    #[test]
+    fn worker_delegation_tool_is_orchestrator_only_and_mission_named() {
+        let tool = delegate_worker_tool();
+        assert_eq!(tool.name, "genos_delegate_worker");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.input_schema["required"], json!(["mission"]));
+    }
+
+    #[test]
+    fn a_team_tool_requires_multiple_domains_and_orchestrator_authority() {
+        let tool = a_team_tool();
+        assert_eq!(tool.name, "genos_a_team_preview");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(
+            tool.input_schema["properties"]["sub_systems"]["minItems"],
+            2
+        );
+        assert_eq!(
+            tool.input_schema["properties"]["sub_systems"]["maxItems"],
+            3
+        );
+    }
+
+    #[test]
+    fn trinity_tool_requires_a_concrete_shared_mission() {
+        let tool = trinity_tool();
+        assert_eq!(tool.name, "genos_trinity_launch");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.input_schema["required"], json!(["mission"]));
+    }
+
+    #[test]
+    fn strategy_change_tool_requires_need_reason_and_orchestrator_authority() {
+        let tool = change_strategy_tool();
+        assert_eq!(tool.name, "genos_change_strategy");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.input_schema["required"], json!(["need", "reason"]));
+    }
+
+    #[test]
+    fn progress_tool_is_user_facing_and_orchestrator_only() {
+        let tool = report_progress_tool();
+        assert_eq!(tool.name, "genos_report_progress");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.meta["genos/audience"], "user");
+        assert_eq!(tool.input_schema["required"], json!(["phase", "message"]));
+    }
+
+    #[test]
+    fn organization_tools_separate_orchestrator_authority_from_worker_communication() {
+        let change = change_organization_tool();
+        assert_eq!(change.meta["genos/authority"], "orchestrator");
+        assert_eq!(
+            change.input_schema["required"],
+            json!(["organization", "reason"])
+        );
+        let publish = worker_publish_tool();
+        assert_eq!(publish.meta["genos/authority"], "orchestrator_or_worker");
+        assert_eq!(publish.input_schema["required"], json!(["kind", "content"]));
+        assert_eq!(organization_state_tool().annotations.read_only_hint, true);
+        assert_eq!(worker_inbox_tool().annotations.read_only_hint, true);
+    }
+
+    #[test]
+    fn preauthorized_leased_run_is_non_destructive_but_still_exactly_scoped() {
+        let allowed = vec!["node --test smoke.test.js".to_string()];
+        let mut tool = tool_specs()
+            .into_iter()
+            .find(|tool| tool.name == "genos_run")
+            .unwrap();
+        assert!(tool.annotations.destructive_hint);
+        assert!(tool.annotations.open_world_hint);
+
+        mark_preauthorized_run(&mut tool, &allowed);
+        assert!(!tool.annotations.destructive_hint);
+        assert!(!tool.annotations.open_world_hint);
+        assert_eq!(tool.meta["genos/preauthorized"], true);
+        assert_eq!(
+            leased_run_authorization_error(
+                "genos_run",
+                &json!({"command": "node --test smoke.test.js"}),
+                true,
+                &allowed
+            ),
+            None
+        );
+        assert!(leased_run_authorization_error(
+            "genos_run",
+            &json!({"command": "node --test hidden.test.js"}),
+            true,
+            &allowed
+        )
+        .unwrap()
+        .contains("outside this agent's explicit execution allowlist"));
     }
 
     #[tokio::test]

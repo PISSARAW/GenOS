@@ -24,6 +24,14 @@ const contracts = require('../../backend/src/services/strategyContractService');
 const id = `benchmark_orchestrator_${Date.now()}`;
 const prompt = `Résous la tâche dans TASK.md dans ce workspace isolé. Tu peux modifier uniquement src/lib.rs et exécuter les tests. Implémente une solution complète, robuste aux zéros et aux grands intermédiaires, avec la contrainte asymptotique demandée. N'édite ni les tests ni Cargo.toml.`;
 
+function tokenUsage(runs) {
+  const executionRuns = runs.map((run) => {
+    let metrics = {}; try { metrics = JSON.parse(run.metrics_json || '{}'); } catch (_) {}
+    return { agentId: run.agent_id, status: run.status, tokens: Number(metrics.tokens || 0) };
+  });
+  return { executionRuns, totalTokens: executionRuns.reduce((sum, run) => sum + run.tokens, 0), allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
+}
+
 async function waitForCompletion(db, timeoutMs = 15 * 60 * 1000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -57,7 +65,7 @@ async function main() {
     const runs = await db.all('SELECT agent_id, status, budget_json, metrics_json, guardrail_reason FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?)', id, id);
     fs.writeFileSync(reportPath, `${JSON.stringify({
       schema_version: 1, condition: 'genos_orchestrator', started_at: new Date(startedAt).toISOString(),
-      duration_ms: Date.now() - startedAt, orchestrator_id: id, agents, telemetry, runs
+      duration_ms: Date.now() - startedAt, orchestrator_id: id, agents, telemetry, runs, token_usage: tokenUsage(runs)
     }, null, 2)}\n`);
   } finally {
     await closeDatabase();

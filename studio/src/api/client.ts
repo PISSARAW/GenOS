@@ -160,9 +160,13 @@ export const api = {
   updateProfile: (username: string) => apiRequest('/api/profile', { method: 'POST', body: { username } }),
   getBudget: () => apiRequest('/api/budget'),
   updateBudget: (budget: any) => apiRequest('/api/budget', { method: 'POST', body: budget }),
+  getSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging'),
+  runSafeDebuggingProof: () => apiRequest('/api/product-proofs/safe-debugging/run', { method: 'POST', body: {} }),
+  inspectSafeDebuggingWorkspace: (workspaceId: string) => apiRequest(`/api/product-proofs/safe-debugging/workspaces/${encodeURIComponent(workspaceId)}`),
+  runSafeDebuggingWorkspaceTest: (workspaceId: string, commandId: string) => apiRequest(`/api/product-proofs/safe-debugging/workspaces/${encodeURIComponent(workspaceId)}/run`, { method: 'POST', body: { commandId } }),
 
   // Agent Fleet & Deploy
-  deployAgent: (payload: { prompt: string; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
+  deployAgent: (payload: { prompt: string; name?: string; role?: string; executionMode?: 'orchestrator' | 'worker'; agentType?: string; modelTier?: string; workspaceIsolation?: string; workspaceId?: string; fleetId?: string; language?: string; about?: string; parentAgentId?: string; lineageRelation?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
     apiRequest('/api/deploy', { method: 'POST', body: payload }),
   deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[]; workspaceId?: string }) =>
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
@@ -176,6 +180,11 @@ export const api = {
   pingAgent: (id: string) => apiRequest(`/api/agents/${id}/ping`, { method: 'POST' }),
   ingestAgentEvent: (id: string, payload: any) => apiRequest(`/api/agents/${id}/events`, { method: 'POST', body: payload }),
   startAgent: (id: string, executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number }) => apiRequest(`/api/agents/${id}/start`, { method: 'POST', body: executionBudget ? { executionBudget } : undefined }),
+  getWorkerGarage: (orchestratorId: string) => apiRequest(`/api/agents/${encodeURIComponent(orchestratorId)}/workers/garage`),
+  createWorker: (orchestratorId: string, payload: { mission: string; workspaceId: string; role?: string; name?: string; modelTier?: string }) =>
+    apiRequest('/api/deploy', { method: 'POST', body: { prompt: payload.mission, workspaceId: payload.workspaceId, role: payload.role, name: payload.name, modelTier: payload.modelTier, executionMode: 'worker', parentAgentId: orchestratorId } }),
+  dispatchWorker: (orchestratorId: string, workerId: string, payload?: { mission?: string; prompt?: string; role?: string; name?: string; executionBudget?: { tokens?: number; costUsd?: number; latencyMs?: number; events?: number } }) =>
+    apiRequest(`/api/agents/${encodeURIComponent(orchestratorId)}/workers/${encodeURIComponent(workerId)}/dispatch`, { method: 'POST', body: payload }),
   subscribeAgent: (id: string) => apiRequest(`/api/agents/${id}/subscribe`, { method: 'POST' }),
   getAgentStrategyContract: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/strategy-contract`),
   getAgentStrategyContractHistory: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/strategy-contracts`),
