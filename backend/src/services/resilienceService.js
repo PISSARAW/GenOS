@@ -171,10 +171,18 @@ function thawCryptobiosis(snapshotId, targetWorkspaceId) {
   };
 }
 
+function hydrateCryptobiosis(snapshot) {
+  if (!snapshot?.snapshotId) throw new Error('A durable cryptobiosis snapshot is required.');
+  cryptobiosisSnapshots.set(snapshot.snapshotId, snapshotState(snapshot));
+  trimSnapshots();
+  return snapshot;
+}
+
 module.exports = {
   calculateLevenshtein,
   trackHypermutationDrift,
   evaluateApoptosis,
   freezeCryptobiosis,
-  thawCryptobiosis
+  thawCryptobiosis,
+  hydrateCryptobiosis
 };
