@@ -148,7 +148,8 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   const deploymentStatus = persistedAgent?.status || deployedAgent?.status || 'idle';
   const deploymentTask = persistedAgent?.task || deployedAgent?.currentTask || '';
   const isRunning = deploymentStatus === 'running';
-  const isCompleted = deploymentStatus === 'idle' && /completed/i.test(deploymentTask);
+  const isCompleted = deploymentStatus === 'completed'
+    || (deploymentStatus === 'idle' && /completed/i.test(deploymentTask));
   const deploymentHeading = isRunning
     ? 'Execution running'
     : isCompleted
@@ -159,7 +160,7 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   const deploymentMessage = isRunning
     ? 'The runtime is active and this agent is included in the active-agent counter.'
     : isCompleted
-      ? 'The runtime completed. This agent is idle and is no longer included in the active-agent counter.'
+      ? 'The runtime completed successfully. This terminal mission is no longer included in the active-agent counter.'
       : deploymentStatus === 'error'
         ? 'The runtime stopped with an error. Review the telemetry below for details.'
         : 'The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.';

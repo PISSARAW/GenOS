@@ -35,6 +35,7 @@ try {
   assert(adapter.orchestratorToolLease({}).includes('genos_report_progress'));
   assert.strictEqual(typeof adapter.waitForAutonomousWorkerQuiescence, 'function');
   assert.strictEqual(typeof adapter.buildWorkerSynthesisPrompt, 'function');
+  assert(adapterSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
@@ -52,6 +53,21 @@ try {
   assert.equal(failed.status, 'error');
   assert.equal(failed.eventType, 'AGENT_FAILED');
   assert.equal(adapter.evidenceScore({ evidenceReport: { claims: [{ evidence: ['source', 'calculation'] }], uncertainties: ['inclination'] } }), 19);
+  const creativeScore = adapter.evidenceScore({ evidenceReport: {
+    artifact: 'creative', artifactText: 'A finished story.', uncertainties: [],
+    creativeEvaluation: {
+      rubric: { craft: 0.9, coherence: 0.8, originality: 1, emotionalImpact: 0.7, constraintCoverage: 1 },
+      constraintCoverage: 1, revisions: ['pacing'], criticEvidence: ['independent reading']
+    }
+  } }, { role: 'literary_author' });
+  assert(creativeScore > 100, 'creative evidence must be scored by craft and coverage, not citation count');
+  assert.deepEqual(
+    adapter.competentLocalModels([
+      { model: 'tiny:3b', uri: 'ollama://tiny:3b', chatCapable: true },
+      { model: 'capable:14b', uri: 'ollama://capable:14b', chatCapable: true }
+    ], { role: 'independent_reviewer', modelTier: 'standard' }).map((model) => model.uri),
+    ['ollama://capable:14b']
+  );
   assert.equal(adapter.autonomousRoundOutcome('AGENT_COMPLETED'), 'completed');
   assert.equal(adapter.autonomousRoundOutcome('WORKER_TASK_FAILED'), 'failed');
   assert.equal(adapter.autonomousRoundOutcome('WORKER_NO_ANSWER_PROVEN'), 'failed');

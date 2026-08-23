@@ -56,21 +56,27 @@ const FICTION_TEAM = [
     role: 'literary_author',
     modelTier: 'frontier',
     capabilities: ['literary_voice', 'character_psychology'],
-    hypothesis: 'Create the fiction with a distinctive voice, psychologically specific characters, and scene-level emotional truth.'
+    hypothesis: 'Create the fiction with a distinctive voice, psychologically specific characters, and scene-level emotional truth.',
+    pipelineStage: 0,
+    dependsOn: []
   },
   {
     label: 'dramaturgy',
     role: 'dramaturg',
     modelTier: 'frontier',
     capabilities: ['dramaturgy', 'twist_design'],
-    hypothesis: 'Own conflict, pacing, narrative architecture, and the causal preparation of the ending.'
+    hypothesis: 'Review the author dossier, then own conflict, pacing, narrative architecture, and the causal preparation of the ending.',
+    pipelineStage: 1,
+    dependsOn: ['literary_creation']
   },
   {
     label: 'literary_criticism',
     role: 'literary_critic',
     modelTier: 'standard',
     capabilities: ['literary_criticism'],
-    hypothesis: 'Independently judge prose, interpretive depth, restraint, and emotional credibility without rewriting the author.'
+    hypothesis: 'Judge the author and dramaturgy dossiers for prose, interpretive depth, restraint, and emotional credibility without rewriting the author.',
+    pipelineStage: 2,
+    dependsOn: ['literary_creation', 'dramaturgy']
   }
 ];
 
@@ -125,7 +131,11 @@ function analyzeMission(mission) {
     role,
     modelTier,
     capabilities: [domain],
-    relevanceScore: score
+    relevanceScore: score,
+    pipelineStage: /reviewer|observer|integration/i.test(role) ? 1 : 0,
+    dependsOn: /reviewer|observer|integration/i.test(role)
+      ? selected.filter((candidate) => !/reviewer|observer|integration/i.test(candidate.role)).map((candidate) => candidate.domain)
+      : []
   }));
   return {
     recommended: domains.length >= 2,

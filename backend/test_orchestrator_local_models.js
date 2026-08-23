@@ -33,14 +33,19 @@ async function main() {
   assert.equal(policy.configured, true);
 
   const previousFetch = global.fetch;
-  global.fetch = async (url) => url.endsWith('/first')
-    ? { ok: false, status: 503, async json() { return {}; } }
-    : { ok: true, status: 200, async json() { return { choices: [{ message: { content: 'fallback worked' } }], usage: { prompt_tokens: 2, completion_tokens: 2 } }; } };
+  const requestBodies = [];
+  global.fetch = async (url, options) => {
+    requestBodies.push(JSON.parse(options.body));
+    return url.endsWith('/first')
+      ? { ok: false, status: 503, async json() { return {}; } }
+      : { ok: true, status: 200, async json() { return { choices: [{ message: { content: 'fallback worked' } }], usage: { prompt_tokens: 2, completion_tokens: 2 } }; } };
+  };
   try {
-    const result = await modelRouter.generate({ db: policyDb, agentId: 'orchestrator-a', policy, prompt: 'review' });
+    const result = await modelRouter.generate({ db: policyDb, agentId: 'orchestrator-a', policy, prompt: 'review', maxTokens: 321 });
     assert.equal(result.model, 'ollama://discovered-local');
     assert.equal(result.text, 'fallback worked');
     assert.equal(result.route.attempts[0].model, 'ollama://configured-local');
+    assert(requestBodies.every((body) => body.max_tokens === 321), 'the output budget must reach every fallback provider attempt');
   } finally { global.fetch = previousFetch; }
 
   const models = [
