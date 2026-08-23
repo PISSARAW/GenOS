@@ -148,10 +148,11 @@ function waitForOrchestrator(database, orchestratorId, timeoutMs) {
   while (Date.now() < deadline) {
     const agents = sqliteJson(database, `SELECT id,name,status,parent_agent_id,current_task FROM agents WHERE id='${orchestratorId}' OR parent_agent_id='${orchestratorId}' ORDER BY rowid`);
     const rootEvents = sqliteJson(database, `SELECT event_type FROM telemetry_events WHERE agent_id='${orchestratorId}' AND event_type IN ('AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED','AGENT_RUNTIME_ERROR') ORDER BY id`).map((event) => event.event_type);
-    if (orchestrationFinished(agents, rootEvents)) return agents;
+    if (orchestrationFinished(agents, rootEvents)) return { agents, timedOut: false };
     sleep(500);
   }
-  throw new Error(`GenOS orchestrator ${orchestratorId} timed out.`);
+  const agents = sqliteJson(database, `SELECT id,name,status,parent_agent_id,current_task FROM agents WHERE id='${orchestratorId}' OR parent_agent_id='${orchestratorId}' ORDER BY rowid`);
+  return { agents, timedOut: true };
 }
 function genosUsage(database, orchestratorId) {
   const runs = sqliteJson(database, `SELECT agent_id,status,metrics_json FROM strategy_execution_runs WHERE agent_id='${orchestratorId}' OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id='${orchestratorId}')`);
@@ -185,7 +186,7 @@ function executeGenos(task, repetition) {
   const accepted = mcpAcceptance(workspace, database, capsuleRoot, task, mission, allowedCommands);
   writeFileSync(path.join(caseDir, 'mcp.jsonl'), accepted.stdout);
   writeFileSync(path.join(caseDir, 'mcp.stderr.log'), accepted.stderr || '');
-  const agents = waitForOrchestrator(database, accepted.orchestratorId, task.max_seconds * 2 * 1000);
+  const { agents, timedOut } = waitForOrchestrator(database, accepted.orchestratorId, task.max_seconds * 2 * 1000);
   const durationMs = Math.round(performance.now() - started);
   const finalWorkspace = path.join(capsuleRoot, path.basename(workspace), accepted.orchestratorId);
   const result = grade(task, finalWorkspace, caseDir);
@@ -196,7 +197,8 @@ function executeGenos(task, repetition) {
     functional_score: result.score, hidden_checks_passed: result.pass, hidden_checks_total: result.total,
     grader_exit_code: result.exit_code, protected_files_intact: before === protectedDigest(workspace), duration_ms: durationMs,
     token_usage: genosUsage(database, accepted.orchestratorId), worker_failures: agents.filter((agent) => agent.parent_agent_id && agent.status !== 'idle').length,
-    orchestration_completed: agents.every((agent) => agent.status === 'idle'), orchestrator_id: accepted.orchestratorId,
+    orchestration_completed: !timedOut && agents.every((agent) => agent.status === 'idle'), timed_out: timedOut,
+    orchestrator_id: accepted.orchestratorId,
     artifacts: path.relative(root, caseDir)
   };
 }
@@ -210,6 +212,7 @@ function aggregate(samples, condition) {
     mean_duration_ms: rows.reduce((sum, row) => sum + row.duration_ms, 0) / rows.length,
     token_usage: tokens,
     worker_failures: rows.reduce((sum, row) => sum + row.worker_failures, 0),
+    timed_out_runs: rows.filter((row) => row.timed_out === true).length,
     accounting_complete: rows.every((row) => row.token_usage.accounting_complete)
   };
 }
@@ -225,6 +228,7 @@ for (let repetition = 1; repetition <= repetitions; repetition += 1) {
     for (const condition of ['simple', 'boosted', 'genos']) {
       const sample = condition === 'genos' ? executeGenos(task, repetition) : executeDirect(model, task, condition, repetition);
       samples.push(sample);
+      writeFileSync(path.join(runDir, 'samples.partial.jsonl'), `${samples.map((row) => JSON.stringify(row)).join('\n')}\n`);
       console.log(`${task.id} r${repetition} ${condition}: ${sample.functional_score.toFixed(1)} tokens=${sample.token_usage.total.total_tokens} duration=${sample.duration_ms}ms`);
     }
   }
@@ -245,7 +249,7 @@ const report = {
   },
   aggregate: Object.fromEntries(['simple', 'boosted', 'genos'].map((condition) => [condition, aggregate(samples, condition)])),
   samples,
-  publication_gate: { publishable: repetitions >= 3 && samples.every((sample) => sample.hidden_checks_total === 8 && sample.token_usage.accounting_complete), requirements: ['at least three repetitions', 'all hidden graders present', 'complete all-model token accounting'] },
+  publication_gate: { publishable: repetitions >= 3 && samples.every((sample) => sample.hidden_checks_total === 8 && sample.token_usage.accounting_complete && sample.timed_out !== true), requirements: ['at least three repetitions', 'all hidden graders present', 'complete all-model token accounting', 'no timed-out run'] },
   limitations: ['Three synthetic stateful tasks do not represent every repository.', 'Boosted intentionally spends more direct-model reasoning than simple.', 'A one-repetition pilot validates the protocol but cannot establish superiority.']
 };
 writeFileSync(path.join(runDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`);
