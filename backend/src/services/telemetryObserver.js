@@ -139,7 +139,7 @@ class TelemetryObserver extends EventEmitter {
 
     const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', event.agentId);
     if (!agent?.workspace_id) return;
-    const workspace = await db.get('SELECT id FROM workspaces WHERE id = ?', agent.workspace_id);
+    const workspace = await db.get('SELECT id, name, path FROM workspaces WHERE id = ?', agent.workspace_id);
     if (!workspace) return;
 
     // Capture the actual workspace payload before indexing the milestone. The
@@ -196,7 +196,8 @@ class TelemetryObserver extends EventEmitter {
       '',
       'Les agents listés ci-dessus ont terminé leur session et sont actuellement inactifs.'
     ];
-    fs.writeFileSync(path.join(workspace.path, 'README.md'), `${lines.join('\n')}\n`, 'utf8');
+    const existingReadme = ['README.md', 'readme.md'].some((name) => fs.existsSync(path.join(workspace.path, name)));
+    fs.writeFileSync(path.join(workspace.path, existingReadme ? 'GENOS_REPORT.md' : 'README.md'), `${lines.join('\n')}\n`, 'utf8');
   }
 
   getRecentEvents(limit = 100, filterType = null) {

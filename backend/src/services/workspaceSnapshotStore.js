@@ -15,6 +15,7 @@ const path = require('path');
 
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
+const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
 
 function snapshotRoot(workspacePath, workspaceId) {
   const configured = process.env.GENOS_SNAPSHOT_ROOT;
@@ -29,7 +30,7 @@ function isSafeRelative(relativePath) {
 
 function shouldIgnore(relativePath, entry) {
   const parts = relativePath.split(path.sep);
-  return parts.some((part) => IGNORED_DIRECTORIES.has(part)) || IGNORED_FILES.has(entry.name) || entry.name.startsWith('genos.db');
+  return parts.some((part) => IGNORED_DIRECTORIES.has(part)) || IGNORED_FILES.has(entry.name) || entry.name.startsWith('genos.db') || SENSITIVE_FILES.test(entry.name);
 }
 
 async function collectFiles(root) {
@@ -71,6 +72,10 @@ async function copyManifestPayload(workspacePath, root, hash, files) {
       const destination = path.join(staging, 'files', file.path);
       await fsp.mkdir(path.dirname(destination), { recursive: true });
       await fsp.copyFile(source, destination);
+      const copied = await fsp.readFile(destination);
+      if (sha256(copied) !== file.hash || copied.length !== file.size) {
+        throw new Error(`Workspace changed while snapshotting ${file.path}; capture aborted.`);
+      }
       await fsp.chmod(destination, file.mode).catch(() => {});
     }
     await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify({ version: 1, hash, files }, null, 2));
@@ -78,7 +83,7 @@ async function copyManifestPayload(workspacePath, root, hash, files) {
     return payloadRoot;
   } catch (error) {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    if (error.code === 'EEXIST') return payloadRoot;
+    if (['EEXIST', 'ENOTEMPTY'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
     throw error;
   }
 }
@@ -92,13 +97,22 @@ async function readManifest(snapshot) {
   const manifestPath = metadata.manifestPath || path.join(metadata.storagePath || '', 'manifest.json');
   if (!manifestPath) throw new Error(`Snapshot ${snapshot.id} has no durable manifest reference.`);
   const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
+  if (manifest.version !== 1 || !Array.isArray(manifest.files)) throw new Error(`Snapshot ${snapshot.id} has an invalid manifest format.`);
   if (manifest.hash !== snapshot.snapshot_hash) throw new Error(`Snapshot ${snapshot.id} failed manifest hash validation.`);
   if (manifestHash(manifest.files || []) !== manifest.hash) throw new Error(`Snapshot ${snapshot.id} has a corrupted manifest.`);
+  const paths = new Set();
+  for (const file of manifest.files) {
+    if (!file || !isSafeRelative(file.path) || paths.has(file.path) || !/^[a-f0-9]{64}$/.test(file.hash) || !Number.isSafeInteger(file.size) || file.size < 0) {
+      throw new Error(`Snapshot ${snapshot.id} contains an invalid file entry.`);
+    }
+    paths.add(file.path);
+  }
   return { ...manifest, payloadRoot: path.join(path.dirname(manifestPath), 'files') };
 }
 
 function parseMetadata(value) {
   if (!value) return {};
+  if (typeof value === 'object' && !Array.isArray(value)) return value;
   try { return JSON.parse(value); } catch (_) { return {}; }
 }
 
@@ -109,15 +123,16 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
   const files = await collectFiles(workspace.path);
   const hash = manifestHash(files);
   await copyManifestPayload(workspace.path, root, hash, files);
-  const previous = await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number DESC LIMIT 1', workspace.id);
-  const step = Number(previous?.step_number || 0) + 1;
   const id = `snp-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
   const manifestPath = path.join(root, hash, 'manifest.json');
   const metadata = { storage: 'durable-filesystem', manifestPath, storagePath: path.join(root, hash), fileCount: files.length, hashAlgorithm: 'sha256' };
   await db.run(
-    `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspace.id, hash, step, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata)
+    `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
+     SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
+    id, workspace.id, hash, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata), workspace.id
   );
+  const inserted = await db.get('SELECT step_number FROM workspace_snapshots WHERE id = ?', id);
+  const step = inserted.step_number;
   return { id, workspaceId: workspace.id, snapshotHash: hash, stepNumber: step, label, reason, metadata, fileCount: files.length };
 }
 
@@ -168,12 +183,19 @@ async function restore({ db, workspace, reference, author = 'studio' }) {
   try {
     await materialize(target, staging);
     await removeWorkspaceFiles(workspace.path);
-    await materialize({ ...target, metadata: JSON.stringify({ ...parseMetadata(target.metadata), manifestPath: path.join(parseMetadata(target.metadata).storagePath, 'manifest.json') }) }, workspace.path);
+    const verified = await readManifest(target);
+    for (const file of verified.files) {
+      const source = path.join(staging, file.path);
+      const destination = path.join(workspace.path, file.path);
+      await fsp.mkdir(path.dirname(destination), { recursive: true });
+      await fsp.copyFile(source, destination);
+      await fsp.chmod(destination, file.mode).catch(() => {});
+    }
     return { success: true, restoredSnapshot: target, safetySnapshot: backup };
   } catch (error) {
     try {
       await removeWorkspaceFiles(workspace.path);
-      await materialize({ metadata: JSON.stringify({ manifestPath: path.join(parseMetadata(backup.metadata).storagePath, 'manifest.json') }), snapshot_hash: backup.snapshotHash, id: backup.id }, workspace.path);
+      await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id }, workspace.path);
     } catch (rollbackError) {
       error.message += ` Recovery snapshot restore also failed: ${rollbackError.message}`;
     }
