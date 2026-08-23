@@ -29,20 +29,24 @@ async function resolveUserFromHeaders(headers) {
     const db = await getDatabase();
     const tokenHash = hashKey(rawToken);
     const keyRecord = await db.get(
-      'SELECT * FROM access_keys WHERE key_hash = ? AND is_active = 1',
+      `SELECT * FROM access_keys
+       WHERE key_hash = ? AND is_active = 1
+         AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
       tokenHash
     );
 
     if (keyRecord) {
       let perms = [];
       try {
-        perms = JSON.parse(keyRecord.permissions || '[]');
+        const parsed = JSON.parse(keyRecord.permissions || '[]');
+        perms = Array.isArray(parsed) ? parsed.filter((item) => typeof item === 'string') : [];
       } catch (e) {
         perms = [];
       }
       const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
       const combinedPerms = Array.from(new Set([...rolePerms, ...perms]));
 
+      await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
       return {
         role: keyRecord.role,
         permissions: combinedPerms,

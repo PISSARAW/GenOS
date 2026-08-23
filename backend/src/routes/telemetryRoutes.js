@@ -5,11 +5,12 @@
 const express = require('express');
 const router = express.Router();
 const telemetryController = require('../controllers/telemetryController');
+const { requirePermission } = require('../middleware/auth');
 
-router.get('/telemetry', telemetryController.streamSSE);
-router.get('/telemetry/stream', telemetryController.streamSSE);
-router.get('/telemetry/events', telemetryController.getEvents);
-router.post('/telemetry/events', telemetryController.ingestEvent);
+router.get('/telemetry', requirePermission('telemetry:read'), telemetryController.streamSSE);
+router.get('/telemetry/stream', requirePermission('telemetry:read'), telemetryController.streamSSE);
+router.get('/telemetry/events', requirePermission('telemetry:read'), telemetryController.getEvents);
+router.post('/telemetry/events', requirePermission('workspace:write'), telemetryController.ingestEvent);
 router.get('/status', telemetryController.getStatus);
 router.get('/health', telemetryController.getHealth);
 router.get('/dashboard', telemetryController.getDashboard);

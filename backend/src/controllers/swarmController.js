@@ -4,6 +4,7 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const { sanitizeString } = require('../middleware/security');
 
 async function getConsensus(req, res) {
   const db = await getDatabase();
@@ -62,19 +63,26 @@ async function getConsensus(req, res) {
 
 async function createProposal(req, res) {
   const { title, description, quorumThreshold = 0.66, proposerName = 'operator', workspaceId = 'ws-genos-core' } = req.body || {};
+  const safeTitle = sanitizeString(String(title || 'Swarm Proposal')).trim();
+  const safeDescription = sanitizeString(String(description || ''));
+  const safeProposer = sanitizeString(String(proposerName || 'operator')).trim();
+  const threshold = Number(quorumThreshold);
+  if (!safeTitle || !Number.isFinite(threshold) || threshold <= 0 || threshold > 1) {
+    return res.status(400).json({ error: { code: 'INVALID_PROPOSAL', message: 'A title and a quorumThreshold in (0, 1] are required.' } });
+  }
   const id = `prop-${Date.now()}`;
 
   const db = await getDatabase();
   await db.run(
     `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspaceId, 'agent_operator', proposerName, title || 'Swarm Proposal', description || '', 'open', quorumThreshold
+    id, workspaceId, 'agent_operator', safeProposer, safeTitle, safeDescription, 'open', threshold
   );
 
   telemetry.emitEvent({
     eventType: 'QUORUM_PROPOSAL_CREATED',
-    agentId: proposerName,
+    agentId: safeProposer,
     action: 'PROPOSE_QUORUM',
-    detail: `New swarm consensus proposal created: ${title}`,
+    detail: `New swarm consensus proposal created: ${safeTitle}`,
     severity: 'info'
   });
 
