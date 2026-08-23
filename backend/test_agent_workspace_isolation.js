@@ -21,6 +21,14 @@ async function run() {
     assert.strictEqual(fs.existsSync(path.join(capsule, 'target')), false);
     fs.writeFileSync(path.join(capsule, 'mission.txt'), 'worker evidence');
     assert.strictEqual(fs.readFileSync(path.join(root, 'mission.txt'), 'utf8'), 'parent evidence');
+
+    const orchestratorRoot = path.join(capsuleRoot, 'mission');
+    fs.mkdirSync(orchestratorRoot, { recursive: true });
+    fs.writeFileSync(path.join(orchestratorRoot, 'mission.txt'), 'dynamic programming');
+    const worker = await createIsolatedWorkspace(orchestratorRoot, 'worker-b', capsuleRoot);
+    assert.strictEqual(worker, path.join(capsuleRoot, 'worker-b'));
+    assert.strictEqual(fs.readFileSync(path.join(worker, 'mission.txt'), 'utf8'), 'dynamic programming');
+    assert.strictEqual(worker.startsWith(`${orchestratorRoot}${path.sep}`), false);
     console.log('Agent workspace isolation checks passed.');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
