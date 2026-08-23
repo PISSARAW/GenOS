@@ -52,6 +52,10 @@ try {
   assert.equal(failed.status, 'error');
   assert.equal(failed.eventType, 'AGENT_FAILED');
   assert.equal(adapter.evidenceScore({ evidenceReport: { claims: [{ evidence: ['source', 'calculation'] }], uncertainties: ['inclination'] } }), 19);
+  assert.equal(adapter.autonomousRoundOutcome('AGENT_COMPLETED'), 'completed');
+  assert.equal(adapter.autonomousRoundOutcome('WORKER_TASK_FAILED'), 'failed');
+  assert.equal(adapter.autonomousRoundOutcome('WORKER_NO_ANSWER_PROVEN'), 'failed');
+  assert.equal(adapter.autonomousRoundOutcome('AGENT_STEP'), null);
   console.log('Agent runtime adapter default and override checks passed.');
 } finally {
   if (previous === undefined) delete process.env.GENOS_AGENT_EXECUTOR;
