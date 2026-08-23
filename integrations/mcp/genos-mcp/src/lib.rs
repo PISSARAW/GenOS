@@ -74,12 +74,34 @@ fn orchestrator_tool() -> ToolSpec {
     }
 }
 
+fn delegate_worker_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_delegate_worker".into(),
+        title: "Delegate GenOS Worker".into(),
+        description: "Create and dispatch one mission-named worker into the orchestrator's three-slot garage. A completed or stopped worker releases its slot; dispatch is refused while all three slots are occupied.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "mission":{"type":"string","minLength":1,"description":"Concrete bounded mission assigned to the worker."},
+            "role":{"type":"string","description":"Worker specialty, for example implementation, independent_reviewer, or security_reviewer."},
+            "name":{"type":"string","description":"Optional explicit display name. By default GenOS derives it from the mission."},
+            "model_tier":{"type":"string","description":"Optional worker model tier."},
+            "execution_budget":{"type":"object","description":"Optional bounded worker execution budget."}
+        },"required":["mission"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
-        return tool_specs()
+        let mut tools: Vec<ToolSpec> = tool_specs()
             .into_iter()
             .filter(|tool| lease.contains(&tool.name))
             .collect();
+        if lease.contains(&"genos_delegate_worker".to_string()) {
+            tools.push(delegate_worker_tool());
+        }
+        return tools;
     }
     if expose_full_catalog() {
         tool_specs()
@@ -252,6 +274,12 @@ impl McpServer {
                 "GenOS worker recursion blocked: a delegated worker cannot create a root orchestrator; return evidence to the owning orchestrator instead.".into(),
             );
         }
+        if name == "genos_delegate_worker" && running_as_worker() {
+            return tool_error(
+                id,
+                "GenOS worker recursion blocked: only the owning orchestrator may dispatch another worker.".into(),
+            );
+        }
         if let Some(lease) = leased_operations() {
             if !lease.contains(&name.to_string()) {
                 return tool_error(
@@ -260,7 +288,40 @@ impl McpServer {
                 );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_orchestrate"
+        let (operation_name, operation_arguments) = if name == "genos_delegate_worker" {
+            let Some(mission) = arguments
+                .get("mission")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_delegate_worker requires a non-empty mission.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_delegate_worker requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_worker".into()));
+                object.insert("mission".into(), Value::String(mission));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(true));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_orchestrate"
             && arguments.get("operation").is_none()
             && expose_full_catalog() == false
         {
@@ -564,6 +625,14 @@ mod tests {
         assert!(worker_authority(Some(" Worker ")));
         assert!(!worker_authority(Some("orchestrator")));
         assert!(!worker_authority(None));
+    }
+
+    #[test]
+    fn worker_delegation_tool_is_orchestrator_only_and_mission_named() {
+        let tool = delegate_worker_tool();
+        assert_eq!(tool.name, "genos_delegate_worker");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.input_schema["required"], json!(["mission"]));
     }
 
     #[tokio::test]
