@@ -9,6 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
+const workerRecovery = require('../src/services/workerFailureRecoveryService');
 
 function compactStrategyContract(contract = {}) {
   return {
@@ -83,7 +84,7 @@ process.stdin.on('end', () => {
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
     authorityInstruction,
     'Work directly in the assigned repository and implement the mission completely.',
-    'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"]}. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.',
+    'Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"],"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.',
     strategyContract.selected_strategy?.primary
       ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
@@ -220,7 +221,14 @@ process.stdin.on('end', () => {
         report = { claims: [], unverifiedClaims: ['The agent completed without a valid evidence report.'] };
       }
       emit({ eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Validated the agent final evidence report.', payload: report });
-      emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'idle', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
+      const classified = workerRecovery.classifyFinalReport(report, isWorker);
+      if (classified.outcome === 'no_answer') {
+        emit({ eventType: 'WORKER_NO_ANSWER_PROVEN', action: 'REPORT_NO_ANSWER', detail: 'Worker returned an evidence-backed proof that no answer exists in the stated scope.', status: 'idle', currentTask: 'No answer proven', payload: { code, observedTools: [...observedTools], evidenceReport: report, noAnswerProof: classified.noAnswerProof } });
+      } else if (classified.outcome === 'failed') {
+        emit({ eventType: 'WORKER_TASK_FAILED', action: 'REPORT_FAILURE', detail: classified.failure.reason || 'Worker did not complete the assigned task.', severity: 'warning', status: 'error', currentTask: 'Task failed; awaiting orchestrator decision', payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof } });
+      } else {
+        emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'idle', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
+      }
     }
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     if (process.exitCode === undefined) process.exitCode = code || 0;
