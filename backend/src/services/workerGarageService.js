@@ -21,6 +21,9 @@ function compactMission(value, maxLength = 72) {
 
 function roleVerb(role) {
   const normalized = humanize(role).toLowerCase();
+  if (/literary author|writer|stylist/.test(normalized)) return 'Write';
+  if (/dramaturg/.test(normalized)) return 'Structure';
+  if (/literary critic/.test(normalized)) return 'Critique';
   if (/red team/.test(normalized)) return 'Attack';
   if (/blue team/.test(normalized)) return 'Defend';
   if (/review|observer|verif|audit/.test(normalized)) return 'Verify';
@@ -50,6 +53,9 @@ function missionTokens(value) {
 
 function roleFamily(role) {
   const normalized = humanize(role).toLowerCase();
+  if (/literary author|writer|stylist/.test(normalized)) return 'literary_creation';
+  if (/dramaturg/.test(normalized)) return 'dramaturgy';
+  if (/literary critic/.test(normalized)) return 'literary_criticism';
   if (/red team|attack|offensive/.test(normalized)) return 'security_attack';
   if (/blue team|defen|hardening/.test(normalized)) return 'security_defense';
   if (/review|observer|verif|audit|test|qa/.test(normalized)) return 'verification';
