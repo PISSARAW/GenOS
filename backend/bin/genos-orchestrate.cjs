@@ -11,6 +11,14 @@ const request = JSON.parse(process.argv[2] || '{}');
 const task = String(request.task || 'Autonomous GenOS orchestration');
 const id = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
+// This bridge creates a root authority boundary. A delegated worker must never
+// be able to enter it, even if a globally configured/public GenOS MCP endpoint
+// accidentally leaks into the worker's Codex process.
+if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker') {
+  const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
+  throw new Error(`GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`);
+}
+
 async function waitForCompletion(db) {
   const deadline = Date.now() + Number(request.timeoutMs || 14 * 60 * 1000);
   while (Date.now() < deadline) {

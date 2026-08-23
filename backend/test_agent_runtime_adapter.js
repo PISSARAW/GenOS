@@ -13,6 +13,12 @@ try {
     path.resolve(__dirname, 'bin/genos-agent-runtime.cjs')
   );
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
+  const runtimeSource = fs.readFileSync(defaultExecutable, 'utf8');
+  assert(runtimeSource.includes("'--ignore-user-config'"), 'runtime agents must not inherit globally configured MCP servers');
+  assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
+  assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
+  const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-orchestrate.cjs'), 'utf8');
+  assert(orchestratorBridgeSource.includes("GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker'"), 'the root orchestration bridge must reject worker recursion');
   const environment = adapter.bundledRuntimeEnvironment();
   assert.strictEqual(environment.GENOS_BIN, path.resolve(__dirname, '../target/debug/genos'));
   assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, '../target/debug/genos-mcp'));

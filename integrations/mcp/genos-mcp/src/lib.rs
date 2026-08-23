@@ -47,6 +47,14 @@ fn halt_file_exists() -> bool {
         .unwrap_or(false)
 }
 
+fn worker_authority(value: Option<&str>) -> bool {
+    value.is_some_and(|mode| mode.trim().eq_ignore_ascii_case("worker"))
+}
+
+fn running_as_worker() -> bool {
+    worker_authority(env::var("GENOS_EXECUTION_MODE").ok().as_deref())
+}
+
 fn orchestrator_tool() -> ToolSpec {
     ToolSpec {
         name: "genos_orchestrate".into(),
@@ -232,6 +240,15 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
+        if name == "genos_orchestrate"
+            && arguments.get("operation").is_none()
+            && running_as_worker()
+        {
+            return tool_error(
+                id,
+                "GenOS worker recursion blocked: a delegated worker cannot create a root orchestrator; return evidence to the owning orchestrator instead.".into(),
+            );
+        }
         if let Some(lease) = leased_operations() {
             if !lease.contains(&name.to_string()) {
                 return tool_error(
@@ -532,6 +549,14 @@ mod tests {
         assert_eq!(captured[0], "__genos_backend_orchestrate__");
         let request: Value = serde_json::from_str(&captured[1]).unwrap();
         assert_eq!(request["background"], true);
+    }
+
+    #[test]
+    fn worker_authority_is_case_insensitive_and_explicit() {
+        assert!(worker_authority(Some("worker")));
+        assert!(worker_authority(Some(" Worker ")));
+        assert!(!worker_authority(Some("orchestrator")));
+        assert!(!worker_authority(None));
     }
 
     #[tokio::test]

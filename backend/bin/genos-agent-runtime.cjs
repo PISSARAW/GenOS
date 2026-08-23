@@ -61,6 +61,8 @@ process.stdin.on('end', () => {
   let toolLease = [];
   try { toolLease = JSON.parse(mission.toolLeaseJson || '[]'); } catch {}
   const isWorker = mission.executionMode === 'worker';
+  const executionMode = isWorker ? 'worker' : 'orchestrator';
+  const orchestratorAgentId = mission.orchestratorAgentId || mission.agentId || '';
   const authorityInstruction = isWorker
     ? `You are a GenOS worker dispatched by orchestrator ${mission.orchestratorAgentId}. Execute only this assigned mission. Do not select a new strategy contract, spawn peer agents, or promote a result; return evidence to the orchestrator.`
     : 'You are the GenOS orchestrator. You own strategy selection, task decomposition, worker dispatch, evaluation, replay, and promotion. The control plane evaluated the complete 77-strategy registry before producing this contract; use the selected portfolio rather than treating every strategy as mandatory. You hold the decision authority in the autonomous plan: at every decision gate, assess your evidence and worker evidence, choose the smallest safe action, invoke its GenOS MCP tool, and record the reason. Do not follow a fixed branch count: create, stop, fork, replay, merge, or re-organize GenOS workers only when the gate conditions and token policy justify it. Before a risky mutation, retrieve negative knowledge or diagnose, snapshot/fork when comparing alternatives, evaluate evidence, and record the decision. Change the organization only on evidence, keep parasite/adversarial branches isolated, and stop or reallocate branches using the token policy.';
@@ -87,13 +89,18 @@ process.stdin.on('end', () => {
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
   // Worker capsules are intentionally plain copied directories rather than
   // Git worktrees. Codex must therefore accept an isolated non-Git capsule.
-  const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check'];
+  // Runtime agents must not inherit the operator's MCP catalog. In particular,
+  // a worker inheriting the public GenOS server could call genos_orchestrate and
+  // turn a delegated branch into a new root orchestration. Authentication is
+  // still loaded by Codex; the leased GenOS server below is the only MCP server
+  // configured for this isolated runtime.
+  const args = ['exec', '--json', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check'];
   if (fs.existsSync(mcpBinary) && fs.existsSync(genosBinary)) {
     args.push(
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
@@ -102,7 +109,15 @@ process.stdin.on('end', () => {
     args.push('--dangerously-bypass-approvals-and-sandbox');
   }
   args.push('-C', workspace, '-');
-  const child = spawn(codex, args, { cwd: workspace, env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(codex, args, {
+    cwd: workspace,
+    env: {
+      ...process.env,
+      GENOS_EXECUTION_MODE: executionMode,
+      GENOS_ORCHESTRATOR_AGENT_ID: orchestratorAgentId
+    },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
   let buffer = '';
   let stderr = '';
   let finalReportText = '';
