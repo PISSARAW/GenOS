@@ -70,8 +70,9 @@ async function run() {
     assert.equal(preview.body.selected_strategy.primary, 'causal_replay_intervention');
     assert.equal(preview.body.strategy_decisions.length, 77);
 
-    await db.run(`INSERT INTO agents (id, name, role, status, current_task)
-      VALUES ('agent-strategy-test', 'Strategy Test', 'Project Orchestrator', 'idle', 'Diagnose an unknown cause bug with tests')`);
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES ('strategy-workspace', 'Strategy workspace', ?)", __dirname);
+    await db.run(`INSERT INTO agents (id, name, role, status, workspace_id, current_task)
+      VALUES ('agent-strategy-test', 'Strategy Test', 'Project Orchestrator', 'idle', 'strategy-workspace', 'Diagnose an unknown cause bug with tests')`);
 
     const first = await request('POST', '/api/agents/agent-strategy-test/strategy-contracts', {
       problem: 'Diagnose an unknown cause bug with deterministic tests'
@@ -139,8 +140,8 @@ async function run() {
     assert.match(overBudget.run.guardrailReason, /tokens budget exceeded/);
     assert.equal((await strategyExecution.getRun(db, blockedRun.id)).status, 'blocked');
 
-    await db.run(`INSERT INTO agents (id, name, role, status, current_task)
-      VALUES ('agent-legacy-contract', 'Legacy Contract', 'Project Orchestrator', 'idle', 'Choose an architecture trade-off')`);
+    await db.run(`INSERT INTO agents (id, name, role, status, workspace_id, current_task)
+      VALUES ('agent-legacy-contract', 'Legacy Contract', 'Project Orchestrator', 'idle', 'strategy-workspace', 'Choose an architecture trade-off')`);
     const legacy = await request('POST', '/api/agents/agent-legacy-contract/strategy-contracts', {
       problem: 'Choose an architecture trade-off'
     });

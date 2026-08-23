@@ -12,9 +12,15 @@ async function providers(req, res) {
   res.json(rows.map(r => ({ provider: r.provider, model: r.model, capabilities: JSON.parse(r.capabilities_json || '[]'), costInput: r.cost_input, costOutput: r.cost_output, latencyMs: r.latency_ms, enabled: !!r.enabled })));
 }
 async function registerProvider(req, res) {
-  const p = safety.routeModel({ requiredCapabilities: [] }, [req.body]);
   const provider = req.body || {};
   if (!provider.provider || !provider.model) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model are required' } });
+  if (!Array.isArray(provider.capabilities || [])) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array' } });
+  if (provider.endpoint) {
+    let endpoint;
+    try { endpoint = new URL(provider.endpoint); } catch (_) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: 'endpoint must be a valid HTTP(S) URL' } }); }
+    if (!['http:', 'https:'].includes(endpoint.protocol)) return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: 'endpoint must use HTTP or HTTPS' } });
+  }
+  const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
   const db = await getDatabase();
   await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities || []), provider.costInput || 0, provider.costOutput || 0, provider.latencyMs || 0, provider.enabled === false ? 0 : 1);
   res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });

@@ -59,10 +59,13 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {
+    const configuration = modelProvider.modelConfiguration(uri);
+    const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
     const result = await modelProvider.generate({
       model: uri,
       prompt,
       timeoutMs,
+      endpoint: registered?.endpoint || undefined,
       onToken: (token) => onToken(token, uri)
     });
     return { ...result, model: uri };
