@@ -10,6 +10,13 @@ const contracts = require('../src/services/strategyContractService');
 const request = JSON.parse(process.argv[2] || '{}');
 const task = String(request.task || 'Autonomous GenOS orchestration');
 const id = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+// Accept the policy at the top level (current schema) and inside `arguments`
+// while older long-lived MCP clients refresh their cached tool schema.
+const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
+const allowedCommands = Array.isArray(policyRequest.allowed_commands)
+  ? [...new Set(policyRequest.allowed_commands.map((value) => String(value).trim()).filter(Boolean))]
+  : [];
+const allowFileEdits = policyRequest.allow_file_edits === true;
 
 // This bridge creates a root authority boundary. A delegated worker must never
 // be able to enter it, even if a globally configured/public GenOS MCP endpoint
@@ -23,7 +30,7 @@ async function waitForCompletion(db) {
   const deadline = Date.now() + Number(request.timeoutMs || 14 * 60 * 1000);
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-    if (agents.length && agents.every((agent) => ['idle', 'error', 'terminated', 'apoptosis'].includes(agent.status))) return agents;
+    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis'].includes(agent.status))) return agents;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
@@ -63,7 +70,9 @@ async function main() {
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
     const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
     await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
-      modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {} });
+      modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {},
+      executionPolicy: { allowedCommands, allowFileEdits },
+      autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
     const agents = await waitForCompletion(db);
     const telemetry = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);

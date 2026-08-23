@@ -14,7 +14,11 @@ try {
   );
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
   const runtimeSource = fs.readFileSync(defaultExecutable, 'utf8');
-  assert(runtimeSource.includes("'--ignore-user-config'"), 'runtime agents must not inherit globally configured MCP servers');
+  assert(runtimeSource.includes("'genos-codex-'"), 'runtime agents must receive an isolated CODEX_HOME');
+  assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
+  assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
+  const adapterSource = fs.readFileSync(path.resolve(__dirname, 'src/services/agentRuntimeAdapter.js'), 'utf8');
+  assert(adapterSource.includes("event.action === 'VERIFY'"), 'a completed Codex turn must not be killed after reporting aggregate usage');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE: executionMode'), 'runtime children must receive their authority mode');
   assert(runtimeSource.includes('GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)}'), 'the leased MCP server must receive the same authority mode');
   const orchestratorBridgeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-orchestrate.cjs'), 'utf8');
@@ -22,6 +26,7 @@ try {
   const environment = adapter.bundledRuntimeEnvironment();
   assert.strictEqual(environment.GENOS_BIN, path.resolve(__dirname, '../target/debug/genos'));
   assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, '../target/debug/genos-mcp'));
+  assert(!adapter.orchestratorToolLease({ requiredTools: ['genos_snapshot', 'genos_orchestrate'] }).includes('genos_orchestrate'));
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
