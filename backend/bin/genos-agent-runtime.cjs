@@ -60,6 +60,8 @@ process.stdin.on('end', () => {
   try { autonomyPlan = JSON.parse(mission.autonomyPlanJson || '{}'); } catch {}
   let toolLease = [];
   try { toolLease = JSON.parse(mission.toolLeaseJson || '[]'); } catch {}
+  let genosCapsule = {};
+  try { genosCapsule = JSON.parse(mission.genosCapsuleJson || '{}'); } catch {}
   const isWorker = mission.executionMode === 'worker';
   const executionMode = isWorker ? 'worker' : 'orchestrator';
   const orchestratorAgentId = mission.orchestratorAgentId || mission.agentId || '';
@@ -84,6 +86,9 @@ process.stdin.on('end', () => {
       ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.'
       : '',
     isWorker && toolLease.length ? `Your enforceable GenOS MCP lease is limited to: ${toolLease.join(', ')}.` : '',
+    genosCapsule.id
+      ? `Your active GenOS capsule is ${genosCapsule.id}. For capsule tools, pass capsule_id=${genosCapsule.id} and root=${genosCapsule.root}. This capsule was created by the control plane; do not invent or replace its identity.`
+      : '',
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';

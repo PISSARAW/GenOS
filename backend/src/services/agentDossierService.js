@@ -101,7 +101,8 @@ async function loadAgentDossier(db, agentId) {
     },
     lineage: { parentAgentId: root.parent_agent_id, relation: root.lineage_relation },
     strategy: currentContract,
-    decisions: decisions.map((item) => ({ ...item, cartNodes: parseJson(item.cart_nodes_json, []) }))
+    decisions: decisions.map((item) => ({ ...item, cartNodes: parseJson(item.cart_nodes_json, []) })),
+    runtimeCapsules: events.filter((event) => event.eventType === 'AGENT_CAPSULE_CREATED').map((event) => event.payload)
   };
   return {
     schema: 'genos.agent-dossier/v1',

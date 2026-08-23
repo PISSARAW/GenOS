@@ -16,6 +16,7 @@ message AgentMission {
   string orchestrator_agent_id = 11;
   string autonomy_plan_json = 12;
   string tool_lease_json = 13;
+  string genos_capsule_json = 14;
 }
 
 message AgentEvent {

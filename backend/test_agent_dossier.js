@@ -15,6 +15,7 @@ async function run() {
     await strategyContracts.saveContract(db, { agentId: 'agent-root', problem: 'Solve a dynamic programming knapsack problem' });
     await db.run("INSERT INTO genome_decisions (id, title, content, created_by) VALUES ('decision-1', 'DP recurrence', 'Use the validated recurrence', 'agent-child')");
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'AGENT_RUNTIME_STARTED', 'START', 'Started', ?)", JSON.stringify({ autonomyPlan: { organization: 'network_silence' } }));
+    await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'AGENT_CAPSULE_CREATED', 'CAPSULE', 'Created', ?)", JSON.stringify({ id: 'capsule-dp', genomeId: 'genome-dp' }));
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-child', 'EVIDENCE_REPORT', 'VERIFY', 'Verified recurrence', ?)", JSON.stringify({ claims: [{ statement: 'Optimal value is 42', evidence: ['tests pass'] }] }));
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'GENOME_MUTATION_COMPLETED', 'MUTATE', 'Selected stronger branch', '{}')");
 
@@ -23,6 +24,7 @@ async function run() {
     assert.equal(dossier.contract.contract.mission, 'Solve a dynamic programming knapsack problem');
     assert.equal(dossier.memory[0].agentId, 'agent-child');
     assert.equal(dossier.genome.decisions[0].title, 'DP recurrence');
+    assert.equal(dossier.genome.runtimeCapsules[0].id, 'capsule-dp');
     assert.equal(dossier.organizations.runtime[0].name, 'network_silence');
     assert.equal(dossier.mutations.length, 1);
     assert.equal(dossier.forks[0].id, 'agent-child');

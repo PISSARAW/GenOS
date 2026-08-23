@@ -23,6 +23,7 @@ const localCodeWorker = require('./localCodeWorkerService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
 const { selectSurvivors } = require('./tokenAllocationService');
+const agentCapsules = require('./agentCapsuleService');
 
 const activeProcesses = new Map();
 const autonomousRounds = new Map();
@@ -295,6 +296,16 @@ async function startMission(mission) {
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
+  const runtimeEnvironment = bundledRuntimeEnvironment();
+  const genosCapsule = await agentCapsules.provision({
+    executable: runtimeEnvironment.GENOS_BIN,
+    workspaceRoot: normalizedMission.workspaceRoot,
+    agentId,
+    name: normalizedMission.name || dispatchedAgent.name || agentId,
+    role: normalizedMission.role || dispatchedAgent.role || 'GenOS agent',
+    budgetSteps: normalizedMission.executionBudget?.events || 100
+  });
+  emit(agentId, 'AGENT_CAPSULE_CREATED', 'CAPSULE', `Created GenOS capsule ${genosCapsule.id}.`, genosCapsule, 'info');
   if (dispatchedAgent.execution_mode === 'orchestrator') {
     emit(agentId, 'ORCHESTRATOR_WORKSPACE_CREATED', 'CAPSULE', `Created isolated workspace for orchestrator ${agentId}.`, {
       workspaceRoot: normalizedMission.workspaceRoot
@@ -348,7 +359,7 @@ async function startMission(mission) {
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const child = spawn(resolvedExecutable, [], {
     cwd: workspaceRoot,
-    env: { ...process.env, ...bundledRuntimeEnvironment(), GENOS_WORKSPACE_ROOT: workspaceRoot },
+    env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot },
     stdio: ['pipe', 'pipe', 'pipe']
   });
   activeProcesses.set(agentId, child);
@@ -451,7 +462,8 @@ async function startMission(mission) {
     executionMode: dispatchedAgent.execution_mode,
     orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
     autonomyPlanJson: JSON.stringify(autonomyPlan || {})
-    ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || [])
+    ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
+    genosCapsuleJson: JSON.stringify(genosCapsule)
   }));
   // Dispatch after the parent mission is framed so workers cannot be mistaken for
   // independent roots. They inherit the immutable strategy contract above.
