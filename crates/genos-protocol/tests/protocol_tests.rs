@@ -137,7 +137,16 @@ fn replay_maps_directly_to_the_agent_replay_command() {
     .unwrap();
     assert_eq!(
         planned.args,
-        ["agent", "replay", "--root", ".state", "--snapshot", "snap-1", "--format", "json"]
+        [
+            "agent",
+            "replay",
+            "--root",
+            ".state",
+            "--snapshot",
+            "snap-1",
+            "--format",
+            "json"
+        ]
     );
 }
 
