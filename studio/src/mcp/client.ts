@@ -1,17 +1,20 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { WebSocketClientTransport } from '@modelcontextprotocol/sdk/client/websocket.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { useGenOSStore } from '../store/useGenOSStore';
 
 let mcpClient: Client | null = null;
 
-export async function connectMCP(wsUrl: string = 'ws://localhost:3001/mcp') {
+export async function connectMCP(mcpUrl: string = 'http://127.0.0.1:8799/mcp') {
   if (mcpClient) return mcpClient;
 
   const store = useGenOSStore.getState();
   store.setConnectionStatus('connecting');
 
   try {
-    const transport = new WebSocketClientTransport(new URL(wsUrl));
+    const token = localStorage.getItem('genos_mcp_token') || '';
+    const transport = new StreamableHTTPClientTransport(new URL(mcpUrl), {
+      requestInit: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    });
     
     mcpClient = new Client(
       {

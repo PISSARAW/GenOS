@@ -121,6 +121,7 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
+  if (tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
   const circuit = circuitBreaker.canExecute(toolName, 'operator');
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {

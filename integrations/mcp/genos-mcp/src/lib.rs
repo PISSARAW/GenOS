@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
@@ -36,6 +36,15 @@ fn leased_operations() -> Option<Vec<String>> {
         .map(|value| format!("genos_{}", value.strip_prefix("genos_").unwrap_or(value)))
         .collect();
     (!values.is_empty()).then_some(values)
+}
+
+fn halt_file_exists() -> bool {
+    let workspace = env::var_os("GENOS_WORKSPACE_ROOT")
+        .map(PathBuf::from)
+        .or_else(|| env::current_dir().ok());
+    workspace
+        .map(|root| root.join(".genos").join("mcp.halted").is_file())
+        .unwrap_or(false)
 }
 
 fn orchestrator_tool() -> ToolSpec {
@@ -210,6 +219,9 @@ impl McpServer {
     }
 
     async fn call_tool(&self, id: Value, params: Option<&Value>) -> Value {
+        if halt_file_exists() {
+            return tool_error(id, "GenOS MCP is halted by the control plane.".into());
+        }
         let Some(params) = params.and_then(Value::as_object) else {
             return error_response(id, -32602, "tools/call params must be an object");
         };
@@ -369,11 +381,42 @@ pub fn http_router(server: McpServer) -> Router {
         .with_state(server)
 }
 
+#[derive(Clone)]
+struct AuthenticatedHttpState {
+    server: McpServer,
+    bearer_token: String,
+}
+
+pub fn authenticated_http_router(server: McpServer, bearer_token: String) -> Router {
+    Router::new()
+        .route("/health", get(|| async { Json(json!({"status": "ok"})) }))
+        .route("/mcp", post(authenticated_mcp_http))
+        .with_state(AuthenticatedHttpState {
+            server,
+            bearer_token,
+        })
+}
+
 async fn mcp_http(State(server): State<McpServer>, Json(request): Json<Value>) -> Response {
     match server.handle(request).await {
         Some(response) => (StatusCode::OK, Json(response)).into_response(),
         None => StatusCode::ACCEPTED.into_response(),
     }
+}
+
+async fn authenticated_mcp_http(
+    State(state): State<AuthenticatedHttpState>,
+    headers: HeaderMap,
+    Json(request): Json<Value>,
+) -> Response {
+    let expected = format!("Bearer {}", state.bearer_token);
+    let supplied = headers
+        .get("authorization")
+        .and_then(|value| value.to_str().ok());
+    if supplied != Some(expected.as_str()) {
+        return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"}))).into_response();
+    }
+    mcp_http(State(state.server), Json(request)).await
 }
 
 #[cfg(test)]
