@@ -5,6 +5,7 @@
 const express = require('express');
 const router = express.Router();
 const deployController = require('../controllers/deployController');
+const agentDossierController = require('../controllers/agentDossierController');
 const strategyExecutionController = require('../controllers/strategyExecutionController');
 const { requirePermission } = require('../middleware/auth');
 
@@ -12,6 +13,7 @@ router.post('/deploy', requirePermission('workspace:write'), deployController.de
 router.post('/deploy/trinity', requirePermission('workspace:write'), deployController.deployTrinity);
 router.get('/deploy/trinity', deployController.listTrinityWorlds);
 router.get('/agents', deployController.listAgents);
+router.get('/agents/:id/dossier', agentDossierController.getAgentDossier);
 router.post('/agents/:id/stop', requirePermission('workspace:write'), deployController.stopAgent);
 router.post('/agents/bulk-stop', requirePermission('workspace:write'), deployController.stopAgents);
 router.post('/agents/bulk-delete', requirePermission('workspace:write'), deployController.deleteAgents);
