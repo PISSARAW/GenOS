@@ -6,6 +6,6 @@ const { requireTenantScope } = require('../middleware/tenant');
 
 router.use(requireTenantScope());
 router.get('/runs', controller.list);
-router.post('/:framework/run', requirePermission('workspace:write'), controller.run);
+router.post('/:framework/run', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.run);
 
 module.exports = router;
