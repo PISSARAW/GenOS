@@ -26,11 +26,13 @@ const { buildAllocation, selectSurvivors } = require('./tokenAllocationService')
 const agentCapsules = require('./agentCapsuleService');
 const workerGarage = require('./workerGarageService');
 const aTeamService = require('./aTeamService');
+const workerRecovery = require('./workerFailureRecoveryService');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
 const pendingContinuations = new Map();
 const autonomousRounds = new Map();
+const pendingWorkerRecoveries = new Map();
 
 function bundledRuntimeEnvironment() {
   const repositoryRoot = path.resolve(__dirname, '../../..');
@@ -130,7 +132,10 @@ async function advanceAutonomousRound(mission, event) {
   if (state.results.size < state.workerIds.size) return;
   state.advanced = true;
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
-  const survivors = selectSurvivors([...state.results.values()], continuation?.survivorCount);
+  const survivors = selectSurvivors(
+    [...state.results.values()].filter((result) => result.status === 'completed'),
+    continuation?.survivorCount
+  );
   emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches.`, { allocation: state.plan.tokenPolicy.allocation, initial: state.plan.tokenPolicy.rounds.initial, continuation, survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score })) }, 'info');
   for (const survivor of survivors) {
     const previous = state.workers.get(survivor.agentId);
@@ -151,6 +156,34 @@ function dispatchPendingContinuation(agentId) {
   if (!mission) return;
   pendingContinuations.delete(agentId);
   startMission(mission).catch((error) => emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId }, 'error'));
+}
+
+function queueWorkerRecovery(mission, event) {
+  const workerId = mission.agentId || mission.id;
+  if (pendingWorkerRecoveries.has(workerId)) {
+    const pending = pendingWorkerRecoveries.get(workerId);
+    return { report: pending.report, decision: pending.decision, queued: false, duplicate: true };
+  }
+  const report = workerRecovery.failureReport(event, mission);
+  const decision = workerRecovery.decideRecovery(report);
+  const orchestratorId = mission.orchestratorAgentId;
+  if (!orchestratorId) return { report, decision, queued: false };
+  emit(orchestratorId, 'WORKER_FAILURE_REPORTED', 'ANALYZE_FAILURE', `Worker '${report.workerId}' reported that it could not complete its mission.`, { report }, 'warning');
+  emit(orchestratorId, 'WORKER_RECOVERY_DECISION', decision.action, decision.reason, {
+    workerId: report.workerId, report, decision
+  }, decision.terminal && decision.action !== 'conclude_no_answer' ? 'warning' : 'info');
+  if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
+    pendingWorkerRecoveries.set(report.workerId, { mission, report, decision });
+    return { report, decision, queued: true };
+  }
+  if (decision.action === 'conclude_no_answer') {
+    emit(orchestratorId, 'WORKER_NO_ANSWER_ACCEPTED', 'CONCLUDE_NO_ANSWER', 'The orchestrator accepted the worker proof that no answer exists in the stated scope.', {
+      workerId: report.workerId, proof: report.noAnswerProof
+    }, 'info');
+  } else if (decision.action === 'escalate_unresolved') {
+    emit(orchestratorId, 'WORKER_RECOVERY_EXHAUSTED', 'ESCALATE', decision.reason, { workerId: report.workerId, report }, 'warning');
+  }
+  return { report, decision, queued: false };
 }
 
 function workerToolLease(role) {
@@ -232,6 +265,82 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   return destination;
 }
 
+async function dispatchWorkerRecovery(sourceAgentId) {
+  const recovery = pendingWorkerRecoveries.get(sourceAgentId);
+  if (!recovery) return false;
+  pendingWorkerRecoveries.delete(sourceAgentId);
+  pendingContinuations.delete(sourceAgentId);
+  const { mission, report, decision } = recovery;
+  const db = await getDatabase();
+  const source = await db.get(
+    `SELECT id, name, role, agent_type, workspace_id, fleet_id, model_tier, language,
+            isolation_mode, parent_agent_id
+     FROM agents WHERE id = ? AND execution_mode = 'worker'`,
+    sourceAgentId
+  );
+  if (!source?.parent_agent_id) return false;
+  const orchestratorId = source.parent_agent_id;
+  const sameIdentity = decision.identity === 'same';
+  const targetId = sameIdentity
+    ? sourceAgentId
+    : `worker_${orchestratorId}_recovery_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const role = decision.role || source.role || mission.role || 'recovery_specialist';
+  const prompt = workerRecovery.recoveryPrompt(report, decision);
+  const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
+  let workspaceRoot;
+  try {
+    await workerGarage.requireAvailableSlot(db, orchestratorId);
+    const sourceRoot = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    workspaceRoot = await createIsolatedWorkspace(
+      sourceRoot,
+      `${targetId}_${decision.action}_${report.attempt + 1}`,
+      path.dirname(sourceRoot)
+    );
+    if (sameIdentity) {
+      await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ?", targetId);
+    } else {
+      await db.run(
+        `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
+          model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
+         VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        targetId, name, role, source.agent_type || 'GenOS', source.workspace_id || null, source.fleet_id || null,
+        source.model_tier || mission.modelTier || 'standard', source.language || 'TypeScript', source.isolation_mode || 'Branch',
+        orchestratorId, decision.action, `Recovery scope: ${report.mission}`, prompt
+      );
+    }
+    const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
+    emit(orchestratorId, 'WORKER_RECOVERY_DISPATCHED', decision.action, `Dispatched ${decision.action} as '${name}'.`, {
+      sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1,
+      slot: garage.slot, capacity: garage.capacity, decision
+    }, 'info');
+    await startMission({
+      ...mission,
+      agentId: targetId,
+      name,
+      role,
+      prompt,
+      originalMission: report.mission,
+      recoveryAttempt: report.attempt + 1,
+      recoveryMaxAttempts: report.maxAttempts,
+      recoveryHistory: [...(mission.recoveryHistory || []), { workerId: sourceAgentId, report, decision }],
+      workspaceRoot,
+      workspaceProvisioned: true,
+      orchestratorAgentId: orchestratorId,
+      budgetRound: undefined,
+      localModel: decision.action === 'replace_worker' ? undefined : mission.localModel,
+      toolLease: workerToolLease(role),
+      autonomousOrchestration: false
+    });
+    return true;
+  } catch (error) {
+    await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, targetId).catch(() => {});
+    emit(orchestratorId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
+      sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1
+    }, 'error');
+    return false;
+  }
+}
+
 async function provisionMissionWorkspace(mission, executionMode) {
   // An orchestrator is the authority boundary for a mission and must never
   // operate directly in the caller's workspace. Workers already receive a
@@ -303,6 +412,7 @@ async function runLocalWorker(db, mission, executionRun) {
     const failed = emit(mission.agentId, 'AGENT_FAILED', 'LOCAL_MODEL', error.message, { executionRunId: executionRun.id, model: mission.localModel }, 'warning', 'error');
     await strategyExecution.recordExecutionEvent(db, mission.agentId, failed);
     await advanceAutonomousRound(mission, failed);
+    queueWorkerRecovery(mission, failed);
     return { started: false, executionRun, local: true, error: error.message };
   }
 }
@@ -473,7 +583,17 @@ async function startMissionInternal(mission) {
   };
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
     const event = emit(agentId, eventType, action, detail, payload, severity, status);
-    const decision = decideFromEvent(event);
+    const workerFailure = dispatchedAgent.execution_mode === 'worker'
+      && ['WORKER_TASK_FAILED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
+    if (workerFailure) queueWorkerRecovery(normalizedMission, event);
+    if (dispatchedAgent.execution_mode === 'worker' && eventType === 'WORKER_NO_ANSWER_PROVEN') {
+      const report = workerRecovery.failureReport(event, normalizedMission);
+      const decision = workerRecovery.decideRecovery(report);
+      emit(dispatchedAgent.parent_agent_id, 'WORKER_NO_ANSWER_ACCEPTED', 'CONCLUDE_NO_ANSWER', decision.reason, {
+        workerId: agentId, proof: report.noAnswerProof
+      }, 'info');
+    }
+    const decision = workerFailure ? null : decideFromEvent(event);
     if (decision) {
       db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
         const ownerId = agent?.parent_agent_id || agentId;
@@ -488,7 +608,7 @@ async function startMissionInternal(mission) {
         // At that point the model has already produced its final report; record
         // a budget breach on the execution run, but do not SIGTERM a completed
         // turn and overwrite its result with AGENT_HALTED.
-        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType) || event.action === 'VERIFY';
+        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || event.action === 'VERIFY';
         const observation = await hallucinationMonitor.recordObservation(db, event);
         if (observation.monitored && observation.detected) {
           emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
@@ -523,8 +643,10 @@ async function startMissionInternal(mission) {
       let payload = {};
       try { payload = event.payloadJson ? JSON.parse(event.payloadJson) : {}; } catch { payload = { raw: event.payloadJson }; }
       const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'idle' : undefined);
-      if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED'].includes(event.eventType)) terminalEventSeen = true;
-      if (nextStatus || event.currentTask) updateAgent(agentId, nextStatus, event.currentTask).catch(() => {});
+      if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType)) terminalEventSeen = true;
+      if (nextStatus || event.currentTask) {
+        executionQueue = executionQueue.then(() => updateAgent(agentId, nextStatus, event.currentTask));
+      }
       emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
     });
   });
@@ -562,6 +684,7 @@ async function startMissionInternal(mission) {
         available: garage?.available
       }, 'info');
     }
+    await dispatchWorkerRecovery(agentId);
     dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', mission.prompt);
@@ -599,8 +722,9 @@ function startMission(mission) {
   const agentId = mission.agentId || mission.id;
   if (!agentId) return Promise.reject(new Error('agentId is required'));
   if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
-  const start = startMissionInternal(mission).finally(() => {
+  const start = startMissionInternal(mission).finally(async () => {
     missionStarts.delete(agentId);
+    await dispatchWorkerRecovery(agentId);
     dispatchPendingContinuation(agentId);
   });
   missionStarts.set(agentId, start);
