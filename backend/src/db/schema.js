@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     role TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
+    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
     agent_type TEXT NOT NULL DEFAULT 'GenOS',
     execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),
     workspace_id TEXT,
@@ -780,7 +780,8 @@ async function applyVersionedMigrations(db) {
     ['005-agent-authority', 'Require an orchestrator to dispatch worker agents'],
     ['006-agent-blocked-status', 'Allow guarded agent missions to persist a blocked status'],
     ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts'],
-    ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project']
+    ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project'],
+    ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination']
   ];
   await migrateAgentStatusConstraint(db);
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
@@ -836,16 +837,16 @@ async function migrateAgentStatusConstraint(db) {
   const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'agents'");
   // New databases use CREATE_TABLES_SQL above. Existing databases need a table
   // rebuild because SQLite cannot alter a CHECK constraint in place.
-  if (!table?.sql || /'blocked'/i.test(table.sql)) return;
+  if (!table?.sql || (/'blocked'/i.test(table.sql) && /'completed'/i.test(table.sql))) return;
 
   await db.exec('PRAGMA foreign_keys = OFF;');
   try {
     await db.exec('BEGIN IMMEDIATE;');
-    await db.exec(`CREATE TABLE agents_with_blocked_status (
+    await db.exec(`CREATE TABLE agents_with_terminal_status (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       role TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
+      status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
       agent_type TEXT NOT NULL DEFAULT 'GenOS',
       execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),
       workspace_id TEXT,
@@ -862,9 +863,9 @@ async function migrateAgentStatusConstraint(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,
-      FOREIGN KEY (parent_agent_id) REFERENCES agents_with_blocked_status(id) ON DELETE SET NULL
+      FOREIGN KEY (parent_agent_id) REFERENCES agents_with_terminal_status(id) ON DELETE SET NULL
     );
-    INSERT INTO agents_with_blocked_status (
+    INSERT INTO agents_with_terminal_status (
       id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
       hallucination_monitoring, hallucination_count, model_tier, language, isolation_mode,
       parent_agent_id, lineage_relation, about, current_task, created_at, updated_at
@@ -874,7 +875,7 @@ async function migrateAgentStatusConstraint(db) {
       parent_agent_id, lineage_relation, about, current_task, created_at, updated_at
     FROM agents;
     DROP TABLE agents;
-    ALTER TABLE agents_with_blocked_status RENAME TO agents;`);
+    ALTER TABLE agents_with_terminal_status RENAME TO agents;`);
     await db.exec('COMMIT;');
   } catch (error) {
     try { await db.exec('ROLLBACK;'); } catch (_) {}

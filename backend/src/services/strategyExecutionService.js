@@ -5,7 +5,11 @@ const strategyContracts = require('./strategyContractService');
 // Codex's own context.  120k falls below that fixed baseline and incorrectly
 // kills otherwise completed missions before their result can be recorded.
 const DEFAULT_BUDGET = Object.freeze({ tokens: 500000, costUsd: 5, latencyMs: 30 * 60 * 1000, events: 500 });
-const FINAL_EVENTS = new Set(['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR']);
+const FINAL_EVENTS = new Set([
+  'AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN',
+  'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED',
+  'BUDGET_EXHAUSTED', 'AGENT_HALTED'
+]);
 
 function json(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
@@ -145,9 +149,12 @@ async function recordExecutionEvent(db, agentId, event) {
     events: Number(previousMetrics.events || 0) + 1
   };
   const budget = json(row.budget_json, DEFAULT_BUDGET);
-  const guardrailReason = policyViolation(event) || exceededGuardrail(metrics, budget);
-  const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType);
-  const completed = event.eventType === 'AGENT_COMPLETED';
+  const blocked = ['BUDGET_EXHAUSTED', 'AGENT_HALTED'].includes(event.eventType);
+  const guardrailReason = policyViolation(event)
+    || (blocked ? event.detail || 'execution blocked by runtime guardrail' : null)
+    || exceededGuardrail(metrics, budget);
+  const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType);
+  const completed = ['AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType);
   const contractRow = completed ? await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id) : null;
   const approvalRequired = completed && json(contractRow?.contract_json, {}).promotion?.require_human_approval === true;
   const index = stepIndex(event, steps.length);
