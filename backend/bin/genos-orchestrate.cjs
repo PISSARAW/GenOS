@@ -8,6 +8,7 @@ const runtime = require('../src/services/agentRuntimeAdapter');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
+const trinityService = require('../src/services/trinityService');
 
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
@@ -102,6 +103,42 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
+    if (action === 'dispatch_trinity') {
+      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      const garage = await workerGarage.state(db, orchestratorId);
+      if (garage.available < 3) {
+        const error = new Error(`Trinity requires three free worker slots, but only ${garage.available} are available.`);
+        error.code = 'WORKER_GARAGE_FULL';
+        throw error;
+      }
+      const members = trinityService.compose(request.mission);
+      const missionId = `trinity_${orchestratorId}_${Date.now()}`;
+      const accepted = [];
+      for (const member of members) {
+        const workerId = `worker_${orchestratorId}_${Date.now()}_${member.worldNumber}_${Math.random().toString(36).slice(2, 6)}`;
+        const name = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
+        await db.run(
+          `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
+           VALUES (?, ?, ?, ?, ?, 'queued', ?)`,
+          `${missionId}_world_${member.worldNumber}`, request.mission, member.worldNumber, name, member.role, workerId
+        );
+        const runner = spawn(process.execPath, [__filename, JSON.stringify({
+          action: 'dispatch_worker', background: false, orchestratorId, workerId,
+          name, mission: member.mission, role: member.role, model_tier: member.modelTier,
+          execution_budget: request.execution_budget, workspace_root: request.workspace_root,
+          reuseChecked: true
+        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
+        runner.unref();
+        accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
+      }
+      process.stdout.write(JSON.stringify({
+        orchestratorId,
+        trinity: { status: 'accepted', missionId, mission: request.mission, worlds: accepted }
+      }));
+      return;
+    }
     if (action === 'dispatch_team') {
       const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
@@ -206,6 +243,7 @@ async function main() {
   } catch (error) {
     if (delegatedWorkerId) {
       await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, delegatedWorkerId).catch(() => {});
+      await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", delegatedWorkerId).catch(() => {});
     }
     throw error;
   } finally { await closeDatabase(); }
