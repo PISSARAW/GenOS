@@ -375,6 +375,12 @@ async function provisionMissionWorkspace(mission, executionMode) {
   return { ...mission, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
 }
 
+function modelUsage(result = {}) {
+  const inputTokens = Number(result.inputTokens || 0);
+  const outputTokens = Number(result.outputTokens || 0);
+  return { inputTokens, outputTokens, totalTokens: inputTokens + outputTokens };
+}
+
 async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
   const candidates = await localModelDiscovery.discoverChatModelUris();
   if (!candidates.length) return { consulted: false, candidates: [] };
@@ -384,7 +390,7 @@ async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
       db, agentId, ...tenant, timeoutMs: 15000, policy,
       prompt: `You are the local planning model for a GenOS orchestrator. Analyse this mission and return a concise JSON-like recommendation: which hypotheses merit forks, which worker roles are needed, when replay/merge is justified, and what can be delegated locally. Mission: ${mission.prompt || mission.currentTask || ''}. Strategy profile: ${JSON.stringify(plan.profile)}.`
     });
-    return { consulted: true, candidates, selectedModel: result.model, provider: result.provider, advice: String(result.text || '').slice(0, 4000), route: result.route, policy };
+    return { consulted: true, candidates, selectedModel: result.model, provider: result.provider, usage: modelUsage(result), advice: String(result.text || '').slice(0, 4000), route: result.route, policy };
   } catch (error) {
     return { consulted: false, candidates, error: error.message };
   }
@@ -920,4 +926,4 @@ function stopAllMissions() {
   return [...activeProcesses.keys()].filter(stopMission);
 }
 
-module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease, rankLocalModels };
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease, rankLocalModels, modelUsage };

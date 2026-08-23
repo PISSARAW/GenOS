@@ -49,6 +49,9 @@ async function main() {
   ];
   assert.equal(runtimeAdapter.rankLocalModels(models, 'Flash')[0].uri, 'ollama://small:0.5b');
   assert.equal(runtimeAdapter.rankLocalModels(models, 'Pro')[0].uri, 'ollama://large:14b');
+  assert.deepEqual(runtimeAdapter.modelUsage({ inputTokens: 13, outputTokens: 5 }), {
+    inputTokens: 13, outputTokens: 5, totalTokens: 18
+  });
 
   const runtimeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-agent-runtime.cjs'), 'utf8');
   assert.match(runtimeSource, /localModelReview: plan\.localModelReview/);
