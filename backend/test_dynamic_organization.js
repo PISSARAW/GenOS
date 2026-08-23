@@ -1,4 +1,5 @@
 const assert = require('assert');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const organization = require('./src/services/dynamicOrganizationService');
@@ -81,6 +82,26 @@ async function run() {
       assert(routed.channel, `${name} must define a communication channel`);
       assert(['delivered', 'buffered'].includes(routed.delivery), `${name} must define delivery semantics`);
     }
+
+    await closeDatabase();
+    const bridgeOutput = execFileSync(process.execPath, [
+      path.resolve(__dirname, 'bin/genos-orchestrate.cjs'),
+      JSON.stringify({
+        action: 'organization_publish', background: false,
+        orchestratorId: 'org-root', kind: 'evidence', content: 'bridge telemetry check'
+      })
+    ], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GENOS_DB_PATH: dbPath,
+        GENOS_AGENT_ID: 'org-a',
+        GENOS_EXECUTION_MODE: 'worker'
+      }
+    });
+    const bridgePublication = JSON.parse(bridgeOutput);
+    assert(Number.isInteger(bridgePublication.id));
+    assert.equal(bridgePublication.kind, 'evidence');
   } finally {
     await closeDatabase();
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

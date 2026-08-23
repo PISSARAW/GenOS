@@ -327,9 +327,9 @@ async function main() {
       silentUpdates: policyRequest.silent_updates === true,
       autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
     const agents = await waitForCompletion(db);
-    const telemetry = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+    const telemetryRows = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry, token_usage: tokenUsage(runs) }));
+    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs) }));
   } catch (error) {
     if (delegatedWorkerId) {
       await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, delegatedWorkerId).catch(() => {});
