@@ -351,6 +351,8 @@ async function startMissionInternal(mission) {
   const executable = configuredExecutable();
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  const availability = runtimeAvailability();
+  if (!availability.available) throw new Error(availability.reason);
   let contractRecord = await strategyContracts.getLatestContract(db, agentId);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
     contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId);

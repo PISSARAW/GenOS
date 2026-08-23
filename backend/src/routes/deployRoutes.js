@@ -8,6 +8,9 @@ const deployController = require('../controllers/deployController');
 const agentDossierController = require('../controllers/agentDossierController');
 const strategyExecutionController = require('../controllers/strategyExecutionController');
 const { requirePermission } = require('../middleware/auth');
+const { attachTenant } = require('../middleware/tenant');
+
+router.use(attachTenant);
 
 router.post('/deploy', requirePermission('workspace:write'), deployController.deployAgent);
 router.post('/deploy/trinity', requirePermission('workspace:write'), deployController.deployTrinity);
