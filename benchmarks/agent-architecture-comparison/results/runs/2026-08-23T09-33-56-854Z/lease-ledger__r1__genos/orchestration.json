@@ -1,0 +1,13 @@
+{
+  "orchestrator_id": "mcp_orchestrator_1787477892954_igod",
+  "agents": [
+    {
+      "id": "mcp_orchestrator_1787477892954_igod",
+      "name": "MCP GenOS Orchestrator",
+      "status": "idle",
+      "parent_agent_id": null,
+      "current_task": "Read task.md and repair the implementation in this isolated workspace. The implementation file for this task is ledger.mjs. Preserve the public API and never edit task.md or public.test.mjs. Use only the explicitly authorized read and test commands. Run node --test public.test.mjs after editing. Coordinate bounded workers only when their independent evidence is useful. The final orchestrator workspace, not an unmerged worker branch, must contain the verified implementation."
+    }
+  ],
+  "telemetry": []
+}
