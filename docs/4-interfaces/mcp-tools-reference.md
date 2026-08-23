@@ -198,3 +198,11 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 - `model_tiers` *(array of strings)*: Optional model tiers aligned with the subsystems.
 - `enforce_genos_rules` *(boolean)*: Retained for compatibility; isolation, evidence, budgets, and leases are always enforced.
 **Usage**: The orchestrator receives the tool only through its lease. Each member occupies one of the three garage slots, inherits the root mission's execution policy, works in an isolated capsule, and returns evidence to the orchestrator. Workers cannot compose another A-Team.
+
+### `genos_trinity_launch`
+**Description**: Launches three isolated comparison worlds: the raw need, an implementation based on the user-interview plan, and an independently AI-corrected implementation.
+**Parameters**:
+- `mission` *(string)*: Concrete shared mission, including requirements learned during the interview.
+- `rationale` *(string)*: Optional explanation of why three comparative worlds are useful.
+- `execution_budget` *(object)*: Optional bounded budget inherited by each world.
+**Usage**: An explicit request for “Trinity” activates it when the three garage slots and token budget are available. A request such as “interview me to create a plan” creates a Trinity decision gate instead: the orchestrator conducts the interview first, then launches Trinity only if the resulting mission benefits from three comparative implementations. A-Team and Trinity cannot occupy the garage simultaneously, and workers cannot launch Trinity recursively.

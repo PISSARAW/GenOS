@@ -110,6 +110,22 @@ fn a_team_tool() -> ToolSpec {
     }
 }
 
+fn trinity_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_trinity_launch".into(),
+        title: "Launch GenOS Trinity".into(),
+        description: "Launch Trinity's three isolated comparison worlds: raw need, interview-derived plan, and AI-corrected implementation. Use it when Trinity is explicitly requested, or after a requested planning interview has produced a concrete mission and comparison remains valuable.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "mission":{"type":"string","minLength":1,"description":"Concrete shared mission, including requirements learned during the interview."},
+            "rationale":{"type":"string","description":"Why three comparative Trinity worlds are useful for this mission."},
+            "execution_budget":{"type":"object","description":"Optional bounded budget inherited by each Trinity world."}
+        },"required":["mission"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
         let mut tools: Vec<ToolSpec> = tool_specs()
@@ -121,6 +137,9 @@ fn public_tool_specs() -> Vec<ToolSpec> {
         }
         if lease.contains(&"genos_a_team_preview".to_string()) {
             tools.push(a_team_tool());
+        }
+        if lease.contains(&"genos_trinity_launch".to_string()) {
+            tools.push(trinity_tool());
         }
         return tools;
     }
@@ -295,7 +314,11 @@ impl McpServer {
                 "GenOS worker recursion blocked: a delegated worker cannot create a root orchestrator; return evidence to the owning orchestrator instead.".into(),
             );
         }
-        if matches!(name, "genos_delegate_worker" | "genos_a_team_preview") && running_as_worker() {
+        if matches!(
+            name,
+            "genos_delegate_worker" | "genos_a_team_preview" | "genos_trinity_launch"
+        ) && running_as_worker()
+        {
             return tool_error(
                 id,
                 "GenOS worker recursion blocked: only the owning orchestrator may dispatch another worker.".into(),
@@ -309,7 +332,40 @@ impl McpServer {
                 );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_a_team_preview" {
+        let (operation_name, operation_arguments) = if name == "genos_trinity_launch" {
+            let Some(mission) = arguments
+                .get("mission")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_trinity_launch requires a concrete mission.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_trinity_launch requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_trinity".into()));
+                object.insert("mission".into(), Value::String(mission));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_a_team_preview" {
             let Some(project_goal) = arguments
                 .get("project_goal")
                 .and_then(Value::as_str)
@@ -710,6 +766,14 @@ mod tests {
             tool.input_schema["properties"]["sub_systems"]["maxItems"],
             3
         );
+    }
+
+    #[test]
+    fn trinity_tool_requires_a_concrete_shared_mission() {
+        let tool = trinity_tool();
+        assert_eq!(tool.name, "genos_trinity_launch");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.input_schema["required"], json!(["mission"]));
     }
 
     #[tokio::test]
