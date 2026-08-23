@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const codexRuntimeConfiguration = require('../src/services/codexRuntimeConfiguration');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const workerRecovery = require('../src/services/workerFailureRecoveryService');
 
@@ -135,6 +136,7 @@ process.stdin.on('end', () => {
     hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
   }), { mode: 0o600 });
   const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
+  args.push(...codexRuntimeConfiguration.commandOptions(mission));
   if (fs.existsSync(mcpBinary) && fs.existsSync(genosBinary)) {
     args.push(
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
