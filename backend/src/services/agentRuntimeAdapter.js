@@ -28,6 +28,7 @@ const workerGarage = require('./workerGarageService');
 const aTeamService = require('./aTeamService');
 const trinityService = require('./trinityService');
 const workerRecovery = require('./workerFailureRecoveryService');
+const dynamicOrganization = require('./dynamicOrganizationService');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
@@ -159,6 +160,18 @@ function dispatchPendingContinuation(agentId) {
   startMission(mission).catch((error) => emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId }, 'error'));
 }
 
+async function applyOrganizationDecision(orchestratorId, organization, reason) {
+  if (!orchestratorId || !dynamicOrganization.organizationProfile(organization)) return null;
+  const db = await getDatabase();
+  const transition = await dynamicOrganization.changeOrganization(db, {
+    orchestratorId, organization, reason, changedBy: orchestratorId
+  });
+  if (transition.changed) {
+    emit(orchestratorId, 'ORGANIZATION_CHANGED', 'REORGANIZE', `Changed organization from '${transition.previous || 'none'}' to '${transition.organization}'.`, transition, 'info');
+  }
+  return transition;
+}
+
 function queueWorkerRecovery(mission, event) {
   const workerId = mission.agentId || mission.id;
   if (pendingWorkerRecoveries.has(workerId)) {
@@ -173,6 +186,11 @@ function queueWorkerRecovery(mission, event) {
   emit(orchestratorId, 'WORKER_RECOVERY_DECISION', decision.action, decision.reason, {
     workerId: report.workerId, report, decision
   }, decision.terminal && decision.action !== 'conclude_no_answer' ? 'warning' : 'info');
+  const recoveryOrganization = decision.action === 'mutate_worker'
+    ? 'isolated_recovery'
+    : decision.action === 'fork_worker' ? 'competitive_arena'
+      : decision.action === 'replace_worker' ? 'specialist_expert_committee' : null;
+  if (recoveryOrganization) applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch(() => {});
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
     pendingWorkerRecoveries.set(report.workerId, { mission, report, decision });
     return { report, decision, queued: true };
@@ -188,7 +206,7 @@ function queueWorkerRecovery(mission, event) {
 }
 
 function workerToolLease(role) {
-  const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay'];
+  const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay', 'genos_organization_state', 'genos_worker_publish', 'genos_worker_inbox'];
   if (/reviewer|observer/i.test(role || '')) lease.push('genos_adversarial_review');
   if (/red_team|blue_team/i.test(role || '')) lease.push('genos_security_coevolution');
   return lease;
@@ -203,7 +221,8 @@ function orchestratorToolLease(plan = {}) {
     'genos_adversarial_review', 'genos_compile_memory',
     'genos_resilience_hypermutation', 'genos_security_coevolution',
     'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview',
-    'genos_trinity_launch'
+    'genos_trinity_launch', 'genos_change_strategy', 'genos_change_organization', 'genos_organization_state',
+    'genos_worker_publish', 'genos_worker_inbox'
   ];
   return [...new Set([...core, ...(plan.requiredTools || [])])]
     .filter((tool) => tool !== 'genos_orchestrate');
@@ -556,6 +575,19 @@ async function startMissionInternal(mission) {
     }
     autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan);
     emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', autonomyPlan.localModelReview.consulted ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.` : 'No local model review was available; continuing with the frontier orchestrator.', autonomyPlan.localModelReview, autonomyPlan.localModelReview.consulted ? 'info' : 'warning');
+    const organizationState = await dynamicOrganization.getState(db, agentId);
+    if (!organizationState) {
+      const initialized = await dynamicOrganization.changeOrganization(db, {
+        orchestratorId: agentId,
+        organization: autonomyPlan.organization,
+        reason: 'Initial organization selected from the strategy contract.',
+        changedBy: agentId
+      });
+      emit(agentId, 'ORGANIZATION_INITIALIZED', 'ORGANIZE', `Initialized '${initialized.organization}' organization.`, initialized, 'info');
+    } else {
+      autonomyPlan.organization = organizationState.organization;
+      emit(agentId, 'ORGANIZATION_RESTORED', 'ORGANIZE', `Restored runtime organization '${organizationState.organization}'.`, organizationState, 'info');
+    }
   }
   normalizedMission.executionPolicy = {
     allowedCommands: Array.isArray(normalizedMission.executionPolicy?.allowedCommands)
@@ -652,6 +684,7 @@ async function startMissionInternal(mission) {
       db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
         const ownerId = agent?.parent_agent_id || agentId;
         emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
+        if (decision.organization) applyOrganizationDecision(ownerId, decision.organization, decision.reason).catch(() => {});
         actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
       }).catch(() => {});
     }

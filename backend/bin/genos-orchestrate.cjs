@@ -9,6 +9,9 @@ const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
 const trinityService = require('../src/services/trinityService');
+const dynamicOrganization = require('../src/services/dynamicOrganizationService');
+const telemetry = require('../src/services/telemetryObserver');
+const strategyAdaptation = require('../src/services/strategyAdaptationService');
 
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
@@ -28,7 +31,8 @@ const allowFileEdits = policyRequest.allow_file_edits === true;
 // This bridge creates a root authority boundary. A delegated worker must never
 // be able to enter it, even if a globally configured/public GenOS MCP endpoint
 // accidentally leaks into the worker's Codex process.
-if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker') {
+const workerSafeActions = new Set(['organization_publish', 'organization_inbox', 'organization_state']);
+if (String(process.env.GENOS_EXECUTION_MODE || '').toLowerCase() === 'worker' && !workerSafeActions.has(action)) {
   const owner = process.env.GENOS_ORCHESTRATOR_AGENT_ID || 'its orchestrator';
   throw new Error(`GenOS worker recursion blocked: delegated workers must return evidence to ${owner}, not create another orchestrator.`);
 }
@@ -103,6 +107,72 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
+    if (action === 'change_strategy') {
+      const transition = await strategyAdaptation.changeStrategy(db, {
+        orchestratorId,
+        need: request.need,
+        reason: request.reason,
+        problemProfile: request.problem_profile,
+        maxCostLevel: request.max_cost_level,
+        allowExperimental: request.allow_experimental,
+        allowPrototype: request.allow_prototype,
+        allowExperimentalAtHighRisk: request.allow_experimental_at_high_risk,
+        executionBudget: request.execution_budget
+      });
+      telemetry.emitEvent({
+        eventType: transition.changed ? 'STRATEGY_CHANGED' : 'STRATEGY_RETAINED',
+        agentId: orchestratorId,
+        action: transition.changed ? 'RESELECT_STRATEGY' : 'KEEP_STRATEGY',
+        detail: transition.changed
+          ? `Changed primary strategy from '${transition.previous.primary}' to '${transition.current.primary}' after evaluating all 77 strategies.`
+          : transition.reason,
+        payload: transition,
+        severity: 'info'
+      });
+      process.stdout.write(JSON.stringify(transition));
+      return;
+    }
+    if (action === 'change_organization') {
+      const transition = await dynamicOrganization.changeOrganization(db, {
+        orchestratorId,
+        organization: request.organization,
+        reason: request.reason,
+        changedBy: process.env.GENOS_AGENT_ID || orchestratorId
+      });
+      if (transition.changed) {
+        telemetry.emitEvent({
+          eventType: 'ORGANIZATION_CHANGED', agentId: orchestratorId, action: 'REORGANIZE',
+          detail: `Changed organization from '${transition.previous || 'none'}' to '${transition.organization}'.`,
+          payload: transition, severity: 'info'
+        });
+      }
+      process.stdout.write(JSON.stringify(transition));
+      return;
+    }
+    if (action === 'organization_publish') {
+      const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId;
+      const published = await dynamicOrganization.publish(db, {
+        orchestratorId, senderAgentId, recipientAgentId: request.recipient_agent_id,
+        kind: request.kind, content: request.content, payload: request.payload
+      });
+      telemetry.emitEvent({
+        eventType: published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED',
+        agentId: senderAgentId, action: published.channel, detail: `Published ${published.kind} through ${published.organization}.`,
+        payload: { ...published, sender: senderAgentId, recipient: published.recipientAgentId }, severity: 'info'
+      });
+      process.stdout.write(JSON.stringify(published));
+      return;
+    }
+    if (action === 'organization_inbox' || action === 'organization_state') {
+      const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId;
+      const result = action === 'organization_state'
+        ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
+        : await dynamicOrganization.inbox(db, {
+          orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit
+        });
+      process.stdout.write(JSON.stringify(result));
+      return;
+    }
     if (action === 'dispatch_trinity') {
       const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);

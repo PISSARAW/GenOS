@@ -187,6 +187,20 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 
 ---
 
+## 10. Dynamic Strategy Selection
+
+### `genos_change_strategy`
+**Description**: Re-evaluates the complete 77-strategy registry when evidence shows that the active strategy no longer matches the mission need.
+**Parameters**:
+- `need` *(string)*: Current concrete need or newly discovered problem.
+- `reason` *(string)*: Evidence-backed reason for reconsidering the active strategy.
+- `problem_profile` *(object)*: Optional risk, uncertainty, complexity, evaluability, reversibility, or problem-type overrides.
+- `max_cost_level` *(integer)*: Optional maximum strategy cost from 1 to 5.
+- `allow_experimental`, `allow_prototype`, `allow_experimental_at_high_risk` *(boolean)*: Explicit maturity-policy overrides.
+**Usage**: Only the owning orchestrator receives this tool. GenOS scores all 77 strategies, retains the current contract when its portfolio is still the best fit, or creates a new immutable contract version when the need materially changes. The active execution run is superseded and the new run receives only the remaining tokens, cost, latency, and event budget. Existing workers finish under their inherited contract; workers dispatched afterward inherit the new one.
+
+---
+
 ## 11. Swarm Orchestration
 
 ### `genos_a_team_preview`
