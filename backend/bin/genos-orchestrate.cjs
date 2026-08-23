@@ -7,6 +7,7 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
+const aTeamService = require('../src/services/aTeamService');
 
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
@@ -101,6 +102,34 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
+    if (action === 'dispatch_team') {
+      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      const garage = await workerGarage.state(db, orchestratorId);
+      const members = aTeamService.compose({
+        projectGoal: request.project_goal,
+        subSystems: request.sub_systems,
+        assignedRoles: request.assigned_roles,
+        modelTiers: request.model_tiers,
+        available: garage.available
+      });
+      const accepted = members.map((member, index) => {
+        const workerId = `worker_${orchestratorId}_${Date.now()}_${index + 1}_${Math.random().toString(36).slice(2, 6)}`;
+        const runner = spawn(process.execPath, [__filename, JSON.stringify({
+          action: 'dispatch_worker', background: false, orchestratorId, workerId,
+          mission: member.mission, role: member.role, model_tier: member.modelTier,
+          workspace_root: request.workspace_root, reuseChecked: true
+        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
+        runner.unref();
+        return { workerId, subSystem: member.subSystem, role: member.role, modelTier: member.modelTier, status: 'accepted' };
+      });
+      process.stdout.write(JSON.stringify({
+        orchestratorId,
+        aTeam: { status: 'accepted', projectGoal: request.project_goal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
+      }));
+      return;
+    }
     if (action === 'dispatch_worker') {
       const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
         w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, orchestratorId);

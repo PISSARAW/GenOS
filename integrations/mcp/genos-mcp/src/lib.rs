@@ -92,6 +92,24 @@ fn delegate_worker_tool() -> ToolSpec {
     }
 }
 
+fn a_team_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_a_team_preview".into(),
+        title: "Compose GenOS A-Team".into(),
+        description: "Compose two or three mission-scoped specialists when the project genuinely spans distinct competency domains. Members run in isolated capsules, inherit the root mission policy, occupy the three-slot worker garage, and return evidence to the orchestrator.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "project_goal":{"type":"string","minLength":1,"description":"Shared multidisciplinary project objective."},
+            "sub_systems":{"type":"array","minItems":2,"maxItems":3,"items":{"type":"string","minLength":1},"description":"Two or three distinct bounded competency domains."},
+            "assigned_roles":{"type":"array","maxItems":3,"items":{"type":"string","minLength":1},"description":"Specialist role aligned by index with each subsystem."},
+            "model_tiers":{"type":"array","maxItems":3,"items":{"type":"string"},"description":"Optional model tier aligned by index with each subsystem."},
+            "enforce_genos_rules":{"type":"boolean","description":"Keep GenOS isolation, evidence, budget, and tool-policy rules enabled. Always true in the runtime."}
+        },"required":["project_goal","sub_systems"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
         let mut tools: Vec<ToolSpec> = tool_specs()
@@ -100,6 +118,9 @@ fn public_tool_specs() -> Vec<ToolSpec> {
             .collect();
         if lease.contains(&"genos_delegate_worker".to_string()) {
             tools.push(delegate_worker_tool());
+        }
+        if lease.contains(&"genos_a_team_preview".to_string()) {
+            tools.push(a_team_tool());
         }
         return tools;
     }
@@ -274,7 +295,7 @@ impl McpServer {
                 "GenOS worker recursion blocked: a delegated worker cannot create a root orchestrator; return evidence to the owning orchestrator instead.".into(),
             );
         }
-        if name == "genos_delegate_worker" && running_as_worker() {
+        if matches!(name, "genos_delegate_worker" | "genos_a_team_preview") && running_as_worker() {
             return tool_error(
                 id,
                 "GenOS worker recursion blocked: only the owning orchestrator may dispatch another worker.".into(),
@@ -288,7 +309,48 @@ impl McpServer {
                 );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_delegate_worker" {
+        let (operation_name, operation_arguments) = if name == "genos_a_team_preview" {
+            let Some(project_goal) = arguments
+                .get("project_goal")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(id, "genos_a_team_preview requires project_goal.".into());
+            };
+            let sub_system_count = arguments
+                .get("sub_systems")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0);
+            if !(2..=3).contains(&sub_system_count) {
+                return tool_error(
+                    id,
+                    "genos_a_team_preview requires two or three subsystems.".into(),
+                );
+            }
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_a_team_preview requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("dispatch_team".into()));
+                object.insert("project_goal".into(), Value::String(project_goal));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+                if let Ok(workspace) = env::var("GENOS_WORKSPACE_ROOT") {
+                    object.insert("workspace_root".into(), Value::String(workspace));
+                }
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_delegate_worker" {
             let Some(mission) = arguments
                 .get("mission")
                 .and_then(Value::as_str)
@@ -633,6 +695,21 @@ mod tests {
         assert_eq!(tool.name, "genos_delegate_worker");
         assert_eq!(tool.meta["genos/authority"], "orchestrator");
         assert_eq!(tool.input_schema["required"], json!(["mission"]));
+    }
+
+    #[test]
+    fn a_team_tool_requires_multiple_domains_and_orchestrator_authority() {
+        let tool = a_team_tool();
+        assert_eq!(tool.name, "genos_a_team_preview");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(
+            tool.input_schema["properties"]["sub_systems"]["minItems"],
+            2
+        );
+        assert_eq!(
+            tool.input_schema["properties"]["sub_systems"]["maxItems"],
+            3
+        );
     }
 
     #[tokio::test]

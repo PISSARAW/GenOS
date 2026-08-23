@@ -190,10 +190,11 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 ## 11. Swarm Orchestration
 
 ### `genos_a_team_preview`
-**Description**: Dynamically provisions an elite GenOS A-Team (Swarm) to tackle a complex project.
+**Description**: Provisions a bounded GenOS A-Team when a mission spans at least two distinct competency domains. The control plane can also compose it automatically from mission analysis.
 **Parameters**:
 - `project_goal` *(string)*: Detailed description of the final objective.
-- `sub_systems` *(array of strings)*: List of decoupled subsystems.
-- `assigned_roles` *(array of strings)*: Tailored roles to create. Must include `telemetry_observer`.
-- `enforce_genos_rules` *(boolean)*: Forces agents to strictly respect GenOS constraints (max 400 lines/file, max 3 params/function).
-**Usage**: Allows the Lead Agent to simulate the `/teamwork-preview` behavior by delegating the project into a highly organized multi-agent Swarm.
+- `sub_systems` *(array of 2–3 strings)*: Distinct, bounded competency domains.
+- `assigned_roles` *(array of strings)*: Specialist roles aligned with the subsystems.
+- `model_tiers` *(array of strings)*: Optional model tiers aligned with the subsystems.
+- `enforce_genos_rules` *(boolean)*: Retained for compatibility; isolation, evidence, budgets, and leases are always enforced.
+**Usage**: The orchestrator receives the tool only through its lease. Each member occupies one of the three garage slots, inherits the root mission's execution policy, works in an isolated capsule, and returns evidence to the orchestrator. Workers cannot compose another A-Team.

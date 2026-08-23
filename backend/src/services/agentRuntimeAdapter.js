@@ -22,9 +22,10 @@ const actionExecutor = require('./orchestrationActionExecutor');
 const localCodeWorker = require('./localCodeWorkerService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
-const { selectSurvivors } = require('./tokenAllocationService');
+const { buildAllocation, selectSurvivors } = require('./tokenAllocationService');
 const agentCapsules = require('./agentCapsuleService');
 const workerGarage = require('./workerGarageService');
+const aTeamService = require('./aTeamService');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
@@ -167,7 +168,7 @@ function orchestratorToolLease(plan = {}) {
     'genos_record_experience', 'genos_record_decision', 'genos_replay',
     'genos_adversarial_review', 'genos_compile_memory',
     'genos_resilience_hypermutation', 'genos_security_coevolution',
-    'genos_parasitic_pressure', 'genos_delegate_worker'
+    'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview'
   ];
   return [...new Set([...core, ...(plan.requiredTools || [])])]
     .filter((tool) => tool !== 'genos_orchestrate');
@@ -383,6 +384,29 @@ async function startMissionInternal(mission) {
     ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
     : null;
   if (autonomyPlan) {
+    autonomyPlan.aTeam = aTeamService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
+    const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
+    const affordableAteamMembers = Math.floor(
+      (autonomyPlan.tokenPolicy.total * 0.6) / autonomyPlan.tokenPolicy.minimumWorkerTokens
+    );
+    autonomyPlan.aTeam.activated = autonomyPlan.aTeam.recommended && affordableAteamMembers >= aTeamWorkerCount;
+    if (autonomyPlan.aTeam.activated) {
+      autonomyPlan.workers = autonomyPlan.aTeam.members;
+      autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
+      autonomyPlan.tokenPolicy.workerShare = 0.6;
+      autonomyPlan.tokenPolicy.orchestratorReserve = 0.4;
+      autonomyPlan.tokenPolicy.rounds = buildAllocation({
+        totalTokens: autonomyPlan.tokenPolicy.total,
+        workerShare: autonomyPlan.tokenPolicy.workerShare,
+        workerCount: aTeamWorkerCount,
+        minimumWorkerTokens: autonomyPlan.tokenPolicy.minimumWorkerTokens,
+        mode: autonomyPlan.tokenPolicy.allocation
+      });
+      emit(agentId, 'A_TEAM_PLANNED', 'COMPOSE_TEAM', `Detected multidisciplinary mission across ${autonomyPlan.aTeam.detectedDomains.join(', ')}.`, autonomyPlan.aTeam, 'info');
+    } else if (autonomyPlan.aTeam.recommended) {
+      autonomyPlan.aTeam.reason = `The mission needs ${aTeamWorkerCount} specialists, but the token budget funds only ${affordableAteamMembers}.`;
+      emit(agentId, 'A_TEAM_SKIPPED', 'BUDGET_GUARD', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'warning');
+    }
     autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan);
     emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', autonomyPlan.localModelReview.consulted ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.` : 'No local model review was available; continuing with the frontier orchestrator.', autonomyPlan.localModelReview, autonomyPlan.localModelReview.consulted ? 'info' : 'warning');
   }
@@ -413,6 +437,12 @@ async function startMissionInternal(mission) {
   let autonomousWorkers = [];
   if (dispatchedAgent.execution_mode === 'orchestrator' && normalizedMission.autonomousOrchestration !== false) {
     autonomousWorkers = await createAutonomousWorkers(db, dispatchedAgent, autonomyPlan, normalizedMission);
+    if (autonomyPlan.aTeam?.activated && autonomousWorkers.length) {
+      emit(agentId, 'A_TEAM_COMPOSED', 'COMPOSE_TEAM', `Composed an A-Team with ${autonomousWorkers.length} specialized members.`, {
+        domains: autonomyPlan.aTeam.detectedDomains,
+        members: autonomousWorkers.map((worker) => ({ workerId: worker.agentId, name: worker.name, role: worker.role }))
+      }, 'info');
+    }
     for (const worker of autonomousWorkers) {
       emit(agentId, 'AUTONOMOUS_WORKER_CREATED', 'FORK', `Created autonomous worker '${worker.name}'.`, { workerId: worker.agentId, role: worker.role, tokenBudget: worker.executionBudget.tokens });
     }
