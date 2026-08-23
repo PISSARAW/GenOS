@@ -75,6 +75,16 @@ async function run() {
     assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length, 77);
     const workerId = deployed.body.agentId;
 
+    const missionNamed = await request('POST', '/api/deploy', {
+      executionMode: 'worker', parentAgentId: 'authority-orchestrator', workspaceId: workspace.id,
+      role: 'independent_reviewer', prompt: 'Verify token refresh race conditions'
+    });
+    assert.equal(missionNamed.status, 201);
+    assert.equal(missionNamed.body.agent.name, 'Verify · token refresh race conditions');
+    const garage = await request('GET', '/api/agents/authority-orchestrator/workers/garage');
+    assert.equal(garage.status, 200);
+    assert.deepEqual({ capacity: garage.body.capacity, occupied: garage.body.occupied, available: garage.body.available }, { capacity: 3, occupied: 0, available: 3 });
+
     const selfStart = await request('POST', `/api/agents/${workerId}/start`, {});
     assert.equal(selfStart.status, 409);
     assert.equal(selfStart.body.error.code, 'WORKER_REQUIRES_ORCHESTRATOR');

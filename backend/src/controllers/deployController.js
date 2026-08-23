@@ -5,6 +5,7 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const workerGarage = require('../services/workerGarageService');
 const strategyContracts = require('../services/strategyContractService');
 const agentAuthority = require('../services/agentAuthorityService');
 const fs = require('fs');
@@ -90,7 +91,9 @@ async function deployAgent(req, res) {
     return res.status(400).json({ error: { code: error.code, message: error.message } });
   }
   const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const agentName = name || `Swarm Worker ${agentId.slice(-4)}`;
+  const agentName = name || (executionMode === 'worker'
+    ? workerGarage.workerName({ role, mission: prompt })
+    : `GenOS Orchestrator ${agentId.slice(-4)}`);
   const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
@@ -538,9 +541,10 @@ async function startAgent(req, res) {
 async function dispatchWorker(req, res) {
   const { id: orchestratorId, workerId } = req.params;
   const db = await getDatabase();
+  let slotReserved = false;
   try {
     const orchestrator = await agentAuthority.requireOrchestrator(db, orchestratorId);
-    const worker = await db.get(`SELECT a.id, a.name, a.role, a.current_task as prompt, a.model_tier as modelTier,
+    const worker = await db.get(`SELECT a.id, a.name, a.role, a.status, a.current_task as prompt, a.model_tier as modelTier,
       a.isolation_mode as workspaceIsolation, a.workspace_id as workspaceId, w.path as workspaceRoot,
       a.fleet_id as fleetId, a.agent_type as agentType, a.execution_mode as executionMode,
       a.parent_agent_id as parentAgentId
@@ -548,6 +552,19 @@ async function dispatchWorker(req, res) {
     if (!worker) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Worker '${workerId}' was not found.` } });
     if (worker.executionMode !== 'worker') return res.status(409).json({ error: { code: 'WORKER_REQUIRED', message: `Agent '${workerId}' is an orchestrator; dispatch it through its own start endpoint.` } });
     if (worker.parentAgentId !== orchestrator.id) return res.status(409).json({ error: { code: 'WORKER_ORCHESTRATOR_MISMATCH', message: `Worker '${worker.name}' is not assigned to '${orchestrator.id}'.` } });
+    const prompt = String(req.body?.prompt || req.body?.mission || worker.prompt || '').trim();
+    const role = String(req.body?.role || worker.role || 'worker').trim();
+    const name = String(req.body?.name || workerGarage.workerName({ role, mission: prompt })).trim();
+    const garageState = await workerGarage.reserveSlot(db, {
+      orchestratorId: orchestrator.id,
+      workerId: worker.id,
+      name,
+      role,
+      mission: prompt || worker.prompt
+    });
+    slotReserved = garageState.reserved;
+    const slot = garageState.slot;
+    Object.assign(worker, { name, role, prompt: prompt || worker.prompt });
     let strategyContract = await strategyContracts.getLatestContract(db, orchestrator.id);
     if (!strategyContract) {
       strategyContract = await strategyContracts.saveContract(db, {
@@ -565,12 +582,25 @@ async function dispatchWorker(req, res) {
     });
     telemetry.emitEvent({
       eventType: 'ORCHESTRATOR_DISPATCHED_WORKER', agentId: orchestrator.id, action: 'DISPATCH',
-      detail: `Dispatched worker '${worker.name}'.`, payload: { workerId: worker.id, strategyContractId: strategyContract.id }, severity: 'info'
+      detail: `Dispatched worker '${worker.name}' into garage slot ${slot}/${garageState.capacity}.`,
+      payload: { workerId: worker.id, slot, capacity: garageState.capacity, strategyContractId: strategyContract.id }, severity: 'info'
     });
-    res.json({ success: true, orchestratorId: orchestrator.id, workerId: worker.id, strategyContract, ...result });
+    res.json({ success: true, orchestratorId: orchestrator.id, workerId: worker.id, workerName: worker.name, garage: { slot, capacity: garageState.capacity }, strategyContract, ...result });
   } catch (error) {
+    if (slotReserved) await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", workerId).catch(() => {});
     const status = ['ORCHESTRATOR_NOT_FOUND'].includes(error.code) ? 404 : 409;
-    res.status(status).json({ error: { code: error.code || 'WORKER_DISPATCH_FAILED', message: error.message } });
+    res.status(status).json({ error: { code: error.code || 'WORKER_DISPATCH_FAILED', message: error.message, garage: error.garage } });
+  }
+}
+
+async function getWorkerGarage(req, res) {
+  const db = await getDatabase();
+  try {
+    const orchestrator = await agentAuthority.requireOrchestrator(db, req.params.id);
+    res.json({ orchestratorId: orchestrator.id, ...(await workerGarage.state(db, orchestrator.id)) });
+  } catch (error) {
+    const status = error.code === 'ORCHESTRATOR_NOT_FOUND' ? 404 : 409;
+    res.status(status).json({ error: { code: error.code || 'WORKER_GARAGE_FAILED', message: error.message } });
   }
 }
 
@@ -588,6 +618,7 @@ module.exports = {
   pingAgent,
   ingestAgentEvent,
   startAgent,
+  getWorkerGarage,
   dispatchWorker,
   getStrategyContract,
   getStrategyContractHistory,

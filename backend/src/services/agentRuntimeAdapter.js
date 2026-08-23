@@ -27,6 +27,8 @@ const agentCapsules = require('./agentCapsuleService');
 const workerGarage = require('./workerGarageService');
 
 const activeProcesses = new Map();
+const missionStarts = new Map();
+const pendingContinuations = new Map();
 const autonomousRounds = new Map();
 
 function bundledRuntimeEnvironment() {
@@ -113,7 +115,42 @@ function autonomousWorkerId(orchestratorId, index) {
 }
 
 function evidenceScore(payload = {}) { const report = payload.evidenceReport || payload.report || {}; const claims = Array.isArray(report.claims) ? report.claims : []; return claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0) + claims.length * 2 - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0); }
-async function advanceAutonomousRound(mission, event) { const round = mission.budgetRound; if (round?.stage !== 'initial' || !['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED'].includes(event.eventType)) return; const state = autonomousRounds.get(round.orchestratorId); if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return; state.results.set(mission.agentId, { agentId: mission.agentId, status: event.eventType === 'AGENT_COMPLETED' ? 'completed' : 'failed', evidenceScore: evidenceScore(event.payload), payload: event.payload || {} }); if (state.results.size < state.workerIds.size) return; state.advanced = true; const continuation = state.plan.tokenPolicy.rounds?.continuation; const survivors = selectSurvivors([...state.results.values()], continuation?.survivorCount); emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches.`, { allocation: state.plan.tokenPolicy.allocation, initial: state.plan.tokenPolicy.rounds.initial, continuation, survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score })) }, 'info'); for (const survivor of survivors) { const previous = state.workers.get(survivor.agentId); const dossier = JSON.stringify(survivor.payload.evidenceReport || {}).slice(0, 8000); startMission({ ...previous, prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${continuation.perWorkerTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`, executionBudget: { ...previous.executionBudget, tokens: continuation.perWorkerTokens }, budgetRound: { stage: 'continuation', orchestratorId: round.orchestratorId } }).catch((error) => emit(round.orchestratorId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: survivor.agentId }, 'error')); } autonomousRounds.delete(round.orchestratorId); }
+async function advanceAutonomousRound(mission, event) {
+  const round = mission.budgetRound;
+  if (round?.stage !== 'initial' || !['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType)) return;
+  const state = autonomousRounds.get(round.orchestratorId);
+  if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return;
+  state.results.set(mission.agentId, {
+    agentId: mission.agentId,
+    status: event.eventType === 'AGENT_COMPLETED' ? 'completed' : 'failed',
+    evidenceScore: evidenceScore(event.payload),
+    payload: event.payload || {}
+  });
+  if (state.results.size < state.workerIds.size) return;
+  state.advanced = true;
+  const continuation = state.plan.tokenPolicy.rounds?.continuation;
+  const survivors = selectSurvivors([...state.results.values()], continuation?.survivorCount);
+  emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches.`, { allocation: state.plan.tokenPolicy.allocation, initial: state.plan.tokenPolicy.rounds.initial, continuation, survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score })) }, 'info');
+  for (const survivor of survivors) {
+    const previous = state.workers.get(survivor.agentId);
+    const dossier = JSON.stringify(survivor.payload.evidenceReport || {}).slice(0, 8000);
+    pendingContinuations.set(survivor.agentId, {
+      ...previous,
+      prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${continuation.perWorkerTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`,
+      executionBudget: { ...previous.executionBudget, tokens: continuation.perWorkerTokens },
+      budgetRound: { stage: 'continuation', orchestratorId: round.orchestratorId }
+    });
+  }
+  autonomousRounds.delete(round.orchestratorId);
+}
+
+function dispatchPendingContinuation(agentId) {
+  if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return;
+  const mission = pendingContinuations.get(agentId);
+  if (!mission) return;
+  pendingContinuations.delete(agentId);
+  startMission(mission).catch((error) => emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId }, 'error'));
+}
 
 function workerToolLease(role) {
   const lease = ['genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence', 'genos_snapshot', 'genos_run', 'genos_diff', 'genos_evaluate_trajectories', 'genos_record_experience', 'genos_replay'];
@@ -130,7 +167,7 @@ function orchestratorToolLease(plan = {}) {
     'genos_record_experience', 'genos_record_decision', 'genos_replay',
     'genos_adversarial_review', 'genos_compile_memory',
     'genos_resilience_hypermutation', 'genos_security_coevolution',
-    'genos_parasitic_pressure'
+    'genos_parasitic_pressure', 'genos_delegate_worker'
   ];
   return [...new Set([...core, ...(plan.requiredTools || [])])]
     .filter((tool) => tool !== 'genos_orchestrate');
@@ -252,6 +289,7 @@ async function runLocalWorker(db, mission, executionRun) {
     await updateAgent(mission.agentId, 'idle', 'Local review completed');
     const completed = emit(mission.agentId, 'AGENT_COMPLETED', codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW', codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, advice: result.text, proposal, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'idle');
     await strategyExecution.recordExecutionEvent(db, mission.agentId, completed);
+    await advanceAutonomousRound(mission, completed);
     const decision = decideFromEvent(completed);
     if (decision) {
       const ownerId = mission.orchestratorAgentId || mission.agentId;
@@ -263,6 +301,7 @@ async function runLocalWorker(db, mission, executionRun) {
     await updateAgent(mission.agentId, 'error', error.message);
     const failed = emit(mission.agentId, 'AGENT_FAILED', 'LOCAL_MODEL', error.message, { executionRunId: executionRun.id, model: mission.localModel }, 'warning', 'error');
     await strategyExecution.recordExecutionEvent(db, mission.agentId, failed);
+    await advanceAutonomousRound(mission, failed);
     return { started: false, executionRun, local: true, error: error.message };
   }
 }
@@ -287,7 +326,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`, plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.` : `Budget allocation: ${perWorkerTokens} tokens.`].join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
-       VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
+       VALUES (?, ?, ?, 'running', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
       id, name, assignment.role, parent.agent_type || 'GenOS',
       parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
       parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
@@ -305,13 +344,18 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   return workers;
 }
 
-async function startMission(mission) {
+async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
   const normalizedMission = { ...mission, agentId };
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable();
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  let contractRecord = await strategyContracts.getLatestContract(db, agentId);
+  if (!contractRecord && normalizedMission.orchestratorAgentId) {
+    contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId);
+  }
+  if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
   const runtimeEnvironment = bundledRuntimeEnvironment();
   const genosCapsule = await agentCapsules.provision({
@@ -333,12 +377,6 @@ async function startMission(mission) {
   // terminate a new mission.
   await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
   emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
-  if (activeProcesses.has(agentId)) return { started: true, duplicate: true };
-  let contractRecord = await strategyContracts.getLatestContract(db, agentId);
-  if (!contractRecord && normalizedMission.orchestratorAgentId) {
-    contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId);
-  }
-  if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
     ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
     : null;
@@ -446,12 +484,14 @@ async function startMission(mission) {
 
   let stdoutBuffer = Buffer.alloc(0);
   let stderrBuffer = '';
+  let terminalEventSeen = false;
   child.stdout.on('data', (chunk) => {
     stdoutBuffer = Buffer.concat([stdoutBuffer, chunk]);
     stdoutBuffer = decodeEvents(stdoutBuffer, (event) => {
       let payload = {};
       try { payload = event.payloadJson ? JSON.parse(event.payloadJson) : {}; } catch { payload = { raw: event.payloadJson }; }
       const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'idle' : undefined);
+      if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED'].includes(event.eventType)) terminalEventSeen = true;
       if (nextStatus || event.currentTask) updateAgent(agentId, nextStatus, event.currentTask).catch(() => {});
       emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
     });
@@ -467,15 +507,20 @@ async function startMission(mission) {
   child.on('error', async (error) => {
     activeProcesses.delete(agentId);
     if (termination) return;
+    terminalEventSeen = true;
     await updateAgent(agentId, 'error', error.message);
     emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
   child.on('close', async (code, signal) => {
     activeProcesses.delete(agentId);
+    await executionQueue;
     const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
     const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
-    await updateAgent(agentId, outcome.status, outcome.task);
-    emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+    if (!terminalEventSeen || termination || operatorStop) {
+      await updateAgent(agentId, outcome.status, outcome.task);
+      emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+      await executionQueue;
+    }
     if (dispatchedAgent.execution_mode === 'worker') {
       const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
       emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
@@ -485,6 +530,7 @@ async function startMission(mission) {
         available: garage?.available
       }, 'info');
     }
+    dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', mission.prompt);
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
@@ -509,10 +555,24 @@ async function startMission(mission) {
   // independent roots. They inherit the immutable strategy contract above.
   for (const worker of autonomousWorkers) {
     startMission({ ...worker, strategyContract: contractRecord.contract, autonomousOrchestration: false }).catch((error) => {
+      updateAgent(worker.agentId, 'error', error.message).catch(() => {});
       emit(agentId, 'AUTONOMOUS_WORKER_DISPATCH_FAILED', 'DISPATCH', error.message, { workerId: worker.agentId }, 'error');
+      advanceAutonomousRound(worker, { eventType: 'AGENT_RUNTIME_ERROR', payload: {}, detail: error.message }).catch(() => {});
     });
   }
   return { started: true, executionRun };
+}
+
+function startMission(mission) {
+  const agentId = mission.agentId || mission.id;
+  if (!agentId) return Promise.reject(new Error('agentId is required'));
+  if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
+  const start = startMissionInternal(mission).finally(() => {
+    missionStarts.delete(agentId);
+    dispatchPendingContinuation(agentId);
+  });
+  missionStarts.set(agentId, start);
+  return start;
 }
 
 function stopMission(agentId) {
