@@ -47,6 +47,9 @@ async function getDatabase(dbFilePath) {
 }
 
 async function closeDatabase() {
+  if (dbInitialization) {
+    try { await dbInitialization; } catch (_) {}
+  }
   if (dbInstance) {
     await dbInstance.close();
     dbInstance = null;
