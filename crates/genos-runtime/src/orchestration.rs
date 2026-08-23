@@ -6,7 +6,10 @@ use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashSet},
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
 };
 use tokio::{
     fs,
@@ -148,7 +151,11 @@ impl WorkflowStateStore for FileWorkflowStateStore {
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent).await?;
         }
-        let temporary = self.path.with_extension("json.tmp");
+        static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+        let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let temporary =
+            self.path
+                .with_extension(format!("json.{}.{}.tmp", std::process::id(), sequence));
         let mut file = fs::File::create(&temporary).await?;
         file.write_all(&serde_json::to_vec_pretty(state)?).await?;
         file.flush().await?;
@@ -228,6 +235,7 @@ impl WorkflowEngine {
         if state.input.is_null() {
             state.input = input;
         }
+        state.failed = None;
         let mut queue = std::mem::take(&mut state.current);
         if queue.is_empty() && state.completed.is_empty() {
             queue.push(self.workflow.entry.clone());
@@ -313,6 +321,15 @@ impl WorkflowEngine {
                     }
                 }
             }
+            let mut unique = HashSet::new();
+            queue.retain(|id| unique.insert(id.clone()));
+            queue.retain(|id| {
+                self.workflow
+                    .nodes
+                    .iter()
+                    .filter(|candidate| candidate.next.contains(id))
+                    .all(|parent| state.completed.contains(&parent.id))
+            });
             state.current = queue.clone();
             self.store.save(&state).await?;
         }
@@ -343,9 +360,14 @@ async fn run_node(
             }
         };
         let result = if let Some(timeout_ms) = node.timeout_ms {
-            timeout(Duration::from_millis(timeout_ms), run)
-                .await
-                .map_err(|_| anyhow::anyhow!("node {} timed out after {}ms", node.id, timeout_ms))?
+            match timeout(Duration::from_millis(timeout_ms), run).await {
+                Ok(result) => result,
+                Err(_) => Err(anyhow::anyhow!(
+                    "node {} timed out after {}ms",
+                    node.id,
+                    timeout_ms
+                )),
+            }
         } else {
             run.await
         };
@@ -377,6 +399,36 @@ pub fn validate_workflow(workflow: &Workflow) -> Result<()> {
             }
         }
     }
+    fn visit<'a>(
+        id: &'a str,
+        workflow: &'a Workflow,
+        visiting: &mut HashSet<&'a str>,
+        visited: &mut HashSet<&'a str>,
+    ) -> Result<()> {
+        if visited.contains(id) {
+            return Ok(());
+        }
+        if !visiting.insert(id) {
+            bail!("workflow contains a cycle at node {}", id);
+        }
+        let node = workflow
+            .nodes
+            .iter()
+            .find(|node| node.id == id)
+            .context("workflow node missing")?;
+        for next in &node.next {
+            visit(next, workflow, visiting, visited)?;
+        }
+        visiting.remove(id);
+        visited.insert(id);
+        Ok(())
+    }
+    visit(
+        &workflow.entry,
+        workflow,
+        &mut HashSet::new(),
+        &mut HashSet::new(),
+    )?;
     Ok(())
 }
 
@@ -473,6 +525,79 @@ mod tests {
         .unwrap();
         assert!(engine.run(Value::Null).await.unwrap().failed.is_none());
         assert_eq!(attempts.load(Ordering::SeqCst), 2);
+    }
+
+    struct TimeoutOnce {
+        attempts: Arc<AtomicUsize>,
+    }
+    #[async_trait]
+    impl WorkflowOperation for TimeoutOnce {
+        async fn run(&self, _: &WorkflowNode, _: &BTreeMap<String, Value>) -> Result<Value> {
+            if self.attempts.fetch_add(1, Ordering::SeqCst) == 0 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            Ok(Value::Bool(true))
+        }
+    }
+
+    #[tokio::test]
+    async fn timeout_is_retried_and_convergent_node_runs_once() {
+        let attempts = Arc::new(AtomicUsize::new(0));
+        let timeout_workflow = Workflow {
+            version: 1,
+            entry: "a".into(),
+            nodes: vec![WorkflowNode {
+                max_retries: 1,
+                timeout_ms: Some(2),
+                ..node("a", vec![])
+            }],
+        };
+        let engine = WorkflowEngine::new(
+            timeout_workflow,
+            Arc::new(TimeoutOnce {
+                attempts: attempts.clone(),
+            }),
+            Arc::new(MemoryWorkflowStateStore::new()),
+            1,
+        )
+        .unwrap();
+        assert!(engine.run(Value::Null).await.unwrap().failed.is_none());
+        assert_eq!(attempts.load(Ordering::SeqCst), 2);
+
+        let workflow = Workflow {
+            version: 1,
+            entry: "a".into(),
+            nodes: vec![
+                node("a", vec!["b", "c"]),
+                node("b", vec!["d"]),
+                node("c", vec!["d"]),
+                node("d", vec![]),
+            ],
+        };
+        let state = WorkflowEngine::new(
+            workflow,
+            Arc::new(Op),
+            Arc::new(MemoryWorkflowStateStore::new()),
+            4,
+        )
+        .unwrap()
+        .run(Value::Null)
+        .await
+        .unwrap();
+        assert_eq!(state.completed.len(), 4);
+    }
+
+    #[test]
+    fn cyclic_workflow_is_rejected() {
+        let workflow = Workflow {
+            version: 1,
+            entry: "a".into(),
+            nodes: vec![node("a", vec!["b"]), node("b", vec!["a"])],
+        };
+        assert!(validate_workflow(&workflow)
+            .unwrap_err()
+            .to_string()
+            .contains("cycle"));
     }
 
     #[tokio::test]
