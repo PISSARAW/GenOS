@@ -29,6 +29,7 @@ router.get('/agents/history', deployController.getAgentHistory);
 router.post('/agents/:id/ping', deployController.pingAgent);
 router.post('/agents/:id/events', requirePermission('workspace:write'), deployController.ingestAgentEvent);
 router.post('/agents/:id/start', requirePermission('workspace:write'), deployController.startAgent);
+router.get('/agents/:id/workers/garage', deployController.getWorkerGarage);
 router.post('/agents/:id/workers/:workerId/dispatch', requirePermission('workspace:write'), deployController.dispatchWorker);
 router.post('/agents/spawn', requirePermission('workspace:write'), deployController.deployAgent);
 
