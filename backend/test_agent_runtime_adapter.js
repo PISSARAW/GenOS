@@ -13,6 +13,9 @@ try {
     path.resolve(__dirname, 'bin/genos-agent-runtime.cjs')
   );
   assert(fs.existsSync(defaultExecutable), 'bundled GenOS runtime must exist');
+  const environment = adapter.bundledRuntimeEnvironment();
+  assert.strictEqual(environment.GENOS_BIN, path.resolve(__dirname, '../target/debug/genos'));
+  assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, '../target/debug/genos-mcp'));
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');

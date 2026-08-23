@@ -27,6 +27,15 @@ const { selectSurvivors } = require('./tokenAllocationService');
 const activeProcesses = new Map();
 const autonomousRounds = new Map();
 
+function bundledRuntimeEnvironment() {
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  return {
+    GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
+    GENOS_MCP_BIN: process.env.GENOS_MCP_BIN || path.join(repositoryRoot, 'target/debug/genos-mcp'),
+    GENOS_ORCHESTRATOR_BRIDGE: process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repositoryRoot, 'backend/bin/genos-orchestrate.cjs')
+  };
+}
+
 function configuredExecutable() {
   const configured = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
   if (configured) return configured;
@@ -45,9 +54,13 @@ function runtimeAvailability() {
   if (path.basename(executable) !== 'genos-agent-runtime.cjs') return { available: true };
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
   const probe = spawnSync(codex, ['--version'], { stdio: 'ignore', timeout: 3000 });
-  return probe.status === 0
-    ? { available: true }
-    : { available: false, reason: `Codex executor is unavailable: ${codex}` };
+  if (probe.status !== 0) return { available: false, reason: `Codex executor is unavailable: ${codex}` };
+  const runtime = bundledRuntimeEnvironment();
+  const missing = [runtime.GENOS_BIN, runtime.GENOS_MCP_BIN].filter((file) => !fsSync.existsSync(file));
+  if (missing.length) {
+    return { available: false, reason: `GenOS runtime binaries are unavailable: ${missing.join(', ')}. Build genos-cli and genos-mcp first.` };
+  }
+  return { available: true };
 }
 
 function resolveExecutable(executable, workspaceRoot) {
@@ -333,7 +346,11 @@ async function startMission(mission) {
   // the repository root or from backend/.
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
-  const child = spawn(resolvedExecutable, [], { cwd: workspaceRoot, env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot }, stdio: ['pipe', 'pipe', 'pipe'] });
+  const child = spawn(resolvedExecutable, [], {
+    cwd: workspaceRoot,
+    env: { ...process.env, ...bundledRuntimeEnvironment(), GENOS_WORKSPACE_ROOT: workspaceRoot },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
   activeProcesses.set(agentId, child);
   // This marker distinguishes a deliberate control-plane stop from a runtime
   // failure.  SIGTERM makes a child exit non-zero on many platforms, so the
@@ -460,4 +477,4 @@ function stopAllMissions() {
   return [...activeProcesses.keys()].filter(stopMission);
 }
 
-module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };
