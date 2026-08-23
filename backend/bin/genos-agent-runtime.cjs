@@ -6,6 +6,7 @@
  */
 const { spawn } = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 
@@ -62,6 +63,12 @@ process.stdin.on('end', () => {
   try { toolLease = JSON.parse(mission.toolLeaseJson || '[]'); } catch {}
   let genosCapsule = {};
   try { genosCapsule = JSON.parse(mission.genosCapsuleJson || '{}'); } catch {}
+  let executionPolicy = {};
+  try { executionPolicy = JSON.parse(mission.executionPolicyJson || '{}'); } catch {}
+  const allowedCommands = Array.isArray(executionPolicy.allowedCommands)
+    ? [...new Set(executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
+    : [];
+  const allowFileEdits = executionPolicy.allowFileEdits === true;
   const isWorker = mission.executionMode === 'worker';
   const executionMode = isWorker ? 'worker' : 'orchestrator';
   const orchestratorAgentId = mission.orchestratorAgentId || mission.agentId || '';
@@ -89,6 +96,7 @@ process.stdin.on('end', () => {
     genosCapsule.id
       ? `Your active GenOS capsule is ${genosCapsule.id}. For capsule tools, pass capsule_id=${genosCapsule.id} and root=${genosCapsule.root}. This capsule was created by the control plane; do not invent or replace its identity.`
       : '',
+    `Execution policy: file edits are ${allowFileEdits ? 'allowed inside this capsule' : 'not allowed'}; the only authorized shell commands are ${allowedCommands.length ? allowedCommands.map((command) => JSON.stringify(command)).join(', ') : 'none'}. Do not attempt any other shell command, including discovery or Git commands.`,
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
@@ -99,13 +107,25 @@ process.stdin.on('end', () => {
   // turn a delegated branch into a new root orchestration. Authentication is
   // still loaded by Codex; the leased GenOS server below is the only MCP server
   // configured for this isolated runtime.
-  const args = ['exec', '--json', '--ephemeral', '--ignore-user-config', '--skip-git-repo-check'];
+  const hostCodexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
+  const isolatedCodexHome = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-codex-'));
+  const hostAuth = path.join(hostCodexHome, 'auth.json');
+  if (fs.existsSync(hostAuth)) fs.copyFileSync(hostAuth, path.join(isolatedCodexHome, 'auth.json'));
+  fs.writeFileSync(path.join(isolatedCodexHome, 'config.toml'), '[features]\nhooks = true\n', { mode: 0o600 });
+  const policyHook = path.resolve(__dirname, 'genos-pre-tool-policy.cjs');
+  fs.writeFileSync(path.join(isolatedCodexHome, 'hooks.json'), JSON.stringify({
+    description: 'Enforce the execution policy attached to a GenOS mission.',
+    hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
+  }), { mode: 0o600 });
+  const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
   if (fs.existsSync(mcpBinary) && fs.existsSync(genosBinary)) {
     args.push(
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
       '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
+      '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
@@ -118,14 +138,23 @@ process.stdin.on('end', () => {
     cwd: workspace,
     env: {
       ...process.env,
+      CODEX_HOME: isolatedCodexHome,
       GENOS_EXECUTION_MODE: executionMode,
-      GENOS_ORCHESTRATOR_AGENT_ID: orchestratorAgentId
+      GENOS_ORCHESTRATOR_AGENT_ID: orchestratorAgentId,
+      GENOS_ALLOWED_COMMANDS_JSON: JSON.stringify(allowedCommands),
+      GENOS_ALLOW_FILE_EDITS: allowFileEdits ? 'true' : 'false'
     },
     stdio: ['pipe', 'pipe', 'pipe']
   });
   let buffer = '';
   let stderr = '';
   let finalReportText = '';
+  let cleanedUp = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    fs.rmSync(isolatedCodexHome, { recursive: true, force: true });
+  };
   // The plan exposes every relevant GenOS primitive, but a low-risk mission
   // must not invoke all of them merely to satisfy telemetry. Only a future
   // explicitly-declared mandatory set is a completion invariant.
@@ -173,6 +202,7 @@ process.stdin.on('end', () => {
   child.on('error', (error) => {
     emit({ eventType: 'AGENT_RUNTIME_ERROR', action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
     process.exitCode = 1;
+    cleanup();
   });
   child.on('close', (code, signal) => {
     const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
@@ -193,5 +223,6 @@ process.stdin.on('end', () => {
     }
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     if (process.exitCode === undefined) process.exitCode = code || 0;
+    cleanup();
   });
 });
