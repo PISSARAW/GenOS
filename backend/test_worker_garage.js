@@ -46,6 +46,24 @@ async function run() {
     await db.run("UPDATE agents SET current_task = 'Runtime halted: operator request' WHERE id = 'garage-worker-4'");
     current = await garage.state(db, 'garage-root');
     assert.equal(current.available, 1, 'the slot is free after the runtime has exited');
+
+    await db.run("UPDATE agents SET role = 'independent_reviewer', about = 'Worker scope: token refresh race conditions', name = 'Verify · token refresh race conditions', status = 'idle' WHERE id = 'garage-worker-2'");
+    const reusable = await garage.findReusableWorker(db, 'garage-root', {
+      role: 'independent_reviewer', mission: 'Audit the token refresh race condition'
+    });
+    assert.equal(reusable.id, 'garage-worker-2', 'an idle specialist is revived for a mission in its scope');
+    assert.deepEqual(reusable.affinity.shared.sort(), ['condition', 'race', 'refresh', 'token']);
+
+    const unrelated = await garage.findReusableWorker(db, 'garage-root', {
+      role: 'independent_reviewer', mission: 'Audit invoice rounding and VAT totals'
+    });
+    assert.equal(unrelated, null, 'an idle specialist is not reused outside its scope');
+
+    await db.run("UPDATE agents SET status = 'running' WHERE id = 'garage-worker-2'");
+    const active = await garage.findReusableWorker(db, 'garage-root', {
+      role: 'independent_reviewer', mission: 'Audit the token refresh race condition'
+    });
+    assert.equal(active, null, 'an active specialist cannot be revived a second time');
   } finally {
     await closeDatabase();
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

@@ -1,5 +1,12 @@
 const MAX_ACTIVE_WORKERS = 3;
 
+const MISSION_STOP_WORDS = new Set([
+  'agent', 'worker', 'scope', 'mission', 'task', 'work', 'assigned', 'delegated',
+  'the', 'and', 'for', 'from', 'with', 'into', 'this', 'that', 'une', 'des',
+  'les', 'dans', 'pour', 'avec', 'sur', 'par', 'qui', 'que', 'est', 'faire',
+  'implementation', 'implement', 'review', 'verify', 'audit', 'investigate'
+]);
+
 function humanize(value) {
   return String(value || '')
     .replace(/[_-]+/g, ' ')
@@ -27,6 +34,73 @@ function workerName({ role, hypothesis, mission, label } = {}) {
   let subject = compactMission(hypothesis || mission || label);
   if (subject.toLowerCase().startsWith(`${verb.toLowerCase()} `)) subject = subject.slice(verb.length).trim();
   return `${verb} · ${subject}`;
+}
+
+function missionTokens(value) {
+  return humanize(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.length > 4 && token.endsWith('ies')
+      ? `${token.slice(0, -3)}y`
+      : token.length > 4 && token.endsWith('s') ? token.slice(0, -1) : token)
+    .filter((token) => token.length >= 3 && !MISSION_STOP_WORDS.has(token));
+}
+
+function roleFamily(role) {
+  const normalized = humanize(role).toLowerCase();
+  if (/red team|attack|offensive/.test(normalized)) return 'security_attack';
+  if (/blue team|defen|hardening/.test(normalized)) return 'security_defense';
+  if (/review|observer|verif|audit|test|qa/.test(normalized)) return 'verification';
+  if (/implement|coder|developer|engineer/.test(normalized)) return 'implementation';
+  if (/research|investig|analys|diagnos/.test(normalized)) return 'investigation';
+  return 'generic';
+}
+
+function missionAffinity(mission, scope) {
+  const missionSet = new Set(missionTokens(mission));
+  const scopeSet = new Set(missionTokens(scope));
+  const shared = [...missionSet].filter((token) => scopeSet.has(token));
+  if (!missionSet.size || !scopeSet.size) return { matches: false, score: 0, shared };
+  const missionCoverage = shared.length / missionSet.size;
+  const scopeCoverage = shared.length / scopeSet.size;
+  const singleSpecificMatch = shared.length === 1
+    && Math.min(missionSet.size, scopeSet.size) === 1
+    && shared[0].length >= 5;
+  const matches = shared.length >= 2 && (missionCoverage >= 0.4 || scopeCoverage >= 0.4) || singleSpecificMatch;
+  return {
+    matches,
+    score: matches ? shared.length * 10 + missionCoverage * 3 + scopeCoverage : 0,
+    shared
+  };
+}
+
+function reuseAffinity(worker, { mission, role } = {}) {
+  if (!worker) return null;
+  const requestedFamily = roleFamily(role);
+  const workerFamily = roleFamily(worker.role);
+  if (requestedFamily !== 'generic' && workerFamily !== requestedFamily) return null;
+  const affinity = missionAffinity(mission, `${worker.about || ''} ${worker.name || ''}`);
+  return affinity.matches ? affinity : null;
+}
+
+async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
+  const workers = await db.all(
+    `SELECT id, name, role, about, current_task as currentTask, model_tier as modelTier,
+            language, isolation_mode as isolationMode, created_at as createdAt
+     FROM agents
+     WHERE parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'
+     ORDER BY updated_at DESC, created_at DESC, id`,
+    orchestratorId
+  );
+  return workers
+    .map((worker) => {
+      const affinity = reuseAffinity(worker, { mission, role });
+      return affinity ? { ...worker, affinity } : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.affinity.score - left.affinity.score)[0] || null;
 }
 
 async function state(db, orchestratorId) {
@@ -90,4 +164,14 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
   };
 }
 
-module.exports = { MAX_ACTIVE_WORKERS, workerName, state, requireAvailableSlot, reserveSlot };
+module.exports = {
+  MAX_ACTIVE_WORKERS,
+  workerName,
+  missionTokens,
+  missionAffinity,
+  reuseAffinity,
+  findReusableWorker,
+  state,
+  requireAvailableSlot,
+  reserveSlot
+};
