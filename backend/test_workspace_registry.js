@@ -32,16 +32,16 @@ try {
   assert.strictEqual(isPathWithinRoot(root, rustProject), true);
   assert.strictEqual(isPathWithinRoot(root, path.resolve(root, '..')), false);
 
-  const rowsByName = new Map();
+  const rowsById = new Map();
   const database = {
     async run(_sql, id, name, workspacePath, description) {
-      const existing = rowsByName.get(name);
-      rowsByName.set(name, existing
+      const existing = rowsById.get(id);
+      rowsById.set(id, existing
         ? { ...existing, path: workspacePath, language: 'Mixed' }
         : { id, name, path: workspacePath, language: 'Mixed', description });
     },
-    async get(_sql, name) {
-      return rowsByName.get(name);
+    async get(_sql, id) {
+      return rowsById.get(id);
     }
   };
   syncWorkspaceRegistry(database, root).then((registered) => {

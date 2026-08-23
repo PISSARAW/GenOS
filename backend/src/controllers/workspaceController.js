@@ -3,6 +3,7 @@
  */
 
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 const { execFile } = require('child_process');
 const { promisify } = require('util');
@@ -137,13 +138,17 @@ async function createWorkspace(req, res) {
     return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name is required' } });
   }
 
-  const id = `ws-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-  const wsPath = path.join(WORKSPACES_ROOT, name);
-
   const db = await getDatabase();
   if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !req.tenant) {
     return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
   }
+  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const tenantKey = req.tenant ? `${req.tenant.organizationId}:${req.tenant.projectId}` : '';
+  const suffix = tenantKey ? `-${crypto.createHash('sha256').update(tenantKey).digest('hex').slice(0, 8)}` : '';
+  const id = `ws-${slug}${suffix}`;
+  const wsPath = req.tenant
+    ? path.join(WORKSPACES_ROOT, '.genos-tenants', req.tenant.organizationId.replace(/[^a-zA-Z0-9._-]/g, '_'), req.tenant.projectId.replace(/[^a-zA-Z0-9._-]/g, '_'), name)
+    : path.join(WORKSPACES_ROOT, name);
 
   try {
     if (!fs.existsSync(wsPath)) {
@@ -156,7 +161,8 @@ async function createWorkspace(req, res) {
   }
 
   await db.run(
-    `INSERT OR REPLACE INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET name=excluded.name, path=excluded.path, visibility=excluded.visibility, language=excluded.language, description=excluded.description, tags=excluded.tags, updated_at=CURRENT_TIMESTAMP`,
     id, name, wsPath, visibility, language, description, JSON.stringify([language.toLowerCase()]), req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
 
