@@ -246,6 +246,8 @@ async function testCircuitBreakerStateMachine() {
   circuitBreaker.lastStateChange = Date.now() - 65000;
   const halfOpenState = circuitBreaker.checkState();
   assert(halfOpenState === 'HALF-OPEN', 'Circuit breaker transitioned to HALF-OPEN after cooldown');
+  const canary = circuitBreaker.canExecute('genos_run', 'admin');
+  assert(canary.allowed === true, 'Exactly one destructive canary admitted in HALF-OPEN mode');
 
   circuitBreaker.recordSuccess('genos_run');
   assert(circuitBreaker.getStatus().state === 'CLOSED' && circuitBreaker.getStatus().failureCount === 0, 'Canary success reset Breaker to CLOSED');
@@ -258,6 +260,7 @@ async function testCircuitBreakerStateMachine() {
   circuitBreaker.lastStateChange = Date.now() - 65000;
   circuitBreaker.checkState();
   assert(circuitBreaker.getStatus().state === 'HALF-OPEN', 'In HALF-OPEN mode');
+  circuitBreaker.canExecute('genos_run', 'admin');
 
   circuitBreaker.recordFailure('genos_run', 'Canary failed');
   assert(circuitBreaker.getStatus().state === 'OPEN', 'Canary failure in HALF-OPEN immediately tripped to OPEN');
