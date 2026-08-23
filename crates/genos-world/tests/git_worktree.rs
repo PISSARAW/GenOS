@@ -1,4 +1,4 @@
-﻿//! Git-worktree-backed world provider tests. Skipped if `git` is unavailable.
+//! Git-worktree-backed world provider tests. Skipped if `git` is unavailable.
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{
@@ -91,8 +91,20 @@ async fn git_worktree_forked_worlds_write_the_same_file_differently() -> anyhow:
 
     let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo)?;
     let parent = provider.create(AgentId::new(), BranchId::new()).await?;
+    let parent_path = provider.world_path(&parent)?;
+    write_file(&parent_path.join("hello.txt"), "dirty tracked")?;
+    write_file(&parent_path.join("untracked.txt"), "dirty untracked")?;
     let snapshot = provider.snapshot(parent.clone()).await?;
     let forks = provider.fork_many(snapshot, 2).await?;
+
+    assert_eq!(
+        read_file(&provider.world_path(&forks[0])?.join("hello.txt"))?,
+        "dirty tracked"
+    );
+    assert_eq!(
+        read_file(&provider.world_path(&forks[0])?.join("untracked.txt"))?,
+        "dirty untracked"
+    );
 
     provider
         .write_file(&forks[0], "hello.txt", "bonjour")
@@ -102,7 +114,7 @@ async fn git_worktree_forked_worlds_write_the_same_file_differently() -> anyhow:
     let report = check_file_isolation(
         &provider,
         "hello.txt",
-        &WorldFileExpectation::holds(&parent, "hello"),
+        &WorldFileExpectation::holds(&parent, "dirty tracked"),
         &[
             WorldFileExpectation::holds(&forks[0], "bonjour"),
             WorldFileExpectation::holds(&forks[1], "hola"),
