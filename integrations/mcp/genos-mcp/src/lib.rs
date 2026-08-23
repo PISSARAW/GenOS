@@ -63,7 +63,10 @@ fn orchestrator_tool() -> ToolSpec {
         input_schema: json!({"type":"object","additionalProperties":false,"properties":{
             "task":{"type":"string","description":"Mission on the first call."},
             "operation":{"type":"string","description":"Leased GenOS operation for this decision gate."},
-            "arguments":{"type":"object","description":"Arguments for the leased operation."}
+            "arguments":{"type":"object","description":"Arguments for the leased operation."},
+            "allowed_commands":{"type":"array","items":{"type":"string"},"description":"Exact shell commands authorized for the whole mission. Every other shell command is denied synchronously."},
+            "allow_file_edits":{"type":"boolean","description":"Whether agents may edit files inside their isolated capsules. Defaults to false."},
+            "autonomous_orchestration":{"type":"boolean","description":"Whether the root orchestrator may dispatch its bounded worker fleet. Defaults to true."}
         },"required":[]}),
         output_schema: json!({"type":"object"}),
         annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
@@ -431,7 +434,11 @@ async fn authenticated_mcp_http(
         .get("authorization")
         .and_then(|value| value.to_str().ok());
     if supplied != Some(expected.as_str()) {
-        return (StatusCode::UNAUTHORIZED, Json(json!({"error": "unauthorized"}))).into_response();
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(json!({"error": "unauthorized"})),
+        )
+            .into_response();
     }
     mcp_http(State(state.server), Json(request)).await
 }

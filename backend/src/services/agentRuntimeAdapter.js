@@ -24,6 +24,7 @@ const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
 const { selectSurvivors } = require('./tokenAllocationService');
 const agentCapsules = require('./agentCapsuleService');
+const workerGarage = require('./workerGarageService');
 
 const activeProcesses = new Map();
 const autonomousRounds = new Map();
@@ -119,6 +120,20 @@ function workerToolLease(role) {
   if (/reviewer|observer/i.test(role || '')) lease.push('genos_adversarial_review');
   if (/red_team|blue_team/i.test(role || '')) lease.push('genos_security_coevolution');
   return lease;
+}
+
+function orchestratorToolLease(plan = {}) {
+  const core = [
+    'genos_search_failures', 'genos_diagnose', 'genos_hypothesis_evidence',
+    'genos_snapshot', 'genos_fork', 'genos_create', 'genos_solve', 'genos_run',
+    'genos_diff', 'genos_evaluate_trajectories', 'genos_merge',
+    'genos_record_experience', 'genos_record_decision', 'genos_replay',
+    'genos_adversarial_review', 'genos_compile_memory',
+    'genos_resilience_hypermutation', 'genos_security_coevolution',
+    'genos_parasitic_pressure'
+  ];
+  return [...new Set([...core, ...(plan.requiredTools || [])])]
+    .filter((tool) => tool !== 'genos_orchestrate');
 }
 
 function runCommand(command, args, { cwd, input } = {}) {
@@ -266,22 +281,24 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
+    const name = workerGarage.workerName({ ...assignment, mission: mission.prompt });
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(assignment.role);
     const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`, plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.` : `Budget allocation: ${perWorkerTokens} tokens.`].join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
        VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
-      id, `${parent.name} · ${assignment.label}`, assignment.role, parent.agent_type || 'GenOS',
+      id, name, assignment.role, parent.agent_type || 'GenOS',
       parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
       parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
       `Autonomous branch created by ${parent.name}. Budget round: initial; allocation: ${perWorkerTokens} tokens.`, prompt
     );
     workers.push({
-      agentId: id, name: `${parent.name} · ${assignment.label}`, role: assignment.role, prompt,
+      agentId: id, name, role: assignment.role, prompt,
       modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
       workspaceRoot, localModel: localRoute.selectedModel, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
+      executionPolicy: mission.executionPolicy,
       executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }
     });
   }
@@ -328,6 +345,15 @@ async function startMission(mission) {
   if (autonomyPlan) {
     autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan);
     emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', autonomyPlan.localModelReview.consulted ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.` : 'No local model review was available; continuing with the frontier orchestrator.', autonomyPlan.localModelReview, autonomyPlan.localModelReview.consulted ? 'info' : 'warning');
+  }
+  normalizedMission.executionPolicy = {
+    allowedCommands: Array.isArray(normalizedMission.executionPolicy?.allowedCommands)
+      ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
+      : [],
+    allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true
+  };
+  if (dispatchedAgent.execution_mode === 'orchestrator' && !normalizedMission.toolLease?.length) {
+    normalizedMission.toolLease = orchestratorToolLease(autonomyPlan || {});
   }
   const runtimeBudget = autonomyPlan
     ? {
@@ -388,7 +414,11 @@ async function startMission(mission) {
     executionQueue = executionQueue
       .then(() => strategyExecution.recordExecutionEvent(db, agentId, event))
       .then(async (decision) => {
-        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
+        // Codex reports aggregate usage on `turn.completed` (mapped to VERIFY).
+        // At that point the model has already produced its final report; record
+        // a budget breach on the execution run, but do not SIGTERM a completed
+        // turn and overwrite its result with AGENT_HALTED.
+        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType) || event.action === 'VERIFY';
         const observation = await hallucinationMonitor.recordObservation(db, event);
         if (observation.monitored && observation.detected) {
           emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
@@ -446,6 +476,15 @@ async function startMission(mission) {
     const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
     await updateAgent(agentId, outcome.status, outcome.task);
     emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+    if (dispatchedAgent.execution_mode === 'worker') {
+      const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
+      emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
+        workerId: agentId,
+        capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+        occupied: garage?.occupied,
+        available: garage?.available
+      }, 'info');
+    }
   });
   await updateAgent(agentId, 'running', mission.prompt);
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
@@ -463,7 +502,8 @@ async function startMission(mission) {
     orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
     autonomyPlanJson: JSON.stringify(autonomyPlan || {})
     ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
-    genosCapsuleJson: JSON.stringify(genosCapsule)
+    genosCapsuleJson: JSON.stringify(genosCapsule),
+    executionPolicyJson: JSON.stringify(normalizedMission.executionPolicy)
   }));
   // Dispatch after the parent mission is framed so workers cannot be mistaken for
   // independent roots. They inherit the immutable strategy contract above.
@@ -489,4 +529,4 @@ function stopAllMissions() {
   return [...activeProcesses.keys()].filter(stopMission);
 }
 
-module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease };
