@@ -3,10 +3,11 @@
  * The configured executable receives one framed protobuf mission on stdin and emits framed
  * protobuf events on stdout. Each event is forwarded to the Studio telemetry bus and agent state.
  */
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const os = require('os');
 const fs = require('fs/promises');
+const fsSync = require('fs');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const strategyExecution = require('./strategyExecutionService');
@@ -34,6 +35,19 @@ function configuredExecutable() {
   // here makes every launch path (npm, Studio, or an API test) behave the same
   // without requiring a separately managed environment file.
   return path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');
+}
+
+function runtimeAvailability() {
+  const executable = configuredExecutable();
+  if (path.isAbsolute(executable) && !fsSync.existsSync(executable)) {
+    return { available: false, reason: `Agent executor was not found: ${executable}` };
+  }
+  if (path.basename(executable) !== 'genos-agent-runtime.cjs') return { available: true };
+  const codex = process.env.CODEX_EXECUTABLE || 'codex';
+  const probe = spawnSync(codex, ['--version'], { stdio: 'ignore', timeout: 3000 });
+  return probe.status === 0
+    ? { available: true }
+    : { available: false, reason: `Codex executor is unavailable: ${codex}` };
 }
 
 function resolveExecutable(executable, workspaceRoot) {
@@ -437,4 +451,8 @@ function stopMission(agentId) {
   return true;
 }
 
-module.exports = { startMission, stopMission, configuredExecutable, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };
+function stopAllMissions() {
+  return [...activeProcesses.keys()].filter(stopMission);
+}
+
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore };

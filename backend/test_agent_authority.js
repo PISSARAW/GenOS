@@ -35,6 +35,11 @@ async function run() {
   const dbPath = path.resolve(__dirname, 'agent-authority-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
+  const workspace = { id: 'authority-workspace' };
+  await db.run(
+    `INSERT INTO workspaces (id, name, path, description) VALUES (?, ?, ?, ?)`,
+    workspace.id, 'Authority workspace', __dirname, 'Workspace for agent authority tests'
+  );
   await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, current_task)
     VALUES ('authority-orchestrator', 'Authority Orchestrator', 'Coordinator', 'idle', 'orchestrator', 'Repair a stateful defect')`);
   await contracts.saveContract(db, {
@@ -60,6 +65,7 @@ async function run() {
     const deployed = await request('POST', '/api/deploy', {
       executionMode: 'worker',
       parentAgentId: 'authority-orchestrator',
+      workspaceId: workspace.id,
       name: 'Bound Worker',
       prompt: 'Implement the assigned branch only'
     });

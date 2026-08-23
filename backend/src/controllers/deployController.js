@@ -94,6 +94,15 @@ async function deployAgent(req, res) {
   const resolvedAgentType = normalizeAgentType(agentType);
 
   const db = await getDatabase();
+  if (executionMode === 'worker' && !parentAgentId) {
+    return res.status(400).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: 'A worker must declare parentAgentId for its orchestrator.' } });
+  }
+  if (executionMode === 'orchestrator') {
+    const runtime = runtimeAdapter.runtimeAvailability();
+    if (!runtime.available) {
+      return res.status(503).json({ error: { code: 'AGENT_EXECUTOR_UNAVAILABLE', message: runtime.reason } });
+    }
+  }
   if (!workspaceId) {
     return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'Select a workspace before deploying an agent.' } });
   }
@@ -103,9 +112,6 @@ async function deployAgent(req, res) {
   }
   let inheritedStrategyContract = null;
   if (executionMode === 'worker') {
-    if (!parentAgentId) {
-      return res.status(400).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: 'A worker must declare parentAgentId for its orchestrator.' } });
-    }
     try {
       await agentAuthority.requireOrchestrator(db, parentAgentId);
       inheritedStrategyContract = await strategyContracts.getLatestContract(db, parentAgentId);
@@ -125,6 +131,12 @@ async function deployAgent(req, res) {
     `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     agentId, agentName, role, 'idle', resolvedAgentType, executionMode, workspaceId, fleetId, modelTier, language, workspaceIsolation, parentAgentId, lineageRelation, about || prompt || `Autonomous agent for ${role}.`, prompt || 'Autonomous task execution'
   );
+  if (executionMode === 'orchestrator') {
+    await db.run(
+      'INSERT OR REPLACE INTO agent_permissions (agent_id, permissions_json, denied_tools_json, taint_policy) VALUES (?, ?, ?, ?)',
+      agentId, JSON.stringify(['tool:execute']), JSON.stringify([]), 'block_external'
+    );
+  }
   const strategyContract = executionMode === 'orchestrator'
     ? await strategyContracts.saveContract(db, {
       agentId,
