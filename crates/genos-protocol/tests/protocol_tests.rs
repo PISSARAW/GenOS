@@ -94,6 +94,37 @@ fn security_tools_map_to_cli_arguments() {
 }
 
 #[test]
+fn adversarial_review_maps_boolean_value_for_clap() {
+    let planned = plan_tool_call(
+        "genos_adversarial_review",
+        &json!({
+            "target": "solution.js",
+            "critics": ["correctness"],
+            "rounds": 2,
+            "blind": false,
+            "root": ".genos"
+        }),
+    )
+    .unwrap();
+    assert_eq!(
+        planned.args,
+        [
+            "dev",
+            "adversarial-review",
+            "solution.js",
+            "--critic",
+            "correctness",
+            "--rounds",
+            "2",
+            "--blind",
+            "false",
+            "--root",
+            ".genos"
+        ]
+    );
+}
+
+#[test]
 fn fork_maps_to_distinct_process_arguments_without_shell_interpolation() {
     let planned = plan_tool_call(
         "genos_fork",
