@@ -23,7 +23,7 @@ function modelConfiguration(model) {
   return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, endpoint: endpointOverride }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), effectiveTimeout);
@@ -35,7 +35,12 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
     if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
     const endpointWithKey = provider === 'gemini' && !endpoint.includes('key=') ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}` : endpoint;
     const headers = provider === 'anthropic' ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } : { 'Content-Type': 'application/json', ...(provider === 'gemini' ? {} : (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})) };
-    const body = provider === 'anthropic' ? { model: modelName, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] } : provider === 'gemini' ? { contents: [{ parts: [{ text: prompt }] }] } : { model: modelName, messages: [{ role: 'user', content: prompt }], stream: false };
+    const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
+    const body = provider === 'anthropic'
+      ? { model: modelName, max_tokens: outputLimit || 2048, messages: [{ role: 'user', content: prompt }] }
+      : provider === 'gemini'
+        ? { contents: [{ parts: [{ text: prompt }] }], ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {}) }
+        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream: false, ...(outputLimit ? { max_tokens: outputLimit } : {}) };
     const response = await fetch(endpointWithKey, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
     if (!response.ok) throw new Error(`Model provider returned HTTP ${response.status}.`);
     const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.text || '').join('') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : (payload.choices?.[0]?.message?.content || '');

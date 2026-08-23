@@ -140,6 +140,16 @@ async function run() {
     assert.match(overBudget.run.guardrailReason, /tokens budget exceeded/);
     assert.equal((await strategyExecution.getRun(db, blockedRun.id)).status, 'blocked');
 
+    const activelyBlockedRun = await strategyExecution.createExecutionRun(db, {
+      agentId: 'agent-strategy-test', budget: { tokens: 1000, costUsd: 1, latencyMs: 60000, events: 20 }
+    });
+    const activelyBlocked = await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
+      eventType: 'BUDGET_EXHAUSTED', action: 'BUDGET_GUARD', detail: 'events budget exhausted during execution', payload: {}
+    });
+    assert.equal(activelyBlocked.halt, true);
+    assert.equal(activelyBlocked.run.status, 'blocked');
+    assert.equal((await strategyExecution.getRun(db, activelyBlockedRun.id)).status, 'blocked');
+
     await db.run(`INSERT INTO agents (id, name, role, status, workspace_id, current_task)
       VALUES ('agent-legacy-contract', 'Legacy Contract', 'Project Orchestrator', 'idle', 'strategy-workspace', 'Choose an architecture trade-off')`);
     const legacy = await request('POST', '/api/agents/agent-legacy-contract/strategy-contracts', {

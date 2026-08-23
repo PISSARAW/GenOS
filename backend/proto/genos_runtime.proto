@@ -18,6 +18,7 @@ message AgentMission {
   string tool_lease_json = 13;
   string genos_capsule_json = 14;
   string execution_policy_json = 15;
+  string execution_budget_json = 16;
 }
 
 message AgentEvent {

@@ -6,7 +6,7 @@ export interface Clone {
   id: string;
   name: string;
   role: string;
-  status: 'idle' | 'running' | 'blocked' | 'error' | 'terminated';
+  status: 'idle' | 'running' | 'completed' | 'blocked' | 'error' | 'terminated';
   agentType: 'GenOS' | 'Antigravity' | 'Codex' | 'ChatGPT' | 'Claude' | 'Other' | string;
   workspaceId?: string | null;
   workspaceName?: string | null;

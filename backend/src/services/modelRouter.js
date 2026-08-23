@@ -68,7 +68,7 @@ async function localRoutingPolicy(db, context, discovered = []) {
   };
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, onToken = () => {}, policy: suppliedPolicy }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy }) {
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   const configuredCandidates = candidateModels(model, policy);
   const candidates = configuredCandidates.length ? configuredCandidates : await localModelDiscovery.discoverChatModelUris();
@@ -81,6 +81,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       model: uri,
       prompt,
       timeoutMs,
+      maxTokens,
       endpoint: registered?.endpoint || undefined,
       onToken: (token) => onToken(token, uri)
     });

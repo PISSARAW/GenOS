@@ -25,6 +25,8 @@ assert.deepEqual(
 assert.equal(fiction.capabilityCoverage.ratio, 1);
 assert.deepEqual(fiction.capabilityCoverage.uncovered, []);
 assert.equal(fiction.members.some((member) => member.role === 'quality_engineer'), false);
+assert.deepEqual(fiction.members.map((member) => member.pipelineStage), [0, 1, 2]);
+assert.deepEqual(fiction.members[2].dependsOn, ['literary_creation', 'dramaturgy']);
 
 const explicitIntegration = aTeam.analyzeMission('Intégrer une interface React avec une API Express.');
 assert.equal(explicitIntegration.members.some((member) => member.role === 'integration_observer'), true);
