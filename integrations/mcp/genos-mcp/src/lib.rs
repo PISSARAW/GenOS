@@ -38,6 +38,48 @@ fn leased_operations() -> Option<Vec<String>> {
     (!values.is_empty()).then_some(values)
 }
 
+fn configured_allowed_commands() -> Vec<String> {
+    serde_json::from_str::<Vec<String>>(
+        &env::var("GENOS_ALLOWED_COMMANDS_JSON").unwrap_or_else(|_| "[]".into()),
+    )
+    .unwrap_or_default()
+    .into_iter()
+    .map(|command| command.trim().to_string())
+    .filter(|command| !command.is_empty())
+    .collect()
+}
+
+fn leased_run_authorization_error(
+    name: &str,
+    arguments: &Value,
+    leased: bool,
+    allowed_commands: &[String],
+) -> Option<String> {
+    if name != "genos_run" || !leased {
+        return None;
+    }
+    let command = arguments
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default();
+    if allowed_commands.iter().any(|allowed| allowed == command) {
+        None
+    } else {
+        Some(format!(
+            "Command '{command}' is outside this agent's explicit execution allowlist."
+        ))
+    }
+}
+
+fn mark_preauthorized_run(tool: &mut ToolSpec, allowed_commands: &[String]) {
+    if tool.name == "genos_run" && !allowed_commands.is_empty() {
+        tool.annotations.destructive_hint = false;
+        tool.annotations.open_world_hint = false;
+        tool.meta["genos/preauthorized"] = Value::Bool(true);
+    }
+}
+
 fn halt_file_exists() -> bool {
     let workspace = env::var_os("GENOS_WORKSPACE_ROOT")
         .map(PathBuf::from)
@@ -241,6 +283,10 @@ fn public_tool_specs() -> Vec<ToolSpec> {
             .into_iter()
             .filter(|tool| lease.contains(&tool.name))
             .collect();
+        let allowed_commands = configured_allowed_commands();
+        for tool in &mut tools {
+            mark_preauthorized_run(tool, &allowed_commands);
+        }
         if lease.contains(&"genos_delegate_worker".to_string()) {
             tools.push(delegate_worker_tool());
         }
@@ -432,6 +478,15 @@ impl McpServer {
             .get("arguments")
             .cloned()
             .unwrap_or_else(|| json!({}));
+        let lease = leased_operations();
+        if let Some(error) = leased_run_authorization_error(
+            name,
+            &arguments,
+            lease.is_some(),
+            &configured_allowed_commands(),
+        ) {
+            return tool_error(id, error);
+        }
         if name == "genos_orchestrate"
             && arguments.get("operation").is_none()
             && running_as_worker()
@@ -456,7 +511,7 @@ impl McpServer {
                 "GenOS worker authority blocked: only the owning orchestrator may dispatch workers or change their organization.".into(),
             );
         }
-        if let Some(lease) = leased_operations() {
+        if let Some(lease) = lease {
             if !lease.contains(&name.to_string()) {
                 return tool_error(
                     id,
@@ -1093,6 +1148,39 @@ mod tests {
         assert_eq!(publish.input_schema["required"], json!(["kind", "content"]));
         assert_eq!(organization_state_tool().annotations.read_only_hint, true);
         assert_eq!(worker_inbox_tool().annotations.read_only_hint, true);
+    }
+
+    #[test]
+    fn preauthorized_leased_run_is_non_destructive_but_still_exactly_scoped() {
+        let allowed = vec!["node --test smoke.test.js".to_string()];
+        let mut tool = tool_specs()
+            .into_iter()
+            .find(|tool| tool.name == "genos_run")
+            .unwrap();
+        assert!(tool.annotations.destructive_hint);
+        assert!(tool.annotations.open_world_hint);
+
+        mark_preauthorized_run(&mut tool, &allowed);
+        assert!(!tool.annotations.destructive_hint);
+        assert!(!tool.annotations.open_world_hint);
+        assert_eq!(tool.meta["genos/preauthorized"], true);
+        assert_eq!(
+            leased_run_authorization_error(
+                "genos_run",
+                &json!({"command": "node --test smoke.test.js"}),
+                true,
+                &allowed
+            ),
+            None
+        );
+        assert!(leased_run_authorization_error(
+            "genos_run",
+            &json!({"command": "node --test hidden.test.js"}),
+            true,
+            &allowed
+        )
+        .unwrap()
+        .contains("outside this agent's explicit execution allowlist"));
     }
 
     #[tokio::test]
