@@ -17,6 +17,24 @@ function validateGraph(graph) {
   edges.forEach((edge) => {
     if (!ids.has(edge.source) || !ids.has(edge.target)) errors.push(`Edge ${edge.id || '(unnamed)'} references an unknown node.`);
   });
+  const adjacency = new Map(nodes.map((node) => [node.id, []]));
+  edges.forEach((edge) => { if (adjacency.has(edge.source) && adjacency.has(edge.target)) adjacency.get(edge.source).push(edge.target); });
+  const visiting = new Set(); const visited = new Set();
+  const hasCycle = (id) => {
+    if (visiting.has(id)) return true;
+    if (visited.has(id)) return false;
+    visiting.add(id);
+    if ((adjacency.get(id) || []).some(hasCycle)) return true;
+    visiting.delete(id); visited.add(id); return false;
+  };
+  if (nodes.some((node) => hasCycle(node.id))) errors.push('Workflow graph must be acyclic.');
+  const validCondition = /^(?:true|false|input\.[\w-]+\s*={2,3}\s*["']?[^"']+["']?)$/i;
+  nodes.forEach((node) => {
+    const condition = node.when || node.data?.when;
+    if (condition && !validCondition.test(String(condition).trim())) errors.push(`Node ${node.id} has an unsupported condition.`);
+    const iterations = node.max_iterations ?? node.data?.maxIterations;
+    if (iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
+  });
   const incoming = new Set(edges.map((edge) => edge.target));
   // React Flow uses the built-in `input` node type for a trigger node,
   // while persisted graphs may use the domain-level `trigger` type.
@@ -58,6 +76,9 @@ async function createWorkflow(req, res, next) {
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const id = `wf-${crypto.randomUUID()}`;
     const s = scopeSql(req);
+    if (workspaceId && !await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params)) {
+      return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
+    }
     await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspaceId, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
     res.status(201).json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', id)));
   } catch (error) { next(error); }

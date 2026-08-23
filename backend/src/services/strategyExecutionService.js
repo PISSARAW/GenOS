@@ -104,10 +104,11 @@ function metricDelta(payload = {}) {
 }
 
 function stepIndex(event, stepCount) {
+  if (stepCount <= 0) return -1;
   if (event.eventType === 'AGENT_RUNTIME_STARTED') return 0;
-  if (event.eventType === 'AGENT_PLAN_CREATED') return 1;
+  if (event.eventType === 'AGENT_PLAN_CREATED') return Math.min(1, stepCount - 1);
   if (event.eventType === 'AGENT_COMPLETED') return stepCount - 1;
-  if (event.action === 'THINK') return 2;
+  if (event.action === 'THINK') return Math.min(2, stepCount - 1);
   if (event.action === 'VERIFY') return Math.min(5, stepCount - 1);
   if (event.eventType === 'AGENT_STEP') return Math.min(3, stepCount - 1);
   return -1;
@@ -154,13 +155,23 @@ async function recordExecutionEvent(db, agentId, event) {
 
   if (index >= 0 && steps[index]) {
     const step = steps[index];
+    if (index > 0) {
+      await db.run(
+        `UPDATE strategy_execution_steps
+            SET status = CASE WHEN status = 'running' THEN 'completed' ELSE 'skipped' END,
+                started_at = CASE WHEN status = 'running' THEN COALESCE(started_at, ?) ELSE started_at END,
+                completed_at = COALESCE(completed_at, ?)
+          WHERE run_id = ? AND sequence < ? AND status IN ('planned', 'running')`,
+        now, now, row.id, index
+      );
+    }
     const evidence = json(step.evidence_json, []);
     evidence.push({ eventType: event.eventType, action: event.action, detail: event.detail, timestamp: now });
     const stepMetrics = json(step.actual_metrics_json, {});
     await db.run(
       `UPDATE strategy_execution_steps SET status = ?, actual_metrics_json = ?, evidence_json = ?,
        started_at = COALESCE(started_at, ?), completed_at = ? WHERE id = ?`,
-      guardrailReason ? 'blocked' : (failed ? 'failed' : (approvalRequired ? 'awaiting_approval' : 'completed')),
+      guardrailReason ? 'blocked' : (failed ? 'failed' : (approvalRequired ? 'awaiting_approval' : (completed ? 'completed' : 'running'))),
       JSON.stringify({
         tokens: Number(stepMetrics.tokens || 0) + delta.tokens,
         inputTokens: Number(stepMetrics.inputTokens || 0) + delta.inputTokens,
