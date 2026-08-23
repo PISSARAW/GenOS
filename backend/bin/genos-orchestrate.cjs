@@ -12,6 +12,7 @@ const trinityService = require('../src/services/trinityService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
+const userProgress = require('../src/services/userProgressService');
 
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
@@ -107,6 +108,23 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
+    if (action === 'report_progress') {
+      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      const result = userProgress.report({
+        orchestratorId,
+        sourceAgentId: process.env.GENOS_AGENT_ID || orchestratorId,
+        phase: request.phase,
+        message: request.message,
+        progressPercent: request.progress_percent,
+        completed: request.completed,
+        next: request.next,
+        blockers: request.blockers,
+        silent: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || ''))
+      });
+      process.stdout.write(JSON.stringify(result));
+      return;
+    }
     if (action === 'change_strategy') {
       const transition = await strategyAdaptation.changeStrategy(db, {
         orchestratorId,
@@ -283,7 +301,8 @@ async function main() {
         strategyContract: strategyContract.contract, executionBudget: request.execution_budget || {},
         executionPolicy: {
           allowedCommands: Array.isArray(inheritedCommands) ? inheritedCommands : [],
-          allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''))
+          allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')),
+          silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || ''))
         },
         toolLease: runtime.workerToolLease(role), autonomousOrchestration: false
       });
@@ -305,6 +324,7 @@ async function main() {
     await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
       modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {},
       executionPolicy: { allowedCommands, allowFileEdits },
+      silentUpdates: policyRequest.silent_updates === true,
       autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
     const agents = await waitForCompletion(db);
     const telemetry = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);

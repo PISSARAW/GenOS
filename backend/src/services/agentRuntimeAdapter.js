@@ -29,6 +29,7 @@ const aTeamService = require('./aTeamService');
 const trinityService = require('./trinityService');
 const workerRecovery = require('./workerFailureRecoveryService');
 const dynamicOrganization = require('./dynamicOrganizationService');
+const userProgress = require('./userProgressService');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
@@ -222,7 +223,7 @@ function orchestratorToolLease(plan = {}) {
     'genos_resilience_hypermutation', 'genos_security_coevolution',
     'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview',
     'genos_trinity_launch', 'genos_change_strategy', 'genos_change_organization', 'genos_organization_state',
-    'genos_worker_publish', 'genos_worker_inbox'
+    'genos_worker_publish', 'genos_worker_inbox', 'genos_report_progress'
   ];
   return [...new Set([...core, ...(plan.requiredTools || [])])]
     .filter((tool) => tool !== 'genos_orchestrate');
@@ -372,22 +373,35 @@ async function provisionMissionWorkspace(mission, executionMode) {
   return { ...mission, workspaceRoot, capsuleRoot: path.dirname(workspaceRoot) };
 }
 
-async function consultLocalModels(db, agentId, mission, plan) {
+async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
   const candidates = await localModelDiscovery.discoverChatModelUris();
   if (!candidates.length) return { consulted: false, candidates: [] };
   try {
+    const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, candidates);
     const result = await modelRouter.generate({
-      db, agentId, model: candidates[0], timeoutMs: 15000,
-      policy: { primary: candidates[0], preferLocal: true },
+      db, agentId, ...tenant, timeoutMs: 15000, policy,
       prompt: `You are the local planning model for a GenOS orchestrator. Analyse this mission and return a concise JSON-like recommendation: which hypotheses merit forks, which worker roles are needed, when replay/merge is justified, and what can be delegated locally. Mission: ${mission.prompt || mission.currentTask || ''}. Strategy profile: ${JSON.stringify(plan.profile)}.`
     });
-    return { consulted: true, candidates, selectedModel: result.model, provider: result.provider, advice: String(result.text || '').slice(0, 8000), route: result.route };
+    return { consulted: true, candidates, selectedModel: result.model, provider: result.provider, advice: String(result.text || '').slice(0, 4000), route: result.route, policy };
   } catch (error) {
     return { consulted: false, candidates, error: error.message };
   }
 }
 
-async function localWorkerRoute(role) {
+function modelScale(model) {
+  const billions = String(model.model || '').match(/(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])/i);
+  if (billions) return Number(billions[1]) * 1_000_000_000;
+  return Number(model.size || 0);
+}
+
+function rankLocalModels(models, modelTier) {
+  const tier = String(modelTier || '').toLowerCase();
+  if (!/(flash|pro|frontier)/.test(tier)) return models;
+  const direction = /pro|frontier/.test(tier) ? -1 : 1;
+  return [...models].sort((left, right) => direction * (modelScale(left) - modelScale(right)));
+}
+
+async function localWorkerRoute(db, agentId, role, modelTier, tenant = {}) {
   const cpuCount = os.cpus().length;
   const load = os.loadavg()[0];
   const freeMemoryRatio = os.freemem() / os.totalmem();
@@ -396,10 +410,16 @@ async function localWorkerRoute(role) {
   const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
   const implementationRole = /implementation|coder|developer/i.test(role || '');
   const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && cpuCount >= 4 && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
-  const selected = eligible ? models.find((model) => model.chatCapable) : null;
+  const chatModels = models.filter((model) => model.chatCapable);
+  const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, chatModels.map((model) => model.uri));
+  const orderedUris = policy.configured
+    ? modelRouter.candidateModels(null, policy)
+    : rankLocalModels(chatModels, modelTier).map((model) => model.uri);
+  const selected = eligible ? orderedUris[0] : null;
   return {
-    selectedModel: selected?.uri || null,
-    criteria: { cpuCount, load1m: load, freeMemoryRatio: Number(freeMemoryRatio.toFixed(3)), role, eligible, discoveredModels: models.map((model) => model.uri) }
+    selectedModel: selected || null,
+    policy: { ...policy, primary: selected || policy.primary, fallbacks: orderedUris.filter((uri) => uri !== selected) },
+    criteria: { cpuCount, load1m: load, freeMemoryRatio: Number(freeMemoryRatio.toFixed(3)), role, modelTier, eligible, discoveredModels: models.map((model) => model.uri), orderedModels: orderedUris }
   };
 }
 
@@ -411,7 +431,7 @@ async function runLocalWorker(db, mission, executionRun) {
     const codeWorker = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1' && /implementation|coder|developer/i.test(mission.role || '');
     const result = await modelRouter.generate({
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
-      policy: { primary: mission.localModel, preferLocal: true },
+      policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
         ? `You are a bounded GenOS local code worker. Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
         : `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
@@ -419,6 +439,8 @@ async function runLocalWorker(db, mission, executionRun) {
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     await updateAgent(mission.agentId, 'idle', 'Local review completed');
     const completed = emit(mission.agentId, 'AGENT_COMPLETED', codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW', codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, advice: result.text, proposal, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'idle');
+    const milestone = userProgress.milestoneFromEvent(completed, { agentId: mission.agentId, agentName: mission.name, task: mission.prompt });
+    if (milestone) userProgress.report({ orchestratorId: mission.orchestratorAgentId || mission.agentId, sourceAgentId: mission.agentId, ...milestone, silent: mission.executionPolicy?.silentUpdates === true });
     await strategyExecution.recordExecutionEvent(db, mission.agentId, completed);
     await advanceAutonomousRound(mission, completed);
     const decision = decideFromEvent(completed);
@@ -431,6 +453,8 @@ async function runLocalWorker(db, mission, executionRun) {
   } catch (error) {
     await updateAgent(mission.agentId, 'error', error.message);
     const failed = emit(mission.agentId, 'AGENT_FAILED', 'LOCAL_MODEL', error.message, { executionRunId: executionRun.id, model: mission.localModel }, 'warning', 'error');
+    const milestone = userProgress.milestoneFromEvent(failed, { agentId: mission.agentId, agentName: mission.name, task: mission.prompt });
+    if (milestone) userProgress.report({ orchestratorId: mission.orchestratorAgentId || mission.agentId, sourceAgentId: mission.agentId, ...milestone, silent: mission.executionPolicy?.silentUpdates === true });
     await strategyExecution.recordExecutionEvent(db, mission.agentId, failed);
     await advanceAutonomousRound(mission, failed);
     queueWorkerRecovery(mission, failed);
@@ -442,7 +466,8 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   const assignments = plan.dispatchWorkers || [];
   if (!assignments.length) return [];
   const parent = await db.get(
-    'SELECT id, name, agent_type, workspace_id, fleet_id, model_tier, language, isolation_mode, current_task FROM agents WHERE id = ?',
+    `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
+            w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
     orchestrator.id
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
@@ -454,7 +479,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
     const name = workerGarage.workerName({ ...assignment, mission: mission.prompt });
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
-    const localRoute = await localWorkerRoute(assignment.role);
+    const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
     const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`, plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.` : `Budget allocation: ${perWorkerTokens} tokens.`].join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
@@ -468,7 +493,7 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
       agentId: id, name, role: assignment.role, prompt,
       modelTier: assignment.modelTier || parent.model_tier, workspaceIsolation: parent.isolation_mode,
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
-      workspaceRoot, localModel: localRoute.selectedModel, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
+      workspaceRoot, localModel: localRoute.selectedModel, localRoutingPolicy: localRoute.policy, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
       executionPolicy: mission.executionPolicy,
       executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }
     });
@@ -573,7 +598,10 @@ async function startMissionInternal(mission) {
       autonomyPlan.aTeam.reason = `The mission needs ${aTeamWorkerCount} specialists, but the token budget funds only ${affordableAteamMembers}.`;
       emit(agentId, 'A_TEAM_SKIPPED', 'BUDGET_GUARD', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'warning');
     }
-    autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan);
+    const modelTenant = normalizedMission.workspaceId
+      ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
+      : null;
+    autonomyPlan.localModelReview = await consultLocalModels(db, agentId, normalizedMission, autonomyPlan, modelTenant || {});
     emit(agentId, 'LOCAL_MODEL_ROUTING', 'PLAN_REVIEW', autonomyPlan.localModelReview.consulted ? `Local model ${autonomyPlan.localModelReview.selectedModel} reviewed the orchestration plan.` : 'No local model review was available; continuing with the frontier orchestrator.', autonomyPlan.localModelReview, autonomyPlan.localModelReview.consulted ? 'info' : 'warning');
     const organizationState = await dynamicOrganization.getState(db, agentId);
     if (!organizationState) {
@@ -589,12 +617,18 @@ async function startMissionInternal(mission) {
       emit(agentId, 'ORGANIZATION_RESTORED', 'ORGANIZE', `Restored runtime organization '${organizationState.organization}'.`, organizationState, 'info');
     }
   }
+  const silentUpdates = userProgress.silenceRequested(
+    normalizedMission.prompt || normalizedMission.currentTask || '',
+    normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
+  );
   normalizedMission.executionPolicy = {
     allowedCommands: Array.isArray(normalizedMission.executionPolicy?.allowedCommands)
       ? [...new Set(normalizedMission.executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
       : [],
-    allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true
+    allowFileEdits: normalizedMission.executionPolicy?.allowFileEdits === true,
+    silentUpdates
   };
+  normalizedMission.userReporting = userProgress.reportingPolicy(normalizedMission.prompt || normalizedMission.currentTask || '', silentUpdates);
   if (dispatchedAgent.execution_mode === 'orchestrator' && !normalizedMission.toolLease?.length) {
     normalizedMission.toolLease = orchestratorToolLease(autonomyPlan || {});
   }
@@ -609,6 +643,16 @@ async function startMissionInternal(mission) {
     budget: runtimeBudget,
     contractRecord
   });
+  if (dispatchedAgent.execution_mode === 'orchestrator') {
+    userProgress.report({
+      orchestratorId: agentId,
+      sourceAgentId: agentId,
+      phase: 'started',
+      message: `Mission started. The orchestrator selected '${contractRecord.primaryStrategy}' and is organizing the work.`,
+      next: ['decompose the mission', 'collect worker evidence', 'verify the result'],
+      silent: silentUpdates
+    });
+  }
   if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
 
   // The orchestrator creates and dispatches its own bounded worker fleet. A worker
@@ -642,6 +686,15 @@ async function startMissionInternal(mission) {
     for (const worker of autonomousWorkers) {
       emit(agentId, 'AUTONOMOUS_WORKER_CREATED', 'FORK', `Created autonomous worker '${worker.name}'.`, { workerId: worker.agentId, role: worker.role, tokenBudget: worker.executionBudget.tokens });
     }
+    if (autonomousWorkers.length) {
+      userProgress.report({
+        orchestratorId: agentId,
+        phase: 'working',
+        message: `The orchestrator dispatched ${autonomousWorkers.length} worker${autonomousWorkers.length === 1 ? '' : 's'}: ${autonomousWorkers.map((worker) => worker.name).join(', ')}.`,
+        next: autonomousWorkers.map((worker) => worker.prompt.split('\n')[1] || worker.role),
+        silent: silentUpdates
+      });
+    }
     if (autonomousWorkers.length && autonomyPlan.tokenPolicy.rounds?.continuation?.survivorCount) autonomousRounds.set(agentId, { plan: autonomyPlan, workerIds: new Set(autonomousWorkers.map((worker) => worker.agentId)), workers: new Map(autonomousWorkers.map((worker) => [worker.agentId, worker])), results: new Map(), advanced: false });
   }
 
@@ -651,7 +704,7 @@ async function startMissionInternal(mission) {
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
   const child = spawn(resolvedExecutable, [], {
     cwd: workspaceRoot,
-    env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot },
+    env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false' },
     stdio: ['pipe', 'pipe', 'pipe']
   });
   activeProcesses.set(agentId, child);
@@ -669,6 +722,19 @@ async function startMissionInternal(mission) {
   };
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
     const event = emit(agentId, eventType, action, detail, payload, severity, status);
+    const userMilestone = userProgress.milestoneFromEvent(event, {
+      agentId,
+      agentName: normalizedMission.name || dispatchedAgent.name,
+      task: normalizedMission.prompt || normalizedMission.currentTask
+    });
+    if (userMilestone) {
+      userProgress.report({
+        orchestratorId: normalizedMission.orchestratorAgentId || agentId,
+        sourceAgentId: agentId,
+        ...userMilestone,
+        silent: silentUpdates
+      });
+    }
     const workerFailure = dispatchedAgent.execution_mode === 'worker'
       && ['WORKER_TASK_FAILED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
     if (workerFailure) queueWorkerRecovery(normalizedMission, event);
@@ -832,4 +898,4 @@ function stopAllMissions() {
   return [...activeProcesses.keys()].filter(stopMission);
 }
 
-module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease };
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease, rankLocalModels };

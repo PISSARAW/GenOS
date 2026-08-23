@@ -66,6 +66,7 @@ fn orchestrator_tool() -> ToolSpec {
             "arguments":{"type":"object","description":"Arguments for the leased operation."},
             "allowed_commands":{"type":"array","items":{"type":"string"},"description":"Exact shell commands authorized for the whole mission. Every other shell command is denied synchronously."},
             "allow_file_edits":{"type":"boolean","description":"Whether agents may edit files inside their isolated capsules. Defaults to false."},
+            "silent_updates":{"type":"boolean","description":"Suppress user-facing progress milestones. Defaults to false and should be true only when the user explicitly requests silence."},
             "autonomous_orchestration":{"type":"boolean","description":"Whether the root orchestrator may dispatch its bounded worker fleet. Defaults to true."}
         },"required":[]}),
         output_schema: json!({"type":"object"}),
@@ -156,6 +157,25 @@ fn change_strategy_tool() -> ToolSpec {
     }
 }
 
+fn report_progress_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_report_progress".into(),
+        title: "Report GenOS Progress".into(),
+        description: "Publish a concise user-facing mission milestone over the Studio telemetry stream. Report meaningful changes, completed units, blockers, and next steps; do not expose private chain-of-thought or emit one update per tool call. Explicit silent mode suppresses the event.".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "phase":{"type":"string","enum":["started","working","completed","blocked","verifying"]},
+            "message":{"type":"string","minLength":1,"maxLength":1200},
+            "progress_percent":{"type":"number","minimum":0,"maximum":100},
+            "completed":{"type":"array","maxItems":10,"items":{"type":"string"}},
+            "next":{"type":"array","maxItems":10,"items":{"type":"string"}},
+            "blockers":{"type":"array","maxItems":10,"items":{"type":"string"}}
+        },"required":["phase","message"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator", "genos/audience":"user"}),
+    }
+}
+
 fn change_organization_tool() -> ToolSpec {
     ToolSpec {
         name: "genos_change_organization".into(),
@@ -232,6 +252,9 @@ fn public_tool_specs() -> Vec<ToolSpec> {
         }
         if lease.contains(&"genos_change_strategy".to_string()) {
             tools.push(change_strategy_tool());
+        }
+        if lease.contains(&"genos_report_progress".to_string()) {
+            tools.push(report_progress_tool());
         }
         if lease.contains(&"genos_change_organization".to_string()) {
             tools.push(change_organization_tool());
@@ -424,6 +447,7 @@ impl McpServer {
                 | "genos_a_team_preview"
                 | "genos_trinity_launch"
                 | "genos_change_strategy"
+                | "genos_report_progress"
                 | "genos_change_organization"
         ) && running_as_worker()
         {
@@ -440,7 +464,37 @@ impl McpServer {
                 );
             }
         }
-        let (operation_name, operation_arguments) = if name == "genos_change_strategy" {
+        let (operation_name, operation_arguments) = if name == "genos_report_progress" {
+            let Some(message) = arguments
+                .get("message")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+            else {
+                return tool_error(
+                    id,
+                    "genos_report_progress requires a user-facing message.".into(),
+                );
+            };
+            let Some(orchestrator_id) = env::var("GENOS_ORCHESTRATOR_AGENT_ID")
+                .ok()
+                .filter(|value| !value.trim().is_empty())
+            else {
+                return tool_error(
+                    id,
+                    "genos_report_progress requires an orchestrator authority ID.".into(),
+                );
+            };
+            let mut request = arguments;
+            if let Some(object) = request.as_object_mut() {
+                object.insert("action".into(), Value::String("report_progress".into()));
+                object.insert("message".into(), Value::String(message));
+                object.insert("orchestratorId".into(), Value::String(orchestrator_id));
+                object.insert("background".into(), Value::Bool(false));
+            }
+            ("__genos_backend_orchestrate__".to_string(), request)
+        } else if name == "genos_change_strategy" {
             let Some(need) = arguments
                 .get("need")
                 .and_then(Value::as_str)
@@ -1015,6 +1069,15 @@ mod tests {
         assert_eq!(tool.name, "genos_change_strategy");
         assert_eq!(tool.meta["genos/authority"], "orchestrator");
         assert_eq!(tool.input_schema["required"], json!(["need", "reason"]));
+    }
+
+    #[test]
+    fn progress_tool_is_user_facing_and_orchestrator_only() {
+        let tool = report_progress_tool();
+        assert_eq!(tool.name, "genos_report_progress");
+        assert_eq!(tool.meta["genos/authority"], "orchestrator");
+        assert_eq!(tool.meta["genos/audience"], "user");
+        assert_eq!(tool.input_schema["required"], json!(["phase", "message"]));
     }
 
     #[test]

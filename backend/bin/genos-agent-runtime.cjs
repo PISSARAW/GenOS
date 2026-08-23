@@ -39,6 +39,13 @@ function compactAutonomyPlan(plan = {}) {
     parasitism: plan.parasitism,
     aTeam: plan.aTeam,
     trinity: plan.trinity,
+    localModelReview: plan.localModelReview?.consulted ? {
+      consulted: true,
+      selectedModel: plan.localModelReview.selectedModel,
+      provider: plan.localModelReview.provider,
+      advice: String(plan.localModelReview.advice || '').slice(0, 4000),
+      route: plan.localModelReview.route
+    } : { consulted: false, error: plan.localModelReview?.error || null },
     tokenPolicy: plan.tokenPolicy
   };
 }
@@ -93,9 +100,15 @@ process.stdin.on('end', () => {
     !isWorker && autonomyPlan.schema
       ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`
       : '',
+    !isWorker && runtimeAutonomyPlan.localModelReview?.consulted
+      ? 'The local-model review above is advisory evidence. Explicitly compare it with the strategy contract before dispatching, replaying, merging, or rejecting its recommendations; mention the accepted or rejected recommendations in your final evidence report.'
+      : '',
     !isWorker && autonomyPlan.parasitism?.enabled
       ? 'Parasitic pressure is enabled for this risk profile. If—and only if—you can construct a schema-valid parasite/agent genome manifest inside an isolated capsule, run genos_parasitic_pressure there with evolution enabled; keep its report as evidence and never merge it automatically.'
       : '',
+    !isWorker && executionPolicy.silentUpdates !== true
+      ? 'Keep the user informed through genos_report_progress at meaningful milestones: when the active approach changes, a substantial unit finishes, a blocker appears, or the team enters final verification. Report concise outcomes and next steps, not internal chain-of-thought or every tool call.'
+      : !isWorker ? 'The user explicitly requested silent execution. Do not call genos_report_progress; return only the final mission result.' : '',
     isWorker && toolLease.length ? `Your enforceable GenOS MCP lease is limited to: ${toolLease.join(', ')}.` : '',
     genosCapsule.id
       ? `Your active GenOS capsule is ${genosCapsule.id}. For capsule tools, pass capsule_id=${genosCapsule.id} and root=${genosCapsule.root}. This capsule was created by the control plane; do not invent or replace its identity.`
@@ -127,7 +140,7 @@ process.stdin.on('end', () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
       '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
@@ -147,7 +160,8 @@ process.stdin.on('end', () => {
       GENOS_AGENT_ID: mission.agentId,
       GENOS_ORCHESTRATOR_AGENT_ID: orchestratorAgentId,
       GENOS_ALLOWED_COMMANDS_JSON: JSON.stringify(allowedCommands),
-      GENOS_ALLOW_FILE_EDITS: allowFileEdits ? 'true' : 'false'
+      GENOS_ALLOW_FILE_EDITS: allowFileEdits ? 'true' : 'false',
+      GENOS_SILENT_UPDATES: executionPolicy.silentUpdates === true ? 'true' : 'false'
     },
     stdio: ['pipe', 'pipe', 'pipe']
   });
