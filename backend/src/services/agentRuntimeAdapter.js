@@ -350,6 +350,8 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       orchestratorAgentId: orchestratorId,
       budgetRound: undefined,
       localModel: decision.action === 'replace_worker' ? undefined : mission.localModel,
+      localRoutingPolicy: decision.action === 'replace_worker' ? undefined : mission.localRoutingPolicy,
+      disableLocalModel: decision.action === 'replace_worker',
       toolLease: workerToolLease(role),
       autonomousOrchestration: false
     });
@@ -516,6 +518,15 @@ async function startMissionInternal(mission) {
   }
   if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
+  if (dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel && normalizedMission.disableLocalModel !== true) {
+    const workerTenant = normalizedMission.workspaceId
+      ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
+      : null;
+    const route = await localWorkerRoute(db, agentId, normalizedMission.role, normalizedMission.modelTier, workerTenant || {});
+    normalizedMission.localModel = route.selectedModel;
+    normalizedMission.localRoutingPolicy = route.policy;
+    normalizedMission.localRoutingCriteria = route.criteria;
+  }
   const runtimeEnvironment = bundledRuntimeEnvironment();
   const genosCapsule = await agentCapsules.provision({
     executable: runtimeEnvironment.GENOS_BIN,
