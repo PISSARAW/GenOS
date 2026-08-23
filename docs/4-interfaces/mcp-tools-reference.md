@@ -220,3 +220,16 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 - `rationale` *(string)*: Optional explanation of why three comparative worlds are useful.
 - `execution_budget` *(object)*: Optional bounded budget inherited by each world.
 **Usage**: An explicit request for “Trinity” activates it when the three garage slots and token budget are available. A request such as “interview me to create a plan” creates a Trinity decision gate instead: the orchestrator conducts the interview first, then launches Trinity only if the resulting mission benefits from three comparative implementations. A-Team and Trinity cannot occupy the garage simultaneously, and workers cannot launch Trinity recursively.
+
+---
+
+## 12. User-Facing Mission Progress
+
+### `genos_report_progress`
+**Description**: Publishes a concise orchestrator milestone to the user through the persisted telemetry stream and live Studio SSE channel.
+**Parameters**:
+- `phase` *(string)*: `started`, `working`, `verifying`, `completed`, or `blocked`.
+- `message` *(string)*: User-facing summary without private chain-of-thought.
+- `progress_percent` *(number)*: Optional estimate from 0 to 100.
+- `completed`, `next`, `blockers` *(arrays of strings)*: Optional structured milestone details.
+**Usage**: Reporting is enabled by default. GenOS automatically reports mission start, worker dispatch, worker completion or failure, and final orchestrator outcome. The orchestrator uses this tool for meaningful intermediate changes such as a completed unit, a changed approach, a blocker, or entry into final verification. Studio renders these events as visible notifications. Set `silent_updates: true` on `genos_orchestrate`, or explicitly request silent execution in the mission text, to suppress every intermediate user update; the final mission result is still returned.
