@@ -8,6 +8,9 @@ async function run() {
   assert.equal(garage.MAX_ACTIVE_WORKERS, 3);
   assert.equal(garage.workerName({ role: 'implementation', hypothesis: 'minimal_patch' }), 'Implement · minimal patch');
   assert.equal(garage.workerName({ role: 'independent_reviewer', hypothesis: 'configuration_or_dependency' }), 'Verify · configuration or dependency');
+  assert.equal(garage.workerName({ role: 'literary_author', hypothesis: 'human voice' }), 'Write · human voice');
+  assert.equal(garage.workerName({ role: 'dramaturg', hypothesis: 'causal ending' }), 'Structure · causal ending');
+  assert.equal(garage.workerName({ role: 'literary_critic', hypothesis: 'blind reading' }), 'Critique · blind reading');
 
   const dbPath = path.resolve(__dirname, 'worker-garage-test.db');
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);

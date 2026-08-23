@@ -5,7 +5,29 @@ const analysis = aTeam.analyzeMission('Construire une interface React, une API E
 assert.equal(analysis.recommended, true);
 assert.deepEqual(analysis.detectedDomains.slice(0, 3), ['frontend', 'backend', 'security']);
 assert.equal(analysis.members.length, 3);
+assert.equal(analysis.capabilityCoverage.uncovered.includes('quality'), true);
 assert.equal(aTeam.analyzeMission('Résoudre une récurrence de programmation dynamique.').recommended, false);
+
+const twoDomains = aTeam.analyzeMission('Construire une interface React et une API Express.');
+assert.deepEqual(twoDomains.members.map((member) => member.role), ['frontend_engineer', 'backend_engineer']);
+assert.equal(twoDomains.members.some((member) => member.role === 'integration_observer'), false);
+
+const fiction = aTeam.analyzeMission(
+  'Benchmark littéraire : rédige une nouvelle complexe avec conflit, twist final et trois lectures.'
+);
+assert.equal(fiction.recommended, true);
+assert.equal(fiction.artifact, 'fiction');
+assert.equal(fiction.primaryDomain, 'creative_writing');
+assert.deepEqual(
+  fiction.members.map((member) => member.role),
+  ['literary_author', 'dramaturg', 'literary_critic']
+);
+assert.equal(fiction.capabilityCoverage.ratio, 1);
+assert.deepEqual(fiction.capabilityCoverage.uncovered, []);
+assert.equal(fiction.members.some((member) => member.role === 'quality_engineer'), false);
+
+const explicitIntegration = aTeam.analyzeMission('Intégrer une interface React avec une API Express.');
+assert.equal(explicitIntegration.members.some((member) => member.role === 'integration_observer'), true);
 
 const members = aTeam.compose({
   projectGoal: 'Ship a secure application',
