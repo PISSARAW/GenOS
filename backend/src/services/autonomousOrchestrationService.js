@@ -1,5 +1,6 @@
 const { listStrategies } = require('../strategies/strategyRegistry');
 const { buildAllocation } = require('./tokenAllocationService');
+const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 
 const MAX_WORKERS = 3;
 
@@ -68,6 +69,9 @@ function buildAutonomyPlan(contract, budget = {}) {
     organization: security ? 'red_blue_coevolution' : (contract.strategy_portfolio || []).find((strategy) => strategy.family === 'collective')?.id || 'network_silence',
     organizationPolicy: {
       initial: security ? 'red_blue_coevolution' : (contract.strategy_portfolio || []).find((strategy) => strategy.family === 'collective')?.id || 'network_silence',
+      authority: 'orchestrator_may_change_at_any_decision_gate',
+      availableOrganizations: Object.keys(ORGANIZATIONS),
+      communicationModes: [...new Set(Object.values(ORGANIZATIONS).map((entry) => entry.exchange))],
       transitions: [
         { when: 'independent branches converge with reproducible evidence', to: 'hierarchical_merge', action: 'merge only the evidence, not an unchecked workspace' },
         { when: 'branches remain materially divergent after minimum evidence', to: 'competitive_arena', action: 'retain isolation and allocate the next token tranche to the strongest two' },
@@ -79,6 +83,12 @@ function buildAutonomyPlan(contract, budget = {}) {
     // evaluates evidence from its own work and its workers, then elects the
     // smallest safe action. Every elected action has a concrete GenOS tool.
     decisionGates: [
+      {
+        id: 'reselect_strategy', scope: 'orchestrator',
+        when: 'the mission scope, risk, uncertainty, evaluability, or observed failure mode materially differs from the active problem profile',
+        actions: ['genos_change_strategy'],
+        decide: 'state the changed need and evidence; keep the current contract when the complete 77-strategy evaluation finds no better portfolio'
+      },
       {
         id: 'retrieve_relevant_memory', scope: 'orchestrator_and_workers',
         when: 'before retrying an approach or accepting a diagnosis',
