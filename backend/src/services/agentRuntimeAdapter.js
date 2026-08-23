@@ -218,14 +218,20 @@ function autonomousWorkerId(orchestratorId, index) {
 }
 
 function evidenceScore(payload = {}) { const report = payload.evidenceReport || payload.report || {}; const claims = Array.isArray(report.claims) ? report.claims : []; return claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0) + claims.length * 2 - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0); }
+function autonomousRoundOutcome(eventType) {
+  if (eventType === 'AGENT_COMPLETED') return 'completed';
+  if (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType)) return 'failed';
+  return null;
+}
 async function advanceAutonomousRound(mission, event) {
   const round = mission.budgetRound;
-  if (round?.stage !== 'initial' || !['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType)) return;
+  const outcome = autonomousRoundOutcome(event.eventType);
+  if (round?.stage !== 'initial' || !outcome) return;
   const state = autonomousRounds.get(round.orchestratorId);
   if (!state || state.advanced || !state.workerIds.has(mission.agentId)) return;
   state.results.set(mission.agentId, {
     agentId: mission.agentId,
-    status: event.eventType === 'AGENT_COMPLETED' ? 'completed' : 'failed',
+    status: outcome,
     evidenceScore: evidenceScore(event.payload),
     payload: event.payload || {}
   });
@@ -1119,4 +1125,4 @@ function stopAllMissions() {
   return [...new Set([...activeProcesses.keys(), ...activeWorkerBarriers.keys()])].filter(stopMission);
 }
 
-module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease, rankLocalModels, modelUsage, buildWorkerSynthesisPrompt, waitForAutonomousWorkerQuiescence };
+module.exports = { startMission, stopMission, stopAllMissions, configuredExecutable, bundledRuntimeEnvironment, runtimeAvailability, createIsolatedWorkspace, provisionMissionWorkspace, runtimeExitOutcome, evidenceScore, workerToolLease, orchestratorToolLease, rankLocalModels, modelUsage, autonomousRoundOutcome, buildWorkerSynthesisPrompt, waitForAutonomousWorkerQuiescence };
