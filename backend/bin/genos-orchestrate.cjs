@@ -6,10 +6,15 @@ const { spawn } = require('child_process');
 const { getDatabase, closeDatabase } = require('../src/db');
 const runtime = require('../src/services/agentRuntimeAdapter');
 const contracts = require('../src/services/strategyContractService');
+const workerGarage = require('../src/services/workerGarageService');
 
 const request = JSON.parse(process.argv[2] || '{}');
-const task = String(request.task || 'Autonomous GenOS orchestration');
-const id = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+const action = request.action || 'orchestrate';
+const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
+const orchestratorId = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+const id = action === 'dispatch_worker'
+  ? request.workerId || `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+  : orchestratorId;
 // Accept the policy at the top level (current schema) and inside `arguments`
 // while older long-lived MCP clients refresh their cached tool schema.
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
@@ -49,14 +54,15 @@ async function main() {
   // open for the whole mission: return the durable agent ID immediately and
   // let a detached runner own its lifecycle and final telemetry.
   if (request.background === true) {
-    const runner = spawn(process.execPath, [__filename, JSON.stringify({ ...request, background: false, orchestratorId: id })], {
+    const runner = spawn(process.execPath, [__filename, JSON.stringify({ ...request, background: false, orchestratorId, workerId: action === 'dispatch_worker' ? id : request.workerId })], {
       cwd: path.resolve(__dirname, '../..'),
       detached: true,
       stdio: 'ignore'
     });
     runner.unref();
     process.stdout.write(JSON.stringify({
-      orchestratorId: id,
+      orchestratorId,
+      ...(action === 'dispatch_worker' ? { workerId: id } : {}),
       status: 'accepted',
       acceptedAt: new Date().toISOString(),
       task
@@ -65,7 +71,43 @@ async function main() {
   }
 
   const db = await getDatabase();
+  let delegatedWorkerId = null;
   try {
+    if (action === 'dispatch_worker') {
+      const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
+        w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, orchestratorId);
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      await workerGarage.requireAvailableSlot(db, orchestratorId);
+      const role = String(request.role || 'implementation');
+      const name = String(request.name || workerGarage.workerName({ role, mission: task }));
+      const sourceWorkspace = request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
+      const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, id, path.dirname(sourceWorkspace));
+      await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
+        VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`,
+        id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null,
+        request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId,
+        `Worker delegated by ${parent.name}.`, task);
+      delegatedWorkerId = id;
+      const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: id, name, role, mission: task });
+      const strategyContract = await contracts.getLatestContract(db, orchestratorId);
+      if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
+      let inheritedCommands = [];
+      try { inheritedCommands = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]'); } catch {}
+      await runtime.startMission({
+        agentId: id, name, role, prompt: task, modelTier: request.model_tier || parent.model_tier,
+        workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id,
+        fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: orchestratorId,
+        strategyContract: strategyContract.contract, executionBudget: request.execution_budget || {},
+        executionPolicy: {
+          allowedCommands: Array.isArray(inheritedCommands) ? inheritedCommands : [],
+          allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || ''))
+        },
+        toolLease: runtime.workerToolLease(role), autonomousOrchestration: false
+      });
+      const agents = await waitForCompletion(db);
+      process.stdout.write(JSON.stringify({ orchestratorId, workerId: id, workerName: name, garage: { slot: garage.slot, capacity: garage.capacity }, agents }));
+      return;
+    }
     await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
     const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
@@ -77,6 +119,11 @@ async function main() {
     const telemetry = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry, token_usage: tokenUsage(runs) }));
+  } catch (error) {
+    if (delegatedWorkerId) {
+      await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, delegatedWorkerId).catch(() => {});
+    }
+    throw error;
   } finally { await closeDatabase(); }
 }
 
