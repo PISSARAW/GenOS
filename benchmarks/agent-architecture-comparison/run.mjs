@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { orchestrationFinished } from './support.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '../..');
@@ -146,7 +147,8 @@ function waitForOrchestrator(database, orchestratorId, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const agents = sqliteJson(database, `SELECT id,name,status,parent_agent_id,current_task FROM agents WHERE id='${orchestratorId}' OR parent_agent_id='${orchestratorId}' ORDER BY rowid`);
-    if (agents.length && agents.every((agent) => ['idle', 'error', 'blocked', 'terminated', 'apoptosis'].includes(agent.status))) return agents;
+    const rootEvents = sqliteJson(database, `SELECT event_type FROM telemetry_events WHERE agent_id='${orchestratorId}' AND event_type IN ('AGENT_COMPLETED','AGENT_FAILED','AGENT_HALTED','AGENT_RUNTIME_ERROR') ORDER BY id`).map((event) => event.event_type);
+    if (orchestrationFinished(agents, rootEvents)) return agents;
     sleep(500);
   }
   throw new Error(`GenOS orchestrator ${orchestratorId} timed out.`);
