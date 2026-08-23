@@ -370,7 +370,10 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   // of dependencies. Replay the tracked dirty diff so the capsule starts from
   // the caller's real working state without altering that source workspace.
   try {
-    await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: source });
+    const { stdout: gitTopLevel } = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: source });
+    if (path.resolve(gitTopLevel.trim()) !== source) {
+      throw new Error(`Mission workspace ${source} is nested inside ${gitTopLevel.trim()}; copy only the mission scope.`);
+    }
     const { stdout: diff } = await runCommand('git', ['diff', '--binary'], { cwd: source });
     await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
     if (diff) await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
