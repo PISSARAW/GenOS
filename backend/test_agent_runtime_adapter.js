@@ -28,6 +28,7 @@ try {
   assert.strictEqual(environment.GENOS_MCP_BIN, path.resolve(__dirname, '../target/debug/genos-mcp'));
   assert(!adapter.orchestratorToolLease({ requiredTools: ['genos_snapshot', 'genos_orchestrate'] }).includes('genos_orchestrate'));
   assert(adapter.orchestratorToolLease({}).includes('genos_a_team_preview'));
+  assert(adapter.orchestratorToolLease({}).includes('genos_trinity_launch'));
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
   assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');

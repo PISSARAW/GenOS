@@ -26,6 +26,7 @@ const { buildAllocation, selectSurvivors } = require('./tokenAllocationService')
 const agentCapsules = require('./agentCapsuleService');
 const workerGarage = require('./workerGarageService');
 const aTeamService = require('./aTeamService');
+const trinityService = require('./trinityService');
 const workerRecovery = require('./workerFailureRecoveryService');
 
 const activeProcesses = new Map();
@@ -201,7 +202,8 @@ function orchestratorToolLease(plan = {}) {
     'genos_record_experience', 'genos_record_decision', 'genos_replay',
     'genos_adversarial_review', 'genos_compile_memory',
     'genos_resilience_hypermutation', 'genos_security_coevolution',
-    'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview'
+    'genos_parasitic_pressure', 'genos_delegate_worker', 'genos_a_team_preview',
+    'genos_trinity_launch'
   ];
   return [...new Set([...core, ...(plan.requiredTools || [])])]
     .filter((tool) => tool !== 'genos_orchestrate');
@@ -494,12 +496,44 @@ async function startMissionInternal(mission) {
     ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
     : null;
   if (autonomyPlan) {
+    autonomyPlan.trinity = trinityService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
+    const trinityWorkerCount = autonomyPlan.trinity.members.length;
+    const affordableTrinityMembers = Math.floor(
+      (autonomyPlan.tokenPolicy.total * 0.6) / autonomyPlan.tokenPolicy.minimumWorkerTokens
+    );
+    autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
+    autonomyPlan.trinity.activated = autonomyPlan.trinity.explicitlyRequested && autonomyPlan.trinity.budgetPermitsLaunch;
+    if (autonomyPlan.trinity.recommended && autonomyPlan.trinity.budgetPermitsLaunch) {
+      autonomyPlan.tokenPolicy.workerShare = 0.6;
+      autonomyPlan.tokenPolicy.orchestratorReserve = 0.4;
+      autonomyPlan.tokenPolicy.rounds = buildAllocation({
+        totalTokens: autonomyPlan.tokenPolicy.total,
+        workerShare: autonomyPlan.tokenPolicy.workerShare,
+        workerCount: trinityWorkerCount,
+        minimumWorkerTokens: autonomyPlan.tokenPolicy.minimumWorkerTokens,
+        mode: autonomyPlan.tokenPolicy.allocation
+      });
+      if (autonomyPlan.trinity.activated) {
+        autonomyPlan.workers = autonomyPlan.trinity.members;
+        autonomyPlan.dispatchWorkers = autonomyPlan.trinity.members;
+        emit(agentId, 'TRINITY_PLANNED', 'COMPOSE_TRINITY', 'The mission explicitly requested Trinity; three evidence-comparison worlds were planned.', autonomyPlan.trinity, 'info');
+      } else {
+        autonomyPlan.workers = [];
+        autonomyPlan.dispatchWorkers = [];
+        emit(agentId, 'TRINITY_CONSIDERED', 'INTERVIEW_PLAN', 'The mission requests a user interview before planning; Trinity is available after the interview if three comparative worlds remain useful.', autonomyPlan.trinity, 'info');
+      }
+    } else if (autonomyPlan.trinity.recommended) {
+      autonomyPlan.trinity.reason = `Trinity needs ${trinityWorkerCount} workers, but the token budget funds only ${affordableTrinityMembers}.`;
+      emit(agentId, 'TRINITY_SKIPPED', 'BUDGET_GUARD', autonomyPlan.trinity.reason, autonomyPlan.trinity, 'warning');
+    }
     autonomyPlan.aTeam = aTeamService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
     const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
     const affordableAteamMembers = Math.floor(
       (autonomyPlan.tokenPolicy.total * 0.6) / autonomyPlan.tokenPolicy.minimumWorkerTokens
     );
-    autonomyPlan.aTeam.activated = autonomyPlan.aTeam.recommended && affordableAteamMembers >= aTeamWorkerCount;
+    autonomyPlan.aTeam.activated = !autonomyPlan.trinity.recommended
+      && autonomyPlan.aTeam.recommended
+      && affordableAteamMembers >= aTeamWorkerCount;
     if (autonomyPlan.aTeam.activated) {
       autonomyPlan.workers = autonomyPlan.aTeam.members;
       autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
@@ -513,6 +547,9 @@ async function startMissionInternal(mission) {
         mode: autonomyPlan.tokenPolicy.allocation
       });
       emit(agentId, 'A_TEAM_PLANNED', 'COMPOSE_TEAM', `Detected multidisciplinary mission across ${autonomyPlan.aTeam.detectedDomains.join(', ')}.`, autonomyPlan.aTeam, 'info');
+    } else if (autonomyPlan.aTeam.recommended && autonomyPlan.trinity.recommended) {
+      autonomyPlan.aTeam.reason = 'A-Team dispatch was deferred so the orchestrator can decide whether Trinity is the better mission shape.';
+      emit(agentId, 'A_TEAM_DEFERRED', 'TRINITY_DECISION_GATE', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'info');
     } else if (autonomyPlan.aTeam.recommended) {
       autonomyPlan.aTeam.reason = `The mission needs ${aTeamWorkerCount} specialists, but the token budget funds only ${affordableAteamMembers}.`;
       emit(agentId, 'A_TEAM_SKIPPED', 'BUDGET_GUARD', autonomyPlan.aTeam.reason, autonomyPlan.aTeam, 'warning');
@@ -551,6 +588,23 @@ async function startMissionInternal(mission) {
       emit(agentId, 'A_TEAM_COMPOSED', 'COMPOSE_TEAM', `Composed an A-Team with ${autonomousWorkers.length} specialized members.`, {
         domains: autonomyPlan.aTeam.detectedDomains,
         members: autonomousWorkers.map((worker) => ({ workerId: worker.agentId, name: worker.name, role: worker.role }))
+      }, 'info');
+    }
+    if (autonomyPlan.trinity?.activated && autonomousWorkers.length) {
+      const trinityMissionId = `trinity_${agentId}_${Date.now()}`;
+      for (const [index, worker] of autonomousWorkers.entries()) {
+        const member = autonomyPlan.trinity.members[index];
+        await db.run(
+          `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
+           VALUES (?, ?, ?, ?, ?, 'running', ?)`,
+          `${trinityMissionId}_world_${index + 1}`,
+          normalizedMission.prompt || normalizedMission.currentTask || 'Trinity mission',
+          index + 1, worker.name, member.role, worker.agentId
+        );
+      }
+      emit(agentId, 'TRINITY_LAUNCHED', 'COMPOSE_TRINITY', 'Launched three isolated Trinity comparison worlds.', {
+        missionId: trinityMissionId,
+        worlds: autonomousWorkers.map((worker, index) => ({ workerId: worker.agentId, worldNumber: index + 1, strategy: autonomyPlan.trinity.members[index].role }))
       }, 'info');
     }
     for (const worker of autonomousWorkers) {
