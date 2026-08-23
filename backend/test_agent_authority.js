@@ -40,8 +40,8 @@ async function run() {
     `INSERT INTO workspaces (id, name, path, description) VALUES (?, ?, ?, ?)`,
     workspace.id, 'Authority workspace', __dirname, 'Workspace for agent authority tests'
   );
-  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, current_task)
-    VALUES ('authority-orchestrator', 'Authority Orchestrator', 'Coordinator', 'idle', 'orchestrator', 'Repair a stateful defect')`);
+  await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, current_task)
+    VALUES ('authority-orchestrator', 'Authority Orchestrator', 'Coordinator', 'idle', 'orchestrator', ?, 'Repair a stateful defect')`, workspace.id);
   await contracts.saveContract(db, {
     agentId: 'authority-orchestrator',
     problem: 'Repair a stateful defect with deterministic tests'

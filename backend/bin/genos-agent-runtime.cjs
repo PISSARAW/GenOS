@@ -123,7 +123,7 @@ process.stdin.on('end', () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
       '-c', 'mcp_servers.genos.args=["stdio"]',
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
       '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
