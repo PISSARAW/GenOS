@@ -77,6 +77,7 @@ function createApp() {
 
   // 2. Request Parsing & Security Headers
   app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ extended: false, limit: '2mb' }));
   app.use(securityHeaders);
   app.use(originCheck);
   app.use(csrfCheck);
