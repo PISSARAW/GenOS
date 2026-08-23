@@ -77,6 +77,39 @@ async function validateTool(req, res) { const db = await getDatabase(); const { 
 async function replay(req, res) { const db = await getDatabase(); const { incidentId } = req.params; const events = await db.all('SELECT * FROM telemetry_events ORDER BY created_at ASC'); const result = safety.buildReplay(incidentId, events, req.body?.stepSpeed); telemetry.emitEvent({ eventType: 'INCIDENT_REPLAY_STARTED', agentId: req.user?.username || 'platform', action: 'REPLAY', detail: `Replay ${incidentId}`, payload: result }); res.json(result); }
 async function bisect(req, res) { return res.status(501).json({ error: { code: 'BISECTION_RUNNER_UNAVAILABLE', message: 'Platform bisection is unavailable because this backend cannot execute tests against durable workspace revisions.' } }); }
 async function approvals(req, res) { const db = await getDatabase(); if (req.method === 'GET') return res.json(await db.all('SELECT * FROM platform_approvals ORDER BY created_at DESC')); const body = req.body || {}; const id = `approval-${Date.now()}-${Math.random().toString(36).slice(2,7)}`; await db.run('INSERT INTO platform_approvals (id,action,agent_id,risk,uncertainty,requested_by,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', id, body.action || 'unknown', body.agentId || null, body.risk || 'high', Number(body.uncertainty || 0), req.user?.username || 'platform', JSON.stringify(body)); res.status(201).json({ id, status: 'pending', ...body }); }
-async function decideApproval(req, res) { const db = await getDatabase(); const status = req.body?.decision === 'approve' ? 'approved' : 'rejected'; await db.run('UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=?', status, req.user?.username || 'platform', req.body?.reason || null, req.params.id); await db.run('INSERT INTO audit_logs (actor,action,resource,decision,reason) VALUES (?, ?, ?, ?, ?)', req.user?.username || 'platform', 'APPROVAL_DECISION', req.params.id, status, req.body?.reason || 'operator decision'); res.json({ success: true, id: req.params.id, status }); }
+async function decideApproval(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const approval = await db.get('SELECT * FROM platform_approvals WHERE id = ?', req.params.id);
+    if (!approval) return res.status(404).json({ error: { code: 'APPROVAL_NOT_FOUND', message: `Approval '${req.params.id}' was not found.` } });
+    if (approval.status !== 'pending') return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' is already ${approval.status}.` } });
+    const approved = req.body?.decision === 'approve';
+    const status = approved ? 'approved' : 'rejected';
+    const updated = await db.run("UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'", status, req.user?.username || 'platform', req.body?.reason || null, req.params.id);
+    if (!updated.changes) return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' was decided concurrently.` } });
+    await db.run('INSERT INTO audit_logs (actor,action,resource,decision,reason) VALUES (?, ?, ?, ?, ?)', req.user?.username || 'platform', 'APPROVAL_DECISION', req.params.id, status, req.body?.reason || 'operator decision');
+
+    let execution = null;
+    if (approved && String(approval.action).startsWith('tool:')) {
+      const payload = JSON.parse(approval.payload_json || '{}');
+      const toolName = payload.toolName || String(approval.action).slice(5);
+      const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
+      if (!tool || tool.is_locked === 1) {
+        execution = { success: false, status: 'blocked', error: !tool ? `Unknown MCP tool '${toolName}'.` : `Tool '${toolName}' is persisted in quarantine.` };
+      } else {
+        const circuitBreaker = require('../services/circuitBreaker');
+        const mcpExecutor = require('../services/mcpExecutor');
+        const gate = circuitBreaker.canExecute(toolName, 'admin');
+        execution = gate.allowed
+          ? await mcpExecutor.executeConfiguredTransport({ toolName, args: payload.args || {}, timeoutMs: 30000 })
+          : { success: false, status: 'blocked', error: gate.message };
+        if (execution.success) circuitBreaker.recordSuccess(toolName);
+        else if (execution.configured) circuitBreaker.recordFailure(toolName, execution.error || 'Approved MCP action failed.');
+      }
+      await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'platform', approval.agent_id, 'APPROVED_TOOL_EXECUTION', toolName, execution.success ? 'completed' : 'failed', execution.error || execution.status, JSON.stringify(execution));
+    }
+    res.json({ success: true, id: req.params.id, status, execution });
+  } catch (error) { next(error); }
+}
 async function pareto(req, res) { res.json(safety.paretoFrontier(req.body?.items || [])); }
 module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto };

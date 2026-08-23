@@ -68,13 +68,16 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const failureTrigger = consecutiveFailures >= maxFailures;
   const semanticTrigger = semanticDivergence < divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
+  const maxCostUsd = Number(policy.maxCostUsd);
+  const costTrigger = Number.isFinite(maxCostUsd) && maxCostUsd >= 0 && costUsd >= maxCostUsd;
 
-  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger;
+  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger || costTrigger;
 
   let primaryReason = 'No termination criteria met';
   if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
   else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
+  else if (costTrigger) primaryReason = `Execution cost limit breached (${costUsd} >= ${maxCostUsd} USD)`;
 
   // Build the report from persisted agent telemetry. Do not invent call stacks
   // or failed tool calls when the evaluation found no termination condition.

@@ -39,7 +39,7 @@ function validateToolCall({ agentId, toolName, args = {}, permissions = [], deni
   const normalized = String(toolName || '').trim();
   const allowed = permissions.includes('*') || permissions.includes(normalized) || permissions.includes('tool:execute');
   const denied = deniedTools.includes(normalized);
-  const dangerous = /delete|drop|shell|exec|write|send|deploy|kill/i.test(normalized);
+  const dangerous = /delete|drop|shell|exec|write|send|deploy|kill|merge|restore|rollback|reset|apoptosis|cryptobiosis|quarantine|circuit.?breaker/i.test(normalized);
   const tainted = taints.length > 0;
   let decision = allowed && !denied && !tainted ? 'allow' : 'deny';
   let reason = !allowed ? 'agent_permission_missing' : denied ? 'tool_explicitly_denied' : tainted ? 'tainted_input_requires_review' : 'policy_pass';

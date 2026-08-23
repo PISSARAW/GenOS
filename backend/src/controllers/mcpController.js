@@ -96,6 +96,9 @@ async function executeTool(req, res) {
   // tainted input. Admins retain a full permission set, while high-impact
   // operations still enter the human approval workflow.
   const db = await getDatabase();
+  const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
+  if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
+  if (tool.is_locked === 1) return res.status(503).json({ error: { code: 'TOOL_LOCKED', message: `Tool '${toolName}' is persisted in quarantine.` } });
   const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
   const permissions = req.user?.role === 'admin'
