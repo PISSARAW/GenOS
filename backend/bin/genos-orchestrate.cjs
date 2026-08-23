@@ -12,7 +12,7 @@ const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
 const orchestratorId = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-const id = action === 'dispatch_worker'
+let id = action === 'dispatch_worker'
   ? request.workerId || `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
   : orchestratorId;
 // Accept the policy at the top level (current schema) and inside `arguments`
@@ -54,7 +54,30 @@ async function main() {
   // open for the whole mission: return the durable agent ID immediately and
   // let a detached runner own its lifecycle and final telemetry.
   if (request.background === true) {
-    const runner = spawn(process.execPath, [__filename, JSON.stringify({ ...request, background: false, orchestratorId, workerId: action === 'dispatch_worker' ? id : request.workerId })], {
+    let reusableWorker = null;
+    if (action === 'dispatch_worker' && !request.workerId) {
+      const lookupDb = await getDatabase();
+      try {
+        reusableWorker = await workerGarage.findReusableWorker(lookupDb, orchestratorId, {
+          mission: task,
+          role: String(request.role || 'implementation')
+        });
+        if (reusableWorker) id = reusableWorker.id;
+      } finally {
+        await closeDatabase();
+      }
+    }
+    const runnerRequest = {
+      ...request,
+      background: false,
+      orchestratorId,
+      workerId: action === 'dispatch_worker' ? id : request.workerId,
+      ...(action === 'dispatch_worker' ? {
+        reuseChecked: true,
+        reuseWorkerId: reusableWorker?.id || null
+      } : {})
+    };
+    const runner = spawn(process.execPath, [__filename, JSON.stringify(runnerRequest)], {
       cwd: path.resolve(__dirname, '../..'),
       detached: true,
       stdio: 'ignore'
@@ -62,7 +85,11 @@ async function main() {
     runner.unref();
     process.stdout.write(JSON.stringify({
       orchestratorId,
-      ...(action === 'dispatch_worker' ? { workerId: id } : {}),
+      ...(action === 'dispatch_worker' ? {
+        workerId: id,
+        reusedWorker: Boolean(reusableWorker),
+        ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {})
+      } : {}),
       status: 'accepted',
       acceptedAt: new Date().toISOString(),
       task
@@ -72,21 +99,41 @@ async function main() {
 
   const db = await getDatabase();
   let delegatedWorkerId = null;
+  let reusedWorker = false;
   try {
     if (action === 'dispatch_worker') {
       const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
         w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      await workerGarage.requireAvailableSlot(db, orchestratorId);
       const role = String(request.role || 'implementation');
+      let reusable = null;
+      if (request.reuseWorkerId) {
+        const selected = await db.get(
+          `SELECT id, name, role, about, model_tier as modelTier, language, isolation_mode as isolationMode
+           FROM agents WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'`,
+          request.reuseWorkerId, orchestratorId
+        );
+        const affinity = workerGarage.reuseAffinity(selected, { mission: task, role });
+        if (!affinity) throw new Error(`Selected worker '${request.reuseWorkerId}' is no longer idle or the mission is outside its scope.`);
+        reusable = { ...selected, affinity };
+        id = selected.id;
+      } else if (request.reuseChecked !== true) {
+        reusable = await workerGarage.findReusableWorker(db, orchestratorId, { mission: task, role });
+        if (reusable) id = reusable.id;
+      }
+      reusedWorker = Boolean(reusable);
+      await workerGarage.requireAvailableSlot(db, orchestratorId, reusedWorker ? id : null);
       const name = String(request.name || workerGarage.workerName({ role, mission: task }));
       const sourceWorkspace = request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
-      const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, id, path.dirname(sourceWorkspace));
-      await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
-        VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`,
-        id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null,
-        request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId,
-        `Worker delegated by ${parent.name}.`, task);
+      const capsuleId = reusedWorker ? `${id}_run_${Date.now()}` : id;
+      const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, capsuleId, path.dirname(sourceWorkspace));
+      if (!reusedWorker) {
+        await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
+          VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`,
+          id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null,
+          request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId,
+          `Worker scope: ${task}`, task);
+      }
       delegatedWorkerId = id;
       const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: id, name, role, mission: task });
       const strategyContract = await contracts.getLatestContract(db, orchestratorId);
@@ -94,7 +141,7 @@ async function main() {
       let inheritedCommands = [];
       try { inheritedCommands = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]'); } catch {}
       await runtime.startMission({
-        agentId: id, name, role, prompt: task, modelTier: request.model_tier || parent.model_tier,
+        agentId: id, name, role, prompt: task, modelTier: request.model_tier || reusable?.modelTier || parent.model_tier,
         workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id,
         fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: orchestratorId,
         strategyContract: strategyContract.contract, executionBudget: request.execution_budget || {},
@@ -105,7 +152,15 @@ async function main() {
         toolLease: runtime.workerToolLease(role), autonomousOrchestration: false
       });
       const agents = await waitForCompletion(db);
-      process.stdout.write(JSON.stringify({ orchestratorId, workerId: id, workerName: name, garage: { slot: garage.slot, capacity: garage.capacity }, agents }));
+      process.stdout.write(JSON.stringify({
+        orchestratorId,
+        workerId: id,
+        workerName: name,
+        reusedWorker,
+        ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}),
+        garage: { slot: garage.slot, capacity: garage.capacity },
+        agents
+      }));
       return;
     }
     await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)

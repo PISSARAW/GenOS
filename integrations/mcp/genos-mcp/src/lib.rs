@@ -78,7 +78,7 @@ fn delegate_worker_tool() -> ToolSpec {
     ToolSpec {
         name: "genos_delegate_worker".into(),
         title: "Delegate GenOS Worker".into(),
-        description: "Create and dispatch one mission-named worker into the orchestrator's three-slot garage. A completed or stopped worker releases its slot; dispatch is refused while all three slots are occupied.".into(),
+        description: "Dispatch one mission-named worker into the orchestrator's three-slot garage. GenOS first revives an idle specialist when the new mission matches its role and scope; otherwise it creates a worker. A completed or stopped worker releases its slot, and dispatch is refused while all three slots are occupied.".into(),
         input_schema: json!({"type":"object","additionalProperties":false,"properties":{
             "mission":{"type":"string","minLength":1,"description":"Concrete bounded mission assigned to the worker."},
             "role":{"type":"string","description":"Worker specialty, for example implementation, independent_reviewer, or security_reviewer."},
