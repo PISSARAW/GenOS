@@ -1,0 +1,73 @@
+{
+  "id": "diag_01a02dfc86597cd091e5f331c360e0a7",
+  "problem": "Repair ledger.mjs while preserving its public API according to task.md and public.test.mjs.",
+  "root": "hyp_01a02dfc86597cd091e5f2f2f0cb33e5",
+  "hypotheses": {
+    "hyp_01a02dfc86597cd091e5f2f2f0cb33e5": {
+      "id": "hyp_01a02dfc86597cd091e5f2f2f0cb33e5",
+      "parent": null,
+      "statement": "root problem",
+      "confidence": 1.0,
+      "status": "testing",
+      "evidence": [],
+      "experiments": [],
+      "children": [
+        "hyp_01a02dfc86597cd091e5f3006ed0b807",
+        "hyp_01a02dfc86597cd091e5f31783b96d92",
+        "hyp_01a02dfc86597cd091e5f32db0e7a1ff"
+      ]
+    },
+    "hyp_01a02dfc86597cd091e5f3006ed0b807": {
+      "id": "hyp_01a02dfc86597cd091e5f3006ed0b807",
+      "parent": "hyp_01a02dfc86597cd091e5f2f2f0cb33e5",
+      "statement": "Implementation violates a documented accounting or validation invariant.",
+      "confidence": 0.99,
+      "status": "testing",
+      "evidence": [
+        {
+          "claim": "No implementation or task specification exists in the assigned capsule, so the documented invariant cannot be inspected.",
+          "source": "authorized sed commands",
+          "supports": false,
+          "artifact": "missing task.md and ledger.mjs"
+        }
+      ],
+      "experiments": [],
+      "children": []
+    },
+    "hyp_01a02dfc86597cd091e5f31783b96d92": {
+      "id": "hyp_01a02dfc86597cd091e5f31783b96d92",
+      "parent": "hyp_01a02dfc86597cd091e5f2f2f0cb33e5",
+      "statement": "Implementation mishandles an edge case covered by public or hidden tests.",
+      "confidence": 0.99,
+      "status": "testing",
+      "evidence": [
+        {
+          "claim": "The required public test file is absent, preventing edge-case assessment.",
+          "source": "authorized test command",
+          "supports": false,
+          "artifact": "node --test public.test.mjs"
+        }
+      ],
+      "experiments": [],
+      "children": []
+    },
+    "hyp_01a02dfc86597cd091e5f32db0e7a1ff": {
+      "id": "hyp_01a02dfc86597cd091e5f32db0e7a1ff",
+      "parent": "hyp_01a02dfc86597cd091e5f2f2f0cb33e5",
+      "statement": "Public API behavior differs from specification despite superficially passing current tests.",
+      "confidence": 0.99,
+      "status": "testing",
+      "evidence": [
+        {
+          "claim": "The public API cannot be learned because all mandated source artifacts are absent.",
+          "source": "authorized sed commands",
+          "supports": false,
+          "artifact": "missing task.md public.test.mjs ledger.mjs"
+        }
+      ],
+      "experiments": [],
+      "children": []
+    }
+  },
+  "created_at": "2026-08-23T09:38:39.321410Z"
+}

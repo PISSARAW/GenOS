@@ -1,0 +1,50 @@
+TAP version 13
+# Subtest: orders unseen events by version
+ok 1 - orders unseen events by version
+  ---
+  duration_ms: 1.353541
+  ...
+# Subtest: identical replay is a no-op
+ok 2 - identical replay is a no-op
+  ---
+  duration_ms: 0.127125
+  ...
+# Subtest: id collision rolls back the whole batch
+ok 3 - id collision rolls back the whole batch
+  ---
+  duration_ms: 0.687791
+  ...
+# Subtest: unknown account is atomic
+ok 4 - unknown account is atomic
+  ---
+  duration_ms: 0.096125
+  ...
+# Subtest: version gap is rejected
+ok 5 - version gap is rejected
+  ---
+  duration_ms: 0.099042
+  ...
+# Subtest: overdraft is atomic after sorting
+ok 6 - overdraft is atomic after sorting
+  ---
+  duration_ms: 0.094666
+  ...
+# Subtest: unseen stale event is ignored
+ok 7 - unseen stale event is ignored
+  ---
+  duration_ms: 0.089958
+  ...
+# Subtest: validates finite deltas and positive versions
+ok 8 - validates finite deltas and positive versions
+  ---
+  duration_ms: 0.1065
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 63.314334

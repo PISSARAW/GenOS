@@ -5,12 +5,16 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { orchestrationFinished } from './support.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = path.resolve(here, '../genos-agentbench');
 const suite = JSON.parse(readFileSync(path.join(source, 'suite.json'), 'utf8'));
 assert.equal(suite.tasks.length, 3);
 assert.equal(new Set(suite.tasks.map((task) => task.id)).size, suite.tasks.length);
+assert.equal(orchestrationFinished([{ status: 'idle' }], []), false, 'initial idle state is not completion');
+assert.equal(orchestrationFinished([{ status: 'running' }], ['AGENT_COMPLETED']), false);
+assert.equal(orchestrationFinished([{ status: 'idle' }, { status: 'idle' }], ['AGENT_COMPLETED']), true);
 
 for (const task of suite.tasks) {
   const workspace = path.join(source, 'tasks', task.id);
