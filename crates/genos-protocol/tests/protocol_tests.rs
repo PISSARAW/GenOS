@@ -129,6 +129,19 @@ fn mutually_exclusive_replay_anchors_are_rejected() {
 }
 
 #[test]
+fn replay_maps_directly_to_the_agent_replay_command() {
+    let planned = plan_tool_call(
+        "genos_replay",
+        &json!({"snapshot": "snap-1", "root": ".state"}),
+    )
+    .unwrap();
+    assert_eq!(
+        planned.args,
+        ["agent", "replay", "--root", ".state", "--snapshot", "snap-1", "--format", "json"]
+    );
+}
+
+#[test]
 fn protocol_result_parses_structured_cli_output() {
     let result = ProtocolResult::new(
         "diff",
