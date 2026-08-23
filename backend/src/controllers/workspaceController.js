@@ -12,7 +12,6 @@ const snapshotStore = require('../services/workspaceSnapshotStore');
 const {
   isPathWithinRoot,
   resolveWorkspacesRoot,
-  syncWorkspaceRegistry
 } = require('../services/workspaceRegistry');
 const execFileAsync = promisify(execFile);
 
@@ -29,7 +28,7 @@ async function findWorkspace(db, req, reference) {
       req.tenant.projectId
     );
   } else {
-    workspace = await db.get('SELECT * FROM workspaces WHERE id = ? OR name = ?', reference, reference);
+    workspace = await db.get('SELECT * FROM workspaces WHERE (id = ? OR name = ?) AND organization_id IS NULL AND project_id IS NULL', reference, reference);
   }
   return workspace && isPathWithinRoot(WORKSPACES_ROOT, workspace.path) ? workspace : null;
 }
@@ -82,7 +81,9 @@ async function getWorkspaceFiles(req, res) {
 
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
-  const dbWorkspaces = await syncWorkspaceRegistry(db, WORKSPACES_ROOT);
+  const dbWorkspaces = req.tenant
+    ? await db.all('SELECT * FROM workspaces WHERE organization_id = ? AND project_id = ? ORDER BY updated_at DESC', req.tenant.organizationId, req.tenant.projectId)
+    : await db.all('SELECT * FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL ORDER BY updated_at DESC');
 
   const result = await Promise.all(dbWorkspaces.map(async (w) => {
     let tags = [];
@@ -139,6 +140,11 @@ async function createWorkspace(req, res) {
   const id = `ws-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
   const wsPath = path.join(WORKSPACES_ROOT, name);
 
+  const db = await getDatabase();
+  if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !req.tenant) {
+    return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
+  }
+
   try {
     if (!fs.existsSync(wsPath)) {
       fs.mkdirSync(wsPath, { recursive: true });
@@ -149,10 +155,6 @@ async function createWorkspace(req, res) {
     return res.status(500).json({ error: { code: 'WORKSPACE_CREATE_FAILED', message: err.message } });
   }
 
-  const db = await getDatabase();
-  if (req.headers['x-organization-id'] || req.headers['x-project-id']) {
-    if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
-  }
   await db.run(
     `INSERT OR REPLACE INTO workspaces (id, name, path, visibility, language, description, tags, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id, name, wsPath, visibility, language, description, JSON.stringify([language.toLowerCase()]), req.tenant?.organizationId || null, req.tenant?.projectId || null
