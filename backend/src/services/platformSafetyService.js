@@ -12,11 +12,16 @@ function normalizeProvider(p) {
 }
 
 function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
-  const complexity = Math.max(0, Math.min(1, Number(request.complexity ?? 0.5)));
-  const uncertainty = Math.max(0, Math.min(1, Number(request.uncertainty ?? 0.2)));
+  const bounded = (value, fallback) => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : fallback;
+  const complexity = bounded(request.complexity ?? 0.5, 0.5);
+  const uncertainty = bounded(request.uncertainty ?? 0.2, 0.2);
   const budget = request.maxCostUsd == null ? Infinity : Number(request.maxCostUsd);
-  const required = new Set(request.requiredCapabilities || []);
-  const candidates = providers.map(normalizeProvider).filter(p => p.enabled && requiredIsSatisfied(p, required) && (p.costInput + p.costOutput) <= budget);
+  if (!Number.isFinite(budget) && budget !== Infinity || budget < 0) return { decision: 'invalid-request', candidates: [], reason: 'maxCostUsd must be a non-negative number.' };
+  const required = new Set(Array.isArray(request.requiredCapabilities) ? request.requiredCapabilities : []);
+  const estimatedInputTokens = Math.max(0, Number(request.estimatedInputTokens || 0));
+  const estimatedOutputTokens = Math.max(0, Number(request.estimatedOutputTokens || 0));
+  const estimatedCost = (provider) => (provider.costInput * estimatedInputTokens + provider.costOutput * estimatedOutputTokens) / 1_000_000;
+  const candidates = providers.map(normalizeProvider).filter(p => Array.isArray(p.capabilities) && p.enabled && requiredIsSatisfied(p, required) && estimatedCost(p) <= budget);
   if (!candidates.length) return { decision: 'no-capable-model', candidates: [], reason: 'No enabled provider satisfies capabilities and budget.' };
   const scored = candidates.map(p => {
     const quality = (p.capabilities.includes('reasoning') ? 0.6 : 0.2) + (p.capabilities.includes('long-context') ? 0.2 : 0) + complexity * 0.2;
@@ -34,7 +39,7 @@ function validateToolCall({ agentId, toolName, args = {}, permissions = [], deni
   const normalized = String(toolName || '').trim();
   const allowed = permissions.includes('*') || permissions.includes(normalized) || permissions.includes('tool:execute');
   const denied = deniedTools.includes(normalized);
-  const dangerous = /delete|drop|shell|exec|write|send|deploy|kill/i.test(normalized);
+  const dangerous = /delete|drop|shell|exec|write|send|deploy|kill|merge|restore|rollback|reset|apoptosis|cryptobiosis|quarantine|circuit.?breaker/i.test(normalized);
   const tainted = taints.length > 0;
   let decision = allowed && !denied && !tainted ? 'allow' : 'deny';
   let reason = !allowed ? 'agent_permission_missing' : denied ? 'tool_explicitly_denied' : tainted ? 'tainted_input_requires_review' : 'policy_pass';

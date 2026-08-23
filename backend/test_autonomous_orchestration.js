@@ -13,7 +13,8 @@ assert.strictEqual(plan.registry.total, 77, 'the whole registry must be evaluate
 assert.strictEqual(plan.registry.selected.length > 0, true);
 assert.strictEqual(plan.organization, 'red_blue_coevolution');
 assert.strictEqual(plan.organizationPolicy.transitions.length, 4);
-assert.strictEqual(plan.decisionGates.length, 5);
+assert.strictEqual(plan.decisionGates.length, 6);
+assert(plan.decisionGates.find((gate) => gate.id === 'reselect_strategy').actions.includes('genos_change_strategy'));
 assert(plan.decisionGates.find((gate) => gate.id === 'fork_or_delegate').actions.includes('genos_create'));
 assert(plan.decisionGates.find((gate) => gate.id === 'select_or_merge_hypotheses').actions.includes('genos_merge'));
 assert.deepStrictEqual(plan.dispatchWorkers.map((worker) => worker.label), ['red', 'blue', 'observer']);
@@ -26,11 +27,19 @@ assert(plan.requiredTools.includes('genos_fork'));
 assert(plan.requiredTools.includes('genos_replay'));
 assert.strictEqual(plan.parasitism.enabled, true);
 assert.strictEqual(plan.tokenPolicy.allocation, 'successive_halving_with_reallocation');
+assert.strictEqual(plan.tokenPolicy.rounds.initial.workerCount, 3);
+assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 9600);
+assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 0);
+assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
 
 const lowBudgetPlan = buildAutonomyPlan(securityContract, { tokens: 6000, minimumWorkerTokens: 8000 });
 assert.strictEqual(lowBudgetPlan.dispatchWorkers.length, 0, 'the orchestrator must retain control rather than launch unaffordable workers');
 
 const decoded = decodeMission(encodeMission({ agentId: 'agent_test', autonomyPlanJson: JSON.stringify(plan) }));
 assert.strictEqual(JSON.parse(decoded.autonomyPlanJson).schema, 'genos.autonomous-orchestration/v1alpha1');
+assert(plan.organizationPolicy.availableOrganizations.includes('stigmergy'));
+assert(plan.organizationPolicy.availableOrganizations.includes('network_silence'));
+assert(plan.organizationPolicy.communicationModes.includes('active'));
+assert(plan.organizationPolicy.communicationModes.includes('implicit'));
 
 console.log('Autonomous orchestration plan checks passed.');

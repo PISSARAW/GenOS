@@ -10,6 +10,7 @@ const { seedDatabase } = require('./seed');
 
 let dbInstance = null;
 let dbInitialization = null;
+const transactionTails = new WeakMap();
 
 async function getDatabase(dbFilePath) {
   if (dbInstance) {
@@ -47,6 +48,9 @@ async function getDatabase(dbFilePath) {
 }
 
 async function closeDatabase() {
+  if (dbInitialization) {
+    try { await dbInitialization; } catch (_) {}
+  }
   if (dbInstance) {
     await dbInstance.close();
     dbInstance = null;
@@ -54,6 +58,11 @@ async function closeDatabase() {
 }
 
 async function withTransaction(db, callback) {
+  const previous = transactionTails.get(db) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  transactionTails.set(db, previous.then(() => current));
+  await previous;
   await db.exec('BEGIN TRANSACTION;');
   try {
     const result = await callback(db);
@@ -62,6 +71,8 @@ async function withTransaction(db, callback) {
   } catch (err) {
     await db.exec('ROLLBACK;');
     throw err;
+  } finally {
+    release();
   }
 }
 

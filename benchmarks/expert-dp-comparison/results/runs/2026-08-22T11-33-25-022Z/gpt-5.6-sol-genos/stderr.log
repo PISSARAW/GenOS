@@ -1,0 +1,26 @@
+Reading additional input from stdin...
+2026-08-22T11:37:00.572256Z ERROR codex_models_manager::cache: failed to load models cache: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:37:00.963514Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.964323Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.964986Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.965694Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.966345Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.967045Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.967652Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.968288Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.969283Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.969878Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.970469Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:00.970966Z  WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back
+2026-08-22T11:37:10.540519Z  WARN codex_core_plugins::manager: failed to warm remote plugin catalog cache error=remote plugin catalog request to https://chatgpt.com/backend-api/ps/plugins/list failed with status 500 Internal Server Error: {"detail":{"retryable":true,"message":"(429)\nReason: Too Many Requests\nHTTP response headers: <CIMultiDictProxy('Content-Type': 'application/json', 'x-request-id': '88c2ead7-0c33-497c-92be-767b795c7791', 'x-rockset-deployment-rrn': 'rrn:rsd:rs4:31d7fc37-8d08-4ad5-b8d0-743b6a508df1', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'origin, content-type, accept, authorization, organization, user-agent, x-rockset-version, x-rockset-routing-key, baggage, sentry-trace, rs-auth-role, x-force-tracing', 'Access-Control-Allow-Credentials': 'true', 'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH', 'Access-Control-Max-Age': '1209600', 'Cache-Control': 'no-store', 'strict-transport-security': 'max-age=63072000; includeSubdomains; preload', 'Date': 'Sat, 22 Aug 2026 11:37:10 GMT', 'Content-Length': '729', 'x-envoy-upstream-service-time': '2', 'Server': 'istio-envoy')>\nHTTP response body: {\"internal_errors\":[\"Rejecting the query because the per-pod concurrent query limit of 38 has been reached. See runbook URL for guidance.\",\"Rejecting the query because the per-pod concurrent query limit of 38 has been reached. See runbook URL for guidance.\"],\"runbook_url\":\"https://www.notion.so/openai/Rockset-FAQ-2c58e50b62b080fb809be3a5d1f9b533?source=copy_link#2c58e50b62b0805c9845ff43dc14bdc1\",\"error_id\":\"per_pod_concurrent_query_limit_reached\",\"query_id\":\"rs4:0543b961-1695-4bf6-886c-94dab2822691:p4Z8JCO:0:leaf-c26add9c-c623-4b16-9c33-054186566859\",\"message\":\"Rejecting the query because the per-pod concurrent query limit of 38 has been reached. See runbook URL for guidance.\",\"message_key\":\"\",\"type\":\"RESOURCEEXCEEDED\"}\n"}}
+2026-08-22T11:37:10.869061Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:37:17.275558Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:37:39.291797Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:37:44.736612Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:41:09.415928Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:41:14.535597Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:41:24.841826Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:41:30.577946Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:41:50.690810Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:42:03.291933Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5
+2026-08-22T11:42:06.457587Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `base_instructions` at line 97 column 5

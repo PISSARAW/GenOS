@@ -72,15 +72,33 @@ pub fn cmd_eval_run(args: EvalRunArgs) -> Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
-struct ParasitismInput { parasites: Vec<ParasiteGenome>, agents: Vec<AgentGenome> }
+struct ParasitismInput {
+    parasites: Vec<ParasiteGenome>,
+    agents: Vec<AgentGenome>,
+}
 #[derive(Debug, Serialize)]
-struct ParasitismReport { parasites: Vec<ParasiteGenome>, agents: Vec<AgentGenome>, evolved: bool }
+struct ParasitismReport {
+    parasites: Vec<ParasiteGenome>,
+    agents: Vec<AgentGenome>,
+    evolved: bool,
+}
 
 pub fn cmd_eval_parasitism(args: EvalParasitismArgs) -> Result<()> {
     let mut input: ParasitismInput = serde_json::from_slice(&fs::read(&args.input)?)?;
     evaluate_parasitic_pressure(&input.parasites, &mut input.agents);
-    if args.evolve { evolve_parasites(&mut input.parasites, &input.agents); }
-    if let Some(parent) = args.output.parent() { fs::create_dir_all(parent)?; }
-    fs::write(args.output, serde_json::to_vec_pretty(&ParasitismReport { parasites: input.parasites, agents: input.agents, evolved: args.evolve })?)?;
+    if args.evolve {
+        evolve_parasites(&mut input.parasites, &input.agents);
+    }
+    if let Some(parent) = args.output.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(
+        args.output,
+        serde_json::to_vec_pretty(&ParasitismReport {
+            parasites: input.parasites,
+            agents: input.agents,
+            evolved: args.evolve,
+        })?,
+    )?;
     Ok(())
 }

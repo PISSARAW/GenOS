@@ -1,4 +1,4 @@
-﻿//! A [`WorldProvider`] backed by git worktrees.
+//! A [`WorldProvider`] backed by git worktrees.
 //!
 //! Each world is its own worktree, branched off a shared source repository.
 //! A snapshot is the commit the worktree's HEAD points at, and forking means
@@ -11,6 +11,7 @@ use genos_core::{AgentId, BranchId, SnapshotId, WorldId};
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use tokio::process::Command;
 
 #[derive(Clone, Debug)]
 pub struct GitWorktreeWorldProvider {
@@ -41,6 +42,33 @@ impl GitWorktreeWorldProvider {
         }
         Ok(fs::read_to_string(file)?.trim().to_string())
     }
+
+    async fn run_git_indexed(
+        &self,
+        world_path: &std::path::Path,
+        index: &std::path::Path,
+        args: &[&str],
+    ) -> anyhow::Result<String> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(world_path)
+            .args(args)
+            .env("GIT_INDEX_FILE", index)
+            .env("GIT_AUTHOR_NAME", "GenOS Snapshot")
+            .env("GIT_AUTHOR_EMAIL", "snapshot@genos.local")
+            .env("GIT_COMMITTER_NAME", "GenOS Snapshot")
+            .env("GIT_COMMITTER_EMAIL", "snapshot@genos.local")
+            .output()
+            .await?;
+        if !output.status.success() {
+            anyhow::bail!(
+                "git {} failed: {}",
+                args.join(" "),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Ok(String::from_utf8(output.stdout)?.trim().to_string())
+    }
 }
 
 #[async_trait]
@@ -62,8 +90,43 @@ impl WorldProvider for GitWorktreeWorldProvider {
 
     async fn snapshot(&self, world_id: WorldId) -> anyhow::Result<SnapshotId> {
         let world_path = self.world_path(&world_id)?;
-        let commit = run_git(&world_path, &["rev-parse", "HEAD"]).await?;
         let snapshot_id = SnapshotId::new();
+        let index_path = self
+            .root_dir
+            .join("snapshots")
+            .join(format!("{}.index", snapshot_id.0));
+        let real_index = run_git(&world_path, &["rev-parse", "--git-path", "index"]).await?;
+        let real_index = PathBuf::from(real_index.trim());
+        let real_index = if real_index.is_absolute() {
+            real_index
+        } else {
+            world_path.join(real_index)
+        };
+        fs::copy(real_index, &index_path)?;
+        let result = async {
+            self.run_git_indexed(&world_path, &index_path, &["add", "-A"])
+                .await?;
+            let tree = self
+                .run_git_indexed(&world_path, &index_path, &["write-tree"])
+                .await?;
+            let head = run_git(&world_path, &["rev-parse", "HEAD"]).await?;
+            self.run_git_indexed(
+                &world_path,
+                &index_path,
+                &[
+                    "commit-tree",
+                    &tree,
+                    "-p",
+                    head.trim(),
+                    "-m",
+                    "GenOS workspace snapshot",
+                ],
+            )
+            .await
+        }
+        .await;
+        fs::remove_file(&index_path).ok();
+        let commit = result?;
         fs::write(self.snapshot_file(&snapshot_id), commit.trim())?;
         Ok(snapshot_id)
     }

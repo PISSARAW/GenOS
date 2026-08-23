@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- 3. Workspaces & Universes
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     path TEXT NOT NULL,
     visibility TEXT DEFAULT 'Private',
     language TEXT DEFAULT 'TypeScript',
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS agents (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     role TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
+    status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
     agent_type TEXT NOT NULL DEFAULT 'GenOS',
     execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),
     workspace_id TEXT,
@@ -677,6 +677,7 @@ CREATE TABLE IF NOT EXISTS framework_executions (
 CREATE TABLE IF NOT EXISTS model_jobs (id TEXT PRIMARY KEY, prompt TEXT NOT NULL, models_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL DEFAULT 'queued', config_json TEXT NOT NULL DEFAULT '{}', attempts INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL DEFAULT 3, timeout_ms INTEGER NOT NULL DEFAULT 30000, result_json TEXT, error_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, completed_at DATETIME);
 CREATE TABLE IF NOT EXISTS model_job_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, job_id TEXT NOT NULL, model TEXT NOT NULL, token_index INTEGER NOT NULL, token TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(job_id) REFERENCES model_jobs(id) ON DELETE CASCADE);
 CREATE TABLE IF NOT EXISTS webhook_subscriptions (id TEXT PRIMARY KEY, url TEXT NOT NULL, events TEXT NOT NULL DEFAULT '["*"]', secret TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS cryptobiosis_snapshots (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, reason TEXT, state_json TEXT NOT NULL, frozen_at DATETIME NOT NULL, thawed_at DATETIME, thawed_by TEXT);
 
 -- 32. Organization, project and environment tenancy
 CREATE TABLE IF NOT EXISTS organizations (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
@@ -707,6 +708,7 @@ CREATE INDEX IF NOT EXISTS idx_strategy_contract_agent ON strategy_contracts(age
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_runs(agent_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_steps(run_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_tenant_name ON workspaces(COALESCE(organization_id, ''), COALESCE(project_id, ''), name);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id, created_at);
@@ -776,13 +778,17 @@ async function applyVersionedMigrations(db) {
     ['003-tenant-scopes', 'Add organization, project and membership isolation'],
     ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors'],
     ['005-agent-authority', 'Require an orchestrator to dispatch worker agents'],
-    ['006-agent-blocked-status', 'Allow guarded agent missions to persist a blocked status']
+    ['006-agent-blocked-status', 'Allow guarded agent missions to persist a blocked status'],
+    ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts'],
+    ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project'],
+    ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination']
   ];
   await migrateAgentStatusConstraint(db);
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
   if (!names.has('project_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN project_id TEXT');
+  await migrateWorkspaceNameConstraint(db);
   const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
   if (organization) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
@@ -804,20 +810,43 @@ async function applyVersionedMigrations(db) {
   }
 }
 
+async function migrateWorkspaceNameConstraint(db) {
+  const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'workspaces'");
+  if (!table?.sql || !/name\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(table.sql)) return;
+  await db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.exec('BEGIN IMMEDIATE;');
+    await db.exec(`CREATE TABLE workspaces_tenant_scoped (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, visibility TEXT DEFAULT 'Private', language TEXT DEFAULT 'TypeScript',
+      description TEXT, tags TEXT DEFAULT '[]', is_archived INTEGER DEFAULT 0, anomalies_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, organization_id TEXT, project_id TEXT
+    );
+    INSERT INTO workspaces_tenant_scoped SELECT id, name, path, visibility, language, description, tags, is_archived, anomalies_count, created_at, updated_at, organization_id, project_id FROM workspaces;
+    DROP TABLE workspaces;
+    ALTER TABLE workspaces_tenant_scoped RENAME TO workspaces;`);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
 async function migrateAgentStatusConstraint(db) {
   const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'agents'");
   // New databases use CREATE_TABLES_SQL above. Existing databases need a table
   // rebuild because SQLite cannot alter a CHECK constraint in place.
-  if (!table?.sql || /'blocked'/i.test(table.sql)) return;
+  if (!table?.sql || (/'blocked'/i.test(table.sql) && /'completed'/i.test(table.sql))) return;
 
   await db.exec('PRAGMA foreign_keys = OFF;');
   try {
     await db.exec('BEGIN IMMEDIATE;');
-    await db.exec(`CREATE TABLE agents_with_blocked_status (
+    await db.exec(`CREATE TABLE agents_with_terminal_status (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       role TEXT NOT NULL,
-      status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
+      status TEXT NOT NULL CHECK (status IN ('idle', 'running', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'Active', 'Apoptosis')),
       agent_type TEXT NOT NULL DEFAULT 'GenOS',
       execution_mode TEXT NOT NULL DEFAULT 'orchestrator' CHECK (execution_mode IN ('orchestrator', 'worker')),
       workspace_id TEXT,
@@ -834,9 +863,9 @@ async function migrateAgentStatusConstraint(db) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,
-      FOREIGN KEY (parent_agent_id) REFERENCES agents_with_blocked_status(id) ON DELETE SET NULL
+      FOREIGN KEY (parent_agent_id) REFERENCES agents_with_terminal_status(id) ON DELETE SET NULL
     );
-    INSERT INTO agents_with_blocked_status (
+    INSERT INTO agents_with_terminal_status (
       id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
       hallucination_monitoring, hallucination_count, model_tier, language, isolation_mode,
       parent_agent_id, lineage_relation, about, current_task, created_at, updated_at
@@ -846,7 +875,7 @@ async function migrateAgentStatusConstraint(db) {
       parent_agent_id, lineage_relation, about, current_task, created_at, updated_at
     FROM agents;
     DROP TABLE agents;
-    ALTER TABLE agents_with_blocked_status RENAME TO agents;`);
+    ALTER TABLE agents_with_terminal_status RENAME TO agents;`);
     await db.exec('COMMIT;');
   } catch (error) {
     try { await db.exec('ROLLBACK;'); } catch (_) {}

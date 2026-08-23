@@ -1,9 +1,8 @@
 const strategyContracts = require('./strategyContractService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 
-// Keep this explicit: the MCP protocol currently exports 66 operations, including
-// parasitic_pressure. The audit reports a mismatch rather than silently claiming coverage.
-const MCP_TOOL_COUNT = 66;
+// Must match genos_protocol::tool_specs. Update this with its cross-crate test.
+const MCP_TOOL_COUNT = 65;
 
 function observedTools(events) {
   const found = new Set();

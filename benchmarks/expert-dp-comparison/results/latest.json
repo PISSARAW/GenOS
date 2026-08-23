@@ -1,0 +1,157 @@
+{
+  "schema_version": 2,
+  "benchmark": "expert-dp-partition-cht",
+  "generated_at": "2026-08-22T13:18:24.767Z",
+  "model": "gpt-5.6-terra",
+  "reasoning_effort": "high",
+  "task": "Partition DP with squared segment sums; optimized affine-minimum queries required.",
+  "controls": {
+    "same_model": true,
+    "same_prompt": true,
+    "fresh_fixture_per_condition": true,
+    "standard": "No MCP server",
+    "genos": "Same Codex invocation with local GenOS MCP server",
+    "genos_orchestrator": "Backend GenOS orchestrator runtime with bounded workers"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64"
+  },
+  "samples": [
+    {
+      "condition": "standard",
+      "agent_exit_code": 0,
+      "duration_ms": 115773,
+      "quality": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "score": 1,
+        "all_passed": true
+      },
+      "grader_exit_code": 0,
+      "token_usage": {
+        "caller": {
+          "input_tokens": 128081,
+          "output_tokens": 5611,
+          "cached_input_tokens": 110848,
+          "total_tokens": 133692
+        },
+        "genos_internal": 0,
+        "total": 133692
+      },
+      "genos_mcp_tool_calls": 0,
+      "orchestration": null,
+      "artifacts": "benchmarks/expert-dp-comparison/results/runs/2026-08-22T13-08-01-761Z/gpt-5.6-terra-standard"
+    },
+    {
+      "condition": "genos",
+      "agent_exit_code": 0,
+      "duration_ms": 291473,
+      "quality": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "score": 1,
+        "all_passed": true
+      },
+      "grader_exit_code": 0,
+      "token_usage": {
+        "caller": {
+          "input_tokens": 386544,
+          "output_tokens": 3217,
+          "cached_input_tokens": 346368,
+          "total_tokens": 389761
+        },
+        "genos_internal": 2116938,
+        "total": 2506699
+      },
+      "genos_mcp_tool_calls": 1,
+      "orchestration": {
+        "called": true,
+        "bridge_exit_code": 0,
+        "agents": [
+          {
+            "id": "mcp_orchestrator_1787404211259_oobu",
+            "status": "error"
+          },
+          {
+            "id": "worker_mcp_orchestrator_1787404211259_oobu_1787404226393_1_4fbh",
+            "status": "error"
+          },
+          {
+            "id": "worker_mcp_orchestrator_1787404211259_oobu_1787404226422_2_rj00",
+            "status": "error"
+          },
+          {
+            "id": "worker_mcp_orchestrator_1787404211259_oobu_1787404226435_3_aj8t",
+            "status": "error"
+          }
+        ],
+        "completed": false,
+        "internal_tokens": 2116938
+      },
+      "artifacts": "benchmarks/expert-dp-comparison/results/runs/2026-08-22T13-08-01-761Z/gpt-5.6-terra-genos"
+    },
+    {
+      "condition": "genos_orchestrator",
+      "agent_exit_code": 0,
+      "duration_ms": 168265,
+      "quality": {
+        "passed": 4,
+        "failed": 0,
+        "total": 4,
+        "score": 1,
+        "all_passed": true
+      },
+      "grader_exit_code": 0,
+      "token_usage": {
+        "caller": null,
+        "genos_internal": 1171212,
+        "total": 1171212
+      },
+      "orchestration": {
+        "completed": false,
+        "agents": [
+          {
+            "id": "benchmark_orchestrator_1787404532862",
+            "name": "Benchmark Orchestrator",
+            "status": "error",
+            "parent_agent_id": null,
+            "current_task": "Runtime exited with code unknown (SIGTERM)"
+          },
+          {
+            "id": "worker_benchmark_orchestrator_1787404532862_1787404548170_1_eevn",
+            "name": "Benchmark Orchestrator · branch_1",
+            "status": "error",
+            "parent_agent_id": "benchmark_orchestrator_1787404532862",
+            "current_task": "Runtime exited with code unknown (SIGTERM)"
+          },
+          {
+            "id": "worker_benchmark_orchestrator_1787404532862_1787404548227_2_uc8m",
+            "name": "Benchmark Orchestrator · branch_2",
+            "status": "error",
+            "parent_agent_id": "benchmark_orchestrator_1787404532862",
+            "current_task": "Runtime exited with code unknown (SIGTERM)"
+          },
+          {
+            "id": "worker_benchmark_orchestrator_1787404532862_1787404548247_3_9don",
+            "name": "Benchmark Orchestrator · branch_3",
+            "status": "error",
+            "parent_agent_id": "benchmark_orchestrator_1787404532862",
+            "current_task": "Runtime exited with code unknown (SIGTERM)"
+          }
+        ]
+      },
+      "artifacts": "benchmarks/expert-dp-comparison/results/runs/2026-08-22T13-08-01-761Z/gpt-5.6-terra-orchestrator"
+    }
+  ],
+  "limitations": [
+    "One expert DP task and one sample per condition do not establish general superiority.",
+    "A GenOS tool call is evidence of workflow use, not independent proof that it caused the outcome.",
+    "Wall time includes model, tool, and local test execution time.",
+    "Quality is deterministic test pass rate; it does not measure readability, security, or generalization beyond this fixture.",
+    "Total GenOS tokens are caller tokens plus internal orchestrator/worker tokens; cache tokens are reported separately and not added twice."
+  ]
+}
