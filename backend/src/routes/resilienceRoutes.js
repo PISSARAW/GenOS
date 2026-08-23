@@ -6,6 +6,9 @@ const express = require('express');
 const router = express.Router();
 const resilienceController = require('../controllers/resilienceController');
 const { requirePermission } = require('../middleware/auth');
+const { attachTenant } = require('../middleware/tenant');
+
+router.use(attachTenant);
 
 router.post('/apoptosis', requirePermission('emergency_kill'), resilienceController.triggerApoptosis);
 router.get('/policy', resilienceController.getPolicy);
