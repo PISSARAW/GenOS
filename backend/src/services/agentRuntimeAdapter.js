@@ -531,6 +531,7 @@ async function startMissionInternal(mission) {
   const genosCapsule = await agentCapsules.provision({
     executable: runtimeEnvironment.GENOS_BIN,
     workspaceRoot: normalizedMission.workspaceRoot,
+    capsuleRoot: normalizedMission.capsuleRoot,
     agentId,
     name: normalizedMission.name || dispatchedAgent.name || agentId,
     role: normalizedMission.role || dispatchedAgent.role || 'GenOS agent',

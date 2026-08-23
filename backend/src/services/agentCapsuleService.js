@@ -18,7 +18,8 @@ function run(command, args) {
 }
 
 async function provision(context = {}) {
-  const root = path.join(context.workspaceRoot, '.genos');
+  const capsuleRoot = context.capsuleRoot || path.dirname(context.workspaceRoot);
+  const root = path.join(capsuleRoot, '.genos-runtime', context.agentId);
   const bootstrap = path.join(root, 'bootstrap', context.agentId);
   const genomePath = path.join(bootstrap, 'genome.json');
   const snapshotPath = path.join(bootstrap, 'snapshot.json');
@@ -27,6 +28,7 @@ async function provision(context = {}) {
   await run(context.executable, ['snapshot', 'create', '--agent', genomePath, '--out', snapshotPath, '--format', 'json']);
   const output = await run(context.executable, [
     'capsule', 'create', '--snapshot', snapshotPath, '--root', root,
+    '--seed', context.workspaceRoot,
     '--budget-steps', String(context.budgetSteps || 100)
   ]);
   const capsule = JSON.parse(output);
