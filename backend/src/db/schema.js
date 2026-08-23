@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 -- 3. Workspaces & Universes
 CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     path TEXT NOT NULL,
     visibility TEXT DEFAULT 'Private',
     language TEXT DEFAULT 'TypeScript',
@@ -708,6 +708,7 @@ CREATE INDEX IF NOT EXISTS idx_strategy_contract_agent ON strategy_contracts(age
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_runs(agent_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_strategy_execution_steps ON strategy_execution_steps(run_id, sequence);
 CREATE INDEX IF NOT EXISTS idx_workflows_workspace ON workflows(workspace_id, updated_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_tenant_name ON workspaces(COALESCE(organization_id, ''), COALESCE(project_id, ''), name);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_dataset_cases_dataset ON dataset_cases(dataset_id, created_at);
@@ -778,13 +779,15 @@ async function applyVersionedMigrations(db) {
     ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors'],
     ['005-agent-authority', 'Require an orchestrator to dispatch worker agents'],
     ['006-agent-blocked-status', 'Allow guarded agent missions to persist a blocked status'],
-    ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts']
+    ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts'],
+    ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project']
   ];
   await migrateAgentStatusConstraint(db);
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
   if (!names.has('project_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN project_id TEXT');
+  await migrateWorkspaceNameConstraint(db);
   const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
   if (organization) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
@@ -803,6 +806,29 @@ async function applyVersionedMigrations(db) {
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
+  }
+}
+
+async function migrateWorkspaceNameConstraint(db) {
+  const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'workspaces'");
+  if (!table?.sql || !/name\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(table.sql)) return;
+  await db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.exec('BEGIN IMMEDIATE;');
+    await db.exec(`CREATE TABLE workspaces_tenant_scoped (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, path TEXT NOT NULL, visibility TEXT DEFAULT 'Private', language TEXT DEFAULT 'TypeScript',
+      description TEXT, tags TEXT DEFAULT '[]', is_archived INTEGER DEFAULT 0, anomalies_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, organization_id TEXT, project_id TEXT
+    );
+    INSERT INTO workspaces_tenant_scoped SELECT id, name, path, visibility, language, description, tags, is_archived, anomalies_count, created_at, updated_at, organization_id, project_id FROM workspaces;
+    DROP TABLE workspaces;
+    ALTER TABLE workspaces_tenant_scoped RENAME TO workspaces;`);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON;');
   }
 }
 
