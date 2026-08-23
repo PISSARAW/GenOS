@@ -55,8 +55,9 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
-  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.resolve(workspaceRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
+  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
   let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
   child.stdout.on('data', (chunk) => {
