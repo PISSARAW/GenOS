@@ -482,7 +482,17 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     const name = workerGarage.workerName({ ...assignment, mission: mission.prompt });
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
-    const prompt = [mission.prompt || parent.current_task || 'Autonomous task execution', `Assigned branch: ${assignment.label}.`, `Hypothesis: ${assignment.hypothesis}`, plan.tokenPolicy.allocation === 'successive_halving_with_reallocation' ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.` : `Budget allocation: ${perWorkerTokens} tokens.`].join('\n');
+    const prompt = [
+      mission.prompt || parent.current_task || 'Autonomous task execution',
+      `Assigned branch: ${assignment.label}.`,
+      Array.isArray(assignment.capabilities) && assignment.capabilities.length
+        ? `Owned capabilities: ${assignment.capabilities.join(', ')}.`
+        : null,
+      `Hypothesis: ${assignment.hypothesis}`,
+      plan.tokenPolicy.allocation === 'successive_halving_with_reallocation'
+        ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.`
+        : `Budget allocation: ${perWorkerTokens} tokens.`
+    ].filter(Boolean).join('\n');
     await db.run(
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
        VALUES (?, ?, ?, 'running', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
