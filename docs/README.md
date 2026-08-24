@@ -118,6 +118,7 @@ treating a component or boundary as available.
 - [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) — Model Context Protocol interfaces and maturity notes.
 - [CLI Reference Manual](4-interfaces/cli-reference.md) — Comprehensive command-line interface documentation.
 - [Extended CLI Reference](4-interfaces/cli-reference-extended.md) — Additional commands, flags, and exit codes.
+- [Backend REST API Reference](4-interfaces/backend-api-reference.md) — Complete inventory of backend HTTP endpoints, guards, and conventions.
 - [External Integrations](4-interfaces/integrations/) — IDE, CI/CD, and external agent bridges.
 
 ### [Module 5: Workflows de Développement](5-development-workflows/)
