@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Dna, Shuffle, Sparkles, Check } from 'lucide-react';
+import { Dna, Shuffle, Sparkles, Check, Rocket, FileText, ClipboardCopy } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
@@ -10,7 +10,10 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
   const [strategy, setStrategy] = useState('uniform');
   const [mutationRate, setMutationRate] = useState(5);
   const [isSynthesizing, setIsSynthesizing] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   const [childGenome, setChildGenome] = useState<any>(null);
+  const [synthMeta, setSynthMeta] = useState<{ strategy: string; mutationRate: number; parentA: any; parentB: any } | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
@@ -32,11 +35,65 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
         mutationRate
       });
       setChildGenome(res);
+      setSynthMeta({
+        strategy,
+        mutationRate,
+        parentA: parents.find((parent) => parent.id === parentAId),
+        parentB: parents.find((parent) => parent.id === parentBId)
+      });
       showToast('success', 'Crossover Completed', 'Backend returned the synthesized genome.');
     } catch (e: any) {
       showToast('error', 'Crossover Failed', e.message);
     } finally {
       setIsSynthesizing(false);
+    }
+  };
+
+  const handleDeployChild = async () => {
+    if (!childGenome || !synthMeta) return;
+    const childName = childGenome.title || childGenome.childId || `Crossover Child ${Date.now()}`;
+    if (!window.confirm(`Deploy "${childName}" as a live agent under parent "${synthMeta.parentA?.name || synthMeta.parentA?.label || synthMeta.parentA?.id}"?`)) return;
+    setIsDeploying(true);
+    try {
+      const res: any = await api.deployAgent({
+        prompt: `Recombinant agent genome "${childName}" synthesized via ${synthMeta.strategy} crossover at ${synthMeta.mutationRate}% mutation rate from parents ${synthMeta.parentA?.id} and ${synthMeta.parentB?.id}. Recorded mutations: ${(childGenome.mutations || []).map((m: any) => `${m.gene}: ${m.delta}`).join('; ') || 'none'}.`,
+        name: childName,
+        parentAgentId: synthMeta.parentA?.id ?? synthMeta.parentA?.agentId,
+        lineageRelation: 'crossover-child'
+      });
+      showToast('success', 'Agent Deployed', `Lineage child deployed as agent ${res?.agentId || res?.agent?.id || res?.id || '(no id returned)'}.`);
+    } catch (e: any) {
+      showToast('error', 'Deployment Failed', e.message);
+    } finally {
+      setIsDeploying(false);
+    }
+  };
+
+  const handleRecordDecision = async () => {
+    if (!childGenome) return;
+    if (!window.confirm('Record this synthesized genome as a decision note in the genome registry?')) return;
+    setIsRecording(true);
+    try {
+      await api.recordDecision({
+        title: `Crossover child genome ${childGenome.childId || childGenome.title || ''}`.trim(),
+        content: JSON.stringify(childGenome, null, 2),
+        category: 'Genetic Crossover'
+      });
+      showToast('success', 'Decision Recorded', 'The synthesized genome was recorded as a decision note.');
+    } catch (e: any) {
+      showToast('error', 'Recording Failed', e.message);
+    } finally {
+      setIsRecording(false);
+    }
+  };
+
+  const handleCopyJson = async () => {
+    if (!childGenome) return;
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(childGenome, null, 2));
+      showToast('success', 'Copied', 'Child genome JSON copied to clipboard.');
+    } catch (e: any) {
+      showToast('error', 'Copy Failed', e.message);
     }
   };
 
@@ -134,6 +191,36 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
                   <Check size={12} color="var(--success)" /> {mutation.gene}: {mutation.delta}
                 </div>
               ))}
+            </div>
+            {synthMeta && (
+              <div style={{ marginTop: '10px', fontSize: '0.75rem', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                Applied: strategy=<strong style={{ color: 'var(--accent-purple)' }}>{synthMeta.strategy}</strong> · mutationRate=<strong style={{ color: 'var(--accent-purple)' }}>{synthMeta.mutationRate}%</strong>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' }}>
+              <button
+                onClick={handleDeployChild}
+                disabled={isDeploying}
+                className="gh-btn gh-btn-primary"
+                style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
+              >
+                <Rocket size={12} /> {isDeploying ? 'Deploying...' : 'Deploy as agent'}
+              </button>
+              <button
+                onClick={handleRecordDecision}
+                disabled={isRecording}
+                className="gh-btn"
+                style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
+              >
+                <FileText size={12} /> {isRecording ? 'Recording...' : 'Record decision note'}
+              </button>
+              <button
+                onClick={handleCopyJson}
+                className="gh-btn"
+                style={{ padding: '6px 12px', fontSize: '0.75rem', justifyContent: 'center' }}
+              >
+                <ClipboardCopy size={12} /> Copy JSON
+              </button>
             </div>
           </div>
         )}
