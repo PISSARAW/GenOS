@@ -146,18 +146,32 @@ genos agent fork-from-snapshot --snapshot <ID> [--count 2] [--save] [--emit-even
 Direct inspection, checkpointing, and manipulation of event-sourced snapshots.
 
 ```bash
-# Checkpoint and retrieval
-genos snapshot save --capsule <ID> --out <PATH>
-genos snapshot get <SNAPSHOT_ID>
+# Create, save, retrieve
+genos snapshot create --agent <GENOME_PATH> [--memory KEY=VALUE]... [--semantic-ref <ID>]... [--out <PATH>]
+genos snapshot save --snapshot <PATH> [--store <PATH>] [--root <PATH>]
+genos snapshot get --snapshot-id <SNAPSHOT_ID>
 genos snapshot list [--root <PATH>]
 
-# State introspection & mutation
-genos snapshot set-var <SNAPSHOT_ID> --key <KEY> --value <JSON_VALUE>
-genos snapshot check-var <SNAPSHOT_ID> --key <KEY>
-genos snapshot add-memory <SNAPSHOT_ID> --kind semantic|episodic --content "<TEXT>"
-genos snapshot set-belief <SNAPSHOT_ID> --key <KEY> --probability <FLOAT>
-genos snapshot record-tool-call <SNAPSHOT_ID> --tool <NAME> --input <JSON> --output <JSON>
+# Compare counterfactual siblings
+genos snapshot compare --a <REF> --b <REF> [--expect-same-state] [--expect-distinct-identity] \
+  [--expect-differing-field <FIELD>]...
+
+# State introspection & mutation (all take --snapshot <REF>)
+genos snapshot set-var --snapshot <REF> --key <KEY> --value <JSON_VALUE> [--save] [--emit-events]
+genos snapshot check-var --parent <REF> --branch <REF>... [--expect <VALUE>]... [--expect-isolated]
+genos snapshot set-cognition --snapshot <REF> [--drive KEY=FLOAT]... [--planning-depth <N>] [--save]
+genos snapshot add-memory --snapshot <REF> --kind semantic|episodic --content "<TEXT>" [--source <SRC>]
+genos snapshot set-belief --snapshot <REF> --subject <S> --predicate <P> --object <O> \
+  --confidence <FLOAT> [--evidence <TOOL_OUTPUT_ID>]...
+genos snapshot record-tool-call --snapshot <REF> --tool-name <NAME> [--input <JSON>] [--output <JSON>] [--success true|false]
+
+# Lifecycle
+genos snapshot restore --snapshot <REF> --source <REF> [--expect-same-state] [--save] [--emit-events]
+genos snapshot checkpoint --snapshot <REF> [--expect-fresh-id] [--expect-same-branch]
+genos snapshot lineage [--snapshot <ID>|--root <ID>] [--format json|yaml|text] [--full-id]
 ```
+
+Snapshot references (`<REF>`) accept either a file path or a snapshot id resolved in the snapshot store (`--snapshots`, default `.genos/snapshots/`).
 
 ---
 
@@ -166,16 +180,23 @@ genos snapshot record-tool-call <SNAPSHOT_ID> --tool <NAME> --input <JSON> --out
 Manages isolated directory and Git worktree execution sandboxes.
 
 ```bash
-# Create an isolated world sandbox
+# Create an isolated world sandbox (provider: directory | git-worktree)
 genos world create --provider git-worktree --repo-root . --name world-alpha
 
 # Read and write files safely in isolation
 genos world write-file <WORLD_ID> --path "src/lib.rs" --content "<DATA>"
 genos world read-file <WORLD_ID> --path "src/lib.rs"
 
-# Compare and snapshot worlds
+# Fork, compare and snapshot worlds
+genos world fork <WORLD_ID> [--count 2]
 genos world diff <WORLD_A> <WORLD_B>
 genos world snapshot <WORLD_ID> --out <CAS_HASH>
+
+# Execute a command inside the world and verify isolation
+genos world run <WORLD_ID> --command "cargo test"
+genos world check-file <PARENT_WORLD_ID>
+
+# Release the sandbox
 genos world destroy <WORLD_ID>
 ```
 
@@ -287,11 +308,19 @@ Executes formal counterfactual simulation suites defined in YAML/JSON manifests.
 | Subcommand | Syntax | Description |
 |---|---|---|
 | `workspace` | `genos experiment workspace --repo <PATH> --plan <PLAN>` | Multi-world workspace refactoring suite. |
+| `temporal` | `genos experiment temporal <MANIFEST>` | Replays one historical event stream through several causal universes. |
 | `causal-replay` | `genos experiment causal-replay <MANIFEST>` | Replays historical decisions under perturbations. |
 | `incident` | `genos experiment incident --snapshot <ID> --evidence <FILE> --search-plan <PLAN>` | Production root-cause isolation. |
 | `scientific` | `genos experiment scientific --dataset <DATA> --research-plan <PLAN>` | Automated hypothesis falsification. |
 | `security-coevolution` | `genos experiment security-coevolution --environment <ENV> --evolution-plan <PLAN>` | Red/Blue team adversarial co-evolution. |
 | `bug-investigation` | `genos experiment bug-investigation --repo <PATH> --plan <PLAN>` | Multi-branch bug isolation matrix. |
+| `heredity` | `genos experiment heredity <MANIFEST>` | Analyzes a fixed-genome cohort under controlled treatments. |
+| `select` | `genos experiment select <MANIFEST>` | Applies hard constraints and Pareto selection to evaluated genomes. |
+| `reproducibility` | `genos experiment reproducibility <MANIFEST>` | Evaluates functional reproducibility from paired behavior traces. |
+| `cognitive-merge` | `genos experiment cognitive-merge <MANIFEST>` | Reconciles branch claims without unioning their memories. |
+| `branch-evolution` | `genos experiment branch-evolution <MANIFEST>` | Allocates compute, eliminates weak branches, and forks survivors recursively. |
+
+All subcommands accept a complete YAML/JSON manifest positionally, or direct input flags where documented, plus `--format json|yaml`.
 
 ---
 
@@ -302,33 +331,38 @@ Executes formal counterfactual simulation suites defined in YAML/JSON manifests.
   ```bash
   genos resilience apoptosis --agent-id agent-worker-4
   ```
-- `cryptobiosis`: Freezes active runtime state into cold compressed stasis.
+- `cryptobiosis`: Freezes real agent state into a cold spore file. The payload
+  comes from either `--state-file` (raw bytes) or `--state-data` (literal text);
+  one of the two is required.
   ```bash
-  genos resilience cryptobiosis --mode offline
+  genos resilience cryptobiosis --mode offline --state-file .genos/state.bin
+  genos resilience cryptobiosis --mode offline --state-data "worker-4 checkpoint v3"
   ```
 - `hypermutation`: Triggers stochastic parameter fuzzing when progress is stalled.
+  When `<TARGET>` is an existing file its contents are fuzzed; otherwise the
+  literal string is used.
   ```bash
   genos resilience hypermutation --target genomes/agent.yaml
   ```
 - `circuit-breaker`: Halts a runaway counterfactual branch exceeding error or budget ceilings.
   ```bash
-  genos resilience circuit-breaker --branch-id branch-9
+  genos resilience circuit-breaker --branch-id branch-9 --failures 3 --threshold 3
   ```
 
 ### Biomimicry Subcommands (`genos biomimicry`)
-- `swarm-consensus`: Gathers decentralized consensus across worker agents.
+- `swarm-consensus`: Gathers decentralized consensus across worker agents. Cast one or more votes with repeatable `--vote explore|exploit|rest`.
   ```bash
-  genos biomimicry swarm-consensus --target ADR-0015
+  genos biomimicry swarm-consensus --target ADR-0015 --vote explore --vote exploit --vote explore
   ```
 - `flocking-explore`: Launches Boids-algorithm distributed exploration across codebase.
   ```bash
-  genos biomimicry flocking-explore --area crates/genos-store
+  genos biomimicry flocking-explore --area crates/genos-store --steps 4 --x 0.0 --y 0.0
   ```
-- `network-quorum`: Evaluates distributed node synchronization and consensus state.
+- `network-quorum`: Evaluates distributed node synchronization and consensus state against a sensed signal level and activation threshold.
   ```bash
-  genos biomimicry network-quorum --node node-us-east-1
+  genos biomimicry network-quorum --node node-us-east-1 --signal 90 --threshold 80
   ```
-- `distributed-huddle`: Synchronizes shared working memory across ephemeral agents.
+- `distributed-huddle`: Synchronizes shared working memory across ephemeral agents. Reads the JSON member list from `--state-file` when it exists, shares heat, then writes the updated energies back.
   ```bash
   genos biomimicry distributed-huddle --state-file .genos/huddle.json
   ```
@@ -337,12 +371,30 @@ Executes formal counterfactual simulation suites defined in YAML/JSON manifests.
 
 ## 8. Hallucination Mitigation Commands (`genos hallucination`)
 
-Commands for detecting, injecting, testing, and correcting agent confabulations.
+Commands for detecting, injecting, testing, extracting, analyzing, correcting, and simulating agent confabulations. Grounding is verified against execution receipts: a belief counts as grounded only when every piece of evidence points at a recorded, successful tool output whose receipt the environment verified.
 
 ```bash
-genos hallucination detect [--trace <PATH>]
-genos hallucination inject --target-belief <KEY>
-genos hallucination test --suite <PATH>
-genos hallucination correct --agent-id <ID>
-genos hallucination simulate --model <NAME>
+# Audit a snapshot (or JSONL trace) for missing receipts and ungrounded claims
+genos hallucination detect [--snapshot <REF>|--trace <PATH>] [--fail-on-findings]
+
+# Inject a controlled false premise into a snapshot for red teaming
+genos hallucination inject --snapshot <REF> --target-belief <KEY> [--save] [--emit-events]
+
+# ImpossibleBench-style suite (YAML/JSON array of { subject, expect }): exits non-zero on failures.
+genos hallucination test --suite <PATH> --snapshot <REF>
+
+# Export the belief evidence graph (nodes + contradicts/evidence edges)
+genos hallucination extract --snapshot <REF> [--out <PATH>] [--format json|yaml]
+
+# Semantic-entropy metrics over the snapshot's beliefs with a risk verdict
+genos hallucination analyze --snapshot <REF> [--format json|yaml]
+
+# Reject every ungrounded belief via process supervision (--agent-id must own the snapshot)
+genos hallucination correct --agent-id <ID> --snapshot <REF> [--save] [--expect-rejections]
+
+# Replay an injection inside an isolated in-memory fork and report what detection flags
+genos hallucination simulate --model <NAME> --snapshot <REF> [--out <PATH>]
 ```
+
+The remaining command families — capsule lifecycle, replay & inspection, workflows, RAG, prompts, evaluation datasets, plus the `detect` output schema and finding kinds — are documented in the [extended CLI reference](cli-reference-extended.md).
+
