@@ -1,15 +1,34 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { GitBranch, GitCompare, Bug, RotateCcw } from 'lucide-react';
+import { api } from '../../api/client';
 import { MultiBranchTreeDiff } from './MultiBranchTreeDiff';
 import { CausalAnomalyBisection } from './CausalAnomalyBisection';
 import { AtomicRollbackPreview } from './AtomicRollbackPreview';
 
 export const WorkspaceTimelineModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'diff' | 'bisection' | 'rollback'>('diff');
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [workspaceId, setWorkspaceId] = useState('');
+  const [presetRollbackStep, setPresetRollbackStep] = useState<number | null>(null);
+
+  useEffect(() => {
+    api.listWorkspaces()
+      .then((items: any[]) => {
+        const list = Array.isArray(items) ? items : [];
+        setWorkspaces(list);
+        setWorkspaceId((prev) => prev || list[0]?.id || '');
+      })
+      .catch((e: any) => console.warn('[Studio] workspace preload failed:', e));
+  }, []);
+
+  const handleRequestRollback = (step: number) => {
+    setPresetRollbackStep(Number.isFinite(step) ? step : null);
+    setActiveTab('rollback');
+  };
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
-      
+
       {/* Top Header */}
       <div style={{ padding: '20px 32px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -24,9 +43,9 @@ export const WorkspaceTimelineModule: React.FC = () => {
 
         {/* Tab Switcher */}
         <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-main)', padding: '4px', borderRadius: '6px', border: '1px solid var(--panel-border)' }}>
-          <button 
+          <button
             onClick={() => setActiveTab('diff')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'diff' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'diff' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -34,9 +53,9 @@ export const WorkspaceTimelineModule: React.FC = () => {
           >
             <GitCompare size={14} /> Recorded Diff
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('bisection')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'bisection' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'bisection' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -44,9 +63,9 @@ export const WorkspaceTimelineModule: React.FC = () => {
           >
             <Bug size={14} /> Causal bisection
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('rollback')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'rollback' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'rollback' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -59,9 +78,15 @@ export const WorkspaceTimelineModule: React.FC = () => {
 
       {/* Main Tab Content */}
       <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
-        {activeTab === 'diff' && <MultiBranchTreeDiff />}
-        {activeTab === 'bisection' && <CausalAnomalyBisection />}
-        {activeTab === 'rollback' && <AtomicRollbackPreview />}
+        {activeTab === 'diff' && (
+          <MultiBranchTreeDiff workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={setWorkspaceId} />
+        )}
+        {activeTab === 'bisection' && (
+          <CausalAnomalyBisection workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={setWorkspaceId} onRequestRollback={handleRequestRollback} />
+        )}
+        {activeTab === 'rollback' && (
+          <AtomicRollbackPreview workspaces={workspaces} workspaceId={workspaceId} onWorkspaceChange={setWorkspaceId} presetStep={presetRollbackStep} />
+        )}
       </div>
 
     </div>
