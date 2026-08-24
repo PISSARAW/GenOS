@@ -28,14 +28,6 @@ export interface Clone {
   strategyStatus?: string | null;
 }
 
-export interface HallucinationAlert {
-  id: string;
-  timestamp: string;
-  agentId: string;
-  description: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-}
-
 export interface TraceSpan {
   id: string;
   parentId?: string;
@@ -47,20 +39,9 @@ export interface TraceSpan {
   error?: string;
 }
 
-export interface EvaluationScore {
-  id: string;
-  timestamp: string;
-  agentId: string;
-  metricName: string;
-  score: number;
-  details?: string;
-}
-
 interface GenOSState {
   clones: Clone[];
-  hallucinations: HallucinationAlert[];
   traces: Record<string, TraceSpan[]>;
-  evaluations: EvaluationScore[];
   connectionStatus: 'disconnected' | 'connecting' | 'connected';
   selectedAgentId: string | null;
 
@@ -68,9 +49,7 @@ interface GenOSState {
   setSelectedAgentId: (id: string | null) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected') => void;
   addOrUpdateClone: (clone: Clone) => void;
-  addHallucination: (alert: HallucinationAlert) => void;
   addTraceSpan: (agentId: string, span: TraceSpan) => void;
-  addEvaluation: (evaluation: EvaluationScore) => void;
 
   // Backend Actions
   fetchAgents: () => Promise<void>;
@@ -82,9 +61,7 @@ interface GenOSState {
 export const useGenOSStore = create<GenOSState>((set, get) => {
   return {
     clones: [],
-    hallucinations: [],
     traces: {},
-    evaluations: [],
     connectionStatus: 'disconnected',
     selectedAgentId: null,
 
@@ -100,18 +77,10 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
       return { clones: [...state.clones, clone] };
     }),
 
-    addHallucination: (alert) => set((state) => ({
-      hallucinations: [alert, ...state.hallucinations].slice(0, 100)
-    })),
-
     addTraceSpan: (agentId, span) => set((state) => {
       const agentTraces = state.traces[agentId] || [];
       return { traces: { ...state.traces, [agentId]: [...agentTraces, span] } };
     }),
-
-    addEvaluation: (evaluation) => set((state) => ({
-      evaluations: [evaluation, ...state.evaluations].slice(0, 500)
-    })),
 
     fetchAgents: async () => {
       try {
@@ -132,7 +101,7 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
         await api.cloneNode(agentId);
         get().fetchAgents();
       } catch (err) {
-        console.error('Failed to clone agent', err);
+        useToastStore.getState().showToast('error', 'Clone Failed', err instanceof Error ? err.message : String(err));
       }
     },
 
@@ -140,13 +109,22 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
       try {
         await api.inspectNode(agentId);
       } catch (err) {
-        console.error('Failed to inspect agent DNA', err);
+        useToastStore.getState().showToast('error', 'DNA Inspection Failed', err instanceof Error ? err.message : String(err));
       }
     },
 
     initializeLiveSync: () => {
       set({ connectionStatus: 'connecting' });
       get().fetchAgents();
+
+      let refetchTimer: ReturnType<typeof setTimeout> | null = null;
+      const scheduleRefetch = () => {
+        if (refetchTimer !== null) clearTimeout(refetchTimer);
+        refetchTimer = setTimeout(() => {
+          refetchTimer = null;
+          void get().fetchAgents();
+        }, 500);
+      };
 
       // SSE Telemetry Listener — fetch-based stream so the Authorization
       // headers actually reach the protected telemetry endpoint.
@@ -158,7 +136,7 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
         onMessage: (data) => {
           try {
             if (data.eventType === 'AGENT_SPAWNED' || data.eventType === 'AGENT_STATE_CHANGE') {
-              get().fetchAgents();
+              scheduleRefetch();
             }
             if (data.eventType === 'ORCHESTRATOR_USER_UPDATE' && data.payload?.audience === 'user') {
               const phase = String(data.payload?.phase || data.action || 'working').toLowerCase();
@@ -189,6 +167,7 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
 
       return () => {
         closeStream?.();
+        if (refetchTimer !== null) clearTimeout(refetchTimer);
         clearInterval(interval);
       };
     }

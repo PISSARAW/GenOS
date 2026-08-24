@@ -20,6 +20,7 @@ import { LiveMatrix } from './components/LiveMatrix';
 import { GodModeTerminal } from './components/GodModeTerminal';
 import { ToastContainer } from './components/ToastContainer';
 import { RBAC_Gate } from './components/RBAC_Gate';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { EvaluationLineageConsole } from './components/EvaluationLineageConsole';
 import { SafeDebuggingDemo } from './components/SafeDebuggingDemo';
 import './components/SafeDebuggingDemo.css';
@@ -41,38 +42,71 @@ import { RustCoreConsole } from './components/RustCoreConsole';
 import { useGenOSStore } from './store/useGenOSStore';
 import { useToastStore } from './store/useToastStore';
 import { api } from './api/client';
+import { GitPullRequestIcon, HomeIcon, SearchIcon, IssueIcon, PackageIcon, DiscussionIcon, IssueOpenedIcon } from './components/icons';
+import { STUDIO_VIEWS, type StudioView } from './views';
 
-type StudioView = 
-  | 'home' | 'safe_debugging' | 'arena' | 'mcp_sandbox' | 'swarm_monitor' | 'resilience'
-  | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
-  | 'rag_playground'
-  | 'evaluation_lineage'
-  | 'studio_builder' | 'timeline' | 'experiments' | 'active_experiments'
-  | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces'
-  | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety' | 'rust_core';
+const ACTIVE_WORKSPACE_KEY = 'genos_active_workspace_id';
+
+function readHashView(): StudioView {
+  const hash = window.location.hash.replace(/^#\/?/, '');
+  return hash && hash in STUDIO_VIEWS ? (hash as StudioView) : 'home';
+}
+
+function readPersistedWorkspaceId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+  } catch {
+    return null;
+  }
+}
 
 const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<StudioView>('home');
+  const [activeView, setActiveViewState] = useState<StudioView>(readHashView);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeAgentsCount, setActiveAgentsCount] = useState<number | string>('Syncing...');
   const [workspaces, setWorkspaces] = useState<any[] | null>(null);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [activeWorkspaceId, setActiveWorkspaceIdState] = useState<string | null>(readPersistedWorkspaceId);
   const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const [repoSearch, setRepoSearch] = useState('');
   const initializeLiveSync = useGenOSStore((state) => state.initializeLiveSync);
   const showToast = useToastStore((state) => state.showToast);
+
+  useEffect(() => {
+    const onHashChange = () => setActiveViewState(readHashView());
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const setActiveView = useCallback((view: StudioView) => {
+    setActiveViewState(view);
+    const target = `#/${view}`;
+    if (window.location.hash !== target) {
+      window.location.hash = target;
+    }
+  }, []);
+
+  const persistWorkspaceId = useCallback((workspaceId: string | null) => {
+    setActiveWorkspaceIdState(workspaceId);
+    try {
+      if (workspaceId === null) {
+        localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+      } else {
+        localStorage.setItem(ACTIVE_WORKSPACE_KEY, workspaceId);
+      }
+    } catch {}
+  }, []);
 
   const refreshWorkspaces = useCallback(async () => {
     try {
       const list = await api.listWorkspaces();
       if (!Array.isArray(list)) return;
       setWorkspaces(list);
-      setActiveWorkspaceId((current) => current && list.some((workspace) => workspace.id === current)
+      setActiveWorkspaceIdState((current) => current && list.some((workspace) => workspace.id === current)
         ? current
         : list[0]?.id || null);
     } catch {
       setWorkspaces([]);
-      setActiveWorkspaceId(null);
+      setActiveWorkspaceIdState(null);
     }
   }, []);
 
@@ -102,7 +136,7 @@ const App: React.FC = () => {
 
   const activeWorkspace = (workspaces || []).find((workspace) => workspace.id === activeWorkspaceId);
   const selectWorkspace = (workspaceId: string) => {
-    setActiveWorkspaceId(workspaceId);
+    persistWorkspaceId(workspaceId);
     setWorkspaceMenuOpen(false);
     setActiveView('workspaces');
   };
@@ -118,7 +152,7 @@ const App: React.FC = () => {
 
   return (
     <>
-      <CommandPalette />
+      <CommandPalette onNavigate={(view) => setActiveView(view as StudioView)} />
       <ToastContainer />
       
       <div className="gh-layout">
@@ -317,6 +351,7 @@ const App: React.FC = () => {
 
           {/* MAIN CONTENT AREA */}
           <div className="gh-content-area">
+            <ErrorBoundary>
             {activeView === 'home' && <Dashboard onNavigate={(v: any) => setActiveView(v)} workspacesCount={workspaces?.length ?? null} />}
             {activeView === 'studio_builder' && <StudioBuilder workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} />}
             {activeView === 'safe_debugging' && <SafeDebuggingDemo workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} onOpenAgent={() => setActiveView('agent_profile')} />}
@@ -339,12 +374,13 @@ const App: React.FC = () => {
             {activeView === 'experiments' && <div style={{width:'100%', height:'100%'}}><ExperimentsLab /></div>}
             {activeView === 'agent_profile' && <div style={{width:'100%', height:'100%'}}><AgentProfile /></div>}
             {activeView === 'alerts' && <div style={{width:'100%', height:'100%'}}><GlobalAlerts onNavigateDeploy={() => setActiveView('agent_deployment')} /></div>}
-            {activeView === 'workspaces' && <div style={{width:'100%', height:'100%'}}><WorkspacesList selectedWorkspaceId={activeWorkspaceId} onWorkspaceSelected={setActiveWorkspaceId} /></div>}
+            {activeView === 'workspaces' && <div style={{width:'100%', height:'100%'}}><WorkspacesList selectedWorkspaceId={activeWorkspaceId} onWorkspaceSelected={persistWorkspaceId} /></div>}
             {activeView === 'compliance' && <ComplianceAndIntegrations />}
             {activeView === 'live_matrix' && <div style={{width:'100%', height:'100%'}}><LiveMatrix /></div>}
             {activeView === 'platform_safety' && <PlatformSafetyCenter />}
             {activeView === 'terminal' && <div style={{width:'100%', height:'100%'}}><GodModeTerminal /></div>}
             {activeView === 'rust_core' && <div style={{width:'100%', height:'100%'}}><RustCoreConsole /></div>}
+            </ErrorBoundary>
           </div>
 
         </div>
@@ -352,28 +388,5 @@ const App: React.FC = () => {
     </>
   );
 };
-
-// Clean SVG Icons
-const GitPullRequestIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="18" r="3"></circle><circle cx="6" cy="6" r="3"></circle><path d="M13 6h3a2 2 0 0 1 2 2v7"></path><line x1="6" y1="9" x2="6" y2="21"></line></svg>
-);
-const HomeIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-);
-const SearchIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16" y1="16" x2="21" y2="21"></line></svg>
-);
-const IssueIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-);
-const PackageIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"></line><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-);
-const DiscussionIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-);
-const IssueOpenedIcon = ({size, color}: any) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color || "currentColor"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><circle cx="12" cy="16" r="1"></circle></svg>
-);
 
 export default App;
