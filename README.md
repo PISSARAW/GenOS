@@ -238,6 +238,7 @@ researchers, and operators.
 
 ```text
 crates/        Rust models, runtime, stores, worlds, evaluation, API, and CLI
+               (plus experimental epsilon_sa / epsilon_wgpu research crates)
 backend/       Express + SQLite API for GenOS Studio
 studio/        React + TypeScript + Vite frontend
 examples/      Runnable proofs, scenarios, and reusable agent manifests
