@@ -41,9 +41,13 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
     try {
       await api.subscribeAgent(activeAgent.id);
       onRefreshClones();
-      showToast('success', 'Hallucination Monitoring Enabled', `Monitoring is active for ${activeAgent.name}`);
+      // subscribeAgent registers the agent for telemetry events only. True
+      // hallucination detection lives in the Rust CLI (`genos hallucination
+      // detect`) and has no Studio surface yet, so this control must not
+      // claim otherwise.
+      showToast('success', 'Telemetry Subscription Active', `${activeAgent.name} will emit telemetry events. Hallucination analysis is not part of this subscription yet.`);
     } catch (err: any) {
-      showToast('error', 'Subscription Failed', err.message || 'Could not enable hallucination monitoring.');
+      showToast('error', 'Subscription Failed', err.message || 'Could not subscribe the agent to telemetry.');
     }
   };
 
@@ -92,7 +96,7 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
 
           <div style={{ display: 'flex', gap: '12px' }}>
             <div className="gh-btn-group" style={{ display: 'flex', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
-              <button onClick={handleSubscribe} className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px' }}>
+              <button onClick={handleSubscribe} className="gh-btn" title="Subscribes the agent to telemetry events (no hallucination analysis yet)" style={{ border: 'none', borderRadius: 0, padding: '4px 12px' }}>
                 <Eye size={14} color="var(--text-secondary)" /> {activeAgent.hallucinationMonitoring ? 'Subscribed' : 'Subscribe'} <ChevronDown size={12} color="var(--text-muted)"/>
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
