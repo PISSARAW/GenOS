@@ -1,0 +1,7 @@
+{
+  "non_couvertes": [
+    "recherche floue sur les métadonnées — aucune fonction documentée",
+    "filtres géographiques sur les résultats — aucun filtre documenté",
+    "webhook à chaque suppression — aucun événement documenté"
+  ]
+}

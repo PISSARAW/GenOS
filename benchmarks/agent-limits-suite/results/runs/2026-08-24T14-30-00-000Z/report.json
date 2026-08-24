@@ -1,0 +1,300 @@
+{
+  "generated_at": "2026-08-24T11:19:47.332Z",
+  "arms": {
+    "simple": {
+      "perfect": 1,
+      "meanScore": 0.6727
+    },
+    "expert": {
+      "perfect": 12,
+      "meanScore": 1
+    },
+    "genos-worker": {
+      "perfect": 12,
+      "meanScore": 1
+    },
+    "genos-orchestrator": {
+      "perfect": 12,
+      "meanScore": 1
+    }
+  },
+  "tasks": {
+    "d1-hallucinated-api": {
+      "simple": {
+        "score": 0.5,
+        "passed": 2,
+        "total": 4
+      },
+      "expert": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      }
+    },
+    "d1-causality": {
+      "simple": {
+        "score": 0.3333,
+        "passed": 1,
+        "total": 3
+      },
+      "expert": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "d1-deduction-chain": {
+      "simple": {
+        "score": 1,
+        "passed": 6,
+        "total": 6
+      },
+      "expert": {
+        "score": 1,
+        "passed": 6,
+        "total": 6
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 6,
+        "total": 6
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 6,
+        "total": 6
+      }
+    },
+    "d2-physics-rules": {
+      "simple": {
+        "score": 0.8,
+        "passed": 8,
+        "total": 10
+      },
+      "expert": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      }
+    },
+    "d2-rule-switch": {
+      "simple": {
+        "score": 0.3333,
+        "passed": 1,
+        "total": 3
+      },
+      "expert": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "d3-polysemy": {
+      "simple": {
+        "score": 0.9,
+        "passed": 9,
+        "total": 10
+      },
+      "expert": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 10,
+        "total": 10
+      }
+    },
+    "d3-implicite": {
+      "simple": {
+        "score": 0.9091,
+        "passed": 10,
+        "total": 11
+      },
+      "expert": {
+        "score": 1,
+        "passed": 11,
+        "total": 11
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 11,
+        "total": 11
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 11,
+        "total": 11
+      }
+    },
+    "d4-long-horizon": {
+      "simple": {
+        "score": 0.375,
+        "passed": 3,
+        "total": 8
+      },
+      "expert": {
+        "score": 1,
+        "passed": 8,
+        "total": 8
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 8,
+        "total": 8
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 8,
+        "total": 8
+      }
+    },
+    "d4-belief-revision": {
+      "simple": {
+        "score": 0.6,
+        "passed": 3,
+        "total": 5
+      },
+      "expert": {
+        "score": 1,
+        "passed": 5,
+        "total": 5
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 5,
+        "total": 5
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 5,
+        "total": 5
+      }
+    },
+    "d5-fragile-logistics": {
+      "simple": {
+        "score": 0.75,
+        "passed": 3,
+        "total": 4
+      },
+      "expert": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 4,
+        "total": 4
+      }
+    },
+    "d5-grip-window": {
+      "simple": {
+        "score": 0.7143,
+        "passed": 5,
+        "total": 7
+      },
+      "expert": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      }
+    },
+    "d6-charter-consistency": {
+      "simple": {
+        "score": 0.8571,
+        "passed": 6,
+        "total": 7
+      },
+      "expert": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      },
+      "genos-worker": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      },
+      "genos-orchestrator": {
+        "score": 1,
+        "passed": 7,
+        "total": 7
+      }
+    }
+  },
+  "publication_gate": {
+    "publishable": false,
+    "failed": [
+      "one sample per arm",
+      "single underlying conversational model (no Codex CLI available)",
+      "arms differ by effort prompt and GenOS execution mechanics, not by model",
+      "orchestrator arm selects between the other arms candidate pools"
+    ]
+  },
+  "notes": {
+    "worker_traceability": "capsule 01a0337e-9110-7dc1-a711-f1118dc1c9b6: genome, snapshot S0, budgeted runs (one failed command recorded, one successful), S1 checkpoint",
+    "orchestrator_selection": "per-task evidence in genos-orchestrator/selection-evidence.json"
+  }
+}

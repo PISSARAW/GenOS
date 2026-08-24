@@ -1,0 +1,12 @@
+{
+  "s1": "se_repand",
+  "s2": "reste_en_place",
+  "s3": "contenu_conserve",
+  "s4": "se_casse",
+  "s5": "survit",
+  "s6": "continue_indefiniment",
+  "s7": "blocage_exclusion",
+  "s8": "ne_bouge_pas",
+  "s9": "roule",
+  "s10": "pas_de_repansement"
+}

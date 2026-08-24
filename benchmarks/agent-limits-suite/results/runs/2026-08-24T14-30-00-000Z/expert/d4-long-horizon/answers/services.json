@@ -1,0 +1,10 @@
+{
+  "audit": { "enabled": true },
+  "services": {
+    "api": { "port": 4000, "quota_memoire": 30, "region": "eu", "replicas": 1, "healthcheck": true, "tls": true, "logs": "json", "zone": "a" },
+    "legacy": { "port": 4010, "quota_memoire": 20, "healthcheck": false, "logs": "text", "zone": "a" },
+    "worker": { "port": 4200, "quota_memoire": 10, "healthcheck": true, "tls": false, "logs": "json", "zone": "a", "replicas": 1 },
+    "cache": { "port": 4300, "quota_memoire": 40, "healthcheck": true, "zone": "b" }
+  },
+  "deprecated": ["legacy"]
+}
