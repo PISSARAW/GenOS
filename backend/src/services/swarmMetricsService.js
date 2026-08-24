@@ -137,11 +137,19 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
   };
 }
 
+// Baseline system nodes keep the topology graph meaningful on fresh installs
+// where no user agents have been deployed yet.
+const SYSTEM_NODES = [
+  { id: 'system-orchestrator', name: 'System Orchestrator', role: 'supervisor', cluster: 'System', tier: 'Ultra', status: 'active' },
+  { id: 'system-telemetry', name: 'Telemetry Observer', role: 'observer', cluster: 'System', tier: 'Flash', status: 'active' },
+  { id: 'system-worker', name: 'Idle Worker Pool', role: 'worker', cluster: 'System', tier: 'Pro', status: 'idle', parentAgentId: 'system-orchestrator' }
+];
+
 /**
  * Computes force-directed swarm topology graph with active message particles
  */
 function getSwarmTopology(agentList = [], eventBuffer = []) {
-  const agents = agentList;
+  const agents = agentList.length > 0 ? agentList : SYSTEM_NODES;
   const agentById = new Map(agents.map((agent) => [agent.id, agent]));
 
   // Build nodes with normalized graph layout coordinates

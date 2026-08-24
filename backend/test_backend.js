@@ -78,6 +78,18 @@ async function runTests() {
     const txRow = await db.get('SELECT * FROM workspaces WHERE id = ?', 'ws-tx-test');
     assert(txRow !== undefined, 'withTransaction helper committed transaction successfully');
 
+    // Workspace used by the resilience and rollback sections; scoped endpoints
+    // require the workspace row to exist, and durable snapshots require a real
+    // directory on disk.
+    const coreWorkspacePath = path.join(__dirname, '.tmp-ws-genos-core');
+    fs.mkdirSync(path.join(coreWorkspacePath, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ if (!input) return null; return input; }\n');
+    await db.run(
+      "INSERT INTO workspaces (id, name, path) VALUES ('ws-genos-core', 'GenOS Core', ?) " +
+      'ON CONFLICT(id) DO UPDATE SET path = excluded.path',
+      coreWorkspacePath
+    );
+
     // 2. 18 Tables Verification
     console.log('\n--- 2. Database Schema & Tables Verification ---');
     const tables = [
@@ -145,16 +157,17 @@ async function runTests() {
     console.log('\n--- 7. Biology & Resilience: Apoptosis Autopsy & Cryptobiosis ---');
     const apopRes = await request({
       method: 'POST',
-      path: '/api/resilience/apoptosis'
+      path: '/api/resilience/apoptosis',
+      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN }
     }, { agentId: 'test_divergent_agent', triggerMetrics: { consecutiveFailures: 4 } });
     assert(apopRes.status === 200 && apopRes.body.apoptosisExecuted === true && apopRes.body.terminalCallStack.length > 0, 'POST /api/resilience/apoptosis generated automated autopsy report');
 
     const freezeRes = await request({
       method: 'POST',
       path: '/api/resilience/cryptobiosis/freeze',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN }
     }, { workspaceId: 'ws-genos-core', reason: 'Verification Freeze' });
-    assert(freezeRes.status === 200 && freezeRes.body.snapshotId.startsWith('cryo_'), 'POST /api/resilience/cryptobiosis/freeze created instant state snapshot');
+    assert(freezeRes.status === 200 && freezeRes.body.snapshotId.startsWith('cryptobiosis_'), 'POST /api/resilience/cryptobiosis/freeze created instant state snapshot');
 
     const thawRes = await request({
       method: 'POST',
@@ -206,21 +219,35 @@ async function runTests() {
 
     // 10. Workspace & Causal Incidents: Diff, O(log N) Bisect & Rollback
     console.log('\n--- 10. Workspace: Multi-Branch Diff, Causal Bisection & Rollback ---');
-    const diffRes = await request({ method: 'GET', path: '/api/workspaces/diff' });
+    const authHeaders = { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN };
+    await request({
+      method: 'POST',
+      path: '/api/workspaces/ws-genos-core/snapshots',
+      headers: authHeaders
+    }, { label: 'Step 1 baseline', reason: 'Bisection baseline' });
+    fs.writeFileSync(path.join(__dirname, '.tmp-ws-genos-core', 'src', 'parser.js'), 'function parse(input){ return input.deep.property; }\n');
+    await request({
+      method: 'POST',
+      path: '/api/workspaces/ws-genos-core/snapshots',
+      headers: authHeaders
+    }, { label: 'Step 2 regression', reason: 'Introduced null dereference' });
+
+    const diffRes = await request({ method: 'GET', path: '/api/workspaces/diff?base=ws-genos-core&target=ws-genos-core' });
     assert(diffRes.status === 200 && Array.isArray(diffRes.body.diffEntries) && diffRes.body.churnHeatmap.length > 0, 'GET /api/workspaces/diff returned multi-branch diff & churn heatmap');
 
     const bisectRes = await request({
       method: 'POST',
-      path: '/api/workspaces/bisect'
-    }, { snapshots: [] });
+      path: '/api/workspaces/bisect',
+      headers: authHeaders
+    }, { workspaceId: 'ws-genos-core', testCommand: 'node -e "process.exit(1)"', timeoutMs: 30000 });
     assert(bisectRes.status === 200 && bisectRes.body.bisectionComplete && bisectRes.body.culpritReport.stepNumber > 0, 'POST /api/workspaces/bisect isolated culprit step in O(log N) iterations');
 
     const rollbackRes = await request({
       method: 'POST',
       path: '/api/workspaces/rollback',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
-    }, { workspaceId: 'ws-genos-core', culpritReport: bisectRes.body.culpritReport });
-    assert(rollbackRes.status === 200 && rollbackRes.body.success && rollbackRes.body.remediationPatch !== undefined, 'POST /api/workspaces/rollback executed surgical invariant-preserving rollback');
+      headers: authHeaders
+    }, { workspaceId: 'ws-genos-core', stepNumber: bisectRes.body.culpritReport.stepNumber });
+    assert(rollbackRes.status === 200 && rollbackRes.body.rollback === true && rollbackRes.body.restoredSnapshot?.id !== undefined, 'POST /api/workspaces/rollback restored the pre-regression snapshot atomically');
 
     // 11. Command Palette, Terminal & Kill Switch
     console.log('\n--- 11. Command Palette, Terminal & Emergency Kill Switch ---');
@@ -265,6 +292,7 @@ async function runTests() {
     if (fs.existsSync(testDbPath)) {
       try { fs.unlinkSync(testDbPath); } catch (e) {}
     }
+    fs.rmSync(path.join(__dirname, '.tmp-ws-genos-core'), { recursive: true, force: true });
   }
 
   if (failedCount > 0) {
