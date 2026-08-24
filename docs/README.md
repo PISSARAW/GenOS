@@ -70,6 +70,12 @@ treating a component or boundary as available.
 
 ## 🗺️ Master Documentation Index
 
+> **Languages** : the normative documentation (Modules 0–7) is written in
+> English. A few benchmark protocols inside Module 7 and the entire
+> [research corpus](research/) are French originals; they carry an explicit
+> `(FR)` marker in their index entry and are never authoritative over an
+> English page.
+
 ### [Module 0: Contexte et Vision](0-context-and-vision/)
 - [Counterfactual OS Paradigm](0-context-and-vision/counterfactual-os.md) — Motivation, problem space, and the speculative execution model.
 - [Product Roadmap](0-context-and-vision/product-roadmap.md) — Strategic roadmap and evolution phases.
@@ -98,11 +104,20 @@ treating a component or boundary as available.
 - [Determinism & Reproducibility](3-features-and-domain/determinism-and-reproducibility.md) — Reducer replay scope and nondeterministic boundaries.
 - [Biomimicry & Multi-Agent Swarms](3-features-and-domain/biomimicry/) — Swarm consensus, flocking, network quorum, and distributed huddling.
 - [Cellular Resilience Suite](3-features-and-domain/resilience/) — Apoptosis, cryptobiosis, hypermutation, and cyber immune response.
+- [Forking & Divergence](3-features-and-domain/forking-divergence.md) — Branch creation rules and divergence tracking.
+- [Trajectory Diffing](3-features-and-domain/trajectory-diffing.md) — Comparing sibling trajectories structurally.
+- [Trajectory Rebasing](3-features-and-domain/trajectory-rebasing.md) — Replaying a branch onto another base state.
+- [Cognitive Loops & Revert](3-features-and-domain/cognitive-loops-and-revert.md) — Iterative reasoning loops and safe reverts.
+- [Divergence UX](3-features-and-domain/divergence-ux.md) — Presenting divergence to operators.
+- [AI Hyperparameters Traceability](3-features-and-domain/ai-hyperparameters-traceability.md) — Mapping tunables to observable effects.
+- [Determinism & Fallbacks](3-features-and-domain/determinism-and-fallbacks.md) — Fallback paths when determinism cannot hold.
+- [OS Entropy Freezing](3-features-and-domain/os-entropy-freezing.md) — Freezing entropy sources for replay.
 
 ### [Module 4: Interfaces et Protocoles](4-interfaces/)
 - [GenOS Protocol Specification](4-interfaces/genos-protocol.md) — Inter-agent messaging, event schemas, and RPC.
 - [MCP Tools Reference](4-interfaces/mcp-tools-reference.md) — Model Context Protocol interfaces and maturity notes.
 - [CLI Reference Manual](4-interfaces/cli-reference.md) — Comprehensive command-line interface documentation.
+- [Extended CLI Reference](4-interfaces/cli-reference-extended.md) — Additional commands, flags, and exit codes.
 - [External Integrations](4-interfaces/integrations/) — IDE, CI/CD, and external agent bridges.
 
 ### [Module 5: Workflows de Développement](5-development-workflows/)
@@ -116,6 +131,8 @@ treating a component or boundary as available.
 - [Deployment Design](6-operations-and-deployment/production-deployment.md) — Target Kubernetes, Docker, and bare-metal topology; verify current maturity before use.
 - [Deployment Audit](6-operations-and-deployment/deployment-audit.md) — Evidence-bounded audit of the shipped Compose deployment and its remaining production gaps.
 - [Studio Navigation Audit](6-operations-and-deployment/studio-navigation-audit.md) — Navigation coverage, unreachable legacy views, and backend route evidence.
+- [Real Integrations](6-operations-and-deployment/real-integrations.md) — Wiring real model providers, MCP endpoints, and snapshot roots.
+- [CI Health](operations/ci-health.md) — Local commands mirroring the CI gates and how to interpret them.
 - [Operations Runbooks](6-operations-and-deployment/runbooks/) — Incident response, CAS maintenance, and telemetry.
 
 ### [Module 7: Benchmarks, Comparatifs et Théorie](7-benchmarks-and-comparisons/)
@@ -124,6 +141,8 @@ treating a component or boundary as available.
 - [Resilience Benchmark Methodology](7-benchmarks-and-comparisons/resilience-benchmarks.md) — MTTR, CPR, CBIF, TWR, and ChaosAgent-Bench suite.
 - [Proof & Benchmark Status](7-benchmarks-and-comparisons/proof-and-benchmark-status.md) — What is measured, how to reproduce it, and what evidence is still missing.
 - [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Arguments, assumptions, and proposed models; not benchmark results.
+- [Agent Success Rate Protocol (FR)](7-benchmarks-and-comparisons/agent-success-benchmark-protocol.md) — Protocole de mesure du taux de succès agent.
+- [Reproducible Proof Protocol (FR)](7-benchmarks-and-comparisons/reproducible-benchmark-protocol.md) — Protocole de preuve reproductible.
 
 ### [Research Notes (FR)](research/)
 Non-normative research corpus, written in French. These documents are
