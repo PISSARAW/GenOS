@@ -42,6 +42,9 @@ interval over GenOS-minus-standard functional score.
 
 ## Publication policy
 
+Hypotheses, sampling, statistics, and publication gates are pre-registered in
+the [agent success benchmark protocol](../../docs/7-benchmarks-and-comparisons/agent-success-benchmark-protocol.md).
+
 Do not publish a superiority claim unless `publication_gate.publishable` is
 true. Commit the timestamped `report.json`, `samples.jsonl`, raw agent events,
 responses, grader TAP, exact revision and environment. A confidence interval
