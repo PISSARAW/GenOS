@@ -67,7 +67,23 @@ async function createSnapshot(req, res) {
   const snapshot = await cli.runGenos([
     'snapshot', 'create', '--agent', agentFile, '--out', snapshotFile
   ]);
-  return sendResult(res, 'snapshot_create', snapshot, { validated: SNAPSHOT_SCHEMA });
+
+  // The CLI prints a plain confirmation line; validate the actual written
+  // snapshot against spec/snapshot.schema.json instead of parsing stdout.
+  const written = cli.resolveInRoot(snapshotFile);
+  if (snapshot.ok && written && fs.existsSync(written)) {
+    try {
+      const snapshotObject = JSON.parse(fs.readFileSync(written, 'utf8'));
+      return res.json({
+        operation: 'snapshot_create',
+        exitCode: snapshot.exitCode,
+        result: { reference: snapshotFile, snapshot: snapshotObject },
+        specValidation: validateSpec(SNAPSHOT_SCHEMA, snapshotObject)
+      });
+    } catch {}
+  }
+
+  return sendResult(res, 'snapshot_create', snapshot);
 }
 
 function listSnapshotsDir() {
