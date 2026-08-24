@@ -83,7 +83,7 @@ async function copyManifestPayload(workspacePath, root, hash, files) {
     return payloadRoot;
   } catch (error) {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    if (['EEXIST', 'ENOTEMPTY'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
+    if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
     throw error;
   }
 }
@@ -116,6 +116,43 @@ function parseMetadata(value) {
   try { return JSON.parse(value); } catch (_) { return {}; }
 }
 
+async function resolveGitCommit(workspacePath) {
+  const { spawn } = require('child_process');
+  return new Promise((resolve) => {
+    const child = spawn('git', ['-C', workspacePath, 'rev-parse', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let stdout = '';
+    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.on('close', (code) => resolve(code === 0 ? stdout.trim() : null));
+    child.on('error', () => resolve(null));
+  });
+}
+
+function isGitWorkspace(workspacePath) {
+  return Boolean(workspacePath) && fs.existsSync(path.join(workspacePath, '.git'));
+}
+
+/**
+ * Check out `commit` as a detached git worktree at `destination`. The worktree
+ * shares the workspace object store, so materializing a snapshot costs one
+ * checkout instead of one file copy per tracked file.
+ * Returns an async cleanup that removes the worktree registration and files.
+ */
+async function materializeGitWorktree(workspacePath, commit, destination) {
+  const { spawn } = require('child_process');
+  const runGit = (args) => new Promise((resolve, reject) => {
+    const child = spawn('git', ['-C', workspacePath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
+  });
+  await runGit(['worktree', 'add', '--detach', destination, commit]);
+  return async () => {
+    await runGit(['worktree', 'remove', '--force', destination]).catch(() => {});
+    await runGit(['worktree', 'prune']).catch(() => {});
+  };
+}
+
 async function capture({ db, workspace, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio' }) {
   if (!workspace?.path || !fs.existsSync(workspace.path)) throw new Error(`Workspace path does not exist: ${workspace?.path || '<empty>'}`);
   const root = snapshotRoot(workspace.path, workspace.id);
@@ -125,7 +162,15 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
   await copyManifestPayload(workspace.path, root, hash, files);
   const id = `snp-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
   const manifestPath = path.join(root, hash, 'manifest.json');
-  const metadata = { storage: 'durable-filesystem', manifestPath, storagePath: path.join(root, hash), fileCount: files.length, hashAlgorithm: 'sha256' };
+  const gitCommit = await resolveGitCommit(workspace.path);
+  const metadata = {
+    storage: 'durable-filesystem',
+    manifestPath,
+    storagePath: path.join(root, hash),
+    fileCount: files.length,
+    hashAlgorithm: 'sha256',
+    ...(gitCommit ? { gitCommit } : {})
+  };
   await db.run(
     `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
      SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
@@ -220,12 +265,25 @@ async function preview({ db, workspace, reference }) {
   return { targetSnapshot: { ...target, metadata: parseMetadata(target.metadata) }, affectedFiles, reversePatch, affectedFilesCount: affectedFiles.length, durable: true };
 }
 
-async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024 }) {
+async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024, workspacePath }) {
   if (!String(command || '').trim()) throw new Error('A test command is required.');
   const runnerRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-test-run-'));
   const workingDirectory = path.join(runnerRoot, 'workspace');
+  let cleanupWorktree = null;
+  let materialization = 'manifest-copy';
   try {
-    await materialize(snapshot, workingDirectory);
+    // Git repos: a detached worktree of the captured commit is near-instant
+    // and shares the object store. Anything else falls back to the manifest copy.
+    const metadata = parseMetadata(snapshot.metadata);
+    if (metadata.gitCommit && isGitWorkspace(workspacePath)) {
+      try {
+        cleanupWorktree = await materializeGitWorktree(workspacePath, metadata.gitCommit, workingDirectory);
+        materialization = 'git-worktree';
+      } catch (_) {
+        cleanupWorktree = null;
+      }
+    }
+    if (!cleanupWorktree) await materialize(snapshot, workingDirectory);
     const { spawn } = require('child_process');
     const output = await new Promise((resolve, reject) => {
       const child = spawn('/bin/sh', ['-c', String(command)], {
@@ -245,8 +303,9 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
       child.on('error', (error) => { clearTimeout(timer); reject(error); });
       child.on('close', (code, signal) => { clearTimeout(timer); resolve({ exitCode: code == null ? -1 : code, signal, stdout, stderr, truncated }); });
     });
-    return { ...output, snapshotId: snapshot.id, snapshotHash: snapshot.snapshot_hash };
+    return { ...output, snapshotId: snapshot.id, snapshotHash: snapshot.snapshot_hash, materialization };
   } finally {
+    if (cleanupWorktree) await cleanupWorktree();
     await fsp.rm(runnerRoot, { recursive: true, force: true }).catch(() => {});
   }
 }
