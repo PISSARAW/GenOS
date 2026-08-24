@@ -1,0 +1,227 @@
+﻿/**
+ * Process supervision for one agent runtime: spawns the framed-protobuf child,
+ * decodes its event stream into telemetry, guardrails, and orchestration
+ * decisions, and translates the exit into a terminal agent outcome.
+ */
+const path = require('path');
+const { spawn } = require('child_process');
+const { encodeMission, decodeEvents } = require('./runtimeProtocol');
+const { resolveExecutable } = require('./agentRuntimeExecutable');
+const strategyExecution = require('./strategyExecutionService');
+const hallucinationMonitor = require('./hallucinationMonitoringService');
+const resilienceService = require('./resilienceService');
+const { decideFromEvent } = require('./orchestrationDecisionService');
+const actionExecutor = require('./orchestrationActionExecutor');
+const userProgress = require('./userProgressService');
+const workerGarage = require('./workerGarageService');
+const {
+  activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
+} = require('./agentOrchestrationState');
+const { recordWorkerEvidence } = require('./agentEvidenceService');
+const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
+const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
+const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
+
+function runtimeExitOutcome(termination, code, signal, stderr = '') {
+  if (termination) {
+    return {
+      status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
+      task: `Runtime halted: ${termination.reason}`,
+      detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
+      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
+    };
+  }
+  if (code === 0) {
+    return {
+      status: 'completed', eventType: 'AGENT_COMPLETED', action: 'COMPLETE', severity: 'info', task: 'Execution completed',
+      detail: 'Runtime completed successfully.', payload: { code }
+    };
+  }
+  const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
+  return {
+    status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
+    task: `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`,
+    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
+    payload: { code, signal, stderr: String(stderr).trim() }
+  };
+}
+
+async function superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable }) {
+  const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
+  // Keep the default stable regardless of whether `npm start` was launched from
+  // the repository root or from backend/.
+  const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
+  const child = spawn(resolvedExecutable, [], {
+    cwd: workspaceRoot,
+    env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false' },
+    stdio: ['pipe', 'pipe', 'pipe']
+  });
+  activeProcesses.set(agentId, child);
+  // Disposable capsules (git worktrees or copies) are reclaimed after the
+  // mission ends; a caller-provided workspace is never tracked.
+  if (normalizedMission.workspaceProvisioned === true || dispatchedAgent.execution_mode === 'orchestrator') {
+    workspaceLifecycle.trackWorkspace(agentId, workspaceRoot);
+  }
+  // This marker distinguishes a deliberate control-plane stop from a runtime
+  // failure.  SIGTERM makes a child exit non-zero on many platforms, so the
+  // close handler must not turn our own guardrail into AGENT_FAILED.
+  let termination = null;
+  let executionQueue = Promise.resolve();
+  const haltRuntime = (kind, reason, detail, payload = {}) => {
+    if (termination) return false;
+    termination = { kind, reason };
+    emit(agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail, { reason, ...payload }, 'critical', 'blocked');
+    child.kill('SIGTERM');
+    return true;
+  };
+  const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
+    const event = emit(agentId, eventType, action, detail, payload, severity, status);
+    recordWorkerEvidence(normalizedMission, event);
+    const userMilestone = userProgress.milestoneFromEvent(event, {
+      agentId,
+      agentName: normalizedMission.name || dispatchedAgent.name,
+      task: normalizedMission.prompt || normalizedMission.currentTask
+    });
+    if (userMilestone) {
+      userProgress.report({
+        orchestratorId: normalizedMission.orchestratorAgentId || agentId,
+        sourceAgentId: agentId,
+        ...userMilestone,
+        silent: silentUpdates
+      });
+    }
+    const workerFailure = dispatchedAgent.execution_mode === 'worker'
+      && ['WORKER_TASK_FAILED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR'].includes(eventType);
+    if (workerFailure) queueWorkerRecovery(normalizedMission, event);
+    if (dispatchedAgent.execution_mode === 'worker' && eventType === 'WORKER_NO_ANSWER_PROVEN') {
+      const report = workerRecovery.failureReport(event, normalizedMission);
+      const decision = workerRecovery.decideRecovery(report);
+      emit(dispatchedAgent.parent_agent_id, 'WORKER_NO_ANSWER_ACCEPTED', 'CONCLUDE_NO_ANSWER', decision.reason, {
+        workerId: agentId, proof: report.noAnswerProof
+      }, 'info');
+    }
+    const decision = workerFailure ? null : decideFromEvent(event);
+    if (decision) {
+      db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
+        const ownerId = agent?.parent_agent_id || agentId;
+        emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: agentId, sourceEvent: eventType, ...decision }, 'info');
+        if (decision.organization) applyOrganizationDecision(ownerId, decision.organization, decision.reason).catch(() => {});
+        actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
+      }).catch(() => {});
+    }
+    executionQueue = executionQueue
+      .then(() => strategyExecution.recordExecutionEvent(db, agentId, event))
+      .then(async (decision) => {
+        // Codex reports aggregate usage on `turn.completed` (mapped to VERIFY).
+        // At that point the model has already produced its final report; record
+        // a budget breach on the execution run, but do not SIGTERM a completed
+        // turn and overwrite its result with AGENT_HALTED.
+        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || event.action === 'VERIFY';
+        const observation = await hallucinationMonitor.recordObservation(db, event);
+        if (observation.monitored && observation.detected) {
+          emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
+            sourceEventId: event.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
+          }, 'warning');
+          const autopsy = await resilienceService.evaluateApoptosis(agentId, { hallucinations: observation.total }, db);
+          if (autopsy.apoptosisExecuted && !termination && !finalEvent) {
+            emit(agentId, 'APOPTOSIS_TRIGGERED', 'HALLUCINATION_LIMIT', autopsy.triggerReason, { autopsy }, 'critical', 'apoptosis');
+            haltRuntime('apoptosis', autopsy.triggerReason, 'Runtime halted after the hallucination limit was reached.', { autopsy });
+            return;
+          }
+        }
+      // A final runtime event may report that the mission exceeded its budget
+      // only after the child has already completed. Record the guardrail on
+      // the execution run, but never turn that completed child into a SIGTERM
+      // failure and overwrite the agent's terminal state.
+      if (decision?.halt && !termination && !finalEvent) {
+        emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
+        haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
+      }
+      await advanceAutonomousRound(normalizedMission, event);
+      }).catch(() => {});
+    return event;
+  };
+
+  let stdoutBuffer = Buffer.alloc(0);
+  let stderrBuffer = '';
+  let terminalEventSeen = false;
+  child.stdout.on('data', (chunk) => {
+    stdoutBuffer = Buffer.concat([stdoutBuffer, chunk]);
+    stdoutBuffer = decodeEvents(stdoutBuffer, (event) => {
+      let payload = {};
+      try { payload = event.payloadJson ? JSON.parse(event.payloadJson) : {}; } catch { payload = { raw: event.payloadJson }; }
+      const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'completed' : undefined);
+      if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType)) terminalEventSeen = true;
+      if (nextStatus || event.currentTask) {
+        executionQueue = executionQueue.then(() => updateAgent(agentId, nextStatus, event.currentTask));
+      }
+      emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
+    });
+  });
+  child.stderr.on('data', (chunk) => {
+    const detail = chunk.toString();
+    stderrBuffer = `${stderrBuffer}${detail}`.slice(-4000);
+    if (detail.trim()) emitTracked('AGENT_RUNTIME_LOG', 'STDERR', detail.trim(), {}, 'warning');
+  });
+  child.stdin.on('error', (error) => {
+    emitTracked('AGENT_RUNTIME_ERROR', 'STDIN', error.message, {}, 'error', 'error');
+  });
+  child.on('error', async (error) => {
+    if (termination) return;
+    terminalEventSeen = true;
+    await updateAgent(agentId, 'error', error.message);
+    emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
+  });
+  child.on('close', async (code, signal) => {
+    await executionQueue;
+    // Keep the process visible to the orchestration barrier until every final
+    // event (including continuation selection) has been recorded.
+    activeProcesses.delete(agentId);
+    // The capsule outlives the process only by the GC grace delay, so
+    // evidence-aware merging can finish reading it before reclamation.
+    workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
+    const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
+    const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
+    if (!terminalEventSeen || termination || operatorStop) {
+      await updateAgent(agentId, outcome.status, outcome.task);
+      emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
+      await executionQueue;
+    }
+    if (dispatchedAgent.execution_mode === 'worker') {
+      const garage = await workerGarage.state(db, dispatchedAgent.parent_agent_id).catch(() => null);
+      emit(dispatchedAgent.parent_agent_id, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${normalizedMission.name || dispatchedAgent.name}' released its active slot.`, {
+        workerId: agentId,
+        capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+        occupied: garage?.occupied,
+        available: garage?.available
+      }, 'info');
+    }
+    await dispatchWorkerRecovery(agentId);
+    dispatchPendingContinuation(agentId);
+  });
+  await updateAgent(agentId, 'running', mission.prompt);
+  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
+  child.stdin.end(encodeMission({
+    agentId,
+    name: normalizedMission.name || dispatchedAgent.name || '',
+    role: normalizedMission.role || '',
+    prompt: normalizedMission.prompt || normalizedMission.currentTask || '',
+    modelTier: normalizedMission.modelTier || '',
+    workspaceRoot,
+    workspaceIsolation: normalizedMission.workspaceIsolation || '',
+    agentType: normalizedMission.agentType || '',
+    strategyContractJson: JSON.stringify(runtimeStrategyContract),
+    executionMode: dispatchedAgent.execution_mode,
+    orchestratorAgentId: normalizedMission.orchestratorAgentId || '',
+    autonomyPlanJson: JSON.stringify(autonomyPlan || {})
+    ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
+    genosCapsuleJson: JSON.stringify(genosCapsule),
+    executionPolicyJson: JSON.stringify(normalizedMission.executionPolicy),
+    executionBudgetJson: JSON.stringify(runtimeBudget || {})
+  }));
+  return { started: true, executionRun };
+  return { started: true, executionRun };
+}
+
+module.exports = { superviseMission, runtimeExitOutcome };
