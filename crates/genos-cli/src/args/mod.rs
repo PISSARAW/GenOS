@@ -183,6 +183,102 @@ mod tests {
     }
 
     #[test]
+    fn hallucination_commands_parse() {
+        let commands = [
+            vec![
+                "genos",
+                "hallucination",
+                "detect",
+                "--snapshot",
+                "snap.json",
+            ],
+            vec!["genos", "hallucination", "detect", "--trace", "trace.jsonl"],
+            vec![
+                "genos",
+                "hallucination",
+                "detect",
+                "--snapshot",
+                "snap.json",
+                "--fail-on-findings",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "inject",
+                "--snapshot",
+                "snap.json",
+                "--target-belief",
+                "weather",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "test",
+                "--suite",
+                "suite.yaml",
+                "--snapshot",
+                "snap.json",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "extract",
+                "--snapshot",
+                "snap.json",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "analyze",
+                "--snapshot",
+                "snap.json",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "correct",
+                "--agent-id",
+                "agent-1",
+                "--snapshot",
+                "snap.json",
+                "--expect-rejections",
+            ],
+            vec![
+                "genos",
+                "hallucination",
+                "simulate",
+                "--model",
+                "fake-gpt",
+                "--snapshot",
+                "snap.json",
+            ],
+        ];
+
+        for command in commands {
+            assert!(Cli::try_parse_from(command.clone()).is_ok(), "{command:?}");
+        }
+    }
+
+    #[test]
+    fn biomimicry_votes_parse() {
+        assert!(Cli::try_parse_from([
+            "genos",
+            "biomimicry",
+            "swarm-consensus",
+            "--target",
+            "adr",
+            "--vote",
+            "explore"
+        ])
+        .is_ok());
+        assert!(
+            Cli::try_parse_from(["genos", "biomimicry", "swarm-consensus", "--target", "adr"])
+                .is_err(),
+            "at least one --vote is required"
+        );
+    }
+
+    #[test]
     fn experiment_direct_input_modes_parse() {
         let commands = [
             vec![
