@@ -32,7 +32,10 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
       const agents: any[] = await api.listAgents();
       const agent = agents.find((candidate) => candidate.status === 'running') || agents[0];
       if (!agent) throw new Error('No agent available for evaluation');
-      const report: any = await api.triggerApoptosis(agent.id, { consecutiveFailures: 0, costUsd: 0, semanticDivergence: 0.8, hallucinations: 0 });
+      // This panel has no live runtime telemetry feed yet, so the autopsy
+      // runs against explicit zeroed sample metrics. Labeled as such rather
+      // than pretending they were observed.
+      const report: any = await api.triggerApoptosis(agent.id, { consecutiveFailures: 0, costUsd: 0, semanticDivergence: 0.8, hallucinations: 0, sampleMetrics: true });
       setSelectedAutopsy({
         ...report,
         trigger: report.triggerReason,
@@ -40,7 +43,7 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
         lastThoughts: (report.lastActions || []).map((action: any) => `${action.tool}: ${action.status}${action.detail ? ` — ${action.detail}` : ''}`),
         recommendedPatch: report.recommendedPromptPatch
       });
-      showToast('success', 'Autopsy Evaluation Complete', `Agent ${agent.name} evaluated without forced termination.`);
+      showToast('success', 'Dry-Run Autopsy Complete', `Agent ${agent.name} evaluated against policy thresholds with zeroed sample metrics (no live telemetry).`);
     } catch (e: any) { showToast('error', 'Autopsy Evaluation Failed', e.message); }
     finally { setIsEvaluating(false); }
   };

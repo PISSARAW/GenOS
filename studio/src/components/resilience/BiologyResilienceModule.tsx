@@ -42,7 +42,7 @@ export const BiologyResilienceModule: React.FC = () => {
               color: activeTab === 'cryptobiosis' ? 'var(--text-primary)' : 'var(--text-secondary)'
             }}
           >
-            <Snowflake size={14} /> Cryptobiosis (.cryo)
+            <Snowflake size={14} /> Cryptobiosis (process-memory)
           </button>
           <button 
             onClick={() => setActiveTab('matrix')}
