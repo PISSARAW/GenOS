@@ -8,7 +8,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ## Sommaire et Modules de Recherche
 
-### [Partie 1 : Étiologie, Réduction des Hallucinations & Abstention Honnête](./research/deep-2/part1.md)
+### [Partie 1 : Étiologie, Réduction des Hallucinations & Abstention Honnête](../deep-2/part1.md)
 - **Executive Summary**
 - **1. Ce que l’on sait sur les hallucinations et pourquoi elles persistent**
   - Distinctions épistémiques : hallucination vs mensonge vs confabulation
@@ -28,7 +28,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 2 : Cartographie, Architecture d'Implémentation & Roadmap](./research/deep-2/part2.md)
+### [Partie 2 : Cartographie, Architecture d'Implémentation & Roadmap](../deep-2/part2.md)
 - **4. Cartographie des projets académiques, industriels et open source**
   - Frameworks de vérification et d'abstention
   - Benchmarks d'évaluation de calibration
@@ -44,5 +44,5 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ## Références Liées
 - [Rapport Deep Research 1 : Causes et Métriques d'Hallucination](./deep-research-report.md)
-- [Politique de Mise à Jour de la Documentation](./.ai/doc-update-policy.md)
-- [Invariants Système](./.ai/invariants.md)
+- [Politique de Mise à Jour de la Documentation](../../.ai/doc-update-policy.md)
+- [Invariants Système](../../.ai/invariants.md)

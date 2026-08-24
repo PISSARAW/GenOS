@@ -4,7 +4,7 @@
 **Destinataire** : Architecture Board GenOS & Équipe Core Runtime  
 **Date** : 2026-08-21  
 **Statut** : Document de Référence Architecturale & Spécification Normative  
-**Fichier Cible** : `docs/RAPPORT_BIOMIMETISME_ET_GENETIQUE_GENOS.md`
+**Fichier Cible** : `../fr/RAPPORT_BIOMIMETISME_ET_GENETIQUE_GENOS.md`
 
 ---
 

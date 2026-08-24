@@ -125,6 +125,15 @@ treating a component or boundary as available.
 - [Proof & Benchmark Status](7-benchmarks-and-comparisons/proof-and-benchmark-status.md) — What is measured, how to reproduce it, and what evidence is still missing.
 - [Theoretical Foundations](7-benchmarks-and-comparisons/theoretical-foundations.md) — Arguments, assumptions, and proposed models; not benchmark results.
 
+### [Research Notes (FR)](research/)
+Non-normative research corpus, written in French. These documents are
+exploratory working papers: nothing there is implemented or promised unless an
+ADR or a Module page says otherwise.
+- [Biomimicry Research Report](research/biomimicry/part1.md) — Master report on biomimetic architecture (parts 1–4).
+- [Advanced AI Research](research/advanced-ai/part1.md) — Hallucination mitigation, RAG, and agentic systems (parts 1–4).
+- [Deep Research 1–3](research/deep-1/part1.md) — Hallucination causes, uncertainty & honesty, strategic synthesis.
+- [Legacy French Notes](research/fr/) — Earlier consolidated reports (`RAPPORT_*`, `BIOMIMICRY_*`, `EPIC*`, backlog drafts).
+
 ### [Launch Kit](launch/)
 - [Alpha Release Notes](launch/alpha-release-notes.md) — User-facing contents, verification, and limitations for `v0.0.1-alpha.1`.
 - [Technical Launch Post](launch/technical-launch-post.md) — The safe-parallel-debugging story and evidence boundaries.

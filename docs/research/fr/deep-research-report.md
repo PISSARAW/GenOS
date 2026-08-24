@@ -8,7 +8,7 @@ Pour respecter les règles de modularité (< 400 lignes par document), ce rappor
 
 ## Sommaire et Modules de Recherche
 
-### [Partie 1 : Causes, Typologie, Métriques & Méthodes de Mitigation](./research/deep-1/part1.md)
+### [Partie 1 : Causes, Typologie, Métriques & Méthodes de Mitigation](../deep-1/part1.md)
 - **Résumé Exécutif**
 - **1. Cadre technique : pourquoi les modèles hallucinent**
   - Causes probabilistes et limitations de l'architecture autoregressive
@@ -24,7 +24,7 @@ Pour respecter les règles de modularité (< 400 lignes par document), ce rappor
 
 ---
 
-### [Partie 2 : Abstention Honnête, Protocoles Pratiques & Risques](./research/deep-1/part2.md)
+### [Partie 2 : Abstention Honnête, Protocoles Pratiques & Risques](../deep-1/part2.md)
 - **4. Faire admettre l'incompétence et empêcher la « triche »**
   - Protocoles de pénalité/récompense pour l'abstention
   - Détection de confabulation et calibration sélective
@@ -41,4 +41,4 @@ Pour respecter les règles de modularité (< 400 lignes par document), ce rappor
 ## Références Liées
 - [Rapport Deep Research 2 : Incertitude et Honnêteté](./second-deep-research.md)
 - [Rapport Deep Research 3 : Systèmes Agentiques et Sécurité](./third-deep-research.md)
-- [Système d'Invariants GenOS](./.ai/invariants.md)
+- [Système d'Invariants GenOS](../../.ai/invariants.md)

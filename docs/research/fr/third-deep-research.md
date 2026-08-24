@@ -8,7 +8,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ## Sommaire et Modules de Recherche
 
-### [Partie 1 : Synthèse Stratégique, Fiabilité, Mémoire & Systèmes Agentiques](./research/deep-3/part1.md)
+### [Partie 1 : Synthèse Stratégique, Fiabilité, Mémoire & Systèmes Agentiques](../deep-3/part1.md)
 - **Synthèse Stratégique & Matrice Décisionnelle**
 - **1. Fiabilité, Hallucinations, Mémoire et Contexte**
   - RAG Moderne, GraphRAG, CRAG et Self-RAG
@@ -22,7 +22,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 2 : Efficacité, Modèles Spécialisés & Sécurité Offensive](./research/deep-3/part2.md)
+### [Partie 2 : Efficacité, Modèles Spécialisés & Sécurité Offensive](../deep-3/part2.md)
 - **3. Efficacité, Petits Modèles et Architectures Post-Transformer**
   - Quantification avancée (AWQ, GPTQ, GGUF, BitNet)
   - Fine-tuning efficace (LoRA, QLoRA, DoRA)
@@ -35,7 +35,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 3 : Équité Linguistique, Données Synthétiques & Architecture Recommandée](./research/deep-3/part3.md)
+### [Partie 3 : Équité Linguistique, Données Synthétiques & Architecture Recommandée](../deep-3/part3.md)
 - **5. Équité Linguistique, Tokenisation et Données Synthétiques**
   - Biais de tokenisation et parité multilingue
   - Franchissement du "Data Wall" via la génération et le filtrage de données synthétiques
@@ -50,4 +50,4 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 ## Références Associées
 - [Rapport de Recherche Approfondie 1 : Causes & Mitigation des Hallucinations](./deep-research-report.md)
 - [Rapport de Recherche Approfondie 2 : Incertitude & Honnêteté des IA](./second-deep-research.md)
-- [ADR-0014 : Exécution Counterfactual OS](./2-architecture/adrs/ADR-0014-counterfactual-os-execution.md)
+- [ADR-0014 : Exécution Counterfactual OS](../../2-architecture/adrs/ADR-0014-counterfactual-os-execution.md)

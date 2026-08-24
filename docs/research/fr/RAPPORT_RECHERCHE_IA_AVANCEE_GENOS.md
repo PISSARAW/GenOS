@@ -8,7 +8,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ## Sommaire et Modules de Recherche
 
-### [Partie 1 : Hallucinations, RAG Moderne & Gestion de Contexte](./research/advanced-ai/part1.md)
+### [Partie 1 : Hallucinations, RAG Moderne & Gestion de Contexte](../advanced-ai/part1.md)
 - **Résumé Exécutif & Vision Stratégique**
 - **1. Lutte contre les Hallucinations & RAG Moderne**
   - Taxonomie rigoureuse et étiologie mathématique
@@ -23,7 +23,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 2 : IA Agentique, Consensus Distribué & Modèles Légers (SLMs)](./research/advanced-ai/part2.md)
+### [Partie 2 : IA Agentique, Consensus Distribué & Modèles Légers (SLMs)](../advanced-ai/part2.md)
 - **3. IA Agentique, Modèles de Raisonnement & Consensus Distribué**
   - Modèles de raisonnement avancé (Tree-of-Thoughts, Graph-of-Thoughts, MCTS)
   - Topologies multi-agents & consensus pondéré par calibration (Brier Quorum)
@@ -38,7 +38,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 3 : Sûreté, Test-Time Compute & Équité Linguistique](./research/advanced-ai/part3.md)
+### [Partie 3 : Sûreté, Test-Time Compute & Équité Linguistique](../advanced-ai/part3.md)
 - **5. Alignement, Sûreté Formelle & Détection de Dérive**
   - Méthodes d'alignement modernes (DPO, KTO, Constitutional AI, RLAIF)
   - Évaluation de dérive phénotypique et instabilités comportementales
@@ -54,7 +54,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 4 : Architectures Post-Transformer, Sécurité Offensive & Données Synthétiques](./research/advanced-ai/part4.md)
+### [Partie 4 : Architectures Post-Transformer, Sécurité Offensive & Données Synthétiques](../advanced-ai/part4.md)
 - **8. Alternatives au Transformer (State Space Models, Mamba & Hybrides)**
   - Architectures SSM, Mamba-2 et modèles hybrides Attention-SSM (Jamba)
   - Avantages de mémoire constante $O(1)$ pour l'état d'agent
@@ -70,6 +70,6 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 ---
 
 ## Références et Documents Associés
-- [Matrice de Traçabilité des Primitives](../docs/2-architecture/traceability-matrix.md)
-- [Architecture Decision Records (ADRs)](../docs/2-architecture/adrs/README.md)
-- [Fondations Théoriques et Preuves](../docs/7-benchmarks-and-comparisons/theoretical-foundations.md)
+- [Matrice de Traçabilité des Primitives](../../2-architecture/traceability-matrix.md)
+- [Architecture Decision Records (ADRs)](../../2-architecture/adrs/README.md)
+- [Fondations Théoriques et Preuves](../../7-benchmarks-and-comparisons/theoretical-foundations.md)
