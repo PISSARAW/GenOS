@@ -4,7 +4,7 @@ GenOS currently uses a maintainer-led governance model. The repository maintaine
 
 ## Decision-making
 
-Routine changes are decided through pull-request review. Decisions that establish a durable architectural constraint, redefine a core object, or affect multiple subsystems should be documented as an Architecture Decision Record in `docs/adr/`.
+Routine changes are decided through pull-request review. Decisions that establish a durable architectural constraint, redefine a core object, or affect multiple subsystems should be documented as an Architecture Decision Record in `docs/2-architecture/adrs/`.
 
 The maintainer aims to seek evidence and contributor input before making consequential decisions. When consensus is not possible, the maintainer makes the final call and records the rationale in the pull request, issue, or ADR.
 

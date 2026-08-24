@@ -46,7 +46,7 @@ Runtime output is written below `.genos/` and should not be committed.
 4. Update schemas, examples, and documentation when a public contract changes.
 5. Add a concise entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md) for user-visible changes.
 
-Architecture decisions belong in `docs/adr/`. Use an ADR when a change introduces a durable constraint, changes the meaning of a core object, or selects one system-wide approach over another. Accepted design is not the same as implemented behavior; update `docs/adr/IMPLEMENTATION_STATUS.md` only when executable coverage exists.
+Architecture decisions belong in `docs/2-architecture/adrs/`. Use an ADR when a change introduces a durable constraint, changes the meaning of a core object, or selects one system-wide approach over another. Accepted design is not the same as implemented behavior; update `docs/2-architecture/adrs/IMPLEMENTATION_STATUS.md` only when executable coverage exists.
 
 ## Required checks
 
