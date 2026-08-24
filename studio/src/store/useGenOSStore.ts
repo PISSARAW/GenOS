@@ -115,7 +115,9 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
 
     fetchAgents: async () => {
       try {
-        const agents = await api.listAgents();
+        // Bounded poll: the fleet table can grow unbounded, so the live sync
+        // reads at most the 200 most recent agents instead of the full table.
+        const agents = await api.listAgents({ limit: 200 });
         if (Array.isArray(agents)) {
           set({ clones: agents, connectionStatus: 'connected' });
         }
