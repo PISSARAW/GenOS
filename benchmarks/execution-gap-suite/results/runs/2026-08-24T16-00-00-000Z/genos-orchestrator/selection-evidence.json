@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "cycle": "ADR-0019",
+  "mode": "mental vs tooling",
+  "tasks": [
+    {
+      "task": "t1-mod-chain",
+      "branches": {
+        "fork-mental": {
+          "score": 0,
+          "passed": 0,
+          "total": 2
+        },
+        "fork-tooling": {
+          "score": 1,
+          "passed": 2,
+          "total": 2
+        }
+      },
+      "selected": "fork-tooling",
+      "reason": "grader evidence favors executed branch"
+    },
+    {
+      "task": "t2-dijkstra-grid",
+      "branches": {
+        "fork-mental": {
+          "score": 0,
+          "passed": 0,
+          "total": 1
+        },
+        "fork-tooling": {
+          "score": 1,
+          "passed": 1,
+          "total": 1
+        }
+      },
+      "selected": "fork-tooling",
+      "reason": "grader evidence favors executed branch"
+    },
+    {
+      "task": "t3-path-count",
+      "branches": {
+        "fork-mental": {
+          "score": 0,
+          "passed": 0,
+          "total": 1
+        },
+        "fork-tooling": {
+          "score": 1,
+          "passed": 1,
+          "total": 1
+        }
+      },
+      "selected": "fork-tooling",
+      "reason": "grader evidence favors executed branch"
+    },
+    {
+      "task": "t4-underdetermined",
+      "branches": {
+        "fork-mental": {
+          "score": 0.6667,
+          "passed": 2,
+          "total": 3
+        },
+        "fork-tooling": {
+          "score": 1,
+          "passed": 3,
+          "total": 3
+        }
+      },
+      "selected": "fork-tooling",
+      "reason": "grader evidence favors executed branch"
+    }
+  ]
+}
