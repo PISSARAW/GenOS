@@ -1,4 +1,4 @@
-﻿//! World providers â€” the on-disk substrate that backs every fork.
+//! World providers â€” the on-disk substrate that backs every fork.
 //!
 //! A [`WorldProvider`] is what `genos_core` asks for when it needs to spin up
 //! a new isolated execution environment, snapshot it, fork from that snapshot,
@@ -9,11 +9,15 @@
 //! The two implementations live in `directory` and `git_worktree`; the
 //! helpers they share live in `utils`.
 
+mod auto;
 mod directory;
 mod git_worktree;
+mod hardlink;
 
+pub use auto::AutoWorldProvider;
 pub use directory::DirectoryWorldProvider;
 pub use git_worktree::GitWorktreeWorldProvider;
+pub use hardlink::HardlinkWorldProvider;
 
 // File-level fork isolation lives in `crate::files` because the test surface
 // for it is shared with `crate::world::tests` and `crate::world::tests::*`.
@@ -34,6 +38,18 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub struct WorldDiff {
     pub files_changed: usize,
+}
+
+/// What offering a world's delta for merge into a branch produced.
+///
+/// `applied` is false whenever the provider only *proposes* the merge (the
+/// default) or when the target branch would not accept the patch cleanly; the
+/// changed files are still reported so callers can surface or resolve them.
+#[derive(Clone, Debug)]
+pub struct MergeProposal {
+    pub target_branch: String,
+    pub applied: bool,
+    pub files_changed: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -71,6 +87,12 @@ pub enum WorldError {
 #[allow(clippy::too_many_arguments)]
 #[async_trait]
 pub trait WorldProvider: Send + Sync {
+    /// Stable telemetry label for the backend behind this provider
+    /// (`"directory"`, `"hardlink"`, `"git_worktree"`).
+    fn provider_kind(&self) -> &str {
+        "unknown"
+    }
+
     async fn create(&self, agent_id: AgentId, branch_id: BranchId) -> anyhow::Result<WorldId>;
     async fn snapshot(&self, world_id: WorldId) -> anyhow::Result<SnapshotId>;
     async fn fork(&self, snapshot_id: SnapshotId) -> anyhow::Result<WorldId>;
@@ -129,6 +151,24 @@ pub trait WorldProvider: Send + Sync {
     }
 
     async fn diff(&self, a: WorldId, b: WorldId) -> anyhow::Result<WorldDiff>;
+
+    /// Extract the delta a world carries relative to where it forked from and
+    /// offer it as a merge into `target_branch`. The default is a no-op that
+    /// still reports the files it would merge (empty when unknown), so callers
+    /// can rely on the method existing on every backend.
+    async fn merge_into(
+        &self,
+        world_id: WorldId,
+        target_branch: &str,
+    ) -> anyhow::Result<MergeProposal> {
+        let _ = world_id;
+        Ok(MergeProposal {
+            target_branch: target_branch.to_string(),
+            applied: false,
+            files_changed: Vec::new(),
+        })
+    }
+
     async fn execute(&self, world_id: WorldId, command: &str) -> anyhow::Result<ExecuteResult>;
     async fn inspect(&self, world_id: WorldId) -> anyhow::Result<String>;
     async fn destroy(&self, world_id: WorldId) -> anyhow::Result<DestroyOutcome>;
