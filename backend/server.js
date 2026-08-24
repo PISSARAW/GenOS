@@ -17,7 +17,10 @@ async function startServer() {
     console.log('[GenOS Backend] Initializing SQLite database...');
     const db = await getDatabase();
     jobWorker.startJobWorker();
-    console.log('[GenOS Backend] SQLite database & 18 tables ready.');
+    const { count } = await db.get(
+      "SELECT COUNT(*) as count FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    );
+    console.log(`[GenOS Backend] SQLite database & ${count} tables ready.`);
 
     // 2. Create Express App
     const app = createApp();
