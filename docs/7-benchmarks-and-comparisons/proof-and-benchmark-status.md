@@ -52,7 +52,9 @@ active, model-backed comparison between standard Codex and the same model with
 the GenOS MCP server. Three stateful repair tasks are graded after agent exit by
 eight task-specific checks. The publication profile requires every visible
 Codex model, all tasks, at least three repetitions, paired bootstrap confidence
-intervals, raw traces, and a clean revision.
+intervals, raw traces, and a clean revision. Hypotheses, sampling, statistics,
+and gates are fixed by the
+[agent success benchmark protocol](agent-success-benchmark-protocol.md).
 
 The committed pilot is intentionally not a published superiority result: one
 GPT-5.4 Mini pair on `lease-ledger` passed 8/8 checks in both conditions. The
@@ -62,7 +64,10 @@ quality delta remained zero. Its `publication_gate.publishable` value is false.
 The benchmark executables can produce local measurements, but a result becomes
 publishable only when its raw JSON and environment metadata are reviewed and
 committed. Use the [reproducible benchmark protocol](reproducible-benchmark-protocol.md)
-rather than copying numbers from design or research documents.
+for replay and world measurements and the
+[agent success benchmark protocol](agent-success-benchmark-protocol.md)
+for model-backed comparisons rather than copying numbers from design or
+research documents.
 
 ## Measurement protocol
 
