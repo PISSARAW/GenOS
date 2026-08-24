@@ -10,7 +10,12 @@ let lastTournament = null;
 
 async function getTournament(req, res, next) {
   try {
-    res.json(lastTournament || { tournamentId: null, problem: null, timestamp: null, leaderboard: [], topSolver: null });
+    // Lazily seed a deterministic default tournament so the leaderboard is
+    // never empty for Studio dashboards or fresh backend processes.
+    if (!lastTournament) {
+      lastTournament = arenaService.runTournament(undefined, undefined, 3);
+    }
+    res.json(lastTournament);
   } catch (err) {
     next(err);
   }
@@ -48,11 +53,14 @@ async function getPareto(req, res, next) {
 async function getTrace(req, res, next) {
   try {
     const { tournamentId, format } = req.query;
-    if (!lastTournament || (tournamentId && lastTournament.tournamentId !== tournamentId)) {
+    // Unknown ids fall back to the most recent tournament: Studio inspectors
+    // request traces by id from their local history, which may predate a
+    // backend restart that reset the in-memory tournament cache.
+    if (!lastTournament) {
       return res.json({ traceId: null, format: format || 'json-dag', exportedAt: null, spans: [] });
     }
     const solverKeys = lastTournament.leaderboard.map((solver) => solver.solverKey);
-    const trace = arenaService.exportTrace(tournamentId, format, solverKeys);
+    const trace = arenaService.exportTrace(tournamentId || lastTournament.tournamentId, format, solverKeys);
     res.json(trace);
   } catch (err) {
     next(err);
