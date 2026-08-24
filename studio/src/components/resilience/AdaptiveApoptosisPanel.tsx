@@ -17,7 +17,7 @@ export const AdaptiveApoptosisPanel: React.FC = () => {
       setConsecutiveErrors(policy.maxConsecutiveFailures ?? 3);
       setMaxBudgetUsd(policy.maxCostUsd ?? 1.0);
       setDivergenceThreshold(Math.round((policy.divergenceThreshold ?? 0.55) * 100));
-    }).catch(() => {});
+    }).catch((e: any) => showToast('error', 'Apoptosis Metrics Unavailable', e?.message || 'Backend unreachable.'));
   }, []);
 
   const handleSaveThresholds = () => {

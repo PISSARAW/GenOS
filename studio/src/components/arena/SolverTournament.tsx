@@ -31,7 +31,7 @@ export const SolverTournament: React.FC = () => {
   })));
 
   React.useEffect(() => {
-    api.getSolverTournament().then((result: any) => applyLeaderboard(result?.leaderboard || [])).catch(() => {});
+    api.getSolverTournament().then((result: any) => applyLeaderboard(result?.leaderboard || [])).catch((e: any) => console.warn('[Studio] tournament load failed:', e));
   }, []);
 
   const handleRunMatch = async () => {
