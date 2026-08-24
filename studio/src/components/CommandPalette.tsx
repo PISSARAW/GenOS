@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { Terminal, Search } from 'lucide-react';
+import { Terminal, Search, Ban, Navigation } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+import { STUDIO_VIEWS, type StudioView } from '../views';
 import './CommandPalette.css';
 
 interface CommandPaletteProps {
   onOpenChange?: (open: boolean) => void;
+  onNavigate?: (view: string) => void;
 }
 
-export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
+export function CommandPalette({ onOpenChange, onNavigate }: CommandPaletteProps) {
   const [open, setOpen] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -36,6 +38,19 @@ export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
       showToast('success', 'Command Completed', result.message || label);
     } catch (e: any) {
       showToast('error', 'Command Failed', e.message);
+    }
+  };
+
+  const handleHaltAll = async () => {
+    if (!window.confirm('Halt all MCP tools? New MCP tool invocations will be blocked.')) {
+      return;
+    }
+    setOpen(false);
+    try {
+      await api.haltAll();
+      showToast('warning', 'MCP KILL SWITCH ENGAGED', 'New MCP tool invocations are blocked.');
+    } catch (e: any) {
+      showToast('error', 'Halt Failed', e.message);
     }
   };
 
@@ -66,6 +81,26 @@ export function CommandPalette({ onOpenChange }: CommandPaletteProps) {
               <Terminal size={16} className="command-icon" />
               <span>/inspect state</span>
             </Command.Item>
+            <Command.Item className="command-palette-item" onSelect={() => { void handleHaltAll(); }}>
+              <Ban size={16} className="command-icon" />
+              <span>Halt all MCP tools</span>
+            </Command.Item>
+          </Command.Group>
+
+          <Command.Group heading="Navigation" className="command-palette-group">
+            {(Object.entries(STUDIO_VIEWS) as Array<[StudioView, string]>).map(([view, label]) => (
+              <Command.Item
+                key={view}
+                className="command-palette-item"
+                onSelect={() => {
+                  setOpen(false);
+                  if (onNavigate) onNavigate(view);
+                }}
+              >
+                <Navigation size={16} className="command-icon" />
+                <span>{`Go to ${label}`}</span>
+              </Command.Item>
+            ))}
           </Command.Group>
 
         </Command.List>
