@@ -1,7 +1,7 @@
 /**
  * GenOS Studio Extended API Endpoint Families
  */
-import { apiRequest } from './http';
+import { apiRequest, API_BASE_URL } from './http';
 
 export const extendedApi = {
   // OpenTelemetry-compatible trace storage and replay
