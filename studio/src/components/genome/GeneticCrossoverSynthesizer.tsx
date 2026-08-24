@@ -123,8 +123,8 @@ export const GeneticCrossoverSynthesizer: React.FC = () => {
               <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Dna size={14} /> Synthesized Genome: {childGenome.childId}
               </span>
-              <span style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 600 }}>
-                Predicted Fitness: {childGenome.predictedFitnessScore}%
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }} title="Heuristic estimate over temperature and tool count; no proving ground has evaluated this genome.">
+                Heuristic Fitness: {childGenome.predictedFitnessScore}% · {childGenome.provingGroundStatus || 'UNVALIDATED_HEURISTIC'}
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
