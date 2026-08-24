@@ -94,9 +94,12 @@ treating a component or boundary as available.
 - [System Overview](2-architecture/overview.md) — Global architecture and crate decomposition.
 - [Traceability Matrix](2-architecture/traceability-matrix.md) — Mapping requirements to core implementations.
 - [Project Primitive Matrix](2-architecture/project-primitive-matrix.md) — Low-level runtime primitives and lifecycle contracts.
+- [Studio Architecture](2-architecture/studio-architecture.md) — Frontend stack, request pipeline, state management, and deployment of the Studio control plane.
 - [Architecture Decision Records (ADRs)](2-architecture/adrs/) — 21 accepted ADRs covering event sourcing, CAS, merge algebra, and resilience.
 
 ### [Module 3: Fonctionnalités et Domaine](3-features-and-domain/)
+- [Studio User Guide](3-features-and-domain/studio-user-guide.md) — What every Studio view does: sign-in, fleet operations, observers, terminal commands.
+- [Studio Breakthrough Modules](3-features-and-domain/studio-breakthrough-modules.md) — Arena, MCP sandbox, swarm, resilience, genome, memory, timeline, RAG, and the Builder.
 - [Agent Primitives & Lifecycle](3-features-and-domain/agent-primitives.md) — `fork`, `snapshot`, `restore`, `merge`, and `blame`.
 - [Phenotype & Genomic Adaptation](3-features-and-domain/phenotype.md) — Genetic evolution and runtime phenotypic traits.
 - [Counterfactual Simulation](3-features-and-domain/counterfactual-simulation.md) — Speculative multi-branch exploration.
