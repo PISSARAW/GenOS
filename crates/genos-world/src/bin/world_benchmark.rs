@@ -1,4 +1,4 @@
-use genos_core::{AgentId, BranchId};
+﻿use genos_core::{AgentId, BranchId};
 use genos_world::{DirectoryWorldProvider, WorldProvider};
 use serde::Serialize;
 use std::env;
@@ -103,10 +103,12 @@ fn argument(name: &str, default: usize) -> anyhow::Result<usize> {
 fn write_fixture(seed: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(seed.join("nested"))?;
     fs::write(seed.join("README.txt"), "fixed benchmark fixture\n")?;
-    fs::write(
-        seed.join("nested").join("payload.bin"),
-        vec![b'x'; 128 * 1024],
-    )?;
+    for index in 0..300 {
+        fs::write(seed.join("nested").join(format!("src-{index}.txt")), vec![b'a' + (index % 26) as u8; 8 * 1024])?;
+    }
+    for index in 0..10 {
+        fs::write(seed.join("nested").join(format!("blob-{index}.bin")), vec![b'x'; 8 * 1024 * 1024])?;
+    }
     Ok(())
 }
 
@@ -169,3 +171,4 @@ fn git_revision() -> String {
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| "unknown".to_string())
 }
+
