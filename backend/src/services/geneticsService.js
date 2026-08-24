@@ -69,6 +69,11 @@ async function analyzeAlleles() {
     totalAllelesTracked: allAlleles.length,
     dominantBeneficialGenes: beneficial,
     lethalDetrimentalGenes: lethal,
+    // No outcome data links recorded decisions to run results yet, so no
+    // selection or lethality claim can be computed. Surfaced honestly
+    // instead of being silently empty.
+    analysisBasis: 'recorded-decisions-only',
+    selectionAnalysisAvailable: false,
     geneFrequencyMatrix: allAlleles.map(a => ({
       alleleId: a.id,
       name: a.name,
@@ -139,7 +144,11 @@ function crossoverGenome(parentA, parentB, options = {}) {
     childGenes,
     mutations: mutatedGene ? [{ gene: mutatedGene, delta: '+0.05' }] : [],
     predictedFitnessScore: predictedFitness,
-    provingGroundStatus: 'VALIDATED_SAFE'
+    // The score above is a heuristic formula over temperature and tool count;
+    // no proving ground has evaluated this genome, so the honest status is
+    // "unvalidated" until a real evaluation run is wired in.
+    predictedFitnessBasis: 'heuristic',
+    provingGroundStatus: 'UNVALIDATED_HEURISTIC'
   };
 }
 
