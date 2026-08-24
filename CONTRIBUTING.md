@@ -28,6 +28,12 @@ Le projet GenOS impose **3 règles absolues** pour garantir la maintenabilité e
 > - Un **hook git pre-commit** (`.githooks/pre-commit`) empêchant de commiter des fichiers trop longs.
 > - La configuration `clippy.toml` (`too-many-arguments-threshold = 3`, `cognitive-complexity-threshold = 15`) vérifiée par CI.
 
+Le hook n'est pas actif par défaut ; activez-le après le clone :
+
+```bash
+git config core.hooksPath .githooks
+```
+
 
 ```bash
 git clone https://github.com/PISSARAW/GenOS.git
