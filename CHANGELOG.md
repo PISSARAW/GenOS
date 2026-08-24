@@ -2,11 +2,6 @@
 
 All notable changes to GenOS are documented in this file.
 
-No official GitHub release has been published yet. The `0.0.1` section below
-records a development milestone rather than a downloadable release.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once public compatibility guarantees begin. During pre-alpha development, breaking changes may occur in any release.
-
 ## [Unreleased]
 
 ### Added
@@ -25,6 +20,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Bound alpha artefacts to a verified tag commit and matching Cargo version before publication.
 - Replaced embedded Studio credentials with environment or random one-time bootstrap tokens.
 - Limited the local Compose stack to one explicit bind-mounted workspace with safe Codex defaults.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project intends to follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html) once public compatibility guarantees begin. During pre-alpha development, breaking changes may occur in any release.
+
+## v0.0.1-alpha.1 - 2026-08-22
+
+First tagged prerelease, published as a
+[GitHub release](https://github.com/PISSARAW/GenOS/releases/tag/v0.0.1-alpha.1)
+with checksummed CLI archives for four platforms.
 
 ## 0.0.1 development milestone - 2026-08-15
 
