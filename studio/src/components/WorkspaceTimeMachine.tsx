@@ -90,6 +90,30 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
     }
   };
 
+  const [creating, setCreating] = useState(false);
+  const refreshSnapshots = () => {
+    api.getSnapshots(workspaceId)
+      .then((data) => {
+        setSnapshots(Array.isArray(data) ? data : []);
+      })
+      .catch((e: any) => console.warn('[Studio] snapshot reload failed:', e));
+  };
+
+  // Manual snapshot creation: previously defined in the API client but never
+  // reachable from any view, leaving Studio unable to take a snapshot on demand.
+  const handleCreateSnapshot = async () => {
+    setCreating(true);
+    try {
+      await api.createSnapshot(workspaceId, { label: `Manual snapshot ${new Date().toLocaleString()}`, reason: 'Created from Workspace Time Machine' });
+      showToast('success', 'Snapshot created', `A new snapshot of ${workspace.title || workspace.name} was persisted.`);
+      refreshSnapshots();
+    } catch (error: any) {
+      showToast('error', 'Snapshot failed', error?.message || 'The snapshot could not be created.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', position: 'relative' }}>
       
@@ -104,8 +128,13 @@ export const WorkspaceTimeMachine: React.FC<TimeMachineProps> = ({ workspace, on
           <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Durable snapshot timeline · {agentCount} authors · {snapshots.length} revisions · restore available</div>
           </div>
         </div>
-        <div style={{ padding: '4px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--panel-border)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-          Step {currentStep} / {maxStep}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button onClick={handleCreateSnapshot} disabled={creating} className="gh-btn gh-btn-primary" style={{ padding: '6px 14px' }}>
+            {creating ? 'Creating…' : 'Create Snapshot'}
+          </button>
+          <div style={{ padding: '4px 12px', background: 'var(--bg-subtle)', border: '1px solid var(--panel-border)', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            Step {currentStep} / {maxStep}
+          </div>
         </div>
       </div>
 
