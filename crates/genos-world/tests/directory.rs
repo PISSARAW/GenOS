@@ -1,4 +1,4 @@
-﻿//! Directory-backed world provider tests.
+//! Directory-backed world provider tests.
 
 use genos_core::{AgentId, BranchId};
 use genos_world::{DestroyOutcome, DirectoryWorldProvider, WorldProvider};
@@ -58,8 +58,14 @@ async fn directory_provider_fork_keeps_isolation() -> anyhow::Result<()> {
     let child_a_path = provider.world_path(&children[0])?;
     let child_b_path = provider.world_path(&children[1])?;
 
-    write_file(&child_a_path.join("README.md"), "child-a-change")?;
-    write_file(&child_b_path.join("README.md"), "child-b-change")?;
+    // Forks are hardlinks now: a raw fs::write would mutate the shared inode,
+    // so divergence goes through the provider's copy-on-write path.
+    provider
+        .write_file(&children[0], "README.md", "child-a-change")
+        .await?;
+    provider
+        .write_file(&children[1], "README.md", "child-b-change")
+        .await?;
 
     let child_a = read_file(&child_a_path.join("README.md"))?;
     let child_b = read_file(&child_b_path.join("README.md"))?;
