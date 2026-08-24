@@ -6,10 +6,11 @@ import { ResolutionTracesInspector } from './ResolutionTracesInspector';
 
 export const ArenaSolversModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pareto' | 'tournament' | 'traces'>('pareto');
+  const [paretoRefreshKey, setParetoRefreshKey] = useState(0);
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)' }}>
-      
+
       {/* Top Banner */}
       <div style={{ padding: '20px 32px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -24,9 +25,9 @@ export const ArenaSolversModule: React.FC = () => {
 
         {/* Tab Switcher */}
         <div style={{ display: 'flex', gap: '6px', background: 'var(--bg-main)', padding: '4px', borderRadius: '6px', border: '1px solid var(--panel-border)' }}>
-          <button 
+          <button
             onClick={() => setActiveTab('pareto')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'pareto' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'pareto' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -34,9 +35,9 @@ export const ArenaSolversModule: React.FC = () => {
           >
             <Target size={14} /> Pareto Frontier
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('tournament')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'tournament' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'tournament' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -44,9 +45,9 @@ export const ArenaSolversModule: React.FC = () => {
           >
             <Trophy size={14} /> Solver Tournament
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('traces')}
-            style={{ 
+            style={{
               padding: '6px 14px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px',
               background: activeTab === 'traces' ? 'var(--bg-subtle)' : 'transparent',
               color: activeTab === 'traces' ? 'var(--text-primary)' : 'var(--text-secondary)'
@@ -59,8 +60,8 @@ export const ArenaSolversModule: React.FC = () => {
 
       {/* Main Tab Content */}
       <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
-        {activeTab === 'pareto' && <ParetoFrontierView />}
-        {activeTab === 'tournament' && <SolverTournament />}
+        {activeTab === 'pareto' && <ParetoFrontierView refreshKey={paretoRefreshKey} />}
+        {activeTab === 'tournament' && <SolverTournament onRunCompleted={() => setParetoRefreshKey((k) => k + 1)} />}
         {activeTab === 'traces' && <ResolutionTracesInspector />}
       </div>
 
