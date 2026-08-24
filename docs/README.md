@@ -80,6 +80,7 @@ treating a component or boundary as available.
 - [Local Environment Setup](1-onboarding-and-setup/local-environment.md) — Rust, Node.js, Python, and local CAS storage setup.
 - [Install an Alpha](1-onboarding-and-setup/install-alpha.md) — Safe source builds, future prerelease archives, and checksum verification.
 - [Run Studio with Docker Compose](1-onboarding-and-setup/studio-docker.md) — One-command local Studio stack with persistent SQLite storage and health checks.
+- [Environment Variable Reference](1-onboarding-and-setup/environment-variables.md) — Single source of truth for backend, Studio and benchmark variables.
 - [Architecture Tour](1-onboarding-and-setup/architecture-tour.md) — 15-minute guided walkthrough of the core crates.
 - [Quickstart Tutorial](1-onboarding-and-setup/quickstart-tutorial.md) — Hands-on guide to spawning your first counterfactual agent.
 
