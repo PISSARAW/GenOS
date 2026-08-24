@@ -70,6 +70,7 @@ async function runLocalWorker(db, mission, executionRun) {
     }
     const result = await modelRouter.generate({
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
+      priority: 'bulk',
       maxTokens: tokenBudget > 0 ? tokenBudget - promptTokenEstimate : undefined,
       policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
