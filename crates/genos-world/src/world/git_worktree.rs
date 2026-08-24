@@ -5,13 +5,45 @@
 //! checking out that commit as a detached worktree.
 
 use crate::utils::{collect_files_with_hashes, count_files, execute_command_in_dir, run_git};
-use crate::{DestroyOutcome, ExecuteResult, WorldDiff, WorldError, WorldProvider};
+use crate::{DestroyOutcome, ExecuteResult, MergeProposal, WorldDiff, WorldError, WorldProvider};
 use async_trait::async_trait;
 use genos_core::{AgentId, BranchId, SnapshotId, WorldId};
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
+
+/// Git identity stamped on every commit GenOS creates on behalf of a world.
+const GIT_AUTHOR_ENVS: [(&str, &str); 4] = [
+    ("GIT_AUTHOR_NAME", "GenOS Merge"),
+    ("GIT_AUTHOR_EMAIL", "snapshot@genos.local"),
+    ("GIT_COMMITTER_NAME", "GenOS Merge"),
+    ("GIT_COMMITTER_EMAIL", "snapshot@genos.local"),
+];
+
+async fn run_git_env(
+    repo: &std::path::Path,
+    args: &[&str],
+    extra_env: &[(&str, String)],
+) -> anyhow::Result<String> {
+    let mut cmd = Command::new("git");
+    cmd.arg("-C").arg(repo);
+    for (key, value) in extra_env {
+        cmd.env(key, value);
+    }
+    cmd.args(args);
+    let output = cmd.output().await?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(anyhow::anyhow!(
+            "git command failed: git -C {} {}\nstderr: {}",
+            repo.display(),
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct GitWorktreeWorldProvider {
@@ -73,6 +105,10 @@ impl GitWorktreeWorldProvider {
 
 #[async_trait]
 impl WorldProvider for GitWorktreeWorldProvider {
+    fn provider_kind(&self) -> &str {
+        "git_worktree"
+    }
+
     async fn create(&self, _agent_id: AgentId, _branch_id: BranchId) -> anyhow::Result<WorldId> {
         let world_id = WorldId::new();
         let world_path = self.root_dir.join("worlds").join(&world_id.0);
@@ -180,6 +216,109 @@ impl WorldProvider for GitWorktreeWorldProvider {
         Ok(WorldDiff { files_changed })
     }
 
+    /// Extract this world's delta (working tree vs the commit it sits on) and
+    /// propose it as a merge into `target_branch` of the source repository.
+    ///
+    /// The patch is replayed against `target_branch`'s tree through a
+    /// throwaway index; the branch is only fast-forwarded when the patch
+    /// applies cleanly, otherwise the proposal comes back unapplied with the
+    /// changed files listed.
+    async fn merge_into(
+        &self,
+        world_id: WorldId,
+        target_branch: &str,
+    ) -> anyhow::Result<MergeProposal> {
+        let world_path = self.world_path(&world_id)?;
+
+        // Commit the world's current state so its delta becomes git objects.
+        let snapshot = self.snapshot(world_id.clone()).await?;
+        let tip = self.read_snapshot_commit(&snapshot)?;
+        let base = run_git(&world_path, &["rev-parse", "HEAD"]).await?;
+
+        let name_status = run_git(&world_path, &["diff", "--name-status", &base, &tip]).await?;
+        let mut files_changed: Vec<String> = name_status
+            .lines()
+            .filter_map(|line| line.split('\t').last())
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(ToString::to_string)
+            .collect();
+        files_changed.sort();
+
+        if files_changed.is_empty() {
+            return Ok(MergeProposal {
+                target_branch: target_branch.to_string(),
+                applied: false,
+                files_changed,
+            });
+        }
+
+        let patch = run_git(&world_path, &["diff", &base, &tip]).await?;
+        let patch_file = tempfile::NamedTempFile::new_in(&self.root_dir)?;
+        fs::write(patch_file.path(), &patch)?;
+        let patch_path = patch_file.path().to_string_lossy().to_string();
+        let index_file = tempfile::NamedTempFile::new_in(&self.root_dir)?;
+        let index_path = index_file.path().to_string_lossy().to_string();
+        let index_env = [("GIT_INDEX_FILE", index_path)];
+
+        // Replay onto the target branch's tree without touching the checkout.
+        run_git_env(
+            &self.source_repo,
+            &["read-tree", target_branch],
+            &index_env[..],
+        )
+        .await?;
+
+        let check = run_git_env(
+            &self.source_repo,
+            &["apply", "--cached", "--check", &patch_path],
+            &index_env[..],
+        )
+        .await;
+
+        let applied = match check {
+            Ok(_) => {
+                run_git_env(
+                    &self.source_repo,
+                    &["apply", "--cached", &patch_path],
+                    &index_env[..],
+                )
+                .await?;
+                let tree = run_git_env(&self.source_repo, &["write-tree"], &index_env[..]).await?;
+                let parent = run_git(&self.source_repo, &["rev-parse", target_branch]).await?;
+                let message = format!("GenOS: merge world {} into {}", world_id.0, target_branch);
+                let commit = run_git_env(
+                    &self.source_repo,
+                    &["commit-tree", &tree, "-p", parent.trim(), "-m", &message],
+                    &GIT_AUTHOR_ENVS
+                        .iter()
+                        .map(|(k, v)| (*k, v.to_string()))
+                        .collect::<Vec<_>>()[..],
+                )
+                .await?;
+                // CAS fast-forward: only move the branch from `parent`.
+                run_git(
+                    &self.source_repo,
+                    &[
+                        "update-ref",
+                        &format!("refs/heads/{target_branch}"),
+                        commit.trim(),
+                        parent.trim(),
+                    ],
+                )
+                .await?;
+                true
+            }
+            Err(_) => false,
+        };
+
+        Ok(MergeProposal {
+            target_branch: target_branch.to_string(),
+            applied,
+            files_changed,
+        })
+    }
+
     async fn execute(&self, world_id: WorldId, command: &str) -> anyhow::Result<ExecuteResult> {
         let path = self.world_path(&world_id)?;
         execute_command_in_dir(&path, command).await
@@ -190,7 +329,8 @@ impl WorldProvider for GitWorktreeWorldProvider {
         let commit = run_git(&path, &["rev-parse", "HEAD"]).await?;
         let file_count = count_files(&path)?;
         Ok(format!(
-            "provider=git_worktree world_id={} path={} commit={} files={}",
+            "provider={} world_id={} path={} commit={} files={}",
+            self.provider_kind(),
             world_id,
             path.display(),
             commit.trim(),

@@ -34,7 +34,7 @@ async fn init_test_repo(repo: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(repo)?;
     write_file(&repo.join("service.txt"), "base")?;
 
-    run_git(repo, &["init"]).await?;
+    run_git(repo, &["init", "-b", "main"]).await?;
     run_git(repo, &["config", "user.email", "genos@example.local"]).await?;
     run_git(repo, &["config", "user.name", "GenOS Test"]).await?;
     run_git(repo, &["add", "."]).await?;
@@ -124,5 +124,105 @@ async fn git_worktree_forked_worlds_write_the_same_file_differently() -> anyhow:
 
     assert!(report.isolated, "{report:?}");
 
+    Ok(())
+}
+
+#[tokio::test]
+async fn merge_into_fast_forwards_source_branch_with_world_delta() -> anyhow::Result<()> {
+    if !git_available().await {
+        return Ok(());
+    }
+
+    let root = tempdir()?;
+    let repo = root.path().join("repo");
+    init_test_repo(&repo).await?;
+    let before = run_git(&repo, &["rev-parse", "main"]).await?;
+
+    let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo.clone())?;
+    let world = provider.create(AgentId::new(), BranchId::new()).await?;
+    provider
+        .write_file(&world, "service.txt", "rewritten")
+        .await?;
+    provider
+        .write_file(&world, "feature.txt", "new file")
+        .await?;
+
+    let proposal = provider.merge_into(world, "main").await?;
+
+    assert!(proposal.applied);
+    assert_eq!(proposal.target_branch, "main");
+    assert!(proposal.files_changed.contains(&"service.txt".to_string()));
+    assert!(proposal.files_changed.contains(&"feature.txt".to_string()));
+
+    let after = run_git(&repo, &["rev-parse", "main"]).await?;
+    assert_ne!(before, after);
+    assert_eq!(
+        run_git(&repo, &["show", "main:feature.txt"]).await?,
+        "new file"
+    );
+    assert_eq!(
+        run_git(&repo, &["show", "main:service.txt"]).await?,
+        "rewritten"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn merge_into_reports_unapplied_when_patch_conflicts() -> anyhow::Result<()> {
+    if !git_available().await {
+        return Ok(());
+    }
+
+    let root = tempdir()?;
+    let repo = root.path().join("repo");
+    init_test_repo(&repo).await?;
+
+    let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo)?;
+    let base_world = provider.create(AgentId::new(), BranchId::new()).await?;
+    let snapshot = provider.snapshot(base_world).await?;
+
+    // First fork merges cleanly and advances main.
+    let first = provider.fork(snapshot.clone()).await?;
+    provider
+        .write_file(&first, "service.txt", "from-first")
+        .await?;
+    assert!(provider.merge_into(first, "main").await?.applied);
+
+    // Second fork still sits on the old base: its patch no longer applies.
+    let second = provider.fork(snapshot).await?;
+    provider
+        .write_file(&second, "service.txt", "from-second")
+        .await?;
+    let proposal = provider.merge_into(second, "main").await?;
+
+    assert!(!proposal.applied);
+    assert!(proposal.files_changed.contains(&"service.txt".to_string()));
+    assert_eq!(
+        run_git(
+            Path::new(&root.path().join("repo")),
+            &["show", "main:service.txt"]
+        )
+        .await?,
+        "from-first"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn merge_into_without_divergence_is_an_empty_proposal() -> anyhow::Result<()> {
+    if !git_available().await {
+        return Ok(());
+    }
+
+    let root = tempdir()?;
+    let repo = root.path().join("repo");
+    init_test_repo(&repo).await?;
+
+    let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo)?;
+    let world = provider.create(AgentId::new(), BranchId::new()).await?;
+
+    let proposal = provider.merge_into(world, "main").await?;
+    assert!(!proposal.applied);
+    assert!(proposal.files_changed.is_empty());
     Ok(())
 }
