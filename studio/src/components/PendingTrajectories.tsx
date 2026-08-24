@@ -19,13 +19,13 @@ export const PendingTrajectories: React.FC = () => {
       .then((data) => {
         if (Array.isArray(data)) setPendingList(data);
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'Pending Trajectories Unavailable', e?.message || 'Backend unreachable.'));
 
     api.getActiveTrajectories()
       .then((data) => {
         if (Array.isArray(data)) setActiveList(data);
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'Active Trajectories Unavailable', e?.message || 'Backend unreachable.'));
   };
 
   useEffect(() => {

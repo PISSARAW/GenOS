@@ -13,7 +13,7 @@ export const TrinityAgentDeploy: React.FC<{ workspaceId?: string | null; workspa
     let cancelled = false;
     const loadWorlds = () => api.listTrinityWorlds().then((items: any[]) => {
       if (!cancelled && items?.length) { setWorlds(items); setStep(2); }
-    }).catch(() => {});
+    }).catch((e: any) => showToast('error', 'Trinity Unavailable', e?.message || 'Backend unreachable.'));
     void loadWorlds();
     const timer = window.setInterval(loadWorlds, 2000);
     return () => { cancelled = true; window.clearInterval(timer); };

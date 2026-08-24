@@ -49,7 +49,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
         if (event.agent_id && !latest[event.agent_id]) latest[event.agent_id] = event;
       });
       setActivity(latest);
-    }).catch(() => {});
+    }).catch((e: any) => console.warn('[Studio] activity refresh failed:', e));
     loadActivity();
     const interval = setInterval(loadActivity, 4000);
     return () => clearInterval(interval);

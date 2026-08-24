@@ -30,15 +30,15 @@ export const ExperimentsLab: React.FC = () => {
           const selectedId = experimentId || data[0]?.id;
           if (selectedId) {
             setActiveExperimentId(selectedId);
-            api.getExperimentAnalysis(selectedId).then(setAnalysisData).catch(() => {});
+            api.getExperimentAnalysis(selectedId).then(setAnalysisData).catch((e: any) => console.warn('[Studio] analysis load failed:', e));
             api.getExperimentThoughts(selectedId).then((thoughts) => {
               if (Array.isArray(thoughts)) setThoughtFeed(thoughts);
-            }).catch(() => {});
-            api.getExperimentCoevolution(selectedId).then(setCoevolutionData).catch(() => {});
+            }).catch((e: any) => console.warn('[Studio] thoughts load failed:', e));
+            api.getExperimentCoevolution(selectedId).then(setCoevolutionData).catch((e: any) => console.warn('[Studio] coevolution load failed:', e));
           }
         }
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'Experiments Unavailable', e?.message || 'Backend unreachable.'));
   };
 
   useEffect(() => {
@@ -48,7 +48,7 @@ export const ExperimentsLab: React.FC = () => {
   // Wave points animation
   useEffect(() => {
     if ((view === 'monitoring' || view === 'coevolution') && activeExperimentId) {
-      const refresh = () => api.getExperimentWaves(activeExperimentId).then((data) => setWaveData(Array.isArray(data) ? data : [])).catch(() => {});
+      const refresh = () => api.getExperimentWaves(activeExperimentId).then((data) => setWaveData(Array.isArray(data) ? data : [])).catch((e: any) => console.warn('[Studio] waves refresh failed:', e));
       refresh();
       const interval = setInterval(refresh, 3000);
       return () => clearInterval(interval);

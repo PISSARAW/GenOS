@@ -19,7 +19,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
       .then((data) => {
         if (Array.isArray(data)) setIssues(data);
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'Alerts Unavailable', e?.message || 'Backend unreachable.'));
   };
 
   useEffect(() => {

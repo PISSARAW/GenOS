@@ -20,7 +20,7 @@ export const McpSandboxModule: React.FC = () => {
       .then((data: any[]) => {
         if (Array.isArray(data)) setTools(data);
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'MCP Tools Unavailable', e?.message || 'Backend unreachable.'));
   };
 
   useEffect(() => {
