@@ -122,10 +122,31 @@ async function ensureAdminKey(db) {
   }
 }
 
+async function ensureDefaultUser(db) {
+  const existing = await db.get('SELECT COUNT(*) as count FROM users');
+  if (existing && existing.count > 0) return;
+
+  const username = String(process.env.GENOS_ADMIN_USERNAME || 'admin').trim() || 'admin';
+  const password = String(process.env.GENOS_ADMIN_PASSWORD || 'genos-admin');
+  const { hashPassword } = require('../controllers/password');
+  await db.run(
+    'INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)',
+    `user-${Date.now()}`,
+    username,
+    hashPassword(password),
+    'admin'
+  );
+  console.warn(`[GenOS Bootstrap] Default local user created: ${username} (role: admin).`);
+  if (!process.env.GENOS_ADMIN_PASSWORD) {
+    console.warn('[GenOS Bootstrap] Default password is "genos-admin" — change it or set GENOS_ADMIN_PASSWORD.');
+  }
+}
+
 async function seedDatabase(db) {
   await ensureConfiguredWorkspace(db);
   await ensureWorkspaceDashboardData(db);
   await ensureAdminKey(db);
+  await ensureDefaultUser(db);
   await seedMcpTools(db);
   // This runs on every boot so existing databases receive the strategy migration too.
   await ensureAgentStrategyContracts(db);

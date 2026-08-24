@@ -4,6 +4,7 @@
 //! A snapshot is the commit the worktree's HEAD points at, and forking means
 //! checking out that commit as a detached worktree.
 
+use super::git_merge;
 use crate::utils::{collect_files_with_hashes, count_files, execute_command_in_dir, run_git};
 use crate::{DestroyOutcome, ExecuteResult, MergeProposal, WorldDiff, WorldError, WorldProvider};
 use async_trait::async_trait;
@@ -12,54 +13,6 @@ use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
-
-/// Git identity stamped on every commit GenOS creates on behalf of a world.
-const GIT_AUTHOR_ENVS: [(&str, &str); 4] = [
-    ("GIT_AUTHOR_NAME", "GenOS Merge"),
-    ("GIT_AUTHOR_EMAIL", "snapshot@genos.local"),
-    ("GIT_COMMITTER_NAME", "GenOS Merge"),
-    ("GIT_COMMITTER_EMAIL", "snapshot@genos.local"),
-];
-
-async fn run_git_env(
-    repo: &std::path::Path,
-    args: &[&str],
-    extra_env: &[(&str, String)],
-) -> anyhow::Result<String> {
-    let (success, _, stdout, stderr) = run_git_env_raw(repo, args, extra_env).await?;
-    if success {
-        Ok(stdout)
-    } else {
-        Err(anyhow::anyhow!(
-            "git command failed: git -C {} {}\nstderr: {}",
-            repo.display(),
-            args.join(" "),
-            stderr
-        ))
-    }
-}
-
-/// Run git with extra environment, reporting the outcome instead of erroring
-/// on non-zero status so callers can tell conflicts apart from hard failures.
-async fn run_git_env_raw(
-    repo: &std::path::Path,
-    args: &[&str],
-    extra_env: &[(&str, String)],
-) -> anyhow::Result<(bool, Option<i32>, String, String)> {
-    let mut cmd = Command::new("git");
-    cmd.arg("-C").arg(repo);
-    for (key, value) in extra_env {
-        cmd.env(key, value);
-    }
-    cmd.args(args);
-    let output = cmd.output().await?;
-    Ok((
-        output.status.success(),
-        output.status.code(),
-        String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        String::from_utf8_lossy(&output.stderr).trim().to_string(),
-    ))
-}
 
 #[derive(Clone, Debug)]
 pub struct GitWorktreeWorldProvider {
@@ -74,169 +27,6 @@ impl GitWorktreeWorldProvider {
         Ok(Self {
             root_dir,
             source_repo,
-        })
-    }
-
-    /// Content-level three-way merge of the world's delta commit into
-    /// `target_branch`, without touching any checkout. Returns `Ok(None)` when
-    /// the installed git cannot run this mode, so the caller can fall back.
-    async fn merge_via_merge_tree(
-        &self,
-        world_id: WorldId,
-        target_branch: &str,
-        tip: &str,
-    ) -> anyhow::Result<Option<MergeProposal>> {
-        let (success, code, stdout, _stderr) = run_git_env_raw(
-            &self.source_repo,
-            &[
-                "merge-tree",
-                "--write-tree",
-                "--name-only",
-                target_branch,
-                tip,
-            ],
-            &[],
-        )
-        .await?;
-
-        // Exit 1 means "merged, but conflicts remain"; anything else that is
-        // not success (old git, unknown option, bad object) triggers fallback.
-        if !success && code != Some(1) {
-            return Ok(None);
-        }
-
-        let mut lines = stdout.lines();
-        let tree = lines.next().unwrap_or_default().trim().to_string();
-        let conflicts: Vec<String> = lines
-            .map(str::trim)
-            .filter(|line| !line.is_empty())
-            .map(ToString::to_string)
-            .collect();
-
-        if !success {
-            return Ok(Some(MergeProposal {
-                target_branch: target_branch.to_string(),
-                applied: false,
-                files_changed: Vec::new(),
-                conflicts,
-            }));
-        }
-
-        let parent = run_git(&self.source_repo, &["rev-parse", target_branch]).await?;
-        let message = format!("GenOS: merge world {} into {}", world_id.0, target_branch);
-        let commit = run_git_env(
-            &self.source_repo,
-            &[
-                "commit-tree",
-                &tree,
-                "-p",
-                parent.trim(),
-                "-p",
-                tip,
-                "-m",
-                &message,
-            ],
-            &GIT_AUTHOR_ENVS
-                .iter()
-                .map(|(k, v)| (*k, v.to_string()))
-                .collect::<Vec<_>>()[..],
-        )
-        .await?;
-        // CAS fast-forward: only move the branch from the parent we merged on.
-        run_git(
-            &self.source_repo,
-            &[
-                "update-ref",
-                &format!("refs/heads/{target_branch}"),
-                commit.trim(),
-                parent.trim(),
-            ],
-        )
-        .await?;
-
-        Ok(Some(MergeProposal {
-            target_branch: target_branch.to_string(),
-            applied: true,
-            files_changed: Vec::new(),
-            conflicts: Vec::new(),
-        }))
-    }
-
-    /// Legacy path for gits without `merge-tree --write-tree`: replay the
-    /// world's patch onto the target branch's tree through a throwaway index.
-    /// Applies fully or not at all — no content-level merging.
-    async fn merge_via_patch_replay(
-        &self,
-        world_id: WorldId,
-        target_branch: &str,
-        tip: &str,
-    ) -> anyhow::Result<MergeProposal> {
-        let world_path = self.world_path(&world_id)?;
-        let base = run_git(&world_path, &["rev-parse", "HEAD"]).await?;
-        let patch = run_git(&world_path, &["diff", &base, tip]).await?;
-        let patch_file = tempfile::NamedTempFile::new_in(&self.root_dir)?;
-        fs::write(patch_file.path(), &patch)?;
-        let patch_path = patch_file.path().to_string_lossy().to_string();
-        let index_file = tempfile::NamedTempFile::new_in(&self.root_dir)?;
-        let index_path = index_file.path().to_string_lossy().to_string();
-        let index_env = [("GIT_INDEX_FILE", index_path)];
-
-        // Replay onto the target branch's tree without touching the checkout.
-        run_git_env(
-            &self.source_repo,
-            &["read-tree", target_branch],
-            &index_env[..],
-        )
-        .await?;
-
-        let check = run_git_env(
-            &self.source_repo,
-            &["apply", "--cached", "--check", &patch_path],
-            &index_env[..],
-        )
-        .await;
-
-        let applied = match check {
-            Ok(_) => {
-                run_git_env(
-                    &self.source_repo,
-                    &["apply", "--cached", &patch_path],
-                    &index_env[..],
-                )
-                .await?;
-                let tree = run_git_env(&self.source_repo, &["write-tree"], &index_env[..]).await?;
-                let parent = run_git(&self.source_repo, &["rev-parse", target_branch]).await?;
-                let message = format!("GenOS: merge world {} into {}", world_id.0, target_branch);
-                let commit = run_git_env(
-                    &self.source_repo,
-                    &["commit-tree", &tree, "-p", parent.trim(), "-m", &message],
-                    &GIT_AUTHOR_ENVS
-                        .iter()
-                        .map(|(k, v)| (*k, v.to_string()))
-                        .collect::<Vec<_>>()[..],
-                )
-                .await?;
-                // CAS fast-forward: only move the branch from `parent`.
-                run_git(
-                    &self.source_repo,
-                    &[
-                        "update-ref",
-                        &format!("refs/heads/{target_branch}"),
-                        commit.trim(),
-                        parent.trim(),
-                    ],
-                )
-                .await?;
-                true
-            }
-            Err(_) => false,
-        };
-
-        Ok(MergeProposal {
-            target_branch: target_branch.to_string(),
-            applied,
-            files_changed: Vec::new(),
-            conflicts: Vec::new(),
         })
     }
 
@@ -435,14 +225,25 @@ impl WorldProvider for GitWorktreeWorldProvider {
             });
         }
 
-        let proposal = match self
-            .merge_via_merge_tree(world_id.clone(), target_branch, &tip)
-            .await?
+        let proposal = match git_merge::merge_via_merge_tree(
+            &self.source_repo,
+            &world_id,
+            target_branch,
+            &tip,
+        )
+        .await?
         {
             Some(result) => result,
             None => {
-                self.merge_via_patch_replay(world_id.clone(), target_branch, &tip)
-                    .await?
+                git_merge::merge_via_patch_replay(
+                    &self.source_repo,
+                    &self.root_dir,
+                    &world_path,
+                    &world_id,
+                    target_branch,
+                    &tip,
+                )
+                .await?
             }
         };
 

@@ -11,6 +11,7 @@
 
 mod auto;
 mod directory;
+mod git_merge;
 mod git_worktree;
 mod hardlink;
 
