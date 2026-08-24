@@ -253,5 +253,5 @@ Variables optionnelles :
 
 ~~~bash
 GENOS_STUDIO_URL=http://localhost:4000
-GENOS_STUDIO_TOKEN=MILITARY-OVERRIDE-GENOS-2026
+GENOS_STUDIO_TOKEN=<your-admin-or-operator-access-key>
 ~~~
