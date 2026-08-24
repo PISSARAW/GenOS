@@ -1,15 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { Search, Bug, Play, AlertOctagon, CheckCircle2, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { Bug, Play, AlertOctagon, RotateCcw } from 'lucide-react';
 import { api } from '../../api/client';
 import { useToastStore } from '../../store/useToastStore';
 
-export const CausalAnomalyBisection: React.FC = () => {
-  const [workspaceId, setWorkspaceId] = useState('');
+interface CausalAnomalyBisectionProps {
+  workspaces: any[];
+  workspaceId: string;
+  onWorkspaceChange: (id: string) => void;
+  onRequestRollback?: (step: number) => void;
+}
+
+export const CausalAnomalyBisection: React.FC<CausalAnomalyBisectionProps> = ({ workspaces, workspaceId, onWorkspaceChange, onRequestRollback }) => {
   const [testAssertion, setTestAssertion] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [bisectionReport, setBisectionReport] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
-  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch((e: any) => console.warn('[Studio] workspace preload failed:', e)); }, []);
 
   const handleRunBisection = async () => {
     setIsRunning(true);
@@ -24,9 +29,12 @@ export const CausalAnomalyBisection: React.FC = () => {
     }
   };
 
+  const culpritStep = Number(bisectionReport?.culpritReport?.stepNumber);
+  const handoffStep = Number.isFinite(culpritStep) && culpritStep > 1 ? culpritStep - 1 : null;
+
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      
+
       {/* Header */}
       <div style={{ padding: '12px 16px', background: 'var(--bg-subtle)', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -37,25 +45,26 @@ export const CausalAnomalyBisection: React.FC = () => {
       </div>
 
       <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflowY: 'auto' }}>
-        
+
         {/* Input parameters */}
         <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Target Workspace</label>
-            <input 
-              type="text" 
-              value={workspaceId} 
-              onChange={(e) => setWorkspaceId(e.target.value)}
-              disabled={!workspaceId}
+            <select
+              value={workspaceId}
+              onChange={(e) => onWorkspaceChange(e.target.value)}
               style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.8rem', outline: 'none' }}
-            />
+            >
+              {!workspaces.length && <option value="">No workspaces available</option>}
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
           </div>
 
           <div>
             <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>Invariant Test Command</label>
-            <input 
-              type="text" 
-              value={testAssertion} 
+            <input
+              type="text"
+              value={testAssertion}
               onChange={(e) => setTestAssertion(e.target.value)}
               disabled={!workspaceId}
               placeholder="npm test -- --runInBand"
@@ -63,10 +72,10 @@ export const CausalAnomalyBisection: React.FC = () => {
             />
           </div>
 
-          <button 
+          <button
             onClick={handleRunBisection}
             disabled={isRunning || !workspaceId || !testAssertion.trim()}
-            className="gh-btn gh-btn-primary" 
+            className="gh-btn gh-btn-primary"
             style={{ padding: '6px 16px', fontSize: '0.8rem' }}
           >
             <Play size={12} /> {isRunning ? 'Running…' : 'Run bisection'}
@@ -103,6 +112,18 @@ export const CausalAnomalyBisection: React.FC = () => {
                 {bisectionReport.culpritReport ? `${bisectionReport.culpritReport.actionDescription || ''}\nTarget: ${bisectionReport.culpritReport.targetFile || '—'}` : 'No remediation required.'}
               </pre>
             </div>
+
+            {handoffStep !== null && onRequestRollback && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => onRequestRollback(handoffStep)}
+                  className="gh-btn gh-btn-primary"
+                  style={{ padding: '6px 16px', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <RotateCcw size={12} /> Preview rollback to step {handoffStep}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
