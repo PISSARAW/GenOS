@@ -20,6 +20,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newThreshold, setNewThreshold] = useState('0.66');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -36,6 +37,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
         setLoadError(null);
       })
       .catch((e: any) => {
+        setProposals([]);
         setLoadError(e.message || 'Consensus unavailable.');
       });
   };
@@ -51,9 +53,22 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
       setActivity(latest);
     }).catch((e: any) => console.warn('[Studio] activity refresh failed:', e));
     loadActivity();
-    const interval = setInterval(loadActivity, 4000);
+    const interval = setInterval(() => { loadActivity(); fetchConsensus(); }, 4000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!showProposalModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowProposalModal(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showProposalModal]);
+
+  const canInspect = typeof onSelectAgent === 'function';
+  const canVoteOnProposal = (status: string | undefined): boolean =>
+    status === undefined || ['open', 'deliberating'].includes(status);
 
   const handlePing = async (agentId: string, name: string) => {
     try {
@@ -103,11 +118,12 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   const handleCreateProposal = async () => {
     if (!newTitle) return;
     try {
-      await api.createProposal({ title: newTitle, description: newDesc });
+      await api.createProposal({ title: newTitle, description: newDesc, quorumThreshold: Number(newThreshold) || 0.66 });
       showToast('success', 'Proposal Submitted', 'Swarm quorum voting initiated.');
       setShowProposalModal(false);
       setNewTitle('');
       setNewDesc('');
+      setNewThreshold('0.66');
       fetchConsensus();
     } catch (e: any) {
       showToast('error', 'Submission Failed', e.message);
@@ -172,7 +188,9 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {proposals.map((p) => (
+              {proposals.map((p) => {
+                const votable = canVoteOnProposal(p.status);
+                return (
                 <div key={p.id} style={{ background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
                     <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{p.title}</div>
@@ -180,15 +198,16 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                     <div style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', marginTop: '4px' }}>Approval: {p.approvalRate ?? 0}% ({p.yesCount ?? 0} YES / {p.noCount ?? 0} NO)</div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => handleVote(p.id, 'yes')} className="gh-btn" style={{ fontSize: '0.75rem', color: 'var(--success)' }}>
+                    <button onClick={() => handleVote(p.id, 'yes')} disabled={!votable} className="gh-btn" style={{ fontSize: '0.75rem', color: 'var(--success)', opacity: votable ? 1 : 0.5, cursor: votable ? 'pointer' : 'not-allowed' }}>
                       <ThumbsUp size={12} /> Vote Yes
                     </button>
-                    <button onClick={() => handleVote(p.id, 'no')} className="gh-btn" style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
+                    <button onClick={() => handleVote(p.id, 'no')} disabled={!votable} className="gh-btn" style={{ fontSize: '0.75rem', color: 'var(--danger)', opacity: votable ? 1 : 0.5, cursor: votable ? 'pointer' : 'not-allowed' }}>
                       <ThumbsDown size={12} /> Vote No
                     </button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -208,7 +227,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                 <input type="checkbox" checked={selectedIds.includes(agent.id)} onChange={() => toggleSelected(agent.id)} aria-label={`Select ${agent.name}`} style={{ alignSelf: 'flex-start', margin: '5px 12px 0 0' }} />
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
-                    <h3 onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent-blue)', margin: 0, cursor: 'pointer' }} className="hover-underline">
+                    <h3 onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent-blue)', margin: 0, cursor: canInspect ? 'pointer' : 'default' }} className={canInspect ? 'hover-underline' : undefined}>
                       {agent.name}
                     </h3>
                     <span style={{ fontSize: '0.75rem', padding: '2px 8px', border: '1px solid var(--panel-border)', borderRadius: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>
@@ -243,9 +262,9 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
                   <button onClick={() => handlePing(agent.id, agent.name)} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
                     <Activity size={12} color="var(--text-muted)" /> Ping
                   </button>
-                  <button onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
+                  {canInspect && <button onClick={() => { setSelectedAgentId(agent.id); onSelectAgent?.(); }} className="gh-btn gh-btn-primary" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>
                     Inspect Profile
-                  </button>
+                  </button>}
                   {agent.status === 'running' && <RBAC_Gate><button onClick={() => handleStop(agent)} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px', color: 'var(--warning, #d29922)' }} title="Stop this agent">
                     <Square size={12} /> Stop
                   </button></RBAC_Gate>}
@@ -263,22 +282,37 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
 
       {/* Proposal Modal */}
       {showProposalModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowProposalModal(false); }}
+          style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
           <div style={{ width: '500px', background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>New Biomimicry Quorum Proposal</h3>
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Proposal title..."
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               style={{ padding: '8px 12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }}
             />
-            <textarea 
+            <textarea
               placeholder="Detailed justification for swarm consensus vote..."
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               style={{ height: '100px', padding: '8px 12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none', resize: 'none' }}
             />
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+              Quorum threshold (0–1)
+              <input
+                type="number"
+                min={0}
+                max={1}
+                step={0.01}
+                value={newThreshold}
+                onChange={(e) => setNewThreshold(e.target.value)}
+                style={{ width: '90px', padding: '5px 10px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }}
+              />
+            </label>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
               <button onClick={() => setShowProposalModal(false)} className="gh-btn">Cancel</button>
               <button onClick={handleCreateProposal} className="gh-btn gh-btn-primary" disabled={!newTitle}>Submit to Swarm</button>
