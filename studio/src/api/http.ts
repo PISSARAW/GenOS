@@ -183,52 +183,72 @@ export async function subscribeApiEventStream(
 ): Promise<() => void> {
   const controller = new AbortController();
   let closed = false;
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
   const close = () => {
     closed = true;
+    if (reconnectTimer !== null) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
     controller.abort();
   };
 
-  try {
-    const response = await openApiEventStream(endpoint);
-    if (!response.body) {
-      throw new Error('This browser does not support streaming responses.');
-    }
-    handlers.onOpen?.();
+  void (async () => {
+    let backoffMs = 1000;
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    (async () => {
+    while (!closed) {
       try {
-        while (!closed) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          let separator = buffer.indexOf('\n\n');
-          while (separator !== -1) {
-            const rawEvent = buffer.slice(0, separator);
-            buffer = buffer.slice(separator + 2);
-            separator = buffer.indexOf('\n\n');
-            for (const line of rawEvent.split('\n')) {
-              if (!line.startsWith('data:')) continue;
-              const payload = line.slice(5).trim();
-              if (!payload) continue;
-              try {
-                handlers.onMessage(JSON.parse(payload));
-              } catch {}
+        const response = await openApiEventStream(endpoint);
+        if (!response.body) {
+          throw new Error('This browser does not support streaming responses.');
+        }
+        if (closed) break;
+        handlers.onOpen?.();
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        try {
+          while (!closed) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            let separator = buffer.indexOf('\n\n');
+            while (separator !== -1) {
+              const rawEvent = buffer.slice(0, separator);
+              buffer = buffer.slice(separator + 2);
+              separator = buffer.indexOf('\n\n');
+              for (const line of rawEvent.split('\n')) {
+                if (!line.startsWith('data:')) continue;
+                const payload = line.slice(5).trim();
+                if (!payload) continue;
+                try {
+                  handlers.onMessage(JSON.parse(payload));
+                  backoffMs = 1000;
+                } catch {}
+              }
             }
           }
+        } catch (error: any) {
+          if (!closed) throw error;
         }
       } catch (error: any) {
-        if (!closed) {
-          handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
-        }
+        if (closed) break;
+        handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
       }
-    })();
 
-    return close;
-  } catch (error: any) {
-    handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
-    return () => {};
-  }
+      if (closed) break;
+      await new Promise<void>((resolve) => {
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
+          resolve();
+        }, backoffMs);
+      });
+      if (closed) break;
+      backoffMs = Math.min(backoffMs * 2, 30000);
+    }
+  })();
+
+  return close;
 }
