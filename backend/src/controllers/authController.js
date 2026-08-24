@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
+const { verifyPassword } = require('./password');
 
 async function verifyToken(req, res) {
   const token = (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
@@ -84,6 +85,42 @@ async function login(req, res) {
   return verifyToken(req, res);
 }
 
+const SESSION_TTL_HOURS = 24;
+
+async function loginWithPassword(req, res) {
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: { code: 'INVALID_INPUT', message: 'username and password are required' } });
+  }
+
+  const db = await getDatabase();
+  const user = await db.get(
+    'SELECT * FROM users WHERE username = ? COLLATE NOCASE AND is_active = 1',
+    String(username).trim()
+  );
+  if (!user || !verifyPassword(password, user.password_hash)) {
+    return res.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Invalid username or password' } });
+  }
+
+  const rawToken = crypto.randomBytes(32).toString('hex');
+  const id = `session-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+  await db.run(
+    `INSERT INTO sessions (id, token_hash, role, username, expires_at)
+     VALUES (?, ?, ?, ?, datetime('now', '+${SESSION_TTL_HOURS} hours'))`,
+    id, hashKey(rawToken), user.role, user.username
+  );
+  await db.run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', user.id);
+
+  return res.json({
+    valid: true,
+    token: rawToken,
+    role: user.role,
+    permissions: ROLE_PERMISSIONS[user.role] || ROLE_PERMISSIONS.viewer,
+    expiresAtHours: SESSION_TTL_HOURS,
+    user: { username: user.username, role: user.role, keyId: id }
+  });
+}
+
 async function listKeys(req, res) {
   const db = await getDatabase();
   const keys = await db.all('SELECT id, label, role, permissions, created_at, last_used_at, is_active FROM access_keys');
@@ -124,6 +161,7 @@ module.exports = {
   verifyToken,
   getSession,
   login,
+  loginWithPassword,
   listKeys,
   createKey
 };

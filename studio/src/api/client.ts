@@ -12,6 +12,8 @@ const coreApi = {
   // Auth
   verifyToken: (token: string) => apiRequest('/api/auth/verify-token', { method: 'POST', body: { token } }),
   getSession: () => apiRequest('/api/auth/session'),
+  loginWithPassword: (username: string, password: string) =>
+    apiRequest<{ valid: boolean; token: string; role: string; user: { username: string; role: string } }>('/api/auth/login', { method: 'POST', body: { username, password } }),
 
   // Config & Profile
   getConfig: () => apiRequest('/api/config'),

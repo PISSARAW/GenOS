@@ -725,6 +725,18 @@ CREATE INDEX IF NOT EXISTS idx_model_job_tokens ON model_job_tokens(job_id, id);
 CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id, name);
 CREATE INDEX IF NOT EXISTS idx_org_memberships_principal ON organization_memberships(principal_id, organization_id);
 CREATE INDEX IF NOT EXISTS idx_project_memberships_principal ON project_memberships(principal_id, project_id);
+
+-- Local user accounts for username/password login
+CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'operator' CHECK (role IN ('admin', 'operator', 'viewer')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_login_at DATETIME,
+    is_active INTEGER DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 `;
 
 async function migrateLegacySchema(db) {
