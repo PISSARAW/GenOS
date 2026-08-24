@@ -1,9 +1,36 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   CircleDot, User, Octagon, Search, Check, Plus
 } from 'lucide-react';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+
+interface ParsedSearch {
+  state: 'open' | 'closed' | null;
+  terms: string[];
+}
+
+const parseSearchQuery = (raw: string): ParsedSearch => {
+  const result: ParsedSearch = { state: null, terms: [] };
+  raw
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .forEach((token) => {
+      if (token === 'state:open') result.state = 'open';
+      else if (token === 'state:closed') result.state = 'closed';
+      else if (token === 'is:issue') return;
+      else result.terms.push(token);
+    });
+  return result;
+};
+
+const toTimestamp = (value: any): number => {
+  if (!value) return 0;
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? 0 : parsed;
+};
 
 export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNavigateDeploy }) => {
   const [activeFilter, setActiveFilter] = useState('Requires Human Override');
@@ -12,19 +39,25 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
   const [statusFilter, setStatusFilter] = useState('open');
   const [sortOrder, setSortOrder] = useState('newest');
   const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const showToast = useToastStore((state) => state.showToast);
 
-  const fetchAlerts = () => {
+  const fetchAlerts = useCallback(() => {
     api.getAlerts()
       .then((data) => {
-        if (Array.isArray(data)) setIssues(data);
+        if (Array.isArray(data)) {
+          setIssues(data);
+          setLastUpdated(Date.now());
+        }
       })
       .catch((e: any) => showToast('error', 'Alerts Unavailable', e?.message || 'Backend unreachable.'));
-  };
+  }, [showToast]);
 
   useEffect(() => {
     fetchAlerts();
-  }, []);
+    const interval = setInterval(fetchAlerts, 10000);
+    return () => clearInterval(interval);
+  }, [fetchAlerts]);
 
   const handleKillTask = async (id: string) => {
     try {
@@ -39,23 +72,43 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
   const filters = [
     'Requires Human Override',
     'Delegated to Fleet',
-    'Agent Questions (@human)',
-    'Live Swarm Activity'
+    'Agent Questions (@human)'
   ];
 
-  let filteredIssues = issues.filter((issue) => {
-    if (searchTerm && !issue.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+  const parsedSearch = parseSearchQuery(searchTerm);
+
+  const sidebarFiltered = issues.filter((issue) => {
     if (activeFilter === 'Requires Human Override' && issue.status !== 'blocked') return false;
     if (activeFilter === 'Agent Questions (@human)' && issue.status !== 'question') return false;
     if (activeFilter === 'Delegated to Fleet' && issue.status !== 'running') return false;
+    if (parsedSearch.state === 'open' && issue.status === 'resolved') return false;
+    if (parsedSearch.state === 'closed' && issue.status !== 'resolved') return false;
+    if (parsedSearch.terms.length > 0) {
+      const haystacks = [issue.title, issue.contextSnapshot]
+        .filter(Boolean)
+        .map((value) => String(value).toLowerCase());
+      const allMatch = parsedSearch.terms.every((term) =>
+        haystacks.some((haystack) => haystack.includes(term))
+      );
+      if (!allMatch) return false;
+    }
+    return true;
+  });
+
+  const openCount = sidebarFiltered.filter((issue) => issue.status !== 'resolved').length;
+  const closedCount = sidebarFiltered.filter((issue) => issue.status === 'resolved').length;
+
+  const filteredIssues = [...sidebarFiltered].filter((issue) => {
     if (statusFilter === 'open' && issue.status === 'resolved') return false;
     if (statusFilter === 'closed' && issue.status !== 'resolved') return false;
     return true;
   });
 
-  if (sortOrder === 'oldest') {
-    filteredIssues = [...filteredIssues].reverse();
-  }
+  filteredIssues.sort((a, b) =>
+    sortOrder === 'oldest'
+      ? toTimestamp(a.time) - toTimestamp(b.time)
+      : toTimestamp(b.time) - toTimestamp(a.time)
+  );
 
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--bg-main)' }}>
@@ -112,10 +165,10 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
             <div style={{ background: 'var(--bg-subtle)', padding: '16px', borderBottom: '1px solid var(--panel-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-secondary)' }}>
                 <span onClick={() => setStatusFilter('open')} style={{ fontWeight: statusFilter === 'open' ? 600 : 400, color: statusFilter === 'open' ? 'var(--text-primary)' : 'inherit', cursor: 'pointer' }}>
-                  <CircleDot size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {issues.length} Open
+                  <CircleDot size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {openCount} Open
                 </span>
                 <span onClick={() => setStatusFilter('closed')} style={{ fontWeight: statusFilter === 'closed' ? 600 : 400, color: statusFilter === 'closed' ? 'var(--text-primary)' : 'inherit', cursor: 'pointer' }}>
-                  <Check size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {issues.filter((issue) => issue.status === 'resolved').length} Closed
+                  <Check size={14} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '4px' }}/> {closedCount} Closed
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: 'var(--text-secondary)' }}>
@@ -140,7 +193,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                 }
 
                 return (
-                  <div key={issue.id || i} style={{ display: 'flex', padding: '14px 16px', borderBottom: i < issues.length - 1 ? '1px solid var(--panel-border)' : 'none', gap: '12px' }} className="hover-bg-gray">
+                  <div key={issue.id || i} style={{ display: 'flex', padding: '14px 16px', borderBottom: i < filteredIssues.length - 1 ? '1px solid var(--panel-border)' : 'none', gap: '12px' }} className="hover-bg-gray">
                     
                     {/* Status Icon */}
                     <div style={{ paddingTop: '2px' }}>
@@ -169,6 +222,7 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                         {' · '} Workspace: {issue.workspace}
                         {' · '} Assigned to: {issue.agent}
                         {' · '} Confidence: {issue.confidence}
+                        {issue.time ? ` · ${new Date(issue.time).toLocaleString()}` : ''}
                       </div>
 
                       {expandedIssue === issue.id && (
@@ -187,6 +241,12 @@ export const GlobalAlerts: React.FC<{ onNavigateDeploy?: () => void }> = ({ onNa
                   </div>
                 );
               })}
+            </div>
+
+            {/* Footer */}
+            <div style={{ background: 'var(--bg-subtle)', borderTop: '1px solid var(--panel-border)', padding: '10px 16px', fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
+              Refreshed every 10s · Last updated:{' '}
+              {lastUpdated ? new Date(lastUpdated).toLocaleTimeString() : 'Never'}
             </div>
             
           </div>
