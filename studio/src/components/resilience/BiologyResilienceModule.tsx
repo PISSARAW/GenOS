@@ -18,7 +18,7 @@ export const BiologyResilienceModule: React.FC = () => {
             <h1 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Biology, Resilience & Biomimicry Station</h1>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            Persisted apoptosis policy and MCP safety status. Durable swarm hibernation is unavailable in this deployment.
+            Persisted apoptosis policy, MCP safety status, and durable swarm hibernation controls.
           </p>
         </div>
 
