@@ -95,9 +95,10 @@ function csrfCheck(req, res, next) {
   const csrfCookie = String(cookies.genos_csrf || '');
   const validDoubleSubmit = csrfHeader.length >= 16 && csrfHeader.length === csrfCookie.length
     && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
+  const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
 
   // Local CLI, direct curl, or valid token/CSRF
-  if (validDoubleSubmit || hasAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
+  if (validDoubleSubmit || validIssuedToken || hasAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
     return next();
   }
 
@@ -105,6 +106,51 @@ function csrfCheck(req, res, next) {
   return res.status(403).json({
     error: { code: 'CSRF_VALIDATION_FAILED', message: 'Anti-CSRF verification failed. Missing X-CSRF-Token or Auth header.' }
   });
+}
+
+// Server-issued anti-CSRF tokens. Only tokens minted by this process are
+// accepted, so a forged client-side value can never satisfy validation.
+const issuedCsrfTokens = new Map();
+const CSRF_TTL_MS = 24 * 60 * 60 * 1000;
+const CSRF_MAX_ENTRIES = 1024;
+
+function pruneCsrfTokens(now) {
+  for (const [token, expiresAt] of issuedCsrfTokens) {
+    if (expiresAt <= now) {
+      issuedCsrfTokens.delete(token);
+    }
+  }
+}
+
+function isKnownIssuedToken(token) {
+  const now = Date.now();
+  pruneCsrfTokens(now);
+  const expiresAt = issuedCsrfTokens.get(token);
+  if (!expiresAt) {
+    return false;
+  }
+  if (expiresAt <= now) {
+    issuedCsrfTokens.delete(token);
+    return false;
+  }
+  return true;
+}
+
+function issueCsrfToken(req, res) {
+  const token = require('crypto').randomBytes(32).toString('hex');
+  const now = Date.now();
+  pruneCsrfTokens(now);
+  if (issuedCsrfTokens.size >= CSRF_MAX_ENTRIES) {
+    const oldestKey = issuedCsrfTokens.keys().next().value;
+    issuedCsrfTokens.delete(oldestKey);
+  }
+  issuedCsrfTokens.set(token, now + CSRF_TTL_MS);
+
+  // SameSite=Lax keeps the value away from cross-site requests; the browser
+  // never needs to send it automatically because the Studio echoes the body
+  // token back in the X-CSRF-Token header.
+  res.setHeader('Set-Cookie', `genos_csrf=${token}; Path=/; SameSite=Lax`);
+  return res.json({ csrfToken: token });
 }
 
 function xssSanitizer(req, res, next) {
@@ -121,5 +167,6 @@ module.exports = {
   securityHeaders,
   originCheck,
   csrfCheck,
+  issueCsrfToken,
   xssSanitizer
 };
