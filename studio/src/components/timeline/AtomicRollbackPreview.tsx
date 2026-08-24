@@ -9,7 +9,7 @@ export const AtomicRollbackPreview: React.FC = () => {
   const [previewData, setPreviewData] = useState<any>(null);
   const [isApplying, setIsApplying] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
-  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch(() => {}); }, []);
+  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch((e: any) => console.warn('[Studio] workspace preload failed:', e)); }, []);
 
   const handlePreview = async () => {
     try {

@@ -34,11 +34,11 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
       .then((ach) => {
         if (Array.isArray(ach)) setAchievements(ach);
       })
-      .catch(() => {});
+      .catch((e: any) => console.warn('[Studio] achievements load failed:', e));
 
     api.getSession()
       .then(setSession)
-      .catch(() => {});
+      .catch(() => {}); // badge simply stays hidden when the session cannot be read
   }, [isEditing]);
 
   const handleSaveProfile = async () => {

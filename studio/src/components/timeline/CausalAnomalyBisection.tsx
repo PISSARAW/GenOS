@@ -9,7 +9,7 @@ export const CausalAnomalyBisection: React.FC = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [bisectionReport, setBisectionReport] = useState<any>(null);
   const showToast = useToastStore((state) => state.showToast);
-  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch(() => {}); }, []);
+  useEffect(() => { api.listWorkspaces().then((items: any[]) => items?.[0] && setWorkspaceId(items[0].id)).catch((e: any) => console.warn('[Studio] workspace preload failed:', e)); }, []);
 
   const handleRunBisection = async () => {
     setIsRunning(true);

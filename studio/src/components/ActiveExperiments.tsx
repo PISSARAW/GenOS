@@ -38,7 +38,7 @@ export const ActiveExperiments: React.FC<{ onOpenLab: () => void }> = ({ onOpenL
       .then((data) => {
         if (Array.isArray(data)) setBackendExperiments(data);
       })
-      .catch(() => {});
+      .catch((e: any) => showToast('error', 'Experiments Unavailable', e?.message || 'Backend unreachable.'));
   }, []);
 
   const handleHaltNonCritical = async () => {
