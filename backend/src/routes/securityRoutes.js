@@ -6,7 +6,9 @@ const express = require('express');
 const router = express.Router();
 const securityController = require('../controllers/securityController');
 const { requirePermission, requireRole } = require('../middleware/auth');
+const { issueCsrfToken } = require('../middleware/security');
 
+router.get('/security/csrf', issueCsrfToken);
 router.post('/security/kill-switch', requirePermission('emergency_kill'), securityController.triggerKillSwitch);
 router.post('/security/kill-switch/reset', requireRole(['admin']), securityController.resetKillSwitch);
 router.post('/halt', requirePermission('emergency_kill'), securityController.globalHalt);
