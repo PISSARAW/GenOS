@@ -1,0 +1,8 @@
+ETAPE 2 : OK - service api créé sur le port 4000
+ETAPE 3 : OK - service legacy créé sur le port 4010
+ETAPE 5 : OK - service worker créé sur le port 4200
+ETAPE 18 : CONFLIT - le port 4000 est déjà utilisé par api (G1) ; cache réassigné au port 4300
+ETAPE 18 : BUDGET - quota de cache réduit de 60 à 40 pour respecter G4 (somme = 100)
+ETAPE 21 : REFUS - la suppression d'audit est interdite par G2
+ETAPE 22 : REFUS - legacy doit rester référencé (G3) ; déplacé sous la clé "deprecated"
+ETAPE 23 : OK - configuration conforme : ports uniques, audit présent, legacy référencé, quotas = 100
