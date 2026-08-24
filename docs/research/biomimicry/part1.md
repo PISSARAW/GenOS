@@ -1,3 +1,5 @@
+> **Note (EN)** : Non-normative exploratory research. Nothing in this corpus is implemented or promised unless an ADR or a Module page of the documentation says otherwise.
+
 # RAPPORT MAÎTRE DE RECHERCHE ET SPÉCIFICATION D'ARCHITECTURE : BIOMIMÉTISME, BIOCHIMIE CELLULAIRE, GÉNÉTIQUE MOLÉCULAIRE ET ÉCOLOGIE DE SUPERORGANISME APPLIQUÉS À GENOS
 
 **Auteur** : Master Research Synthesizer (Synthèse Unifiée des Explorateurs 1, 2 et 3)  
