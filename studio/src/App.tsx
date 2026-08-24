@@ -36,6 +36,7 @@ import { ComplianceAndIntegrations } from './components/ComplianceAndIntegration
 import { PlatformSafetyCenter } from './components/PlatformSafetyCenter';
 import { RagPlayground } from './components/RagPlayground';
 import { StudioBuilder } from './components/StudioBuilder';
+import { RustCoreConsole } from './components/RustCoreConsole';
 
 import { useGenOSStore } from './store/useGenOSStore';
 import { useToastStore } from './store/useToastStore';
@@ -47,8 +48,8 @@ type StudioView =
   | 'rag_playground'
   | 'evaluation_lineage'
   | 'studio_builder' | 'timeline' | 'experiments' | 'active_experiments'
-  | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
-  | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety';
+  | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces'
+  | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety' | 'rust_core';
 
 const App: React.FC = () => {
   const [activeView, setActiveView] = useState<StudioView>('home');
@@ -200,6 +201,9 @@ const App: React.FC = () => {
                 <div onClick={() => setActiveView('safe_debugging')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'safe_debugging' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'safe_debugging' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
                   <Bug size={16} color="var(--success)" /> Safe Parallel Debugging
                 </div>
+                <div onClick={() => setActiveView('rust_core')} style={{ padding: '6px 12px', cursor: 'pointer', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', background: activeView === 'rust_core' ? 'var(--bg-subtle)' : 'transparent', fontWeight: activeView === 'rust_core' ? 600 : 400, display: 'flex', alignItems: 'center', gap: '8px' }} className="hover-bg-gray">
+                  <Cpu size={16} color="var(--accent-purple)" /> Rust Core Console
+                </div>
 
                 <div style={{ padding: '8px 8px 4px 8px', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Breakthrough Modules</div>
 
@@ -340,6 +344,7 @@ const App: React.FC = () => {
             {activeView === 'live_matrix' && <div style={{width:'100%', height:'100%'}}><LiveMatrix /></div>}
             {activeView === 'platform_safety' && <PlatformSafetyCenter />}
             {activeView === 'terminal' && <div style={{width:'100%', height:'100%'}}><GodModeTerminal /></div>}
+            {activeView === 'rust_core' && <div style={{width:'100%', height:'100%'}}><RustCoreConsole /></div>}
           </div>
 
         </div>
