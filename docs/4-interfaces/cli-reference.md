@@ -18,7 +18,7 @@ The `genos` command-line interface provides operators, AI agents, and CI pipelin
 - `GENOS_WORKSPACE_ROOT`: Base working directory for isolated world workspaces.
 
 ### Output Formatting
-All subcommands support `--format json|yaml|text` (default varies by subcommand, typically `json` for programmatic tools and `yaml` for agent genomes).
+Most subcommands support `--format json|yaml` (default varies by subcommand, typically `json` for programmatic tools and `yaml` for agent genomes). A plain-text output exists only where explicitly listed, such as `genos diff`.
 
 ---
 
