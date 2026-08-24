@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   Beaker, Sparkles, Activity, CheckCircle2, ChevronRight, Play, ServerCrash, Cpu, ArrowRight, Shield, Target, Code
 } from 'lucide-react';
 import { LineChart, Line, XAxis, Tooltip, ResponsiveContainer, YAxis, CartesianGrid } from 'recharts';
@@ -9,7 +9,15 @@ import { useToastStore } from '../store/useToastStore';
 
 type ExperimentView = 'dashboard' | 'setup' | 'monitoring' | 'coevolution' | 'analysis';
 
-export const ExperimentsLab: React.FC = () => {
+const VIEW_LABELS: Record<ExperimentView, string> = {
+  dashboard: 'Dashboard',
+  setup: 'Protocol Editor',
+  monitoring: 'Telemetry',
+  coevolution: 'Coevolution',
+  analysis: 'Analysis'
+};
+
+export const ExperimentsLab: React.FC<{ initialExperimentId?: string }> = ({ initialExperimentId }) => {
   const [view, setView] = useState<ExperimentView>('dashboard');
   const [waveData, setWaveData] = useState<any[]>([]);
   const [chaosLevel, setChaosLevel] = useState(40);
@@ -19,8 +27,15 @@ export const ExperimentsLab: React.FC = () => {
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [activeExperimentId, setActiveExperimentId] = useState<string | null>(null);
   const [protocolType, setProtocolType] = useState('Incident');
-  const [protocolTitle, setProtocolTitle] = useState('Memory Saturation Under High Concurrency');
+  const [protocolTitle, setProtocolTitle] = useState('');
   const showToast = useToastStore((state) => state.showToast);
+
+  const resetExperimentData = () => {
+    setWaveData([]);
+    setThoughtFeed([]);
+    setCoevolutionData(null);
+    setAnalysisData(null);
+  };
 
   const loadLabData = (experimentId = activeExperimentId) => {
     api.listExperiments()
@@ -42,13 +57,23 @@ export const ExperimentsLab: React.FC = () => {
   };
 
   useEffect(() => {
-    loadLabData();
+    loadLabData(initialExperimentId);
   }, []);
 
-  // Wave points animation
+  // Telemetry & thought feed polling
   useEffect(() => {
     if ((view === 'monitoring' || view === 'coevolution') && activeExperimentId) {
-      const refresh = () => api.getExperimentWaves(activeExperimentId).then((data) => setWaveData(Array.isArray(data) ? data : [])).catch((e: any) => console.warn('[Studio] waves refresh failed:', e));
+      const id = activeExperimentId;
+      const refresh = () => {
+        api.getExperimentWaves(id)
+          .then((data) => setWaveData(Array.isArray(data) ? data : []))
+          .catch((e: any) => console.warn('[Studio] waves refresh failed:', e));
+        api.getExperimentThoughts(id)
+          .then((thoughts) => {
+            if (Array.isArray(thoughts)) setThoughtFeed(thoughts);
+          })
+          .catch((e: any) => console.warn('[Studio] thoughts refresh failed:', e));
+      };
       refresh();
       const interval = setInterval(refresh, 3000);
       return () => clearInterval(interval);
@@ -62,11 +87,11 @@ export const ExperimentsLab: React.FC = () => {
         type: protocolType,
         chaosLevel
       });
+      resetExperimentData();
       setActiveExperimentId(result.experimentId);
-      setWaveData([]);
       showToast('success', 'Protocol Registered', `${protocolType} protocol is ready for recorded observations.`);
       setView('monitoring');
-      loadLabData();
+      loadLabData(result.experimentId);
     } catch (e: any) {
       showToast('error', 'Launch Failed', e.message);
     }
@@ -88,7 +113,7 @@ export const ExperimentsLab: React.FC = () => {
   // 1. Dashboard View
   const renderDashboard = () => (
     <div style={{ padding: '24px 32px', height: '100%', overflowY: 'auto', background: 'var(--bg-main)' }}>
-      <div style={{ 
+      <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px',
         background: 'var(--bg-panel)', padding: '16px 20px', borderRadius: '6px', border: '1px solid var(--panel-border)'
       }}>
@@ -106,7 +131,7 @@ export const ExperimentsLab: React.FC = () => {
       <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '16px', paddingBottom: '8px', borderBottom: '1px solid var(--panel-border)' }}>Registered & Historical Protocols</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px', paddingBottom: '24px' }}>
         {experiments.map((exp: any, i: number) => (
-          <div key={exp.id || i} onClick={() => { setActiveExperimentId(exp.id); setWaveData([]); loadLabData(exp.id); setView(['running', 'registered'].includes(String(exp.status).toLowerCase()) ? 'monitoring' : 'analysis'); }} style={{
+          <div key={exp.id || i} onClick={() => { resetExperimentData(); setActiveExperimentId(exp.id); loadLabData(exp.id); setView(['running', 'registered'].includes(String(exp.status).toLowerCase()) ? 'monitoring' : 'analysis'); }} style={{
             background: 'var(--bg-panel)',
             border: ['running', 'registered'].includes(String(exp.status).toLowerCase()) ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)',
             borderRadius: '6px',
@@ -130,7 +155,7 @@ export const ExperimentsLab: React.FC = () => {
   const renderSetup = () => (
     <div style={{ padding: '24px 32px', height: '100%', overflowY: 'auto', background: 'var(--bg-main)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ width: '100%', maxWidth: '700px', background: 'var(--bg-panel)', borderRadius: '6px', border: '1px solid var(--panel-border)' }}>
-        
+
         <div style={{ background: 'var(--bg-subtle)', padding: '16px', borderBottom: '1px solid var(--panel-border)', borderRadius: '6px 6px 0 0' }}>
           <h2 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Protocol Editor</h2>
         </div>
@@ -138,9 +163,10 @@ export const ExperimentsLab: React.FC = () => {
         <div style={{ padding: '24px' }}>
           <div style={{ marginBottom: '16px' }}>
             <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '6px' }}>Protocol Title</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={protocolTitle}
+              placeholder="e.g. Memory Saturation Under High Concurrency"
               onChange={(e) => setProtocolTitle(e.target.value)}
               style={{ width: '100%', padding: '8px 12px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', outline: 'none' }}
             />
@@ -148,12 +174,12 @@ export const ExperimentsLab: React.FC = () => {
 
           <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
             {['Scientific', 'Incident', 'Co-evolution'].map((type) => (
-              <div 
-                key={type} 
+              <div
+                key={type}
                 onClick={() => setProtocolType(type)}
-                style={{ 
-                  flex: 1, padding: '16px', border: protocolType === type ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)', 
-                  borderRadius: '6px', textAlign: 'center', cursor: 'pointer', background: protocolType === type ? 'var(--bg-subtle)' : 'var(--bg-main)' 
+                style={{
+                  flex: 1, padding: '16px', border: protocolType === type ? '1px solid var(--accent-blue)' : '1px solid var(--panel-border)',
+                  borderRadius: '6px', textAlign: 'center', cursor: 'pointer', background: protocolType === type ? 'var(--bg-subtle)' : 'var(--bg-main)'
                 }}
               >
                 <Activity size={24} color={protocolType === type ? 'var(--accent-blue)' : 'var(--text-muted)'} style={{ marginBottom: '8px' }} />
@@ -167,9 +193,9 @@ export const ExperimentsLab: React.FC = () => {
               <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Semantic Chaos Complexity</span>
               <span style={{ color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{chaosLevel}%</span>
             </div>
-            <input 
-              type="range" 
-              min="0" max="100" 
+            <input
+              type="range"
+              min="0" max="100"
               value={chaosLevel}
               onChange={(e) => setChaosLevel(parseInt(e.target.value))}
               style={{ width: '100%', accentColor: 'var(--accent-blue)' }}
@@ -185,7 +211,7 @@ export const ExperimentsLab: React.FC = () => {
 
         <div style={{ padding: '16px', borderTop: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', borderRadius: '0 0 6px 6px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button className="gh-btn" onClick={() => setView('dashboard')}>Cancel</button>
-          <button className="gh-btn gh-btn-primary" onClick={handleLaunch}><Play size={14} style={{ marginRight: '4px' }} /> Register Protocol</button>
+          <button className="gh-btn gh-btn-primary" onClick={handleLaunch} disabled={!protocolTitle.trim()}><Play size={14} style={{ marginRight: '4px' }} /> Register Protocol</button>
         </div>
       </div>
     </div>
@@ -200,7 +226,7 @@ export const ExperimentsLab: React.FC = () => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>Recorded Experiment Telemetry</h2>
           <button onClick={() => setView('analysis')} className="gh-btn">View Analysis</button>
         </div>
-        
+
         <div style={{ flex: 1, background: 'var(--bg-panel)', borderRadius: '6px', border: '1px solid var(--panel-border)', padding: '24px', position: 'relative', overflow: 'hidden' }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={waveData}>
@@ -223,9 +249,9 @@ export const ExperimentsLab: React.FC = () => {
         <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {thoughtFeed.length === 0 && <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>No recorded observations yet.</div>}
           {thoughtFeed.map((thought: any, i: number) => (
-            <div key={i} style={{ 
-              fontSize: '0.85rem', 
-              color: thought.highlight ? 'var(--accent-blue)' : 'var(--text-secondary)', 
+            <div key={i} style={{
+              fontSize: '0.85rem',
+              color: thought.highlight ? 'var(--accent-blue)' : 'var(--text-secondary)',
               background: thought.highlight ? 'var(--bg-subtle)' : 'transparent',
               padding: thought.highlight ? '8px 12px' : '0 12px',
               borderRadius: '6px',
@@ -245,7 +271,7 @@ export const ExperimentsLab: React.FC = () => {
     if (!coevolutionData) return <div style={{ padding: '24px', color: 'var(--text-muted)' }}>Loading coevolution arena...</div>;
     return (
       <div style={{ display: 'flex', height: '100%', background: 'var(--bg-main)' }}>
-        
+
         {/* Red Team */}
         <div style={{ width: '260px', background: 'var(--bg-panel)', borderRight: '1px solid var(--panel-border)', padding: '20px', display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', fontWeight: 600, marginBottom: '16px' }}>
@@ -269,7 +295,7 @@ export const ExperimentsLab: React.FC = () => {
               <span style={{ color: 'var(--text-muted)' }}>vs</span>
               <span style={{ color: 'var(--success)' }}>{coevolutionData.vulnStats?.patches || 0} Patches</span>
             </div>
-            <button onClick={() => setView('analysis')} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>Stop & Analyze</button>
+            <button onClick={() => setView('analysis')} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 10px' }}>View Analysis</button>
           </div>
           <div style={{ flex: 1 }}>
             <Editor
@@ -343,12 +369,27 @@ export const ExperimentsLab: React.FC = () => {
   };
 
   return (
-    <div style={{ width: '100%', height: '100%' }}>
-      {view === 'dashboard' && renderDashboard()}
-      {view === 'setup' && renderSetup()}
-      {view === 'monitoring' && renderMonitoring()}
-      {view === 'coevolution' && renderCoevolution()}
-      {view === 'analysis' && renderAnalysis()}
+    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 32px', background: 'var(--bg-panel)', borderBottom: '1px solid var(--panel-border)', flexShrink: 0 }}>
+        <Beaker size={16} color="var(--text-muted)" />
+        {(Object.keys(VIEW_LABELS) as ExperimentView[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            className="gh-btn"
+            style={view === v ? { borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)', fontWeight: 600 } : undefined}
+          >
+            {VIEW_LABELS[v]}
+          </button>
+        ))}
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        {view === 'dashboard' && renderDashboard()}
+        {view === 'setup' && renderSetup()}
+        {view === 'monitoring' && renderMonitoring()}
+        {view === 'coevolution' && renderCoevolution()}
+        {view === 'analysis' && renderAnalysis()}
+      </div>
     </div>
   );
 };
