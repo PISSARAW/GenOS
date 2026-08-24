@@ -28,15 +28,6 @@ export interface Clone {
   strategyStatus?: string | null;
 }
 
-export interface MCTSTreeNode {
-  id: string;
-  parentId?: string;
-  score: number;
-  visits: number;
-  state: string;
-  children?: MCTSTreeNode[];
-}
-
 export interface HallucinationAlert {
   id: string;
   timestamp: string;
@@ -66,7 +57,6 @@ export interface EvaluationScore {
 }
 
 interface GenOSState {
-  mctsTrees: Record<string, MCTSTreeNode>;
   clones: Clone[];
   hallucinations: HallucinationAlert[];
   traces: Record<string, TraceSpan[]>;
@@ -77,7 +67,6 @@ interface GenOSState {
   // Actions (all <= 3 parameters)
   setSelectedAgentId: (id: string | null) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected') => void;
-  updateMCTSTree: (agentId: string, tree: MCTSTreeNode) => void;
   addOrUpdateClone: (clone: Clone) => void;
   addHallucination: (alert: HallucinationAlert) => void;
   addTraceSpan: (agentId: string, span: TraceSpan) => void;
@@ -85,7 +74,6 @@ interface GenOSState {
 
   // Backend Actions
   fetchAgents: () => Promise<void>;
-  fetchLineage: () => Promise<void>;
   cloneAgent: (agentId: string) => Promise<void>;
   inspectAgentDNA: (agentId: string) => Promise<void>;
   initializeLiveSync: () => () => void;
@@ -93,7 +81,6 @@ interface GenOSState {
 
 export const useGenOSStore = create<GenOSState>((set, get) => {
   return {
-    mctsTrees: {},
     clones: [],
     hallucinations: [],
     traces: {},
@@ -104,9 +91,6 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
     setSelectedAgentId: (id) => set({ selectedAgentId: id }),
     setConnectionStatus: (status) => set({ connectionStatus: status }),
 
-    updateMCTSTree: (agentId, tree) => set((state) => ({
-      mctsTrees: { ...state.mctsTrees, [agentId]: tree }
-    })),
 
     addOrUpdateClone: (clone) => set((state) => {
       const exists = state.clones.find((c) => c.id === clone.id);
@@ -140,28 +124,6 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
       }
     },
 
-    fetchLineage: async () => {
-      try {
-        const lineage = await api.getLineage();
-        if (lineage && lineage.nodes) {
-          const rootNode: MCTSTreeNode = {
-            id: 'dag-root',
-            score: 0.95,
-            visits: lineage.nodes.length,
-            state: 'GenOS Master Swarm Lineage',
-            children: lineage.nodes.map((n: any) => ({
-              id: n.id,
-              score: n.score || 0.85,
-              visits: n.visits || 1,
-              state: n.label || n.summary || 'Node State'
-            }))
-          };
-          set((state) => ({
-            mctsTrees: { ...state.mctsTrees, root: rootNode }
-          }));
-        }
-      } catch {}
-    },
 
     cloneAgent: async (agentId) => {
       try {
@@ -183,7 +145,6 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
     initializeLiveSync: () => {
       set({ connectionStatus: 'connecting' });
       get().fetchAgents();
-      get().fetchLineage();
 
       // SSE Telemetry Listener — fetch-based stream so the Authorization
       // headers actually reach the protected telemetry endpoint.
