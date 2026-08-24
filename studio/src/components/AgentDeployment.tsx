@@ -38,7 +38,7 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     api.getConfig()
       .then((data) => {
         if (data?.budget) setBudget(data.budget);
-        if (data?.scenarios) setScenarios(data.scenarios);
+        if (data?.quickScenarios) setScenarios(data.quickScenarios);
       })
       .catch(() => {});
 
