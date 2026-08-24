@@ -12,6 +12,8 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [session, setSession] = useState<any>(null);
   const clones = useGenOSStore((state) => state.clones);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -19,16 +21,23 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
     api.getDashboard()
       .then((resData) => {
         setData(resData);
+        setLoadError(null);
         if (resData?.profile?.username && !editName) {
           setEditName(resData.profile.username);
         }
       })
-      .catch(() => {});
+      .catch((e: any) => {
+        setLoadError(e.message || 'Dashboard data unavailable.');
+      });
 
     api.getAchievements()
       .then((ach) => {
         if (Array.isArray(ach)) setAchievements(ach);
       })
+      .catch(() => {});
+
+    api.getSession()
+      .then(setSession)
       .catch(() => {});
   }, [isEditing]);
 
@@ -53,8 +62,13 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
   };
 
   const username = data?.profile?.username || 'Commander';
-  const org = data?.profile?.organization || 'GenOS Fleet';
+  // The backend field is `org` (`profile.org`); keep `organization` as a
+  // tolerant fallback so alternate payloads still render.
+  const org = data?.profile?.org || data?.profile?.organization || 'GenOS Fleet';
   const location = data?.profile?.location || 'Localhost Enclave (Sandboxed)';
+
+  // Only claim elevated access when the backend actually confirmed it.
+  const sessionRole: string | null = session?.user?.isAuthenticated ? session.user.role : null;
 
   const pinned = Array.isArray(data?.pinned) ? data.pinned : [];
 
@@ -120,10 +134,29 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
           </h1>
 
           <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-            <span style={{ border: '1px solid #1f6feb', borderRadius: '12px', padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-blue)', background: 'rgba(56, 139, 253, 0.1)', display: 'inline-block' }}>
-              Global Override Access Active
-            </span>
+            {sessionRole ? (
+              <span
+                style={{
+                  border: `1px solid ${sessionRole === 'admin' ? '#1f6feb' : 'var(--panel-border)'}`,
+                  borderRadius: '12px',
+                  padding: '4px 12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: sessionRole === 'admin' ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                  background: sessionRole === 'admin' ? 'rgba(56, 139, 253, 0.1)' : 'var(--bg-subtle)',
+                  display: 'inline-block'
+                }}
+              >
+                {sessionRole === 'admin' ? 'Global Override Access Active' : `Authenticated: ${sessionRole}`}
+              </span>
+            ) : null}
           </div>
+
+          {loadError && (
+            <div style={{ border: '1px solid var(--danger)', borderRadius: '6px', padding: '12px', fontSize: '0.8rem', color: 'var(--danger)', marginBottom: '16px', background: 'rgba(248,81,73,0.08)' }}>
+              {loadError}
+            </div>
+          )}
 
           <button className="gh-btn" style={{ width: '100%', marginBottom: '16px' }} onClick={() => setIsEditing(!isEditing)}>
             {isEditing ? 'Cancel editing' : 'Edit profile'}
