@@ -1,3 +1,5 @@
+const inferenceGateway = require('./inferenceGatewayService');
+
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
 function configuredModel(model) {
@@ -23,10 +25,24 @@ function modelConfiguration(model) {
   return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
+  const configuration = modelConfiguration(model);
+  // Local inference goes through the gateway's bounded queue: concurrent
+  // agents must queue for the GPU instead of stampeding it. Cloud providers
+  // have their own rate limits and bypass the queue.
+  if (inferenceGateway.isLocalProvider(configuration.provider) && configuration.provider !== 'openai-compatible') {
+    return inferenceGateway.schedule(
+      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId }),
+      { provider: configuration.provider, priority, agentId }
+    );
+  }
+  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId });
+}
+
+async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride }) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const configuration = modelConfiguration(model);
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
@@ -47,7 +63,7 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
     for (const token of tokenize(text)) await onToken(token);
     return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || tokenize(prompt).length, outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || tokenize(text).length, provider };
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error(`Model timeout after ${effectiveTimeout}ms.`);
+    if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
     throw error;
   } finally { clearTimeout(timer); }
 }
