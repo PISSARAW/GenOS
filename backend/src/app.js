@@ -48,6 +48,7 @@ const pluginRoutes = require('./routes/pluginRoutes');
 const registryRoutes = require('./routes/registryRoutes');
 const frameworkRoutes = require('./routes/frameworkRoutes');
 const productProofRoutes = require('./routes/productProofRoutes');
+const rustBridgeRoutes = require('./routes/rustBridgeRoutes');
 const healthController = require('./controllers/healthController');
 
 function createApp() {
@@ -101,6 +102,7 @@ function createApp() {
   app.use('/api/registry', registryRoutes);
   app.use('/api/frameworks', frameworkRoutes);
   app.use('/api/product-proofs', productProofRoutes);
+  app.use('/api/rust', rustBridgeRoutes);
   app.use('/api/experiments', experimentRoutes);
   app.use('/api/trajectories', trajectoryRoutes);
   app.use('/api/swarm', swarmRoutes);
