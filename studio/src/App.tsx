@@ -6,7 +6,6 @@ import {
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
 import { SwarmControlCenter } from './components/SwarmControlCenter';
-import { IdeInspector } from './components/IdeInspector';
 import { ExperimentsLab } from './components/ExperimentsLab';
 import { AgentProfile } from './components/AgentProfile';
 import { GlobalAlerts } from './components/GlobalAlerts';
@@ -47,7 +46,7 @@ type StudioView =
   | 'genome_factory' | 'memory_engine' | 'timeline_bisection'
   | 'rag_playground'
   | 'evaluation_lineage'
-  | 'studio_builder' | 'topology' | 'timeline' | 'editor' | 'experiments' | 'active_experiments'
+  | 'studio_builder' | 'timeline' | 'experiments' | 'active_experiments'
   | 'fleets' | 'agents' | 'agent_deployment' | 'trinity' | 'agent_profile' | 'alerts' | 'workspaces' 
   | 'live_matrix' | 'terminal' | 'compliance' | 'platform_safety';
 
@@ -331,9 +330,7 @@ const App: React.FC = () => {
             
             {activeView === 'agent_deployment' && <div style={{width:'100%', height:'100%'}}><AgentDeployment workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} onSelectAgent={() => setActiveView('agent_profile')} /></div>}
             {activeView === 'trinity' && <div style={{width:'100%', height:'100%'}}><TrinityAgentDeploy workspaceId={activeWorkspaceId} workspaceName={activeWorkspace?.name || activeWorkspace?.title} /></div>}
-            {activeView === 'topology' && <div style={{width:'100%', height:'100%'}}><SwarmControlCenter onSelectAgent={() => setActiveView('agent_profile')} /></div>}
             {activeView === 'timeline' && <div style={{width:'100%', height:'100%'}}><PendingTrajectories /></div>}
-            {activeView === 'editor' && <div style={{width:'100%', height:'100%'}}><IdeInspector code="// GenOS Runtime Engine\nexport const version = '2.0.0';" language="typescript" /></div>}
             {activeView === 'active_experiments' && <div style={{width:'100%', height:'100%'}}><ActiveExperiments onOpenLab={() => setActiveView('experiments')} /></div>}
             {activeView === 'experiments' && <div style={{width:'100%', height:'100%'}}><ExperimentsLab /></div>}
             {activeView === 'agent_profile' && <div style={{width:'100%', height:'100%'}}><AgentProfile /></div>}
