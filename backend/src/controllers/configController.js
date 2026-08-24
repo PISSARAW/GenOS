@@ -45,7 +45,13 @@ async function getConfig(req, res) {
       { id: 'standard', name: 'Standard Swarm', computeLimit: '500k tokens', nodes: 4 },
       { id: 'deep_solve', name: 'Deep Scientific Solver', computeLimit: '1.5M tokens', nodes: 8 },
       { id: 'security_redteam', name: 'Adversarial Security Arena', computeLimit: '2.0M tokens', nodes: 6 }
-    ]
+    ],
+    // Quick-spawn mission templates consumed by the Agent Deployment view.
+    quickScenarios: {
+      debug: 'Debug current workspace errors and run test suites.',
+      explain: 'Explain the workspace architecture and component lineage.',
+      plan: 'Create a step-by-step implementation plan for new features.'
+    }
   });
 }
 
