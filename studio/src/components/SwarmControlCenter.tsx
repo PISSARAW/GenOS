@@ -15,6 +15,7 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   const [typeFilter, setTypeFilter] = useState('all');
   const [worldFilter, setWorldFilter] = useState('all');
   const [proposals, setProposals] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activity, setActivity] = useState<Record<string, any>>({});
   const [showProposalModal, setShowProposalModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -22,12 +23,21 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const showToast = useToastStore((state) => state.showToast);
 
+  // GET /api/swarm/consensus returns `{ proposals, quorumState }`, not a bare
+  // array — accept the documented shape and tolerate a legacy array payload.
   const fetchConsensus = () => {
     api.getConsensus()
-      .then((data) => {
-        if (Array.isArray(data)) setProposals(data);
+      .then((data: any) => {
+        if (Array.isArray(data)) {
+          setProposals(data);
+        } else if (Array.isArray(data?.proposals)) {
+          setProposals(data.proposals);
+        }
+        setLoadError(null);
       })
-      .catch(() => {});
+      .catch((e: any) => {
+        setLoadError(e.message || 'Consensus unavailable.');
+      });
   };
 
   useEffect(() => {
@@ -150,6 +160,11 @@ export const SwarmControlCenter: React.FC<SwarmControlCenterProps> = ({ onSelect
         </div>
 
         {/* Quorum Proposals Section */}
+        {loadError && (
+          <div style={{ marginBottom: '16px', border: '1px solid var(--danger)', borderRadius: '6px', padding: '12px 16px', fontSize: '0.8rem', color: 'var(--danger)', background: 'rgba(248,81,73,0.08)' }}>
+            Quorum proposals unavailable: {loadError}
+          </div>
+        )}
         {proposals.length > 0 && (
           <div style={{ marginBottom: '32px', background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
