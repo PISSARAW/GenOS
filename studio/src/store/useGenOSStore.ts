@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { api, API_BASE_URL } from '../api/client';
+import { api, subscribeApiEventStream } from '../api/client';
 import { useToastStore } from './useToastStore';
 
 export interface Clone {
@@ -185,17 +185,15 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
       get().fetchAgents();
       get().fetchLineage();
 
-      // SSE Telemetry Listener
-      let eventSource: EventSource | null = null;
-      try {
-        eventSource = new EventSource(`${API_BASE_URL}/api/telemetry`);
-        eventSource.onopen = () => {
+      // SSE Telemetry Listener — fetch-based stream so the Authorization
+      // headers actually reach the protected telemetry endpoint.
+      let closeStream: (() => void) | null = null;
+      subscribeApiEventStream('/api/telemetry', {
+        onOpen: () => {
           set({ connectionStatus: 'connected' });
-        };
-
-        eventSource.onmessage = (e) => {
+        },
+        onMessage: (data) => {
           try {
-            const data = JSON.parse(e.data);
             if (data.eventType === 'AGENT_SPAWNED' || data.eventType === 'AGENT_STATE_CHANGE') {
               get().fetchAgents();
             }
@@ -213,14 +211,13 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
               });
             }
           } catch {}
-        };
-
-        eventSource.onerror = () => {
+        },
+        onError: () => {
           set({ connectionStatus: 'disconnected' });
-        };
-      } catch {
-        set({ connectionStatus: 'disconnected' });
-      }
+        }
+      }).then((close) => {
+        closeStream = close;
+      });
 
       // Background Polling interval (every 4s)
       const interval = setInterval(() => {
@@ -228,7 +225,7 @@ export const useGenOSStore = create<GenOSState>((set, get) => {
       }, 4000);
 
       return () => {
-        if (eventSource) eventSource.close();
+        closeStream?.();
         clearInterval(interval);
       };
     }
