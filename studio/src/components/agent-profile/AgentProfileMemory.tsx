@@ -13,9 +13,9 @@ function payloadOf(value: unknown): Record<string, any> {
 }
 
 function timeOf(value?: string | number): string {
-  if (!value) return 'à l’instant';
+  if (!value) return 'just now';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? 'à l’instant' : date.toLocaleTimeString();
+  return Number.isNaN(date.getTime()) ? 'just now' : date.toLocaleTimeString();
 }
 
 export const AgentProfileMemory: React.FC<AgentProfileMemoryProps> = ({ activeAgent, traces }) => {
@@ -37,14 +37,14 @@ export const AgentProfileMemory: React.FC<AgentProfileMemoryProps> = ({ activeAg
 
   const memoryStream = useMemo<MemoryItem[]>(() => {
     const traceItems = (traces || []).map((trace: any) => ({
-      content: trace.outputs ? `${trace.name}: ${typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)}` : `Action exécutée : ${trace.name}`,
+      content: trace.outputs ? `${trace.name}: ${typeof trace.outputs === 'string' ? trace.outputs : JSON.stringify(trace.outputs)}` : `Executed action: ${trace.name}`,
       type: 'Runtime observer span', time: timeOf(trace.startTime)
     }));
     const eventItems = events.map((event) => ({
-      content: event.detail || event.action || event.event_type || 'Événement agent',
-      type: event.event_type || 'Télémétrie', time: timeOf(event.created_at)
+      content: event.detail || event.action || event.event_type || 'Agent event',
+      type: event.event_type || 'Telemetry', time: timeOf(event.created_at)
     }));
-    const taskItems = activeAgent.currentTask ? [{ content: activeAgent.currentTask, type: 'Tâche courante', time: 'en cours' }] : [];
+    const taskItems = activeAgent.currentTask ? [{ content: activeAgent.currentTask, type: 'Current task', time: 'in progress' }] : [];
     return [...taskItems, ...traceItems, ...eventItems].slice(-50).reverse();
   }, [activeAgent.currentTask, events, traces]);
 
@@ -68,13 +68,15 @@ export const AgentProfileMemory: React.FC<AgentProfileMemoryProps> = ({ activeAg
     <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px' }}>
         <div style={{ padding: '16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', borderRadius: '6px 6px 0 0' }}><h2 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}><Book size={16} color="var(--text-muted)"/> Genome Evolution (Learned Rules)</h2></div>
-        <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>No agent-specific learned genome rule has been persisted.</div>
+        <div style={{ padding: '16px', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
+          This agent's learned rules are not edited directly here. They persist through genome decisions recorded by the runtime; when a decision updates a rule, it appears in this agent's genome history. No per-agent rule list is exposed in Studio yet.
+        </div>
       </div>
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px' }}>
         <div style={{ padding: '16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-subtle)', borderRadius: '6px 6px 0 0' }}><h2 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}><Database size={16} color="var(--text-muted)"/> Live Memory & Activity</h2></div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {loading && <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>Chargement des données persistées…</div>}
-          {!loading && memoryStream.length === 0 && <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>Aucune activité mémoire ou télémétrie enregistrée pour cet agent.</div>}
+          {loading && <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>Loading persisted data…</div>}
+          {!loading && memoryStream.length === 0 && <div style={{ padding: '16px', color: 'var(--text-secondary)' }}>No memory activity or telemetry recorded for this agent.</div>}
           {memoryStream.map((item, index) => <div key={`${item.type}-${item.time}-${index}`} style={{ padding: '12px 16px', borderBottom: index < memoryStream.length - 1 ? '1px solid var(--panel-border)' : 'none', display: 'flex', gap: '12px' }}><div style={{ paddingTop: '2px' }}><Activity size={14} color="var(--text-muted)" /></div><div style={{ flex: 1 }}><div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.4 }}>{item.content}</div><div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}><span style={{ fontWeight: 600, color: 'var(--accent-blue)' }}>{item.type}</span> · {item.time}</div></div></div>)}
         </div>
       </div>
@@ -82,13 +84,15 @@ export const AgentProfileMemory: React.FC<AgentProfileMemoryProps> = ({ activeAg
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px' }}>
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px' }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Context Window</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}><span>Activité observée</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{observed || (loading ? '…' : 'Aucune')}</span></div>
-        <div style={{ width: '100%', height: '8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}><div style={{ width: `${Math.min(observed * 10, 100)}%`, height: '100%', background: '#1f6feb' }} /></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px', fontSize: '0.85rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Observed events</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{observed || (loading ? '…' : 'None')}</span></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Observed tokens</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{context.tokenCount > 0 ? context.tokenCount.toLocaleString() : (loading ? '…' : 'None')}</span></div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.85rem' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}><span style={{ color: '#58a6ff' }}>■</span> Conversation</span><span style={{ color: 'var(--text-primary)' }}>{value(context.conversation)}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}><span style={{ color: '#238636' }}>■</span> File Artifacts</span><span style={{ color: 'var(--text-primary)' }}>{value(context.artifacts)}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}><span style={{ color: '#bc8cff' }}>■</span> Tool Results</span><span style={{ color: 'var(--text-primary)' }}>{value(context.tools)}</span></div></div>
       </div>
       <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '16px' }}>
         <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 16px 0' }}>Agent Identity</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Genome Version</span><span style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{activeAgent.agentType || '—'}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Base Model</span><span style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{activeAgent.modelTier || 'Non renseigné'}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Memory Events</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{events.length || '—'}</span></div>{context.tokenCount > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Tokens observés</span><span style={{ color: 'var(--text-primary)' }}>{context.tokenCount.toLocaleString()}</span></div>}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '0.85rem' }}><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Genome Version</span><span style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{activeAgent.agentType || '—'}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Base Model</span><span style={{ fontFamily: 'monospace', color: 'var(--text-primary)' }}>{activeAgent.modelTier || 'Not specified'}</span></div><div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: 'var(--text-secondary)' }}>Memory Events</span><span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{events.length || '—'}</span></div></div>
       </div>
     </div>
   </div>;

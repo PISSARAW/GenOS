@@ -19,12 +19,12 @@ export const AgentProfile: React.FC = () => {
   const selectedAgentId = useGenOSStore((state) => state.selectedAgentId);
   const fetchAgents = useGenOSStore((state) => state.fetchAgents);
   
-  const activeAgent = (selectedAgentId ? clones.find((c) => c.id === selectedAgentId) : null) || clones[0] || null;
+  const activeAgent = selectedAgentId ? clones.find((c) => c.id === selectedAgentId) || null : null;
 
   if (!activeAgent) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', color: 'var(--text-secondary)' }}>
-        No agent data available.
+        {clones.length === 0 ? 'No agent data available.' : 'Select an agent'}
       </div>
     );
   }
@@ -45,13 +45,11 @@ export const AgentProfile: React.FC = () => {
     time: new Date(t.startTime).toLocaleTimeString()
   }));
 
-  const displayFilesFromBackend = displayFiles;
-
   const tabs = [
     { id: 'state', label: 'State & Files', icon: Code },
     { id: 'strategy', label: 'Strategy Contract', icon: ShieldCheck },
     { id: 'tasks', label: 'Tasks', icon: CircleDot, count: agentTraces.length },
-    { id: 'trajectories', label: 'Trajectories', icon: GitPullRequest, count: 0 },
+    { id: 'trajectories', label: 'Trajectories', icon: GitPullRequest, count: agentTraces.length },
     { id: 'swarm', label: 'Swarm & Network', icon: LayoutGrid },
     { id: 'memory', label: 'Memory & Genome', icon: Book },
     { id: 'experiments', label: 'Experiments', icon: PlayCircle },
@@ -82,7 +80,7 @@ export const AgentProfile: React.FC = () => {
               activeAgent={activeAgent}
               clonesCount={clones.length}
               snapshotsCount={agentTraces.filter((t) => t.name === 'genos_snapshot').length}
-              displayFiles={displayFilesFromBackend}
+              displayFiles={displayFiles}
               agentTraces={agentTraces}
               agentTracesCount={agentTraces.length}
             />
@@ -137,7 +135,7 @@ export const AgentProfile: React.FC = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {visibleAgents.map((node, i) => (
-                  <div key={node.id || i} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < clones.length - 1 ? '1px solid var(--panel-border)' : 'none' }} className="hover-bg-gray">
+                  <div key={node.id || i} style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: i < visibleAgents.length - 1 ? '1px solid var(--panel-border)' : 'none' }} className="hover-bg-gray">
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1f6feb', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontWeight: 'bold', fontSize: '14px' }}>
                         {node.name.charAt(0)}
