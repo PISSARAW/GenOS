@@ -31,7 +31,7 @@ export const MultiBranchTreeDiff: React.FC = () => {
             onChange={(e) => setSelectedBranchA(e.target.value)} 
             style={{ padding: '4px 8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
           >
-            {workspaces.map((w) => <option key={w.id} value={w.id}>base: {w.name}</option>)}
+            {workspaces.map((w) => <option key={w.id} value={w.id}>workspace A: {w.name}</option>)}
           </select>
           <span style={{ color: 'var(--text-muted)' }}>←</span>
           <select 
@@ -40,7 +40,7 @@ export const MultiBranchTreeDiff: React.FC = () => {
             style={{ padding: '4px 8px', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.75rem' }}
           >
             {workspaces.map((w) => (
-              <option key={w.id} value={w.id}>compare: {w.name}</option>
+              <option key={w.id} value={w.id}>workspace B: {w.name}</option>
             ))}
           </select>
         </div>
