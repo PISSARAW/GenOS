@@ -23,7 +23,10 @@ uncommitted `.env` file next to `compose.yaml`:
 GENOS_WORKSPACES_PATH=/absolute/path/to/trusted/projects
 ```
 
-Compose mounts that path read/write at `/workspaces`. Studio discovers the
+Compose mounts that path read/write at `/workspaces` and sets
+`GENOS_WORKSPACES_ROOT=/workspaces` inside the container, which is the variable
+the backend actually reads to discover workspaces (`GENOS_WORKSPACES_PATH`
+only names the host-side bind source). Studio discovers the
 root itself and its direct child directories when they contain a Git checkout,
 `README.md`, `Cargo.toml`, `package.json`, `pyproject.toml`, or a
 `.genos-workspace` marker. The project selector and Workspaces page are backed
