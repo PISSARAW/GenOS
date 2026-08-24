@@ -186,13 +186,13 @@ async fn main() -> Result<()> {
             }
         },
         Commands::Hallucination(hallucination) => match hallucination.command {
-            HallucinationSubcommands::Detect(_args) => cmd_hallucination_detect().await,
-            HallucinationSubcommands::Inject(_args) => cmd_hallucination_inject().await,
-            HallucinationSubcommands::Test(_args) => cmd_hallucination_test().await,
-            HallucinationSubcommands::Extract(_args) => cmd_hallucination_extract().await,
-            HallucinationSubcommands::Analyze(_args) => cmd_hallucination_analyze().await,
-            HallucinationSubcommands::Correct(_args) => cmd_hallucination_correct().await,
-            HallucinationSubcommands::Simulate(_args) => cmd_hallucination_simulate().await,
+            HallucinationSubcommands::Detect(args) => cmd_hallucination_detect(args).await,
+            HallucinationSubcommands::Inject(args) => cmd_hallucination_inject(args).await,
+            HallucinationSubcommands::Test(args) => cmd_hallucination_test(args).await,
+            HallucinationSubcommands::Extract(args) => cmd_hallucination_extract(args).await,
+            HallucinationSubcommands::Analyze(args) => cmd_hallucination_analyze(args).await,
+            HallucinationSubcommands::Correct(args) => cmd_hallucination_correct(args).await,
+            HallucinationSubcommands::Simulate(args) => cmd_hallucination_simulate(args).await,
         },
         Commands::Workflow(workflow) => match workflow.command {
             WorkflowSubcommands::Init(args) => cmd_workflow_init(args),
