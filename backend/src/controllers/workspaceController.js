@@ -285,7 +285,7 @@ async function bisect(req, res, next) {
     });
     if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
     const result = await bisectionService.bisectAnomalyAsync(history, async (snapshot) => {
-      const execution = await snapshotStore.runInSnapshot({ snapshot, command: testCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000) });
+      const execution = await snapshotStore.runInSnapshot({ snapshot, command: testCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000), workspacePath: workspace.path });
       snapshot._execution = execution;
       return execution.exitCode === 0;
     });
