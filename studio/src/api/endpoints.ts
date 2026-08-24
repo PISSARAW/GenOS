@@ -191,6 +191,5 @@ export const extendedApi = {
   getPlatformApprovals: () => apiRequest('/api/platform/approvals'),
   decidePlatformApproval: (id: string, decision: string, reason?: string) => apiRequest(`/api/platform/approvals/${id}/decision`, { method: 'POST', body: { decision, reason } }),
   replayPlatformIncident: (id: string, stepSpeed = 100) => apiRequest(`/api/platform/incidents/${encodeURIComponent(id)}/replay`, { method: 'POST', body: { stepSpeed } }),
-  bisectPlatformIncident: (workspaceId: string, firstBadStep?: number) => apiRequest('/api/platform/incidents/bisect', { method: 'POST', body: { workspaceId, firstBadStep } }),
   paretoPlatformEvaluation: (items: any[]) => apiRequest('/api/platform/evaluations/pareto', { method: 'POST', body: { items } })
 };
