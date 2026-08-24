@@ -1,0 +1,28 @@
+{
+  "digits": "entiers 1..9",
+  "U": {
+    "clues": [
+      "x + y = 12",
+      "x * z = 18",
+      "x, y, z deux a deux distincts"
+    ],
+    "question": "Lister TOUTES les solutions (x,y,z)."
+  },
+  "V": {
+    "clues": [
+      "x * y = 24",
+      "z - y = 3",
+      "x + z = 13",
+      "x < y"
+    ],
+    "question": "Donner LA solution."
+  },
+  "W": {
+    "clues": [
+      "x + y = 10",
+      "x + y = 13"
+    ],
+    "question": "Conclure."
+  },
+  "format_note": "U peut admettre plusieurs solutions ; V une seule ; W : verifier la coherence."
+}
