@@ -34,5 +34,6 @@ a bootstrap confidence interval. The current committed result is a pilot only,
 not a superiority claim.
 
 - GitHub protocol: `benchmarks/genos-agentbench/`
+- Pre-registered protocol: `docs/7-benchmarks-and-comparisons/agent-success-benchmark-protocol.md`
 - Hugging Face dataset card: `benchmarks/genos-agentbench/huggingface/`
 - Full publication command: `node benchmarks/genos-agentbench/run.mjs --repetitions 3`

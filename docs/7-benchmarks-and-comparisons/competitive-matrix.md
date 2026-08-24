@@ -65,5 +65,6 @@ A row may receive a quantitative value only when the repository contains:
 - a limitations section;
 - evidence of a second run or independent review.
 
-Until then, consult the [proof and benchmark status](proof-and-benchmark-status.md)
-and [reproducible protocol](reproducible-benchmark-protocol.md).
+Until then, consult the [proof and benchmark status](proof-and-benchmark-status.md),
+the [reproducible protocol](reproducible-benchmark-protocol.md), and the
+[agent success benchmark protocol](agent-success-benchmark-protocol.md).
