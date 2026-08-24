@@ -168,6 +168,50 @@ async fn merge_into_fast_forwards_source_branch_with_world_delta() -> anyhow::Re
 }
 
 #[tokio::test]
+async fn merge_into_three_way_merges_same_file_edits_from_two_worlds() -> anyhow::Result<()> {
+    if !git_available().await {
+        return Ok(());
+    }
+
+    let root = tempdir()?;
+    let repo = root.path().join("repo");
+    init_test_repo(&repo).await?;
+    write_file(&repo.join("shared.txt"), "l1\nl2\nl3\nl4\nl5\n")?;
+    run_git(&repo, &["add", "."]).await?;
+    run_git(&repo, &["commit", "-m", "shared fixture"]).await?;
+
+    let provider = GitWorktreeWorldProvider::new(root.path().join("worktrees"), repo.clone())?;
+    let base_world = provider.create(AgentId::new(), BranchId::new()).await?;
+    let snapshot = provider.snapshot(base_world).await?;
+
+    // Two forks edit different regions of the same file.
+    let first = provider.fork(snapshot.clone()).await?;
+    provider
+        .write_file(&first, "shared.txt", "one\nl2\nl3\nl4\nl5\n")
+        .await?;
+    let first_merge = provider.merge_into(first, "main").await?;
+    assert!(first_merge.applied, "{first_merge:?}");
+    assert!(first_merge.conflicts.is_empty());
+
+    let second = provider.fork(snapshot).await?;
+    provider
+        .write_file(&second, "shared.txt", "l1\nl2\nl3\nl4\nfive\n")
+        .await?;
+    let second_merge = provider.merge_into(second, "main").await?;
+
+    // A strict patch replay would reject this delta; the three-way merge
+    // combines both regions into one file.
+    assert!(second_merge.applied, "{second_merge:?}");
+    assert!(second_merge.conflicts.is_empty());
+    // run_git trims trailing newlines, hence the trimmed expectation.
+    assert_eq!(
+        run_git(&repo, &["show", "main:shared.txt"]).await?,
+        "one\nl2\nl3\nl4\nfive"
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn merge_into_reports_unapplied_when_patch_conflicts() -> anyhow::Result<()> {
     if !git_available().await {
         return Ok(());
@@ -197,6 +241,7 @@ async fn merge_into_reports_unapplied_when_patch_conflicts() -> anyhow::Result<(
 
     assert!(!proposal.applied);
     assert!(proposal.files_changed.contains(&"service.txt".to_string()));
+    assert!(proposal.conflicts.contains(&"service.txt".to_string()));
     assert_eq!(
         run_git(
             Path::new(&root.path().join("repo")),

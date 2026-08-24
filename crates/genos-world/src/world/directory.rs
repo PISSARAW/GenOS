@@ -186,6 +186,7 @@ impl WorldProvider for DirectoryWorldProvider {
             target_branch: target_branch.to_string(),
             applied: false,
             files_changed,
+            conflicts: Vec::new(),
         })
     }
 

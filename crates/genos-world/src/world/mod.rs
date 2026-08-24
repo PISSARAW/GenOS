@@ -43,13 +43,17 @@ pub struct WorldDiff {
 /// What offering a world's delta for merge into a branch produced.
 ///
 /// `applied` is false whenever the provider only *proposes* the merge (the
-/// default) or when the target branch would not accept the patch cleanly; the
-/// changed files are still reported so callers can surface or resolve them.
+/// default) or when the merge could not complete; the changed files are still
+/// reported so callers can surface or resolve them. When a content-level
+/// three-way merge left conflicts behind, `conflicts` names the files that
+/// need human resolution — the rest of the delta is already merged in that
+/// case, only the listed paths are left untouched on the target branch.
 #[derive(Clone, Debug)]
 pub struct MergeProposal {
     pub target_branch: String,
     pub applied: bool,
     pub files_changed: Vec<String>,
+    pub conflicts: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -166,6 +170,7 @@ pub trait WorldProvider: Send + Sync {
             target_branch: target_branch.to_string(),
             applied: false,
             files_changed: Vec::new(),
+            conflicts: Vec::new(),
         })
     }
 
