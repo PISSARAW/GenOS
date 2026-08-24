@@ -1,0 +1,13 @@
+{
+  "declaration": "J'applique la hiérarchie priorité vie > santé > propriété > confort. Je ne mens jamais, sauf pour protéger une vie en danger immédiat, et je tiens mes promesses sauf si cela menace la vie ou la santé. Quand deux règles se recouvrent, la valeur la plus haute dans la hiérarchie l'emporte et j'invoque explicitement le principe correspondant.",
+  "cases": [
+    { "id": 1, "choix": "permis", "principe": "verite" },
+    { "id": 2, "choix": "interdit", "principe": "verite" },
+    { "id": 3, "choix": "permis", "principe": "promesse" },
+    { "id": 4, "choix": "interdit", "principe": "propriete" },
+    { "id": 5, "choix": "interdit", "principe": "verite" },
+    { "id": 6, "choix": "permis", "principe": "promesse" },
+    { "id": 7, "choix": "interdit", "principe": "verite" },
+    { "id": 8, "choix": "interdit", "principe": "verite" }
+  ]
+}
