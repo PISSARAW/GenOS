@@ -4,6 +4,7 @@
  */
 
 export * from './http';
+import { apiRequest, API_BASE_URL, type TenantScope, getTenantScope, setTenantScope } from './http';
 import { extendedApi } from './endpoints';
 
 // API Service Modules (All functions <= 3 params)
