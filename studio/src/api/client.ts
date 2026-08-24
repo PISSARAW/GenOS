@@ -32,7 +32,13 @@ const coreApi = {
   deployTrinity: (payload: { prompt: string; agentType?: string; worlds?: string[]; workspaceId?: string }) =>
     apiRequest('/api/deploy/trinity', { method: 'POST', body: payload }),
   listTrinityWorlds: () => apiRequest('/api/deploy/trinity'),
-  listAgents: () => apiRequest('/api/agents'),
+  listAgents: (params?: { limit?: number; offset?: number }) => {
+    const query = new URLSearchParams();
+    if (params?.limit != null) query.set('limit', String(params.limit));
+    if (params?.offset != null) query.set('offset', String(params.offset));
+    const qs = query.toString();
+    return apiRequest(`/api/agents${qs ? `?${qs}` : ''}`);
+  },
   stopAgent: (id: string) => apiRequest(`/api/agents/${encodeURIComponent(id)}/stop`, { method: 'POST' }),
   stopAgents: (agentIds: string[]) => apiRequest('/api/agents/bulk-stop', { method: 'POST', body: { agentIds } }),
   deleteAgents: (agentIds: string[]) => apiRequest('/api/agents/bulk-delete', { method: 'POST', body: { agentIds } }),
