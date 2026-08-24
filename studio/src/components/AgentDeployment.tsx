@@ -3,7 +3,7 @@ import {
   Rocket, Activity, Ghost, Info, Bug, BookOpen, Layers, Play,
   Terminal, FolderSearch, FileText, Cpu
 } from 'lucide-react';
-import { api, API_BASE_URL } from '../api/client';
+import { api, subscribeApiEventStream } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 import { useGenOSStore } from '../store/useGenOSStore';
 
@@ -66,30 +66,24 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   // active and mixed unrelated deployment history into their terminal.
   useEffect(() => {
     if (isDeployed && deployedAgent?.id) {
-      let eventSource: EventSource | null = null;
-      try {
-        eventSource = new EventSource(`${API_BASE_URL}/api/telemetry`);
-        
-        eventSource.onmessage = (event) => {
+      let closeStream: (() => void) | null = null;
+      subscribeApiEventStream('/api/telemetry', {
+        onMessage: (log) => {
           try {
-            const log = JSON.parse(event.data);
             if (log.agentId !== deployedAgent.id) return;
-            setTelemetryLogs((prev) => [...prev, { 
-              action: log.action || log.eventType || 'system', 
-              detail: log.detail || log.message || JSON.stringify(log.payload || ''), 
-              time: new Date().toLocaleTimeString() 
-            }]);
+            setTelemetryLogs((prev) => [...prev, { action: log.action || log.eventType || 'system', detail: log.detail || log.message || JSON.stringify(log.payload || ''), time: new Date().toLocaleTimeString() }]);
             void fetchHistory();
           } catch {}
-        };
-
-        eventSource.onerror = () => {
-          eventSource?.close();
-        };
-      } catch {}
+        },
+        onError: () => {
+          setTelemetryLogs((prev) => [...prev, { action: 'stream', detail: 'Telemetry stream disconnected; logs will not update until refresh.', time: new Date().toLocaleTimeString() }]);
+        }
+      }).then((close) => {
+        closeStream = close;
+      });
 
       return () => {
-        eventSource?.close();
+        closeStream?.();
       };
     } else {
       setTelemetryLogs([]);
@@ -106,25 +100,29 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   }, [isDeployed, deployedAgent?.id]);
 
   useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [telemetryLogs]);
 
+  const quickSpawnPresets: Record<string, { tier: string; isolation: string }> = {
+    debug: { tier: 'Pro', isolation: 'Branch' },
+    explain: { tier: 'Flash Lite', isolation: 'Inherit' },
+    plan: { tier: 'Flash', isolation: 'Inherit' }
+  };
+  const quickSpawnFallbackPrompts: Record<string, string> = {
+    debug: 'Debug current workspace errors and run test suites.',
+    explain: 'Explain the workspace architecture and component lineage.',
+    plan: 'Create a step-by-step implementation plan for new features.'
+  };
+
   const handleQuickSpawn = (type: string) => {
-    if (type === 'debug') {
-      setPrompt(scenarios.debug || 'Debug current workspace errors and run test suites.');
-      setModelTier('Pro');
-      setWorkspaceIsolation('Branch');
-    } else if (type === 'explain') {
-      setPrompt(scenarios.explain || 'Explain the workspace architecture and component lineage.');
-      setModelTier('Flash Lite');
-      setWorkspaceIsolation('Inherit');
-    } else if (type === 'plan') {
-      setPrompt(scenarios.plan || 'Create a step-by-step implementation plan for new features.');
-      setModelTier('Flash');
-      setWorkspaceIsolation('Inherit');
-    }
+    const preset = quickSpawnPresets[type];
+    if (!preset) return;
+    setPrompt(
+      scenarios[type as keyof typeof scenarios] ||
+        quickSpawnFallbackPrompts[type as keyof typeof quickSpawnFallbackPrompts]
+    );
+    setModelTier(preset.tier);
+    setWorkspaceIsolation(preset.isolation);
   };
 
   const handleIncreaseLimits = async () => {
@@ -142,29 +140,19 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     }
   };
 
-  const persistedAgent = deployedAgent
-    ? history.find((agent) => agent.id === deployedAgent.id)
-    : null;
+  const persistedAgent = deployedAgent ? history.find((agent) => agent.id === deployedAgent.id) : null;
   const deploymentStatus = persistedAgent?.status || deployedAgent?.status || 'idle';
   const deploymentTask = persistedAgent?.task || deployedAgent?.currentTask || '';
   const isRunning = deploymentStatus === 'running';
-  const isCompleted = deploymentStatus === 'completed'
-    || (deploymentStatus === 'idle' && /completed/i.test(deploymentTask));
-  const deploymentHeading = isRunning
-    ? 'Execution running'
-    : isCompleted
-      ? 'Execution completed'
-      : deploymentStatus === 'error'
-        ? 'Execution failed'
-        : 'Deployment registered';
-  const deploymentMessage = isRunning
-    ? 'The runtime is active and this agent is included in the active-agent counter.'
-    : isCompleted
-      ? 'The runtime completed successfully. This terminal mission is no longer included in the active-agent counter.'
-      : deploymentStatus === 'error'
-        ? 'The runtime stopped with an error. Review the telemetry below for details.'
-        : 'The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.';
-  const deploymentColor = deploymentStatus === 'error' ? 'var(--danger)' : isRunning ? 'var(--success)' : 'var(--text-muted)';
+  const isCompleted = deploymentStatus === 'completed' || (deploymentStatus === 'idle' && /completed/i.test(deploymentTask));
+  const executionState = isRunning ? 'running' : isCompleted ? 'completed' : deploymentStatus === 'error' ? 'error' : 'registered';
+  const executionCopyMap: Record<string, [string, string, string]> = {
+    running: ['Execution running', 'The runtime is active and this agent is included in the active-agent counter.', 'var(--success)'],
+    completed: ['Execution completed', 'The runtime completed successfully. This terminal mission is no longer included in the active-agent counter.', 'var(--text-muted)'],
+    error: ['Execution failed', 'The runtime stopped with an error. Review the telemetry below for details.', 'var(--danger)'],
+    registered: ['Deployment registered', 'The agent registration was persisted. Live activity appears here only when a runtime emits telemetry.', 'var(--text-muted)']
+  };
+  const [deploymentHeading, deploymentMessage, deploymentColor] = executionCopyMap[executionState];
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', background: 'var(--bg-main)' }}>
