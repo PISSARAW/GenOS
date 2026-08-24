@@ -6,37 +6,43 @@ import { WorkspaceDashboard } from './WorkspaceDashboard';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
-const Sparkline: React.FC<{ data: number[]; color: string }> = ({ data, color }) => {
-  const max = Math.max(...data, 1);
-  const points = data.map((d, i) => {
-    const x = (i / Math.max(data.length - 1, 1)) * 100;
-    const y = 30 - (d / max) * 30;
-    return `${x},${y}`;
-  }).join(' ');
-
-  return (
-    <svg width="120" height="30" viewBox="0 -5 100 40" style={{ overflow: 'visible' }}>
-      <polyline 
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+const EXTENSION_LANGUAGES: Record<string, string> = {
+  ts: 'TypeScript', tsx: 'TypeScript', js: 'JavaScript', jsx: 'JavaScript',
+  py: 'Python', rs: 'Rust', go: 'Go', java: 'Java', rb: 'Ruby',
+  cs: 'C#', cpp: 'C++', cc: 'C++', c: 'C', swift: 'Swift', kt: 'Kotlin', php: 'PHP'
 };
+
+const guessLanguage = (workspace: any): string => {
+  if (workspace.language) return workspace.language;
+  const path = String(workspace.path || workspace.repoUrl || workspace.url || '');
+  const dot = path.lastIndexOf('.');
+  const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  if (dot <= slash) return '';
+  return EXTENSION_LANGUAGES[path.slice(dot + 1).toLowerCase()] || '';
+};
+
+const parseTimestamp = (value: any): number | null => {
+  if (value == null) return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const parsed = Date.parse(String(value));
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const getWorkspaceTimestamp = (workspace: any): number | null =>
+  parseTimestamp(workspace.updated ?? workspace.updatedAt ?? workspace.modified ?? workspace.lastModified);
+
+const MutedDash: React.FC = () => <span style={{ color: 'var(--text-muted)' }}>—</span>;
 
 export const WorkspacesList: React.FC<{
   selectedWorkspaceId?: string | null;
   onWorkspaceSelected?: (workspaceId: string | null) => void;
 }> = ({ selectedWorkspaceId = null, onWorkspaceSelected }) => {
-  const [activeFilter, setActiveFilter] = useState('Active Swarms (Supervised)');
+  const [activeFilter, setActiveFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
   const [workspaces, setWorkspaces] = useState<any[]>([]);
-  const [sortBy, setSortBy] = useState('Relevance');
+  const [sortBy, setSortBy] = useState('Name');
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [showInitModal, setShowInitModal] = useState(false);
   const [newWsName, setNewWsName] = useState('');
   const [newWsDesc, setNewWsDesc] = useState('');
@@ -46,8 +52,9 @@ export const WorkspacesList: React.FC<{
     api.listWorkspaces()
       .then((data) => {
         if (Array.isArray(data)) setWorkspaces(data);
+        setFetchError(null);
       })
-      .catch(() => {});
+      .catch((e: any) => setFetchError(e?.message || 'Failed to load workspaces.'));
   };
 
   useEffect(() => {
@@ -78,26 +85,34 @@ export const WorkspacesList: React.FC<{
     return <WorkspaceDashboard workspace={selectedWorkspace} onBack={() => { setSelectedWorkspace(null); onWorkspaceSelected?.(null); }} />;
   }
 
-  const filters = [
-    'Active Swarms (Supervised)',
-    'Root Universes',
-    'Experimental Timelines (Forks)',
-    'Archived/Sleeping Workspaces'
-  ];
+  const filters = ['All', 'Has agents', 'Has snapshots', 'Recently updated'];
+
+  const RECENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
   let filteredWorkspaces = workspaces.filter((w) => {
     const title = w.title || w.name || '';
-    const lang = w.language || '';
+    const lang = guessLanguage(w);
     if (searchTerm && !title.toLowerCase().includes(searchTerm.toLowerCase()) && !lang.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-    if (w.categories && !w.categories.includes(activeFilter)) return false;
+    if (activeFilter === 'Has agents' && !(Number(w.agents) > 0)) return false;
+    if (activeFilter === 'Has snapshots' && !(Number(w.snapshots) > 0)) return false;
+    if (activeFilter === 'Recently updated') {
+      const updated = getWorkspaceTimestamp(w);
+      if (updated === null || Date.now() - updated > RECENT_WINDOW_MS) return false;
+    }
     return true;
   });
 
-  if (sortBy === 'Name') {
-    filteredWorkspaces.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
-  } else if (sortBy === 'Recently Updated') {
-    filteredWorkspaces = [...filteredWorkspaces].reverse();
-  }
+  filteredWorkspaces = [...filteredWorkspaces].sort((a, b) => {
+    if (sortBy === 'Name') {
+      return (a.title || a.name || '').localeCompare(b.title || b.name || '');
+    }
+    const ta = getWorkspaceTimestamp(a);
+    const tb = getWorkspaceTimestamp(b);
+    if (ta === null && tb === null) return 0;
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return tb - ta;
+  });
 
   return (
     <div style={{ width: '100%', height: '100%', overflowY: 'auto', background: 'var(--bg-main)' }}>
@@ -146,13 +161,20 @@ export const WorkspacesList: React.FC<{
             </button>
           </div>
 
+          {fetchError && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', border: '1px solid var(--danger)', borderRadius: '6px', color: 'var(--danger)', fontWeight: 600, fontSize: '0.85rem' }}>
+              <span>{fetchError}</span>
+              <button className="gh-btn" onClick={fetchWorkspaces}>Retry</button>
+            </div>
+          )}
+
           {/* List Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>
             <div>{filteredWorkspaces.length} workspaces</div>
             <div 
               style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)', cursor: 'pointer' }}
               onClick={() => {
-                const nextSort = sortBy === 'Relevance' ? 'Name' : sortBy === 'Name' ? 'Recently Updated' : 'Relevance';
+                const nextSort = sortBy === 'Name' ? 'Recently Updated' : 'Name';
                 setSortBy(nextSort);
               }}
             >
@@ -206,17 +228,23 @@ export const WorkspacesList: React.FC<{
 
                   <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '16px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3178c6' }}></div> {ws.language || 'TypeScript'}
+                      {guessLanguage(ws) ? (
+                        <>
+                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#3178c6' }}></div> {guessLanguage(ws)}
+                        </>
+                      ) : (
+                        <MutedDash />
+                      )}
                     </span>
-                    
+
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Snapshots">
-                      <Camera size={14} /> {(ws.snapshots || 0).toLocaleString()}
+                      <Camera size={14} /> {ws.snapshots != null ? Number(ws.snapshots).toLocaleString() : <MutedDash />}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Agents">
-                      <Bot size={14} /> {ws.agents || '0 Active'}
+                      <Bot size={14} /> {ws.agents != null ? ws.agents : <MutedDash />}
                     </span>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }} title="Pending Trajectories">
-                      <GitPullRequest size={14} /> {ws.trajectories || 0}
+                      <GitPullRequest size={14} /> {ws.trajectories != null ? ws.trajectories : <MutedDash />}
                     </span>
                     {(ws.anomalies > 0) && (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--danger)' }} title="Anomalies">
@@ -228,9 +256,8 @@ export const WorkspacesList: React.FC<{
                   </div>
                 </div>
 
-                {/* Right Area (Sparkline & Settings) */}
+                {/* Right Area (Settings) */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <Sparkline data={ws.activityData || []} color={ws.activityColor || '#238636'} />
                   <Settings size={18} color="var(--text-muted)" aria-label="Workspace configuration is read-only" />
                 </div>
               </div>
