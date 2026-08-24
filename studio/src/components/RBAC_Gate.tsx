@@ -26,19 +26,24 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
           setLocked(false);
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        showToast('warning', 'Privileges Unverified', 'The backend could not re-validate your access key; elevated actions may be rejected.');
+      });
   }, []);
 
   const handleUnlock = async () => {
     setErrorMsg(null);
     try {
       const res = await api.verifyToken(key);
-      if (res && (res.valid || res.success || res.role === 'admin' || res.username)) {
+      // Only an explicit server-side `valid: true` unlocks the gate. Any
+      // other truthy shape (username, success flags…) is not proof of
+      // privilege and must stay locked out.
+      if (res && res.valid === true) {
         setAuthToken(key);
         await ensureTenantScope();
         setLocked(false);
         setShowModal(false);
-        showToast('success', 'Access Granted', `Unlocked with role: ${res.role || 'admin'} and an active project scope.`);
+        showToast('success', 'Access Granted', `Unlocked with role: ${res.role || 'unknown'} and an active project scope.`);
       } else {
         setErrorMsg('Invalid cryptographic token or insufficient privileges.');
       }
@@ -49,7 +54,10 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
 
   return (
     <>
-      <div onClick={(e) => {
+      {/* Capture phase runs before the wrapped child's own onClick, so the
+          gate can actually swallow clicks on locked controls instead of
+          letting the action fire first and merely opening this modal. */}
+      <div onClickCapture={(e) => {
         if (locked) {
           e.preventDefault();
           e.stopPropagation();
