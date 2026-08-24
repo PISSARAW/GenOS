@@ -45,11 +45,11 @@ export const GoldenPathCherryPicker: React.FC = () => {
     const selectedTurns = turns.filter((t) => t.selected);
     if (selectedTurns.length === 0) return;
     try {
-      await api.cherryPickGoldenPath({
+      const res = await api.cherryPickGoldenPath({
         turns: selectedTurns,
         label: goldenLabel
       });
-      showToast('success', 'Golden Path Synthesized', `Persisted ${selectedTurns.length} selected steps into genome memory.`);
+      showToast('success', 'Golden Path Synthesized', `Classified ${selectedTurns.length} selected steps into synthesis ${res?.synthesisId || ''}. The synthesis is returned for review; it is not written back into any genome yet.`);
     } catch (e: any) {
       showToast('error', 'Synthesis Failed', e.message);
     }
