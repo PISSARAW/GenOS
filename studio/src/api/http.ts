@@ -165,3 +165,70 @@ export async function openApiEventStream(endpoint: string): Promise<Response> {
   return response;
 }
 
+
+/**
+ * Subscribes to an SSE endpoint with the same credentials as apiRequest.
+ * Native EventSource cannot attach Authorization headers, which made
+ * protected streams connect anonymously or fail outright.
+ */
+export interface ApiEventStreamHandlers {
+  onOpen?: () => void;
+  onMessage: (data: any) => void;
+  onError?: (error: Error) => void;
+}
+
+export async function subscribeApiEventStream(
+  endpoint: string,
+  handlers: ApiEventStreamHandlers
+): Promise<() => void> {
+  const controller = new AbortController();
+  let closed = false;
+  const close = () => {
+    closed = true;
+    controller.abort();
+  };
+
+  try {
+    const response = await openApiEventStream(endpoint);
+    if (!response.body) {
+      throw new Error('This browser does not support streaming responses.');
+    }
+    handlers.onOpen?.();
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    (async () => {
+      try {
+        while (!closed) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          let separator = buffer.indexOf('\n\n');
+          while (separator !== -1) {
+            const rawEvent = buffer.slice(0, separator);
+            buffer = buffer.slice(separator + 2);
+            separator = buffer.indexOf('\n\n');
+            for (const line of rawEvent.split('\n')) {
+              if (!line.startsWith('data:')) continue;
+              const payload = line.slice(5).trim();
+              if (!payload) continue;
+              try {
+                handlers.onMessage(JSON.parse(payload));
+              } catch {}
+            }
+          }
+        }
+      } catch (error: any) {
+        if (!closed) {
+          handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
+        }
+      }
+    })();
+
+    return close;
+  } catch (error: any) {
+    handlers.onError?.(error instanceof Error ? error : new Error(String(error)));
+    return () => {};
+  }
+}
