@@ -8,7 +8,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ## Sommaire et Modules Thématiques
 
-### [Partie 1 : Vision, Audit Systémique & Bio-Énergétique Cellulaire](./research/biomimicry/part1.md)
+### [Partie 1 : Vision, Audit Systémique & Bio-Énergétique Cellulaire](../biomimicry/part1.md)
 - **Section 1 : Résumé Exécutif & Vision Globale**
   - Le paradigme cyber-biologique de GenOS
   - La triade fondamentale : Génome, Phénotype, Écosystème
@@ -24,7 +24,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 2 : Génétique Moléculaire, Épigénétique & Écologie Multi-Agents](./research/biomimicry/part2.md)
+### [Partie 2 : Génétique Moléculaire, Épigénétique & Écologie Multi-Agents](../biomimicry/part2.md)
 - **Section 4 : Génétique Moléculaire, Épigénétique et Auto-Guérison Mémoire**
   - Opérons polycistroniques et réseaux de régulation génique (GRN)
   - Régulation épigénétique et dynamique de la chromatine (acétylation/méthylation)
@@ -40,7 +40,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 3 : Spécification des Nouveaux Outils MCP Biomimétiques](./research/biomimicry/part3.md)
+### [Partie 3 : Spécification des Nouveaux Outils MCP Biomimétiques](../biomimicry/part3.md)
 - **Section 7 : Spécification Formelle des Outils MCP**
   - `genos_metabolism_ampk_governor`
   - `genos_allosteric_sampling`
@@ -54,7 +54,7 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 
 ---
 
-### [Partie 4 : Spécification Rust, Benchmarks & Feuille de Route](./research/biomimicry/part4.md)
+### [Partie 4 : Spécification Rust, Benchmarks & Feuille de Route](../biomimicry/part4.md)
 - **Section 8 : Spécification Formelle des Structures & Traits Rust**
   - Traits fondamentaux (`MetabolicGovernor`, `EpigeneticModifier`, `ImmuneSentinel`)
   - Structures de données optimisées et algorithmes sans allocation superflue
@@ -66,6 +66,6 @@ Pour respecter les standards de modularité et la règle de concision (< 400 lig
 ---
 
 ## Liens et Primitives Associées
-- [Spécifications Phénotypiques](../docs/3-features-and-domain/phenotype.md)
-- [Primitives de Biomimétisme Distribué](../docs/3-features-and-domain/biomimicry/distributed.md)
-- [Quorum Réseau & Consensus](../docs/3-features-and-domain/biomimicry/network.md)
+- [Spécifications Phénotypiques](../../3-features-and-domain/phenotype.md)
+- [Primitives de Biomimétisme Distribué](../../3-features-and-domain/biomimicry/distributed.md)
+- [Quorum Réseau & Consensus](../../3-features-and-domain/biomimicry/network.md)
