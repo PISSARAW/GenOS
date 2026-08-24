@@ -58,7 +58,8 @@ async function handleTerminal(req, res) {
     const cb = circuitBreaker.getStatus();
     const tools = await db.get('SELECT COUNT(*) as count FROM mcp_tools');
     const agents = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-    output = `[SYSTEM] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
+    const systemState = cb.isHalted ? 'HALTED' : 'OK';
+    output = `[SYSTEM ${systemState}] MCP Tools: ${tools?.count || 0} | Active Agents: ${agents?.count || 0} | Breaker: ${cb.isHalted ? 'HALTED' : cb.state} | Halted: ${cb.isHalted} | Failures: ${cb.failureCount}`;
   } else if (cmd === 'halt' || cmd === 'abort') {
     circuitBreaker.triggerHalt('Terminal user command', 'terminal_user');
     output = '[HALT ENGAGED] New MCP tool invocations are blocked by the backend kill switch. Existing external runtimes are not terminated by this command.';

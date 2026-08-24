@@ -137,19 +137,22 @@ function isGitWorkspace(workspacePath) {
  * checkout instead of one file copy per tracked file.
  * Returns an async cleanup that removes the worktree registration and files.
  */
-async function materializeGitWorktree(workspacePath, commit, destination) {
+function spawnGit(workspacePath, args) {
   const { spawn } = require('child_process');
-  const runGit = (args) => new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const child = spawn('git', ['-C', workspacePath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
     child.stderr.on('data', (chunk) => { stderr += chunk; });
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
   });
-  await runGit(['worktree', 'add', '--detach', destination, commit]);
+}
+
+async function materializeGitWorktree(workspacePath, commit, destination) {
+  await spawnGit(workspacePath, ['worktree', 'add', '--detach', destination, commit]);
   return async () => {
-    await runGit(['worktree', 'remove', '--force', destination]).catch(() => {});
-    await runGit(['worktree', 'prune']).catch(() => {});
+    await spawnGit(workspacePath, ['worktree', 'remove', '--force', destination]).catch(() => {});
+    await spawnGit(workspacePath, ['worktree', 'prune']).catch(() => {});
   };
 }
 
@@ -224,6 +227,19 @@ async function removeWorkspaceFiles(workspacePath) {
 async function restore({ db, workspace, reference, author = 'studio' }) {
   const target = await getSnapshot(db, workspace.id, reference);
   const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
+
+  // Git fast path: resetting to the captured commit is O(changes) instead of
+  // copying every file. The pre-restore safety snapshot above still preserves
+  // anything the commit cannot represent (files uncommitted at capture time).
+  const metadata = parseMetadata(target.metadata);
+  if (metadata.gitCommit && isGitWorkspace(workspace.path)) {
+    try {
+      await spawnGit(workspace.path, ['reset', '--hard', metadata.gitCommit]);
+      await spawnGit(workspace.path, ['clean', '-fd']);
+      return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'git-reset' };
+    } catch (_) { /* fall through to the manifest restore */ }
+  }
+
   const staging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-'));
   try {
     await materialize(target, staging);
@@ -236,7 +252,7 @@ async function restore({ db, workspace, reference, author = 'studio' }) {
       await fsp.copyFile(source, destination);
       await fsp.chmod(destination, file.mode).catch(() => {});
     }
-    return { success: true, restoredSnapshot: target, safetySnapshot: backup };
+    return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'manifest-copy' };
   } catch (error) {
     try {
       await removeWorkspaceFiles(workspace.path);
@@ -285,11 +301,18 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
     }
     if (!cleanupWorktree) await materialize(snapshot, workingDirectory);
     const { spawn } = require('child_process');
+    // Use the platform shell so workspace test commands run identically on
+    // Windows and POSIX hosts.
+    const commandText = String(command);
+    const useWindowsShell = process.platform === 'win32';
+    const shellExecutable = useWindowsShell ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
+    const shellArgs = useWindowsShell ? ['/d', '/s', '/c', commandText] : ['-c', commandText];
     const output = await new Promise((resolve, reject) => {
-      const child = spawn('/bin/sh', ['-c', String(command)], {
+      const child = spawn(shellExecutable, shellArgs, {
         cwd: workingDirectory,
         env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1', TMPDIR: runnerRoot },
-        stdio: ['ignore', 'pipe', 'pipe']
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsVerbatimArguments: useWindowsShell
       });
       let stdout = ''; let stderr = ''; let truncated = false;
       const append = (target, chunk) => {
