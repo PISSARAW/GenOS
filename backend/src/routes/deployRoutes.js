@@ -9,13 +9,14 @@ const agentDossierController = require('../controllers/agentDossierController');
 const strategyExecutionController = require('../controllers/strategyExecutionController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant } = require('../middleware/tenant');
+const { paginateList } = require('../controllers/listPagination');
 
 router.use(attachTenant);
 
 router.post('/deploy', requirePermission('workspace:write'), deployController.deployAgent);
 router.post('/deploy/trinity', requirePermission('workspace:write'), deployController.deployTrinity);
 router.get('/deploy/trinity', deployController.listTrinityWorlds);
-router.get('/agents', deployController.listAgents);
+router.get('/agents', paginateList(deployController.listAgents));
 router.get('/agents/:id/dossier', agentDossierController.getAgentDossier);
 router.post('/agents/:id/stop', requirePermission('workspace:write'), deployController.stopAgent);
 router.post('/agents/bulk-stop', requirePermission('workspace:write'), deployController.stopAgents);
