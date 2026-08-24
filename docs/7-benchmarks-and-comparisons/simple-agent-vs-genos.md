@@ -62,5 +62,7 @@ cost are both zero. That is not a claim that real agent workloads are free.
 
 Those claims require the shared protocol in
 [`reproducible-benchmark-protocol.md`](reproducible-benchmark-protocol.md),
+the success-rate protocol in
+[`agent-success-benchmark-protocol.md`](agent-success-benchmark-protocol.md),
 versioned external-runtime adapters, repeated samples, raw provider usage, and
 independent reproduction.
