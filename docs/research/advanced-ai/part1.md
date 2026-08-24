@@ -1,3 +1,5 @@
+> **Note (EN)** : Non-normative exploratory research. Nothing in this corpus is implemented or promised unless an ADR or a Module page of the documentation says otherwise.
+
 # Rapport de Recherche Approfondie — État de l'Art en Intelligence Artificielle & Recommandations Architecturales pour GenOS
 
 > **Auteur** : Équipe de Recherche Avancée en IA GenOS  
