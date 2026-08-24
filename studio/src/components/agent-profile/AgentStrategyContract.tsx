@@ -43,6 +43,7 @@ export const AgentStrategyContract: React.FC<AgentStrategyContractProps> = ({ ag
   const [error, setError] = useState('');
   const [showRaw, setShowRaw] = useState(false);
   const [showDecisions, setShowDecisions] = useState(false);
+  const [expandedVersion, setExpandedVersion] = useState<string | null>(null);
   const [decisionFilter, setDecisionFilter] = useState('selected');
 
   useEffect(() => {
@@ -207,7 +208,7 @@ export const AgentStrategyContract: React.FC<AgentStrategyContractProps> = ({ ag
         {contract.strategy_decisions?.length > 0 && (
           <>
             <button onClick={() => setShowDecisions(!showDecisions)} style={{ width: '100%', padding: '14px 16px', border: 'none', borderBottom: showDecisions ? '1px solid var(--panel-border)' : 'none', background: 'var(--bg-subtle)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><Scale size={15} /> 77-strategy decision ledger</span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}><Scale size={15} /> {contract.strategy_decisions.length}-strategy decision ledger</span>
               {showDecisions ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
             </button>
             {showDecisions && (
@@ -242,7 +243,34 @@ export const AgentStrategyContract: React.FC<AgentStrategyContractProps> = ({ ag
               <div>Selected by: <strong style={{ color: 'var(--text-primary)' }}>{record.createdBy}</strong></div>
               <div>Selected at: <strong style={{ color: 'var(--text-primary)' }}>{new Date(record.createdAt).toLocaleString()}</strong></div>
               <div style={{ overflowWrap: 'anywhere' }}>Integrity: <code>{record.contractHash}</code></div>
-              <div>Versions preserved: <strong style={{ color: 'var(--text-primary)' }}>{history.length}</strong></div>
+              <div style={{ marginTop: '10px' }}>
+              <div style={{ marginBottom: '6px' }}>Versions preserved: <strong style={{ color: 'var(--text-primary)' }}>{history.length}</strong></div>
+              {history.length > 0 && (
+                <div style={{ border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
+                  {history.map((version, index) => (
+                    <div key={version.id || index} style={{ borderBottom: index < history.length - 1 ? '1px solid var(--panel-border)' : 'none', background: 'var(--bg-main)' }}>
+                      <button
+                        onClick={() => setExpandedVersion(expandedVersion === (version.id || String(index)) ? null : (version.id || String(index)))}
+                        style={{ width: '100%', padding: '8px 12px', border: 'none', background: 'transparent', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.72rem', textAlign: 'left' }}
+                      >
+                        {expandedVersion === (version.id || String(index)) ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>v{version.version}{version.id === record.id ? ' (active)' : ''}</span>
+                        <span>{new Date(version.createdAt).toLocaleString()}</span>
+                        <span style={{ fontFamily: 'monospace', overflowWrap: 'anywhere' }}>{version.contractHash}</span>
+                        <span style={{ marginLeft: 'auto' }}>{label(version.primaryStrategy || version.contract?.selected_strategy?.primary)}</span>
+                      </button>
+                      {expandedVersion === (version.id || String(index)) && (
+                        <div style={{ padding: '8px 12px 12px 32px', fontSize: '0.72rem', lineHeight: 1.6, color: 'var(--text-muted)' }}>
+                          <div>Status: <strong style={{ color: 'var(--text-primary)' }}>{version.status || 'unknown'}</strong></div>
+                          <div>Selected by: <strong style={{ color: 'var(--text-primary)' }}>{version.createdBy || 'unknown'}</strong></div>
+                          {version.decisionReason && <div style={{ overflowWrap: 'anywhere' }}>Reason: {version.decisionReason}</div>}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             </div>
             <pre style={{ margin: '14px 0 0', padding: '14px', maxHeight: '420px', overflow: 'auto', background: 'var(--bg-main)', border: '1px solid var(--panel-border)', borderRadius: '6px', color: 'var(--text-primary)', fontSize: '0.76rem', lineHeight: 1.5 }}>{JSON.stringify(contract, null, 2)}</pre>
           </div>

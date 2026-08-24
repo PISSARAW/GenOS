@@ -6,6 +6,7 @@ import {
 import { api, subscribeApiEventStream } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 import { useGenOSStore } from '../store/useGenOSStore';
+import { SubagentHistory, normalizeStatus, type HistoryFilter } from './deployment/SubagentHistory';
 
 export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceName?: string; onSelectAgent?: () => void }> = ({ workspaceId = null, workspaceName, onSelectAgent }) => {
   const [isDeployed, setIsDeployed] = useState(false);
@@ -20,6 +21,8 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
   const [deployedAgent, setDeployedAgent] = useState<any | null>(null);
   const [budget, setBudget] = useState<{percent: number | null; usedTokens: number | null; maxTokens: number}>({percent: null, usedTokens: null, maxTokens: 0});
   const [scenarios, setScenarios] = useState<any>({ debug: '', explain: '', plan: '' });
+  const [configWarning, setConfigWarning] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const logsEndRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((state) => state.showToast);
   const setSelectedAgentId = useGenOSStore((state) => state.setSelectedAgentId);
@@ -40,7 +43,9 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
         if (data?.budget) setBudget(data.budget);
         if (data?.quickScenarios) setScenarios(data.quickScenarios);
       })
-      .catch(() => {});
+      .catch(() => {
+        setConfigWarning(true);
+      });
 
     fetchHistory();
   }, []);
@@ -71,12 +76,12 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
         onMessage: (log) => {
           try {
             if (log.agentId !== deployedAgent.id) return;
-            setTelemetryLogs((prev) => [...prev, { action: log.action || log.eventType || 'system', detail: log.detail || log.message || JSON.stringify(log.payload || ''), time: new Date().toLocaleTimeString() }]);
+            setTelemetryLogs((prev) => [...prev, { action: log.action || log.eventType || 'system', detail: log.detail || log.message || JSON.stringify(log.payload || ''), time: new Date().toLocaleTimeString() }].slice(-500));
             void fetchHistory();
           } catch {}
         },
         onError: () => {
-          setTelemetryLogs((prev) => [...prev, { action: 'stream', detail: 'Telemetry stream disconnected; logs will not update until refresh.', time: new Date().toLocaleTimeString() }]);
+          setTelemetryLogs((prev) => [...prev, { action: 'stream', detail: 'Telemetry stream disconnected; logs will not update until refresh.', time: new Date().toLocaleTimeString() }].slice(-500));
         }
       }).then((close) => {
         closeStream = close;
@@ -140,6 +145,21 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
     }
   };
 
+  const normalizeStatus = (status: any): 'running' | 'completed' | 'failed' | 'other' => {
+    const s = String(status || '').toLowerCase();
+    if (s === 'active' || s === 'running') return 'running';
+    if (s === 'completed' || s === 'done') return 'completed';
+    if (s === 'error' || s === 'failed') return 'failed';
+    return 'other';
+  };
+  const budgetSeverity = budget.percent == null
+    ? { color: 'var(--accent-blue)', label: 'info' }
+    : budget.percent > 90
+      ? { color: 'var(--danger)', label: 'danger' }
+      : budget.percent > 75
+        ? { color: '#d29922', label: 'warning' }
+        : { color: 'var(--accent-blue)', label: 'info' };
+
   const persistedAgent = deployedAgent ? history.find((agent) => agent.id === deployedAgent.id) : null;
   const deploymentStatus = persistedAgent?.status || deployedAgent?.status || 'idle';
   const deploymentTask = persistedAgent?.task || deployedAgent?.currentTask || '';
@@ -165,6 +185,10 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
               setIsDeployed(false);
               setDeployedAgent(null);
               setTelemetryLogs([]);
+              setPrompt('');
+              setAgentType('GenOS');
+              setModelTier('Flash');
+              setWorkspaceIsolation('Branch');
             }}
             className="gh-btn" 
             style={{ width: '100%', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-start', background: 'var(--bg-subtle)' }}
@@ -173,45 +197,7 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
           </button>
         </div>
 
-        <div style={{ padding: '0 16px', flex: 1, overflowY: 'auto' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Active Subagents & Fleet History
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {history.length === 0 ? (
-              <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                No active subagents.
-              </div>
-            ) : (
-              history.map((agent, idx) => (
-                <button
-                  key={agent.id || idx}
-                  type="button"
-                  onClick={() => {
-                    setSelectedAgentId(agent.id);
-                    onSelectAgent?.();
-                  }}
-                  title={`Open ${agent.name}'s profile`}
-                  style={{ padding: '8px', border: 0, borderRadius: '6px', display: 'flex', gap: '8px', width: '100%', background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
-                  className="hover-bg-gray"
-                >
-                  <div style={{ paddingTop: '2px' }}>
-                    {agent.status === 'Active' || agent.status === 'running'
-                      ? <Activity size={14} color="var(--success)" className="pulse-green" />
-                      : <Ghost size={14} color="var(--danger)" />}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 500 }}>{agent.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: agent.status === 'Active' || agent.status === 'running' ? 'var(--text-secondary)' : 'var(--danger)' }}>
-                      {agent.status} · {agent.id}
-                    </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
+        <SubagentHistory history={history} filter={historyFilter} onFilterChange={setHistoryFilter} onSelectAgent={(id) => { setSelectedAgentId(id); onSelectAgent?.(); }} />
       </div>
 
       {/* Main Content */}
@@ -219,15 +205,20 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
         
         {/* Budget Alert Box */}
         <div style={{ padding: '24px 32px 0 32px' }}>
-          <div style={{ background: 'var(--bg-panel)', border: '1px solid #1f6feb', borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-blue)', fontSize: '0.85rem' }}>
+          <div style={{ background: 'var(--bg-panel)', border: `1px solid ${budgetSeverity.color}`, borderRadius: '6px', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: budgetSeverity.color, fontSize: '0.85rem' }}>
               <Info size={16} />
-              <span>Fleet Compute Burn Rate: {budget.percent === null
+              <span>Fleet Compute Burn Rate{budgetSeverity.label !== 'info' ? ` (${budgetSeverity.label})` : ''}: {budget.percent === null
                 ? <strong>No token usage telemetry available</strong>
                 : <><strong>{budget.percent}% of quota consumed</strong> ({budget.usedTokens} / {budget.maxTokens} tokens).</>}</span>
             </div>
             <button onClick={handleIncreaseLimits} className="gh-btn" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Increase limits</button>
           </div>
+          {configWarning && (
+            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Fleet configuration could not be loaded; quota and quick-scenario presets may be unavailable.
+            </div>
+          )}
         </div>
 
         {/* Center Area */}
@@ -358,6 +349,13 @@ export const AgentDeployment: React.FC<{ workspaceId?: string | null; workspaceN
                 <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--panel-border)', background: 'var(--bg-panel)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Terminal size={14} color="var(--text-muted)" />
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, fontFamily: 'monospace' }}>Agent Telemetry Stream</span>
+                  <button
+                    onClick={() => setTelemetryLogs([])}
+                    className="gh-btn"
+                    style={{ marginLeft: 'auto', fontSize: '0.7rem', padding: '2px 10px' }}
+                  >
+                    Clear
+                  </button>
                 </div>
                 
                 <div style={{ flex: 1, padding: '16px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', fontFamily: 'monospace', fontSize: '0.85rem' }}>

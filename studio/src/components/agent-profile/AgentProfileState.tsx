@@ -27,6 +27,22 @@ export const AgentProfileState: React.FC<AgentProfileStateProps> = ({
 }) => {
   const hasWorkspace = Boolean(activeAgent.workspaceId);
 
+  const relativeTime = (timestamps: any[]): string => {
+    const latest = timestamps
+      .map((value) => new Date(value).getTime())
+      .filter((time) => Number.isFinite(time))
+      .sort((a, b) => b - a)[0];
+    if (latest == null) return '—';
+    const seconds = Math.max(0, Math.floor((Date.now() - latest) / 1000));
+    if (seconds < 60) return 'just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+  const lastActivity = relativeTime(agentTraces.map((trace: any) => trace.startTime));
+
   const summarizeTrace = (trace: any) => {
     const output = typeof trace.outputs === 'string'
       ? trace.outputs
@@ -89,7 +105,7 @@ export const AgentProfileState: React.FC<AgentProfileStateProps> = ({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', color: 'var(--text-secondary)' }}>
             <span style={{ fontFamily: 'monospace' }}>{activeAgent.id.substring(0, 7)}</span>
-            <span>now</span>
+            <span>{lastActivity}</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-primary)', fontWeight: 500 }}>
               <History size={14}/> {agentTracesCount || displayFiles.length} Actions
             </span>

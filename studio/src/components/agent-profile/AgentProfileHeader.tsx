@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, GitFork, Octagon, ChevronDown } from 'lucide-react';
+import { Eye, GitFork, Octagon } from 'lucide-react';
 import { useToastStore } from '../../store/useToastStore';
 import { api } from '../../api/client';
 
@@ -61,6 +61,14 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
     }
   };
 
+  const handleCopyAgentId = () => {
+    navigator.clipboard?.writeText(activeAgent.id).then(() => {
+      showToast('success', 'Copied', `Agent ID ${activeAgent.id} copied to clipboard.`);
+    }).catch(() => {
+      showToast('error', 'Copy Failed', 'The agent ID could not be copied to the clipboard.');
+    });
+  };
+
   return (
     <div style={{ background: 'var(--bg-panel)', borderBottom: '1px solid var(--panel-border)', paddingTop: '24px' }}>
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 32px' }}>
@@ -75,11 +83,16 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
               G
             </div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 400, color: 'var(--text-primary)', margin: 0 }}>
-              <span style={{ color: activeAgent.workspaceId ? 'var(--text-accent)' : 'var(--text-secondary)' }} className={activeAgent.workspaceId ? 'hover-underline' : undefined}>
+              <span style={{ color: activeAgent.workspaceId ? 'var(--text-accent)' : 'var(--text-secondary)' }}>
                 {activeAgent.workspaceName || activeAgent.workspaceId || 'No workspace attached'}
               </span>
               <span style={{ margin: '0 4px', color: 'var(--text-muted)' }}>/</span>
-              <span style={{ fontWeight: 600, cursor: 'pointer' }} className="hover-underline">{activeAgent.name}</span>
+              <span
+                onClick={handleCopyAgentId}
+                title="Copy agent ID to clipboard"
+                style={{ fontWeight: 600, cursor: 'pointer' }}
+                className="hover-underline"
+              >{activeAgent.name}</span>
             </h1>
             <span style={{ 
               border: '1px solid var(--panel-border)', borderRadius: '12px', padding: '2px 8px', 
@@ -97,7 +110,7 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
           <div style={{ display: 'flex', gap: '12px' }}>
             <div className="gh-btn-group" style={{ display: 'flex', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
               <button onClick={handleSubscribe} className="gh-btn" title="Subscribes the agent to telemetry events (no hallucination analysis yet)" style={{ border: 'none', borderRadius: 0, padding: '4px 12px' }}>
-                <Eye size={14} color="var(--text-secondary)" /> {activeAgent.hallucinationMonitoring ? 'Subscribed' : 'Subscribe'} <ChevronDown size={12} color="var(--text-muted)"/>
+                <Eye size={14} color="var(--text-secondary)" /> {activeAgent.hallucinationMonitoring ? 'Subscribed' : 'Subscribe'}
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
               <span aria-label={`${activeAgent.hallucinationMonitoring ? 1 : 0} monitoring subscriptions`} style={{ padding: '4px 12px', fontWeight: 600 }}>
@@ -107,7 +120,7 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
 
             <div className="gh-btn-group" style={{ display: 'flex', border: '1px solid var(--panel-border)', borderRadius: '6px', overflow: 'hidden' }}>
               <button onClick={handleCloneAgent} className="gh-btn" style={{ border: 'none', borderRadius: 0, padding: '4px 12px' }}>
-                <GitFork size={14} color="var(--text-secondary)" /> Clone Agent <ChevronDown size={12} color="var(--text-muted)"/>
+                <GitFork size={14} color="var(--text-secondary)" /> Clone Agent
               </button>
               <div style={{ width: '1px', background: 'var(--panel-border)' }}></div>
               <span aria-label={`${clonesCount} agent clones`} style={{ padding: '4px 12px', fontWeight: 600 }}>
@@ -127,7 +140,7 @@ export const AgentProfileHeader: React.FC<AgentProfileHeaderProps> = ({
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <div 
+              <div
                 key={tab.id}
                 onClick={() => onSelectTab(tab.id)}
                 style={{ 

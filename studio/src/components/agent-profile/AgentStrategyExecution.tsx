@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, AlertOctagon, CheckCircle2, Clock3, Gauge, MinusCircle, PlayCircle } from 'lucide-react';
 import { api } from '../../api/client';
+import { useToastStore } from '../../store/useToastStore';
 
 interface ExecutionRun {
   id: string;
@@ -20,6 +21,9 @@ interface ExecutionRun {
   }>;
 }
 
+const TERMINAL_RUN_STATUSES = ['completed', 'failed', 'cancelled'];
+const isTerminal = (status?: string) => TERMINAL_RUN_STATUSES.includes(String(status || '').toLowerCase());
+
 const title = (value: string) => value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 const colors: Record<string, string> = {
   completed: 'var(--success)', running: 'var(--accent-blue)', blocked: 'var(--danger)',
@@ -33,19 +37,59 @@ function metricLabel(key: string, value: number) {
 }
 
 export const AgentStrategyExecution: React.FC<{ agentId: string }> = ({ agentId }) => {
-  const [run, setRun] = useState<ExecutionRun | null>(null);
+  const [runs, setRuns] = useState<ExecutionRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [approving, setApproving] = useState(false);
+  const showToast = useToastStore((state) => state.showToast);
 
   useEffect(() => {
     let active = true;
-    const load = () => api.getLatestAgentExecutionRun(agentId).then((result) => {
-      if (active) { setRun(result); setUnavailable(false); }
-    }).catch(() => { if (active) setUnavailable(true); });
-    load();
-    const timer = window.setInterval(load, 3000);
-    return () => { active = false; window.clearInterval(timer); };
+    setRuns([]);
+    setSelectedRunId(null);
+    api.getAgentExecutionRuns(agentId).then((items: any) => {
+      if (!active) return;
+      const list = Array.isArray(items) ? items : [];
+      if (list.length > 0) setRuns(list);
+      else return Promise.reject(new Error('No execution runs.'));
+    }).catch(() => {
+      api.getLatestAgentExecutionRun(agentId).then((latest) => {
+        if (!active) return;
+        if (latest) setRuns([latest]);
+        else setUnavailable(true);
+      }).catch(() => { if (active) setUnavailable(true); });
+    });
+    return () => { active = false; };
   }, [agentId]);
+
+  const run = (selectedRunId ? runs.find((item) => item.id === selectedRunId) : null) || runs[0] || null;
+
+  useEffect(() => {
+    if (!run || isTerminal(run.status)) return;
+    let active = true;
+    const timer = window.setInterval(() => {
+      api.getLatestAgentExecutionRun(agentId).then((latest) => {
+        if (!active || !latest) return;
+        setRuns((prev) => prev.some((item) => item.id === latest.id)
+          ? prev.map((item) => (item.id === latest.id ? latest : item))
+          : [...prev, latest]);
+      }).catch(() => {});
+    }, 3000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [agentId, run?.id, run?.status]);
+
+  const handleApprove = () => {
+    if (!run) return;
+    setApproving(true);
+    api.approveExecutionRun(run.id).then((updated: any) => {
+      if (updated) {
+        setRuns((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      }
+      showToast('success', 'Promotion Approved', `Execution run ${run.id} was approved.`);
+    }).catch((err: any) => {
+      showToast('error', 'Approval Failed', err.message || 'The execution run could not be approved.');
+    }).finally(() => setApproving(false));
+  };
 
   const panel: React.CSSProperties = {
     background: 'var(--bg-panel)', border: '1px solid var(--panel-border)', borderRadius: '6px', padding: '20px'
@@ -72,7 +116,23 @@ export const AgentStrategyExecution: React.FC<{ agentId: string }> = ({ agentId 
           </div>
           <div style={{ marginTop: '6px', color: 'var(--text-muted)', fontSize: '0.74rem' }}>Contract v{run.contractVersion} · {run.id}</div>
         </div>
-        <div style={{ color: colors[run.status] || 'var(--text-primary)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>{run.status}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {runs.length > 1 && (
+            <select
+              value={run.id}
+              onChange={(e) => setSelectedRunId(e.target.value)}
+              style={{ padding: '4px 8px', border: '1px solid var(--panel-border)', borderRadius: '6px', background: 'var(--bg-main)', color: 'var(--text-secondary)', fontSize: '0.75rem' }}
+              title="Select a past execution run"
+            >
+              {runs.map((item) => (
+                <option key={item.id} value={item.id}>
+                  v{item.contractVersion} · {item.status} · {item.id.substring(0, 8)}
+                </option>
+              ))}
+            </select>
+          )}
+          <div style={{ color: colors[run.status] || 'var(--text-primary)', fontSize: '0.78rem', fontWeight: 700, textTransform: 'uppercase' }}>{run.status}</div>
+        </div>
       </div>
 
       {run.guardrailReason && (
@@ -84,10 +144,7 @@ export const AgentStrategyExecution: React.FC<{ agentId: string }> = ({ agentId 
       {run.status === 'awaiting_approval' && (
         <div style={{ marginTop: '14px', padding: '11px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', border: '1px solid var(--warning)', borderRadius: '5px', color: 'var(--warning)', fontSize: '0.8rem' }}>
           <span>Technical execution finished. The contract forbids promotion without human approval.</span>
-          <button className="gh-btn" disabled={approving} onClick={() => {
-            setApproving(true);
-            api.approveExecutionRun(run.id).then(setRun).finally(() => setApproving(false));
-          }}>{approving ? 'Approving…' : 'Approve promotion'}</button>
+          <button className="gh-btn" disabled={approving} onClick={handleApprove}>{approving ? 'Approving…' : 'Approve promotion'}</button>
         </div>
       )}
 
