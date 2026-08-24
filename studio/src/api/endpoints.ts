@@ -194,5 +194,3 @@ export const extendedApi = {
   bisectPlatformIncident: (workspaceId: string, firstBadStep?: number) => apiRequest('/api/platform/incidents/bisect', { method: 'POST', body: { workspaceId, firstBadStep } }),
   paretoPlatformEvaluation: (items: any[]) => apiRequest('/api/platform/evaluations/pareto', { method: 'POST', body: { items } })
 };
-
-};
