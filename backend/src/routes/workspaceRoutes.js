@@ -7,10 +7,11 @@ const router = express.Router();
 const workspaceController = require('../controllers/workspaceController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant } = require('../middleware/tenant');
+const { paginateList } = require('../controllers/listPagination');
 
 router.use(attachTenant);
 
-router.get('/', workspaceController.listWorkspaces);
+router.get('/', paginateList(workspaceController.listWorkspaces));
 router.post('/', requirePermission('workspace:write'), workspaceController.createWorkspace);
 router.get('/diff', workspaceController.getDiff);
 router.post('/bisect', requirePermission('workspace:write'), workspaceController.bisect);
