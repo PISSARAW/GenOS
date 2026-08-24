@@ -1,0 +1,47 @@
+{
+  "generated_at": "2026-08-24T13:23:47.551Z",
+  "peer_model": "Gemini 3.1 Pro (tooling mode)",
+  "suites": {
+    "execution-gap-suite": {
+      "t1-mod-chain": {
+        "score": 1,
+        "passed": 2,
+        "total": 2
+      },
+      "t2-dijkstra-grid": {
+        "score": 1,
+        "passed": 1,
+        "total": 1
+      },
+      "t3-path-count": {
+        "score": 1,
+        "passed": 1,
+        "total": 1
+      },
+      "t4-underdetermined": {
+        "score": 1,
+        "passed": 3,
+        "total": 3
+      }
+    },
+    "agent-limits-suite": "NOT_ATTEMPTED (archive contained task statements only, zero answer files)"
+  },
+  "peer_aggregate": {
+    "execution_gap_mean": 1,
+    "agent_limits_mean": null
+  },
+  "comparison_with_agent_a": {
+    "note": "Agent A values are its published tooling/worker arms and expert/simple arms on identical tasks.",
+    "execution_gap": {
+      "peer_gemini_tooling": 1,
+      "agentA_genos_worker": 1,
+      "agentA_expert_mental": 0.25,
+      "agentA_simple_mental": 0.1667
+    },
+    "agent_limits": {
+      "status": "pending",
+      "note": "peer has not yet delivered answers; livrable 1 of the duel protocol remains open"
+    }
+  },
+  "grader_robustness_finding": "vacuous passes possible when answers are absent (d5-fragile-logistics awarded 1/4 on empty workspace); graders need explicit missing-answer guards"
+}
