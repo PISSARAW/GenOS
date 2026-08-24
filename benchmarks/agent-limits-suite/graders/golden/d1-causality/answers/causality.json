@@ -1,0 +1,5 @@
+{
+  "effet_ajuste": 1.94,
+  "effet_naif": 3.32,
+  "explication": "U influence à la fois X et Y ; ne pas le contrôler attribue à X une partie de l'effet de U, d'où la pente naïve surestimée."
+}
