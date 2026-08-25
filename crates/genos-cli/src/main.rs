@@ -1,8 +1,9 @@
-mod args;
+﻿mod args;
 mod cmd_agent;
 mod cmd_biomimicry;
 mod cmd_capsule;
 mod cmd_bio_features;
+mod cmd_bio_development;
 mod cmd_dev;
 mod cmd_bio_immunity;
 mod cmd_eval;
@@ -254,3 +255,4 @@ async fn main() -> Result<()> {
         },
     }
 }
+
