@@ -23,6 +23,8 @@ pub mod inflammation;
 pub mod autoimmunity;
 pub mod punctuated_equilibria;
 pub mod ecological_succession;
+pub mod social_learning;
+pub mod play_behavior;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -53,6 +55,8 @@ pub use inflammation::*;
 pub use autoimmunity::*;
 pub use punctuated_equilibria::*;
 pub use ecological_succession::*;
+pub use social_learning::*;
+pub use play_behavior::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -63,6 +67,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 
