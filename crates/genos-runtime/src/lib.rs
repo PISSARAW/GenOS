@@ -37,6 +37,8 @@ pub use reproducibility::*;
 #[allow(clippy::too_many_arguments)]
 mod capsules;
 pub use capsules::*;
+mod division;
+pub use division::*;
 #[allow(clippy::too_many_arguments)]
 mod cognitive_merge;
 pub use cognitive_merge::*;
