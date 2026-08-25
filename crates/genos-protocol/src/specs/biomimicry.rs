@@ -350,5 +350,26 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["skill"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_telomere_fork",
+            "Telomere Fork Budget",
+            "Consume one fork from a lineage budget (Hayflick limit) or attempt an explicit capped telomerase restoration; exhausted lineages must breed.",
+        )
+        .schema(object_schema(
+            [
+                ("capsule_id", string_schema("Capsule whose lineage budget is managed")),
+                ("remaining", string_schema("Current remaining fork budget")),
+                ("max_forks", string_schema("Total lineage budget")),
+                (
+                    "action",
+                    string_schema("fork (consume one unit) | restore (telomerase re-certification)"),
+                ),
+                ("new_max", string_schema("New total budget for restore action")),
+                ("restoration_count", string_schema("Restorations already used (restore action)")),
+                ("max_restorations", string_schema("Restoration quota (default 2)")),
+            ],
+            &["capsule_id", "remaining", "max_forks"],
+        ))
+        .build(),
     ]
 }

@@ -4,6 +4,7 @@ mod cmd_biomimicry;
 mod cmd_capsule;
 mod cmd_bio_features;
 mod cmd_dev;
+mod cmd_bio_immunity;
 mod cmd_eval;
 mod cmd_experiment;
 mod cmd_hallucination;
