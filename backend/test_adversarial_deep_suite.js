@@ -5,8 +5,7 @@
  */
 
 const http = require('http');
-const path = require('path');
-const fs = require('fs');
+const path = require('path'); const fs = require('fs');
 const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN, TEST_VIEWER_TOKEN } = require('./testAuth');
 const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
@@ -155,7 +154,7 @@ async function runCorsCsrfTests() {
   const validOriginRes = await sendReq({
     method: 'GET',
     path: '/api/status',
-    headers: { Origin: 'http://localhost:5173' }
+    headers: { Origin: 'http://localhost:5173', Authorization: `Bearer ${TEST_ADMIN_TOKEN}` }
   });
   assert(validOriginRes.status === 200, 'Legitimate Studio origin (localhost:5173) accepted with 200 OK');
 
