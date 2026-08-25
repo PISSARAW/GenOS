@@ -16,6 +16,24 @@ pub enum BiomimicrySubcommands {
     NetworkQuorum(NetworkQuorumArgs),
     /// Sync a distributed huddle state.
     DistributedHuddle(DistributedHuddleArgs),
+    /// Run a biomimicry feature module action (generic entry point).
+    BioFeature(BioFeatureArgs),
+}
+
+/// Generic entry point for biomimicry feature modules. Each feature exposes
+/// typed actions and consumes `key=value` parameters, so new features wire
+/// in without touching the CLI dispatch table again.
+#[derive(clap::Args, Debug)]
+pub struct BioFeatureArgs {
+    /// Feature module (gate | chaperone | vaccination | interferon | sar | mutualism | reciprocity | proceduralization).
+    #[arg(long)]
+    pub feature: String,
+    /// Action within the feature module.
+    #[arg(long)]
+    pub action: String,
+    /// Feature parameter as key=value (repeatable).
+    #[arg(long = "param")]
+    pub params: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]

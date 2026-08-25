@@ -1,0 +1,9 @@
+//! Biomimicry extensions: biological mechanisms not yet covered elsewhere.
+//!
+//! Each submodule models one biological mechanism and maps it onto GenOS
+//! primitives (capsules, genomes, worlds, events) while preserving the
+//! fundamental invariants from `spec/GENOME_SPEC.md`.
+
+pub mod cycle_checkpoints;
+
+pub use cycle_checkpoints::*;
