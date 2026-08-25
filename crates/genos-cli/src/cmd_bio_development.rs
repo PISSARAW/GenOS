@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Result};
-use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment, WaddingtonLandscape, Trajectory, MetamorphosisEngine, LifeStage};
+use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment, WaddingtonLandscape, Trajectory, MetamorphosisEngine, LifeStage, RegenerativeBlastema, TissueStatus};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
@@ -120,5 +120,44 @@ pub fn metamorphosis_transition(params: &[String]) -> Result<()> {
             Ok(())
         },
         Err(e) => bail!("Metamorphosis failed: {}", e),
+    }
+}
+
+pub fn regeneration_tissue(params: &[String]) -> Result<()> {
+    let module_id = param_value(params, "module_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param module_id=<id>"))?
+        .to_string();
+    let base_hash = param_value(params, "base_checkpoint_hash")
+        .unwrap_or("genesis_hash")
+        .to_string();
+        
+    let action = param_value(params, "regenerate_action")
+        .ok_or_else(|| anyhow::anyhow!("missing --param regenerate_action=<amputate|complete>"))?;
+
+    let mut blastema = RegenerativeBlastema::new(module_id.clone(), base_hash);
+    
+    // Simulate corruption if we are calling amputate
+    if action == "amputate" {
+        blastema.status = TissueStatus::Corrupted;
+        match blastema.amputate_and_form_blastema() {
+            Ok(_) => {
+                println!("Module {} amputated. Blastema formed, ready for regeneration.", module_id);
+                Ok(())
+            },
+            Err(e) => bail!("Amputation failed: {}", e),
+        }
+    } else if action == "complete" {
+        // Need to set to regenerating first to complete
+        blastema.status = TissueStatus::Regenerating;
+        let new_hash = format!("{}_restored", blastema.base_checkpoint_hash);
+        match blastema.complete_regeneration(new_hash.clone()) {
+            Ok(_) => {
+                println!("Regeneration complete for {}. New hash: {}", module_id, new_hash);
+                Ok(())
+            },
+            Err(e) => bail!("Completion failed: {}", e),
+        }
+    } else {
+        bail!("Unknown regenerate action");
     }
 }

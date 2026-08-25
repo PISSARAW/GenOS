@@ -8,6 +8,7 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_regeneration_tissue", "Tissue Regeneration", "Amputate a corrupted module and regenerate it from a known blastema checkpoint.").schema(object_schema([("module_id", string_schema("The corrupted module ID")), ("base_checkpoint_hash", string_schema("The known good checkpoint hash to regenerate from")), ("regenerate_action", string_schema("amputate | complete"))], &["module_id", "regenerate_action"])).build(),
         SpecBuilder::new("biomimicry_metamorphosis_transition", "Metamorphosis Transition", "Trigger a radical structural change (Larval -> Pupal -> Imago) and compute tools to shed or acquire.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("current_stage", string_schema("larval, pupal, or imago")), ("current_tool", string_array_schema("List of currently held tools")), ("target_tool", string_array_schema("List of tools required for the target niche"))], &["agent_id", "current_stage"])).build(),
         SpecBuilder::new("biomimicry_canalization_evaluate", "Canalization Robustness Evaluate", "Evaluate if a set of perturbed trajectories reliably converges to the expected phenotype (Waddington landscape).").schema(object_schema([("expected_phenotype", string_schema("The desired final state hash")), ("valley_width", string_schema("Tolerance ratio (0.0 to 1.0)")), ("trajectory", string_array_schema("List of resulting hashes from perturbed trajectories"))], &["expected_phenotype", "trajectory"])).build(),
         SpecBuilder::new("biomimicry_hox_verify", "Hox Genes Colinearity Verify", "Verify if capabilities were activated in the strict order defined by Hox structural genes.").schema(object_schema([("activated", string_array_schema("List of activated capabilities in chronological order"))], &["activated"])).build(),
@@ -102,6 +103,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
