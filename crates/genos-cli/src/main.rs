@@ -9,6 +9,7 @@ mod cmd_bio_immuno;
 mod cmd_bio_ecology;
 mod cmd_bio_behavior;
 mod cmd_bio_cellular;
+mod cmd_bio_plant;
 mod cmd_dev;
 mod cmd_bio_immunity;
 mod cmd_eval;
@@ -260,6 +261,7 @@ async fn main() -> Result<()> {
         },
     }
 }
+
 
 
 

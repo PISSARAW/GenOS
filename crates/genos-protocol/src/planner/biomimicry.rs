@@ -611,10 +611,34 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("risk_score={b}"));
             }
         }
+        "biomimicry_plant_seed" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "plant");
+            planner.push_flag("--action", "seed");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
+            if let Some(b) = planner.opt_str("condition")? {
+                planner.push_flag("--param", &format!("condition={b}"));
+            }
+            if let Some(b) = planner.opt_str("environment")? {
+                planner.push_flag("--param", &format!("environment={b}"));
+            }
+        }
+        "biomimicry_plant_abscission" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "plant");
+            planner.push_flag("--action", "abscission");
+            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
+            planner.push_flag("--param", &format!("target_module={}", planner.req_str("target_module")?));
+            if let Some(b) = planner.opt_str("reclaim_budget")? {
+                planner.push_flag("--param", &format!("reclaim_budget={b}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
 
 

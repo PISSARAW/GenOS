@@ -29,6 +29,8 @@ pub mod thanatosis;
 pub mod mimicry;
 pub mod endosymbiosis;
 pub mod blood_brain_barrier;
+pub mod seed_dormancy;
+pub mod abscission;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -65,6 +67,8 @@ pub use thanatosis::*;
 pub use mimicry::*;
 pub use endosymbiosis::*;
 pub use blood_brain_barrier::*;
+pub use seed_dormancy::*;
+pub use abscission::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -75,6 +79,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 
