@@ -42,6 +42,7 @@ pub mod disaster;
 pub mod fever;
 pub mod inflammation;
 pub mod mavirus;
+pub mod necrosis;
 pub mod mimivire;
 pub mod provocation;
 pub mod viral_dynamics;
