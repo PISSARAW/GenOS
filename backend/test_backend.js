@@ -29,15 +29,19 @@ function assert(condition, message) {
 }
 
 function request(options, body = null) {
+  // Requests are authenticated by default; pass skipDefaultAuth to exercise
+  // the unauthenticated rejection paths.
+  const { skipDefaultAuth, ...reqOptions } = options;
   return new Promise((resolve, reject) => {
     const req = http.request({
       hostname: 'localhost',
       port: TEST_PORT,
-      ...options,
+      ...reqOptions,
       headers: {
         'Content-Type': 'application/json',
         'X-CSRF-Token': 'test-token',
-        ...(options.headers || {})
+        ...(skipDefaultAuth ? {} : { 'Authorization': `Bearer ${TEST_ADMIN_TOKEN}` }),
+        ...(reqOptions.headers || {})
       }
     }, (res) => {
       let data = '';
@@ -84,6 +88,9 @@ async function runTests() {
     const coreWorkspacePath = path.join(__dirname, '.tmp-ws-genos-core');
     fs.mkdirSync(path.join(coreWorkspacePath, 'src'), { recursive: true });
     fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ if (!input) return null; return input; }\n');
+    // Bisection runs only allow-listed test commands now, so give the
+    // workspace an npm test script that reproduces the regression.
+    fs.writeFileSync(path.join(coreWorkspacePath, 'package.json'), JSON.stringify({ name: 'ws-genos-core', version: '0.0.0', scripts: { test: 'node -e "process.exit(1)"' } }, null, 2));
     await db.run(
       "INSERT INTO workspaces (id, name, path) VALUES ('ws-genos-core', 'GenOS Core', ?) " +
       'ON CONFLICT(id) DO UPDATE SET path = excluded.path',
@@ -239,7 +246,7 @@ async function runTests() {
       method: 'POST',
       path: '/api/workspaces/bisect',
       headers: authHeaders
-    }, { workspaceId: 'ws-genos-core', testCommand: 'node -e "process.exit(1)"', timeoutMs: 30000 });
+    }, { workspaceId: 'ws-genos-core', testCommand: 'npm test', timeoutMs: 30000 });
     assert(bisectRes.status === 200 && bisectRes.body.bisectionComplete && bisectRes.body.culpritReport.stepNumber > 0, 'POST /api/workspaces/bisect isolated culprit step in O(log N) iterations');
 
     const rollbackRes = await request({
@@ -251,7 +258,7 @@ async function runTests() {
 
     // 11. Command Palette, Terminal & Kill Switch
     console.log('\n--- 11. Command Palette, Terminal & Emergency Kill Switch ---');
-    const unauthTerm = await request({ method: 'POST', path: '/api/terminal' }, { command: 'status' });
+    const unauthTerm = await request({ method: 'POST', path: '/api/terminal', skipDefaultAuth: true }, { command: 'status' });
     assert(unauthTerm.status === 401, 'Unauthenticated POST /api/terminal rejected with 401');
 
     const termRes = await request({
