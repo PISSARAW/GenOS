@@ -144,3 +144,4 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
 
+
