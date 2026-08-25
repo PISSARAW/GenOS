@@ -6,6 +6,7 @@ mod cmd_bio_features;
 mod cmd_bio_development;
 mod cmd_bio_neuro;
 mod cmd_bio_immuno;
+mod cmd_bio_ecology;
 mod cmd_dev;
 mod cmd_bio_immunity;
 mod cmd_eval;
@@ -257,6 +258,7 @@ async fn main() -> Result<()> {
         },
     }
 }
+
 
 
 

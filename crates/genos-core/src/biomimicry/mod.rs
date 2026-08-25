@@ -21,6 +21,8 @@ pub mod allostasis;
 pub mod cross_modal_plasticity;
 pub mod inflammation;
 pub mod autoimmunity;
+pub mod punctuated_equilibria;
+pub mod ecological_succession;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -49,6 +51,8 @@ pub use allostasis::*;
 pub use cross_modal_plasticity::*;
 pub use inflammation::*;
 pub use autoimmunity::*;
+pub use punctuated_equilibria::*;
+pub use ecological_succession::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -59,6 +63,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 

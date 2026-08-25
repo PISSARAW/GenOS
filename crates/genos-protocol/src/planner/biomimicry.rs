@@ -524,8 +524,33 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("recent_kills={b}"));
             }
         }
+        "biomimicry_ecology_punctuated" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "ecology");
+            planner.push_flag("--action", "punctuated");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("improved={}", planner.req_str("improved")?));
+            if let Some(b) = planner.opt_str("stasis_counter")? {
+                planner.push_flag("--param", &format!("stasis_counter={b}"));
+            }
+            if let Some(b) = planner.opt_str("plateau_threshold")? {
+                planner.push_flag("--param", &format!("plateau_threshold={b}"));
+            }
+        }
+        "biomimicry_ecology_succession" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "ecology");
+            planner.push_flag("--action", "succession");
+            planner.push_flag("--param", &format!("project_id={}", planner.req_str("project_id")?));
+            planner.push_flag("--param", &format!("coverage={}", planner.req_str("coverage")?));
+            planner.push_flag("--param", &format!("stability={}", planner.req_str("stability")?));
+            if let Some(b) = planner.opt_str("current_stage")? {
+                planner.push_flag("--param", &format!("current_stage={b}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
