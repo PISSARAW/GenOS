@@ -19,8 +19,71 @@ pub async fn cmd_biomimicry_feature(
 ) -> Result<()> {
     match (feature, action) {
         ("gate", "evaluate") => gate_evaluate(params),
+        ("chaperone", "repair") => chaperone_repair(params),
         ("epigenetic_chromatin", "modulate") => chromatin_modulate(params),
         (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
+    }
+}
+
+fn collect_params<'a>(params: &'a [String], key: &str) -> Vec<&'a str> {
+    params
+        .iter()
+        .filter_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+        .collect()
+}
+
+fn chaperone_repair(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{CanonicalSchema, Chaperone, DamagedComponent, SlotValidator};
+    let component_id = param_value(params, "component_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param component_id=<id>"))?
+        .to_string();
+    let kind = param_value(params, "kind")
+        .ok_or_else(|| anyhow::anyhow!("missing --param kind=<component kind>"))?
+        .to_string();
+    let fragments: Vec<String> =
+        collect_params(params, "fragment").iter().map(|s| s.to_string()).collect();
+    if fragments.is_empty() {
+        bail!("at least one --param fragment=<value> is required ('' models a mis-folded slot)");
+    }
+    let templates: Vec<Option<String>> = collect_params(params, "template")
+        .into_iter()
+        .map(|t| if t == "-" { None } else { Some(t.to_string()) })
+        .collect();
+    let max_attempts: usize = param_value(params, "max_attempts")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3);
+    let atp_budget: u64 = param_value(params, "atp_budget")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5);
+
+    let mut slot_templates: Vec<Option<String>> = vec![None; fragments.len()];
+    for (i, template) in templates.into_iter().enumerate() {
+        if i < slot_templates.len() {
+            slot_templates[i] = template;
+        }
+    }
+    let schema = CanonicalSchema {
+        kind: kind.clone(),
+        slots: vec![SlotValidator::NonEmpty; fragments.len()],
+        templates: slot_templates,
+    };
+    let component = DamagedComponent {
+        id: component_id.clone(),
+        kind,
+        fragments,
+    };
+    let mut chaperone = Chaperone::new(max_attempts, atp_budget);
+    match chaperone.repair(&component, &schema) {
+        genos_core::biomimicry::RepairOutcome::Repaired(folded) => {
+            println!("Component {component_id} repaired:");
+            for (i, fragment) in folded.iter().enumerate() {
+                println!("  slot[{i}] = {fragment}");
+            }
+            Ok(())
+        }
+        genos_core::biomimicry::RepairOutcome::RecommendProteolysis { reason } => {
+            bail!("chaperone recommends proteolysis for {component_id}: {reason}")
+        }
     }
 }
 

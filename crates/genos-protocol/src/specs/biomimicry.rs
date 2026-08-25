@@ -1,4 +1,4 @@
-use crate::schema::{object_schema, string_schema};
+use crate::schema::{object_schema, string_array_schema, string_schema};
 use crate::spec_builder::SpecBuilder;
 use crate::types::ToolSpec;
 
@@ -227,6 +227,31 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
                 ("acetylation_delta", string_schema("Delta for histone acetylation")),
             ],
             &["agent_id", "promoter"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_chaperone_repair",
+            "Chaperone Assisted Repair",
+            "Attempt an ATP-bounded refold of a damaged component before routing it to proteolysis. Damaged slots are empty fragments; template value '-' means no reference template.",
+        )
+        .schema(object_schema(
+            [
+                ("component_id", string_schema("Damaged component identifier")),
+                ("kind", string_schema("Component kind (canonical schema key)")),
+                (
+                    "fragments",
+                    string_array_schema("Ordered fragments; an empty string models a mis-folded slot"),
+                ),
+                (
+                    "templates",
+                    string_array_schema(
+                        "Optional per-slot reference templates, '-' for none; same order as fragments"
+                    ),
+                ),
+                ("max_attempts", string_schema("Max chaperoned attempts (default 3)")),
+                ("atp_budget", string_schema("Available ATP budget (default 5)")),
+            ],
+            &["component_id", "kind", "fragments"],
         ))
         .build(),
     ]
