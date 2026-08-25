@@ -254,5 +254,25 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["component_id", "kind", "fragments"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_vaccinate",
+            "Vaccinate Agent",
+            "Train immune memory cells from attenuated attack signatures with negative self-tolerance selection, then optionally probe the secondary response.",
+        )
+        .schema(object_schema(
+            [
+                (
+                    "malicious",
+                    string_array_schema("Attenuated attack signatures (whitespace-tokenized)"),
+                ),
+                (
+                    "benign",
+                    string_array_schema("Benign signatures defining tolerated self"),
+                ),
+                ("probe", string_schema("Optional signature to test the secondary response against")),
+            ],
+            &["malicious"],
+        ))
+        .build(),
     ]
 }
