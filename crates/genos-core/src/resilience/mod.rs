@@ -34,6 +34,7 @@ pub trait ResilienceProtocol {
 
 pub mod antigenic_drift;
 pub mod ais;
+pub mod caspase;
 pub mod cellular;
 pub mod cleaner;
 pub mod cyber_immune;
