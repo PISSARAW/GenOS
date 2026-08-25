@@ -27,6 +27,8 @@ pub async fn cmd_biomimicry_feature(
         ("telomere", "fork" | "restore") => telomere_action(params, action),
         ("senescence", "assess") => senescence_assess(params),
         ("neoteny", "quota") => neoteny_quota(params),
+        ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
+        ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
