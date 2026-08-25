@@ -27,6 +27,8 @@ pub mod social_learning;
 pub mod play_behavior;
 pub mod thanatosis;
 pub mod mimicry;
+pub mod endosymbiosis;
+pub mod blood_brain_barrier;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -61,6 +63,8 @@ pub use social_learning::*;
 pub use play_behavior::*;
 pub use thanatosis::*;
 pub use mimicry::*;
+pub use endosymbiosis::*;
+pub use blood_brain_barrier::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -71,6 +75,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 

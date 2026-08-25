@@ -8,6 +8,8 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_cellular_endosymbiosis", "Endosymbiosis", "Engulf an external slow tool/API and integrate it as a fast native internal organelle (e.g. WASM module).").schema(object_schema([("agent_id", string_schema("Agent ID")), ("external_tool", string_schema("Name of external tool")), ("success_rate", string_schema("Evaluation logic rate"))], &["agent_id", "external_tool"])).build(),
+        SpecBuilder::new("biomimicry_cellular_bbb", "Blood-Brain Barrier", "Enforce strict isolation to sanitize payload strings before they reach the agent's core prompt context.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("strict_mode", string_schema("true | false")), ("risk_score", string_schema("Evaluated risk from 0.0 to 1.0"))], &["agent_id", "strict_mode"])).build(),
         SpecBuilder::new("biomimicry_behavior_thanatosis", "Thanatosis (Playing Dead)", "Feign a system crash or death to drop adversarial connections and evade traps.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("action", string_schema("trigger | revive")), ("threat_source", string_schema("Source of the threat"))], &["agent_id", "action"])).build(),
         SpecBuilder::new("biomimicry_behavior_mimicry", "Mimicry Spoofing", "Spoof the agent's signature to masquerade as another entity (e.g. human_browser) and bypass filters.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("target_profile", string_schema("Profile to mimic"))], &["agent_id", "target_profile"])).build(),
         SpecBuilder::new("biomimicry_behavior_social", "Social Learning", "Bypass MCTS exploration by letting a Junior agent mimic a Senior agent's successful macro.").schema(object_schema([("junior_id", string_schema("Junior Agent ID")), ("senior_id", string_schema("Senior Agent ID")), ("alignment_score", string_schema("Alignment evaluation"))], &["junior_id", "senior_id"])).build(),
@@ -118,6 +120,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
