@@ -135,6 +135,12 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 - **Speciation**: Before merging two divergent branches (e.g., after prolonged counterfactual exploration), use iomimicry_speciation_check. If they cross the speciation threshold, abort the merge to prevent cognitive corruption.
 - **Canalization**: Before promoting an experimental phenotype to production, use iomimicry_canalization_evaluate to verify that it remains robust (canalized) despite noise or prompt perturbations.
 
+
+### 5.6 Neuroscience & Endocrinology (Cognitive Routing & Modulation)
+- **Endocrine System**: Instead of manually tuning hyper-parameters across many agents, use iomimicry_endocrine_modulate to secrete global hormones (e.g., Cortisol for focus, Adrenaline for speed, Oxytocin for trust) that alter the entire swarm's behavior at once. Let natural decay slowly restore baseline.
+- **Reflex Arc**: When encountering known critical dangers (e.g., severe rate limit "heat" or injection "pain"), use iomimicry_reflex_trigger to fast-path a Withdraw or Freeze response, completely bypassing slow MCTS planning cycles.
+- **Dopaminergic Neuromodulation**: When MCTS rollouts yield surprisingly good results (Actual > Expected), use iomimicry_neuromodulation_rpe to trigger a Dopamine Spike. This will flag the pathway for priority exploration, overcoming slow UCB1 mathematical convergence.
+
 ---
 
 ## 6. Operational Quality & Integrity Mandates
@@ -143,5 +149,6 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 2. **Zero-Stub Policy**: No placeholder comments (`// TODO`, `/* implement later */`), empty function bodies, or mock return values in production paths.
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
+
 
 
