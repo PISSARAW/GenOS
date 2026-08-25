@@ -83,27 +83,53 @@ async function ensureAgentStrategyContracts(db) {
 }
 
 async function ensureAdminKey(db) {
-  const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
   const configured = String(process.env.GENOS_ADMIN_TOKEN || '').trim();
-  if (!existing || existing.count === 0) {
-    const rawKey = configured || `genos_sk_admin_${crypto.randomBytes(24).toString('hex')}`;
-    await db.run(
-      'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
-      'key-bootstrap-admin',
-      hashKey(rawKey),
-      'Bootstrap administrator',
-      'admin',
-      JSON.stringify(['all'])
-    );
+  const bootstrap = await db.get("SELECT id, key_hash FROM access_keys WHERE id = 'key-bootstrap-admin'");
+  if (bootstrap) {
+    // Keep the stored bootstrap credential in sync with the configured
+    // environment token so rotating GENOS_ADMIN_TOKEN takes effect on
+    // existing databases instead of only on first boot.
+    if (configured && bootstrap.key_hash !== hashKey(configured)) {
+      await db.run('UPDATE access_keys SET key_hash = ? WHERE id = ?', hashKey(configured), bootstrap.id);
+    }
+  } else {
+    const existing = await db.get('SELECT COUNT(*) as count FROM access_keys');
+    if (!existing || existing.count === 0) {
+      const rawKey = configured || `genos_sk_admin_${crypto.randomBytes(24).toString('hex')}`;
+      await db.run(
+        'INSERT INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+        'key-bootstrap-admin',
+        hashKey(rawKey),
+        'Bootstrap administrator',
+        'admin',
+        JSON.stringify(['all'])
+      );
 
-    if (!configured) {
-      console.warn('[GenOS Bootstrap] Generated one-time administrator token:');
-      console.warn(rawKey);
-      console.warn('[GenOS Bootstrap] Save it now; it is stored only as a hash.');
+      if (!configured) {
+        console.warn('[GenOS Bootstrap] Generated one-time administrator token:');
+        console.warn(rawKey);
+        console.warn('[GenOS Bootstrap] Save it now; it is stored only as a hash.');
+      }
     }
   }
 
   if (process.env.NODE_ENV === 'test') {
+    // Legacy test databases may predate bootstrap-key tracking entirely. Only
+    // mint a fixture key when nothing authenticates the configured token yet,
+    // so the bootstrap credential above is never displaced by a hash clash.
+    if (configured) {
+      const match = await db.get('SELECT id FROM access_keys WHERE key_hash = ?', hashKey(configured));
+      if (!match) {
+        await db.run(
+          'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions) VALUES (?, ?, ?, ?, ?)',
+          'key-test-admin',
+          hashKey(configured),
+          'Test admin',
+          'admin',
+          '[]'
+        );
+      }
+    }
     const fixtures = [
       ['key-test-operator', process.env.GENOS_TEST_OPERATOR_TOKEN, 'operator'],
       ['key-test-viewer', process.env.GENOS_TEST_VIEWER_TOKEN, 'viewer']
