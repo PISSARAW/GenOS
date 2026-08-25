@@ -371,5 +371,25 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["capsule_id", "remaining", "max_forks"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_senescence_assess",
+            "Senescence Fleet Hygiene",
+            "Classify capsules into active / intentionally-dormant / senescent-zombie states and order senolytic cleanup by harm emitted per consumed resource.",
+        )
+        .schema(object_schema(
+            [
+                ("capsule_id", string_schema("Capsule identifier")),
+                ("productive_ticks", string_schema("Ticks with meaningful output")),
+                ("idle_ticks", string_schema("Ticks alive without output")),
+                ("resources_consumed", string_schema("Resources consumed in the window")),
+                (
+                    "negative_externalities",
+                    string_schema("External harm units: blocking locks, stale pheromones, empty alerts"),
+                ),
+                ("intentional_dormancy", string_schema("True when idleness is deliberate (spore, standby)")),
+            ],
+            &["capsule_id", "productive_ticks", "idle_ticks", "resources_consumed"],
+        ))
+        .build(),
     ]
 }

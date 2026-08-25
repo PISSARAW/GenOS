@@ -292,6 +292,23 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_senescence_assess" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "senescence");
+            planner.push_flag("--action", "assess");
+            for key in [
+                "capsule_id",
+                "productive_ticks",
+                "idle_ticks",
+                "resources_consumed",
+                "negative_externalities",
+                "intentional_dormancy",
+            ] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
