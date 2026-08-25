@@ -57,5 +57,49 @@ pub fn resilience_specs() -> Vec<ToolSpec> {
             &["branch_id"],
         ))
         .build(),
+        SpecBuilder::new(
+            "resilience_lytic_burst",
+            "Plan Lytic Burst",
+            "Plan a deterministic burst of divergent clones around a stalled lineage, capped by the quasispecies error-threshold guard.",
+        )
+        .schema(object_schema(
+            [
+                ("genome_id", string_schema("Stalled parent genome identifier")),
+                ("clones", string_schema("Requested clone count")),
+                ("sigma", string_schema("Mutant cloud width around the master sequence")),
+                ("seed", string_schema("Deterministic burst seed")),
+            ],
+            &["genome_id"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "resilience_transduce",
+            "Assemble Transduction Capsule",
+            "Package a winning delta into a signed capsule and gate it through negative selection and superinfection exclusion.",
+        )
+        .schema(object_schema(
+            [
+                ("capsule_id", string_schema("Capsule identifier")),
+                ("from_genome", string_schema("Provenance genome identifier")),
+                ("payload", string_schema("Winning strategy delta payload")),
+                ("signature", string_schema("Failure-mode embedding as space-separated floats")),
+                ("proof_hash", string_schema("Hash of the sandboxed evaluation artifact proving the payload works")),
+            ],
+            &["capsule_id", "from_genome", "payload", "proof_hash"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "security_virophage_deploy",
+            "Deploy Virophage",
+            "Confirm an antigen and deploy a virophage agent into the honeypot viral factory hosting the attacker playbook.",
+        )
+        .schema(object_schema(
+            [
+                ("session_id", string_schema("Honeypot session base identifier")),
+                ("source_signature", string_schema("Signature of the confirmed attacker source")),
+            ],
+            &["session_id", "source_signature"],
+        ))
+        .build(),
     ]
 }

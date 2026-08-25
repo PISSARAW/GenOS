@@ -39,3 +39,4 @@ pub mod cyber_immune;
 pub mod disaster;
 pub mod viral_dynamics;
 pub mod virophage;
+pub mod prophage;
