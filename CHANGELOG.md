@@ -6,6 +6,8 @@ All notable changes to GenOS are documented in this file.
 
 ### Added
 
+- Cell-division runtime primitives with priority use cases: attested clonal fan-out (`mitotic_fork_capsules`), budget-splitting lightweight scale-out (`binary_fission_capsules`), Hayflick-limited asymmetric delegation (`bud_capsule`), and atomic speculative bursts (`schizogonic_burst`) under `genos-runtime::division`, exposed through `genos division mitosis|fission|bud|schizogony`. Amitosis is documented as a deliberate anti-pattern. See `docs/research/fr/DIVISION_CELLULAIRE.md`.
+- `CapsuleStore::list_all_capsules`, backing lineage-wide queries such as the bud-scar registry.
 - Open source project documentation, contribution guidance, governance, security policy, support policy, and GitHub community templates.
 - A public documentation index and examples catalogue.
 - ADR-0021, defining OpenAI Codex as a native MCP client target while keeping Codex product integration separate from the OpenAI model provider.

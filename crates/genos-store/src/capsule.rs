@@ -13,6 +13,10 @@ pub trait CapsuleStore: Send + Sync {
         &self,
         branch_id: String,
     ) -> anyhow::Result<Vec<AgentWorldCapsule>>;
+
+    /// Every stored capsule, oldest first, with integrity already verified.
+    /// Backs lineage-wide queries such as the bud-scar registry.
+    async fn list_all_capsules(&self) -> anyhow::Result<Vec<AgentWorldCapsule>>;
 }
 
 pub struct LocalCapsuleStore {
@@ -106,5 +110,9 @@ impl CapsuleStore for LocalCapsuleStore {
             .into_iter()
             .filter(|capsule| capsule.branch_id.0 == branch_id)
             .collect())
+    }
+
+    async fn list_all_capsules(&self) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+        self.read_all().await
     }
 }
