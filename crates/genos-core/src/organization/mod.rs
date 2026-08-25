@@ -35,3 +35,4 @@ pub mod distributed;
 pub mod flocking;
 pub mod network;
 pub mod swarm;
+pub mod symbiosis;
