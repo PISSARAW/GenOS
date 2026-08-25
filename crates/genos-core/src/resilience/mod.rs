@@ -32,7 +32,10 @@ pub trait ResilienceProtocol {
     fn execute_recovery(strategy: &ErrorStrategy, agent_id: &str) -> Result<(), String>;
 }
 
+pub mod ais;
 pub mod cellular;
 pub mod cleaner;
 pub mod cyber_immune;
 pub mod disaster;
+pub mod viral_dynamics;
+pub mod virophage;
