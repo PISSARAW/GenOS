@@ -3,6 +3,8 @@
  * Origin verification, Double-Submit CSRF, XSS sanitization, and Hardened CSP headers.
  */
 
+const { resolveUserFromHeaders } = require('./auth');
+
 const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:4000',
@@ -77,7 +79,7 @@ function originCheck(req, res, next) {
   next();
 }
 
-function csrfCheck(req, res, next) {
+async function csrfCheck(req, res, next) {
   const mutatingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
   if (!mutatingMethods.includes(req.method)) {
     return next();
@@ -88,8 +90,18 @@ function csrfCheck(req, res, next) {
     return next();
   }
 
+  // Only a request whose credentials actually validate against the access-key
+  // store may bypass the CSRF token check. Merely *carrying* an Authorization
+  // header proves nothing: browsers do not attach attacker-chosen headers on
+  // cross-site form posts, so a forged header value must never count as auth.
+  let hasValidAuth = false;
+  if (req.headers.authorization || req.headers['x-access-key']) {
+    try {
+      hasValidAuth = (await resolveUserFromHeaders(req.headers)).isAuthenticated;
+    } catch (_) { hasValidAuth = false; }
+  }
+
   const csrfHeader = String(req.headers['x-csrf-token'] || '');
-  const hasAuth = req.headers.authorization || req.headers['x-access-key'];
   const origin = req.headers.origin;
   const cookies = Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => part.trim().split(/=(.*)/s)).filter(([key]) => key));
   const csrfCookie = String(cookies.genos_csrf || '');
@@ -97,14 +109,14 @@ function csrfCheck(req, res, next) {
     && require('crypto').timingSafeEqual(Buffer.from(csrfHeader), Buffer.from(csrfCookie));
   const validIssuedToken = csrfHeader.length >= 16 && isKnownIssuedToken(csrfHeader);
 
-  // Local CLI, direct curl, or valid token/CSRF
-  if (validDoubleSubmit || validIssuedToken || hasAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
+  // Local CLI, direct curl, or valid token/authenticated caller
+  if (validDoubleSubmit || validIssuedToken || hasValidAuth || (!origin && req.ip === '127.0.0.1') || (!origin && req.ip === '::1')) {
     return next();
   }
 
   // Reject foreign or untrusted mutating requests
   return res.status(403).json({
-    error: { code: 'CSRF_VALIDATION_FAILED', message: 'Anti-CSRF verification failed. Missing X-CSRF-Token or Auth header.' }
+    error: { code: 'CSRF_VALIDATION_FAILED', message: 'Anti-CSRF verification failed. Missing X-CSRF-Token or valid Auth credentials.' }
   });
 }
 
