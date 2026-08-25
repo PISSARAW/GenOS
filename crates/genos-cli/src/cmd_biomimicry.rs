@@ -1,13 +1,99 @@
 use crate::args::{
     DistributedHuddleArgs, FlockingExploreArgs, NetworkQuorumArgs, SwarmConsensusArgs, VoteKind,
 };
-use anyhow::Result;
+use anyhow::{bail, Result};
+use genos_core::biomimicry::{parse_facts, CycleGateKeeper, Phase};
 use genos_core::organization::distributed::{Agent, PenguinHuddle};
 use genos_core::organization::flocking::{boid_cohesion, Boid, Vec2};
 use genos_core::organization::network::BacteriaNode;
 use genos_core::organization::swarm::{Consensus, Decision};
 use std::fs;
 use std::path::Path;
+
+/// Generic dispatcher for biomimicry feature modules. Each new feature only
+/// adds a routing arm here; the CLI surface stays stable.
+pub async fn cmd_biomimicry_feature(
+    feature: &str,
+    action: &str,
+    params: &[String],
+) -> Result<()> {
+    match (feature, action) {
+        ("gate", "evaluate") => gate_evaluate(params),
+        ("epigenetic_chromatin", "modulate") => chromatin_modulate(params),
+        (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
+    }
+}
+
+fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
+    params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+}
+
+fn chromatin_modulate(params: &[String]) -> Result<()> {
+    let agent_id = param_value(params, "agent_id").unwrap_or("unknown");
+    let promoter = param_value(params, "promoter").unwrap_or("unknown");
+    let meth_delta = param_value(params, "methylation_delta").unwrap_or("0.0").parse::<f32>().unwrap_or(0.0);
+    let acetyl_delta = param_value(params, "acetylation_delta").unwrap_or("0.0").parse::<f32>().unwrap_or(0.0);
+
+    use genos_core::operon::{ChromatinVector, Operon};
+    let mut operon = Operon {
+        promoter: promoter.to_string(),
+        genes: vec![],
+        chromatin: ChromatinVector::default(),
+    };
+
+    println!("Modulating chromatin for agent {} on operon [promoter={}]", agent_id, promoter);
+    if meth_delta > 0.0 {
+        operon.chromatin.condense(meth_delta);
+        println!("  -> Condensed chromatin (methylation +{})", meth_delta);
+    } else if meth_delta < 0.0 {
+        operon.chromatin.relax(-meth_delta);
+        println!("  -> Relaxed chromatin (methylation {})", meth_delta);
+    }
+    
+    if acetyl_delta > 0.0 {
+        operon.chromatin.acetylate(acetyl_delta);
+        println!("  -> Acetylated histones (acetylation +{})", acetyl_delta);
+    } else if acetyl_delta < 0.0 {
+        operon.chromatin.deacetylate(-acetyl_delta);
+        println!("  -> Deacetylated histones (acetylation {})", acetyl_delta);
+    }
+
+    println!("  -> Final Chromatin Vector: methylation={:.2}, acetylation={:.2}, active={}", 
+        operon.chromatin.methylation_level, operon.chromatin.histone_acetylation, operon.is_active());
+        
+    Ok(())
+}
+
+fn gate_evaluate(params: &[String]) -> Result<()> {
+    let phase_raw = param_value(params, "phase")
+        .ok_or_else(|| anyhow::anyhow!("missing --param phase=<init|fork|run|diff|merge>"))?;
+    let phase = Phase::parse(phase_raw)
+        .ok_or_else(|| anyhow::anyhow!("unknown phase '{phase_raw}'"))?;
+    let facts: Vec<String> = params
+        .iter()
+        .filter(|p| !p.starts_with("phase="))
+        .cloned()
+        .collect();
+    let facts = parse_facts(&facts).map_err(anyhow::Error::msg)?;
+    let keeper = CycleGateKeeper::with_defaults();
+    let report = keeper.evaluate(phase, &facts);
+    println!(
+        "Gate {} : {} ({} règles vérifiées)",
+        report.phase.as_str(),
+        if report.passed { "PASSED" } else { "BLOCKED" },
+        report.checked_rules
+    );
+    for rule in &report.violated_rules {
+        println!("  violated: {rule}");
+    }
+    for fact in &report.missing_facts {
+        println!("  missing fact: {fact}");
+    }
+    if !report.passed {
+        bail!("checkpoint gate blocked; progression to next phase is forbidden");
+    }
+    Ok(())
+}
 
 pub async fn cmd_biomimicry_swarm_consensus(args: SwarmConsensusArgs) -> Result<()> {
     println!("Triggering swarm consensus for target: {}", args.target);

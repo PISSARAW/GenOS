@@ -88,6 +88,44 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args.push("--gradient-value".into());
             planner.args.push(planner.req_str("gradient_value")?.into());
         }
+        "biomimicry_gate_evaluate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "gate");
+            planner.push_flag("--action", "evaluate");
+            planner.push_flag("--param", &format!("phase={}", planner.req_str("phase")?));
+            for key in [
+                "genome_coherent",
+                "niche_available",
+                "budget_allocated",
+                "genome_state_leak",
+                "parent_snapshot_sealed",
+                "world_isolated_cow",
+                "pre_run_snapshot_sealed",
+                "invariants_respected",
+                "cross_world_leak",
+                "diff_complete",
+                "replay_verified",
+                "pareto_validated",
+                "heredity_proven",
+            ] {
+                if let Some(value) = planner.opt_bool(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
+        "genos_epigenetic_chromatin" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "epigenetic_chromatin");
+            planner.push_flag("--action", "modulate");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("promoter={}", planner.req_str("promoter")?));
+            if let Some(meth) = planner.opt_str("methylation_delta")? {
+                planner.push_flag("--param", &format!("methylation_delta={meth}"));
+            }
+            if let Some(acetyl) = planner.opt_str("acetylation_delta")? {
+                planner.push_flag("--param", &format!("acetylation_delta={acetyl}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

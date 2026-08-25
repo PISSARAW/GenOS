@@ -162,5 +162,72 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["agent_id", "atp", "adp", "amp"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_gate_evaluate",
+            "Cycle Checkpoint Gate Evaluate",
+            "Evaluate a vital-phase checkpoint gate against declared facts. Fails closed: a missing fact blocks progression.",
+        )
+        .schema(object_schema(
+            [
+                (
+                    "phase",
+                    string_schema("Vital phase: init | fork | run | diff | merge"),
+                ),
+                (
+                    "genome_coherent",
+                    string_schema("Fact: genome passes coherence validation"),
+                ),
+                ("niche_available", string_schema("Fact: target niche is available")),
+                ("budget_allocated", string_schema("Fact: budget is allocated")),
+                (
+                    "genome_state_leak",
+                    string_schema("Fact: genome/state separation leak detected"),
+                ),
+                (
+                    "parent_snapshot_sealed",
+                    string_schema("Fact: parent snapshot is sealed (fork gate)"),
+                ),
+                (
+                    "world_isolated_cow",
+                    string_schema("Fact: world substrate is isolated CoW"),
+                ),
+                (
+                    "pre_run_snapshot_sealed",
+                    string_schema("Fact: pre-run snapshot sealed"),
+                ),
+                (
+                    "invariants_respected",
+                    string_schema("Fact: genome/state invariants hold"),
+                ),
+                (
+                    "cross_world_leak",
+                    string_schema("Fact: cross-world contamination detected"),
+                ),
+                ("diff_complete", string_schema("Fact: diff computation complete")),
+                (
+                    "replay_verified",
+                    string_schema("Fact: causal replay verified on independent run"),
+                ),
+                ("pareto_validated", string_schema("Fact: Pareto validation passed")),
+                ("heredity_proven", string_schema("Fact: heredity proof established")),
+            ],
+            &["phase"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "genos_epigenetic_chromatin",
+            "Epigenetic Chromatin",
+            "Modulates the chromatin vector (methylation, acetylation) of an agent's operon to hide or expose competencies.",
+        )
+        .schema(object_schema(
+            [
+                ("agent_id", string_schema("Agent identifier")),
+                ("promoter", string_schema("Operon promoter to target")),
+                ("methylation_delta", string_schema("Delta for methylation level")),
+                ("acetylation_delta", string_schema("Delta for histone acetylation")),
+            ],
+            &["agent_id", "promoter"],
+        ))
+        .build(),
     ]
 }
