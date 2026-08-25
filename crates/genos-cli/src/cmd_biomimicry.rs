@@ -21,6 +21,7 @@ pub async fn cmd_biomimicry_feature(
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => vaccination_train(params),
+        ("interferon", "emit") => interferon_emit(params),
         ("epigenetic_chromatin", "modulate") => chromatin_modulate(params),
         (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
     }
@@ -122,6 +123,38 @@ fn vaccination_train(params: &[String]) -> Result<()> {
             ),
             None => println!("Secondary response for probe '{probe}': no memory"),
         }
+    }
+    Ok(())
+}
+
+fn interferon_emit(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{emit, InterferonSignal};
+    let source = param_value(params, "source")
+        .ok_or_else(|| anyhow::anyhow!("missing --param source=<capsule id>"))?
+        .to_string();
+    let signature = param_value(params, "signature")
+        .ok_or_else(|| anyhow::anyhow!("missing --param signature=<threat tokens>"))?
+        .to_string();
+    let ttl: u64 = param_value(params, "ttl_seconds")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(300);
+    let now: u64 = param_value(params, "now_secs").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let neighbors: Vec<String> =
+        collect_params(params, "neighbor").iter().map(|s| s.to_string()).collect();
+    if neighbors.is_empty() {
+        bail!("at least one --param neighbor=<capsule id> is required (paracrine radius)");
+    }
+    let signal = InterferonSignal::new(&source, &signature, ttl);
+    println!(
+        "Interferon emitted by {source}: {} neighbors primed for {ttl}s",
+        neighbors.len()
+    );
+    for (id, state) in emit(&signal, &neighbors, now) {
+        println!(
+            "  {id}: sensitivity x{:.2}, writes frozen until t+{}s",
+            state.sensitivity_boost,
+            state.expires_at_secs - now
+        );
     }
     Ok(())
 }

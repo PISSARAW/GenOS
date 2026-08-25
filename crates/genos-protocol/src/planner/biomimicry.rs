@@ -177,6 +177,25 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("probe={probe}"));
             }
         }
+        "biomimicry_interferon_emit" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "interferon");
+            planner.push_flag("--action", "emit");
+            planner.push_flag("--param", &format!("source={}", planner.req_str("source_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("signature={}", planner.req_str("signature")?),
+            );
+            if let Some(ttl) = planner.opt_str("ttl_seconds")? {
+                planner.push_flag("--param", &format!("ttl_seconds={ttl}"));
+            }
+            if let Some(values) = planner.object.get("neighbors").and_then(Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("neighbor={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
