@@ -18,6 +18,7 @@ members = [
   "crates/genos-synaptic",
   "crates/genos-mycelium",
   "integrations/mcp/genos-mcp",
+  "test/concept",
 ]
 resolver = "2"
 
