@@ -2,6 +2,7 @@ mod args;
 mod cmd_agent;
 mod cmd_biomimicry;
 mod cmd_capsule;
+mod cmd_bio_features;
 mod cmd_dev;
 mod cmd_eval;
 mod cmd_experiment;
@@ -204,7 +205,9 @@ async fn main() -> Result<()> {
             BiomimicrySubcommands::SwarmConsensus(args) => {
                 cmd_biomimicry_swarm_consensus(args).await
             }
-            BiomimicrySubcommands::BioFeature(_) => todo!(),
+            BiomimicrySubcommands::BioFeature(args) => {
+                cmd_biomimicry_feature(&args.feature, &args.action, &args.params).await
+            }
             BiomimicrySubcommands::FlockingExplore(args) => {
                 cmd_biomimicry_flocking_explore(args).await
             }
