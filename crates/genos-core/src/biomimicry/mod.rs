@@ -15,6 +15,10 @@ pub mod regeneration;
 pub mod endocrine;
 pub mod reflex_arc;
 pub mod neuromodulation;
+pub mod hippocampal_replay;
+pub mod circadian_rhythms;
+pub mod allostasis;
+pub mod cross_modal_plasticity;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -37,6 +41,10 @@ pub use regeneration::*;
 pub use endocrine::*;
 pub use reflex_arc::*;
 pub use neuromodulation::*;
+pub use hippocampal_replay::*;
+pub use circadian_rhythms::*;
+pub use allostasis::*;
+pub use cross_modal_plasticity::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -47,6 +55,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 
