@@ -8,6 +8,8 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_immuno_inflammation", "Inflammatory Response", "Trigger a degraded/quarantine mode (fever) across the swarm upon threat detection, or resolve it.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("action", string_schema("trigger | resolve")), ("threat_level", string_schema("Severity of threat")), ("recovery_rate", string_schema("Cooling down rate"))], &["swarm_id", "action"])).build(),
+        SpecBuilder::new("biomimicry_immuno_autoimmunity", "Autoimmunity Regulator", "Evaluate if defensive triggers are false positives harming the agent (Regulatory T-cell).").schema(object_schema([("agent_id", string_schema("Agent ID")), ("action", string_schema("log_kill | evaluate")), ("threshold", string_schema("False positive threshold")), ("recent_kills", string_schema("Mock recent kills"))], &["agent_id", "action"])).build(),
         SpecBuilder::new("biomimicry_hippocampal_consolidate", "Hippocampal Replay", "Replay successful DAG trajectories off-line to extract generalized macros.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("success_score", string_schema("Fitness score of the trajectory")), ("dag_step", string_array_schema("Steps taken"))], &["agent_id", "success_score"])).build(),
         SpecBuilder::new("biomimicry_circadian_toggle", "Circadian Clock Toggle", "Toggle swarm phase between Diurnal (active serving) and Nocturnal (maintenance).").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("current_phase", string_schema("diurnal | nocturnal"))], &["swarm_id", "current_phase"])).build(),
         SpecBuilder::new("biomimicry_allostasis_anticipate", "Allostatic Load Anticipation", "Pre-allocate computing budget prospectively based on anticipated stress cues.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("stress_cue", string_schema("0.0 to 1.0")), ("base_budget", string_schema("Base token/compute budget"))], &["swarm_id", "stress_cue"])).build(),
@@ -110,6 +112,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
