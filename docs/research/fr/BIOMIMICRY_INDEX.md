@@ -111,4 +111,19 @@ Cet index recense les 66 concepts biologiques proposés en extension de GenOS, u
 4. Mutualisme + altruisme réciproque — équilibre l'écosystème face au parasitisme déjà implémenté.
 5. Procéduralisation cérébelleuse + replay hippocampique — valorise le DAG causal déjà stocké.
 
+## Statut d'implémentation (triptyque code + MCP + CLI)
+
+| Concept | Module core | Tool MCP | CLI | Doc feature |
+|---|---|---|---|---|
+| Checkpoints du cycle cellulaire | `genos-core::biomimicry::cycle_checkpoints` | `biomimicry_gate_evaluate` | `bio-feature --feature gate` | `docs/3-features-and-domain/biomimicry/cycle-checkpoints.md` |
+| Chaperonnes moléculaires | `genos-core::biomimicry::chaperone` | `biomimicry_chaperone_repair` | `bio-feature --feature chaperone` | `docs/3-features-and-domain/biomimicry/chaperones.md` |
+| Mémoire immunitaire / vaccination | `genos-core::biomimicry::vaccination` | `biomimicry_vaccinate` | `bio-feature --feature vaccination` | `docs/3-features-and-domain/biomimicry/vaccination.md` |
+| Interférons | `genos-core::biomimicry::interferon` | `biomimicry_interferon_emit` | `bio-feature --feature interferon` | `docs/3-features-and-domain/biomimicry/interferons.md` |
+| Résistance systémique acquise | `genos-core::biomimicry::sar` | `biomimicry_sar_prime` | `bio-feature --feature sar` | `docs/3-features-and-domain/biomimicry/sar.md` |
+| Altruisme réciproque | `genos-core::biomimicry::reciprocity` | `biomimicry_reciprocity_decide` | `bio-feature --feature reciprocity` | `docs/3-features-and-domain/biomimicry/reciprocity.md` |
+| Procéduralisation cérébelleuse | `genos-core::biomimicry::proceduralization` | `biomimicry_skill_proceduralize` | `bio-feature --feature proceduralization` | `docs/3-features-and-domain/biomimicry/proceduralization.md` |
+| Mutualisme / symbiose | `genos-core::organization::symbiosis` (commit dc6cfbe) | — | — | — |
+
+Les 58 concepts restants restent au stade proposition (`BIOMIMICRY_*.md` dans ce dossier).
+
 > Chaque concept est indépendant ; aucun ne modifie les invariants fondamentaux (`spec/GENOME_SPEC.md`) : séparation génotype/phénotype/état, DAG causal immuable, neutralité provider, isolation stricte des mondes forkés.
