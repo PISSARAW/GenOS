@@ -1,5 +1,6 @@
 use crate::planner::builder::CommandPlanner;
 use crate::types::ProtocolError;
+use serde_json::Value;
 
 pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolError> {
     match planner.operation {
@@ -124,6 +125,36 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             }
             if let Some(acetyl) = planner.opt_str("acetylation_delta")? {
                 planner.push_flag("--param", &format!("acetylation_delta={acetyl}"));
+            }
+        }
+        "biomimicry_chaperone_repair" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "chaperone");
+            planner.push_flag("--action", "repair");
+            planner.push_flag(
+                "--param",
+                &format!("component_id={}", planner.req_str("component_id")?),
+            );
+            planner.push_flag("--param", &format!("kind={}", planner.req_str("kind")?));
+            let fragments = planner.object.get("fragments").and_then(Value::as_array);
+            if let Some(values) = fragments {
+                for fragment in values {
+                    let fragment = fragment.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("fragment={fragment}"));
+                }
+            }
+            let templates = planner.object.get("templates").and_then(Value::as_array);
+            if let Some(values) = templates {
+                for template in values {
+                    let template = template.as_str().unwrap_or("-");
+                    planner.push_flag("--param", &format!("template={template}"));
+                }
+            }
+            if let Some(attempts) = planner.opt_str("max_attempts")? {
+                planner.push_flag("--param", &format!("max_attempts={attempts}"));
+            }
+            if let Some(budget) = planner.opt_str("atp_budget")? {
+                planner.push_flag("--param", &format!("atp_budget={budget}"));
             }
         }
         _ => return Ok(false),
