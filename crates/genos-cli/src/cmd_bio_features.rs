@@ -21,6 +21,9 @@ pub async fn cmd_biomimicry_feature(
         ("interferon", "emit") => interferon_emit(params),
         ("sar", "prime" | "assess" | "inherit") => sar_action(params, action),
         ("reciprocity", "decide") => reciprocity_decide(params),
+        ("proceduralization", "compile" | "monitor") => {
+            proceduralization_action(params, action)
+        }
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -239,6 +242,80 @@ fn sar_action(params: &[String], action: &str) -> Result<()> {
             Ok(())
         }
         _ => bail!("unknown sar action"),
+    }
+}
+
+fn proceduralization_action(params: &[String], action: &str) -> Result<()> {
+    use genos_core::biomimicry::{
+        compile, monitor, recompile, ExecutionStats, Health, ReadinessRule,
+    };
+    let skill = param_value(params, "skill")
+        .ok_or_else(|| anyhow::anyhow!("missing --param skill=<name>"))?
+        .to_string();
+    match action {
+        "compile" => {
+            let successes: u32 = param_value(params, "successes")
+                .ok_or_else(|| anyhow::anyhow!("missing --param successes=<n>"))?
+                .parse()?;
+            let failures: u32 =
+                param_value(params, "failures").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let variance: f64 = param_value(params, "variance")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.0);
+            let steps: Vec<String> =
+                collect_params(params, "step").iter().map(|s| s.to_string()).collect();
+            let preconditions: Vec<String> =
+                collect_params(params, "precondition").iter().map(|s| s.to_string()).collect();
+            let stats = ExecutionStats { successes, failures, variance_proxy: variance };
+            match compile(&skill, preconditions, steps, vec![], &stats, &ReadinessRule::default()) {
+                Ok(program) => {
+                    println!(
+                        "Skill '{skill}' proceduralized (version {}): {} steps installed as reflex",
+                        program.version,
+                        program.steps.len()
+                    );
+                    for (i, step) in program.steps.iter().enumerate() {
+                        println!("  step[{i}] = {step}");
+                    }
+                    Ok(())
+                }
+                Err(reason) => bail!("skill '{skill}' stays deliberative: {reason}"),
+            }
+        }
+        "monitor" => {
+            let failure_rate: f64 = param_value(params, "failure_rate")
+                .ok_or_else(|| anyhow::anyhow!("missing --param failure_rate=<0..1>"))?
+                .parse()?;
+            // Optional refinement path when new steps are supplied.
+            let steps: Vec<String> =
+                collect_params(params, "step").iter().map(|s| s.to_string()).collect();
+            if !steps.is_empty() {
+                let previous = genos_core::biomimicry::SkillProgram {
+                    name: skill.clone(),
+                    version: 1,
+                    preconditions: vec![],
+                    steps: steps.clone(),
+                    postconditions: vec![],
+                };
+                let updated =
+                    recompile(&previous, steps).map_err(anyhow::Error::msg)?;
+                println!(
+                    "Skill '{skill}' refined to version {}",
+                    updated.version
+                );
+                return Ok(());
+            }
+            match monitor(failure_rate) {
+                Health::Keep => {
+                    println!("Skill '{skill}': healthy (failure rate {failure_rate:.2})");
+                    Ok(())
+                }
+                Health::Uninstall { reason } => {
+                    bail!("uninstalling reflex '{skill}' back to deliberative path: {reason}")
+                }
+            }
+        }
+        _ => bail!("unknown proceduralization action"),
     }
 }
 

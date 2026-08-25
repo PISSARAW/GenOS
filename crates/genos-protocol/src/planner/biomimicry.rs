@@ -233,6 +233,40 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_skill_proceduralize" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "proceduralization");
+            let has_failure_rate = planner.opt_str("failure_rate")?.is_some();
+            let has_steps = planner
+                .object
+                .get("steps")
+                .and_then(Value::as_array)
+                .map_or(false, |v| !v.is_empty());
+            if has_failure_rate && !has_steps {
+                planner.push_flag("--action", "monitor");
+            } else {
+                planner.push_flag("--action", "compile");
+            }
+            for key in [
+                "skill",
+                "successes",
+                "failures",
+                "variance",
+                "failure_rate",
+            ] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+            for (key, param) in [("steps", "step"), ("preconditions", "precondition")] {
+                if let Some(values) = planner.object.get(key).and_then(Value::as_array) {
+                    for value in values {
+                        let value = value.as_str().unwrap_or_default();
+                        planner.push_flag("--param", &format!("{param}={value}"));
+                    }
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

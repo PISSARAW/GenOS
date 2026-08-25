@@ -332,5 +332,23 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["peer_id"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_skill_proceduralize",
+            "Proceduralize Skill",
+            "Compile a repeatedly-successful stereotyped task into a monitored reflex (cerebellar style), or monitor/refine an installed reflex.",
+        )
+        .schema(object_schema(
+            [
+                ("skill", string_schema("Skill / task name")),
+                ("successes", string_schema("Recorded successful executions")),
+                ("failures", string_schema("Recorded failed executions")),
+                ("variance", string_schema("Trajectory dispersion proxy, 0..1 (low = stereotyped)")),
+                ("steps", string_array_schema("Ordered reflex steps to install or refine")),
+                ("preconditions", string_array_schema("Preconditions gating the reflex")),
+                ("failure_rate", string_schema("Recent failure rate 0..1 (monitor action)")),
+            ],
+            &["skill"],
+        ))
+        .build(),
     ]
 }
