@@ -8,6 +8,10 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_hippocampal_consolidate", "Hippocampal Replay", "Replay successful DAG trajectories off-line to extract generalized macros.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("success_score", string_schema("Fitness score of the trajectory")), ("dag_step", string_array_schema("Steps taken"))], &["agent_id", "success_score"])).build(),
+        SpecBuilder::new("biomimicry_circadian_toggle", "Circadian Clock Toggle", "Toggle swarm phase between Diurnal (active serving) and Nocturnal (maintenance).").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("current_phase", string_schema("diurnal | nocturnal"))], &["swarm_id", "current_phase"])).build(),
+        SpecBuilder::new("biomimicry_allostasis_anticipate", "Allostatic Load Anticipation", "Pre-allocate computing budget prospectively based on anticipated stress cues.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("stress_cue", string_schema("0.0 to 1.0")), ("base_budget", string_schema("Base token/compute budget"))], &["swarm_id", "stress_cue"])).build(),
+        SpecBuilder::new("biomimicry_plasticity_remap", "Cross-Modal Plasticity", "Remap a failed sensory modality or tool to an alternative substitute.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("failing_tool", string_schema("Tool that died (e.g. web_search)"))], &["agent_id", "failing_tool"])).build(),
         SpecBuilder::new("biomimicry_neuromodulation_rpe", "Dopaminergic RPE Signal", "Compute Reward Prediction Error to trigger a dopamine spike (reinforcement) or dip (depression) in MCTS paths.").schema(object_schema([("node_id", string_schema("The MCTS node ID")), ("expected_reward", string_schema("The prior expected fitness of the node")), ("actual_reward", string_schema("The actual fitness yielded by the rollout"))], &["node_id", "expected_reward", "actual_reward"])).build(),
         SpecBuilder::new("biomimicry_reflex_trigger", "Reflex Arc Fast-Path", "Bypass the MCTS/LLM planner for an immediate hardcoded survival response (Withdraw, Freeze) upon critical stimuli.").schema(object_schema([("stimulus", string_schema("thermal | nociceptive")), ("value", string_schema("The intensity or payload of the stimulus")), ("pain_threshold", string_schema("Length threshold for pain")), ("heat_threshold", string_schema("Value threshold for heat"))], &["stimulus", "value"])).build(),
         SpecBuilder::new("biomimicry_endocrine_modulate", "Endocrine System Modulation", "Secrete hormones to globally modulate swarm behavior (e.g., Cortisol for focus, Oxytocin for trust).").schema(object_schema([("swarm_id", string_schema("The target swarm ID")), ("endocrine_action", string_schema("secrete | decay")), ("hormone", string_schema("e.g., cortisol, adrenaline, oxytocin")), ("amount", string_schema("Amount to secrete (0.0 to 1.0)")), ("decay_factor", string_schema("Rate of decay"))], &["endocrine_action"])).build(),
@@ -106,6 +110,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
