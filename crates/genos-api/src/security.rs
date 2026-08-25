@@ -13,7 +13,7 @@
 
 use axum::{
     extract::{Request, State},
-    http::{header::AUTHORIZATION, HeaderMap, StatusCode},
+    http::{header::AUTHORIZATION, HeaderMap, HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
     Json,
@@ -71,15 +71,16 @@ fn is_valid_credential(value: &str, min_len: usize, max_len: usize) -> bool {
         return false;
     }
     value.bytes().all(|byte| {
-        byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~' | b'/' | b'+' | b'=')
+        byte.is_ascii_alphanumeric()
+            || matches!(byte, b'-' | b'_' | b'.' | b'~' | b'/' | b'+' | b'=')
     })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AuthError {
-    MissingCredentials,
-    MalformedCredentials,
-    InvalidCredentials,
+    Missing,
+    Malformed,
+    Invalid,
 }
 
 /// Store of tenant credentials, kept as SHA-256 digests so plaintext tokens
@@ -96,7 +97,8 @@ impl TokenStore {
 
     /// Registers a tenant credential. Plaintext is digested immediately.
     pub fn insert(&mut self, tenant: &str, token: &str) {
-        self.credentials.push((hash_token(token), tenant.to_owned()));
+        self.credentials
+            .push((hash_token(token), tenant.to_owned()));
     }
 
     pub fn is_empty(&self) -> bool {
@@ -110,22 +112,22 @@ impl TokenStore {
     fn authenticate(&self, tenant: Option<&str>, bearer: Option<&str>) -> Result<&str, AuthError> {
         let (tenant, bearer) = match (tenant, bearer) {
             (Some(tenant), Some(bearer)) => (tenant, bearer),
-            _ => return Err(AuthError::MissingCredentials),
+            _ => return Err(AuthError::Missing),
         };
         if !is_valid_credential(tenant, 1, TENANT_MAX_LEN)
             || !is_valid_credential(bearer, TOKEN_MIN_LEN, TOKEN_MAX_LEN)
         {
-            return Err(AuthError::MalformedCredentials);
+            return Err(AuthError::Malformed);
         }
         let digest = hash_token(bearer);
         let mut matched: Option<&str> = None;
         for (stored_digest, stored_tenant) in &self.credentials {
             let hit = constant_time_eq(&digest, stored_digest);
-            if hit {
+            if hit && stored_tenant == tenant {
                 matched = Some(stored_tenant);
             }
         }
-        matched.ok_or(AuthError::InvalidCredentials)
+        matched.ok_or(AuthError::Invalid)
     }
 }
 
@@ -176,21 +178,19 @@ impl RateLimiter {
             buckets: HashMap::new(),
         }
     }
-
-    fn retry_after_ms(&self, tokens: f64) -> u64 {
-        let deficit = self.config.capacity - tokens;
-        ((deficit / self.config.refill_per_sec) * 1000.0).ceil() as u64
-    }
-
-    fn purge_stale(&mut self) {
-        self.buckets
-            .retain(|_, bucket| bucket.tokens < self.config.capacity);
+    fn purge_stale(&mut self, now_ms: u64) {
+        let config = self.config;
+        self.buckets.retain(|_, bucket| {
+            let to_full_ms =
+                ((config.capacity - bucket.tokens) / config.refill_per_sec * 1000.0) as u64;
+            now_ms.saturating_sub(bucket.updated_ms) < to_full_ms
+        });
     }
 
     /// Consumes one token for `key` at logical time `now_ms`.
     pub fn check(&mut self, key: u64, now_ms: u64) -> RateDecision {
         if self.buckets.len() >= MAX_TRACKED_CLIENTS {
-            self.purge_stale();
+            self.purge_stale(now_ms);
             if self.buckets.len() >= MAX_TRACKED_CLIENTS {
                 return RateDecision {
                     allowed: false,
@@ -215,10 +215,12 @@ impl RateLimiter {
                 retry_after_ms: 0,
             }
         } else {
+            let deficit = config.capacity - bucket.tokens;
+            let retry_after_ms = ((deficit / config.refill_per_sec) * 1000.0).ceil() as u64;
             RateDecision {
                 allowed: false,
                 remaining: 0,
-                retry_after_ms: self.retry_after_ms(bucket.tokens),
+                retry_after_ms,
             }
         }
     }
@@ -244,7 +246,10 @@ pub struct SecurityState {
 }
 
 impl SecurityState {
-    pub fn new(credentials: impl IntoIterator<Item = (String, String)>, config: RateLimitConfig) -> Self {
+    pub fn new(
+        credentials: impl IntoIterator<Item = (String, String)>,
+        config: RateLimitConfig,
+    ) -> Self {
         let mut store = TokenStore::new();
         for (tenant, token) in credentials {
             store.insert(&tenant, &token);
@@ -266,9 +271,9 @@ fn client_key(authorization: Option<&str>, tenant: Option<&str>) -> u64 {
     hasher.update(authorization.unwrap_or("").as_bytes());
     hasher.update([0]);
     hasher.update(tenant.unwrap_or("").as_bytes());
-    hasher.finalize()[..8]
-        .try_into()
-        .expect("8-byte slice is always a valid u64")
+    let digest = hasher.finalize();
+    let prefix: [u8; 8] = digest[..8].try_into().expect("fixed-size slice");
+    u64::from_be_bytes(prefix)
 }
 
 fn error_response(status: StatusCode, message: &'static str, error_type: &'static str) -> Response {
@@ -323,14 +328,14 @@ pub async fn middleware(
     if !state.tokens.is_empty() {
         let tenant = match state.tokens.authenticate(tenant, bearer) {
             Ok(tenant) => tenant,
-            Err(AuthError::MissingCredentials | AuthError::InvalidCredentials) => {
+            Err(AuthError::Missing | AuthError::Invalid) => {
                 return error_response(
                     StatusCode::UNAUTHORIZED,
                     "invalid tenant credentials",
                     "authentication_error",
                 )
             }
-            Err(AuthError::MalformedCredentials) => {
+            Err(AuthError::Malformed) => {
                 return error_response(
                     StatusCode::UNAUTHORIZED,
                     "malformed credentials",
@@ -338,7 +343,9 @@ pub async fn middleware(
                 )
             }
         };
-        request.extensions_mut().insert(AuthenticatedTenant(tenant.to_owned()));
+        request
+            .extensions_mut()
+            .insert(AuthenticatedTenant(tenant.to_owned()));
     }
     next.run(request).await
 }
@@ -424,7 +431,7 @@ mod tests {
     fn authenticate_rejects_missing_bearer() {
         assert_eq!(
             store_with_one().authenticate(Some("acme"), None),
-            Err(AuthError::MissingCredentials)
+            Err(AuthError::Missing)
         );
     }
 
@@ -432,7 +439,7 @@ mod tests {
     fn authenticate_rejects_missing_tenant() {
         assert_eq!(
             store_with_one().authenticate(None, Some("token-0123456789abcdef")),
-            Err(AuthError::MissingCredentials)
+            Err(AuthError::Missing)
         );
     }
 
@@ -441,7 +448,7 @@ mod tests {
         let long = "t".repeat(TOKEN_MAX_LEN + 1);
         assert_eq!(
             store_with_one().authenticate(Some("acme"), Some(&long)),
-            Err(AuthError::MalformedCredentials)
+            Err(AuthError::Malformed)
         );
     }
 
@@ -450,7 +457,7 @@ mod tests {
         let long = "t".repeat(TENANT_MAX_LEN + 1);
         assert_eq!(
             store_with_one().authenticate(Some(&long), Some("token-0123456789abcdef")),
-            Err(AuthError::MalformedCredentials)
+            Err(AuthError::Malformed)
         );
     }
 
@@ -458,7 +465,7 @@ mod tests {
     fn authenticate_rejects_wrong_secret_without_timing_shortcut() {
         assert_eq!(
             store_with_one().authenticate(Some("acme"), Some("token-ffffffffffffffff")),
-            Err(AuthError::InvalidCredentials)
+            Err(AuthError::Invalid)
         );
     }
 
@@ -538,8 +545,9 @@ mod tests {
         for key in 0..MAX_TRACKED_CLIENTS as u64 {
             assert!(limiter.check(key, 0).allowed);
         }
-        assert!(limiter.check(MAX_TRACKED_CLIENTS as u64, 1_000).allowed);
         assert_eq!(limiter.len(), MAX_TRACKED_CLIENTS);
+        assert!(limiter.check(MAX_TRACKED_CLIENTS as u64, 1_000).allowed);
+        assert_eq!(limiter.len(), 1);
     }
 
     #[test]
@@ -562,8 +570,14 @@ mod tests {
 
     #[test]
     fn client_key_depends_on_both_inputs() {
-        assert_ne!(client_key(Some("a"), Some("b")), client_key(Some("a"), None));
-        assert_eq!(client_key(Some("a"), Some("b")), client_key(Some("a"), Some("b")));
+        assert_ne!(
+            client_key(Some("a"), Some("b")),
+            client_key(Some("a"), None)
+        );
+        assert_eq!(
+            client_key(Some("a"), Some("b")),
+            client_key(Some("a"), Some("b"))
+        );
     }
 
     #[test]
@@ -574,15 +588,19 @@ mod tests {
 
     #[tokio::test]
     async fn middleware_passes_when_auth_disabled() {
-        use tower::{Service, ServiceExt};
+        use tower::ServiceExt;
         let state = SecurityState::new(Vec::new(), RateLimitConfig::new(10, 10));
-        let mut service =
-            axum::middleware::from_fn_with_state(state, middleware).service(axum::routing::get(|| async { "ok" }));
-        let request = axum::http::Request::builder()
-            .uri("/anything")
-            .body(axum::body::Body::empty())
+        let app = axum::Router::new()
+            .route("/", axum::routing::get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(state, middleware));
+        let response = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
             .unwrap();
-        let response = service.ready().await.unwrap().call(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
 
@@ -593,54 +611,71 @@ mod tests {
             vec![("acme".to_owned(), "token-0123456789abcdef".to_owned())],
             RateLimitConfig::new(10, 10),
         );
-        let mut service =
-            axum::middleware::from_fn_with_state(state, middleware).service(axum::routing::get(|| async { "ok" }));
-        let request = axum::http::Request::builder()
-            .body(axum::body::Body::empty())
+        let app = axum::Router::new()
+            .route("/", axum::routing::get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(state, middleware));
+        let response = app
+            .oneshot(
+                axum::http::Request::builder()
+                    .body(axum::body::Body::empty())
+                    .unwrap(),
+            )
+            .await
             .unwrap();
-        let response = service.ready().await.unwrap().call(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]
     async fn middleware_returns_429_with_retry_after_header() {
-        use tower::{Service, ServiceExt};
-        let state = SecurityState::new(Vec::new(), RateLimitConfig::new(1, 1));
-        let mut service =
-            axum::middleware::from_fn_with_state(state, middleware).service(axum::routing::get(|| async { "ok" }));
+        use tower::ServiceExt;
+        let state = SecurityState::new(Vec::new(), RateLimitConfig::new(2, 1));
+        let app = axum::Router::new()
+            .route("/", axum::routing::get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(state, middleware));
         for _ in 0..2 {
             let request = axum::http::Request::builder()
+                .uri("/")
                 .body(axum::body::Body::empty())
                 .unwrap();
-            service.ready().await.unwrap().call(request).await.unwrap();
+            let response = app.clone().oneshot(request).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
         }
         let request = axum::http::Request::builder()
-            .header(AUTHORIZATION, format!("{BEARER_PREFIX}token-0123456789abcdef"))
+            .uri("/")
             .body(axum::body::Body::empty())
             .unwrap();
-        let response = service.ready().await.unwrap().call(request).await.unwrap();
+        let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
         assert!(response.headers().contains_key("retry-after"));
     }
 
     #[tokio::test]
     async fn middleware_attaches_tenant_extension_on_success() {
-        use tower::{Service, ServiceExt};
+        use tower::ServiceExt;
         let state = SecurityState::new(
             vec![("acme".to_owned(), "token-0123456789abcdef".to_owned())],
             RateLimitConfig::new(10, 10),
         );
-        let mut service = axum::middleware::from_fn_with_state(state.clone(), middleware)
-            .service(axum::routing::get(
-                |axum::Extension(tenant): axum::Extension<AuthenticatedTenant>| async move { tenant.0 },
-            ));
+        let app = axum::Router::new()
+            .route(
+                "/",
+                axum::routing::get(
+                    |axum::Extension(tenant): axum::Extension<AuthenticatedTenant>| async move {
+                        tenant.0
+                    },
+                ),
+            )
+            .layer(axum::middleware::from_fn_with_state(state, middleware));
         let request = axum::http::Request::builder()
-            .header(AUTHORIZATION, format!("{BEARER_PREFIX}token-0123456789abcdef"))
+            .uri("/")
+            .header(
+                AUTHORIZATION,
+                format!("{BEARER_PREFIX}token-0123456789abcdef"),
+            )
             .header(TENANT_HEADER, "acme")
             .body(axum::body::Body::empty())
             .unwrap();
-        let response = service.ready().await.unwrap().call(request).await.unwrap();
+        let response = app.oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        drop(state);
     }
 }

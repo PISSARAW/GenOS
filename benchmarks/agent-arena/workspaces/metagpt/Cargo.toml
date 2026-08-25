@@ -1,0 +1,11 @@
+[workspace]
+
+[package]
+name = "metagpt"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+sha2 = "0.10"
+rand = "0.8"
+criterion = "0.3"
