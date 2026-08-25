@@ -281,8 +281,28 @@ async function preview({ db, workspace, reference }) {
   return { targetSnapshot: { ...target, metadata: parseMetadata(target.metadata) }, affectedFiles, reversePatch, affectedFilesCount: affectedFiles.length, durable: true };
 }
 
+// Commands executed inside snapshots run through a platform shell, so the
+// input must be constrained to a fixed vocabulary of test commands. Anything
+// else would be arbitrary remote code execution for the caller.
+const ALLOWED_TEST_COMMANDS = new Set(['npm test', 'npm run check', 'pytest', 'cargo test']);
+
+function isAllowedTestCommand(command) {
+  return ALLOWED_TEST_COMMANDS.has(String(command || '').trim().replace(/\s+/g, ' '));
+}
+
+function assertAllowedTestCommand(command) {
+  if (!isAllowedTestCommand(command)) {
+    throw Object.assign(
+      new Error(`Test command is not allowed. Allowed commands: ${[...ALLOWED_TEST_COMMANDS].join(', ')}.`),
+      { code: 'TEST_COMMAND_NOT_ALLOWED' }
+    );
+  }
+  return String(command).trim().replace(/\s+/g, ' ');
+}
+
 async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024, workspacePath }) {
   if (!String(command || '').trim()) throw new Error('A test command is required.');
+  const shellCommand = assertAllowedTestCommand(command);
   const runnerRoot = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-test-run-'));
   const workingDirectory = path.join(runnerRoot, 'workspace');
   let cleanupWorktree = null;
@@ -303,7 +323,7 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
     const { spawn } = require('child_process');
     // Use the platform shell so workspace test commands run identically on
     // Windows and POSIX hosts.
-    const commandText = String(command);
+    const commandText = shellCommand;
     const useWindowsShell = process.platform === 'win32';
     const shellExecutable = useWindowsShell ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
     const shellArgs = useWindowsShell ? ['/d', '/s', '/c', commandText] : ['-c', commandText];
@@ -333,4 +353,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot };
+module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, isAllowedTestCommand };
