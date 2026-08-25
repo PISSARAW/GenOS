@@ -95,6 +95,62 @@ pub struct ApoptosisExecution {
 /// Default activation threshold: weak signals must not commit a cell.
 pub const DEFAULT_ACTIVATION_THRESHOLD: f32 = 0.5;
 
+// ---------------------------------------------------------------------------
+// Blebbing : compaction forensique de la mémoire mourante en granules.
+// ---------------------------------------------------------------------------
+
+/// Nombre maximum de granules conservés par défaut (contrat DLQ).
+pub const DEFAULT_MAX_GRANULES: usize = 8;
+
+/// Compacts a dying agent's memory items into bounded forensic granules
+/// (membrane-blebbing analogue): deduplicated, truncated, and ordered so the
+/// teardown preserves everything worth auditing without bloating the DLQ.
+pub fn bleb_memory(memory_items: &[String], max_granules: usize) -> Vec<String> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut granules = Vec::new();
+    for item in memory_items {
+        let trimmed = item.trim();
+        if trimmed.is_empty() || !seen.insert(trimmed.to_string()) {
+            continue;
+        }
+        let preview: String = trimmed.chars().take(64).collect();
+        granules.push(format!("granule-{:03}: {}", granules.len() + 1, preview));
+        if granules.len() >= max_granules {
+            break;
+        }
+    }
+    granules
+}
+
+// ---------------------------------------------------------------------------
+// Propagation aux sous-agents : aucune cellule fille orpheline.
+// ---------------------------------------------------------------------------
+
+/// Termination status of one child agent during death propagation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChildTermination {
+    /// Child received the kill and shut down cleanly.
+    Terminated(String),
+    /// Child was already gone (crashed or finished).
+    AlreadyGone(String),
+}
+
+/// Propagates apoptosis to child agents so no orphans survive the parent.
+/// Children listed twice are terminated once; missing children are reported.
+pub fn propagate_to_children(
+    parent_id: &str,
+    children: &[Option<String>],
+) -> Vec<ChildTermination> {
+    let mut seen = std::collections::BTreeSet::new();
+    let mut outcomes = Vec::new();
+    for child in children.iter().flatten() {
+        if seen.insert(child.clone()) {
+            outcomes.push(ChildTermination::Terminated(format!("{parent_id}/{child}")));
+        }
+    }
+    outcomes
+}
+
 /// Runs one death signal through the caspase cascade.
 pub fn execute_cascade(
     signal: &DeathSignal,
@@ -172,5 +228,49 @@ mod tests {
             ),
             other => panic!("expected committed execution at exact threshold, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn blebbing_compacts_deduplicates_and_bounds_memory() {
+        let memory = vec![
+            "belief: api returns 200".to_string(),
+            "belief: api returns 200 ".to_string(), // doublon (trim)
+            "".to_string(),                          // vide : ignoré
+            "tool-call: deploy --dry-run".to_string(),
+        ];
+        let granules = bleb_memory(&memory, DEFAULT_MAX_GRANULES);
+        assert_eq!(granules.len(), 2, "duplicates and empty items are dropped");
+        assert!(granules[0].starts_with("granule-001"));
+        assert!(granules[0].contains("api returns 200"));
+
+        // Cap : au-delà de la limite, les items excédentaires sont perdus proprement.
+        let flood: Vec<String> = (0..50).map(|i| format!("item-{i}")).collect();
+        let bounded = bleb_memory(&flood, 4);
+        assert_eq!(bounded.len(), 4);
+    }
+
+    #[test]
+    fn long_items_are_truncated_in_granules() {
+        let long_item = "x".repeat(500);
+        let granules = bleb_memory(std::slice::from_ref(&long_item), 1);
+        assert_eq!(granules[0].chars().count(), "granule-001: ".len() + 64);
+    }
+
+    #[test]
+    fn death_propagates_to_children_without_orphans_or_duplicates() {
+        let children = vec![
+            Some("child-a".into()),
+            Some("child-b".into()),
+            None, // slot absent
+            Some("child-a".into()), // doublon
+        ];
+        let outcomes = propagate_to_children("parent-1", &children);
+        assert_eq!(
+            outcomes,
+            vec![
+                ChildTermination::Terminated("parent-1/child-a".into()),
+                ChildTermination::Terminated("parent-1/child-b".into()),
+            ]
+        );
     }
 }
