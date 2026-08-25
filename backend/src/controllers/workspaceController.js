@@ -276,6 +276,10 @@ async function bisect(req, res, next) {
   try {
     const { workspaceId, testCommand, timeoutMs } = req.body || {};
     if (!workspaceId || !String(testCommand || '').trim()) return res.status(400).json({ error: { code: 'BISECTION_INPUT_REQUIRED', message: 'workspaceId and testCommand are required.' } });
+    if (!snapshotStore.isAllowedTestCommand(testCommand)) {
+      return res.status(400).json({ error: { code: 'TEST_COMMAND_NOT_ALLOWED', message: 'testCommand must be one of the allow-listed test commands (npm test, npm run check, pytest, cargo test).' } });
+    }
+    const normalizedCommand = String(testCommand).trim().replace(/\s+/g, ' ');
     const db = await getDatabase();
     const workspace = await findWorkspace(db, req, workspaceId);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
@@ -285,11 +289,11 @@ async function bisect(req, res, next) {
     });
     if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
     const result = await bisectionService.bisectAnomalyAsync(history, async (snapshot) => {
-      const execution = await snapshotStore.runInSnapshot({ snapshot, command: testCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000), workspacePath: workspace.path });
+      const execution = await snapshotStore.runInSnapshot({ snapshot, command: normalizedCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000), workspacePath: workspace.path });
       snapshot._execution = execution;
       return execution.exitCode === 0;
     });
-    telemetry.emitEvent({ eventType: 'WORKSPACE_BISECTION_COMPLETED', agentId: req.user?.username || 'studio', action: 'BISECTION', detail: `Bisection completed for ${workspace.id}`, payload: { workspaceId: workspace.id, command: testCommand, result } });
+    telemetry.emitEvent({ eventType: 'WORKSPACE_BISECTION_COMPLETED', agentId: req.user?.username || 'studio', action: 'BISECTION', detail: `Bisection completed for ${workspace.id}`, payload: { workspaceId: workspace.id, command: normalizedCommand, result } });
     res.json(result);
   } catch (error) { next(error); }
 }
