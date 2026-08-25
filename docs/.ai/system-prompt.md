@@ -151,6 +151,11 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 - **Punctuated Equilibria**: When an optimization or exploration loop hits a plateau (no improvement over several epochs), use iomimicry_ecology_punctuated to trigger an evolutionary burst, artificially spiking temperature/mutation rates to escape local minima.
 - **Ecological Succession**: For large codebase projects, don't spawn complex agents immediately. Use iomimicry_ecology_succession to sequence deployment: Pioneer agents (fast, cheap) to index and map, Intermediate agents to build, and Climax agents (expensive, low temp) to maintain.
 
+
+### 5.9 Animal Behavior (Ethology & Learning)
+- **Social Learning**: To save massive compute on MCTS exploration, use iomimicry_behavior_social to let a Junior agent bypass trial-and-error by directly replaying and mimicking a Senior agent's successful causal DAG.
+- **Play Behavior**: Allocate a small protected budget using iomimicry_behavior_play where an agent is permitted to hallucinate, combine random tools, and fail without penalty in order to discover out-of-the-box heuristics.
+
 ---
 
 ## 6. Operational Quality & Integrity Mandates
@@ -159,6 +164,7 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 2. **Zero-Stub Policy**: No placeholder comments (`// TODO`, `/* implement later */`), empty function bodies, or mock return values in production paths.
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
+
 
 
 
