@@ -1,5 +1,6 @@
 use genos_core::{
-    AdaptiveMutation, AgentGenome, HorizontalGeneTransfer, PlasmidPackage, SosResponse,
+    AdaptiveMutation, AgentGenome, HorizontalGeneTransfer, PlasmidPackage, PlasmidRejection,
+    SosResponse,
 };
 
 /// Moteur d'évolution Lamarckienne responsable d'appliquer les mutations génétiques,
@@ -27,8 +28,13 @@ impl LamarckianFinetuner {
 
     /// Déclenche le processus de transfert horizontal de gènes, permettant à l'agent
     /// d'absorber instantanément un `PlasmidPackage` (ex. de nouveaux outils ou heuristiques).
-    pub fn trigger_horizontal_transfer(&self, genome: &mut AgentGenome, plasmid: &PlasmidPackage) {
-        genome.absorb_plasmid(plasmid);
+    /// Retourne une erreur si le plasmide est incompatible avec la résidence plasmidique.
+    pub fn trigger_horizontal_transfer(
+        &self,
+        genome: &mut AgentGenome,
+        plasmid: &PlasmidPackage,
+    ) -> Result<(), PlasmidRejection> {
+        genome.absorb_plasmid(plasmid)
     }
 
     /// Évalue l'état de stress métabolique ou d'échec de l'agent et déclenche,

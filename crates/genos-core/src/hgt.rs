@@ -126,17 +126,71 @@ pub struct PlasmidPackage {
     pub compatibility_group: String,
 }
 
+/// Rejets possibles lors de l'absorption d'un plasmide.
+#[derive(Clone, Debug, PartialEq)]
+pub enum PlasmidRejection {
+    /// Règle d'incompatibilité plasmidique : deux plasmides du même groupe
+    /// Inc ne peuvent pas coexister dans la même cellule.
+    IncompatibleGroup { resident_group: String, incoming_group: String },
+    /// Ce plasmide a déjà été absorbé par ce génome.
+    AlreadyAbsorbed,
+}
+
+/// Préfixe des marqueurs de capacité enregistrant la résidence plasmidique.
+const PLASMID_CAPABILITY_PREFIX: &str = "plasmid::";
+/// Séparateur du groupe d'incompatibilité dans le marqueur de capacité.
+const INC_GROUP_SEPARATOR: &str = "::inc::";
+
+fn plasmid_capability_name(plasmid_id: &str, compatibility_group: &str) -> String {
+    format!(
+        "{}{}{}{}",
+        PLASMID_CAPABILITY_PREFIX, plasmid_id, INC_GROUP_SEPARATOR, compatibility_group
+    )
+}
+
+/// Extrait le groupe d'incompatibilité d'un marqueur de capacité plasmidique.
+fn resident_inc_group(capability_name: &str) -> Option<&str> {
+    capability_name
+        .strip_prefix(PLASMID_CAPABILITY_PREFIX)?
+        .split(INC_GROUP_SEPARATOR)
+        .nth(1)
+}
+
 /// Trait définissant la capacité d'un agent à assimiler des fragments génétiques externes.
 pub trait HorizontalGeneTransfer {
-    /// Absorbe un plasmide et l'intègre directement au génome de l'agent.
-    fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage);
+    /// Absorbe un plasmide et l'intègre au génome de l'agent, sous réserve de
+    /// compatibilité plasmidique (un seul plasmide par groupe Inc).
+    fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage) -> Result<(), PlasmidRejection>;
 }
 
 impl HorizontalGeneTransfer for AgentGenome {
-    fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage) {
+    fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage) -> Result<(), PlasmidRejection> {
+        // Déjà résident ?
+        let marker = plasmid_capability_name(&plasmid.id, &plasmid.compatibility_group);
+        if self.capabilities.iter().any(|c| c.name == marker) {
+            return Err(PlasmidRejection::AlreadyAbsorbed);
+        }
+        // Incompatibilité de groupe : un plasmide résident du même groupe bloque l'entrée.
+        for capability in &self.capabilities {
+            if let Some(resident_group) = resident_inc_group(&capability.name) {
+                if resident_group == plasmid.compatibility_group {
+                    return Err(PlasmidRejection::IncompatibleGroup {
+                        resident_group: resident_group.to_string(),
+                        incoming_group: plasmid.compatibility_group.clone(),
+                    });
+                }
+            }
+        }
+
         if let Some(chromosome) = self.cognition.chromosomes.first_mut() {
             chromosome.operons.extend(plasmid.operons.clone());
         }
+        // Traçabilité de la résidence plasmidique.
+        self.capabilities.push(crate::genome::Capability {
+            name: marker,
+            enabled: true,
+        });
+        Ok(())
     }
 }
 
@@ -261,5 +315,61 @@ mod tests {
         let mut bare = genome_with(&[]);
         bare.cognition.chromosomes.clear();
         assert_eq!(tn.insert_into(&mut bare, 1), Err(TranspositionError::NoTargetChromosome));
+    }
+
+    fn plasmid(id: &str, group: &str) -> PlasmidPackage {
+        PlasmidPackage {
+            id: id.to_string(),
+            origin_of_transfer: "agent://donor".to_string(),
+            operons: vec![Operon {
+                promoter: "constitutive".to_string(),
+                genes: vec![locus("new_skill")],
+                chromatin: Default::default(),
+            }],
+            compatibility_group: group.to_string(),
+        }
+    }
+
+    #[test]
+    fn plasmid_absorption_records_residency() {
+        let mut g = genome_with(&["exploration"]);
+        g.absorb_plasmid(&plasmid("P1", "IncA")).unwrap();
+        // Les opérons sont intégrés au premier chromosome.
+        assert_eq!(g.cognition.chromosomes[0].operons.len(), 1);
+        // La résidence est tracée.
+        assert!(g.capabilities.iter().any(|c| c.name.contains("P1")));
+    }
+
+    #[test]
+    fn same_incompatibility_group_is_rejected() {
+        let mut g = genome_with(&["exploration"]);
+        g.absorb_plasmid(&plasmid("P1", "IncA")).unwrap();
+        assert_eq!(
+            g.absorb_plasmid(&plasmid("P2", "IncA")),
+            Err(PlasmidRejection::IncompatibleGroup {
+                resident_group: "IncA".to_string(),
+                incoming_group: "IncA".to_string()
+            })
+        );
+        // Le plasmide rejeté n'a pas intégré d'opéron.
+        assert_eq!(g.cognition.chromosomes[0].operons.len(), 1);
+    }
+
+    #[test]
+    fn different_compatibility_groups_coexist() {
+        let mut g = genome_with(&["exploration"]);
+        g.absorb_plasmid(&plasmid("P1", "IncA")).unwrap();
+        g.absorb_plasmid(&plasmid("P2", "IncB")).unwrap();
+        assert_eq!(g.cognition.chromosomes[0].operons.len(), 2);
+    }
+
+    #[test]
+    fn double_absorption_of_same_plasmid_is_rejected() {
+        let mut g = genome_with(&["exploration"]);
+        g.absorb_plasmid(&plasmid("P1", "IncA")).unwrap();
+        assert_eq!(
+            g.absorb_plasmid(&plasmid("P1", "IncA")),
+            Err(PlasmidRejection::AlreadyAbsorbed)
+        );
     }
 }
