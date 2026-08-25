@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorStrategy {
@@ -25,10 +25,10 @@ pub enum ErrorStrategy {
 }
 
 pub trait ResilienceProtocol {
-    /// Évalue l'erreur survenue et sélectionne la meilleure stratégie de survie.
+    /// Ã‰value l'erreur survenue et sÃ©lectionne la meilleure stratÃ©gie de survie.
     fn evaluate_error(error_severity: u32, context_state: &str) -> ErrorStrategy;
 
-    /// Déclenche l'exécution de la stratégie de résilience sélectionnée.
+    /// DÃ©clenche l'exÃ©cution de la stratÃ©gie de rÃ©silience sÃ©lectionnÃ©e.
     fn execute_recovery(strategy: &ErrorStrategy, agent_id: &str) -> Result<(), String>;
 }
 
@@ -44,4 +44,5 @@ pub mod mimivire;
 pub mod provocation;
 pub mod viral_dynamics;
 pub mod virophage;
-pub mod prophage;pub mod codit;
+pub mod prophage;
+pub mod codit;
