@@ -160,6 +160,70 @@ impl MorphogenesisEngine {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Analyse du motif : régime de Turing et longueur d'onde dominante.
+// ---------------------------------------------------------------------------
+
+/// Régime dynamique d'un jeu de paramètres Gray-Scott (carte de phases).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PatternRegime {
+    /// Aucune auto-catalyse viable : champ homogène mort.
+    Dead,
+    /// Taches isolées d'activateur (leaders ponctuels).
+    Spots,
+    /// Bandes continues (équipes alignées).
+    Stripes,
+    /// Division incontrôlée des taches : régime chaotique à éviter.
+    Proliferating,
+}
+
+/// Classification approchée de la carte de phases Gray-Scott standard :
+/// en dessous du seuil minimal de feed ou de kill, rien ne s'amorce ;
+/// au-delà, les bandes précèdent la prolifération chaotique.
+pub fn classify_regime(feed: f32, kill: f32) -> PatternRegime {
+    if !(0.010..=0.080).contains(&feed) || !(0.050..=0.070).contains(&kill) {
+        return PatternRegime::Dead;
+    }
+    if feed >= 0.055 {
+        PatternRegime::Stripes
+    } else {
+        PatternRegime::Spots
+    }
+}
+
+impl MorphogenesisEngine {
+    /// Longueur d'onde dominante empirique du motif : écartement moyen entre
+    /// maxima locaux consécutifs de l'activateur, moyenné sur toutes les lignes.
+    /// Retourne `None` si aucun pic n'est détecté (champ plat).
+    pub fn dominant_pattern_wavelength(&self) -> Option<f32> {
+        let mean = self.activator.iter().sum::<f32>() / self.activator.len() as f32;
+        let threshold = mean * 1.5;
+        let mut spacings = Vec::new();
+        for y in 0..self.size {
+            let mut last_peak: Option<usize> = None;
+            for x in 0..self.size {
+                let value = self.activator[self.idx(x, y)];
+                if value > threshold && value >= self.activator[self.idx(x + 1, y)] {
+                    // Pic local le long de la ligne (périodique).
+                    if let Some(prev) = last_peak {
+                        spacings.push((x - prev) as f32);
+                    }
+                    last_peak = Some(x);
+                }
+            }
+        }
+        if spacings.is_empty() {
+            return None;
+        }
+        Some(spacings.iter().sum::<f32>() / spacings.len() as f32)
+    }
+
+    /// Le moteur opère-t-il dans un régime capable de produire un motif ?
+    pub fn is_turing_regime(&self) -> bool {
+        classify_regime(self.feed, self.kill) != PatternRegime::Dead
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -170,6 +234,30 @@ mod tests {
         // c'est l'essence même de l'auto-organisation Turing.
         let mut engine = MorphogenesisEngine::new(24, 42);
         assert!(engine.run_until_pattern(400, 0.1, 1e-4));
+    }
+
+    #[test]
+    fn patterned_field_has_a_finite_dominant_wavelength() {
+        let mut engine = MorphogenesisEngine::new(24, 42);
+        engine.run_until_pattern(600, 1.0, 1e-4);
+        let wavelength = engine.dominant_pattern_wavelength().expect("peaks exist");
+        // La longueur d'onde est au minimum de 2 cellules et tient dans la grille.
+        assert!(wavelength >= 2.0 && wavelength <= engine.size as f32);
+        assert!(engine.is_turing_regime());
+    }
+
+    #[test]
+    fn phase_map_classifies_dead_spots_and_stripes() {
+        assert_eq!(classify_regime(0.005, 0.06), PatternRegime::Dead);
+        assert_eq!(classify_regime(0.034, 0.0618), PatternRegime::Spots);
+        assert_eq!(classify_regime(0.060, 0.062), PatternRegime::Stripes);
+        assert_eq!(classify_regime(0.09, 0.062), PatternRegime::Dead, "feed saturé = régime non viable");
+        // Le moteur par défaut tombe dans le régime à taches.
+        let engine = MorphogenesisEngine::new(8, 42);
+        assert_eq!(
+            classify_regime(engine.feed, engine.kill),
+            PatternRegime::Spots
+        );
     }
 
     #[test]
