@@ -6,10 +6,12 @@
 
 pub mod chaperone;
 pub mod cycle_checkpoints;
+pub mod interferon;
 pub mod morphogenesis;
 pub mod vaccination;
 
 pub use chaperone::*;
 pub use cycle_checkpoints::*;
+pub use interferon::*;
 pub use morphogenesis::*;
 pub use vaccination::*;

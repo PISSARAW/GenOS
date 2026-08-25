@@ -274,5 +274,23 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["malicious"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_interferon_emit",
+            "Emit Interferon Alert",
+            "Prime neighboring capsules into an antiviral state (sensitivity boost, frozen external writes) after a confirmed threat detection.",
+        )
+        .schema(object_schema(
+            [
+                ("source_id", string_schema("Capsule that confirmed the threat")),
+                ("signature", string_schema("Confirmed threat signature tokens")),
+                (
+                    "neighbors",
+                    string_array_schema("Neighborhood capsule ids inside the paracrine radius"),
+                ),
+                ("ttl_seconds", string_schema("Antiviral state lifetime in seconds (default 300)")),
+            ],
+            &["source_id", "signature", "neighbors"],
+        ))
+        .build(),
     ]
 }
