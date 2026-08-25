@@ -61,6 +61,36 @@ pub fn migration_step(demes: &mut [Vec<AgentGenome>], migration_rate: f64) {
     }
 }
 
+/// Modélise l'Effet Fondateur.
+///
+/// **Logique Évolutive :**
+/// Une nouvelle population (colonie) est fondée par un très petit échantillon
+/// aléatoire — indépendant de la fitness — de la population source. La colonie
+/// ne transporte qu'une fraction *biaisée* de la diversité génétique parentale :
+/// sa variance est typiquement inférieure à celle de la source, et les allèles
+/// (ici : valeurs de gènes) rares ont une forte probabilité d'être perdus.
+///
+/// Contrairement au bottleneck (qui ampute la population existante), le fondateur
+/// CRÉE une nouvelle lignée à partir de `founder_count` individus tirés dans
+/// `source`. L'échantillonnage est déterministe pour un même `seed`.
+pub fn founder_effect(
+    source: &[AgentGenome],
+    founder_count: usize,
+    seed: u64,
+) -> Vec<AgentGenome> {
+    if source.is_empty() || founder_count == 0 {
+        return Vec::new();
+    }
+    let mut rng = rand::SeedableRng::seed_from_u64(seed);
+    let mut indices: Vec<usize> = (0..source.len()).collect();
+    indices.shuffle(&mut rng);
+    indices
+        .into_iter()
+        .take(founder_count.min(source.len()))
+        .filter_map(|i| source.get(i).cloned())
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,6 +147,57 @@ mod tests {
         genetic_drift_bottleneck(&mut pop, 2);
 
         assert_eq!(pop.len(), 2);
+    }
+
+    #[test]
+    fn test_founder_effect_reduces_diversity_and_is_deterministic() {
+        use genos_core::{Chromosome, Locus};
+        let mut make = |id: &str, exploration: f32| {
+            let mut g = make_genome(id);
+            g.cognition.chromosomes.push(Chromosome {
+                name: "C1".into(),
+                loci: vec![Locus {
+                    gene_name: "exploration".into(),
+                    value: exploration,
+                    epigenetic_marker: 0.0,
+                }],
+                operons: vec![],
+            });
+            g
+        };
+        // Population source très diversifiée : 10 valeurs étalées sur [0, 1].
+        let source: Vec<AgentGenome> = (0..10)
+            .map(|i| make(&format!("s{i}"), i as f32 / 9.0))
+            .collect();
+
+        // La colonie est fondée par 3 individus seulement.
+        let colony = founder_effect(&source, 3, 42);
+        assert_eq!(colony.len(), 3);
+        assert!(colony.iter().all(|g| g.id.0.starts_with("s")));
+
+        // Déterminisme : même seed => même colonie.
+        let again = founder_effect(&source, 3, 42);
+        assert_eq!(
+            colony.iter().map(|g| &g.id).collect::<Vec<_>>(),
+            again.iter().map(|g| &g.id).collect::<Vec<_>>()
+        );
+
+        // La variance de la colonie ne peut jamais excéder celle de la source.
+        let variance_of = |pop: &[AgentGenome]| -> f64 {
+            let vals: Vec<f64> = pop
+                .iter()
+                .map(|g| g.cognition.get_drive("exploration").unwrap() as f64)
+                .collect();
+            let mean = vals.iter().sum::<f64>() / vals.len() as f64;
+            vals.iter().map(|v| (v - mean) * (v - mean)).sum::<f64>() / vals.len() as f64
+        };
+        assert!(variance_of(&colony) <= variance_of(&source) + 1e-12);
+
+        // Cas dégénérés.
+        assert!(founder_effect(&source, 0, 1).is_empty());
+        assert!(founder_effect(&[], 5, 1).is_empty());
+        // Demander plus de fondateurs que la source borne à la taille source.
+        assert_eq!(founder_effect(&source, 50, 7).len(), 10);
     }
 
     #[test]
