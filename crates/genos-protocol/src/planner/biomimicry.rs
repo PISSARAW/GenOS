@@ -309,6 +309,16 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_neoteny_quota" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "neoteny");
+            planner.push_flag("--action", "quota");
+            for key in ["total_agents", "neotenic_agents", "request", "fraction"] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
