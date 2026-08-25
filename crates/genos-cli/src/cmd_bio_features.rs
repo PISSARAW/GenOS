@@ -21,6 +21,7 @@ pub async fn cmd_biomimicry_feature(
         ("metamorphosis", "transition") => crate::cmd_bio_development::metamorphosis_transition(params),
         ("regeneration", "tissue") => crate::cmd_bio_development::regeneration_tissue(params),
         ("endocrine", "modulate") => crate::cmd_bio_neuro::endocrine_modulate(params),
+        ("reflex", "trigger") => crate::cmd_bio_neuro::reflex_trigger(params),
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
@@ -381,6 +382,7 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
+
 
 
 
