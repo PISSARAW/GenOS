@@ -8,6 +8,7 @@ pub mod chaperone;
 pub mod cycle_checkpoints;
 pub mod embryogenesis;
 pub mod hox_genes;
+pub mod canalization;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -23,6 +24,7 @@ pub use chaperone::*;
 pub use cycle_checkpoints::*;
 pub use embryogenesis::*;
 pub use hox_genes::*;
+pub use canalization::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -33,5 +35,6 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
