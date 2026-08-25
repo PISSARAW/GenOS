@@ -162,7 +162,7 @@ mod tests {
         // Remplir le locus avec des genes tres distincts.
         for i in 0..MAX_CASSETTES_PER_LINEAGE {
             let x = i as f32 * 100.0;
-            integrator.integrate_harvest(&[gene(format!("h{i}"), x)], &mut locus);
+            integrator.integrate_harvest(&[gene(&format!("h{i}"), x)], &mut locus);
         }
         let outcomes = integrator.integrate_harvest(&[gene("overflow", -50.0)], &mut locus);
         assert_eq!(outcomes[0].1, IntegrationOutcome::LocusFull);
