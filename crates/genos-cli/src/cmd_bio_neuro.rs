@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Result};
-use genos_core::biomimicry::{EndocrineSystem, Hormone, ReflexArc, SensoryStimulus, MotorResponse};
+use genos_core::biomimicry::{EndocrineSystem, Hormone, ReflexArc, SensoryStimulus, MotorResponse, DopaminergicSystem, RpeSignal};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
@@ -72,6 +72,35 @@ pub fn reflex_trigger(params: &[String]) -> Result<()> {
         MotorResponse::Ignore => {
             println!("Stimulus below threshold. Routing to Planner (Brain) for slow evaluation.");
         }
+    }
+    
+    Ok(())
+}
+
+pub fn neuromodulation_rpe(params: &[String]) -> Result<()> {
+    let node_id = param_value(params, "node_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param node_id=<id>"))?;
+        
+    let expected: f64 = param_value(params, "expected_reward")
+        .ok_or_else(|| anyhow::anyhow!("missing --param expected_reward=<val>"))?
+        .parse()?;
+        
+    let actual: f64 = param_value(params, "actual_reward")
+        .ok_or_else(|| anyhow::anyhow!("missing --param actual_reward=<val>"))?
+        .parse()?;
+
+    let dopaminergic = DopaminergicSystem::new(0.3, 0.5); // baseline 0.3, LR 0.5
+    let signal = RpeSignal { expected_reward: expected, actual_reward: actual };
+    
+    let dopamine = dopaminergic.compute_rpe(signal);
+    
+    println!("Node {} RPE Evaluation. Expected: {}, Actual: {}", node_id, expected, actual);
+    println!("Dopamine level: {:.2}", dopamine);
+    
+    if dopaminergic.is_priority_pathway(dopamine) {
+        println!("DOPAMINE SPIKE! Pathway reinforced for priority exploration.");
+    } else if dopamine < dopaminergic.baseline_dopamine {
+        println!("DOPAMINE DIP. Pathway marked for depression.");
     }
     
     Ok(())
