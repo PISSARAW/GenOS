@@ -1,6 +1,7 @@
 use genos_core::AgentGenome;
 use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::SeedableRng;
 
 /// ModÃ©lise la DÃ©rive GÃ©nÃ©tique (Effet de Goulet d'Ã‰tranglement).
 ///
