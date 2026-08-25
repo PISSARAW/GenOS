@@ -4,6 +4,7 @@
 //! primitives (capsules, genomes, worlds, events) while preserving the
 //! fundamental invariants from `spec/GENOME_SPEC.md`.
 
+pub mod bet_hedging;
 pub mod chaperone;
 pub mod cycle_checkpoints;
 pub mod interferon;
@@ -13,9 +14,11 @@ pub mod proceduralization;
 pub mod reciprocity;
 pub mod sar;
 pub mod senescence;
+pub mod speciation;
 pub mod telomere;
 pub mod vaccination;
 
+pub use bet_hedging::*;
 pub use chaperone::*;
 pub use cycle_checkpoints::*;
 pub use interferon::*;
@@ -25,5 +28,6 @@ pub use proceduralization::*;
 pub use reciprocity::*;
 pub use sar::*;
 pub use senescence::*;
+pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;

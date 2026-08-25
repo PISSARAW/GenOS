@@ -2,7 +2,7 @@
 //! Kept separate from `biomimicry.rs` to respect the 400-line file budget;
 //! merged into the catalog by `biomimicry_specs()`.
 
-use crate::schema::{object_schema, string_schema};
+use crate::schema::{object_schema, string_array_schema, string_schema};
 use crate::spec_builder::SpecBuilder;
 use crate::types::ToolSpec;
 
@@ -62,6 +62,38 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
                 ("fraction", string_schema("Reserved fraction, clamped to 0.05..0.5 (default 0.2)")),
             ],
             &["total_agents", "neotenic_agents", "request"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_speciation_check",
+            "Speciation Compatibility Check",
+            "Assess breeding/merge compatibility between two lineages from their allele sets: same species, hybrid-sterile, or incompatible species.",
+        )
+        .schema(object_schema(
+            [
+                ("allele-a", string_array_schema("Allele markers of lineage A")),
+                ("allele-b", string_array_schema("Allele markers of lineage B")),
+                ("hybrid_threshold", string_schema("Distance above which hybrids are sterile (default 0.30)")),
+                ("speciation_threshold", string_schema("Distance above which species are incompatible (default 0.60)")),
+            ],
+            &["allele-a", "allele-b"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_bet_hedge_allocate",
+            "Bet-Hedging Allocation",
+            "Split a fork-generation budget between the main bet and evenly-spread insurance scenarios; the insured fraction grows with environmental entropy.",
+        )
+        .schema(object_schema(
+            [
+                ("total_budget", string_schema("Total budget units for this fork generation")),
+                ("entropy", string_schema("Environmental uncertainty in [0,1] (default 0.3)")),
+                (
+                    "scenario",
+                    string_array_schema("Plausible scenario as name:expected_fitness (repeatable)"),
+                ),
+            ],
+            &["total_budget", "scenario"],
         ))
         .build(),
     ]

@@ -6,6 +6,7 @@ mod cmd_bio_features;
 mod cmd_dev;
 mod cmd_bio_immunity;
 mod cmd_eval;
+mod cmd_bio_evolution;
 mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
@@ -13,6 +14,7 @@ mod cmd_platform;
 mod cmd_prompt;
 mod cmd_replay;
 mod cmd_resilience;
+mod cmd_viral;
 mod cmd_snapshot;
 mod cmd_division;
 mod cmd_workflow;
@@ -186,12 +188,12 @@ async fn main() -> Result<()> {
             ResilienceSubcommands::ViralStatus(args) => cmd_resilience_viral_status(args).await,
             ResilienceSubcommands::Burst(args) => cmd_resilience_burst(args).await,
             ResilienceSubcommands::CassetteIntegrate(args) => {
-                cmd_resilience_cassette_integrate(args).await
+                crate::cmd_viral::cmd_resilience_cassette_integrate(args).await
             }
             ResilienceSubcommands::CassetteInduce(args) => {
-                cmd_resilience_cassette_induce(args).await
+                crate::cmd_viral::cmd_resilience_cassette_induce(args).await
             }
-            ResilienceSubcommands::Transduce(args) => cmd_resilience_transduce(args).await,
+            ResilienceSubcommands::Transduce(args) => crate::cmd_viral::cmd_resilience_transduce(args).await,
             ResilienceSubcommands::VirophageDeploy(args) => {
                 cmd_resilience_virophage_deploy(args).await
             }
