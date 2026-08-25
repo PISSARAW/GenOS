@@ -130,26 +130,54 @@ impl Nest {
 }
 
 /// Rôles pour le polyéthisme (Polyéthisme).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Role {
     Forager,
     Builder,
     Nurse,
 }
 
+// Âge-polyéthisme : la rotation des rôles suit l'âge de l'individu.
+pub const NURSE_MAX_AGE: u32 = 10;
+pub const BUILDER_MAX_AGE: u32 = 20;
+
+impl Role {
+    /// Rôle canonique pour un âge donné : couvain (jeune) -> construction
+    /// (mûr) -> fourrageage (âgé). C'est le schéma d'âge-polyéthisme observé
+    /// chez les fourmis ouvrières.
+    pub fn for_age(age: u32) -> Self {
+        if age < NURSE_MAX_AGE {
+            Role::Nurse
+        } else if age < BUILDER_MAX_AGE {
+            Role::Builder
+        } else {
+            Role::Forager
+        }
+    }
+}
+
 pub struct Agent {
     pub id: usize,
     pub role: Role,
     pub tier: ModelTier,
+    /// Âge de l'ouvrière en cycles ; pilote sa rotation de rôle.
+    pub age: u32,
 }
 
 impl Agent {
     pub fn new(id: usize, role: Role, tier: ModelTier) -> Self {
-        Self { id, role, tier }
+        Self { id, role, tier, age: 0 }
     }
 
     pub fn assign_role(&mut self, new_role: Role) {
         self.role = new_role;
+    }
+
+    /// Vieillit d'un cycle et applique l'âge-polyéthisme : le rôle est mis à
+    /// jour automatiquement selon la tranche d'âge atteinte.
+    pub fn age_one_cycle(&mut self) {
+        self.age += 1;
+        self.role = Role::for_age(self.age);
     }
 
     pub fn perform_task(&self, nest: &mut Nest, env: &mut Environment) {
@@ -165,6 +193,43 @@ impl Agent {
                 // S'occupe du couvain, simplifié pour cet exemple.
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod age_polyethism_tests {
+    use super::*;
+
+    #[test]
+    fn roles_rotate_with_age() {
+        let mut ant = Agent::new(1, Role::Nurse, ModelTier::FlashLite);
+        assert_eq!(ant.role, Role::Nurse);
+
+        // Jeune : nurse jusqu'à NURSE_MAX_AGE.
+        for _ in 0..NURSE_MAX_AGE {
+            assert_eq!(ant.role, Role::Nurse);
+            ant.age_one_cycle();
+        }
+        // Mûr : builder.
+        for _ in 0..(BUILDER_MAX_AGE - NURSE_MAX_AGE) {
+            assert_eq!(ant.role, Role::Builder);
+            ant.age_one_cycle();
+        }
+        // Âgée : forager, définitivement.
+        for _ in 0..5 {
+            assert_eq!(ant.role, Role::Forager);
+            ant.age_one_cycle();
+        }
+    }
+
+    #[test]
+    fn manual_assignment_is_possible_but_age_wins_next_cycle() {
+        let mut ant = Agent::new(2, Role::Nurse, ModelTier::Pro);
+        ant.assign_role(Role::Forager);
+        assert_eq!(ant.role, Role::Forager);
+        // Le cycle suivant réaligne le rôle sur la tranche d'âge.
+        ant.age_one_cycle();
+        assert_eq!(ant.role, Role::for_age(ant.age));
     }
 }
 
