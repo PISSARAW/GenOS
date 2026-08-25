@@ -19,7 +19,9 @@ function hashKey(key) {
 async function resolveUserFromHeaders(headers) {
   const authHeader = headers.authorization || headers['x-access-key'];
   if (!authHeader) {
-    return { role: 'viewer', permissions: ROLE_PERMISSIONS.viewer, username: 'anonymous_viewer', isAuthenticated: false };
+    // Anonymous callers get no permissions. Every protected route must
+    // authenticate; there is deliberately no implicit "viewer" fallback.
+    return { role: 'anonymous', permissions: [], username: 'anonymous', isAuthenticated: false };
   }
 
   const rawToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : authHeader.trim();
@@ -63,7 +65,7 @@ async function resolveUserFromHeaders(headers) {
     console.error('[Auth] Error querying access keys:', err.message);
   }
 
-  return { role: 'viewer', permissions: ROLE_PERMISSIONS.viewer, username: 'anonymous_viewer', isAuthenticated: false };
+  return { role: 'anonymous', permissions: [], username: 'anonymous', isAuthenticated: false };
 }
 
 function requirePermission(permission) {
@@ -108,9 +110,29 @@ function requireRole(allowedRoles) {
   };
 }
 
+// Endpoints reachable without an Authorization header. Everything else
+// requires a valid access key or session; per-route permission checks still
+// apply on top of this global gate.
+const PUBLIC_PATHS = new Set(['/healthz', '/readyz', '/livez']);
+const PUBLIC_PREFIXES = ['/api/auth/', '/api/sso/', '/api/security/csrf'];
+
+async function requireAuthentication(req, res, next) {
+  try {
+    if (req.method === 'OPTIONS' || PUBLIC_PATHS.has(req.path)) return next();
+    if (PUBLIC_PREFIXES.some((prefix) => req.path.startsWith(prefix))) return next();
+    const user = await resolveUserFromHeaders(req.headers);
+    req.user = user;
+    if (!user.isAuthenticated) {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Authentication is required to access this endpoint.' } });
+    }
+    next();
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   ROLE_PERMISSIONS,
   resolveUserFromHeaders,
+  requireAuthentication,
   requirePermission,
   requireRole,
   hashKey
