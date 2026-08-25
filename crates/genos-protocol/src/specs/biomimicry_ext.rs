@@ -8,6 +8,8 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_theory_autopoiesis", "Autopoiesis", "Verify the swarm's autonomous viability.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("compute_budget", string_schema("Compute budget")), ("error_rate", string_schema("Error rate"))], &["swarm_id"])).build(),
+        SpecBuilder::new("biomimicry_lifecycle_senescence", "Cellular Senescence", "Detect and kill zombie agents.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("max_epochs", string_schema("Max lifespan")), ("current_epoch", string_schema("Current age"))], &["agent_id"])).build(),
         SpecBuilder::new("biomimicry_plant_seed", "Seed Dormancy", "Package the agent into a dormant compressed state until specific conditions are met.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("action", string_schema("pack | check")), ("condition", string_schema("Germination condition")), ("environment", string_schema("Current environment (for check)"))], &["agent_id", "action"])).build(),
         SpecBuilder::new("biomimicry_plant_abscission", "Abscission", "Sever a stuck or hallucinating sub-module and reclaim its budget before it drags down the swarm.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("target_module", string_schema("Module to sever")), ("reclaim_budget", string_schema("Tokens to reclaim"))], &["swarm_id", "target_module"])).build(),
         SpecBuilder::new("biomimicry_cellular_endosymbiosis", "Endosymbiosis", "Engulf an external slow tool/API and integrate it as a fast native internal organelle (e.g. WASM module).").schema(object_schema([("agent_id", string_schema("Agent ID")), ("external_tool", string_schema("Name of external tool")), ("success_rate", string_schema("Evaluation logic rate"))], &["agent_id", "external_tool"])).build(),
@@ -122,6 +124,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 

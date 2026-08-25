@@ -31,6 +31,8 @@ pub mod endosymbiosis;
 pub mod blood_brain_barrier;
 pub mod seed_dormancy;
 pub mod abscission;
+pub mod autopoiesis;
+pub mod senescence;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -69,6 +71,8 @@ pub use endosymbiosis::*;
 pub use blood_brain_barrier::*;
 pub use seed_dormancy::*;
 pub use abscission::*;
+pub use autopoiesis::*;
+pub use senescence::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -93,4 +97,7 @@ pub use vaccination::*;
 
 
 
+
+pub mod autopoiesis;
+pub use autopoiesis::*;
 
