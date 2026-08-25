@@ -68,6 +68,50 @@ impl Operon {
         self.chromatin.is_euchromatin()
     }
 
+    /// Vérifie si le promoteur satisfait la condition posée par l'état courant de
+    /// l'agent. Le champ `promoter` porte une expression de la forme
+    /// "<variable> <operator> <value>" (même grammaire que les gènes régulateurs,
+    /// ex. `"consecutive_failures > 3"`). Un promoteur vide ou `"constitutive"`
+    /// est toujours satisfait (transcription constitutive).
+    pub fn promoter_satisfied(&self, state: &crate::state::AgentState) -> bool {
+        let promoter = self.promoter.trim();
+        if promoter.is_empty() || promoter.eq_ignore_ascii_case("constitutive") {
+            return true;
+        }
+        crate::epigenetics::evaluate_condition(promoter, state)
+    }
+
+    /// Induction transcriptionnelle : si le promoteur est satisfait, la chromatine
+    /// se détend (dé-méthylation) jusqu'à libérer la transcription, puis les gènes
+    /// sont co-exprimés. Si le promoteur n'est pas satisfait, l'opéron est réprimé
+    /// (condensation). Retourne `Some(drives)` si des gènes ont été transcrits.
+    pub fn transcribe_if_induced(
+        &mut self,
+        state: &crate::state::AgentState,
+    ) -> Option<BTreeMap<String, f32>> {
+        if self.promoter_satisfied(state) {
+            // Induction : dé-méthylation complète pour garantir la transcription.
+            let methylation = self.chromatin.methylation_level;
+            if methylation > HETEROCHROMATIN_METHYLATION_THRESHOLD {
+                self.chromatin.relax(methylation);
+            }
+            let drives = self.expressed_drives();
+            if drives.is_empty() {
+                None
+            } else {
+                Some(drives)
+            }
+        } else {
+            // Répression : condensation au-delà du seuil d'hétérochromatine.
+            let methylation = self.chromatin.methylation_level;
+            if methylation <= HETEROCHROMATIN_METHYLATION_THRESHOLD {
+                self.chromatin
+                    .condense(HETEROCHROMATIN_METHYLATION_THRESHOLD + 0.1 - methylation);
+            }
+            None
+        }
+    }
+
     /// Valeur exprimée d'un gène de cet opéron, pondérée par le facteur chromatique.
     /// Retourne `None` si le gène est absent ou si l'opéron est masqué (hétérochromatine).
     pub fn expressed_value_of(&self, gene_name: &str) -> Option<f32> {
@@ -178,5 +222,86 @@ mod tests {
         assert_eq!(c.methylation_level, 1.0);
         c.relax(3.0);
         assert_eq!(c.methylation_level, 0.0);
+    }
+
+    mod promoter_tests {
+        use super::*;
+        use crate::state::{
+            AgentState, EventCursor, ExecutionMetadata, WorkingMemory,
+        };
+
+        fn mock_state(failures: usize) -> AgentState {
+            AgentState {
+                genome: crate::state::GenomeRef {
+                    genome_id: crate::ids::GenomeId::new(),
+                    version: "1".to_string(),
+                },
+                working_memory: WorkingMemory { items: vec![] },
+                semantic_memory: crate::state::SemanticMemory { refs: vec![] },
+                episodic_memory: crate::state::EpisodicMemory { refs: vec![] },
+                memories: vec![],
+                tool_outputs: (0..failures)
+                    .map(|_| crate::state::ToolOutputRecord {
+                        id: crate::ids::ToolOutputId::new(),
+                        tool_name: "test".to_string(),
+                        input: serde_json::Value::Null,
+                        output: serde_json::Value::Null,
+                        success: false,
+                        receipt: None,
+                        is_tainted: false,
+                        branch_id: crate::ids::BranchId::new(),
+                        created_at: chrono::Utc::now(),
+                        generating_event_id: crate::ids::EventId::new(),
+                    })
+                    .collect(),
+                beliefs: vec![],
+                active_goals: vec![],
+                world_id: crate::ids::WorldId::new(),
+                event_cursor: EventCursor {
+                    branch_id: crate::ids::BranchId::new(),
+                    sequence: 0,
+                    last_event_id: None,
+                },
+                execution: ExecutionMetadata {
+                    step: 0,
+                    last_model_provider: None,
+                },
+                artifact_refs: vec![],
+            }
+        }
+
+        #[test]
+        fn constitutive_promoter_is_always_satisfied() {
+            let mut o = operon(0.0, 0.0);
+            o.promoter = "constitutive".to_string();
+            assert!(o.promoter_satisfied(&mock_state(0)));
+            assert!(o.promoter_satisfied(&mock_state(9)));
+            let mut empty = operon(0.0, 0.0);
+            empty.promoter = String::new();
+            assert!(empty.promoter_satisfied(&mock_state(0)));
+        }
+
+        #[test]
+        fn conditional_promoter_induces_transcription() {
+            // Opéron de gestion d'échec : induit seulement après 3 échecs consécutifs.
+            let mut o = operon(0.0, 0.0);
+            o.promoter = "consecutive_failures > 2".to_string();
+            // Pas d'échec => réprimé.
+            assert_eq!(o.transcribe_if_induced(&mock_state(0)), None);
+            assert!(!o.is_active());
+            // 3 échecs => induit et co-exprimé.
+            let drives = o.transcribe_if_induced(&mock_state(3));
+            assert!(drives.is_some());
+            assert!(drives.unwrap().contains_key("verification_threshold"));
+        }
+
+        #[test]
+        fn induction_recalls_a_heterochromatic_operon() {
+            let mut o = operon(0.8, 0.0); // hétérochromatine
+            o.promoter = "consecutive_failures > 2".to_string();
+            let drives = o.transcribe_if_induced(&mock_state(4));
+            assert!(drives.is_some());
+            assert!(o.is_active());
+        }
     }
 }
