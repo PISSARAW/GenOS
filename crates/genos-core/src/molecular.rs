@@ -87,3 +87,49 @@ impl DnaSequence {
     }
 }
 
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct DynamicPromptBuilder {
+    pub base_prompt: String,
+    pub rna_sequence: RnaSequence,
+}
+
+impl DynamicPromptBuilder {
+    pub fn new(base_prompt: &str, rna_sequence: RnaSequence) -> Self {
+        Self {
+            base_prompt: base_prompt.to_string(),
+            rna_sequence,
+        }
+    }
+
+    /// Construit le prompt systme dynamique final en "traduisant" l"ARN
+    /// en directives comportementales pour le LLM.
+    pub fn build_system_prompt(&self, in_torpor_mode: bool) -> String {
+        let mut final_prompt = self.base_prompt.clone();
+        
+        final_prompt.push_str("\n\n=== GENOS BIOLOGICAL DIRECTIVES ===\n");
+        
+        // 1. Transcription/Traduction de l"ARN
+        let translated = self.rna_sequence.translate_to_protein();
+        if translated.contains('M') {
+            final_prompt.push_str("- [RNA] Methionine detected: Agent is in an ACTIVE growth phase. Prioritize expansion and refactoring.\n");
+        } else {
+            final_prompt.push_str("- [RNA] No start codon detected: Agent is in a DORMANT or maintenance phase. Do not invent new features.\n");
+        }
+        
+        if translated.contains('*') {
+            final_prompt.push_str("- [RNA] Stop codon reached: Strictly limit your output length and avoid rambling.\n");
+        }
+
+        // 2. Torpeur (Conservation d"nergie / Jetons)
+        if in_torpor_mode {
+            final_prompt.push_str("\n[CRITICAL HOMEOSTASIS ALERT]\n");
+            final_prompt.push_str("URGENCE: Mode conservation actif (Torpeur). Tu dois gnrer MOINS DE 50 MOTS.\n");
+            final_prompt.push_str("N'utilise aucun appel rseau ou outil lourd (pas de fuzzing, pas de compilation complxe).\n");
+            final_prompt.push_str("Concentre-toi uniquement sur la rsolution du bug immdiat pour survivre.\n");
+        }
+        
+        final_prompt
+    }
+}
