@@ -1,10 +1,11 @@
-// Ce fichier implémente plusieurs algorithmes d'organisation inspirés de la nature :
-// - Boids (Nuées d'oiseaux)
+﻿use serde::{Serialize, Deserialize};
+// Ce fichier implÃ©mente plusieurs algorithmes d'organisation inspirÃ©s de la nature :
+// - Boids (NuÃ©es d'oiseaux)
 // - FSS (Fish School Search)
 // - Blob (Physarum polycephalum)
 // - GWO (Grey Wolf Optimizer)
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
@@ -42,7 +43,7 @@ impl Vec2 {
 }
 
 // ==========================================
-// 1. BOIDS (Nuées d'oiseaux)
+// 1. BOIDS (NuÃ©es d'oiseaux)
 // ==========================================
 
 #[derive(Clone, Debug)]
@@ -230,7 +231,7 @@ pub struct GwoPack {
 }
 
 pub fn calculate_wolf_step(w: &Wolf, leader: &Wolf, a: f32) -> Vec2 {
-    // Calcul simplifié pour l'exemple GWO : A et C.
+    // Calcul simplifiÃ© pour l'exemple GWO : A et C.
     let a_vec = 0.5 * a;
     let c_vec = 1.0;
 
@@ -255,10 +256,10 @@ pub fn update_wolf_pos(w: &mut Wolf, pack: &GwoPack, a: f32) {
 }
 
 // ==========================================
-// 5. GESTION DES SIMILARITÉS (Opti Tokens)
+// 5. GESTION DES SIMILARITÃ‰S (Opti Tokens)
 // ==========================================
 // Remplacement des appels LLM conceptuels par des
-// heuristiques de similarité spatiale et bas niveau en Rust pur.
+// heuristiques de similaritÃ© spatiale et bas niveau en Rust pur.
 
 pub fn spatial_similarity(p1: &Vec2, p2: &Vec2, max_d: f32) -> f32 {
     let d = p1.sub(p2).mag();
@@ -279,7 +280,7 @@ pub fn vector_similarity(v1: &Vec2, v2: &Vec2, max_diff: f32) -> f32 {
 }
 
 pub fn agent_similarity(pos1: &Vec2, pos2: &Vec2, max_d: f32) -> f32 {
-    // Combine les heuristiques pour évaluer la similarité
-    // d'agents sans recourir à un LLM.
+    // Combine les heuristiques pour Ã©valuer la similaritÃ©
+    // d'agents sans recourir Ã  un LLM.
     spatial_similarity(pos1, pos2, max_d)
 }
