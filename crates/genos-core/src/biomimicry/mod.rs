@@ -11,6 +11,7 @@ pub mod embryogenesis;
 pub mod hox_genes;
 pub mod canalization;
 pub mod metamorphosis;
+pub mod regeneration;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -29,6 +30,7 @@ pub use embryogenesis::*;
 pub use hox_genes::*;
 pub use canalization::*;
 pub use metamorphosis::*;
+pub use regeneration::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -39,6 +41,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 
