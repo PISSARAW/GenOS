@@ -82,6 +82,23 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
             &["allele-a", "allele-b"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_bet_hedge_allocate",
+            "Bet-Hedging Allocation",
+            "Split a fork-generation budget between the main bet and evenly-spread insurance scenarios; the insured fraction grows with environmental entropy.",
+        )
+        .schema(object_schema(
+            [
+                ("total_budget", string_schema("Total budget units for this fork generation")),
+                ("entropy", string_schema("Environmental uncertainty in [0,1] (default 0.3)")),
+                (
+                    "scenario",
+                    string_array_schema("Plausible scenario as name:expected_fitness (repeatable)"),
+                ),
+            ],
+            &["total_budget", "scenario"],
+        ))
+        .build(),
     ]
 }
 

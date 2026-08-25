@@ -341,6 +341,24 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_bet_hedge_allocate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "bet-hedging");
+            planner.push_flag("--action", "allocate");
+            planner.push_flag(
+                "--param",
+                &format!("total_budget={}", planner.req_str("total_budget")?),
+            );
+            if let Some(entropy) = planner.opt_str("entropy")? {
+                planner.push_flag("--param", &format!("entropy={entropy}"));
+            }
+            if let Some(values) = planner.object.get("scenario").and_then(Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("scenario={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

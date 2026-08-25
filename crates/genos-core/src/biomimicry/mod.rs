@@ -1,9 +1,10 @@
-﻿//! Biomimicry extensions: biological mechanisms not yet covered elsewhere.
+//! Biomimicry extensions: biological mechanisms not yet covered elsewhere.
 //!
 //! Each submodule models one biological mechanism and maps it onto GenOS
 //! primitives (capsules, genomes, worlds, events) while preserving the
 //! fundamental invariants from `spec/GENOME_SPEC.md`.
 
+pub mod bet_hedging;
 pub mod chaperone;
 pub mod cycle_checkpoints;
 pub mod embryogenesis;
@@ -20,6 +21,7 @@ pub mod speciation;
 pub mod telomere;
 pub mod vaccination;
 
+pub use bet_hedging::*;
 pub use chaperone::*;
 pub use cycle_checkpoints::*;
 pub use embryogenesis::*;
