@@ -89,9 +89,9 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
 
 /** Resolves a user-supplied snapshot reference inside the bridge root. */
 function resolveInRoot(reference) {
-  const root = studioBridgeRoot();
+  const root = path.resolve(studioBridgeRoot());
   const resolved = path.resolve(root, reference);
-  if (!resolved.startsWith(path.resolve(root))) {
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     return null;
   }
   return resolved;

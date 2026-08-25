@@ -25,7 +25,21 @@ function snapshotRoot(workspacePath, workspaceId) {
 }
 
 function isSafeRelative(relativePath) {
-  return relativePath && relativePath !== '.' && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
+  if (typeof relativePath !== 'string' || relativePath.length === 0 || relativePath.includes('\0')) return false;
+  if (path.isAbsolute(relativePath) || /^[a-zA-Z]:/.test(relativePath)) return false;
+  const segments = relativePath.split(/[\\/]/);
+  return segments.every((segment) => segment.length > 0 && segment !== '.' && segment !== '..');
+}
+
+// Joins a manifest-provided relative path onto a base directory and refuses
+// anything that resolves outside it, even via embedded traversal sequences.
+function containedJoin(base, relativePath) {
+  const root = path.resolve(base);
+  const resolved = path.resolve(root, String(relativePath));
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+    throw new Error(`Snapshot path escapes its target directory: ${relativePath}`);
+  }
+  return resolved;
 }
 
 function shouldIgnore(relativePath, entry) {
@@ -69,7 +83,7 @@ async function copyManifestPayload(workspacePath, root, hash, files) {
   try {
     for (const file of files) {
       const source = path.join(workspacePath, file.path);
-      const destination = path.join(staging, 'files', file.path);
+      const destination = containedJoin(staging, path.join('files', file.path));
       await fsp.mkdir(path.dirname(destination), { recursive: true });
       await fsp.copyFile(source, destination);
       const copied = await fsp.readFile(destination);
@@ -198,8 +212,8 @@ async function materialize(snapshot, destination) {
   await fsp.mkdir(destination, { recursive: true });
   for (const file of manifest.files) {
     if (!isSafeRelative(file.path)) throw new Error(`Snapshot manifest contains an unsafe path: ${file.path}`);
-    const source = path.join(manifest.payloadRoot, file.path);
-    const target = path.join(destination, file.path);
+    const source = containedJoin(manifest.payloadRoot, file.path);
+    const target = containedJoin(destination, file.path);
     const bytes = await fsp.readFile(source);
     if (sha256(bytes) !== file.hash) throw new Error(`Snapshot payload checksum mismatch for ${file.path}.`);
     await fsp.mkdir(path.dirname(target), { recursive: true });
@@ -246,11 +260,11 @@ async function restore({ db, workspace, reference, author = 'studio' }) {
     await removeWorkspaceFiles(workspace.path);
     const verified = await readManifest(target);
     for (const file of verified.files) {
-      const source = path.join(staging, file.path);
-      const destination = path.join(workspace.path, file.path);
-      await fsp.mkdir(path.dirname(destination), { recursive: true });
-      await fsp.copyFile(source, destination);
-      await fsp.chmod(destination, file.mode).catch(() => {});
+      const source = containedJoin(staging, file.path);
+      const destinationPath = containedJoin(workspace.path, file.path);
+      await fsp.mkdir(path.dirname(destinationPath), { recursive: true });
+      await fsp.copyFile(source, destinationPath);
+      await fsp.chmod(destinationPath, file.mode).catch(() => {});
     }
     return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'manifest-copy' };
   } catch (error) {
@@ -353,4 +367,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, isAllowedTestCommand };
+module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, isAllowedTestCommand, isSafeRelative };
