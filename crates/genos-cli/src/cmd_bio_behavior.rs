@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Result};
-use genos_core::biomimicry::{SocialLearning, LearningStatus, PlayBehavior};
+use genos_core::biomimicry::{SocialLearning, LearningStatus, PlayBehavior, ThanatosisState, MimicrySpoofer};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
@@ -43,6 +43,34 @@ pub fn behavior_play(params: &[String]) -> Result<()> {
     } else {
         bail!("Unknown play action");
     }
+    
+    Ok(())
+}
+
+pub fn behavior_thanatosis(params: &[String]) -> Result<()> {
+    let agent_id = param_value(params, "agent_id").unwrap_or("agent_alpha").to_string();
+    let action = param_value(params, "action").ok_or_else(|| anyhow::anyhow!("missing action"))?;
+    
+    let mut ts = ThanatosisState::new(agent_id.clone());
+    
+    if action == "trigger" {
+        let threat = param_value(params, "threat_source").unwrap_or("unknown_adversary");
+        println!("{}", ts.trigger_fake_death(threat));
+    } else if action == "revive" {
+        println!("{}", ts.revive());
+    } else {
+        bail!("Unknown thanatosis action");
+    }
+    
+    Ok(())
+}
+
+pub fn behavior_mimicry(params: &[String]) -> Result<()> {
+    let agent_id = param_value(params, "agent_id").unwrap_or("agent_alpha").to_string();
+    let target = param_value(params, "target_profile").ok_or_else(|| anyhow::anyhow!("missing target_profile"))?;
+    
+    let mut ms = MimicrySpoofer::new(agent_id.clone(), "GenOS-Base".to_string());
+    println!("{}", ms.spoof_signature(target));
     
     Ok(())
 }
