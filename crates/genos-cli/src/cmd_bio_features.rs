@@ -25,6 +25,7 @@ pub async fn cmd_biomimicry_feature(
             proceduralization_action(params, action)
         }
         ("telomere", "fork" | "restore") => telomere_action(params, action),
+        ("senescence", "assess") => senescence_assess(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -249,6 +250,47 @@ fn telomere_action(params: &[String], action: &str) -> Result<()> {
             Ok(())
         }
         _ => bail!("unknown telomere action"),
+    }
+}
+
+fn senescence_assess(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{CapsuleVitals, SenescenceThresholds};
+    let capsule_id = param_value(params, "capsule_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param capsule_id=<id>"))?
+        .to_string();
+    let productive_ticks: u32 = param_value(params, "productive_ticks")
+        .ok_or_else(|| anyhow::anyhow!("missing --param productive_ticks=<n>"))?
+        .parse()?;
+    let idle_ticks: u32 =
+        param_value(params, "idle_ticks").ok_or_else(|| anyhow::anyhow!("missing --param idle_ticks=<n>"))?.parse()?;
+    let resources_consumed: u64 = param_value(params, "resources_consumed")
+        .ok_or_else(|| anyhow::anyhow!("missing --param resources_consumed=<n>"))?
+        .parse()?;
+    let negative_externalities: u32 =
+        param_value(params, "negative_externalities").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let intentional_dormancy =
+        param_value(params, "intentional_dormancy").map(|v| v == "true").unwrap_or(false);
+    let vitals = CapsuleVitals {
+        productive_ticks,
+        idle_ticks,
+        resources_consumed,
+        negative_externalities,
+        intentional_dormancy,
+    };
+    match vitals.classify(&SenescenceThresholds::default()) {
+        genos_core::biomimicry::VitalState::Active => {
+            println!("Capsule {capsule_id}: ACTIVE");
+            Ok(())
+        }
+        genos_core::biomimicry::VitalState::IntentionallyDormant => {
+            println!("Capsule {capsule_id}: INTENTIONALLY DORMANT (exempt from senolytics)");
+            Ok(())
+        }
+        genos_core::biomimicry::VitalState::Senescent { sasp_score, .. } => {
+            bail!(
+                "Capsule {capsule_id}: SENESCENT zombie (sasp={sasp_score:.3}) — senolytic cleanup recommended: resorb values, archive to fossils, then apoptosis"
+            )
+        }
     }
 }
 
