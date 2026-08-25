@@ -1,4 +1,4 @@
-use crate::planner::builder::CommandPlanner;
+﻿use crate::planner::builder::CommandPlanner;
 use crate::types::ProtocolError;
 use serde_json::Value;
 
@@ -359,7 +359,173 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_embryo_phase_advance" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "embryogenesis");
+            planner.push_flag("--action", "advance");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("target_phase={}", planner.req_str("target_phase")?));
+        }
+        "biomimicry_hox_verify" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "hox");
+            planner.push_flag("--action", "verify");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            if let Some(values) = planner.object.get("sequence").and_then(serde_json::Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("sequence={value}"));
+                }
+            }
+        }
+        "biomimicry_canalization_evaluate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "canalization");
+            planner.push_flag("--action", "evaluate");
+            planner.push_flag("--param", &format!("expected_phenotype={}", planner.req_str("expected_phenotype")?));
+            if let Some(vw) = planner.opt_str("valley_width")? {
+                planner.push_flag("--param", &format!("valley_width={vw}"));
+            }
+            if let Some(values) = planner.object.get("trajectory").and_then(serde_json::Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("trajectory={value}"));
+                }
+            }
+        }
+        "biomimicry_metamorphosis_transition" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "metamorphosis");
+            planner.push_flag("--action", "transition");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("current_stage={}", planner.req_str("current_stage")?));
+            if let Some(values) = planner.object.get("current_tool").and_then(serde_json::Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("current_tool={value}"));
+                }
+            }
+            if let Some(values) = planner.object.get("target_tool").and_then(serde_json::Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("target_tool={value}"));
+                }
+            }
+        }
+        "biomimicry_regeneration_tissue" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "regeneration");
+            planner.push_flag("--action", "tissue");
+            planner.push_flag("--param", &format!("module_id={}", planner.req_str("module_id")?));
+            planner.push_flag("--param", &format!("regenerate_action={}", planner.req_str("regenerate_action")?));
+            if let Some(b) = planner.opt_str("base_checkpoint_hash")? {
+                planner.push_flag("--param", &format!("base_checkpoint_hash={b}"));
+            }
+        }
+        "biomimicry_endocrine_modulate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "endocrine");
+            planner.push_flag("--action", "modulate");
+            if let Some(b) = planner.opt_str("swarm_id")? {
+                planner.push_flag("--param", &format!("swarm_id={b}"));
+            }
+            planner.push_flag("--param", &format!("endocrine_action={}", planner.req_str("endocrine_action")?));
+            if let Some(b) = planner.opt_str("hormone")? {
+                planner.push_flag("--param", &format!("hormone={b}"));
+            }
+            if let Some(b) = planner.opt_str("amount")? {
+                planner.push_flag("--param", &format!("amount={b}"));
+            }
+            if let Some(b) = planner.opt_str("decay_factor")? {
+                planner.push_flag("--param", &format!("decay_factor={b}"));
+            }
+        }
+        "biomimicry_reflex_trigger" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "reflex");
+            planner.push_flag("--action", "trigger");
+            planner.push_flag("--param", &format!("stimulus={}", planner.req_str("stimulus")?));
+            planner.push_flag("--param", &format!("value={}", planner.req_str("value")?));
+            if let Some(b) = planner.opt_str("pain_threshold")? {
+                planner.push_flag("--param", &format!("pain_threshold={b}"));
+            }
+            if let Some(b) = planner.opt_str("heat_threshold")? {
+                planner.push_flag("--param", &format!("heat_threshold={b}"));
+            }
+        }
+        "biomimicry_neuromodulation_rpe" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "neuromodulation");
+            planner.push_flag("--action", "rpe");
+            planner.push_flag("--param", &format!("node_id={}", planner.req_str("node_id")?));
+            planner.push_flag("--param", &format!("expected_reward={}", planner.req_str("expected_reward")?));
+            planner.push_flag("--param", &format!("actual_reward={}", planner.req_str("actual_reward")?));
+        }
+        "biomimicry_hippocampal_consolidate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "hippocampal");
+            planner.push_flag("--action", "consolidate");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("success_score={}", planner.req_str("success_score")?));
+            if let Some(values) = planner.object.get("dag_step").and_then(serde_json::Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("dag_step={value}"));
+                }
+            }
+        }
+        "biomimicry_circadian_toggle" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "circadian");
+            planner.push_flag("--action", "toggle");
+            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
+            planner.push_flag("--param", &format!("current_phase={}", planner.req_str("current_phase")?));
+        }
+        "biomimicry_allostasis_anticipate" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "allostasis");
+            planner.push_flag("--action", "anticipate");
+            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
+            planner.push_flag("--param", &format!("stress_cue={}", planner.req_str("stress_cue")?));
+            if let Some(b) = planner.opt_str("base_budget")? {
+                planner.push_flag("--param", &format!("base_budget={b}"));
+            }
+        }
+        "biomimicry_plasticity_remap" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "plasticity");
+            planner.push_flag("--action", "remap");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("failing_tool={}", planner.req_str("failing_tool")?));
+        }
+        "biomimicry_immuno_inflammation" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "inflammation");
+            planner.push_flag("--action", &planner.req_str("action")?);
+            if let Some(b) = planner.opt_str("swarm_id")? {
+                planner.push_flag("--param", &format!("swarm_id={b}"));
+            }
+            if let Some(b) = planner.opt_str("threat_level")? {
+                planner.push_flag("--param", &format!("threat_level={b}"));
+            }
+            if let Some(b) = planner.opt_str("recovery_rate")? {
+                planner.push_flag("--param", &format!("recovery_rate={b}"));
+            }
+        }
+        "biomimicry_immuno_autoimmunity" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "autoimmunity");
+            planner.push_flag("--action", &planner.req_str("action")?);
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            if let Some(b) = planner.opt_str("threshold")? {
+                planner.push_flag("--param", &format!("threshold={b}"));
+            }
+            if let Some(b) = planner.opt_str("recent_kills")? {
+                planner.push_flag("--param", &format!("recent_kills={b}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
