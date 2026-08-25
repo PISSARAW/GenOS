@@ -16,6 +16,7 @@ pub mod prm;
 pub mod qtl;
 pub mod reproducibility;
 pub mod traits;
+pub mod trophic;
 pub mod variance;
 pub use benchmark::*;
 
