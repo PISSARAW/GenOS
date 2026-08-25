@@ -196,6 +196,43 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_sar_prime" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "sar");
+            let has_probe = planner.opt_str("probe")?.is_some();
+            let has_primings = planner
+                .object
+                .get("primings")
+                .and_then(Value::as_array)
+                .map_or(false, |v| !v.is_empty());
+            if has_probe || has_primings {
+                planner.push_flag("--action", "assess");
+            } else {
+                planner.push_flag("--action", "prime");
+            }
+            for key in ["incident_id", "signature", "half_life_days", "now_day", "probe"] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+            if let Some(values) = planner.object.get("primings").and_then(Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("priming={value}"));
+                }
+            }
+        }
+        "biomimicry_reciprocity_decide" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "reciprocity");
+            planner.push_flag("--action", "decide");
+            planner.push_flag("--param", &format!("peer_id={}", planner.req_str("peer_id")?));
+            for key in ["cooperations", "defections", "last_action"] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

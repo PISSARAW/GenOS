@@ -42,6 +42,13 @@ impl Locus {
 /// - **Epistatic & DominantRecessive** : Préservent les interactions subtiles (épistasie) et les "building blocks" performants sans les moyenner mathématiquement.
 pub enum RecombinationStrategy {
     HomologousRecombination,
+    /// Crossing-over multi-points : `points` cassures réparties le long du
+    /// chromosome ; les segments alternent entre parents (brassage renforcé).
+    MultiPointCrossover { points: u32 },
+    /// Hotspots de recombinaison : autour des gènes listés, le choix du parent
+    /// devient quasi-aléatoire par locus (taux local de brassage accru),
+    /// ailleurs le croisement mono-point standard s'applique.
+    HotspotRecombination { hotspot_genes: Vec<String> },
     GeneConversion { dominant_parent: String },
     NonHomologousEndJoining { error_rate: f32 },
     SiteSpecific { target_genes: Vec<String> },
