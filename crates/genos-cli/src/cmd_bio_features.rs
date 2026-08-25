@@ -253,18 +253,21 @@ fn reciprocity_decide(params: &[String]) -> Result<()> {
         param_value(params, "cooperations").and_then(|v| v.parse().ok()).unwrap_or(0);
     let defections: u32 =
         param_value(params, "defections").and_then(|v| v.parse().ok()).unwrap_or(0);
-    let last = param_value(params, "last_action").map(|v| match v {
-        "cooperate" => PeerAction::Cooperate,
-        "defect" => PeerAction::Defect,
-        other => bail!("invalid last_action '{other}' (expected cooperate|defect)"),
-    });
+    let last: Option<PeerAction> = match param_value(params, "last_action") {
+        Some("cooperate") => Some(PeerAction::Cooperate),
+        Some("defect") => Some(PeerAction::Defect),
+        Some(other) => {
+            bail!("invalid last_action '{other}' (expected cooperate|defect)")
+        }
+        None => None,
+    };
     let mut ledger = ReputationLedger::default();
     {
         let record = ledger.peers.entry(peer_id.clone()).or_default();
         record.cooperations = cooperations;
         record.defections = defections;
-        if let Some(last) = last? {
-            record.last_action = Some(last);
+        if let Some(action) = last {
+            record.last_action = Some(action);
         }
     }
     let policy = ReciprocityPolicy::default();
