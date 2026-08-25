@@ -1,4 +1,5 @@
 pub mod artifact;
+pub mod biomimicry;
 pub mod beliefs;
 pub mod capsule;
 pub mod causality;
@@ -50,3 +51,4 @@ pub use sos::*;
 pub use state::*;
 pub use tool_outputs::*;
 pub use variables::*;
+pub mod molecular;
