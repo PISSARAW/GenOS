@@ -20,6 +20,7 @@ pub async fn cmd_biomimicry_feature(
         ("vaccination", "train") => vaccination_train(params),
         ("interferon", "emit") => interferon_emit(params),
         ("sar", "prime" | "assess" | "inherit") => sar_action(params, action),
+        ("reciprocity", "decide") => reciprocity_decide(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -238,5 +239,50 @@ fn sar_action(params: &[String], action: &str) -> Result<()> {
             Ok(())
         }
         _ => bail!("unknown sar action"),
+    }
+}
+
+fn reciprocity_decide(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{
+        PeerAction, PeerRecord, ReciprocityPolicy, ReputationLedger,
+    };
+    let peer_id = param_value(params, "peer_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param peer_id=<id>"))?
+        .to_string();
+    let cooperations: u32 =
+        param_value(params, "cooperations").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let defections: u32 =
+        param_value(params, "defections").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let last = param_value(params, "last_action").map(|v| match v {
+        "cooperate" => PeerAction::Cooperate,
+        "defect" => PeerAction::Defect,
+        other => bail!("invalid last_action '{other}' (expected cooperate|defect)"),
+    });
+    let mut ledger = ReputationLedger::default();
+    {
+        let record = ledger.peers.entry(peer_id.clone()).or_default();
+        record.cooperations = cooperations;
+        record.defections = defections;
+        if let Some(last) = last? {
+            record.last_action = Some(last);
+        }
+    }
+    let policy = ReciprocityPolicy::default();
+    let decision = ledger.decide(&policy, &peer_id);
+    let record: &PeerRecord = &ledger.peers[&peer_id];
+    println!(
+        "Peer {peer_id}: interactions={} defection_ratio={:.2}",
+        record.interactions(),
+        record.defection_ratio()
+    );
+    match decision {
+        genos_core::biomimicry::Decision::Cooperate => {
+            println!("Decision: COOPERATE");
+            Ok(())
+        }
+        genos_core::biomimicry::Decision::Retaliate => {
+            println!("Decision: RETALIATE (free-riding contained)");
+            bail!("reciprocity policy retaliates against {peer_id}")
+        }
     }
 }

@@ -134,7 +134,20 @@ fn recombine_chromosomes(
             .find(|c| c.name == alice_chrom.name)
         {
             let mut new_loci = Vec::new();
-            let crossover_point = alice_chrom.loci.len() / 2;
+            let locus_count = alice_chrom.loci.len();
+
+            // Sélection du schéma de cassures selon la stratégie.
+            let default_crossover_point = locus_count / 2;
+            let is_bob_segment = |strategy: &RecombinationStrategy, i: usize| -> bool {
+                match strategy {
+                    // Multi-points : les segments alternent entre les parents.
+                    RecombinationStrategy::MultiPointCrossover { points } => {
+                        let p = (*points).max(1) as usize;
+                        (i * p / locus_count.max(1)) % 2 == 1
+                    }
+                    _ => i >= default_crossover_point,
+                }
+            };
 
             for (i, locus) in alice_chrom.loci.iter().enumerate() {
                 let bob_locus = bob_chrom
@@ -146,7 +159,7 @@ fn recombine_chromosomes(
                 let mut chosen_locus = calculate_recombined_locus(
                     locus,
                     bob_locus,
-                    i >= crossover_point,
+                    is_bob_segment(ctx.strategy, i),
                     ctx.strategy,
                     ctx.prng_state,
                 );
@@ -183,6 +196,29 @@ pub(crate) fn calculate_recombined_locus(
     match strategy {
         RecombinationStrategy::HomologousRecombination => {
             if after_crossover {
+                bob_locus.clone()
+            } else {
+                locus.clone()
+            }
+        }
+        RecombinationStrategy::MultiPointCrossover { .. } => {
+            // L'entrelacement des segments est décidé par l'appelant
+            // (is_bob_segment) : ici on suit simplement le segment courant.
+            if after_crossover {
+                bob_locus.clone()
+            } else {
+                locus.clone()
+            }
+        }
+        RecombinationStrategy::HotspotRecombination { hotspot_genes } => {
+            if hotspot_genes.contains(&locus.gene_name) {
+                // Hotspot : brassage local quasi-aléatoire (taux accru).
+                if rand_f32() < 0.5 {
+                    bob_locus.clone()
+                } else {
+                    locus.clone()
+                }
+            } else if after_crossover {
                 bob_locus.clone()
             } else {
                 locus.clone()
