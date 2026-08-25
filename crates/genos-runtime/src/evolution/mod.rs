@@ -1,5 +1,6 @@
 mod breeding;
 mod heredity;
+pub mod recombination;
 pub mod selection;
 pub mod synthesis;
 pub mod types;
