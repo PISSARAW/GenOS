@@ -29,6 +29,8 @@ pub async fn cmd_biomimicry_feature(
         ("plasticity", "remap") => crate::cmd_bio_neuro::cross_modal_remap(params),
         ("inflammation", "trigger") | ("inflammation", "resolve") => crate::cmd_bio_immuno::immuno_inflammation(params),
         ("autoimmunity", "evaluate") | ("autoimmunity", "log_kill") => crate::cmd_bio_immuno::immuno_autoimmunity(params),
+        ("ecology", "punctuated") => crate::cmd_bio_ecology::ecology_punctuated(params),
+        ("ecology", "succession") => crate::cmd_bio_ecology::ecology_succession(params),
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
@@ -389,6 +391,7 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
+
 
 
 
