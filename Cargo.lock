@@ -810,6 +810,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "genos-mycelium"
+version = "0.0.1"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "genos-observability"
 version = "0.0.1"
 dependencies = [

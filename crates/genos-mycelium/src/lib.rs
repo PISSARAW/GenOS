@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(net.hyphae().len(), 2);
 
         // Similarité forte sur un voisin partagé : fusion.
-        assert_eq!(net.anastomose("c", "a", 0.9, 0.7), AnastomosisOutcome::Fused);
+        assert_eq!(net.anastomose("c", "b", 0.9, 0.7), AnastomosisOutcome::Fused);
         assert_eq!(
             net.hyphae().len(),
             2,
