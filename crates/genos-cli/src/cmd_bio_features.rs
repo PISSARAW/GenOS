@@ -1,4 +1,4 @@
-//! Biomimicry feature handlers behind the generic `bio-feature` entry point.
+﻿//! Biomimicry feature handlers behind the generic `bio-feature` entry point.
 //!
 //! Each feature module (gate, chaperone, vaccination, interferon, sar, ...)
 //! exposes typed actions and consumes `key=value` parameters, so new features
@@ -15,6 +15,7 @@ pub async fn cmd_biomimicry_feature(
     params: &[String],
 ) -> Result<()> {
     match (feature, action) {
+        ("embryogenesis", "advance") => crate::cmd_bio_development::embryogenesis_advance(params),
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
@@ -28,7 +29,6 @@ pub async fn cmd_biomimicry_feature(
         ("senescence", "assess") => senescence_assess(params),
         ("neoteny", "quota") => neoteny_quota(params),
         ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
-        ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -61,7 +61,7 @@ fn gate_evaluate(params: &[String]) -> Result<()> {
     let keeper = CycleGateKeeper::with_defaults();
     let report = keeper.evaluate(phase, &facts);
     println!(
-        "Gate {} : {} ({} règles vérifiées)",
+        "Gate {} : {} ({} rÃ¨gles vÃ©rifiÃ©es)",
         report.phase.as_str(),
         if report.passed { "PASSED" } else { "BLOCKED" },
         report.checked_rules
@@ -226,7 +226,7 @@ fn telomere_action(params: &[String], action: &str) -> Result<()> {
             }
             ForkVerdict::AllowedWarning { remaining_after } => {
                 println!(
-                    "Capsule {capsule_id}: fork allowed but WARNING — {remaining_after} forks left; breeding advised"
+                    "Capsule {capsule_id}: fork allowed but WARNING â€” {remaining_after} forks left; breeding advised"
                 );
                 Ok(())
             }
@@ -291,7 +291,7 @@ fn senescence_assess(params: &[String]) -> Result<()> {
         }
         genos_core::biomimicry::VitalState::Senescent { sasp_score, .. } => {
             bail!(
-                "Capsule {capsule_id}: SENESCENT zombie (sasp={sasp_score:.3}) — senolytic cleanup recommended: resorb values, archive to fossils, then apoptosis"
+                "Capsule {capsule_id}: SENESCENT zombie (sasp={sasp_score:.3}) â€” senolytic cleanup recommended: resorb values, archive to fossils, then apoptosis"
             )
         }
     }
@@ -375,3 +375,4 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
+

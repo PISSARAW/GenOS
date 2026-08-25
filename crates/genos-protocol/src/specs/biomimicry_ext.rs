@@ -1,4 +1,4 @@
-//! Extension specs for biomimicry tools (population & lifecycle family).
+﻿//! Extension specs for biomimicry tools (population & lifecycle family).
 //! Kept separate from `biomimicry.rs` to respect the 400-line file budget;
 //! merged into the catalog by `biomimicry_specs()`.
 
@@ -8,6 +8,7 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_embryo_phase_advance", "Embryogenesis Phase Advance", "Advance an agent to the next developmental phase.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("current_phase", string_schema("Current phase")), ("preconditions_met", string_schema("Are preconditions met (true/false)"))], &["agent_id", "current_phase"])).build(),
         SpecBuilder::new(
             "biomimicry_telomere_fork",
             "Telomere Fork Budget",
@@ -98,3 +99,4 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
