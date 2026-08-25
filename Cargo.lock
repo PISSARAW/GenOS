@@ -374,6 +374,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "concept-tests"
+version = "0.1.0"
+dependencies = [
+ "genos-core",
+ "genos-eval",
+ "genos-runtime",
+ "serde_json",
+]
+
+[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
