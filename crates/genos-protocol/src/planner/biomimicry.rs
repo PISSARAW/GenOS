@@ -548,9 +548,36 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("current_stage={b}"));
             }
         }
+        "biomimicry_behavior_social" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "behavior");
+            planner.push_flag("--action", "social");
+            planner.push_flag("--param", &format!("junior_id={}", planner.req_str("junior_id")?));
+            planner.push_flag("--param", &format!("senior_id={}", planner.req_str("senior_id")?));
+            if let Some(b) = planner.opt_str("alignment_score")? {
+                planner.push_flag("--param", &format!("alignment_score={b}"));
+            }
+        }
+        "biomimicry_behavior_play" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "behavior");
+            planner.push_flag("--action", "play");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
+            if let Some(b) = planner.opt_str("play_budget")? {
+                planner.push_flag("--param", &format!("play_budget={b}"));
+            }
+            if let Some(b) = planner.opt_str("tokens_spent")? {
+                planner.push_flag("--param", &format!("tokens_spent={b}"));
+            }
+            if let Some(b) = planner.opt_str("discoveries")? {
+                planner.push_flag("--param", &format!("discoveries={b}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
 
