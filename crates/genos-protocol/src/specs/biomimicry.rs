@@ -292,5 +292,45 @@ pub fn biomimicry_specs() -> Vec<ToolSpec> {
             &["source_id", "signature", "neighbors"],
         ))
         .build(),
+        SpecBuilder::new(
+            "biomimicry_sar_prime",
+            "Prime Systemic Acquired Resistance",
+            "Convert a resolved incident into a durable system-wide defensive priming with half-life decay, or assess a probe against existing primings.",
+        )
+        .schema(object_schema(
+            [
+                ("incident_id", string_schema("Resolved incident identifier (prime action)")),
+                ("signature", string_schema("Threat signature tokens of the resolved incident")),
+                ("half_life_days", string_schema("Decay half-life in days (default 30)")),
+                ("now_day", string_schema("Current day index for decay arithmetic")),
+                ("probe", string_schema("Signature to assess against primings (assess action)")),
+                (
+                    "primings",
+                    string_array_schema(
+                        "Existing primings as id:signature:half_life_days:primed_at_day (assess action)"
+                    ),
+                ),
+            ],
+            &[],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_reciprocity_decide",
+            "Reciprocity Decision",
+            "Tit-for-Tat with bounded forgiveness: decide whether to cooperate with a peer given its recorded history, containing free-riders without central authority.",
+        )
+        .schema(object_schema(
+            [
+                ("peer_id", string_schema("Counterpart identifier")),
+                ("cooperations", string_schema("Recorded cooperation count")),
+                ("defections", string_schema("Recorded defection count")),
+                (
+                    "last_action",
+                    string_schema("Last observed peer action: cooperate | defect"),
+                ),
+            ],
+            &["peer_id"],
+        ))
+        .build(),
     ]
 }
