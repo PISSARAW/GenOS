@@ -634,10 +634,27 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("reclaim_budget={b}"));
             }
         }
+        "biomimicry_theory_autopoiesis" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "theory");
+            planner.push_flag("--action", "autopoiesis");
+            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
+            if let Some(b) = planner.opt_str("compute_budget")? { planner.push_flag("--param", &format!("compute_budget={b}")); }
+            if let Some(b) = planner.opt_str("error_rate")? { planner.push_flag("--param", &format!("error_rate={b}")); }
+        }
+        "biomimicry_lifecycle_senescence" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "lifecycle");
+            planner.push_flag("--action", "senescence");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            if let Some(b) = planner.opt_str("max_epochs")? { planner.push_flag("--param", &format!("max_epochs={b}")); }
+            if let Some(b) = planner.opt_str("current_epoch")? { planner.push_flag("--param", &format!("current_epoch={b}")); }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
 
 
