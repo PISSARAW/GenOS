@@ -267,6 +267,31 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_telomere_fork" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "telomere");
+            let is_restore = matches!(
+                planner.opt_str("action")?,
+                Some(value) if value == "restore"
+            );
+            if is_restore {
+                planner.push_flag("--action", "restore");
+            } else {
+                planner.push_flag("--action", "fork");
+            }
+            for key in [
+                "capsule_id",
+                "remaining",
+                "max_forks",
+                "new_max",
+                "restoration_count",
+                "max_restorations",
+            ] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

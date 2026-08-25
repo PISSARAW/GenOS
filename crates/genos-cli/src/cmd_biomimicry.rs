@@ -1,8 +1,8 @@
 use crate::args::{
     DistributedHuddleArgs, FlockingExploreArgs, NetworkQuorumArgs, SwarmConsensusArgs, VoteKind,
 };
-use anyhow::{bail, Result};
-use genos_core::biomimicry::{parse_facts, CycleGateKeeper, Phase};
+use anyhow::Result;
+
 use genos_core::organization::distributed::{Agent, PenguinHuddle};
 use genos_core::organization::flocking::{boid_cohesion, Boid, Vec2};
 use genos_core::organization::network::BacteriaNode;
