@@ -166,6 +166,11 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 - **Seed Dormancy**: If compute budget is exhausted or API rate limits are hit globally, use iomimicry_plant_seed to immediately serialize the agent into a highly compressed dormant state. It will wake up (germinate) automatically when conditions clear.
 - **Abscission (Strategic Pruning)**: If a sub-agent or spawned task is failing, looping, or wasting budget, use iomimicry_plant_abscission rather than simply killing it. This re-absorbs and reclaims the unspent tokens back to the swarm's pool before severing the branch.
 
+
+### 5.12 Theory & Lifecycle
+- **Autopoiesis**: Use iomimicry_theory_autopoiesis to self-monitor viability.
+- **Senescence**: Use iomimicry_lifecycle_senescence to purge zombie agents.
+
 ---
 
 ## 6. Operational Quality & Integrity Mandates
@@ -174,6 +179,7 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 2. **Zero-Stub Policy**: No placeholder comments (`// TODO`, `/* implement later */`), empty function bodies, or mock return values in production paths.
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
+
 
 
 
