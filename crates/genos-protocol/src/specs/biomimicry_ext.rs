@@ -8,6 +8,8 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_behavior_social", "Social Learning", "Bypass MCTS exploration by letting a Junior agent mimic a Senior agent's successful macro.").schema(object_schema([("junior_id", string_schema("Junior Agent ID")), ("senior_id", string_schema("Senior Agent ID")), ("alignment_score", string_schema("Alignment evaluation"))], &["junior_id", "senior_id"])).build(),
+        SpecBuilder::new("biomimicry_behavior_play", "Play Behavior", "Initiate a zero-stakes play session for unexpected tool discovery.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("action", string_schema("initiate | conclude")), ("play_budget", string_schema("Budget to allocate")), ("tokens_spent", string_schema("Tokens spent during play")), ("discoveries", string_schema("Number of discoveries"))], &["agent_id", "action"])).build(),
         SpecBuilder::new("biomimicry_ecology_punctuated", "Punctuated Equilibria", "Trigger an evolutionary burst (high temp/mutation) when the agent's optimization hits a plateau.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("improved", string_schema("true | false")), ("stasis_counter", string_schema("Current stasis counter")), ("plateau_threshold", string_schema("Threshold to trigger punctuation"))], &["agent_id", "improved"])).build(),
         SpecBuilder::new("biomimicry_ecology_succession", "Ecological Succession", "Advance project stages from Pioneer (exploration) to Climax (maintenance) agents.").schema(object_schema([("project_id", string_schema("Project ID")), ("coverage", string_schema("Code coverage or exploration ratio")), ("stability", string_schema("Stability index")), ("current_stage", string_schema("barren | pioneer | intermediate | climax"))], &["project_id", "coverage", "stability"])).build(),
         SpecBuilder::new("biomimicry_immuno_inflammation", "Inflammatory Response", "Trigger a degraded/quarantine mode (fever) across the swarm upon threat detection, or resolve it.").schema(object_schema([("swarm_id", string_schema("Swarm ID")), ("action", string_schema("trigger | resolve")), ("threat_level", string_schema("Severity of threat")), ("recovery_rate", string_schema("Cooling down rate"))], &["swarm_id", "action"])).build(),
@@ -114,6 +116,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
