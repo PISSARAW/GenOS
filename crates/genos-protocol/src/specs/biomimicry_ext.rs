@@ -8,6 +8,7 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_reflex_trigger", "Reflex Arc Fast-Path", "Bypass the MCTS/LLM planner for an immediate hardcoded survival response (Withdraw, Freeze) upon critical stimuli.").schema(object_schema([("stimulus", string_schema("thermal | nociceptive")), ("value", string_schema("The intensity or payload of the stimulus")), ("pain_threshold", string_schema("Length threshold for pain")), ("heat_threshold", string_schema("Value threshold for heat"))], &["stimulus", "value"])).build(),
         SpecBuilder::new("biomimicry_endocrine_modulate", "Endocrine System Modulation", "Secrete hormones to globally modulate swarm behavior (e.g., Cortisol for focus, Oxytocin for trust).").schema(object_schema([("swarm_id", string_schema("The target swarm ID")), ("endocrine_action", string_schema("secrete | decay")), ("hormone", string_schema("e.g., cortisol, adrenaline, oxytocin")), ("amount", string_schema("Amount to secrete (0.0 to 1.0)")), ("decay_factor", string_schema("Rate of decay"))], &["endocrine_action"])).build(),
         SpecBuilder::new("biomimicry_regeneration_tissue", "Tissue Regeneration", "Amputate a corrupted module and regenerate it from a known blastema checkpoint.").schema(object_schema([("module_id", string_schema("The corrupted module ID")), ("base_checkpoint_hash", string_schema("The known good checkpoint hash to regenerate from")), ("regenerate_action", string_schema("amputate | complete"))], &["module_id", "regenerate_action"])).build(),
         SpecBuilder::new("biomimicry_metamorphosis_transition", "Metamorphosis Transition", "Trigger a radical structural change (Larval -> Pupal -> Imago) and compute tools to shed or acquire.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("current_stage", string_schema("larval, pupal, or imago")), ("current_tool", string_array_schema("List of currently held tools")), ("target_tool", string_array_schema("List of tools required for the target niche"))], &["agent_id", "current_stage"])).build(),
@@ -104,6 +105,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
+
 
 
 
