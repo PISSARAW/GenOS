@@ -1,6 +1,16 @@
 const { getDatabase } = require('../db');
 const { resolveUserFromHeaders } = require('./auth');
 
+// Global administrators may act across tenants without explicit scope
+// headers. Every other authenticated principal must prove membership of the
+// organization/project that owns the targeted resource.
+async function hasGlobalBypass(req) {
+  const user = req.user || await resolveUserFromHeaders(req.headers);
+  req.user = user;
+  return Boolean(user?.isAuthenticated && user.permissions?.includes('all'));
+}
+
+
 function principalId(user) {
   return user.keyId || user.username;
 }
@@ -36,7 +46,10 @@ function requireTenantScope({ write = false } = {}) {
   return async (req, res, next) => {
     try {
       const scope = await resolveTenant(req);
-      if (!scope) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
+      if (!scope) {
+        if (await hasGlobalBypass(req)) { req.tenant = null; return next(); }
+        return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required' } });
+      }
       if (write && !['owner', 'admin', 'member'].includes(scope.role) && !scope.user?.permissions?.includes('all')) {
         return res.status(403).json({ error: { code: 'TENANT_WRITE_FORBIDDEN', message: 'Project membership is read-only' } });
       }
