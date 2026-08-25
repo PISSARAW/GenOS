@@ -1,0 +1,63 @@
+id: 01a039ac-008b-7303-9b9f-c2ff4d1339ed
+parent_genome: 01a039ab-6a9b-7571-835b-59ef2ac3c586
+parent_genomes:
+- 01a039ab-6a9b-7571-835b-59ef2ac3c586
+mutation:
+  changes:
+  - field: cognition.drives.backoff_patience
+    previous_value: 0.5
+    new_value: 0.85
+version: 0.1.1
+identity:
+  name: ApiWorker
+  role: ApiCaller
+cognition:
+  chromosomes:
+  - name: C1
+    loci:
+    - gene_name: exploration
+      value: 0.7
+      epigenetic_marker: 0.8
+    - gene_name: risk_tolerance
+      value: 0.25
+      epigenetic_marker: 0.0
+    - gene_name: verification_threshold
+      value: 0.8
+      epigenetic_marker: 0.0
+    - gene_name: backoff_patience
+      value: 0.85
+      epigenetic_marker: 0.0
+    operons: []
+  planning_depth: 6
+  regulators: []
+objectives:
+- key: tests_pass
+  description: Run tests before completion
+policies:
+- key: evidence_before_claim
+  description: Claims require evidence
+capabilities:
+- name: counterfactual_forking
+  enabled: false
+memory_policy:
+  working_max_items: 100
+  episodic_enabled: true
+  semantic_enabled: true
+model_policy:
+  strategy: provider-agnostic
+  preferred_providers: []
+  allow_local: true
+tool_policy:
+  permissions:
+  - tool: filesystem
+    scope: workspace
+    enabled: true
+  - tool: shell
+    scope: sandboxed
+    enabled: true
+  - tool: network
+    scope: denied
+    enabled: false
+inferred_traits: []
+breeding: null
+ecological_niche: null

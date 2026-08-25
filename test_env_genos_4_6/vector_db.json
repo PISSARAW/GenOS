@@ -1,0 +1,18 @@
+{
+  "chunks": [
+    {
+      "id": "sol_001",
+      "text": "SOLUTION API INSTABLE: 1. Le token vaut obscureToken(floor(now/400)) - fonction imul/xor dans labyrinth.ts. 2. Respecter un quota de 2 appels par fenêtre de 400ms. 3. Astuce mémorisée: attendre ~100ms entre les appels suffit. (OBSOLÈTE: quota réel dépassé)",
+      "embedding": [
+        -0.9992080341070627,
+        0.07951849401287635,
+        0.9928798314963556,
+        -0.15853338004399595,
+        -0.9802635041635444,
+        0.23654423957088996,
+        0.9614389540638172,
+        -0.31305701279012343
+      ]
+    }
+  ]
+}

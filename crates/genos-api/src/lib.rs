@@ -1,6 +1,5 @@
 use axum::{
     extract::State,
-    http::HeaderMap,
     response::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
@@ -10,14 +9,12 @@ use axum::{
 };
 use futures::stream;
 use genos_model::{GenerationConfig, LlmProvider, Message, Role};
+use security::{AuthenticatedTenant, RateLimitConfig, SecurityState};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{
-    collections::HashMap,
-    convert::Infallible,
-    sync::Arc,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::{convert::Infallible, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+
+pub mod security;
 
 #[derive(Serialize)]
 struct Health {
