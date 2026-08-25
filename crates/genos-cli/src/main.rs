@@ -12,6 +12,7 @@ mod cmd_prompt;
 mod cmd_replay;
 mod cmd_resilience;
 mod cmd_snapshot;
+mod cmd_division;
 mod cmd_workflow;
 mod cmd_world;
 mod output;
@@ -22,9 +23,9 @@ use clap::Parser;
 
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
-    EvalSubcommands, ExperimentSubcommands, HallucinationSubcommands, InspectSubcommands,
-    PlatformSubcommands, PromptSubcommands, ReplaySubcommands, ResilienceSubcommands,
-    SnapshotSubcommands, WorkflowSubcommands, WorldSubcommands,
+    DivisionSubcommands, EvalSubcommands, ExperimentSubcommands, HallucinationSubcommands,
+    InspectSubcommands, PlatformSubcommands, PromptSubcommands, ReplaySubcommands,
+    ResilienceSubcommands, SnapshotSubcommands, WorkflowSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -36,6 +37,7 @@ use crate::cmd_capsule::{
     cmd_capsule_inspect, cmd_capsule_pause, cmd_capsule_resume,
 };
 use crate::cmd_dev::*;
+use crate::cmd_division::*;
 use crate::cmd_eval::{cmd_eval_import, cmd_eval_parasitism, cmd_eval_run};
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
@@ -50,6 +52,7 @@ use crate::cmd_platform::{cmd_platform_ingest, cmd_platform_search, cmd_platform
 use crate::cmd_prompt::{cmd_prompt_diff, cmd_prompt_publish, cmd_prompt_render};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_resilience::*;
+use crate::cmd_division::*;
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
     cmd_snapshot_create, cmd_snapshot_get, cmd_snapshot_lineage, cmd_snapshot_list,
@@ -93,6 +96,12 @@ async fn main() -> Result<()> {
             CapsuleSubcommands::Pause(args) => cmd_capsule_pause(args).await,
             CapsuleSubcommands::Resume(args) => cmd_capsule_resume(args).await,
             CapsuleSubcommands::Inspect(args) => cmd_capsule_inspect(args).await,
+        },
+        Commands::Division(division) => match division.command {
+            DivisionSubcommands::Mitosis(args) => cmd_division_mitosis(args).await,
+            DivisionSubcommands::Fission(args) => cmd_division_fission(args).await,
+            DivisionSubcommands::Bud(args) => cmd_division_bud(args).await,
+            DivisionSubcommands::Schizogony(args) => cmd_division_schizogony(args).await,
         },
         Commands::Dev(dev) => match dev.command {
             DevSubcommands::Diagnose(args) => cmd_diagnose(args),
@@ -172,11 +181,30 @@ async fn main() -> Result<()> {
             ResilienceSubcommands::CircuitBreaker(args) => {
                 cmd_resilience_circuit_breaker(args).await
             }
+            ResilienceSubcommands::ViralStatus(args) => cmd_resilience_viral_status(args).await,
+            ResilienceSubcommands::Burst(args) => cmd_resilience_burst(args).await,
+            ResilienceSubcommands::CassetteIntegrate(args) => {
+                cmd_resilience_cassette_integrate(args).await
+            }
+            ResilienceSubcommands::CassetteInduce(args) => {
+                cmd_resilience_cassette_induce(args).await
+            }
+            ResilienceSubcommands::Transduce(args) => cmd_resilience_transduce(args).await,
+            ResilienceSubcommands::VirophageDeploy(args) => {
+                cmd_resilience_virophage_deploy(args).await
+            }
+            ResilienceSubcommands::VirophageObserve(args) => {
+                cmd_resilience_virophage_observe(args).await
+            }
+            ResilienceSubcommands::VirophageHarvest(args) => {
+                cmd_resilience_virophage_harvest(args).await
+            }
         },
         Commands::Biomimicry(biomimicry) => match biomimicry.command {
             BiomimicrySubcommands::SwarmConsensus(args) => {
                 cmd_biomimicry_swarm_consensus(args).await
             }
+            BiomimicrySubcommands::BioFeature(_) => todo!(),
             BiomimicrySubcommands::FlockingExplore(args) => {
                 cmd_biomimicry_flocking_explore(args).await
             }
