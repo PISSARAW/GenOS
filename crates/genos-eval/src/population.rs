@@ -19,7 +19,7 @@ pub struct PopulationDiversity {
     pub expected_variance_next_gen: f64,
 }
 
-/// Extrait toutes les valeurs continues des loci d'un gÃ¨ne spÃ©cifique Ã  travers une population.
+/// Extrait toutes les valeurs continues des loci d'un gène spécifique à travers une population.
 pub fn extract_loci_values(population: &[AgentGenome], gene_name: &str) -> Vec<f64> {
     let mut values = Vec::new();
     for genome in population {
@@ -171,5 +171,66 @@ mod tests {
 
         let fst = calculate_fst(&pop1, &pop2, "speed");
         assert!((fst - 1.0).abs() < 1e-4); // Totalement divergentes, Fst = 1
+    }
+}
+
+/// Coefficient de consanguinité de Wright (F).
+///
+/// **Logique Évolutive :**
+/// Dans une population de taille effective finie, la consanguinité s'accumule
+/// à chaque génération : `F_t = 1 - (1 - 1/(2*Ne))^t`, avec F_0 = 0.
+/// F mesure la probabilité d'identité par descendance de deux gènes homologues ;
+/// F → 1 quand la population se reproduit exclusivement entre apparentés.
+///
+/// En complément, `inbreeding_from_variance` estime F en régime quantitatif :
+/// `F = 1 - Var_t / Var_0` — la perte relative de variance génétique observée
+/// depuis la génération fondatrice est le substitut continu de l'hétérozygotie
+/// perdue.
+pub fn wright_inbreeding_coefficient(effective_size: f64, generations: u32) -> f64 {
+    if effective_size <= 0.0 {
+        return 1.0;
+    }
+    let per_generation = 1.0 - 1.0 / (2.0 * effective_size);
+    1.0 - per_generation.powi(generations as i32)
+}
+
+/// Estimation quantitative de F par perte de variance relative.
+pub fn inbreeding_from_variance(variance_initial: f64, variance_current: f64) -> f64 {
+    if variance_initial <= 0.0 {
+        return 1.0;
+    }
+    (1.0 - variance_current / variance_initial).clamp(0.0, 1.0)
+}
+
+#[cfg(test)]
+mod inbreeding_tests {
+    use super::*;
+
+    #[test]
+    fn inbreeding_accumulates_and_saturates() {
+        assert_eq!(wright_inbreeding_coefficient(100.0, 0), 0.0);
+        let f10 = wright_inbreeding_coefficient(100.0, 10);
+        let f50 = wright_inbreeding_coefficient(100.0, 50);
+        // Croissance monotone, bornée par 1.
+        assert!(f10 > 0.0 && f50 > f10 && f50 < 1.0);
+        // Formule exacte sur un cas simple : Ne=1, t=1 => F = 1/2.
+        assert!((wright_inbreeding_coefficient(1.0, 1) - 0.5).abs() < 1e-12);
+        // Petite population => consanguinité rapide.
+        assert!(wright_inbreeding_coefficient(4.0, 5) > f10);
+    }
+
+    #[test]
+    fn degenerate_sizes_are_handled() {
+        assert_eq!(wright_inbreeding_coefficient(0.0, 3), 1.0, "population éteinte");
+    }
+
+    #[test]
+    fn variance_loss_maps_to_inbreeding() {
+        // Perte de moitié de la variance => F = 0.5.
+        assert!((inbreeding_from_variance(2.0, 1.0) - 0.5).abs() < 1e-12);
+        // Aucune perte => F = 0 ; gain impossible borné à 0.
+        assert_eq!(inbreeding_from_variance(1.0, 1.0), 0.0);
+        assert_eq!(inbreeding_from_variance(1.0, 4.0), 0.0);
+        assert_eq!(inbreeding_from_variance(0.0, 1.0), 1.0);
     }
 }
