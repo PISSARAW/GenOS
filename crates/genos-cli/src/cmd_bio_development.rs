@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Result};
-use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment, WaddingtonLandscape, Trajectory};
+use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment, WaddingtonLandscape, Trajectory, MetamorphosisEngine, LifeStage};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
@@ -78,5 +78,47 @@ pub fn canalization_evaluate(params: &[String]) -> Result<()> {
             Ok(())
         },
         Err(e) => bail!("Canalization failed: {}", e),
+    }
+}
+
+pub fn metamorphosis_transition(params: &[String]) -> Result<()> {
+    let agent_id = param_value(params, "agent_id")
+        .ok_or_else(|| anyhow::anyhow!("missing --param agent_id=<id>"))?
+        .to_string();
+        
+    let current_stage_str = param_value(params, "current_stage")
+        .unwrap_or("larval");
+        
+    let initial_stage = match current_stage_str {
+        "larval" => LifeStage::Larval,
+        "pupal" => LifeStage::Pupal,
+        "imago" => LifeStage::Imago,
+        _ => bail!("Invalid life stage"),
+    };
+    
+    let mut engine = MetamorphosisEngine::new(agent_id.clone(), initial_stage);
+
+    match engine.trigger_transition() {
+        Ok(new_stage) => {
+            println!("Agent {} successfully transitioned to stage {:?}", agent_id, new_stage);
+            
+            // If going to Pupal, compute tissues changes
+            if new_stage == LifeStage::Pupal {
+                let current_tools: Vec<String> = params
+                    .iter()
+                    .filter_map(|p| p.strip_prefix("current_tool=").map(|s| s.to_string()))
+                    .collect();
+                let target_tools: Vec<String> = params
+                    .iter()
+                    .filter_map(|p| p.strip_prefix("target_tool=").map(|s| s.to_string()))
+                    .collect();
+                    
+                let (shed, acquire) = engine.compute_tissue_changes(&current_tools, &target_tools);
+                println!("Shedding obsolete tools: {:?}", shed);
+                println!("Acquiring new tools: {:?}", acquire);
+            }
+            Ok(())
+        },
+        Err(e) => bail!("Metamorphosis failed: {}", e),
     }
 }
