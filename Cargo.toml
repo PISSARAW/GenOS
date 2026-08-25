@@ -16,6 +16,7 @@ members = [
   "crates/genos-platform",
   "crates/epsilon_sa", "crates/epsilon_wgpu",
   "crates/genos-synaptic",
+  "crates/genos-mycelium",
   "integrations/mcp/genos-mcp",
 ]
 resolver = "2"

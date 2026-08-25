@@ -1,0 +1,13 @@
+[package]
+name = "genos-mycelium"
+description = "Fungal-network topology: anastomosis, source-to-sink osmotic routing, Kirchhoff anti-loop conservation and autolysis"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+
+[dependencies]
+serde.workspace = true

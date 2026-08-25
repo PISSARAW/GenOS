@@ -36,3 +36,4 @@ pub mod flocking;
 pub mod network;
 pub mod swarm;
 pub mod symbiosis;
+pub mod physarum_tsp;
