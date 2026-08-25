@@ -9,12 +9,18 @@ use axum::{
 };
 use futures::stream;
 use genos_model::{GenerationConfig, LlmProvider, Message, Role};
-use security::{AuthenticatedTenant, RateLimitConfig, SecurityState};
+use security::RateLimitConfig;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{convert::Infallible, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    collections::HashMap,
+    convert::Infallible,
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub mod security;
+pub use security::{AuthenticatedTenant, SecurityState};
 
 #[derive(Serialize)]
 struct Health {
@@ -23,7 +29,6 @@ struct Health {
 #[derive(Clone)]
 pub struct ApiState {
     pub provider: Arc<dyn LlmProvider>,
-    pub tenant_tokens: Arc<HashMap<String, String>>,
 }
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionRequest {
@@ -80,17 +85,39 @@ pub fn router() -> Router {
 pub fn router_with_provider(provider: Arc<dyn LlmProvider>) -> Router {
     router_with_config(provider, HashMap::new())
 }
+pub const DEFAULT_RATE_LIMIT_CAPACITY: u32 = 120;
+pub const DEFAULT_RATE_LIMIT_REFILL_PER_SEC: u32 = 30;
+
 pub fn router_with_config(
     provider: Arc<dyn LlmProvider>,
     tenant_tokens: HashMap<String, String>,
 ) -> Router {
+    router_with_security(
+        provider,
+        tenant_tokens,
+        RateLimitConfig::new(
+            DEFAULT_RATE_LIMIT_CAPACITY,
+            DEFAULT_RATE_LIMIT_REFILL_PER_SEC,
+        ),
+    )
+}
+
+pub fn router_with_security(
+    provider: Arc<dyn LlmProvider>,
+    tenant_tokens: HashMap<String, String>,
+    rate_limit: RateLimitConfig,
+) -> Router {
+    let security = SecurityState::new(tenant_tokens, rate_limit);
+    let protected = Router::new()
+        .route("/v1/chat/completions", post(chat_completions))
+        .layer(axum::middleware::from_fn_with_state(
+            security,
+            security::middleware,
+        ));
     Router::new()
         .route("/health", get(health))
-        .route("/v1/chat/completions", post(chat_completions))
-        .with_state(ApiState {
-            provider,
-            tenant_tokens: Arc::new(tenant_tokens),
-        })
+        .merge(protected)
+        .with_state(ApiState { provider })
 }
 async fn health() -> Json<Health> {
     Json(Health { status: "ok" })
@@ -98,25 +125,8 @@ async fn health() -> Json<Health> {
 
 async fn chat_completions(
     State(state): State<ApiState>,
-    headers: HeaderMap,
     Json(request): Json<ChatCompletionRequest>,
 ) -> Response {
-    if !state.tenant_tokens.is_empty() {
-        let tenant = headers
-            .get("x-genos-tenant")
-            .and_then(|value| value.to_str().ok());
-        let token = headers
-            .get("authorization")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.strip_prefix("Bearer "));
-        if tenant
-            .and_then(|tenant| state.tenant_tokens.get(tenant))
-            .zip(token)
-            .is_none_or(|(expected, actual)| expected != actual)
-        {
-            return (axum::http::StatusCode::UNAUTHORIZED, Json(json!({ "error": { "message": "invalid tenant credentials", "type": "authentication_error" } }))).into_response();
-        }
-    }
     let messages = request
         .messages
         .iter()

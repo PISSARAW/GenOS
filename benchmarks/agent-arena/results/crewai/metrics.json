@@ -1,0 +1,11 @@
+{
+  "agent": "crewai",
+  "model": "qwen2.5-coder:14b",
+  "wallClockMs": 285212,
+  "llmCalls": 8,
+  "inputTokens": 370794,
+  "outputTokens": 6423,
+  "costUsd": 0,
+  "reviewerApproved": false,
+  "finalTestsPassed": 2
+}
