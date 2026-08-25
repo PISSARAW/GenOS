@@ -40,6 +40,7 @@ pub mod cleaner;
 pub mod cyber_immune;
 pub mod disaster;
 pub mod fever;
+pub mod inflammation;
 pub mod mavirus;
 pub mod mimivire;
 pub mod provocation;
