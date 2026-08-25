@@ -85,7 +85,8 @@ impl Wound {
             return self.phase;
         }
         // La transition a lieu à l'entrée du cycle qui suit la fin de phase :
-        // chaque phase dure exactement `PHASE_DURATIONS[i]` cycles.
+        // chaque phase dure exactement `PHASE_DURATIONS[i]` cycles complets,
+        // et le cycle de transition n'est pas compté dans la nouvelle phase.
         let duration = PHASE_DURATIONS[self.phase_index()];
         if self.cycles_in_phase >= duration {
             let next_index = (self.phase_index() + 1).min(3);
@@ -96,6 +97,8 @@ impl Wound {
                 _ => HealingPhase::Remodeling,
             };
             self.cycles_in_phase = 0;
+            self.total_cycles += 1;
+            return self.phase;
         }
         self.cycles_in_phase += 1;
         self.total_cycles += 1;
