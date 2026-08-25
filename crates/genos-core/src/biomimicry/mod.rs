@@ -11,6 +11,7 @@ pub mod morphogenesis;
 pub mod proceduralization;
 pub mod reciprocity;
 pub mod sar;
+pub mod telomere;
 pub mod vaccination;
 
 pub use chaperone::*;
@@ -20,4 +21,5 @@ pub use morphogenesis::*;
 pub use proceduralization::*;
 pub use reciprocity::*;
 pub use sar::*;
+pub use telomere::*;
 pub use vaccination::*;
