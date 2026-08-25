@@ -146,6 +146,11 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 - **Inflammation & Fever**: In presence of severe systemic threats (e.g. cascading prompt injections), use iomimicry_immuno_inflammation to trigger a degraded quarantine state, slowing down budget consumption and sealing sensitive tools until the threat cools down.
 - **Auto-Immunity Regulation (T-Cell)**: If Apoptosis or Inflammation mechanisms are generating too many false positive kills (attacking healthy workflows), use iomimicry_immuno_autoimmunity to detect the overreaction and actively suppress the immune response to save the swarm.
 
+
+### 5.8 Ecology & Evolution (Population Dynamics)
+- **Punctuated Equilibria**: When an optimization or exploration loop hits a plateau (no improvement over several epochs), use iomimicry_ecology_punctuated to trigger an evolutionary burst, artificially spiking temperature/mutation rates to escape local minima.
+- **Ecological Succession**: For large codebase projects, don't spawn complex agents immediately. Use iomimicry_ecology_succession to sequence deployment: Pioneer agents (fast, cheap) to index and map, Intermediate agents to build, and Climax agents (expensive, low temp) to maintain.
+
 ---
 
 ## 6. Operational Quality & Integrity Mandates
@@ -154,6 +159,7 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 2. **Zero-Stub Policy**: No placeholder comments (`// TODO`, `/* implement later */`), empty function bodies, or mock return values in production paths.
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
+
 
 
 
