@@ -20,8 +20,12 @@ genos-core = { path = "../genos-core" }
 genos-model = { path = "../genos-model" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 
 [[bin]]
 name = "genos-api"

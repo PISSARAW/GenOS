@@ -1,0 +1,10 @@
+{
+  "agent": "metagpt",
+  "model": "qwen2.5-coder:14b",
+  "wallClockMs": 79914,
+  "llmCalls": 4,
+  "inputTokens": 35694,
+  "outputTokens": 1576,
+  "costUsd": 0,
+  "sopArtifactsComplete": false
+}
