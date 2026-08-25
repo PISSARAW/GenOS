@@ -32,6 +32,7 @@ pub trait OrganizationProtocol {
 }
 
 pub mod aco;
+pub mod kuramoto;
 pub mod distributed;
 pub mod flocking;
 pub mod network;
