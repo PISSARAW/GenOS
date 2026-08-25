@@ -26,7 +26,13 @@ pub async fn cmd_resilience_cryptobiosis(args: CryptobiosisArgs) -> Result<()> {
         ),
     };
     println!("Entering cryptobiosis mode: {}", args.mode);
-    let spore = Spore::new(&state_data);
+    let mode = match args.mode.to_lowercase().as_str() {
+        "cryobiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Cryobiosis,
+        "osmobiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Osmobiosis,
+        "anoxybiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Anoxybiosis,
+        _ => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Anhydrobiosis,
+    };
+    let spore = Spore::new(&state_data, mode);
     let path = std::path::PathBuf::from(".genos/cryptobiosis.spore");
     spore.serialize(&path)?;
     println!("Spore saved to {:?}", path);
