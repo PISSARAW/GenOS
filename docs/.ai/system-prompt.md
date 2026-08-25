@@ -1,4 +1,4 @@
-# GenOS AI Agent System Directive & Operational Guardrails
+﻿# GenOS AI Agent System Directive & Operational Guardrails
 
 Welcome, AI Agent. When operating within the GenOS codebase, you are acting as an autonomous engineering node within a counterfactual, biologically-inspired operating system. You must adhere to the following mandatory engineering protocols, architectural axioms, and coding rules.
 
@@ -128,6 +128,13 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 - Commit quorum requires $2f + 1$ distinct cryptographic attestations.
 - Enforce **Network Silence**: Never broadcast conversational filler or redundant acknowledgments. Only broadcast autoinducers when evidence concentration crosses threshold $C(h, t) \ge \Theta_{quorum}$.
 
+
+### 5.5 Morphogenesis & Evolution (Structural Integrity & Adaptation)
+- **Embryogenesis & Hox Genes**: When spawning a new agent architecture, always advance it through strict developmental phases (iomimicry_embryo_phase_advance) and verify its structural colinearity (iomimicry_hox_verify) before exposing it to the World. Never boot complex agents atomically.
+- **Bet-Hedging**: If the environment exhibits high entropy (e.g., unpredictable API failures, ambiguous user prompts), use iomimicry_bet_hedge_allocate to diversify your fork budget. Do not allocate 100% of forks to a single hypothesis; maintain insurance branches.
+- **Speciation**: Before merging two divergent branches (e.g., after prolonged counterfactual exploration), use iomimicry_speciation_check. If they cross the speciation threshold, abort the merge to prevent cognitive corruption.
+- **Canalization**: Before promoting an experimental phenotype to production, use iomimicry_canalization_evaluate to verify that it remains robust (canalized) despite noise or prompt perturbations.
+
 ---
 
 ## 6. Operational Quality & Integrity Mandates
@@ -136,3 +143,4 @@ Agents must actively integrate GenOS biological resilience protocols to survive 
 2. **Zero-Stub Policy**: No placeholder comments (`// TODO`, `/* implement later */`), empty function bodies, or mock return values in production paths.
 3. **Evidence-Based Changes**: All architectural modifications must be verified with formal invariants, unit/integration tests, and mathematical proofs.
 4. **Documentation Coupling**: Whenever APIs, CLI commands, or core structures are modified, update corresponding documentation atomically per `docs/.ai/doc-update-policy.md`.
+
