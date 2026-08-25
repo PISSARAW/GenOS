@@ -8,6 +8,7 @@ const cors = require('cors');
 
 // Security & Error Middlewares
 const { securityHeaders, originCheck, csrfCheck, xssSanitizer, ALLOWED_ORIGINS } = require('./middleware/security');
+const { requireAuthentication } = require('./middleware/auth');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 // Route Modules
@@ -83,6 +84,12 @@ function createApp() {
   app.use(originCheck);
   app.use(csrfCheck);
   app.use(xssSanitizer);
+
+  // 3. Global authentication gate. No API surface is reachable without a
+  // valid access key or session except the explicitly public probes and the
+  // login/SSO/CSRF-issuance endpoints. Per-route permission checks apply on
+  // top of this gate.
+  app.use(requireAuthentication);
 
   // 3. Mount Modular API Routes
   app.use('/api/auth', authRoutes);
