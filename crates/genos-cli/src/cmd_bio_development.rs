@@ -1,5 +1,5 @@
 ﻿use anyhow::{bail, Result};
-use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment};
+use genos_core::biomimicry::{Embryogenesis, EmbryoPhase, HoxBlueprint, BodySegment, WaddingtonLandscape, Trajectory};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
@@ -49,5 +49,34 @@ pub fn hox_verify(params: &[String]) -> Result<()> {
             Ok(())
         },
         Err(e) => bail!("Hox colinearity violation: {}", e),
+    }
+}
+
+pub fn canalization_evaluate(params: &[String]) -> Result<()> {
+    let expected = param_value(params, "expected_phenotype")
+        .ok_or_else(|| anyhow::anyhow!("missing --param expected_phenotype=<hash>"))?
+        .to_string();
+    let width: f64 = param_value(params, "valley_width")
+        .unwrap_or("0.8")
+        .parse()?;
+        
+    let landscape = WaddingtonLandscape::new(expected, width);
+    
+    // Parse simulated trajectories from params
+    let trajectories: Vec<Trajectory> = params
+        .iter()
+        .filter_map(|p| p.strip_prefix("trajectory=").map(|s| Trajectory { final_state_hash: s.to_string() }))
+        .collect();
+
+    if trajectories.is_empty() {
+        bail!("Missing --param trajectory=<final_state_hash>");
+    }
+
+    match landscape.evaluate_canalization(&trajectories) {
+        Ok(ratio) => {
+            println!("Trajectory is canalized! Robustness ratio: {:.2}", ratio);
+            Ok(())
+        },
+        Err(e) => bail!("Canalization failed: {}", e),
     }
 }
