@@ -91,6 +91,41 @@ genos eval parasitism <INPUT> --output <PATH> [--evolve]
 
 ---
 
+## 15. Cell-Division Primitives (`genos division`)
+
+Cell-division primitives over capsules. Biology-to-primitive mapping,
+priority use cases and guarantees: `docs/research/fr/DIVISION_CELLULAIRE.md`.
+Amitosis is deliberately not implemented (anti-pattern).
+
+- `mitosis`: Attested clonal fan-out — every daughter is verified identical to
+  the parent (genome, logical state, integrity seal) and inherits the full
+  budget. Priority use case: redundant parallel execution / majority voting.
+  Fails if any attestation is unverified; partial creations are rolled back.
+- `fission`: Symmetric lightweight scale-out (prokaryote profile). The parent's
+  remaining step budget is divided evenly (`--count` daughters); daughters carry
+  no hypothesis metadata. Refuses a budget that cannot fund one step per daughter.
+- `bud`: Asymmetric bounded delegation. The parent stays untouched while the bud
+  receives its own `--steps` budget; each persisted bud counts as a scar on the
+  parent and divisions beyond `--max-buds` scars are refused (Hayflick limit,
+  default 8).
+- `schizogony`: Atomic speculative burst. All `--branch LABEL=HYPOTHESIS`
+  entries are validated first (unique labels, fundable even budget split), then
+  released together under one burst id; any failure during release cancels every
+  daughter. Priority use case: MCTS-style hypothesis expansion from one state.
+
+```bash
+genos division mitosis <capsule_id> --count 3
+genos division fission <capsule_id> --count 4
+genos division bud <capsule_id> --label lint --steps 5 --max-buds 8
+genos division schizogony <capsule_id> --branch "dfs=depth-first" --branch "bfs=breadth-first"
+```
+
+All four commands accept `--root <DIR>` (default `.genos`) and print a
+`DivisionReport` (`mode`, `parent_capsule_id`, `daughter_capsule_ids`,
+`steps_per_daughter`) as JSON.
+
+---
+
 ## Appendix: Hallucination `detect` Output
 
 Finding kinds: `missing_receipt`, `unverified_execution`, `ungrounded_belief`, `weak_evidence`.
