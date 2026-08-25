@@ -163,4 +163,62 @@ mod tests {
         // Nociception et Apoptose
         nociceptor.sense(ErrorType::Critical);
     }
+
+    #[test]
+    fn test_homeostatic_index() {
+        let index = HomeostaticIndex::new(0.0, 0.0, 0.0);
+        assert_eq!(index.compute_h_cell(), 1.0);
+        assert_eq!(index.state(), HomeostaticState::Nominal);
+
+        let degraded = HomeostaticIndex::new(0.5, 0.5, 0.5);
+        assert_eq!(degraded.compute_h_cell(), 0.5);
+        assert_eq!(degraded.state(), HomeostaticState::Degraded);
+
+        let critical = HomeostaticIndex::new(0.9, 0.9, 0.9);
+        assert!(critical.compute_h_cell() < 0.4);
+        assert_eq!(critical.state(), HomeostaticState::Critical);
+    }
+}
+
+/// Homéostasie: Index H_cell.
+/// Calcule l'état global du système pour déclencher les mécanismes de résilience (throttling, hypermutation, apoptose).
+#[derive(Debug, Clone, PartialEq)]
+pub struct HomeostaticIndex {
+    pub error_rate: f32, // E_rate
+    pub latency: f32,    // latence
+    pub semantic_drift: f32, // D_sem
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum HomeostaticState {
+    Nominal,
+    Degraded,
+    Critical,
+}
+
+impl HomeostaticIndex {
+    pub fn new(error_rate: f32, latency: f32, semantic_drift: f32) -> Self {
+        HomeostaticIndex { error_rate, latency, semantic_drift }
+    }
+
+    /// `H_cell = 1 - (0.40 * E_rate + 0.25 * latence + 0.35 * D_sem)`
+    pub fn compute_h_cell(&self) -> f32 {
+        let e_rate = self.error_rate.clamp(0.0, 1.0);
+        let lat = self.latency.clamp(0.0, 1.0);
+        let d_sem = self.semantic_drift.clamp(0.0, 1.0);
+        let h = 1.0 - (0.40 * e_rate + 0.25 * lat + 0.35 * d_sem);
+        h.clamp(0.0, 1.0)
+    }
+
+    /// Détermine l'état en fonction de l'index H_cell.
+    pub fn state(&self) -> HomeostaticState {
+        let h = self.compute_h_cell();
+        if h >= 0.8 {
+            HomeostaticState::Nominal
+        } else if h >= 0.4 {
+            HomeostaticState::Degraded
+        } else {
+            HomeostaticState::Critical
+        }
+    }
 }
