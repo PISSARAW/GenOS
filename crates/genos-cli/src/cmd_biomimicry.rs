@@ -20,6 +20,7 @@ pub async fn cmd_biomimicry_feature(
     match (feature, action) {
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
+        ("vaccination", "train") => vaccination_train(params),
         ("epigenetic_chromatin", "modulate") => chromatin_modulate(params),
         (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
     }
@@ -89,6 +90,40 @@ fn chaperone_repair(params: &[String]) -> Result<()> {
 
 fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
     params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+}
+
+fn vaccination_train(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{tokenize, VaccineCorpus};
+    let malicious: Vec<String> =
+        collect_params(params, "malicious").iter().map(|s| s.to_string()).collect();
+    let benign: Vec<String> =
+        collect_params(params, "benign").iter().map(|s| s.to_string()).collect();
+    if malicious.is_empty() {
+        bail!("at least one --param malicious=<signature> is required");
+    }
+    let corpus = VaccineCorpus { malicious, benign };
+    let profile = genos_core::biomimicry::ImmuneProfile::vaccinate(&corpus);
+    println!(
+        "Vaccination complete: {} memory cells formed, {} candidates rejected by self-tolerance",
+        profile.cells.len(),
+        profile.rejected.len()
+    );
+    for (i, cell) in profile.cells.iter().enumerate() {
+        println!("  cell[{i}] exposures={} tokens={}", cell.exposure_count, cell.centroid_tokens.join(" "));
+    }
+    for rejected in &profile.rejected {
+        println!("  rejected (self-reactive): {rejected}");
+    }
+    if let Some(probe) = param_value(params, "probe") {
+        match profile.respond(probe) {
+            Some(hit) => println!(
+                "Secondary response for probe '{probe}': MATCH cell[{}] similarity={:.2}",
+                hit.cell_index, hit.similarity
+            ),
+            None => println!("Secondary response for probe '{probe}': no memory"),
+        }
+    }
+    Ok(())
 }
 
 fn chromatin_modulate(params: &[String]) -> Result<()> {
