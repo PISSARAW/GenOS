@@ -5,7 +5,7 @@ use std::collections::HashSet;
 #[test]
 fn catalog_contains_canonical_and_software_development_tools() {
     let specs = tool_specs();
-    assert_eq!(specs.len(), 72);
+    assert_eq!(specs.len(), 73);
     let names = specs
         .iter()
         .map(|tool| tool.name.as_str())
