@@ -25,6 +25,8 @@ pub mod punctuated_equilibria;
 pub mod ecological_succession;
 pub mod social_learning;
 pub mod play_behavior;
+pub mod thanatosis;
+pub mod mimicry;
 pub mod interferon;
 pub mod morphogenesis;
 pub mod neoteny;
@@ -57,6 +59,8 @@ pub use punctuated_equilibria::*;
 pub use ecological_succession::*;
 pub use social_learning::*;
 pub use play_behavior::*;
+pub use thanatosis::*;
+pub use mimicry::*;
 pub use interferon::*;
 pub use morphogenesis::*;
 pub use neoteny::*;
@@ -67,6 +71,7 @@ pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+
 
 
 

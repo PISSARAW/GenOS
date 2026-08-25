@@ -574,10 +574,28 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 planner.push_flag("--param", &format!("discoveries={b}"));
             }
         }
+        "biomimicry_behavior_thanatosis" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "behavior");
+            planner.push_flag("--action", "thanatosis");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
+            if let Some(b) = planner.opt_str("threat_source")? {
+                planner.push_flag("--param", &format!("threat_source={b}"));
+            }
+        }
+        "biomimicry_behavior_mimicry" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "behavior");
+            planner.push_flag("--action", "mimicry");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("target_profile={}", planner.req_str("target_profile")?));
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
 
 

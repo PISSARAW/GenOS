@@ -33,6 +33,8 @@ pub async fn cmd_biomimicry_feature(
         ("ecology", "succession") => crate::cmd_bio_ecology::ecology_succession(params),
         ("behavior", "social") => crate::cmd_bio_behavior::behavior_social(params),
         ("behavior", "play") => crate::cmd_bio_behavior::behavior_play(params),
+        ("behavior", "thanatosis") => crate::cmd_bio_behavior::behavior_thanatosis(params),
+        ("behavior", "mimicry") => crate::cmd_bio_behavior::behavior_mimicry(params),
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
@@ -393,6 +395,7 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
+
 
 
 
