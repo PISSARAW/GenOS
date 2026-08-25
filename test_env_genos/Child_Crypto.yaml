@@ -1,0 +1,84 @@
+id: 01a0398f-cae1-78e2-a5bf-826b5e78310a
+parent_genome: null
+parent_genomes:
+- 01a0398f-a59a-7e72-9b0a-50acce30f814
+- 01a0398f-a91a-79b2-8b48-3de73c381c43
+mutation:
+  changes:
+  - field: cognition.drives.exploration
+    previous_value: 0.7
+    new_value: 0.7
+  - field: cognition.drives.risk_tolerance
+    previous_value: 0.25
+    new_value: 0.25
+  - field: cognition.drives.verification_threshold
+    previous_value: 0.8
+    new_value: 0.8
+version: 0.1.0
+identity:
+  name: Child_Crypto
+  role: SecurityAuditor
+cognition:
+  chromosomes:
+  - name: C1
+    loci:
+    - gene_name: exploration
+      value: 0.7
+      epigenetic_marker: 0.0
+    - gene_name: risk_tolerance
+      value: 0.25
+      epigenetic_marker: 0.0
+    - gene_name: verification_threshold
+      value: 0.8
+      epigenetic_marker: 0.0
+    operons: []
+  planning_depth: 6
+  regulators: []
+objectives:
+- key: tests_pass
+  description: Run tests before completion
+policies:
+- key: evidence_before_claim
+  description: Claims require evidence
+capabilities:
+- name: counterfactual_forking
+  enabled: false
+memory_policy:
+  working_max_items: 100
+  episodic_enabled: true
+  semantic_enabled: true
+model_policy:
+  strategy: provider-agnostic
+  preferred_providers: []
+  allow_local: true
+tool_policy:
+  permissions:
+  - tool: filesystem
+    scope: workspace
+    enabled: true
+  - tool: shell
+    scope: sandboxed
+    enabled: true
+  - tool: network
+    scope: denied
+    enabled: false
+inferred_traits: []
+breeding:
+  status: untested_candidate
+  targets:
+  - trait_name: risk_tolerance
+    genome_field: cognition.drives.risk_tolerance
+    target: 0.25
+    parent_a_weight: 0.6
+    evaluation_suite: security_audit_suite_v1
+  - trait_name: exploration
+    genome_field: cognition.drives.exploration
+    target: 0.699999988079071
+    parent_a_weight: 0.3
+    evaluation_suite: security_audit_suite_v1
+  - trait_name: syntax_strictness
+    genome_field: cognition.drives.syntax_strictness
+    target: 0.8500000238418579
+    parent_a_weight: 0.5
+    evaluation_suite: security_audit_suite_v1
+ecological_niche: null

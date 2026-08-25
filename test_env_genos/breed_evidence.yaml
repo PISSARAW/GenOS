@@ -1,0 +1,46 @@
+# breed_evidence.yaml - measured phenotype evidence for recombination
+child_name: Child_Crypto
+speciation_threshold: 0.9
+traits:
+  - genome_field: "cognition.drives.risk_tolerance"
+    parent_a_weight: 0.6
+    parent_a:
+      trait_name: "risk_tolerance"
+      mean: 0.12
+      standard_error: 0.02
+      sample_size: 40
+      evaluation_suite: "security_audit_suite_v1"
+    parent_b:
+      trait_name: "risk_tolerance"
+      mean: 0.45
+      standard_error: 0.05
+      sample_size: 35
+      evaluation_suite: "security_audit_suite_v1"
+  - genome_field: "cognition.drives.exploration"
+    parent_a_weight: 0.3
+    parent_a:
+      trait_name: "exploration"
+      mean: 0.55
+      standard_error: 0.04
+      sample_size: 40
+      evaluation_suite: "security_audit_suite_v1"
+    parent_b:
+      trait_name: "exploration"
+      mean: 0.85
+      standard_error: 0.03
+      sample_size: 35
+      evaluation_suite: "security_audit_suite_v1"
+  - genome_field: "cognition.drives.syntax_strictness"
+    parent_a_weight: 0.5
+    parent_a:
+      trait_name: "syntax_strictness"
+      mean: 0.80
+      standard_error: 0.03
+      sample_size: 40
+      evaluation_suite: "security_audit_suite_v1"
+    parent_b:
+      trait_name: "syntax_strictness"
+      mean: 0.90
+      standard_error: 0.02
+      sample_size: 35
+      evaluation_suite: "security_audit_suite_v1"

@@ -8,6 +8,7 @@ use crate::types::ToolSpec;
 
 pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
     vec![
+        SpecBuilder::new("biomimicry_hox_verify", "Hox Genes Colinearity Verify", "Verify if capabilities were activated in the strict order defined by Hox structural genes.").schema(object_schema([("activated", string_array_schema("List of activated capabilities in chronological order"))], &["activated"])).build(),
         SpecBuilder::new("biomimicry_embryo_phase_advance", "Embryogenesis Phase Advance", "Advance an agent to the next developmental phase.").schema(object_schema([("agent_id", string_schema("Agent ID")), ("current_phase", string_schema("Current phase")), ("preconditions_met", string_schema("Are preconditions met (true/false)"))], &["agent_id", "current_phase"])).build(),
         SpecBuilder::new(
             "biomimicry_telomere_fork",
@@ -80,23 +81,7 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
             &["allele-a", "allele-b"],
         ))
         .build(),
-        SpecBuilder::new(
-            "biomimicry_bet_hedge_allocate",
-            "Bet-Hedging Allocation",
-            "Split a fork-generation budget between the main bet and evenly-spread insurance scenarios; the insured fraction grows with environmental entropy.",
-        )
-        .schema(object_schema(
-            [
-                ("total_budget", string_schema("Total budget units for this fork generation")),
-                ("entropy", string_schema("Environmental uncertainty in [0,1] (default 0.3)")),
-                (
-                    "scenario",
-                    string_array_schema("Plausible scenario as name:expected_fitness (repeatable)"),
-                ),
-            ],
-            &["total_budget", "scenario"],
-        ))
-        .build(),
     ]
 }
+
 

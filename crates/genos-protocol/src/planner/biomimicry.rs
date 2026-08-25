@@ -319,6 +319,28 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
                 }
             }
         }
+        "biomimicry_speciation_check" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "speciation");
+            planner.push_flag("--action", "check");
+            if let Some(values) = planner.object.get("allele-a").and_then(Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("allele-a={value}"));
+                }
+            }
+            if let Some(values) = planner.object.get("allele-b").and_then(Value::as_array) {
+                for value in values {
+                    let value = value.as_str().unwrap_or_default();
+                    planner.push_flag("--param", &format!("allele-b={value}"));
+                }
+            }
+            for key in ["hybrid_threshold", "speciation_threshold"] {
+                if let Some(value) = planner.opt_str(key)? {
+                    planner.push_flag("--param", &format!("{key}={value}"));
+                }
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)

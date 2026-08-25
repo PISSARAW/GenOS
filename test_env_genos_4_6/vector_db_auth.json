@@ -1,0 +1,18 @@
+{
+  "chunks": [
+    {
+      "id": "hotfix_001",
+      "text": "HOTFIX AUTH: utiliser timingSafeEqual de node:crypto pour comparer la clé. Convertir en Buffer, comparer, renvoyer le résultat. (détail perdu dans la vectorisation: la garde de longueur AVANT la comparaison)",
+      "embedding": [
+        0.9410365074429887,
+        0.7710994166809965,
+        0.5102288964866329,
+        0.18918862081154605,
+        -0.15416209853372645,
+        -0.4793329463800657,
+        -0.7479775049939824,
+        -0.9284153315108501
+      ]
+    }
+  ]
+}
