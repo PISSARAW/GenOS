@@ -591,10 +591,31 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
             planner.push_flag("--param", &format!("target_profile={}", planner.req_str("target_profile")?));
         }
+        "biomimicry_cellular_endosymbiosis" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "cellular");
+            planner.push_flag("--action", "endosymbiosis");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("external_tool={}", planner.req_str("external_tool")?));
+            if let Some(b) = planner.opt_str("success_rate")? {
+                planner.push_flag("--param", &format!("success_rate={b}"));
+            }
+        }
+        "biomimicry_cellular_bbb" => {
+            planner.args = vec!["biomimicry".into(), "bio-feature".into()];
+            planner.push_flag("--feature", "cellular");
+            planner.push_flag("--action", "bbb");
+            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag("--param", &format!("strict_mode={}", planner.req_str("strict_mode")?));
+            if let Some(b) = planner.opt_str("risk_score")? {
+                planner.push_flag("--param", &format!("risk_score={b}"));
+            }
+        }
         _ => return Ok(false),
     }
     Ok(true)
 }
+
 
 
 
