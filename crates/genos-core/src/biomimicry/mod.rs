@@ -4,6 +4,10 @@
 //! primitives (capsules, genomes, worlds, events) while preserving the
 //! fundamental invariants from `spec/GENOME_SPEC.md`.
 
+pub mod chaperone;
+pub mod morphogenesis;
 pub mod cycle_checkpoints;
 
+pub use chaperone::*;
 pub use cycle_checkpoints::*;
+pub use morphogenesis::*;
