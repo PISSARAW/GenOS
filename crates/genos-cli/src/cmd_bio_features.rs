@@ -17,6 +17,7 @@ pub async fn cmd_biomimicry_feature(
     match (feature, action) {
         ("embryogenesis", "advance") => crate::cmd_bio_development::embryogenesis_advance(params),
         ("hox", "verify") => crate::cmd_bio_development::hox_verify(params),
+        ("canalization", "evaluate") => crate::cmd_bio_development::canalization_evaluate(params),
         ("gate", "evaluate") => gate_evaluate(params),
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
@@ -30,6 +31,7 @@ pub async fn cmd_biomimicry_feature(
         ("senescence", "assess") => senescence_assess(params),
         ("neoteny", "quota") => neoteny_quota(params),
         ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
+        ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -376,5 +378,6 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
+
 
 
