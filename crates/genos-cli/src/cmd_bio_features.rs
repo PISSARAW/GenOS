@@ -26,6 +26,7 @@ pub async fn cmd_biomimicry_feature(
         }
         ("telomere", "fork" | "restore") => telomere_action(params, action),
         ("senescence", "assess") => senescence_assess(params),
+        ("neoteny", "quota") => neoteny_quota(params),
         ("epigenetic_chromatin", "modulate") => {
             crate::cmd_biomimicry::chromatin_modulate(params)
         }
@@ -338,6 +339,37 @@ fn reciprocity_decide(params: &[String]) -> Result<()> {
         genos_core::biomimicry::Decision::Retaliate => {
             println!("Decision: RETALIATE (free-riding contained)");
             bail!("reciprocity policy retaliates against {peer_id}")
+        }
+    }
+}
+
+fn neoteny_quota(params: &[String]) -> Result<()> {
+    use genos_core::biomimicry::{NeotenyPolicy, SpawnDecision, SpawnRequest};
+    let total: usize = param_value(params, "total_agents")
+        .ok_or_else(|| anyhow::anyhow!("missing --param total_agents=<n>"))?
+        .parse()?;
+    let neotenic: usize = param_value(params, "neotenic_agents")
+        .ok_or_else(|| anyhow::anyhow!("missing --param neotenic_agents=<n>"))?
+        .parse()?;
+    let request = match param_value(params, "request") {
+        Some("neotenic") => SpawnRequest::Neotenic,
+        Some("specialist") => SpawnRequest::Specialist,
+        _ => bail!("missing or invalid --param request=<neotenic|specialist>"),
+    };
+    let fraction: f64 =
+        param_value(params, "fraction").and_then(|v| v.parse().ok()).unwrap_or(0.2);
+    let policy = NeotenyPolicy::new(fraction);
+    match policy.decide_spawn(total, neotenic, request) {
+        SpawnDecision::Allowed { as_neotenic } => {
+            if as_neotenic {
+                println!("Spawn allowed: neotenic individual (reserve coverage {:.0}%)", policy.coverage(total, neotenic) * 100.0);
+            } else {
+                println!("Spawn allowed: specialist (reserve coverage {:.0}%)", policy.coverage(total, neotenic) * 100.0);
+            }
+            Ok(())
+        }
+        SpawnDecision::Deferred { reason } => {
+            bail!("spawn deferred: {reason}")
         }
     }
 }

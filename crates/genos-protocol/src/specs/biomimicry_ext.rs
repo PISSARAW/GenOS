@@ -1,0 +1,68 @@
+//! Extension specs for biomimicry tools (population & lifecycle family).
+//! Kept separate from `biomimicry.rs` to respect the 400-line file budget;
+//! merged into the catalog by `biomimicry_specs()`.
+
+use crate::schema::{object_schema, string_schema};
+use crate::spec_builder::SpecBuilder;
+use crate::types::ToolSpec;
+
+pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
+    vec![
+        SpecBuilder::new(
+            "biomimicry_telomere_fork",
+            "Telomere Fork Budget",
+            "Consume one fork from a lineage budget (Hayflick limit) or attempt an explicit capped telomerase restoration; exhausted lineages must breed.",
+        )
+        .schema(object_schema(
+            [
+                ("capsule_id", string_schema("Capsule whose lineage budget is managed")),
+                ("remaining", string_schema("Current remaining fork budget")),
+                ("max_forks", string_schema("Total lineage budget")),
+                (
+                    "action",
+                    string_schema("fork (consume one unit) | restore (telomerase re-certification)"),
+                ),
+                ("new_max", string_schema("New total budget for restore action")),
+                ("restoration_count", string_schema("Restorations already used (restore action)")),
+                ("max_restorations", string_schema("Restoration quota (default 2)")),
+            ],
+            &["capsule_id", "remaining", "max_forks"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_senescence_assess",
+            "Senescence Fleet Hygiene",
+            "Classify capsules into active / intentionally-dormant / senescent-zombie states and order senolytic cleanup by harm emitted per consumed resource.",
+        )
+        .schema(object_schema(
+            [
+                ("capsule_id", string_schema("Capsule identifier")),
+                ("productive_ticks", string_schema("Ticks with meaningful output")),
+                ("idle_ticks", string_schema("Ticks alive without output")),
+                ("resources_consumed", string_schema("Resources consumed in the window")),
+                (
+                    "negative_externalities",
+                    string_schema("External harm units: blocking locks, stale pheromones, empty alerts"),
+                ),
+                ("intentional_dormancy", string_schema("True when idleness is deliberate (spore, standby)")),
+            ],
+            &["capsule_id", "productive_ticks", "idle_ticks", "resources_consumed"],
+        ))
+        .build(),
+        SpecBuilder::new(
+            "biomimicry_neoteny_quota",
+            "Neoteny Fleet Quota",
+            "Gate a spawn request against the fleet's neotenic reserve: specialists are converted or deferred when the plasticity floor would be breached.",
+        )
+        .schema(object_schema(
+            [
+                ("total_agents", string_schema("Current fleet size")),
+                ("neotenic_agents", string_schema("Current neotenic count")),
+                ("request", string_schema("neotenic | specialist")),
+                ("fraction", string_schema("Reserved fraction, clamped to 0.05..0.5 (default 0.2)")),
+            ],
+            &["total_agents", "neotenic_agents", "request"],
+        ))
+        .build(),
+    ]
+}
