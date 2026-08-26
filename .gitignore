@@ -5,6 +5,13 @@ demo-output.txt
 .env
 .venv/
 __pycache__/
+target/
+**/*.rs.bk
+.genos/
+demo-output.txt
+.env
+.venv/
+__pycache__/
 *.pyc
 .DS_Store
 node_modules/
@@ -13,7 +20,6 @@ coverage/
 *.profdata
 .agents/
 .tmp/
-.githooks/
 *.exe
 *.pdb
 backend/genos.db
