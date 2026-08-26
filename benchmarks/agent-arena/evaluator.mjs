@@ -92,7 +92,7 @@ async function evaluate(agent) {
 
   return {
     agent,
-    functional: { compileError, testPassed, testFailed, cargoTestGreen: test.code === 0 },
+    functional: { compileError, testPassed, testFailed, cargoTestGreen: test.code === 0 && testPassed > 0 },
     quality: { clippyGreen: clippy.code === 0, clippyWarnings },
     security,
     performance: { bench10kPresent: benchPresent, reportedMeanMs: benchMs },

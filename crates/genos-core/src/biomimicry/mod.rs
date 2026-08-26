@@ -1,4 +1,4 @@
-﻿//! Biomimicry extensions: biological mechanisms not yet covered elsewhere.
+//! Biomimicry extensions: biological mechanisms not yet covered elsewhere.
 //!
 //! Each submodule models one biological mechanism and maps it onto GenOS
 //! primitives (capsules, genomes, worlds, events) while preserving the
@@ -39,7 +39,6 @@ pub mod neoteny;
 pub mod proceduralization;
 pub mod reciprocity;
 pub mod sar;
-pub mod senescence;
 pub mod speciation;
 pub mod telomere;
 pub mod vaccination;
@@ -79,25 +78,6 @@ pub use neoteny::*;
 pub use proceduralization::*;
 pub use reciprocity::*;
 pub use sar::*;
-pub use senescence::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-pub mod autopoiesis;
-pub use autopoiesis::*;
-
