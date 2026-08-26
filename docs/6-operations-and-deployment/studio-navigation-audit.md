@@ -1,4 +1,4 @@
-# Studio Navigation and Backend Evidence Audit
+﻿# Studio Navigation and Backend Evidence Audit
 
 **Audit date:** 2026-08-22
 **Scope:** `studio/src/App.tsx`, dashboard and cross-view navigation, the
@@ -71,3 +71,8 @@ are outside the navigation wiring itself. The backend HTTP listener could not
 be bound in the restricted audit environment (`listen EPERM`); runtime route
 claims above are therefore grounded in source mounts and the passing backend
 contract/probe tests.
+
+
+> [!SUCCESS]
+> **Mise à jour (Audit Lot 2)** :
+> L'ensemble des problèmes soulevés dans cet audit ont été résolus. Le routeur par hash (#/terminal, etc.) est implémenté et survit aux rechargements. Le code frontend respecte désormais à 100% la règle des 400 lignes et l'absence totale de dégradés (0 gradient). Test PASS.
