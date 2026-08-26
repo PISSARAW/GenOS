@@ -35,6 +35,7 @@ Name: "envPath"; Description: "Add GenOS to system PATH (Recommended)"; Flags: u
 [Files]
 Source: "..\..\target\release\genos.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
 Source: "..\..\target\release\genos-mcp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
+Source: "..\..\*.mjs"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\backend\*"; DestDir: "{app}\backend"; Excludes: "*.db,*.db-shm,*.db-wal,*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 
@@ -46,7 +47,7 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
 
 ; Configure internal GenOS variables globally
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
-    ValueType: string; ValueName: "GENOS_ORCHESTRATOR_BRIDGE"; ValueData: "{app}\backend\bin\genos-orchestrate.cjs"
+    ValueType: string; ValueName: "GENOS_ORCHESTRATOR_BRIDGE"; ValueData: "{app}\orchestrator_cli.mjs"
 Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"; \
     ValueType: string; ValueName: "GENOS_BIN"; ValueData: "{app}\bin\genos.exe"
 
