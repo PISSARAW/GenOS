@@ -1,4 +1,4 @@
-# GenOS Comprehensive Testing Strategy
+﻿# GenOS Comprehensive Testing Strategy
 
 This document outlines the multi-tiered verification architecture of GenOS, designed to guarantee absolute reproducibility, strict worktree isolation, deterministic replayability, and mathematical correctness across counterfactual simulations.
 
@@ -206,3 +206,8 @@ Every code change must pass all tiers prior to merging:
 | **Tier 4** | Replay Determinism | `cargo test -p genos-runtime --test replay` | $< 4$ min |
 | **Tier 5** | Causal Replay | `cargo test -p genos-eval --test causal` | $< 5$ min |
 | **Tier 6** | Fuzz & Benchmarks | `cargo bench --no-run` | $< 3$ min |
+
+
+> [!NOTE]
+> **Mise à jour (Lot 3)** :
+> L'utilisation de proptest et cargo-fuzz décrite dans ce document fait partie de la roadmap à long terme et n'est pas encore implémentée. De plus, les cibles d'intégration réelles sont git_worktree et ile_isolation (et non worktree ou causal abstraitement).
