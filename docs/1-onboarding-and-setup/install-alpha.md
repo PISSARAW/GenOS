@@ -1,4 +1,4 @@
-# Install a GenOS alpha
+﻿# Install a GenOS alpha
 
 GenOS has not published an official GitHub release yet. The `0.0.1` entry in
 the changelog records a development milestone; it is not an installable
@@ -87,3 +87,9 @@ Third-party actions in this workflow are pinned to full commit SHAs. Review
 their upstream tags and refresh those pins intentionally when upgrading them.
 
 No package is uploaded to crates.io by this workflow.
+
+
+### Automated Installers
+For ease of deployment, you can use the automated installers which build and install GenOS globally:
+- **Linux/macOS**: Run ./install.sh
+- **Windows**: Run .\install.ps1, or compile the Inno Setup installer via deploy/windows/build-installer.ps1.
