@@ -1,4 +1,4 @@
-# GenOS Project & Primitive Integration Matrix
+﻿# GenOS Project & Primitive Integration Matrix
 
 GenOS establishes a unified, canonical 10-primitive vocabulary across CLI invocations, Model Context Protocol (MCP) server endpoints, JSON-RPC protocol methods, and Rust crate APIs. Every high-level project experiment is compiled down into an auditable trace composed exclusively of these foundational operations.
 
@@ -8,15 +8,15 @@ GenOS establishes a unified, canonical 10-primitive vocabulary across CLI invoca
 
 | Primitive | CLI Command | MCP Tool Name | JSON-RPC Method | Rust Crate API | Core Responsibilities |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **`init`** | `genos agent init` | `genos_init` | `agent.init` | `genos_cli::cmd_init` | Workspace initialization, CAS storage hierarchy setup (`.genos/`). |
-| **`snapshot`** | `genos agent snapshot <CAP_ID>` | `genos_snapshot` | `capsule.snapshot` | `genos_runtime::capsules::snapshot_capsule` | Atomic freeze of `(Genome, State, World, EventCursor)` into content-addressed snapshot. |
-| **`restore`** | `genos agent restore <CAP_ID>` | `genos_restore` | `capsule.restore` | `genos_runtime::capsules::restore_capsule` | Reconstitute an execution capsule to the exact historical snapshot state. |
+| **`init`** | `genos agent init` | `genos_create` | `agent.init` | `genos_cli::cmd_init` | Workspace initialization, CAS storage hierarchy setup (`.genos/`). |
+| **`snapshot`** | `genos agent snapshot <CAP_ID>` | `genos_snapshot` | `capsule.snapshot` | `genos_runtime::capsules::checkpoint_capsule` | Atomic freeze of `(Genome, State, World, EventCursor)` into content-addressed snapshot. |
+| **`restore`** | `genos agent restore <CAP_ID>` | `genos_restore` | `capsule.restore` | `genos_runtime::capsules::resume_capsule` | Reconstitute an execution capsule to the exact historical snapshot state. |
 | **`fork`** | `genos agent fork <CAP_ID> -b B1` | `genos_fork` | `capsule.fork` | `genos_core::fork_snapshot`, `WorldProvider::fork` | Generate independent counterfactual branch with isolated world and correlation id. |
-| **`mutate`** | `genos agent mutate <GENOME> -d k=v` | `genos_mutate` | `genome.mutate` | `genos_core::mutate_cognition` | Create child genome with modified cognitive drives and lineage provenance. |
+| **`mutate`** | `genos agent mutate <GENOME> -d k=v` | `genos_inspect` | `genome.mutate` | `genos_core::mutate_cognition` | Create child genome with modified cognitive drives and lineage provenance. |
 | **`run`** | `genos agent run <CAP_ID> -c CMD` | `genos_run` | `capsule.run` | `genos_runtime::AgentRuntime::step` | Execute bounded step or command, decrementing budget and emitting events. |
 | **`diff`** | `genos agent diff <SNAP_A> <SNAP_B>` | `genos_diff` | `capsule.diff` | `genos_core::diff_snapshots`, `WorldProvider::diff` | Compute structural and semantic delta between states, memories, and filesystems. |
-| **`merge`** | `genos agent merge <MANIFEST>` | `genos_merge` | `capsule.merge` | `genos_runtime::cognitive_merge::run_cognitive_merge` | Synthesize multi-branch learnings, resolve belief contradictions, unify state DAGs. |
-| **`lineage`** | `genos agent lineage -s <SNAP_ID>` | `genos_lineage` | `lineage.inspect` | `genos_core::lineage::build_lineage_graph` | Traverse and render the DAG of ancestor genomes, snapshots, and mutation records. |
+| **`merge`** | `genos agent merge <MANIFEST>` | `genos_merge` | `capsule.merge` | `genos_runtime::cognitive_merge::cognitive_merge` | Synthesize multi-branch learnings, resolve belief contradictions, unify state DAGs. |
+| **`lineage`** | `genos agent lineage -s <SNAP_ID>` | `genos_lineage` | `lineage.inspect` | `genos_core::lineage::build_lineage_dag` | Traverse and render the DAG of ancestor genomes, snapshots, and mutation records. |
 | **`replay`** | `genos agent replay -s <SNAP_ID>` | `genos_replay` | `event.replay` | `genos_store::replay_basic_state`, `CausalReplay` | Pure deterministic re-execution of historical event streams without side effects. |
 
 ---
@@ -26,32 +26,32 @@ GenOS establishes a unified, canonical 10-primitive vocabulary across CLI invoca
 Every GenOS project experiment executes a specific canonical sequence of primitives. No project synthesizes synthetic state out of thin air; every step is auditable in `primitive_trace`.
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                   Project Primitive Execution Lifecycles                    │
-├──────────────────────────┬──────────────────────────────────────────────────┤
-│ Project Archetype        │ Canonical Primitive Execution Sequence           │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Calculator Counterfactual│ init ──► snapshot ──► fork ──► run ──► diff      │
-│                          │      ──► merge ──► lineage                       │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Extreme Refactor         │ init ──► snapshot ──► recursive fork ──► run     │
-│                          │      ──► diff ──► merge ──► lineage              │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Temporal Causal Sim      │ snapshot ──► restore ──► fork ──► replay         │
-│                          │          ──► diff ──► lineage                    │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Adaptive Incident Search │ snapshot ──► fork ──► mutate ──► replay ──► run  │
-│                          │          ──► recursive fork ──► lineage          │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Scientific Research      │ snapshot ──► fork ──► run ──► replay ──► restore │
-│                          │          ──► merge ──► lineage                   │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Security Coevolution     │ snapshot ──► fork ──► mutate ──► run ──► diff    │
-│                          │          ──► lineage                             │
-├──────────────────────────┼──────────────────────────────────────────────────┤
-│ Unknown-Cause Bug        │ init ──► snapshot ──► fork ──► run ──► diff      │
-│                          │      ──► lineage (cognitive merge deferred)      │
-└──────────────────────────┴──────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚                   Project Primitive Execution Lifecycles                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Project Archetype        â”‚ Canonical Primitive Execution Sequence           â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Calculator Counterfactualâ”‚ init â”€â”€â–º snapshot â”€â”€â–º fork â”€â”€â–º run â”€â”€â–º diff      â”‚
+â”‚                          â”‚      â”€â”€â–º merge â”€â”€â–º lineage                       â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Extreme Refactor         â”‚ init â”€â”€â–º snapshot â”€â”€â–º recursive fork â”€â”€â–º run     â”‚
+â”‚                          â”‚      â”€â”€â–º diff â”€â”€â–º merge â”€â”€â–º lineage              â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Temporal Causal Sim      â”‚ snapshot â”€â”€â–º restore â”€â”€â–º fork â”€â”€â–º replay         â”‚
+â”‚                          â”‚          â”€â”€â–º diff â”€â”€â–º lineage                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Adaptive Incident Search â”‚ snapshot â”€â”€â–º fork â”€â”€â–º mutate â”€â”€â–º replay â”€â”€â–º run  â”‚
+â”‚                          â”‚          â”€â”€â–º recursive fork â”€â”€â–º lineage          â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Scientific Research      â”‚ snapshot â”€â”€â–º fork â”€â”€â–º run â”€â”€â–º replay â”€â”€â–º restore â”‚
+â”‚                          â”‚          â”€â”€â–º merge â”€â”€â–º lineage                   â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Security Coevolution     â”‚ snapshot â”€â”€â–º fork â”€â”€â–º mutate â”€â”€â–º run â”€â”€â–º diff    â”‚
+â”‚                          â”‚          â”€â”€â–º lineage                             â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Unknown-Cause Bug        â”‚ init â”€â”€â–º snapshot â”€â”€â–º fork â”€â”€â–º run â”€â”€â–º diff      â”‚
+â”‚                          â”‚      â”€â”€â–º lineage (cognitive merge deferred)      â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ---
@@ -61,26 +61,26 @@ Every GenOS project experiment executes a specific canonical sequence of primiti
 GenOS orchestrators support two mutually exclusive invocation modes: **Manifest Mode** (structured declarative file) and **Direct Input Mode** (CLI parameter flags).
 
 ```text
-┌────────────────────────────────────────────────────────────────────────┐
-│               Manifest Mode vs Direct Input Mode Mapping               │
-├─────────────────────────┬──────────────────────────────────────────────┤
-│ Project Orchestrator    │ Direct Input Mode CLI Flags                  │
-├─────────────────────────┼──────────────────────────────────────────────┤
-│ Workspace Refactor      │ `genos experiment workspace --repo PATH      │
-│                         │     --plan PATH`                             │
-├─────────────────────────┼──────────────────────────────────────────────┤
-│ Incident Search         │ `genos experiment incident --snapshot REF    │
-│                         │     --evidence PATH --search-plan PATH`      │
-├─────────────────────────┼──────────────────────────────────────────────┤
-│ Scientific Research     │ `genos experiment scientific --dataset PATH  │
-│                         │     --research-plan PATH`                    │
-├─────────────────────────┼──────────────────────────────────────────────┤
-│ Security Coevolution    │ `genos experiment security-coevolution       │
-│                         │     --environment PATH --evolution-plan PATH`│
-├─────────────────────────┼──────────────────────────────────────────────┤
-│ Bug Investigation       │ `genos experiment bug-investigation          │
-│                         │     --repo PATH --plan PATH`                 │
-└─────────────────────────┴──────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚               Manifest Mode vs Direct Input Mode Mapping               â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Project Orchestrator    â”‚ Direct Input Mode CLI Flags                  â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Workspace Refactor      â”‚ `genos experiment workspace --repo PATH      â”‚
+â”‚                         â”‚     --plan PATH`                             â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Incident Search         â”‚ `genos experiment incident --snapshot REF    â”‚
+â”‚                         â”‚     --evidence PATH --search-plan PATH`      â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Scientific Research     â”‚ `genos experiment scientific --dataset PATH  â”‚
+â”‚                         â”‚     --research-plan PATH`                    â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Security Coevolution    â”‚ `genos experiment security-coevolution       â”‚
+â”‚                         â”‚     --environment PATH --evolution-plan PATH`â”‚
+â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
+â”‚ Bug Investigation       â”‚ `genos experiment bug-investigation          â”‚
+â”‚                         â”‚     --repo PATH --plan PATH`                 â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
 ```
 
 ### Invariants:
@@ -136,3 +136,4 @@ Every completed project execution writes a structured report containing an immut
 ```
 
 This trace guarantees that autonomous multi-agent systems remain 100% auditable, replayable, and forensic-ready under all circumstances.
+
