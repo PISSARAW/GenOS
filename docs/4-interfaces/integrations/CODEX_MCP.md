@@ -1,4 +1,4 @@
-# OpenAI Codex & IDE MCP Integration Guide
+﻿# OpenAI Codex & IDE MCP Integration Guide
 
 This guide details how to integrate GenOS with OpenAI Codex, Claude Code, Cline, Roo Code, JetBrains, and Cursor using the Model Context Protocol (MCP) over STDIO or Streamable HTTP.
 
@@ -139,7 +139,7 @@ Path: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) 
 
 ## 3. Tool Classification & Approval Policies
 
-GenOS categorizes its 40 MCP tools into distinct security tiers via tool annotations:
+GenOS categorizes its 65 MCP tools into distinct security tiers via tool annotations:
 
 | Security Tier | Default Approval | Tools |
 |---|---|---|
@@ -206,3 +206,4 @@ Agent calls: genos_merge(manifest="experiments/merge_b1.yaml")
 - **MCP Connection Refused**: Verify that `genos` is present in your system `PATH` or specify the absolute binary path in the configuration.
 - **Worktree Lock Contention**: If a prior agent crashed mid-execution, run `genos world destroy <WORLD_ID>` to prune orphaned worktrees.
 - **Timeout on Tool Execution**: Increase the client MCP timeout setting (e.g. `"timeout": 120` in IDE settings) for large compilation tasks.
+
