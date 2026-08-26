@@ -1,4 +1,4 @@
-# Studio Architecture
+﻿# Studio Architecture
 
 GenOS Studio is the browser control plane of the project: a single-page
 React application that wraps the backend REST API and SSE streams into an
@@ -16,7 +16,7 @@ wired. The user-facing behavior is covered in the
 | Live data | Fetch-based SSE streams + bounded polling fallback |
 | Workflow canvas | `@xyflow/react` (ReactFlow) in Studio Builder |
 | Charts / editor / command palette | recharts, Monaco, cmdk |
-| Lint / rules | oxlint; house rules ≤400 lines per file, ≤3 function parameters |
+| Lint / rules | oxlint; house rules â‰¤400 lines per file, â‰¤3 function parameters |
 
 ## Source layout
 
@@ -96,3 +96,7 @@ node test_e2e_api_client.mjs      # typed client, endpoint schemas, modules
 node test_static_compliance.mjs   # source-level house rules audit
 npm run lint                      # oxlint
 ```
+
+
+### Component Modularity (Added in Lot 2)
+The studio/src/components/ directory is highly modularized to respect the 400-line limit rule. It includes specialized subdirectories: gent-profile/, rena/, deployment/, genome/, memory/, esilience/, sandbox/, swarm/, and 	imeline/.

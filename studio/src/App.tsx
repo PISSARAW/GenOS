@@ -1,11 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useEffect, useState } from 'react';
 import {
   Menu, ChevronDown, Activity as ActivityIcon, AlertOctagon,
   Terminal, Cpu, Swords, Wrench, Users, ShieldAlert, Dna, Database, GitBranch, Network, Bot, Bug, Workflow
 } from 'lucide-react';
 import { CommandPalette } from './components/CommandPalette';
 import { Dashboard } from './components/Dashboard';
-import { SwarmControlCenter } from './components/SwarmControlCenter';
 import { ExperimentsLab } from './components/ExperimentsLab';
 import { AgentProfile } from './components/AgentProfile';
 import { GlobalAlerts } from './components/GlobalAlerts';
@@ -390,3 +389,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
