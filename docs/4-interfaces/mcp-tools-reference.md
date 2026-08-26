@@ -1,4 +1,4 @@
-# GenOS Model Context Protocol (MCP) Tools Reference
+﻿# GenOS Model Context Protocol (MCP) Tools Reference
 
 The GenOS Model Context Protocol (MCP) server provides 65 structured primitives across 10 specialized functional families, enabling LLMs, autonomous agents, and IDE extensions to manage genomes, isolated capsules, counterfactual trajectories, collective intelligence, and living architectural memory over JSON-RPC 2.0. Source schemas are defined in [`crates/genos-protocol`](../../crates/genos-protocol).
 
@@ -207,7 +207,7 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 **Description**: Provisions a bounded GenOS A-Team when a mission spans at least two distinct competency domains. The control plane can also compose it automatically from mission analysis.
 **Parameters**:
 - `project_goal` *(string)*: Detailed description of the final objective.
-- `sub_systems` *(array of 2–3 strings)*: Distinct, bounded competency domains.
+- `sub_systems` *(array of 2â€“3 strings)*: Distinct, bounded competency domains.
 - `assigned_roles` *(array of strings)*: Specialist roles aligned with the subsystems.
 - `model_tiers` *(array of strings)*: Optional model tiers aligned with the subsystems.
 - `enforce_genos_rules` *(boolean)*: Retained for compatibility; isolation, evidence, budgets, and leases are always enforced.
@@ -219,7 +219,7 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 - `mission` *(string)*: Concrete shared mission, including requirements learned during the interview.
 - `rationale` *(string)*: Optional explanation of why three comparative worlds are useful.
 - `execution_budget` *(object)*: Optional bounded budget inherited by each world.
-**Usage**: An explicit request for “Trinity” activates it when the three garage slots and token budget are available. A request such as “interview me to create a plan” creates a Trinity decision gate instead: the orchestrator conducts the interview first, then launches Trinity only if the resulting mission benefits from three comparative implementations. A-Team and Trinity cannot occupy the garage simultaneously, and workers cannot launch Trinity recursively.
+**Usage**: An explicit request for â€œTrinityâ€ activates it when the three garage slots and token budget are available. A request such as â€œinterview me to create a planâ€ creates a Trinity decision gate instead: the orchestrator conducts the interview first, then launches Trinity only if the resulting mission benefits from three comparative implementations. A-Team and Trinity cannot occupy the garage simultaneously, and workers cannot launch Trinity recursively.
 
 ---
 
@@ -233,3 +233,12 @@ When an operation fails inside an isolated world (e.g. compiler error, failed as
 - `progress_percent` *(number)*: Optional estimate from 0 to 100.
 - `completed`, `next`, `blockers` *(arrays of strings)*: Optional structured milestone details.
 **Usage**: Reporting is enabled by default. GenOS automatically reports mission start, worker dispatch, worker completion or failure, and final orchestrator outcome. The orchestrator uses this tool for meaningful intermediate changes such as a completed unit, a changed approach, a blocker, or entry into final verification. Studio renders these events as visible notifications. Set `silent_updates: true` on `genos_orchestrate`, or explicitly request silent execution in the mission text, to suppress every intermediate user update; the final mission result is still returned.
+
+
+### Swarm & Orchestration Tools (Added in Lot 3)
+* genos_orchestrate: Manage the active swarm topology.
+* genos_delegate_worker: Assign a subtask to a specific worker role.
+* genos_change_organization: Mutate the organizational structure.
+* genos_organization_state: Retrieve current state of the swarm.
+* genos_worker_publish: Publish a finding to the shared blackboard.
+* genos_worker_inbox: Read direct messages for a specific agent.

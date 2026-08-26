@@ -1,10 +1,20 @@
-# GenOS Python SDK Integration Guide
+﻿# GenOS Python SDK Integration Guide
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
 The GenOS Python SDK (`genos-sdk`) provides an asynchronous, strongly-typed interface for orchestrating counterfactual simulations, isolated workspaces, agent state checkpoints, and hypothesis-driven debugging.
 
 ---
 
 ## 1. Installation & Environment Setup
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
 Install the SDK via pip or uv:
 
@@ -22,6 +32,11 @@ export GENOS_WORKSPACE_ROOT="/path/to/project"
 ---
 
 ## 2. Pydantic v2 Protocol Data Models
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
 The SDK maps all wire representations into strict Pydantic v2 models:
 
@@ -80,6 +95,11 @@ class DecisionRecord(BaseModel):
 
 ## 3. Asynchronous Client Usage (`GenOSClient`)
 
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
 The `GenOSClient` handles JSON-RPC 2.0 communication over STDIO or HTTP. All SDK methods strictly adhere to **max 3 parameters**:
 
 ```python
@@ -96,12 +116,22 @@ async def run_diagnosis_workflow():
         )
         print(f"Created Diagnosis: {diagnosis.diagnosis_id}")
 
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
         # Step 2: Checkpoint current active capsule
         snapshot = await client.capsules.checkpoint(
             capsule_id="main-agent",
             label="pre-deadlock-fix",
         )
         print(f"Created Snapshot: {snapshot.snapshot_id}")
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
         # Step 3: Fork speculative branches
         branches = [
@@ -113,6 +143,11 @@ async def run_diagnosis_workflow():
             branches=branches,
         )
 
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
         # Step 4: Run test inside isolated branch world
         test_run = await client.capsules.run(
             capsule_id=fork_res.forked_capsules[0],
@@ -122,6 +157,11 @@ async def run_diagnosis_workflow():
         print(f"Branch test output:\n{test_run.stdout}")
 
 
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
+
 if __name__ == "__main__":
     asyncio.run(run_diagnosis_workflow())
 ```
@@ -129,6 +169,11 @@ if __name__ == "__main__":
 ---
 
 ## 4. Context Managers for Counterfactual Sandboxes
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
 The `CounterfactualSandbox` provides automated isolation, speculative execution, semantic diffing, and cleanup:
 
@@ -141,8 +186,18 @@ async def execute_safe_patch(repo_path: str, patch_content: str):
         # Write patch file into isolated Git worktree
         await sandbox.write_file("src/config.py", patch_content)
 
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
         # Execute test suite in sandbox
         result = await sandbox.run("pytest tests/test_config.py")
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
         if not result.is_success:
             print("Patch failed verification. Sandbox world will be destroyed.")
@@ -160,6 +215,11 @@ async def execute_safe_patch(repo_path: str, patch_content: str):
 ---
 
 ## 5. Typed Event Streaming & Listeners
+
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
 
 Subscribe to lifecycle and state evolution events emitted during simulation runs:
 
@@ -196,6 +256,11 @@ async def monitor_simulation():
 
 ## 6. Custom Exception Hierarchy
 
+
+> [!WARNING]
+> **Statut de l'Implémentation (Lot 3)** :
+> Ce document représente la **Spécification et la Roadmap** du SDK Python. Actuellement, le dépôt ne contient qu'un placeholder dans python/genos_sdk/. Le code asynchrone et Pydantic détaillé ci-dessous n'est pas encore distribué via PyPI.
+
 The SDK raises structured exceptions derived from GenOS domain error envelopes:
 
 ```python
@@ -222,3 +287,4 @@ async def safe_execution_handler(client: GenOSClient, capsule_id: str):
     except GenOSProtocolError as exc:
         print(f"Protocol violation: {exc.message}")
 ```
+
