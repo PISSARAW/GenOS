@@ -1,3 +1,8 @@
+# Évaluateur objectif de l'arène
+
+## evaluator.mjs
+
+```js
 #!/usr/bin/env node
 // Evaluateur objectif de l'arene : mesures identiques pour tous les workspaces.
 import { readdirSync, statSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -124,3 +129,5 @@ console.table(
     wallMin: Math.round((r.aiMetrics?.wallClockMs ?? 0) / 60000),
   })),
 );
+
+```

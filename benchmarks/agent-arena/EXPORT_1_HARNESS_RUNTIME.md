@@ -1,3 +1,8 @@
+# Harnais — runtime d'agent commun
+
+## harnesses/lib.mjs
+
+```js
 import { spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, readFileSync, readdirSync, copyFileSync, statSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
@@ -379,3 +384,5 @@ export class Ledger {
     return metrics;
   }
 }
+
+```
