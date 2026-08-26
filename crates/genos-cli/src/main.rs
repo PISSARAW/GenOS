@@ -1,4 +1,4 @@
-﻿mod args;
+mod args;
 mod cmd_agent;
 mod cmd_biomimicry;
 mod cmd_capsule;
@@ -26,6 +26,7 @@ mod cmd_viral;
 mod cmd_snapshot;
 mod cmd_division;
 mod cmd_workflow;
+mod cmd_workflow_types;
 mod cmd_world;
 mod output;
 mod resolve;
