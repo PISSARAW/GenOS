@@ -113,14 +113,14 @@ pub struct PendingApproval {
     pub message: String,
 }
 #[derive(Debug, Serialize)]
-struct WorkflowPackage {
-    format: &'static str,
-    digest: String,
-    manifest: WorkflowManifest,
+pub struct WorkflowPackage {
+    pub format: &'static str,
+    pub digest: String,
+    pub manifest: WorkflowManifest,
 }
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-enum Event {
+pub enum Event {
     RunStarted {
         run_id: String,
         workflow: String,
