@@ -15,7 +15,7 @@ mkdir -p "$BIN_DIR"
 # Paths to the built binaries and orchestrator bridge
 GENOS_EXE="$REPO_ROOT/target/release/genos"
 MCP_EXE="$REPO_ROOT/target/release/genos-mcp"
-ORCHESTRATOR_BRIDGE="$REPO_ROOT/backend/bin/genos-orchestrate.cjs"
+ORCHESTRATOR_BRIDGE="$REPO_ROOT/orchestrator_cli.mjs"
 
 # Create genos wrapper
 echo "Generating genos wrapper..."
@@ -36,11 +36,36 @@ exec "$MCP_EXE" "\$@"
 EOF
 chmod +x "$BIN_DIR/genos-mcp"
 
+echo "Adding $BIN_DIR to your PATH..."
+PATH_LINE='export PATH="$HOME/.genos/bin:$PATH"'
+
+SHELL_NAME="$(basename "${SHELL:-bash}")"
+case "$SHELL_NAME" in
+    zsh)  PROFILE="$HOME/.zshrc" ;;
+    bash)
+        if [ "$(uname)" = "Darwin" ]; then
+            PROFILE="$HOME/.zprofile"
+        else
+            PROFILE="$HOME/.bashrc"
+        fi
+        ;;
+    *)    PROFILE="$HOME/.profile" ;;
+esac
+
+if [ -f "$PROFILE" ] && grep -q '\.genos/bin' "$PROFILE"; then
+    echo "PATH already configured in $PROFILE, skipping."
+else
+    printf '\n# GenOS CLI\n%s\n' "$PATH_LINE" >> "$PROFILE"
+    echo "Added GenOS to $PROFILE"
+fi
+
+# Make genos available immediately in the current session
+case ":$PATH:" in
+    *":$BIN_DIR:"*) ;;
+    *) export PATH="$BIN_DIR:$PATH" ;;
+esac
+
 echo ""
 echo "✅ Installation complete!"
 echo "The executables have been installed to: $BIN_DIR"
-echo ""
-echo "Please add the following line to your ~/.bashrc, ~/.zshrc, or profile:"
-echo 'export PATH="$HOME/.genos/bin:$PATH"'
-echo ""
-echo "Once added, you can run 'genos' and 'genos-mcp' from anywhere."
+echo "They are usable right now in this session. Open a new terminal elsewhere and 'genos' and 'genos-mcp' will also be available from anywhere."

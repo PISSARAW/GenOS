@@ -15,7 +15,7 @@ if (-not (Test-Path $BinDir)) {
 
 $GenosExe = Join-Path $RepoRoot "target\release\genos.exe"
 $McpExe = Join-Path $RepoRoot "target\release\genos-mcp.exe"
-$OrchestratorBridge = Join-Path $RepoRoot "backend\bin\genos-orchestrate.cjs"
+$OrchestratorBridge = Join-Path $RepoRoot "orchestrator_cli.mjs"
 
 Write-Host "Generating wrappers..."
 
@@ -47,9 +47,20 @@ $McpPs1 = Join-Path $BinDir "genos-mcp.ps1"
 & "$McpExe" `$args
 "@ | Out-File -FilePath $McpPs1 -Encoding utf8
 
+Write-Host "Adding $BinDir to your user PATH..."
+$UserPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if ($UserPath -notlike "*$BinDir*") {
+    [Environment]::SetEnvironmentVariable('Path', "$UserPath;$BinDir", 'User')
+    Write-Host "PATH updated."
+} else {
+    Write-Host "PATH already contains $BinDir, skipping."
+}
+
+# Make genos available immediately in the current session
+if ($env:Path -notlike "*$BinDir*") {
+    $env:Path += ";$BinDir"
+}
+
 Write-Host "`n✅ Installation complete!" -ForegroundColor Green
 Write-Host "The executables have been installed to: $BinDir"
-Write-Host "`nPlease ensure that $BinDir is in your system or user PATH environment variable."
-Write-Host "You can add it by running:"
-Write-Host "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';$BinDir', 'User')"
-Write-Host "`nAfter updating your PATH, restart your terminal, and you can run 'genos' and 'genos-mcp' from anywhere."
+Write-Host "They are usable right now in this session. Open a new terminal elsewhere and 'genos' and 'genos-mcp' will also be available from anywhere."
