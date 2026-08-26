@@ -1,10 +1,10 @@
-FROM rust:1.85.1-bookworm
+﻿FROM rust:1.88.0-bookworm
 
 ARG NODE_VERSION=22.14.0
 ARG TARGETARCH
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    RUSTUP_TOOLCHAIN=1.85.1 \
+    RUSTUP_TOOLCHAIN=1.88.0 \
     CARGO_TERM_COLOR=always \
     NPM_CONFIG_AUDIT=false \
     NPM_CONFIG_FUND=false
@@ -36,3 +36,4 @@ RUN case "${TARGETARCH}" in \
     && rustc --version
 
 WORKDIR /workspaces/GenOS
+

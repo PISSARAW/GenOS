@@ -1,10 +1,20 @@
-# GenOS Production Deployment & Operations Architecture
+﻿# GenOS Production Deployment & Operations Architecture
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 This guide specifies the production topology, containerization, Kubernetes Helm deployment, multi-tenant sandboxing, CAS backend configurations, resource controls, and observability infrastructure for GenOS clusters.
 
 ---
 
 ## 1. Production Architecture Overview
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 The GenOS production infrastructure partitions workloads into a stateless control plane, isolated agent execution workers, and a distributed content-addressable storage (CAS) tier.
 
@@ -42,9 +52,19 @@ The GenOS production infrastructure partitions workloads into a stateless contro
 
 ## 2. Multi-Tenant Sandbox Isolation
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 All subagent and capsule executions run inside hardened sandboxes to prevent host compromise and cross-tenant data leakage.
 
 ### Sandboxing Engines
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 1. **gVisor (`runsc`)**:
    - Intercepts all syscalls via a user-space kernel (Sentry).
@@ -64,11 +84,26 @@ metadata:
 handler: runsc
 ```
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 ---
 
 ## 3. Kubernetes Deployment with Helm
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 ### Sample `values.yaml` Configuration
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 ```yaml
 replicaCount: 3
@@ -117,9 +152,19 @@ helm upgrade --install genos-cluster ./charts/genos \
   -f values-production.yaml
 ```
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 ---
 
 ## 4. Content-Addressable Storage (CAS) Backends
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 GenOS persists all snapshots, repository states, and lineage logs into a content-addressable store indexed by cryptographic hashes (BLAKE3 / SHA-256).
 
@@ -127,9 +172,19 @@ GenOS persists all snapshots, repository states, and lineage logs into a content
 - **Local Filesystem Store**: Optimized for single-node development (`genos-store` direct IO).
 - **MinIO / Amazon S3 Store**: Scalable multi-tenant object storage with immutable write-once read-many (WORM) semantics.
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 ### Storage Initialization (Rust Interface)
 ```rust
 use genos_store::{CasConfig, CasStore, StorageBackend};
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 pub fn build_production_cas(endpoint: String, bucket: String) -> Result<CasStore, StoreError> {
     let config = CasConfig::builder()
@@ -146,26 +201,56 @@ pub fn build_production_cas(endpoint: String, bucket: String) -> Result<CasStore
 
 ## 5. Linux Resource Limits & cgroups v2
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 Every worker capsule is bound to dedicated cgroups v2 controllers to prevent noisy-neighbor interference:
 
 ```bash
 # Example cgroup v2 capsule limit configuration
 cgcreate -g cpu,memory,io,pids:/genos/capsules/cap_98f12
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 # Memory limit (4GB hard limit, 3.5GB swap limit)
 echo "4294967296" > /sys/fs/cgroup/genos/capsules/cap_98f12/memory.max
 echo "3758096384" > /sys/fs/cgroup/genos/capsules/cap_98f12/memory.high
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 # CPU quota (2 cores max: 200000us period)
 echo "200000 100000" > /sys/fs/cgroup/genos/capsules/cap_98f12/cpu.max
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 # Max PIDs (prevent fork bombs)
 echo "256" > /sys/fs/cgroup/genos/capsules/cap_98f12/pids.max
 ```
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 ---
 
 ## 6. Health Probes & Readiness Checks
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 The target Kubernetes runtime exposes standard health endpoints. The shipped
 Docker Compose backend now exposes the same paths on port `4000`, but its
@@ -176,6 +261,11 @@ Merkle verification are not wired into this deployment.
 - **`/healthz` (Liveness)**: Returns `200 OK` if the process event loop is responsive.
 - **`/readyz` (Readiness)**: In Compose, validates that SQLite is queryable. A future worker deployment must extend this to CAS and worktree capacity.
 - **`/livez` (Startup)**: In Compose, validates SQLite startup state. Index hydration and Merkle root verification remain target-runtime checks.
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 ```yaml
 livenessProbe:
@@ -196,9 +286,19 @@ readinessProbe:
 
 ## 7. Prometheus Metrics & Alerting
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
 GenOS exposes Prometheus metrics on port `9090` at `/metrics`.
 
 ### Core Operational Metrics
+
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
 
 | Metric | Type | Description | Alert Threshold |
 |---|---|---|---|
@@ -224,6 +324,11 @@ groups:
           summary: "GenOS worker worktree pool near exhaustion (>90%)"
           description: "Worker {{ $labels.instance }} has allocated {{ $value }}% of available worktrees."
 
+
+> [!WARNING]
+> **Architecture Cible (Lot 4)** :
+> Les composants décrits ci-dessous (déploiement Helm/Kubernetes, sandboxing gVisor/Firecracker, stockage distribué S3/MinIO, serveur Prometheus) représentent l'architecture cible théorique (Design/Roadmap). Ils ne sont pas encore implémentés dans le code de production actuel, qui utilise Docker Compose, SQLite et des worktrees Git locaux.
+
       - alert: GenOSReplayDivergenceDetected
         expr: increase(genos_replay_divergence_total[5m]) > 0
         labels:
@@ -232,3 +337,4 @@ groups:
           summary: "Deterministic replay divergence detected in capsule execution"
           description: "Capsule state hash mismatch during deterministic replay."
 ```
+

@@ -1,4 +1,4 @@
-# Standard Production Runbook Template
+﻿# Standard Production Runbook Template
 
 This standardized template governs operational procedures, emergency incident response, and state maintenance workflows across GenOS production clusters.
 
@@ -89,11 +89,11 @@ genos resilience cryptobiosis --mode stasis
    ```
 2. **Execute Trajectory Bisection**:
    ```bash
-   genos dev bisect-agent --root .genos --dimension events --states "step_0=good" "step_n=bad"
+   genos dev bisect-agent --root .genos --dimension events --state "step_0=good" "step_n=bad"
    ```
 3. **Verify CAS Chunk Health**:
    ```bash
-   genos snapshot list --verify-checksums --root .genos
+   genos snapshot list --root .genos
    ```
 
 ---
@@ -132,7 +132,7 @@ Perform automated health verification before restoring live traffic:
 curl -sf http://127.0.0.1:8799/health
 
 # 2. Execute Merkle Consistency Check
-genos snapshot list --verify-checksums --root .genos
+genos snapshot list --root .genos
 
 # 3. Run Synthetic Verification Command
 genos agent run --command "echo 'system verified'" --root .genos
@@ -175,3 +175,4 @@ Following incident closure, complete post-mortem artifacts within 48 hours:
      --successful false
    ```
 3. **Update Runbook**: Modify thresholds or scripts based on incident findings.
+
