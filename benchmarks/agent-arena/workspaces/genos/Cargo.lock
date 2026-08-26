@@ -3,10 +3,6 @@
 version = 4
 
 [[package]]
-name = "auth_middleware"
-version = "0.1.0"
-
-[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -89,12 +85,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hex"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-
-[[package]]
 name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -108,6 +98,10 @@ checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
 ]
+
+[[package]]
+name = "middleware_core"
+version = "0.1.0"
 
 [[package]]
 name = "mio"
@@ -187,8 +181,6 @@ name = "secure_middleware"
 version = "0.1.0"
 dependencies = [
  "constant_time_eq",
- "hex",
- "parking_lot",
  "sha2",
  "subtle",
  "tokio",

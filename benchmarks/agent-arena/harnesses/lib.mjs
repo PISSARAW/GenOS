@@ -201,6 +201,7 @@ export async function runClaude({ cwd, prompt, label = "", maxTurns = 30, timeou
   let outputTokens = 0;
   let turns = 0;
   let text = "";
+  let writeSig = null;
   try {
     while (turns < maxTurns) {
       const res = await chatOnce(messages, controller.signal);
@@ -228,10 +229,23 @@ export async function runClaude({ cwd, prompt, label = "", maxTurns = 30, timeou
       messages.push(assistantMsg);
       if (!calls.length) break;
       turns++;
+      let repeatedWrite = false;
       for (const call of calls) {
-        const result = await executeTool(call.function.name, safeArgs(call.function.arguments), cwd);
-        ledgerHook(cwd, `[${label}] tour ${turns}: ${call.function.name}(${JSON.stringify(safeArgs(call.function.arguments)).slice(0, 80)}) -> ${String(result).slice(0, 100)}`);
+        const args = safeArgs(call.function.arguments);
+        const result = await executeTool(call.function.name, args, cwd);
+        if (call.function.name === "write_file") {
+          const sig = `${args.path}:${(args.content ?? "").length}`;
+          repeatedWrite = writeSig === sig;
+          writeSig = sig;
+        }
+        ledgerHook(cwd, `[${label}] tour ${turns}: ${call.function.name}(${JSON.stringify(args).slice(0, 80)}) -> ${String(result).slice(0, 100)}`);
         messages.push({ role: "tool", tool_name: call.function.name, content: String(result) });
+      }
+      if (repeatedWrite) {
+        messages.push({
+          role: "user",
+          content: "STOP: tu reecris exactement le meme fichier. Sors de cette boucle immediatement : produis maintenant l'IMPLEMENTATION COMPLETE en un seul appel write_file (code Rust reel, pas de placeholder), puis verifie avec cargo test.",
+        });
       }
     }
   } catch (error) {

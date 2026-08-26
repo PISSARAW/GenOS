@@ -3,11 +3,25 @@
 // de workers specialises en parallele, agent telemetrique dedie, integration
 // et verification par le centre (event-sourcing des decisions dans results/).
 import { join } from "node:path";
+import { readdirSync } from "node:fs";
 import { scaffoldWorkspace, runClaude, Ledger, sh } from "./lib.mjs";
 
 const AGENT = "genos";
 const dir = scaffoldWorkspace(AGENT);
 const ledger = new Ledger(AGENT);
+
+function listWorkspaceFiles(d) {
+  const files = [];
+  const walk = (p, prefix = "") => {
+    for (const e of readdirSync(p, { withFileTypes: true })) {
+      if (e.name === "target" || e.name.startsWith(".")) continue;
+      if (e.isDirectory()) walk(join(p, e.name), `${prefix}${e.name}/`);
+      else files.push(`${prefix}${e.name}`);
+    }
+  };
+  try { walk(d); } catch {}
+  return files;
+}
 
 async function claude(label, prompt, maxTurns = 30) {
   const res = await runClaude({ cwd: dir, label, maxTurns, prompt });
@@ -60,18 +74,25 @@ await Promise.race([
   new Promise((r) => setTimeout(() => r(null), 4 * 60_000)),
 ]);
 
-// Phase 4 : Integration & verification par le centre (max 3 rounds)
-let termination = "INTEGRATION_OK";
-for (let round = 1; round <= 3; round++) {
+// Phase 4 : Integration & verification par le centre (max 4 rounds)
+let termination = "INTEGRATION_INCOMPLETE";
+for (let round = 1; round <= 4; round++) {
   const test = await sh("cargo test", dir);
   const clippy = await sh("cargo clippy --all-targets -- -D warnings", dir);
-  ledger.log(`[integration] round ${round}: test=${test.code} clippy=${clippy.code}`);
-  if (test.code === 0 && clippy.code === 0) break;
-  if (round === 3) { termination = "INTEGRATION_INCOMPLETE"; break; }
+  const testCount = parseInt(/(\d+) passed/.exec(test.output)?.[1] ?? "0", 10);
+  const hasSecuritySurface = /bench_10k|rate_limit|constant/i.test(JSON.stringify(listWorkspaceFiles(dir)));
+  ledger.log(`[integration] round ${round}: test=${test.code} clippy=${clippy.code} tests_passes=${testCount}`);
+  if (test.code === 0 && clippy.code === 0 && testCount > 0 && hasSecuritySurface) {
+    termination = "INTEGRATION_OK";
+    break;
+  }
+  if (round === 4) break;
   await claude(
     `integrator-${round}`,
-    `Tu es l'Orchestrateur GenOS en phase d'integration. Corrige le crate pour que cargo test et cargo clippy -D warnings passent, en respectant SCENARIO.md.\nErreurs:\n${(test.output + clippy.output).slice(-6000)}`,
-    40,
+    `Tu es l'Orchestrateur GenOS en phase d'integration. Etat mecanique: cargo test exit=${test.code} (${testCount} tests passes), clippy exit=${clippy.code}.
+Corrige/complete le crate pour satisfaire SCENARIO.md : implementation complete du middleware, tests unitaires exhaustifs sur toute la logique publique, un test nomme bench_10k (10000 validations authentifiees, moyenne <1ms), comparaison constant-time, hachage SHA-256 des jetons, validation stricte des entrees.
+Erreurs:\n${(test.output + clippy.output).slice(-6000)}`,
+    50,
   );
 }
 

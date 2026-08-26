@@ -30,3 +30,58 @@ impl SenescenceMonitor {
         }
     }
 }
+
+/// Vital signs of a capsule, used by the senolytic assessment (`senescence assess`).
+#[derive(Debug, Clone)]
+pub struct CapsuleVitals {
+    pub productive_ticks: u32,
+    pub idle_ticks: u32,
+    pub resources_consumed: u64,
+    pub negative_externalities: u32,
+    pub intentional_dormancy: bool,
+}
+
+/// Thresholds beyond which a capsule is classified as senescent.
+#[derive(Debug, Clone, Copy)]
+pub struct SenescenceThresholds {
+    /// Maximum share of idle ticks over total ticks before suspicion.
+    pub max_idle_ratio: f64,
+    /// SASP (senescence-associated secretory phenotype) analog: externalities per 1k resources.
+    pub max_externalities_per_kilo_resource: f64,
+}
+
+impl Default for SenescenceThresholds {
+    fn default() -> Self {
+        Self {
+            max_idle_ratio: 0.7,
+            max_externalities_per_kilo_resource: 1.0,
+        }
+    }
+}
+
+/// Outcome of the senolytic classification of a capsule.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VitalState {
+    Active,
+    IntentionallyDormant,
+    Senescent { sasp_score: f64, idle_ratio: f64 },
+}
+
+impl CapsuleVitals {
+    pub fn classify(&self, thresholds: &SenescenceThresholds) -> VitalState {
+        if self.intentional_dormancy {
+            return VitalState::IntentionallyDormant;
+        }
+        let total = (self.productive_ticks + self.idle_ticks).max(1) as f64;
+        let idle_ratio = self.idle_ticks as f64 / total;
+        let sasp_score = (self.negative_externalities as f64 * 1000.0)
+            / (self.resources_consumed.max(1) as f64);
+        if idle_ratio > thresholds.max_idle_ratio
+            || sasp_score > thresholds.max_externalities_per_kilo_resource
+        {
+            VitalState::Senescent { sasp_score, idle_ratio }
+        } else {
+            VitalState::Active
+        }
+    }
+}

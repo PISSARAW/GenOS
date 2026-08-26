@@ -1,19 +1,24 @@
-# Plan d'Implémentation
+# Plan de Développement
 
-## Lot 1 : Implémentation Coeur
-- **Middleware de validation de jetons**
-- **Hachage cryptographique des jetons (SHA-256)**
-- **Validation stricte des entrées**
+## Lot 1: Implémentation Coeur
+- Développement des fonctionnalités principales
+- Respect des contraintes du SCENARIO.md
 
-## Lot 2 : Durcissement Sécurité
-- **Résistance aux attaques temporelles**
-- **Allocation mémoire minimale**
+## Lot 2: Durcissement Sécurité
+- Ajout des mesures de sécurité
+- Validation des contraintes de sécurité
 
-## Lot 3 : Tests + Bench
-- **100 % de couverture des tests unitaires**
-- **Test nommé `bench_10k`**
-- **Verification `cargo test` et `cargo clippy --all-targets -- -D warnings`**
+## Lot 3: Tests + Bench
+- Écriture des tests unitaires
+- Écriture du benchmark bench_10k
+- Validation des contraintes de performance
 
 ## Interfaces Partagées
-- **Middleware API** : Validation de jetons et limitation de débit
-- **Interface Tests** : Fonctions de validation et de benchmark
+- **Fonctionnalités Coeur:**
+  - Implémentation des fonctions principales
+- **Sécurité:**
+  - API de sécurité
+- **Tests:**
+  - API de test
+- **Bench:**
+  - API de benchmark

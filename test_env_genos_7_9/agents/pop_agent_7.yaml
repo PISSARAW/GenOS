@@ -1,0 +1,60 @@
+id: 01a03b42-a115-7360-9c4d-38ae5a59eb23
+parent_genome: 01a03b42-a0fc-7660-a70d-aded5080633b
+parent_genomes:
+- 01a03b42-a0fc-7660-a70d-aded5080633b
+mutation:
+  changes:
+  - field: cognition.drives.exploration
+    previous_value: 0.7
+    new_value: 0.75
+version: 0.1.1
+identity:
+  name: PopAgent7
+  role: Worker
+cognition:
+  chromosomes:
+  - name: C1
+    loci:
+    - gene_name: exploration
+      value: 0.75
+      epigenetic_marker: 0.0
+    - gene_name: risk_tolerance
+      value: 0.25
+      epigenetic_marker: 0.0
+    - gene_name: verification_threshold
+      value: 0.8
+      epigenetic_marker: 0.0
+    operons: []
+  planning_depth: 6
+  regulators: []
+objectives:
+- key: tests_pass
+  description: Run tests before completion
+policies:
+- key: evidence_before_claim
+  description: Claims require evidence
+capabilities:
+- name: counterfactual_forking
+  enabled: false
+memory_policy:
+  working_max_items: 100
+  episodic_enabled: true
+  semantic_enabled: true
+model_policy:
+  strategy: provider-agnostic
+  preferred_providers: []
+  allow_local: true
+tool_policy:
+  permissions:
+  - tool: filesystem
+    scope: workspace
+    enabled: true
+  - tool: shell
+    scope: sandboxed
+    enabled: true
+  - tool: network
+    scope: denied
+    enabled: false
+inferred_traits: []
+breeding: null
+ecological_niche: null
