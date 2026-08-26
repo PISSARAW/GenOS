@@ -1,4 +1,4 @@
-# Local Environment Setup & System Requirements
+﻿# Local Environment Setup & System Requirements
 
 This document provides a comprehensive guide for setting up, compiling, configuring, and verifying the GenOS development environment across Linux, macOS, and Windows systems.
 
@@ -213,23 +213,23 @@ GenOS maintains an immutable, content-addressable storage topology under `.genos
 
 ```text
 .genos/
-├── config.toml                      # Workspace configuration overrides
-├── data/
-│   ├── cas/                         # Content-Addressable Storage (Immutable Blobs)
-│   │   └── objects/
-│   │       ├── 3a/
-│   │       │   └── 8f190e2...       # 256-bit SHA-256 content-addressed chunk
-│   │       └── e7/
-│   │           └── 4c901a8...       # AST node, genome fragment, or tool output
-│   ├── snapshots/                   # Replayable snapshot journal
-│   │   ├── agent-snapshots.jsonl
-│   │   └── agent-snapshots-manifests.jsonl # Legacy read-only index, when present
-│   ├── events/                      # Causal event log stream
-│   │   └── events.jsonl
-│   └── genos.db                     # Metadata index (SQLite database)
-└── sandboxes/                       # Ephemeral Git worktrees & execution roots
-    ├── cap-018f-branch-a/           # Worktree for counterfactual branch A
-    └── cap-018f-branch-b/           # Worktree for counterfactual branch B
+â”œâ”€â”€ config.toml                      # Workspace configuration overrides
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ cas/                         # Content-Addressable Storage (Immutable Blobs)
+â”‚   â”‚   â””â”€â”€ objects/
+â”‚   â”‚       â”œâ”€â”€ 3a/
+â”‚   â”‚       â”‚   â””â”€â”€ 8f190e2...       # 256-bit SHA-256 content-addressed chunk
+â”‚   â”‚       â””â”€â”€ e7/
+â”‚   â”‚           â””â”€â”€ 4c901a8...       # AST node, genome fragment, or tool output
+â”‚   â”œâ”€â”€ snapshots/                   # Replayable snapshot journal
+â”‚   â”‚   â”œâ”€â”€ agent-snapshots.jsonl
+â”‚   â”‚   â””â”€â”€ agent-snapshots-manifests.jsonl # Legacy read-only index, when present
+â”‚   â”œâ”€â”€ events/                      # Causal event log stream
+â”‚   â”‚   â””â”€â”€ events.jsonl
+â”‚   â””â”€â”€ genos.db                     # Metadata index (SQLite database)
+â””â”€â”€ sandboxes/                       # Ephemeral Git worktrees & execution roots
+    â”œâ”€â”€ cap-018f-branch-a/           # Worktree for counterfactual branch A
+    â””â”€â”€ cap-018f-branch-b/           # Worktree for counterfactual branch B
 ```
 
 ### 5.1 Mathematical Storage Model
@@ -293,3 +293,4 @@ Expected Health Output:
 | `error[E0658]: use of unstable library feature` | Rust compiler version is older than minimum supported `1.88.0`. | Execute `rustup update stable` to synchronize toolchain. |
 | `database is locked (code 5)` | Concurrent SQLite write contention on `genos.db`. | Verify no orphaned background agent process is holding write locks, or configure WAL mode via `PRAGMA journal_mode=WAL;`. |
 | `git worktree add failed: fatal: not a valid object name` | Sandbox world creation attempted on a repository with no initial Git commit. | Execute `git commit --allow-empty -m "Initial commit"` before provisioning worktrees. |
+

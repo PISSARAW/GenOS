@@ -1,4 +1,4 @@
-# Runbook: Incident Response & Causal Post-Mortems
+﻿# Runbook: Incident Response & Causal Post-Mortems
 
 This runbook defines the operational protocol for triaging, mitigating, and investigating production incidents across GenOS clusters, with specialized workflows for causal replay diagnostics and blameless post-mortem generation.
 
@@ -42,7 +42,7 @@ Upon declaration of a SEV-1 or SEV-2 incident, establish the incident command st
    ```
 3. **Verify CAS Integrity**: Execute fast health probe:
    ```bash
-   genos snapshot list --verify-checksums --root .genos
+   genos snapshot list --root .genos
    ```
 
 ---
@@ -88,7 +88,7 @@ GenOS provides built-in causal replay tools to isolate the exact event sequence 
 ### Step 1: Analyze Failing Trajectory
 ```bash
 genos dev analyze-trajectory \
-  --steps "step_0=good" "step_n=divergent"
+  --step "step_0=good" "step_n=divergent"
 ```
 
 ### Step 2: Launch Causal Replay Incident Experiment
@@ -151,3 +151,4 @@ A post-mortem document must be authored within 48 hours for all SEV-1 and SEV-2 
 - [ ] **Action 2**: Add automated worktree orphan file detector to pre-replay hook (Owner: @ops, Priority: P1).
 - [ ] **Action 3**: Add alert for worker pod ungraceful terminations (Owner: @sre, Priority: P1).
 ```
+

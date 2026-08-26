@@ -1,4 +1,4 @@
-# Runbook: State Corruption Recovery & Disaster Restoration
+﻿# Runbook: State Corruption Recovery & Disaster Restoration
 
 This runbook specifies the formal disaster recovery protocols, cryptographic verification methods, and state reconstruction procedures for the GenOS event store and Content-Addressable Storage (CAS) tier.
 
@@ -34,7 +34,7 @@ Run the full consistency check against the local state store:
 
 ```bash
 # Execute deep Merkle DAG and CAS checksum verification
-genos snapshot list --verify-checksums --root .genos
+genos snapshot list --root .genos
 ```
 
 ### Protocol Validation Steps:
@@ -95,7 +95,7 @@ $$\mathcal{S}_n = \mathcal{S}_0 \circ e_1 \circ e_2 \circ \dots \circ e_n$$
 ### Step 1: Query Event Log Continuity
 ```bash
 # Verify event sequence monotonicity and detect gaps
-genos dev bisect-agent --root .genos --dimension events --states "scan=all"
+genos dev bisect-agent --root .genos --dimension events --state "scan=all"
 ```
 
 ### Step 2: Materialize State via Canonical Replay
@@ -140,7 +140,7 @@ Evaluate causal dominance between nodes:
 genos biomimicry network-quorum --node "node-prod-01"
 
 # Resolve concurrent branch states via swarm voting
-genos biomimicry swarm-consensus --target "split_brain_resolution"
+genos biomimicry swarm-consensus --vote Explore --target "split_brain_resolution"
 ```
 
 ### Step 3: Execute Cognitive Merge
@@ -192,7 +192,7 @@ echo "Object $1 restored and verified."
 
 Prior to restoring production traffic, complete this checklist:
 
-- [ ] **Merkle Root Match**: Checksum verification passes with zero errors (`genos snapshot list --verify-checksums`).
+- [ ] **Merkle Root Match**: Checksum verification passes with zero errors (`genos snapshot list`).
 - [ ] **Event Log Monotonicity**: No gap in event sequence sequences (`e.sequence > from_sequence`).
 - [ ] **World Sandbox Isolation**: Verify file isolation across branches (`genos world check-file`).
 - [ ] **Lock Store Cleanliness**: Ensure no stale `.lock` files remain in `.genos/locks/`.
@@ -201,3 +201,4 @@ Prior to restoring production traffic, complete this checklist:
   genos agent run --command "echo 'system verified'" --root .genos
   ```
 - [ ] **Living ADR Updated**: Log recovery actions via `genos dev record-decision`.
+

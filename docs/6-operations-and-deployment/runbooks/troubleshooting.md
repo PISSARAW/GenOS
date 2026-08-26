@@ -1,4 +1,4 @@
-# Runbook: Production Troubleshooting & Error Remediation
+﻿# Runbook: Production Troubleshooting & Error Remediation
 
 This runbook provides actionable diagnostic flows and recovery procedures for resolving common failure modes, error codes, worktree contention, snapshot corruption, and timeout issues across GenOS runtime environments.
 
@@ -106,7 +106,7 @@ echo "Worktree cleanup completed successfully."
 genos resilience apoptosis --agent-id "cap_84a92c"
 
 # 2. Verify all referenced CAS blobs
-genos snapshot list --verify-checksums --root .genos
+genos snapshot list --root .genos
 
 # 3. Resync missing chunks from secondary replica
 aws s3 sync \
@@ -171,5 +171,6 @@ pub async fn repair_cas_blob(
 ### CLI Verification Command
 ```bash
 # Deep scrub and Merkle verification of all CAS local chunks
-genos snapshot list --verify-checksums --root .genos
+genos snapshot list --root .genos
 ```
+
