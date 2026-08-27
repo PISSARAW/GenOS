@@ -41,6 +41,7 @@ mod cmd_workflow_types;
 mod cmd_world;
 mod cmd_storage;
 mod cmd_transport;
+mod cmd_cost_accounting;
 mod output;
 mod resolve;
 
@@ -290,5 +291,6 @@ async fn main() -> Result<()> {
         Commands::Phenotype(args) => crate::cmd_phenotype::run(args).await,
         Commands::Rebase(args) => crate::cmd_rebase::run(args).await,
         Commands::Guardrails(args) => crate::cmd_guardrails::run(args).await,
+        Commands::CostAccounting(args) => crate::cmd_cost_accounting::run(args).await,
     }
 }
