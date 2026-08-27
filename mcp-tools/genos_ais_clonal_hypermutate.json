@@ -1,0 +1,22 @@
+{
+  "name": "genos_ais_clonal_hypermutate",
+  "description": "Déclenche l'hypermutation somatique, clonant l'agent pour tester de multiples hypothèses en parallèle face à un problème.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "description": "L'ID de l'agent source à cloner."
+      },
+      "mutation_rate": {
+        "type": "number",
+        "description": "Taux de mutation (0.0 à 1.0)."
+      },
+      "clone_count": {
+        "type": "integer",
+        "description": "Nombre de clones à générer."
+      }
+    },
+    "required": ["agent_id", "mutation_rate", "clone_count"]
+  }
+}

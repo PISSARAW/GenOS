@@ -96,6 +96,42 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_resilience_cryptobiosis') {
+    try {
+      const out = cp.execSync(`genos resilience cryptobiosis --agent-id ${args.agent_id}` + (args.duration ? ` --duration ${args.duration}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_cellular_bbb') {
+    try {
+      const out = cp.execSync(`genos biomimicry cellular-bbb --agent-id ${args.agent_id} --filter-level ${args.filter_level}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_ais_danger_telemetry') {
+    try {
+      const out = cp.execSync(`genos ais danger-telemetry --agent-id ${args.agent_id} --severity ${args.severity} --threat-context "${args.threat_context}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_ais_clonal_hypermutate') {
+    try {
+      const out = cp.execSync(`genos ais clonal-hypermutate --agent-id ${args.agent_id} --mutation-rate ${args.mutation_rate} --clone-count ${args.clone_count}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 
