@@ -114,6 +114,16 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_cost_accounting') {
     return { configured: true, success: true, status: 'completed', transport: 'local', output: `Cost accounting report for agent ${args.agent_id}: 1500 credits used.` };
   }
+  if (toolName === 'genos_loop_detection_check') {
+    const cp = require('child_process');
+    const { history_file, exact_match = 3, stagnation = 5, similarity = 0.95 } = args;
+    try {
+      const out = cp.execSync(`genos loop-detection --history-file ${history_file} --exact-match ${exact_match} --stagnation ${stagnation} --similarity ${similarity}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
 
   // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 
