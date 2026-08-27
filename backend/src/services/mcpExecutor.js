@@ -303,6 +303,17 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_biomimicry_hippocampal_consolidate') {
+    const cp = require('child_process');
+    try {
+      const steps = (args.dag_step || []).map(s => `--step ${s}`).join(' ');
+      const out = cp.execSync(`genos bio neuro hippocampal consolidate --agent-id ${args.agent_id} --success-score ${args.success_score} ${steps}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
 
 
 

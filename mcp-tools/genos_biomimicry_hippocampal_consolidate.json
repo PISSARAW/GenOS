@@ -1,0 +1,23 @@
+{
+  "name": "genos_biomimicry_hippocampal_consolidate",
+  "description": "Replay successful DAG trajectories off-line to extract generalized macros.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "description": "Agent ID"
+      },
+      "success_score": {
+        "type": "string",
+        "description": "Fitness score of the trajectory"
+      },
+      "dag_step": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Steps taken"
+      }
+    },
+    "required": ["agent_id", "success_score"]
+  }
+}
