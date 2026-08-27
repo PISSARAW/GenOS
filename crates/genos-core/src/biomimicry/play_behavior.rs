@@ -1,9 +1,9 @@
-﻿//! Play Behavior mapped to protected zero-stakes exploration.
+//! Play Behavior mapped to protected zero-stakes exploration.
 //!
 //! Biological mechanism: Young mammals engage in "play" (mock fighting, exploration)
 //! which costs energy but develops crucial motor and cognitive skills for unexpected situations.
-//! GenOS mapping: Agents are allocated a "Play Budget". During Play, the agent is 
-//! encouraged to hallucinate, combine random tools, and explore without being penalized 
+//! GenOS mapping: Agents are allocated a "Play Budget". During Play, the agent is
+//! encouraged to hallucinate, combine random tools, and explore without being penalized
 //! for failing the main objective. Found capabilities are saved to the genome.
 
 #[derive(Debug, Clone)]
@@ -28,13 +28,19 @@ impl PlayBehavior {
             return Err("Play budget exhausted.".to_string());
         }
         self.is_active = true;
-        Ok("Play session started. Objective functions disabled. High temp exploration active.".to_string())
+        Ok(
+            "Play session started. Objective functions disabled. High temp exploration active."
+                .to_string(),
+        )
     }
 
     /// Ends the play session and logs any serendipitous discoveries
     pub fn conclude_play(&mut self, tokens_spent: u64, discoveries: usize) -> String {
         self.is_active = false;
         self.play_budget = self.play_budget.saturating_sub(tokens_spent);
-        format!("Play session concluded. {} tokens spent. {} serendipitous skills discovered.", tokens_spent, discoveries)
+        format!(
+            "Play session concluded. {} tokens spent. {} serendipitous skills discovered.",
+            tokens_spent, discoveries
+        )
     }
 }

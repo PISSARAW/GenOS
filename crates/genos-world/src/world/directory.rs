@@ -32,9 +32,13 @@ impl DirectoryWorldProvider {
     pub fn new(root_dir: PathBuf, seed_dir: Option<PathBuf>) -> anyhow::Result<Self> {
         fs::create_dir_all(root_dir.join("worlds"))?;
         fs::create_dir_all(root_dir.join("snapshots"))?;
-        Ok(Self { root_dir, seed_dir, sandbox_config: None })
+        Ok(Self {
+            root_dir,
+            seed_dir,
+            sandbox_config: None,
+        })
     }
-    
+
     pub fn with_sandbox(mut self, config: SandboxConfig) -> Self {
         self.sandbox_config = Some(config);
         self
@@ -218,7 +222,7 @@ impl WorldProvider for DirectoryWorldProvider {
 
     async fn execute(&self, world_id: WorldId, command: &str) -> anyhow::Result<ExecuteResult> {
         let path = self.world_path(&world_id)?;
-        
+
         if let Some(ref config) = self.sandbox_config {
             let mut run_config = config.clone();
             run_config.working_directory = Some(path.clone());
@@ -227,7 +231,7 @@ impl WorldProvider for DirectoryWorldProvider {
             if !run_config.writable_mounts.contains(&world_path_str) {
                 run_config.writable_mounts.push(world_path_str);
             }
-            
+
             // Execute via OsSandbox
             let mut cmd = OsSandbox::command(&run_config, command)?;
             let output = cmd.output().await?;

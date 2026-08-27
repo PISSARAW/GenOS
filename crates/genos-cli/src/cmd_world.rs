@@ -19,7 +19,6 @@ pub async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
         root: args.root,
         seed: args.seed,
         repo: args.repo,
-        
     })?;
     let world_id = provider.create(AgentId::new(), BranchId::new()).await?;
 
@@ -165,11 +164,21 @@ pub async fn cmd_world_run(args: WorldRunArgs) -> Result<()> {
         Some(genos_world::sandbox::SandboxConfig {
             network_enabled: args.sandbox_network,
             backend: match args.sandbox_backend {
-                Some(crate::args::SandboxBackendArg::Bwrap) => genos_world::sandbox::SandboxBackend::Bwrap,
-                Some(crate::args::SandboxBackendArg::SandboxExec) => genos_world::sandbox::SandboxBackend::SandboxExec,
-                Some(crate::args::SandboxBackendArg::Gvisor) => genos_world::sandbox::SandboxBackend::GVisor,
-                Some(crate::args::SandboxBackendArg::Firecracker) => genos_world::sandbox::SandboxBackend::Firecracker,
-                Some(crate::args::SandboxBackendArg::None) => genos_world::sandbox::SandboxBackend::None,
+                Some(crate::args::SandboxBackendArg::Bwrap) => {
+                    genos_world::sandbox::SandboxBackend::Bwrap
+                }
+                Some(crate::args::SandboxBackendArg::SandboxExec) => {
+                    genos_world::sandbox::SandboxBackend::SandboxExec
+                }
+                Some(crate::args::SandboxBackendArg::Gvisor) => {
+                    genos_world::sandbox::SandboxBackend::GVisor
+                }
+                Some(crate::args::SandboxBackendArg::Firecracker) => {
+                    genos_world::sandbox::SandboxBackend::Firecracker
+                }
+                Some(crate::args::SandboxBackendArg::None) => {
+                    genos_world::sandbox::SandboxBackend::None
+                }
                 None => genos_world::sandbox::SandboxBackend::None,
             },
             ..Default::default()

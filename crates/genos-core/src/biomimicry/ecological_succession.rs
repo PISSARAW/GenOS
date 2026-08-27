@@ -1,10 +1,10 @@
-﻿//! Ecological Succession mapped to multi-stage agent deployment.
+//! Ecological Succession mapped to multi-stage agent deployment.
 //!
 //! Biological mechanism: Ecosystems develop from barren land via Pioneer species
 //! (fast, robust), which alter the environment to allow Intermediate species,
 //! eventually reaching a stable Climax community (complex, specialized).
-//! GenOS mapping: For a large task, the swarm deploys Pioneer agents (cheap models, 
-//! high temperature) to explore/index. Then Intermediate agents (builders). 
+//! GenOS mapping: For a large task, the swarm deploys Pioneer agents (cheap models,
+//! high temperature) to explore/index. Then Intermediate agents (builders).
 //! Finally, Climax agents (expensive models, low temp) to polish and maintain.
 
 #[derive(Debug, Clone, PartialEq, Eq)]

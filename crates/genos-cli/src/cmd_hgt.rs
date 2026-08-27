@@ -7,7 +7,10 @@ pub struct HgtTransposonArgs {
 }
 
 pub async fn cmd_hgt_transposon_insert(args: HgtTransposonArgs) -> anyhow::Result<()> {
-    println!("Inserting transposon {} at target {}", args.transposon_name, args.target);
+    println!(
+        "Inserting transposon {} at target {}",
+        args.transposon_name, args.target
+    );
     // Real implementation: calls into genos_core hgt logic
     println!("SUCCESS: Transposon integrated successfully via HGT.");
     Ok(())

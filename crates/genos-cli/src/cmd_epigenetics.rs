@@ -7,7 +7,10 @@ pub struct EpigeneticsArgs {
 }
 
 pub async fn cmd_epigenetics_modify(args: EpigeneticsArgs) -> anyhow::Result<()> {
-    println!("Modifying epigenetic marker for {} to {}", args.locus, args.value);
+    println!(
+        "Modifying epigenetic marker for {} to {}",
+        args.locus, args.value
+    );
     // Real implementation: changes the ChromatinVector in genos_core
     println!("SUCCESS: Chromatin marker updated for epigenetic inheritance.");
     Ok(())

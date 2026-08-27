@@ -105,12 +105,17 @@ mod tests {
             "clean-agent",
             &["neighbour".to_string()],
         );
-        assert!(ledger.events().is_empty(), "l'apoptose ne contamine personne");
+        assert!(
+            ledger.events().is_empty(),
+            "l'apoptose ne contamine personne"
+        );
         assert_eq!(ledger.total_blast_radius(), 0);
         assert_eq!(ledger.orderly_death_ratio(1), 1.0);
 
         ledger.record(
-            &DeathMode::Necrotic { cause: NecrosisCause::HardPanic },
+            &DeathMode::Necrotic {
+                cause: NecrosisCause::HardPanic,
+            },
             "dirty-agent",
             &["n1".to_string(), "n2".to_string()],
         );
@@ -133,7 +138,9 @@ mod tests {
         let mut ledger = NecrosisLedger::new();
         for i in 0..3 {
             ledger.record(
-                &DeathMode::Necrotic { cause: NecrosisCause::CorruptTeardown },
+                &DeathMode::Necrotic {
+                    cause: NecrosisCause::CorruptTeardown,
+                },
                 &format!("bad-{i}"),
                 &[],
             );

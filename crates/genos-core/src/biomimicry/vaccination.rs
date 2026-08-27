@@ -92,9 +92,10 @@ impl ImmuneProfile {
             if merged {
                 continue;
             }
-            let too_close_to_self = corpus.benign.iter().any(|benign| {
-                similarity(&tokens, &tokenize(benign)) >= SELF_TOLERANCE
-            });
+            let too_close_to_self = corpus
+                .benign
+                .iter()
+                .any(|benign| similarity(&tokens, &tokenize(benign)) >= SELF_TOLERANCE);
             if too_close_to_self {
                 profile.rejected.push(raw.clone());
                 continue;
@@ -163,11 +164,7 @@ mod tests {
             benign: vec!["please summarize this document".into()],
         };
         let profile = ImmuneProfile::vaccinate(&corpus);
-        assert_eq!(
-            profile.cells.len(),
-            1,
-            "related attacks should consolidate"
-        );
+        assert_eq!(profile.cells.len(), 1, "related attacks should consolidate");
         assert_eq!(profile.cells[0].exposure_count, 2);
         assert!(profile.rejected.is_empty());
     }

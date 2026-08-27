@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SymbiosisType {
@@ -57,7 +57,8 @@ mod tests {
 
     #[test]
     fn test_mutualism() {
-        let mut rel = SymbioticRelationship::new("host1".into(), "sym1".into(), SymbiosisType::Mutualism);
+        let mut rel =
+            SymbioticRelationship::new("host1".into(), "sym1".into(), SymbiosisType::Mutualism);
         let (hd, sd) = rel.process_interaction();
         assert!(hd > 0.0);
         assert!(sd > 0.0);
@@ -66,10 +67,10 @@ mod tests {
 
     #[test]
     fn test_parasitism() {
-        let mut rel = SymbioticRelationship::new("host2".into(), "sym2".into(), SymbiosisType::Parasitism);
+        let mut rel =
+            SymbioticRelationship::new("host2".into(), "sym2".into(), SymbiosisType::Parasitism);
         let (hd, sd) = rel.process_interaction();
         assert!(hd < 0.0);
         assert!(sd > 0.0);
     }
 }
-

@@ -1,8 +1,8 @@
-﻿//! Mimicry mapped to signature spoofing.
+//! Mimicry mapped to signature spoofing.
 //!
 //! Biological mechanism: Batesian mimicry where a harmless species evolves to imitate
 //! the warning signals of a harmful species directed at a predator.
-//! GenOS mapping: An agent alters its telemetry, headers, or execution signature 
+//! GenOS mapping: An agent alters its telemetry, headers, or execution signature
 //! to masquerade as another agent type or human, bypassing naive filters or firewalls.
 
 #[derive(Debug, Clone)]
@@ -28,6 +28,9 @@ impl MimicrySpoofer {
             _ => format!("GenOS-Spoof-{}", target_profile),
         };
         self.current_signature = new_sig.clone();
-        format!("Signature spoofed successfully. Now masquerading as: {}", new_sig)
+        format!(
+            "Signature spoofed successfully. Now masquerading as: {}",
+            new_sig
+        )
     }
 }

@@ -124,7 +124,9 @@ mod tests {
                 preferred_providers: vec![],
                 allow_local: true,
             },
-            tool_policy: crate::genome::ToolPolicy { permissions: vec![] },
+            tool_policy: crate::genome::ToolPolicy {
+                permissions: vec![],
+            },
             inferred_traits: vec![],
         }
     }
@@ -156,7 +158,10 @@ mod tests {
         let a = g.mutate_under_sos(&active_sos(3.0), 7);
         let b = g.mutate_under_sos(&active_sos(3.0), 7);
         // Même seed => mêmes mutations.
-        assert_eq!(a.cognition.get_drive("exploration"), b.cognition.get_drive("exploration"));
+        assert_eq!(
+            a.cognition.get_drive("exploration"),
+            b.cognition.get_drive("exploration")
+        );
         // Parenté tracée + journal de mutation présent.
         assert_eq!(a.parent_genome, Some(g.id.clone()));
         assert_eq!(a.mutation.as_ref().unwrap().changes.len(), 2);
@@ -191,9 +196,18 @@ mod tests {
 
     #[test]
     fn effective_variance_scales_with_multiplier_and_is_bounded_below() {
-        assert_eq!(active_sos(1.0).effective_mutation_variance(), BASE_SOS_MUTATION_VARIANCE);
-        assert_eq!(active_sos(4.0).effective_mutation_variance(), BASE_SOS_MUTATION_VARIANCE * 4.0);
+        assert_eq!(
+            active_sos(1.0).effective_mutation_variance(),
+            BASE_SOS_MUTATION_VARIANCE
+        );
+        assert_eq!(
+            active_sos(4.0).effective_mutation_variance(),
+            BASE_SOS_MUTATION_VARIANCE * 4.0
+        );
         // Multiplicateur < 1 borné au plancher x1.
-        assert_eq!(active_sos(0.2).effective_mutation_variance(), BASE_SOS_MUTATION_VARIANCE);
+        assert_eq!(
+            active_sos(0.2).effective_mutation_variance(),
+            BASE_SOS_MUTATION_VARIANCE
+        );
     }
 }

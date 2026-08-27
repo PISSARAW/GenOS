@@ -111,13 +111,15 @@ impl OsSandbox {
         if !config.network_enabled {
             command.args(["--tap-device=none"]);
         }
-        // Firecracker usually expects a rootfs, so binding is more complex. 
+        // Firecracker usually expects a rootfs, so binding is more complex.
         // We simulate a minimal approach.
         for mount in &config.writable_mounts {
             command.arg(format!("--add-drive={},rw", mount));
         }
         // Pass program as kernel boot args or via an init script
-        command.arg("--kernel-args").arg(format!("init={} ", program));
+        command
+            .arg("--kernel-args")
+            .arg(format!("init={} ", program));
         Ok(command)
     }
 }

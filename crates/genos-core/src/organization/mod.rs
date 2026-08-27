@@ -32,10 +32,10 @@ pub trait OrganizationProtocol {
 }
 
 pub mod aco;
-pub mod kuramoto;
 pub mod distributed;
 pub mod flocking;
+pub mod kuramoto;
 pub mod network;
+pub mod physarum_tsp;
 pub mod swarm;
 pub mod symbiosis;
-pub mod physarum_tsp;

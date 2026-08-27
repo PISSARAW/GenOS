@@ -49,7 +49,8 @@ impl MyceliumNetworkEngine {
         let mut to_remove = Vec::new();
 
         for (key, edge) in self.edges.iter_mut() {
-            let flux_term = edge.last_flux.powf(self.growth_exponent) / (1.0 + edge.last_flux.powf(self.growth_exponent));
+            let flux_term = edge.last_flux.powf(self.growth_exponent)
+                / (1.0 + edge.last_flux.powf(self.growth_exponent));
             let d_conductivity = (flux_term - (self.decay_rate * edge.conductivity)) * dt;
             edge.conductivity = (edge.conductivity + d_conductivity).max(0.0);
             edge.last_flux = 0.0;
@@ -67,10 +68,14 @@ impl MyceliumNetworkEngine {
     pub fn route_knowledge(&self, source: &str, sink: &str) -> Option<Vec<String>> {
         let mut distances: HashMap<String, f32> = HashMap::new();
         let mut previous: HashMap<String, String> = HashMap::new();
-        let mut unvisited: std::collections::BinaryHeap<ReverseEdge> = std::collections::BinaryHeap::new();
+        let mut unvisited: std::collections::BinaryHeap<ReverseEdge> =
+            std::collections::BinaryHeap::new();
 
         distances.insert(source.to_string(), 0.0);
-        unvisited.push(ReverseEdge { node: source.to_string(), cost: 0.0 });
+        unvisited.push(ReverseEdge {
+            node: source.to_string(),
+            cost: 0.0,
+        });
 
         while let Some(ReverseEdge { node, cost }) = unvisited.pop() {
             if node == sink {
@@ -95,7 +100,10 @@ impl MyceliumNetworkEngine {
                     if next_cost < *distances.get(v).unwrap_or(&f32::INFINITY) {
                         distances.insert(v.clone(), next_cost);
                         previous.insert(v.clone(), u.clone());
-                        unvisited.push(ReverseEdge { node: v.clone(), cost: next_cost });
+                        unvisited.push(ReverseEdge {
+                            node: v.clone(),
+                            cost: next_cost,
+                        });
                     }
                 }
             }
@@ -115,7 +123,10 @@ impl Eq for ReverseEdge {}
 
 impl Ord for ReverseEdge {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.cost.partial_cmp(&self.cost).unwrap_or(std::cmp::Ordering::Equal)
+        other
+            .cost
+            .partial_cmp(&self.cost)
+            .unwrap_or(std::cmp::Ordering::Equal)
     }
 }
 

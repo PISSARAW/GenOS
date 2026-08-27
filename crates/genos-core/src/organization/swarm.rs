@@ -166,7 +166,12 @@ pub struct Agent {
 
 impl Agent {
     pub fn new(id: usize, role: Role, tier: ModelTier) -> Self {
-        Self { id, role, tier, age: 0 }
+        Self {
+            id,
+            role,
+            tier,
+            age: 0,
+        }
     }
 
     pub fn assign_role(&mut self, new_role: Role) {

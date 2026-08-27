@@ -226,9 +226,7 @@ mod tests {
 
     mod promoter_tests {
         use super::*;
-        use crate::state::{
-            AgentState, EventCursor, ExecutionMetadata, WorkingMemory,
-        };
+        use crate::state::{AgentState, EventCursor, ExecutionMetadata, WorkingMemory};
 
         fn mock_state(failures: usize) -> AgentState {
             AgentState {

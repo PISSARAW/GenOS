@@ -1,6 +1,6 @@
-﻿//! Punctuated Equilibria mapped to stasis breakout in optimization.
+//! Punctuated Equilibria mapped to stasis breakout in optimization.
 //!
-//! Biological mechanism: Evolution features long periods of morphological stasis 
+//! Biological mechanism: Evolution features long periods of morphological stasis
 //! punctuated by rare but rapid bursts of evolutionary change (punctuation).
 //! GenOS mapping: When an agent's iterative improvement hits a plateau (stasis),
 //! it deliberately spikes the mutation rate/temperature to escape the local minimum.

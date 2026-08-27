@@ -1,4 +1,4 @@
-﻿//! Metamorphosis mapped to radical agent architecture transitions.
+//! Metamorphosis mapped to radical agent architecture transitions.
 //!
 //! Biological mechanism: Metamorphosis is a drastic structural change from one
 //! life stage to another (e.g., larva to imago). The organism destroys obsolete
@@ -23,7 +23,10 @@ pub struct MetamorphosisEngine {
 
 impl MetamorphosisEngine {
     pub fn new(agent_id: String, initial_stage: LifeStage) -> Self {
-        Self { agent_id, current_stage: initial_stage }
+        Self {
+            agent_id,
+            current_stage: initial_stage,
+        }
     }
 
     /// Triggers the transition. In Pupal stage, the agent is inactive and
@@ -38,18 +41,16 @@ impl MetamorphosisEngine {
                 self.current_stage = LifeStage::Imago;
                 Ok(LifeStage::Imago)
             }
-            LifeStage::Imago => {
-                Err("Agent is already in its final (Imago) stage.".to_string())
-            }
+            LifeStage::Imago => Err("Agent is already in its final (Imago) stage.".to_string()),
         }
     }
 
     /// Evaluates which tools must be shed or acquired during the transition.
     /// In a real implementation, this references the genome's metamorphosis triggers.
     pub fn compute_tissue_changes(
-        &self, 
-        current_tools: &[String], 
-        target_niche_tools: &[String]
+        &self,
+        current_tools: &[String],
+        target_niche_tools: &[String],
     ) -> (Vec<String>, Vec<String>) {
         let current_set: std::collections::HashSet<_> = current_tools.iter().cloned().collect();
         let target_set: std::collections::HashSet<_> = target_niche_tools.iter().cloned().collect();

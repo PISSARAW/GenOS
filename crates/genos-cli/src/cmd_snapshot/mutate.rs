@@ -23,7 +23,12 @@ use genos_core::{
 use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let mut changed = Vec::new();
@@ -86,9 +91,12 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
         genome_id: snapshot.genome.id.0.clone(),
         changed,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args
-            .save
-            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: args.save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
     };
 
     if args.save {
@@ -99,7 +107,12 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
 }
 
 pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let write = write_variable_on_branch(&mut snapshot, &args.key, &args.value);
@@ -136,9 +149,12 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
         previous_value: write.previous_value,
         value: write.value,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args
-            .save
-            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: args.save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -154,7 +170,12 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let kind: MemoryKind = args.kind.into();
@@ -197,9 +218,12 @@ pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> 
         semantic_ref_count: snapshot.state.semantic_memory.refs.len(),
         episodic_ref_count: snapshot.state.episodic_memory.refs.len(),
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args
-            .save
-            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: args.save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -226,7 +250,12 @@ pub async fn cmd_snapshot_check_var(args: SnapshotCheckVarArgs) -> Result<()> {
         );
     }
 
-    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let store = snapshot_store_from(
+        args.store.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let parent = resolve_snapshot_ref(&args.parent, &*store).await?;
 
     let mut branches = Vec::with_capacity(args.branches.len());

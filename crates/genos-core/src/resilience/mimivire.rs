@@ -79,12 +79,7 @@ impl MimivireLedger {
 
     /// Replays every recorded attenuated variant against the detector
     /// repertoire (`detectors` = centroids) using RBF affinity at `theta`.
-    pub fn replay_drill(
-        &mut self,
-        detectors: &[Vec<f32>],
-        gamma: f32,
-        theta: f32,
-    ) -> DrillReport {
+    pub fn replay_drill(&mut self, detectors: &[Vec<f32>], gamma: f32, theta: f32) -> DrillReport {
         let mut report = DrillReport::default();
         for variant in self.variants.values_mut() {
             report.variants_replayed += 1;
@@ -126,7 +121,10 @@ mod tests {
         let report = ledger.replay_drill(&detectors, 4.0, 0.8);
 
         assert_eq!(report.variants_replayed, 3);
-        assert_eq!(report.recognized, vec!["known-a".to_string(), "known-b".to_string()]);
+        assert_eq!(
+            report.recognized,
+            vec!["known-a".to_string(), "known-b".to_string()]
+        );
         assert_eq!(report.unrecognized, vec!["novel".to_string()]);
         assert!((report.coverage() - 2.0 / 3.0).abs() < 1e-6);
     }

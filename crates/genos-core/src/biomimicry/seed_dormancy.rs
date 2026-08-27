@@ -1,4 +1,4 @@
-﻿//! Seed Dormancy & Dispersal mapped to conditional agent suspension and scattering.
+//! Seed Dormancy & Dispersal mapped to conditional agent suspension and scattering.
 //!
 //! Biological mechanism: Plants package their genetic material into seeds that remain
 //! dormant in harsh conditions and only germinate when environmental conditions are optimal.
@@ -33,7 +33,10 @@ impl SeedDormancy {
     pub fn enter_dormancy(&mut self, condition: &str) -> String {
         self.state = SeedState::Dormant;
         self.germination_condition = condition.to_string();
-        format!("Agent packed into a Seed. Entering Dormancy. Will germinate when: {}", condition)
+        format!(
+            "Agent packed into a Seed. Entering Dormancy. Will germinate when: {}",
+            condition
+        )
     }
 
     /// Checks environment to trigger germination

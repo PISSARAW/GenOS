@@ -1,4 +1,4 @@
-﻿use super::*;
+use super::*;
 use genos_core::{BranchId, ExperimentId};
 
 #[test]
@@ -273,9 +273,11 @@ fn test_live_evaluator() {
 
 #[test]
 fn test_causal_analysis() {
-    let boundaries = vec![genos_core::causality::CausalBoundary::new("b1".to_string(), None)];
+    let boundaries = vec![genos_core::causality::CausalBoundary::new(
+        "b1".to_string(),
+        None,
+    )];
     let report = crate::causal::analyze_causal_boundaries(&boundaries);
     assert_eq!(report.boundaries_analyzed, 1);
     assert_eq!(report.root_causes[0], "b1");
 }
-

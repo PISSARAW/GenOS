@@ -9,7 +9,7 @@ pub struct TransportArgs {
     /// The network transport to use (e.g. redis)
     #[arg(long, default_value = "redis")]
     pub transport: String,
-    
+
     /// The transport connection URL
     #[arg(long, default_value = "redis://127.0.0.1/")]
     pub url: String,
@@ -19,7 +19,10 @@ pub async fn run(args: TransportArgs) -> Result<()> {
     match args.transport.as_str() {
         "redis" => {
             let _queue = RedisTaskQueue::new(&args.url, "genos")?;
-            println!("Network transport '{}' initialized successfully via CLI.", args.transport);
+            println!(
+                "Network transport '{}' initialized successfully via CLI.",
+                args.transport
+            );
         }
         _ => anyhow::bail!("Unknown network transport: {}", args.transport),
     }

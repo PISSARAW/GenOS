@@ -56,13 +56,19 @@ impl PhysarumTspSolver {
         // Mise  jour de la conductivit : renforcement proportionnel au flux (adaptation)
         let decay = 0.1; // taux d"autolyse (dgradation)
         let reinforcement = 1.2;
-        
+
         // Trouver le max flux pour normaliser (empche divergence)
-        let max_flux = self.edges.iter().map(|e| e.flux).fold(0.0, f32::max).max(1.0);
+        let max_flux = self
+            .edges
+            .iter()
+            .map(|e| e.flux)
+            .fold(0.0, f32::max)
+            .max(1.0);
 
         for edge in self.edges.iter_mut() {
             let normalized_flux = edge.flux / max_flux;
-            edge.conductivity = (edge.conductivity * (1.0 - decay)) + (normalized_flux * reinforcement);
+            edge.conductivity =
+                (edge.conductivity * (1.0 - decay)) + (normalized_flux * reinforcement);
             // On limite pour viter l"explosion et la mort totale
             edge.conductivity = edge.conductivity.clamp(0.01, 10.0);
         }
@@ -87,7 +93,8 @@ impl PhysarumTspSolver {
                 if edge.from == current && !visited[edge.to] && edge.conductivity > best_cond {
                     best_cond = edge.conductivity;
                     best_next = edge.to;
-                } else if edge.to == current && !visited[edge.from] && edge.conductivity > best_cond {
+                } else if edge.to == current && !visited[edge.from] && edge.conductivity > best_cond
+                {
                     best_cond = edge.conductivity;
                     best_next = edge.from;
                 }
@@ -109,10 +116,22 @@ mod tests {
     #[test]
     fn test_physarum_tsp() {
         let nodes = vec![
-            TspNode { id: 0, pos: Vec2::new(0.0, 0.0) },
-            TspNode { id: 1, pos: Vec2::new(0.0, 10.0) },
-            TspNode { id: 2, pos: Vec2::new(10.0, 10.0) },
-            TspNode { id: 3, pos: Vec2::new(10.0, 0.0) },
+            TspNode {
+                id: 0,
+                pos: Vec2::new(0.0, 0.0),
+            },
+            TspNode {
+                id: 1,
+                pos: Vec2::new(0.0, 10.0),
+            },
+            TspNode {
+                id: 2,
+                pos: Vec2::new(10.0, 10.0),
+            },
+            TspNode {
+                id: 3,
+                pos: Vec2::new(10.0, 0.0),
+            },
         ];
         let mut solver = PhysarumTspSolver::new(nodes);
         for _ in 0..10 {

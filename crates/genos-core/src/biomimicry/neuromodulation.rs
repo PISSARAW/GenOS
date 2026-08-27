@@ -1,4 +1,4 @@
-﻿//! Neuromodulation mapped to Reward Prediction Error (RPE) in MCTS.
+//! Neuromodulation mapped to Reward Prediction Error (RPE) in MCTS.
 //!
 //! Biological mechanism: Dopamine neurons encode Reward Prediction Error.
 //! If an outcome is better than expected, dopamine spikes, reinforcing the
@@ -30,7 +30,7 @@ impl DopaminergicSystem {
     /// Computes the Reward Prediction Error and the resulting dopamine level
     pub fn compute_rpe(&self, signal: RpeSignal) -> f64 {
         let rpe = signal.actual_reward - signal.expected_reward;
-        
+
         // Dopamine level spikes above baseline if RPE is positive, dips if negative.
         let dopamine_level = self.baseline_dopamine + (rpe * self.learning_rate);
         dopamine_level.clamp(0.0, 1.0)

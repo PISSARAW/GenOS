@@ -6,7 +6,7 @@ import time
 def calculer_distance_3d(n1, n2):
     return math.sqrt((n2['x'] - n1['x'])**2 + (n2['y'] - n1['y'])**2 + (n2['z'] - n1['z'])**2)
 
-def evaluer_cout_transition(n1, n2, index_visite, total_noeuds=10000):
+def evaluer_cout_transition(n1, n2, index_visite, total_noeuds):
     dist = calculer_distance_3d(n1, n2)
     # Pénalité d'altitude
     if n2['z'] > n1['z']:
@@ -33,12 +33,13 @@ def lire_donnees(fichier="noeuds_10000.csv"):
 def evaluer_parcours_complet(parcours, noeuds):
     cout_total = 0.0
     nb_noeuds = len(parcours)
+    total_noeuds = len(noeuds)
     for i in range(nb_noeuds - 1):
         n1 = noeuds[parcours[i]]
         n2 = noeuds[parcours[i+1]]
-        cout_total += evaluer_cout_transition(n1, n2, i, 10000)
+        cout_total += evaluer_cout_transition(n1, n2, i, total_noeuds)
     # Retour au point de départ
-    cout_total += evaluer_cout_transition(noeuds[parcours[-1]], noeuds[parcours[0]], nb_noeuds - 1, 10000)
+    cout_total += evaluer_cout_transition(noeuds[parcours[-1]], noeuds[parcours[0]], nb_noeuds - 1, total_noeuds)
     return cout_total
 
 def myxomycete_phase(noeuds):
@@ -51,7 +52,8 @@ def myxomycete_phase(noeuds):
     ids_dispos.remove(depart)
     
     noeud_actuel = noeuds[depart]
-    index_visite = 1
+    index_visite = 0
+    total_noeuds = len(noeuds)
     
     # Construction par attraction phéromonale
     while ids_dispos:
@@ -59,12 +61,13 @@ def myxomycete_phase(noeuds):
         meilleur_score = float('inf')
         
         # Pour des raisons de performance sur 10k noeuds, on ne regarde qu'un échantillon (spores du myxomycète)
-        echantillon = random.sample(list(ids_dispos), min(100, len(ids_dispos)))
+        taille_echantillon = max(1, min(100, len(ids_dispos)))
+        echantillon = random.sample(list(ids_dispos), taille_echantillon)
         
         for cand_id in echantillon:
             cand = noeuds[cand_id]
             # Le score prend en compte le coût futur théorique (attractivité)
-            cout = evaluer_cout_transition(noeud_actuel, cand, index_visite, 10000)
+            cout = evaluer_cout_transition(noeud_actuel, cand, index_visite, total_noeuds)
             # Bonus artificiel pour digérer les lourds rapidement
             score = cout - (cand['masse'] * 1000 / (index_visite + 1))
             
@@ -95,15 +98,16 @@ def cristallisation_quantique_phase(parcours, noeuds, iterations=5000):
     
     for i in range(iterations):
         # Effet Tunnel : On déplace un bloc entier de noeuds au lieu d'un échange 2-opt classique
-        idx_debut = random.randint(1, 9000)
-        taille_bloc = random.randint(5, 50)
+        total_parcours = len(parcours_actuel)
+        taille_bloc = min(random.randint(5, 50), max(1, total_parcours - 2))
+        idx_debut = random.randint(1, total_parcours - 1 - taille_bloc)
         idx_fin = idx_debut + taille_bloc
-        
-        nouveau_idx_insertion = random.randint(1, 9999 - taille_bloc)
         
         # Fluctuation : extraction et insertion
         bloc = parcours_actuel[idx_debut:idx_fin]
         nouveau_parcours = parcours_actuel[:idx_debut] + parcours_actuel[idx_fin:]
+        
+        nouveau_idx_insertion = random.randint(1, len(nouveau_parcours) - 1)
         
         # Insérer à la nouvelle position
         nouveau_parcours = nouveau_parcours[:nouveau_idx_insertion] + bloc + nouveau_parcours[nouveau_idx_insertion:]
@@ -112,7 +116,7 @@ def cristallisation_quantique_phase(parcours, noeuds, iterations=5000):
         
         # Transition quantique (acceptation d'états de plus haute énergie)
         delta_energie = nouveau_cout - cout_actuel
-        if delta_energie < 0 or math.exp(-delta_energie / max(temperature, 0.1)) > random.random():
+        if delta_energie < 0 or math.exp(-delta_energie / max(temperature, 1e-10)) > random.random():
             parcours_actuel = nouveau_parcours
             cout_actuel = nouveau_cout
             
@@ -146,7 +150,7 @@ def main():
     cout_initial = evaluer_parcours_complet(parcours_initial, noeuds)
     print(f"Coût post-Myxomycète : {cout_initial:,.2f}")
     
-    parcours_final = cristallisation_quantique_phase(parcours_initial, noeuds, iterations=1000)
+    parcours_final = cristallisation_quantique_phase(parcours_initial, noeuds, iterations=5000)
     cout_final = evaluer_parcours_complet(parcours_final, noeuds)
     print(f"Coût post-Cristallisation : {cout_final:,.2f}")
     

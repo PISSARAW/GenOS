@@ -1,7 +1,7 @@
 //! Activation controller mapping live runtime signals onto viral mechanisms.
 
 use super::cassette::{CassetteState, ProphageLocus};
-use super::{DEFAULT_BURST_CLONES, ViralDynamicsEngine};
+use super::{ViralDynamicsEngine, DEFAULT_BURST_CLONES};
 use serde::{Deserialize, Serialize};
 
 /// Action selected by [`ViralResponseController`] from live runtime signals.
@@ -10,9 +10,15 @@ pub enum ViralAction {
     /// Stress below induction threshold: continue nominal inference.
     Nominal { stress: f32 },
     /// Cheap path: express dormant cassettes instead of paying for clones.
-    InduceCassettes { stress: f32, cassette_ids: Vec<String> },
+    InduceCassettes {
+        stress: f32,
+        cassette_ids: Vec<String>,
+    },
     /// Expensive path: spawn a mutant cloud around the stalled lineage.
-    LyticBurst { stress: f32, recommended_clones: u32 },
+    LyticBurst {
+        stress: f32,
+        recommended_clones: u32,
+    },
 }
 
 /// Engine bundling the stress metric with the viral thresholds.
@@ -44,7 +50,10 @@ impl ViralResponseController {
             .map(|c| c.cassette_id.clone())
             .collect();
         if !dormant.is_empty() && stress < self.engine.burst_threshold {
-            return ViralAction::InduceCassettes { stress, cassette_ids: dormant };
+            return ViralAction::InduceCassettes {
+                stress,
+                cassette_ids: dormant,
+            };
         }
         // No heritable answer to this failure class: pay for exploration.
         ViralAction::LyticBurst {
@@ -56,8 +65,8 @@ impl ViralResponseController {
 
 #[cfg(test)]
 mod tests {
+    use super::super::cassette::{CassetteState, SkillCassette};
     use super::*;
-    use super::super::cassette::{SkillCassette, CassetteState};
 
     fn cassette(id: &str, signature: Vec<f32>) -> SkillCassette {
         SkillCassette {

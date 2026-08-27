@@ -1,8 +1,8 @@
 //! Boundary audit for the directory-backed world provider.
 //!
 //! These tests test the file isolation guarantee that is implemented
-//! (working-directory/file isolation). OS process, environment, and 
-//! network sandboxing is now optionally available via the sandbox module 
+//! (working-directory/file isolation). OS process, environment, and
+//! network sandboxing is now optionally available via the sandbox module
 //! (e.g. Firecracker, gVisor).
 #![cfg(unix)]
 

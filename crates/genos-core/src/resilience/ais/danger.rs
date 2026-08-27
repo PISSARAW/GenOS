@@ -82,12 +82,13 @@ mod tests {
         ]);
         assert!(many > few);
         // Saturation à 1.0 même avec une avalanche de signaux.
-        let avalanche: Vec<DamSignal> =
-            (0..8).map(|_| DamSignal::InvariantBreach).collect();
+        let avalanche: Vec<DamSignal> = (0..8).map(|_| DamSignal::InvariantBreach).collect();
         assert_eq!(model.damp_level(&avalanche), 1.0);
-        assert!((model.damp_level(&[DamSignal::SemanticDivergence(3.0)])
-            - model.damp_level(&[DamSignal::SemanticDivergence(1.0)]))
-        .abs()
-            < 1e-6);
+        assert!(
+            (model.damp_level(&[DamSignal::SemanticDivergence(3.0)])
+                - model.damp_level(&[DamSignal::SemanticDivergence(1.0)]))
+            .abs()
+                < 1e-6
+        );
     }
 }

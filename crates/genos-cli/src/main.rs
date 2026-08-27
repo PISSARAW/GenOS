@@ -10,45 +10,44 @@ mod cmd_bio_features;
 mod cmd_bio_immunity;
 mod cmd_bio_immuno;
 mod cmd_bio_neuro;
+mod cmd_bio_novel;
 mod cmd_bio_plant;
 mod cmd_bio_theory;
-mod cmd_bio_novel;
 mod cmd_biomimicry;
 mod cmd_capsule;
+mod cmd_causality;
+mod cmd_cost_accounting;
 mod cmd_dev;
 mod cmd_division;
 mod cmd_epigenetics;
 mod cmd_eval;
 mod cmd_experiment;
+mod cmd_guardrails;
 mod cmd_hallucination;
 mod cmd_hgt;
 mod cmd_inspect;
 mod cmd_loop_detection;
-mod cmd_causality;
-mod cmd_phenotype;
-mod cmd_rebase;
-mod cmd_guardrails;
 mod cmd_merge;
 mod cmd_operon;
+mod cmd_phenotype;
 mod cmd_platform;
 mod cmd_prompt;
+mod cmd_rebase;
 mod cmd_replay;
-mod cmd_scheduler;
 mod cmd_resilience;
+mod cmd_scheduler;
 mod cmd_snapshot;
+mod cmd_storage;
+mod cmd_transport;
 mod cmd_viral;
 mod cmd_workflow;
 mod cmd_workflow_types;
 mod cmd_world;
-mod cmd_storage;
-mod cmd_transport;
-mod cmd_cost_accounting;
 mod output;
 mod resolve;
 
 use anyhow::Result;
 use clap::Parser;
-
 
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
@@ -287,7 +286,9 @@ async fn main() -> Result<()> {
         Commands::Operon(args) => crate::cmd_operon::cmd_operon_evaluate(args).await,
         Commands::Hgt(args) => crate::cmd_hgt::cmd_hgt_transposon_insert(args).await,
         Commands::Scheduler(args) => crate::cmd_scheduler::cmd_scheduler_start(args).await,
-        Commands::LoopDetection(args) => crate::cmd_loop_detection::cmd_loop_detection_check(args).await,
+        Commands::LoopDetection(args) => {
+            crate::cmd_loop_detection::cmd_loop_detection_check(args).await
+        }
         Commands::Causality(args) => crate::cmd_causality::run(args).await,
         Commands::Phenotype(args) => crate::cmd_phenotype::run(args).await,
         Commands::Rebase(args) => crate::cmd_rebase::run(args).await,

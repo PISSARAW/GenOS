@@ -97,8 +97,9 @@ mod tests {
         let n = 8;
         let mut osc = swarm(n);
         // Graphe complet.
-        let adjacency: Vec<(usize, usize)> =
-            (0..n as usize).flat_map(|a| ((a + 1)..n as usize).map(move |b| (a, b))).collect();
+        let adjacency: Vec<(usize, usize)> = (0..n as usize)
+            .flat_map(|a| ((a + 1)..n as usize).map(move |b| (a, b)))
+            .collect();
 
         let initial_coherence = order_parameter(&osc.iter().map(|o| o.phase).collect::<Vec<_>>());
         for _ in 0..2000 {
@@ -117,13 +118,17 @@ mod tests {
         let n = 6;
         let mut osc = swarm(n);
         // Anneau seulement : deux voisins par oscillateur.
-        let adjacency: Vec<(usize, usize)> = (0..n as usize).map(|i| (i, (i + 1) % n as usize)).collect();
+        let adjacency: Vec<(usize, usize)> =
+            (0..n as usize).map(|i| (i, (i + 1) % n as usize)).collect();
         let before = order_parameter(&osc.iter().map(|o| o.phase).collect::<Vec<_>>());
         for _ in 0..3000 {
             step_pairwise(&mut osc, &adjacency, 6.0, 0.01);
         }
         let after = order_parameter(&osc.iter().map(|o| o.phase).collect::<Vec<_>>());
-        assert!(after > before, "l'anneau converge partiellement ({before} -> {after})");
+        assert!(
+            after > before,
+            "l'anneau converge partiellement ({before} -> {after})"
+        );
     }
 
     #[test]
@@ -135,8 +140,8 @@ mod tests {
         }
         // Sans couplage, les écarts de phase sont conservés.
         let deltas_ok = osc.windows(2).all(|w| {
-            let d0 = wrap_two_pi(w[0].phase - w[1].phase + std::f32::consts::PI)
-                - std::f32::consts::PI;
+            let d0 =
+                wrap_two_pi(w[0].phase - w[1].phase + std::f32::consts::PI) - std::f32::consts::PI;
             true || d0.abs() < 1e-5
         });
         assert!(deltas_ok);
@@ -150,6 +155,8 @@ mod tests {
         for _ in 0..500 {
             step_pairwise(&mut osc, &adjacency, 8.0, 0.05);
         }
-        assert!(osc.iter().all(|o| (0.0..std::f32::consts::TAU).contains(&o.phase)));
+        assert!(osc
+            .iter()
+            .all(|o| (0.0..std::f32::consts::TAU).contains(&o.phase)));
     }
 }

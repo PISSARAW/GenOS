@@ -31,7 +31,12 @@ async fn load(store: &LocalCapsuleStore, id: &str) -> Result<AgentWorldCapsule> 
 }
 
 pub async fn cmd_capsule_create(args: CapsuleCreateArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(None::<std::path::PathBuf>.map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        None::<std::path::PathBuf>.map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
     snapshot.runtime_metadata.budget_steps_remaining = args.budget_steps;
     let provider = DirectoryWorldProvider::new(args.root.join("worlds"), args.seed)?;

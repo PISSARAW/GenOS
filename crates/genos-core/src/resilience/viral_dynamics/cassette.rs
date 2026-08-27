@@ -40,7 +40,9 @@ impl ProphageLocus {
     }
 
     pub fn has_dormant(&self) -> bool {
-        self.cassettes.iter().any(|c| c.state == CassetteState::Dormant)
+        self.cassettes
+            .iter()
+            .any(|c| c.state == CassetteState::Dormant)
     }
 
     /// Integrates a cassette unless the locus is full or an equivalent cassette
@@ -58,8 +60,11 @@ impl ProphageLocus {
             return Err(Superinjection::LocusFull);
         }
         if let Some(resident) = self.cassettes.iter().find(|r| {
-            super::rbf_affinity(&r.failure_mode_signature, &cassette.failure_mode_signature, gamma)
-                >= theta_exclusion
+            super::rbf_affinity(
+                &r.failure_mode_signature,
+                &cassette.failure_mode_signature,
+                gamma,
+            ) >= theta_exclusion
         }) {
             return Err(Superinjection::ExcludedBy(resident.cassette_id.clone()));
         }
@@ -137,7 +142,9 @@ mod tests {
             locus.integrate(twin, 1.0, 0.9),
             Err(Superinjection::ExcludedBy("resident".into()))
         );
-        assert!(locus.integrate(cassette("novel", vec![5.0, 5.0]), 1.0, 0.9).is_ok());
+        assert!(locus
+            .integrate(cassette("novel", vec![5.0, 5.0]), 1.0, 0.9)
+            .is_ok());
     }
 
     #[test]

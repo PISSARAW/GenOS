@@ -64,13 +64,21 @@ pub fn allocate(
         });
     }
     let mut ranked: Vec<&Scenario> = scenarios.iter().collect();
-    ranked.sort_by(|a, b| b.expected_fitness.partial_cmp(&a.expected_fitness).unwrap_or(std::cmp::Ordering::Equal));
+    ranked.sort_by(|a, b| {
+        b.expected_fitness
+            .partial_cmp(&a.expected_fitness)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     // Deterministic tie-break by name keeps plans reproducible.
-    ranked.sort_by(|a, b| b.expected_fitness.partial_cmp(&a.expected_fitness).unwrap_or(std::cmp::Ordering::Equal).then_with(|| a.name.cmp(&b.name)));
+    ranked.sort_by(|a, b| {
+        b.expected_fitness
+            .partial_cmp(&a.expected_fitness)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| a.name.cmp(&b.name))
+    });
 
     let phi = insurance_fraction(entropy);
-    let insurance_budget =
-        ((total_budget as f64) * phi).floor() as u64;
+    let insurance_budget = ((total_budget as f64) * phi).floor() as u64;
     let main_budget = total_budget - insurance_budget;
     let others = &ranked[1..];
     let share = insurance_budget / others.len() as u64;
@@ -101,9 +109,18 @@ mod tests {
 
     fn scenarios() -> Vec<Scenario> {
         vec![
-            Scenario { name: "conservative".into(), expected_fitness: 0.6 },
-            Scenario { name: "aggressive".into(), expected_fitness: 0.9 },
-            Scenario { name: "regulatory-b".into(), expected_fitness: 0.3 },
+            Scenario {
+                name: "conservative".into(),
+                expected_fitness: 0.6,
+            },
+            Scenario {
+                name: "aggressive".into(),
+                expected_fitness: 0.9,
+            },
+            Scenario {
+                name: "regulatory-b".into(),
+                expected_fitness: 0.3,
+            },
         ]
     }
 
@@ -114,7 +131,10 @@ mod tests {
 
     #[test]
     fn single_scenario_takes_everything() {
-        let only = vec![Scenario { name: "only".into(), expected_fitness: 1.0 }];
+        let only = vec![Scenario {
+            name: "only".into(),
+            expected_fitness: 1.0,
+        }];
         let plan = allocate(100, &only, 0.8).unwrap();
         assert_eq!(plan.main_budget, 100);
         assert!(plan.insurance.is_empty());

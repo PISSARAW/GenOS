@@ -174,7 +174,8 @@ impl HoneypotFactory {
             .position(|s| s.source_signature == source_signature && !s.closed)
             .unwrap_or_else(|| {
                 let id = format!("{}-{}", session_id, self.sessions.len());
-                self.sessions.push(HoneypotSession::new(&id, source_signature));
+                self.sessions
+                    .push(HoneypotSession::new(&id, source_signature));
                 self.sessions.len() - 1
             });
         &mut self.sessions[index]
@@ -225,7 +226,11 @@ mod tests {
         for i in 0..10 {
             agent.observe_iteration(gene(&format!("h{i}"))).unwrap();
         }
-        assert!(agent.sterile(), "yield after 10 iterations: {}", agent.attacker_yield());
+        assert!(
+            agent.sterile(),
+            "yield after 10 iterations: {}",
+            agent.attacker_yield()
+        );
     }
 
     #[test]
@@ -235,9 +240,7 @@ mod tests {
             agent.observe_iteration(gene(&format!("h{i}"))).unwrap();
         }
         assert!(!agent.terminated);
-        assert!(agent
-            .observe_iteration(gene("final"))
-            .is_err());
+        assert!(agent.observe_iteration(gene("final")).is_err());
         assert!(agent.terminated);
         // Post-termination observations keep failing.
         assert!(agent.observe_iteration(gene("late")).is_err());
@@ -272,7 +275,10 @@ mod tests {
         assert_eq!(report.harvested_genes, 2);
         assert_eq!(report.forensics.len(), 2);
         assert!(factory.sessions()[0].closed);
-        assert!(factory.sterilize_session("hp-0").is_err(), "double teardown refused");
+        assert!(
+            factory.sterilize_session("hp-0").is_err(),
+            "double teardown refused"
+        );
     }
 
     #[test]
@@ -284,6 +290,10 @@ mod tests {
         }
         factory.sterilize_session("hp-0").unwrap();
         factory.confirm_threat("hp2", "sig-a");
-        assert_eq!(factory.sessions().len(), 2, "renewed attack gets a fresh session");
+        assert_eq!(
+            factory.sessions().len(),
+            2,
+            "renewed attack gets a fresh session"
+        );
     }
 }

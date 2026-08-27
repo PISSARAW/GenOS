@@ -12,8 +12,13 @@ pub struct ChemicalSignal {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CheckpointState {
-    Active { ambiguity: String, signal: ChemicalSignal },
-    Resolved { choice: String },
+    Active {
+        ambiguity: String,
+        signal: ChemicalSignal,
+    },
+    Resolved {
+        choice: String,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -37,7 +42,9 @@ impl CellularCheckpoint {
     pub fn provide_signal(&mut self, choice: String) -> Result<String, String> {
         if let CheckpointState::Active { signal, .. } = &self.state {
             if choice == signal.option_a || choice == signal.option_b {
-                self.state = CheckpointState::Resolved { choice: choice.clone() };
+                self.state = CheckpointState::Resolved {
+                    choice: choice.clone(),
+                };
                 Ok(choice)
             } else {
                 Err("Signal must strictly match one of the binary options".to_string())

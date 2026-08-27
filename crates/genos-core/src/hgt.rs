@@ -92,8 +92,7 @@ impl Transposon {
 
         // 2. Fallback aléatoire déterministe.
         let mut state = seed;
-        let chrom_index = (splitmix64(&mut state) as usize)
-            % genome.cognition.chromosomes.len();
+        let chrom_index = (splitmix64(&mut state) as usize) % genome.cognition.chromosomes.len();
         let chromosome = &mut genome.cognition.chromosomes[chrom_index];
         let index = if chromosome.loci.is_empty() {
             0
@@ -131,7 +130,10 @@ pub struct PlasmidPackage {
 pub enum PlasmidRejection {
     /// Règle d'incompatibilité plasmidique : deux plasmides du même groupe
     /// Inc ne peuvent pas coexister dans la même cellule.
-    IncompatibleGroup { resident_group: String, incoming_group: String },
+    IncompatibleGroup {
+        resident_group: String,
+        incoming_group: String,
+    },
     /// Ce plasmide a déjà été absorbé par ce génome.
     AlreadyAbsorbed,
 }
@@ -272,7 +274,10 @@ mod tests {
         let report = tn.insert_into(&mut g, 42).unwrap();
         assert_eq!(report.chromosome, "C1");
         assert_eq!(report.insertion_index, 1);
-        assert_eq!(g.cognition.chromosomes[0].loci[1].gene_name, "lint_strictness");
+        assert_eq!(
+            g.cognition.chromosomes[0].loci[1].gene_name,
+            "lint_strictness"
+        );
         assert_eq!(
             g.cognition.chromosomes[0].loci[2].gene_name,
             "build_parallelism"
@@ -298,7 +303,10 @@ mod tests {
         let mut g = genome_with(&["exploration"]);
         let tn = test_transposon("");
         tn.insert_into(&mut g, 1).unwrap();
-        assert_eq!(tn.insert_into(&mut g, 2), Err(TranspositionError::AlreadyInserted));
+        assert_eq!(
+            tn.insert_into(&mut g, 2),
+            Err(TranspositionError::AlreadyInserted)
+        );
     }
 
     #[test]
@@ -309,12 +317,18 @@ mod tests {
             insertion_sequence: String::new(),
         };
         let mut g = genome_with(&["exploration"]);
-        assert_eq!(empty_tn.insert_into(&mut g, 1), Err(TranspositionError::EmptyPayload));
+        assert_eq!(
+            empty_tn.insert_into(&mut g, 1),
+            Err(TranspositionError::EmptyPayload)
+        );
 
         let tn = test_transposon("");
         let mut bare = genome_with(&[]);
         bare.cognition.chromosomes.clear();
-        assert_eq!(tn.insert_into(&mut bare, 1), Err(TranspositionError::NoTargetChromosome));
+        assert_eq!(
+            tn.insert_into(&mut bare, 1),
+            Err(TranspositionError::NoTargetChromosome)
+        );
     }
 
     fn plasmid(id: &str, group: &str) -> PlasmidPackage {

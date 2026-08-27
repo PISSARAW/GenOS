@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use genos_core::entities::EntityRef;
 use genos_core::rebase::TrajectoryRebaser;
 use genos_core::revert::ActionDependencyGraph;
-use genos_core::entities::EntityRef;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]

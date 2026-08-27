@@ -14,11 +14,7 @@ pub struct Antibody {
 
 /// Affinité RBF gaussienne : `exp(-gamma * ||a-b||^2)`, dans [0, 1].
 pub fn rbf_affinity(a: &[f32], b: &[f32], gamma: f32) -> f32 {
-    let sq_dist: f32 = a
-        .iter()
-        .zip(b.iter())
-        .map(|(x, y)| (x - y) * (x - y))
-        .sum();
+    let sq_dist: f32 = a.iter().zip(b.iter()).map(|(x, y)| (x - y) * (x - y)).sum();
     (-gamma * sq_dist).exp()
 }
 

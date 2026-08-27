@@ -54,7 +54,9 @@ impl NeotenyPolicy {
     /// Fraction is clamped to a sane band: a fleet without any reserve loses
     /// adaptability, one fully neotenic never specializes.
     pub fn new(fraction: f64) -> Self {
-        NeotenyPolicy { fraction: fraction.clamp(0.05, 0.5) }
+        NeotenyPolicy {
+            fraction: fraction.clamp(0.05, 0.5),
+        }
     }
 
     fn required_floor(&self, total: usize) -> usize {

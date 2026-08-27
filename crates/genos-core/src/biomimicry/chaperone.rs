@@ -185,7 +185,9 @@ impl Chaperone {
             Diagnosis::Healthy => RepairOutcome::Repaired(component.fragments.clone()),
             Diagnosis::Irrecoverable { reason } => RepairOutcome::RecommendProteolysis { reason },
             Diagnosis::Recoverable { damaged_slots } => {
-                let needed = self.atp_per_attempt.saturating_mul(self.max_attempts as u64);
+                let needed = self
+                    .atp_per_attempt
+                    .saturating_mul(self.max_attempts as u64);
                 if needed > self.atp_budget {
                     return RepairOutcome::RecommendProteolysis {
                         reason: format!(
@@ -256,7 +258,10 @@ mod tests {
             kind: "memory_index".into(),
             fragments: vec!["alpha".into(), "idx:7".into(), "gamma".into()],
         };
-        assert_eq!(chaperone.diagnose(&component, &schema_with_templates()), Diagnosis::Healthy);
+        assert_eq!(
+            chaperone.diagnose(&component, &schema_with_templates()),
+            Diagnosis::Healthy
+        );
         assert_eq!(
             chaperone.repair(&component, &schema_with_templates()),
             RepairOutcome::Repaired(vec!["alpha".into(), "idx:7".into(), "gamma".into()])
@@ -309,7 +314,8 @@ mod tests {
         assert_eq!(
             outcome,
             RepairOutcome::RecommendProteolysis {
-                reason: "3 untemplated mis-folded slots out of 4 exceed the refolding threshold".into()
+                reason: "3 untemplated mis-folded slots out of 4 exceed the refolding threshold"
+                    .into()
             }
         );
     }
@@ -330,4 +336,3 @@ mod tests {
         ));
     }
 }
-

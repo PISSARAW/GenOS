@@ -15,6 +15,6 @@ pub mod detectors;
 pub mod memory;
 
 pub use clonal::ClonalSelector;
-pub use danger::{DangerModel, DamSignal};
+pub use danger::{DamSignal, DangerModel};
 pub use detectors::{rbf_affinity, Antibody, NegativeSelector};
 pub use memory::ImmuneMemoryRegistry;

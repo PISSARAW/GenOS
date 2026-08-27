@@ -1,4 +1,4 @@
-﻿//! Reflex Arc mapped to fast-path cognitive bypass.
+//! Reflex Arc mapped to fast-path cognitive bypass.
 //!
 //! Biological mechanism: A reflex arc bypasses the brain (conscious reasoning)
 //! by routing sensory input directly through the spinal cord to motor neurons.
@@ -8,7 +8,7 @@
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SensoryStimulus {
-    Thermal(u32), // e.g., CPU/Rate limit heat
+    Thermal(u32),        // e.g., CPU/Rate limit heat
     Nociceptive(String), // Pain/Error signal
     Tactile,
 }
@@ -40,7 +40,9 @@ impl ReflexArc {
             SensoryStimulus::Thermal(heat) if heat > self.thermal_threshold => {
                 MotorResponse::Freeze
             }
-            SensoryStimulus::Nociceptive(pain_signal) if pain_signal.len() > self.nociceptive_threshold => {
+            SensoryStimulus::Nociceptive(pain_signal)
+                if pain_signal.len() > self.nociceptive_threshold =>
+            {
                 MotorResponse::Withdraw
             }
             _ => MotorResponse::Ignore,

@@ -152,10 +152,7 @@ pub fn propagate_to_children(
 }
 
 /// Runs one death signal through the caspase cascade.
-pub fn execute_cascade(
-    signal: &DeathSignal,
-    activation_threshold: f32,
-) -> CascadeOutcome {
+pub fn execute_cascade(signal: &DeathSignal, activation_threshold: f32) -> CascadeOutcome {
     if !(signal.intensity >= activation_threshold) {
         return CascadeOutcome::Survived;
     }
@@ -197,7 +194,11 @@ mod tests {
 
     #[test]
     fn supervised_kill_uses_death_receptor_route() {
-        let s = signal(DeathPathway::Extrinsic, ApoptosisReason::SupervisedKill, 0.6);
+        let s = signal(
+            DeathPathway::Extrinsic,
+            ApoptosisReason::SupervisedKill,
+            0.6,
+        );
         match execute_cascade(&s, DEFAULT_ACTIVATION_THRESHOLD) {
             CascadeOutcome::Committed(execution) => {
                 assert_eq!(execution.initiator, InitiatorCaspase::Caspase8);
@@ -220,7 +221,11 @@ mod tests {
 
     #[test]
     fn threshold_is_inclusive_and_executors_fire_in_order() {
-        let s = signal(DeathPathway::Intrinsic, ApoptosisReason::EntropyCollapse, DEFAULT_ACTIVATION_THRESHOLD);
+        let s = signal(
+            DeathPathway::Intrinsic,
+            ApoptosisReason::EntropyCollapse,
+            DEFAULT_ACTIVATION_THRESHOLD,
+        );
         match execute_cascade(&s, DEFAULT_ACTIVATION_THRESHOLD) {
             CascadeOutcome::Committed(e) => assert_eq!(
                 e.executors_fired,
@@ -235,7 +240,7 @@ mod tests {
         let memory = vec![
             "belief: api returns 200".to_string(),
             "belief: api returns 200 ".to_string(), // doublon (trim)
-            "".to_string(),                          // vide : ignoré
+            "".to_string(),                         // vide : ignoré
             "tool-call: deploy --dry-run".to_string(),
         ];
         let granules = bleb_memory(&memory, DEFAULT_MAX_GRANULES);
@@ -261,7 +266,7 @@ mod tests {
         let children = vec![
             Some("child-a".into()),
             Some("child-b".into()),
-            None, // slot absent
+            None,                   // slot absent
             Some("child-a".into()), // doublon
         ];
         let outcomes = propagate_to_children("parent-1", &children);

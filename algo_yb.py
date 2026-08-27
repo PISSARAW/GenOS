@@ -6,7 +6,7 @@ import time
 def calculer_distance_3d(n1, n2):
     return math.sqrt((n2['x'] - n1['x'])**2 + (n2['y'] - n1['y'])**2 + (n2['z'] - n1['z'])**2)
 
-def evaluer_cout_transition(n1, n2, index_visite, total_noeuds=10000):
+def evaluer_cout_transition(n1, n2, index_visite, total_noeuds):
     dist = calculer_distance_3d(n1, n2)
     if n2['z'] > n1['z']:
         dist *= 1.20
@@ -30,11 +30,12 @@ def lire_donnees(fichier="noeuds_10000.csv"):
 def evaluer_parcours_complet(parcours, noeuds_dict):
     cout_total = 0.0
     nb_noeuds = len(parcours)
+    total_noeuds = len(noeuds_dict)
     for i in range(nb_noeuds - 1):
         n1 = noeuds_dict[parcours[i]]
         n2 = noeuds_dict[parcours[i+1]]
-        cout_total += evaluer_cout_transition(n1, n2, i, 10000)
-    cout_total += evaluer_cout_transition(noeuds_dict[parcours[-1]], noeuds_dict[parcours[0]], nb_noeuds - 1, 10000)
+        cout_total += evaluer_cout_transition(n1, n2, i, total_noeuds)
+    cout_total += evaluer_cout_transition(noeuds_dict[parcours[-1]], noeuds_dict[parcours[0]], nb_noeuds - 1, total_noeuds)
     return cout_total
 
 # YAHN : Algorithme de Stratification Spatiale de Morton
@@ -42,13 +43,14 @@ def evaluer_parcours_complet(parcours, noeuds_dict):
 def entrelacer_bits(x, y, z):
     # Simplification du code de Morton (Z-order)
     def separer_bits(n):
+        n = int(round(n))
         n &= 0x000003ff
         n = (n ^ (n << 16)) & 0xff0000ff
         n = (n ^ (n <<  8)) & 0x0300f00f
         n = (n ^ (n <<  4)) & 0x030c30c3
         n = (n ^ (n <<  2)) & 0x09249249
         return n
-    return separer_bits(int(x)) | (separer_bits(int(y)) << 1) | (separer_bits(int(z)) << 2)
+    return separer_bits(x) | (separer_bits(y) << 1) | (separer_bits(z) << 2)
 
 def algo_yahn(noeuds):
     for n in noeuds:
