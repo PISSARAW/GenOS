@@ -267,6 +267,15 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_synaptic_prune_scale') {
+    try {
+      const out = cp.execSync(`genos synaptic prune-scale --agent-id ${args.agent_id} --scale ${args.scale}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 

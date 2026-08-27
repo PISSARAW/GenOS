@@ -155,6 +155,10 @@
     {
       "name": "flocking_exploration",
       "enabled": true
+    },
+    {
+      "name": "synaptic_pruning",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -306,6 +310,11 @@
       },
       {
         "tool": "genos_biomimicry_flocking_explore",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_synaptic_prune_scale",
         "scope": "allowed",
         "enabled": true
       }
