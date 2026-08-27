@@ -28,3 +28,17 @@ pub async fn run(args: StorageArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_storage_args() {
+        let args = StorageArgs {
+            adapter: "sqlite".into(),
+            url: "sqlite::memory:".into(),
+        };
+        assert_eq!(args.adapter, "sqlite");
+    }
+}

@@ -25,3 +25,17 @@ pub async fn run(args: TransportArgs) -> Result<()> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_transport_args() {
+        let args = TransportArgs {
+            transport: "redis".into(),
+            url: "redis://127.0.0.1".into(),
+        };
+        assert_eq!(args.transport, "redis");
+    }
+}
