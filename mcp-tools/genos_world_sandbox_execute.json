@@ -1,0 +1,23 @@
+﻿{
+  "name": "genos_world_sandbox_execute",
+  "description": "Execute a command inside a sandboxed GenOS world.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "world_id": {
+        "type": "string",
+        "description": "ID of the world to execute in"
+      },
+      "command": {
+        "type": "string",
+        "description": "Command to execute"
+      },
+      "backend": {
+        "type": "string",
+        "enum": ["bwrap", "sandbox-exec", "gvisor", "firecracker", "none"],
+        "description": "Sandbox backend to use"
+      }
+    },
+    "required": ["world_id", "command", "backend"]
+  }
+}
