@@ -54,6 +54,8 @@ pub struct AgentEvent {
     pub payload: Value,
     pub causation_id: Option<EventId>,
     pub correlation_id: Option<CorrelationId>,
+    #[serde(default)]
+    pub cost_schema: Option<crate::cost::CostSchema>,
 }
 
 /// Bind every event emitted by one logical action to the same correlation id.
@@ -107,6 +109,7 @@ mod tests {
             payload: json!({ "action": "run tests" }),
             causation_id: None,
             correlation_id: None,
+            cost_schema: None,
         }
     }
 
