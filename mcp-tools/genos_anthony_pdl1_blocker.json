@@ -1,0 +1,14 @@
+{
+  "name": "genos_anthony_pdl1_blocker",
+  "description": "Scans code for 'Freeze Traps' (over-mocking or hardcoded constants like 'return 42' or 'return true') designed to falsely pass tests without implementing real logic.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "description": "The source code to scan for PD-L1 mocks."
+      }
+    },
+    "required": ["code"]
+  }
+}
