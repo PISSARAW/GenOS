@@ -80,6 +80,14 @@ pub enum Commands {
     Eval(EvalCommand),
     Audit(crate::cmd_audit::AuditArgs),
     Merge(crate::cmd_merge::MergeArgs),
+    /// Manage and expose storage adapters
+    Storage(crate::cmd_storage::StorageArgs),
+    /// Manage and expose network transports
+    Transport(crate::cmd_transport::TransportArgs),
+    Epigenetics(crate::cmd_orphans::EpigeneticsArgs),
+    Operon(crate::cmd_orphans::OperonArgs),
+    Hgt(crate::cmd_orphans::HgtTransposonArgs),
+    Scheduler(crate::cmd_orphans::SchedulerArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
