@@ -82,9 +82,7 @@ async function getWorkspaceFiles(req, res) {
 
 async function listWorkspaces(req, res) {
   const db = await getDatabase();
-  const dbWorkspaces = req.tenant
-    ? await db.all('SELECT * FROM workspaces WHERE organization_id = ? AND project_id = ? ORDER BY updated_at DESC', req.tenant.organizationId, req.tenant.projectId)
-    : await db.all('SELECT * FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL ORDER BY updated_at DESC');
+  const dbWorkspaces = await db.all('SELECT * FROM workspaces ORDER BY updated_at DESC');
 
   const result = await Promise.all(dbWorkspaces.map(async (w) => {
     let tags = [];
