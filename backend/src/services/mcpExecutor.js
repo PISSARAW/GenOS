@@ -200,6 +200,61 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_synaptic_stdp_update') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos agent mutate --agent-id ${args.agent_id} --trait ${args.trait} --outcome ${args.outcome_score}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_synaptic_prune_scale') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos agent prune --agent-id ${args.agent_id} --threshold ${args.threshold}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_trinity_deploy') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos trinity deploy --mission-id ${args.mission_id} --strategies "${args.strategies}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_allele_frequency_analyzer') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos swarm allele-analyzer --swarm-id ${args.swarm_id}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_compliance_report') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos compliance generate --standard ${args.standard}`);
+      require('fs').writeFileSync(args.output_file, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${args.output_file}` };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_strategy_adaptation') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos strategy adapt --agent-id ${args.agent_id} --constraint ${args.constraint} --target ${args.target_value}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
   if (toolName === 'genos_rebase_compute_plan') {
     const cp = require('child_process');
     const { graph_file, injection_step, injected_keys } = args;
