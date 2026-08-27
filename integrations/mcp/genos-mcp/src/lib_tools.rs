@@ -177,6 +177,36 @@ fn worker_inbox_tool() -> ToolSpec {
     }
 }
 
+fn storage_adapter_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_storage".into(),
+        title: "GenOS Storage Adapter".into(),
+        description: "Initialize or manage GenOS storage adapters (sqlite, postgres).".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "adapter":{"type":"string","enum":["sqlite","postgres"]},
+            "url":{"type":"string"}
+        },"required":["adapter","url"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
+fn network_transport_tool() -> ToolSpec {
+    ToolSpec {
+        name: "genos_transport".into(),
+        title: "GenOS Network Transport".into(),
+        description: "Initialize or manage GenOS network transports (redis).".into(),
+        input_schema: json!({"type":"object","additionalProperties":false,"properties":{
+            "transport":{"type":"string","enum":["redis"]},
+            "url":{"type":"string"}
+        },"required":["transport","url"]}),
+        output_schema: json!({"type":"object"}),
+        annotations: ToolAnnotations { read_only_hint: false, destructive_hint: false, idempotent_hint: false, open_world_hint: false },
+        meta: json!({"genos/protocolVersion": PROTOCOL_VERSION, "genos/authority":"orchestrator"}),
+    }
+}
+
 fn public_tool_specs() -> Vec<ToolSpec> {
     if let Some(lease) = leased_operations() {
         let mut tools: Vec<ToolSpec> = tool_specs()
@@ -214,10 +244,19 @@ fn public_tool_specs() -> Vec<ToolSpec> {
         if lease.contains(&"genos_worker_inbox".to_string()) {
             tools.push(worker_inbox_tool());
         }
+        if lease.contains(&"genos_storage".to_string()) {
+            tools.push(storage_adapter_tool());
+        }
+        if lease.contains(&"genos_transport".to_string()) {
+            tools.push(network_transport_tool());
+        }
         return tools;
     }
     if expose_full_catalog() {
-        tool_specs()
+        let mut tools = tool_specs();
+        tools.push(storage_adapter_tool());
+        tools.push(network_transport_tool());
+        tools
     } else {
         vec![orchestrator_tool()]
     }

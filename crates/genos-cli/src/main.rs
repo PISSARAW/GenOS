@@ -21,6 +21,7 @@ mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
 mod cmd_merge;
+mod cmd_orphans;
 mod cmd_platform;
 mod cmd_prompt;
 mod cmd_replay;
@@ -30,11 +31,14 @@ mod cmd_viral;
 mod cmd_workflow;
 mod cmd_workflow_types;
 mod cmd_world;
+mod cmd_storage;
+mod cmd_transport;
 mod output;
 mod resolve;
 
 use anyhow::Result;
 use clap::Parser;
+
 
 use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
@@ -267,5 +271,11 @@ async fn main() -> Result<()> {
         },
         Commands::Audit(args) => cmd_audit::run(args).await,
         Commands::Merge(args) => cmd_merge::run(args).await,
+        Commands::Storage(args) => cmd_storage::run(args).await,
+        Commands::Transport(args) => cmd_transport::run(args).await,
+        Commands::Epigenetics(args) => crate::cmd_orphans::cmd_epigenetics_modify(args).await,
+        Commands::Operon(args) => crate::cmd_orphans::cmd_operon_evaluate(args).await,
+        Commands::Hgt(args) => crate::cmd_orphans::cmd_hgt_transposon_insert(args).await,
+        Commands::Scheduler(args) => crate::cmd_orphans::cmd_scheduler_start(args).await,
     }
 }

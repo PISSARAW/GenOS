@@ -42,6 +42,7 @@ about capabilities available today.
 
 #### Exit Criteria:
 - Zero-configuration local setup on Linux, macOS, and Windows.
+- Configurable OS and network sandboxing (gVisor, Firecracker, Bwrap, Sandbox-exec).
 - Full end-to-end execution of a counterfactual branch, evaluation, and cognitive merge without live LLM calls (via replay).
 - 100% CI pass rate across unit tests, integration tests, and clippy lints.
 
@@ -78,10 +79,9 @@ about capabilities available today.
 
 #### Deliverables:
 1. **Distributed CAS Storage**: High-throughput distributed content-addressable storage supporting S3, GCS, and Azure Blob storage with edge caching.
-2. **MicroVM & Micro-Sandbox Isolation**: Firecracker microVM and gVisor sandboxing for untrusted arbitrary code and system execution.
-3. **Multi-Node Cluster Orchestration**: Kubernetes operator and distributed scheduling for executing thousands of counterfactual agent branches concurrently.
-4. **Regulatory Audit & Attestation**: Cryptographically signed execution certificates verifying tamper-proof event logs for EU AI Act, SOC2 Type II, and HIPAA compliance.
-5. **Formal SLAs & Enterprise Support**: Enterprise-ready backward compatibility guarantees, zero-downtime schema migrations, and 24/7 reliability.
+2. **Multi-Node Cluster Orchestration**: Kubernetes operator and distributed scheduling for executing thousands of counterfactual agent branches concurrently.
+3. **Regulatory Audit & Attestation**: Cryptographically signed execution certificates verifying tamper-proof event logs for EU AI Act, SOC2 Type II, and HIPAA compliance.
+4. **Formal SLAs & Enterprise Support**: Enterprise-ready backward compatibility guarantees, zero-downtime schema migrations, and 24/7 reliability.
 
 ---
 
