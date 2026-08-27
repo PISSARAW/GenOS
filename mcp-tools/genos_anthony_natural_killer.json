@@ -1,0 +1,14 @@
+{
+  "name": "genos_anthony_natural_killer",
+  "description": "Scans test code for 'Missing Self' vulnerabilities (vacuous tests like all([]), empty arrays, or assert(true)). Kills the agent's task if the test framework is circumvented.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "test_code": {
+        "type": "string",
+        "description": "The test source code to scan."
+      }
+    },
+    "required": ["test_code"]
+  }
+}

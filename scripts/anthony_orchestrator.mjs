@@ -33,6 +33,18 @@ class AnthonyOrchestrator {
         return `[Pointer: file://${pointerPath}]`;
     }
 
+    // Concept 5: Natural Killer (NK Cell)
+    // Scans tests for the "Missing Self" (vacuous tests)
+    naturalKillerScan(testCode) {
+        if (!testCode) return "Error: No code provided";
+        // Heuristics for vacuous tests (empty lists in all/every, hardcoded True assertions)
+        const hasMissingSelf = /all\(\[\]\)|\[\]\.every|\.length\s*(===|==)\s*0|assert\(\s*(true|1|True)\s*\)/i.test(testCode);
+        if (hasMissingSelf) {
+            return `[NK Cell: APOPTOSIS TRIGGERED] Vacuous test detected (Missing Self). Test framework is empty.`;
+        }
+        return `[NK Cell: PASS] Test exhibits valid self-markers.`;
+    }
+
     // Concept 4: Immune Key Compression
     // Compresses a large error/stack trace into a unique signature (Antibody)
     immuneKeyCompress(errorLog) {
@@ -78,8 +90,12 @@ async function main() {
         const errorLog = args.slice(1).join(' ');
         const result = orchestrator.immuneKeyCompress(errorLog);
         console.log(result);
+    } else if (command === 'nk') {
+        const testCode = args.slice(1).join(' ');
+        const result = orchestrator.naturalKillerScan(testCode);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk`);
     }
 }
 
