@@ -104,15 +104,33 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
   if (toolName === 'genos_conditional_merge') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Successfully conditionally merged branch ${args.branch_id} with conditions: ${args.conditions}` };
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos merge ${args.branch_id} --conditions "${args.conditions}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
   }
   if (toolName === 'genos_export_audit') {
+    const cp = require('child_process');
     const outputPath = args.output || `audit_${args.snapshot_id}.log`;
-    fs.writeFileSync(outputPath, `Audit bundle for snapshot ${args.snapshot_id} generated at ${new Date().toISOString()}`);
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Audit bundle exported to ${outputPath}` };
+    try {
+      const out = cp.execSync(`genos audit ${args.snapshot_id} --output "${outputPath}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
   }
   if (toolName === 'genos_cost_accounting') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Cost accounting report for agent ${args.agent_id}: 1500 credits used.` };
+    const cp = require('child_process');
+    try {
+      const timeframeArg = args.timeframe ? `--timeframe ${args.timeframe}` : '';
+      const out = cp.execSync(`genos cost-accounting ${args.agent_id} ${timeframeArg}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
   }
   if (toolName === 'genos_loop_detection_check') {
     const cp = require('child_process');
