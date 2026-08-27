@@ -9,6 +9,7 @@ pub mod mcts;
 pub mod memory;
 pub mod resilience;
 pub mod security;
+pub mod swarm;
 
 use self::biomimicry::biomimicry_specs;
 use self::ais::ais_specs;
@@ -21,10 +22,11 @@ use self::mcts::mcts_specs;
 use self::memory::memory_specs;
 use self::resilience::resilience_specs;
 use self::security::security_specs;
+use self::swarm::swarm_specs;
 use crate::types::ToolSpec;
 
 pub fn tool_specs() -> Vec<ToolSpec> {
-    let mut specs = Vec::with_capacity(65);
+    let mut specs = Vec::with_capacity(69);
     specs.extend(canonical_specs());
     specs.extend(experiment_specs());
     specs.extend(ais_specs());
@@ -36,5 +38,6 @@ pub fn tool_specs() -> Vec<ToolSpec> {
     specs.extend(mcts_specs());
     specs.extend(evolution_specs());
     specs.extend(memory_specs());
+    specs.extend(swarm_specs());
     specs
 }
