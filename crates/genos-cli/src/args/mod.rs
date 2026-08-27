@@ -90,6 +90,7 @@ pub enum Commands {
     Scheduler(crate::cmd_scheduler::SchedulerArgs),
     LoopDetection(crate::cmd_loop_detection::LoopDetectionArgs),
     Causality(crate::cmd_causality::CausalityArgs),
+    Phenotype(crate::cmd_phenotype::PhenotypeArgs),
     
 }
 
