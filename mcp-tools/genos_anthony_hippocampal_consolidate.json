@@ -1,0 +1,15 @@
+{
+  "name": "genos_anthony_hippocampal_consolidate",
+  "description": "Consolidates short-term working memory into long-term architectural rules and flushes the active context.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "history": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "The active chat history or working memory to consolidate."
+      }
+    },
+    "required": ["history"]
+  }
+}
