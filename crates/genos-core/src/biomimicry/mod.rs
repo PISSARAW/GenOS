@@ -42,6 +42,7 @@ pub mod sar;
 pub mod speciation;
 pub mod telomere;
 pub mod vaccination;
+pub mod mycelium;
 
 pub use bet_hedging::*;
 pub use chaperone::*;
@@ -81,3 +82,4 @@ pub use sar::*;
 pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
+pub use mycelium::*;
