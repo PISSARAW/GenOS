@@ -83,6 +83,16 @@ agent + world ─ snapshot S0 ──┼─ fork B ─ evaluate ─ keep ─ snap
 - **Observe everything locally.** GenOS Studio provides a browser control plane
   for fleets, experiments, lineage, workspaces, tools, and runtime telemetry.
 
+## Biomimetic & Cellular Architecture
+
+GenOS goes beyond standard orchestration by natively mimicking biological systems:
+- **Cellular Immunity**: Deploy virophages, trigger computational fever, or force apoptosis (Caspase cascade) to isolate and destroy corrupted agent states.
+- **Evolution & Ecology**: Agents reproduce via mitosis, budding, or schizogony (multiple fission), exchanging token budgets through trophic networks.
+- **Neurobiology & Cognition**: Utilize neuromodulation (Dopamine RPE), hippocampal replay, and neoteny quotas to guide swarm intelligence.
+- **Virtualization**: Encapsulate environments in "Agent-World Capsules" with zero-byte copy (HardlinkWorld) and strict sandbox isolation.
+
+For a complete index of all biological and computational features, see the [GenOS Ultimate Architecture Map](docs/genos_ultimate_architecture_map.md).
+
 ## What works today
 
 | Capability | Proof in this repository | Maturity |
@@ -221,7 +231,8 @@ Choose the shortest path for what you need:
   and [business motivation](docs/0-context-and-vision/business-goals.md)
 - **Get running:** [local environment](docs/1-onboarding-and-setup/local-environment.md)
   and [quickstart tutorial](docs/1-onboarding-and-setup/quickstart-tutorial.md)
-- **Study the system:** [architecture overview](docs/2-architecture/overview.md),
+- **Study the system:** [ultimate architecture map](docs/genos_ultimate_architecture_map.md),
+  [architecture overview](docs/2-architecture/overview.md),
   [traceability matrix](docs/2-architecture/traceability-matrix.md), and
   [architecture decisions](docs/2-architecture/adrs/README.md)
 - **Use the interfaces:** [CLI reference](docs/4-interfaces/cli-reference.md),
