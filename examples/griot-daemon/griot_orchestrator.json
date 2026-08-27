@@ -95,6 +95,22 @@
     {
       "name": "hallucination_detection",
       "enabled": true
+    },
+    {
+      "name": "mycelial_omniscience",
+      "enabled": true
+    },
+    {
+      "name": "cellular_endosymbiosis_tools",
+      "enabled": true
+    },
+    {
+      "name": "stigmergic_communication",
+      "enabled": true
+    },
+    {
+      "name": "autopoiesis_self_maintenance",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -176,6 +192,26 @@
       },
       {
         "tool": "genos_hallucination_correct",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_mycelium_route",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_cellular_endosymbiosis",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_stigmergy_deposit",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_theory_autopoiesis",
         "scope": "allowed",
         "enabled": true
       }
