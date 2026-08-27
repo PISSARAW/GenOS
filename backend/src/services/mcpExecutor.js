@@ -356,9 +356,8 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     }
   }
 
-
-  // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
-
+  const bioResult = require('./mcpBioTools').executeBioTool(toolName, args);
+  if (bioResult) return bioResult;
   const transport = configuredTransport();
 
   if (!transport) return { configured: false, success: false, status: 'unavailable', error: 'No MCP transport configured. Set GENOS_MCP_URL or GENOS_MCP_COMMAND.' };
