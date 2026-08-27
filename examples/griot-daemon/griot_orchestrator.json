@@ -139,6 +139,14 @@
     {
       "name": "horizontal_gene_transfer",
       "enabled": true
+    },
+    {
+      "name": "neoteny_learning_phase",
+      "enabled": true
+    },
+    {
+      "name": "senescence_and_succession",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -270,6 +278,16 @@
       },
       {
         "tool": "genos_evolution_assimilate_plasmid",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_neoteny_quota",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_senescence_assess",
         "scope": "allowed",
         "enabled": true
       }

@@ -1,0 +1,12 @@
+{
+  "name": "genos_biomimicry_senescence_assess",
+  "description": "Évalue l'âge du contexte de l'agent. S'il est trop sénescent, il transmet sa mémoire à un clone avant de s'éteindre.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "context_age": { "type": "number", "description": "L'âge ou la taille du contexte en tokens/interactions" }
+    },
+    "required": ["agent_id", "context_age"]
+  }
+}
