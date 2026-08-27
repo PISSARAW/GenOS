@@ -12,6 +12,7 @@ mod cmd_bio_immuno;
 mod cmd_bio_neuro;
 mod cmd_bio_plant;
 mod cmd_bio_theory;
+mod cmd_bio_novel;
 mod cmd_biomimicry;
 mod cmd_capsule;
 mod cmd_dev;
