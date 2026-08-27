@@ -50,14 +50,18 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         ("sar", "prime" | "assess" | "inherit") => {
             crate::cmd_bio_immunity::sar_action(params, action)
         }
-        ("reciprocity", "decide") => reciprocity_decide(params),
+        ("reciprocity", "decide") => crate::cmd_bio_novel::reciprocity_decide(params),
         ("proceduralization", "compile" | "monitor") => proceduralization_action(params, action),
         ("telomere", "fork" | "restore") => telomere_action(params, action),
         ("senescence", "assess") => senescence_assess(params),
-        ("neoteny", "quota") => neoteny_quota(params),
+        ("neoteny", "quota") => crate::cmd_bio_novel::neoteny_quota(params),
         ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
         ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
         ("epigenetic_chromatin", "modulate") => crate::cmd_biomimicry::chromatin_modulate(params),
+        ("active_sensing", "emit") => crate::cmd_bio_novel::active_sensing_emit(params),
+        ("active_sensing", "receive") => crate::cmd_bio_novel::active_sensing_receive(params),
+        ("checkpoint", "gate") => crate::cmd_bio_novel::checkpoint_gate(params),
+        ("allostatic", "plan") => crate::cmd_bio_novel::allostatic_plan(params),
         (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
     }
 }
@@ -351,88 +355,4 @@ fn senescence_assess(params: &[String]) -> Result<()> {
     }
 }
 
-fn reciprocity_decide(params: &[String]) -> Result<()> {
-    use genos_core::biomimicry::{PeerAction, PeerRecord, ReciprocityPolicy, ReputationLedger};
-    let peer_id = param_value(params, "peer_id")
-        .ok_or_else(|| anyhow::anyhow!("missing --param peer_id=<id>"))?
-        .to_string();
-    let cooperations: u32 = param_value(params, "cooperations")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
-    let defections: u32 = param_value(params, "defections")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0);
-    let last: Option<PeerAction> = match param_value(params, "last_action") {
-        Some("cooperate") => Some(PeerAction::Cooperate),
-        Some("defect") => Some(PeerAction::Defect),
-        Some(other) => {
-            bail!("invalid last_action '{other}' (expected cooperate|defect)")
-        }
-        None => None,
-    };
-    let mut ledger = ReputationLedger::default();
-    {
-        let record = ledger.peers.entry(peer_id.clone()).or_default();
-        record.cooperations = cooperations;
-        record.defections = defections;
-        if let Some(action) = last {
-            record.last_action = Some(action);
-        }
-    }
-    let policy = ReciprocityPolicy::default();
-    let decision = ledger.decide(&policy, &peer_id);
-    let record: &PeerRecord = &ledger.peers[&peer_id];
-    println!(
-        "Peer {peer_id}: interactions={} defection_ratio={:.2}",
-        record.interactions(),
-        record.defection_ratio()
-    );
-    match decision {
-        genos_core::biomimicry::Decision::Cooperate => {
-            println!("Decision: COOPERATE");
-            Ok(())
-        }
-        genos_core::biomimicry::Decision::Retaliate => {
-            println!("Decision: RETALIATE (free-riding contained)");
-            bail!("reciprocity policy retaliates against {peer_id}")
-        }
-    }
-}
 
-fn neoteny_quota(params: &[String]) -> Result<()> {
-    use genos_core::biomimicry::{NeotenyPolicy, SpawnDecision, SpawnRequest};
-    let total: usize = param_value(params, "total_agents")
-        .ok_or_else(|| anyhow::anyhow!("missing --param total_agents=<n>"))?
-        .parse()?;
-    let neotenic: usize = param_value(params, "neotenic_agents")
-        .ok_or_else(|| anyhow::anyhow!("missing --param neotenic_agents=<n>"))?
-        .parse()?;
-    let request = match param_value(params, "request") {
-        Some("neotenic") => SpawnRequest::Neotenic,
-        Some("specialist") => SpawnRequest::Specialist,
-        _ => bail!("missing or invalid --param request=<neotenic|specialist>"),
-    };
-    let fraction: f64 = param_value(params, "fraction")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0.2);
-    let policy = NeotenyPolicy::new(fraction);
-    match policy.decide_spawn(total, neotenic, request) {
-        SpawnDecision::Allowed { as_neotenic } => {
-            if as_neotenic {
-                println!(
-                    "Spawn allowed: neotenic individual (reserve coverage {:.0}%)",
-                    policy.coverage(total, neotenic) * 100.0
-                );
-            } else {
-                println!(
-                    "Spawn allowed: specialist (reserve coverage {:.0}%)",
-                    policy.coverage(total, neotenic) * 100.0
-                );
-            }
-            Ok(())
-        }
-        SpawnDecision::Deferred { reason } => {
-            bail!("spawn deferred: {reason}")
-        }
-    }
-}
