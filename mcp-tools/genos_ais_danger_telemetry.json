@@ -1,0 +1,22 @@
+{
+  "name": "genos_ais_danger_telemetry",
+  "description": "Émet un signal de danger (cytokine) pour alerter le système immunitaire d'une menace ou erreur grave.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "description": "L'ID de l'agent signalant le danger."
+      },
+      "severity": {
+        "type": "number",
+        "description": "Niveau de danger (0.0 à 1.0)."
+      },
+      "threat_context": {
+        "type": "string",
+        "description": "Description de la menace détectée."
+      }
+    },
+    "required": ["agent_id", "severity", "threat_context"]
+  }
+}
