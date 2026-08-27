@@ -1,0 +1,14 @@
+{
+  "name": "genos_bug_investigation",
+  "description": "Run an Unknown-Cause Bug Investigation by launching candidate fixes in isolated workspaces and applying falsifiable proofs.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "manifest": {
+        "type": "string",
+        "description": "Path to the bug investigation plan (YAML/JSON)"
+      }
+    },
+    "required": ["manifest"]
+  }
+}
