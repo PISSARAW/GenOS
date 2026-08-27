@@ -1,6 +1,8 @@
 use std::hash::Hash;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EntityRef {
     /// Action portant sur un fichier entier
     File { path: String },

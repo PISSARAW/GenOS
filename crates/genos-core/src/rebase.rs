@@ -1,8 +1,10 @@
 use crate::entities::{check_intersection, EntityRef};
 use crate::revert::{ActionDependencyGraph, CausalAction};
 
+use serde::{Deserialize, Serialize};
+
 /// Résultat d'un calcul de Rebase temporel
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RebasePlan {
     /// Les actions indépendantes (totalement isolées de la mutation)
     /// Elles peuvent être réappliquées instantanément.
