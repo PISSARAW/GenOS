@@ -1,0 +1,12 @@
+{
+  "name": "genos_biomimicry_speciation_check",
+  "description": "Vérifie si le génome de l'agent a suffisamment divergé pour être considéré comme une nouvelle espèce spécialisée.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "divergence_threshold": { "type": "number", "description": "Seuil de divergence (0.0 à 1.0)" }
+    },
+    "required": ["agent_id"]
+  }
+}
