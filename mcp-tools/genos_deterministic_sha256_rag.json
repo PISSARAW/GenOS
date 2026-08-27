@@ -1,0 +1,27 @@
+{
+  "name": "genos_deterministic_sha256_rag",
+  "description": "Perform Deterministic Sha256 RAG ingestion or search operations.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "action": {
+        "type": "string",
+        "enum": ["ingest", "search"],
+        "description": "The RAG action to perform."
+      },
+      "document": {
+        "type": "string",
+        "description": "Path to the document to ingest (required for ingest)."
+      },
+      "query": {
+        "type": "string",
+        "description": "Query string to search (required for search)."
+      },
+      "index": {
+        "type": "string",
+        "description": "Path to the index file."
+      }
+    },
+    "required": ["action"]
+  }
+}

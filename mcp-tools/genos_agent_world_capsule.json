@@ -1,0 +1,22 @@
+{
+  "name": "genos_agent_world_capsule",
+  "description": "Create an Agent-World Capsule for safe, isolated execution.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "snapshot_id": {
+        "type": "string",
+        "description": "The snapshot ID to create the capsule from."
+      },
+      "seed": {
+        "type": "string",
+        "description": "Optional path to the seed file."
+      },
+      "budget_steps": {
+        "type": "number",
+        "description": "Execution steps assigned to the new capsule."
+      }
+    },
+    "required": ["snapshot_id"]
+  }
+}

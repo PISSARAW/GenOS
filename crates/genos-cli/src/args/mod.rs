@@ -150,6 +150,7 @@ impl From<MemoryKindArg> for MemoryKind {
 pub enum WorldProviderKind {
     Directory,
     GitWorktree,
+    Hardlink,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
