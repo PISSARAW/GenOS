@@ -20,7 +20,6 @@ use serde::Deserialize;
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
-
 pub fn cmd_init() -> Result<()> {
     for directory in [
         ".genos/agents",
@@ -34,7 +33,6 @@ pub fn cmd_init() -> Result<()> {
     println!("initialized .genos workspace");
     Ok(())
 }
-
 pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
     let genome = AgentGenome {
         id: GenomeId::new(),
@@ -116,7 +114,6 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
         inferred_traits: vec![],
         breeding: None,
     };
-
     let path = args
         .out
         .unwrap_or_else(|| PathBuf::from(format!(".genos/agents/{}.yaml", args.name)));
@@ -124,12 +121,10 @@ pub fn cmd_agent_create(args: AgentCreateArgs) -> Result<()> {
     println!("agent genome written to {}", path.display());
     Ok(())
 }
-
 pub fn cmd_agent_inspect(args: AgentInspectArgs) -> Result<()> {
     let genome: AgentGenome = read_genome(&args.path)?;
     print_serialized(&genome, args.format)
 }
-
 pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
     if args.drives.is_empty() {
         bail!("nothing to mutate: pass at least one --drive name=delta");
@@ -142,7 +137,6 @@ pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
     }
     let mut child = mutate_cognition(&parent, drive_changes);
     child.version = GenomeVersion(next_version(&parent.version.0));
-
     let path = args.out.unwrap_or_else(|| {
         let stem = args
             .path
@@ -155,7 +149,6 @@ pub fn cmd_agent_mutate(args: AgentMutateArgs) -> Result<()> {
     println!("mutated agent genome written to {}", path.display());
     Ok(())
 }
-
 #[derive(Deserialize)]
 struct BreedEvidenceManifest {
     child_name: String,
@@ -163,7 +156,6 @@ struct BreedEvidenceManifest {
     #[serde(default)]
     speciation_threshold: Option<f64>,
 }
-
 #[derive(Deserialize)]
 struct BreedTraitEvidence {
     genome_field: String,
@@ -171,7 +163,6 @@ struct BreedTraitEvidence {
     parent_b: TraitEstimate,
     parent_a_weight: f64,
 }
-
 pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
     let alice = read_genome(&args.alice)?;
     let bob = read_genome(&args.bob)?;
@@ -211,7 +202,6 @@ pub fn cmd_agent_breed(args: AgentBreedArgs) -> Result<()> {
     println!("bred agent genome written to {}", args.out.display());
     Ok(())
 }
-
 pub fn cmd_agent_infer_traits(args: AgentInferTraitsArgs) -> Result<()> {
     let mut genome = read_genome(&args.genome)?;
     let observations = args
@@ -237,7 +227,6 @@ pub fn cmd_agent_infer_traits(args: AgentInferTraitsArgs) -> Result<()> {
     );
     Ok(())
 }
-
 pub fn cmd_agent_promote_trait(args: AgentPromoteTraitArgs) -> Result<()> {
     let genome = read_genome(&args.genome)?;
     let child = promote_inferred_trait(&genome, &args.trait_name, &args.field)
@@ -246,7 +235,6 @@ pub fn cmd_agent_promote_trait(args: AgentPromoteTraitArgs) -> Result<()> {
     println!("promoted trait genome written to {}", args.out.display());
     Ok(())
 }
-
 fn bounded_delta(field: &str, value: f32, delta: f32) -> Result<f32> {
     let next = value + delta;
     if !(0.0..=1.0).contains(&next) {
@@ -254,7 +242,6 @@ fn bounded_delta(field: &str, value: f32, delta: f32) -> Result<f32> {
     }
     Ok(next)
 }
-
 fn next_version(version: &str) -> String {
     let Some((prefix, patch)) = version.rsplit_once('.') else {
         return format!("{version}+mutation");
@@ -264,25 +251,20 @@ fn next_version(version: &str) -> String {
         .map(|value| format!("{prefix}.{}", value + 1))
         .unwrap_or_else(|_| format!("{version}+mutation"))
 }
-
 pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Result<()> {
     if args.count == 0 {
         bail!("--count must be at least 1");
     }
-
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let parent = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
-
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let parent = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
     let event_store = if args.emit_events {
         Some(event_store_from(args.events, &args.root))
     } else {
         None
     };
-
     // One correlation id ties the whole fan-out together across the sibling branches.
     let correlation_id = CorrelationId::new();
     let mut forks = Vec::with_capacity(args.count as usize);
-
     let out_dir = args.out_dir.clone();
     let out_prefix = args.out_prefix.clone();
     let save = args.save;
@@ -316,23 +298,20 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
             }),
         }
     }
-
     let out = AgentForkOutput {
         parent_snapshot_id: parent.snapshot_id.0.clone(),
         parent_agent_id: parent.agent_id.0.clone(),
         parent_branch_id: parent.branch_id.0.clone(),
         count: forks.len(),
         saved_to_store: save,
-        snapshot_store_path: save.then(|| snapshot_store.file_path().display().to_string()),
+        snapshot_store_path: save.then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
         forks,
     };
-
     print_serialized(&out, args.format)
 }
-
 // 8 parameters: kept inline because the alternative (a builder struct for one
 // private helper) would obscure the per-fork flow more than it clarifies.
 // The two store refs are shared across the whole fan-out and would not benefit
@@ -344,13 +323,12 @@ async fn build_fork_entry(
     out_dir: Option<&std::path::PathBuf>,
     out_prefix: &str,
     save: bool,
-    snapshot_store: &LocalSnapshotStore,
+    snapshot_store: &(dyn SnapshotStore + Send + Sync),
     event_store: Option<&LocalEventStore>,
     correlation_id: &CorrelationId,
 ) -> Result<ForkEntry> {
     let fork = fork_snapshot(parent);
     let first_event_sequence = fork_first_event_sequence(&fork);
-
     let path = match out_dir {
         Some(dir) => {
             let path = dir.join(format!("{out_prefix}-{index}.json"));
@@ -359,7 +337,6 @@ async fn build_fork_entry(
         }
         None => None,
     };
-
     let fork_event_id = match event_store {
         Some(store) => {
             let event = AgentEvent {
@@ -386,11 +363,9 @@ async fn build_fork_entry(
         }
         None => None,
     };
-
     if save {
         snapshot_store.save_snapshot(&fork).await?;
     }
-
     Ok(ForkEntry {
         index,
         snapshot_id: fork.snapshot_id.0.clone(),
@@ -402,4 +377,4 @@ async fn build_fork_entry(
         status: "success".to_string(),
         error: None,
     })
-}
+}

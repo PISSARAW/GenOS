@@ -9,9 +9,9 @@ use genos_core::{compare_snapshots, diff_snapshots};
 use genos_store::{basic_state_from_snapshot, replay_basic_state_from, EventStore, SnapshotStore};
 
 pub async fn cmd_diff(args: DiffArgs) -> Result<()> {
-    let store = snapshot_store_from(args.store, &args.root);
-    let a = resolve_snapshot_ref(&args.a, &store).await?;
-    let b = resolve_snapshot_ref(&args.b, &store).await?;
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let a = resolve_snapshot_ref(&args.a, &*store).await?;
+    let b = resolve_snapshot_ref(&args.b, &*store).await?;
 
     let diff = diff_snapshots(&a, &b);
     let comparison = compare_snapshots(&a, &b);
@@ -66,8 +66,8 @@ pub async fn cmd_diff(args: DiffArgs) -> Result<()> {
 pub async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
     let anchor = match &args.snapshot {
         Some(spec) => {
-            let store = snapshot_store_from(args.snapshots.clone(), &args.root);
-            Some(resolve_snapshot_ref(spec, &store).await?)
+            let store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+            Some(resolve_snapshot_ref(spec, &*store).await?)
         }
         None => None,
     };
@@ -77,11 +77,11 @@ pub async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
         None => args.branch_id.clone(),
     };
 
-    let store = event_store_from(args.events, &args.root);
+    let store = event_store_from(args.events.clone(), &args.root);
     let replay_state = store.replay_basic_state(branch_id.clone()).await?;
 
     let out = ReplayBasicOutput {
-        store_path: store.file_path().display().to_string(),
+        store_path: args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
         branch_id: branch_id.clone(),
         anchor_snapshot_id: anchor
             .as_ref()
@@ -138,8 +138,8 @@ pub async fn cmd_replay_basic(args: ReplayBasicArgs) -> Result<()> {
 }
 
 pub async fn cmd_replay_from_snapshot(args: ReplayFromSnapshotArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let event_store = event_store_from(args.events, &args.root);
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let event_store = event_store_from(args.events.clone(), &args.root);
 
     let snapshot = snapshot_store
         .get_snapshot(args.snapshot_id.clone())
@@ -157,8 +157,8 @@ pub async fn cmd_replay_from_snapshot(args: ReplayFromSnapshotArgs) -> Result<()
     let state = replay_basic_state_from(base, &events);
 
     let out = ReplayFromSnapshotOutput {
-        snapshot_store_path: snapshot_store.file_path().display().to_string(),
-        event_store_path: event_store.file_path().display().to_string(),
+        snapshot_store_path: args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
+        event_store_path: args.events.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
         snapshot_id: args.snapshot_id,
         branch_id,
         from_sequence_exclusive: from_sequence,

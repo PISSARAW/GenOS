@@ -23,6 +23,7 @@ mod cmd_hallucination;
 mod cmd_hgt;
 mod cmd_inspect;
 pub mod cmd_loop_detection;
+mod cmd_causality;
 mod cmd_merge;
 mod cmd_operon;
 mod cmd_platform;
@@ -282,5 +283,6 @@ async fn main() -> Result<()> {
         Commands::Hgt(args) => crate::cmd_hgt::cmd_hgt_transposon_insert(args).await,
         Commands::Scheduler(args) => crate::cmd_scheduler::cmd_scheduler_start(args).await,
         Commands::LoopDetection(args) => crate::cmd_loop_detection::cmd_loop_detection_check(args).await,
+        Commands::Causality(args) => crate::cmd_causality::run(args).await,
     }
 }

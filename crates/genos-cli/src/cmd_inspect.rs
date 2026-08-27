@@ -1,4 +1,4 @@
-﻿use crate::args::{InspectBeliefArgs, InspectFormat, OutputFormat};
+use crate::args::{InspectBeliefArgs, InspectFormat, OutputFormat};
 use crate::output::{print_provenance_tree, print_serialized, InspectBeliefOutput};
 use crate::resolve::{resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{Context, Result};
@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub async fn cmd_inspect_belief(args: InspectBeliefArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let belief_id = BeliefId(args.belief_id.clone());
     let lookup = match &args.events {

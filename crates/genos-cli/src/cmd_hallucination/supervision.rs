@@ -242,7 +242,7 @@ pub async fn cmd_hallucination_correct(args: HallucinationCorrectArgs) -> Result
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }
     if args.save {
-        let store = snapshot_store_from(args.snapshots.clone(), &args.root);
+        let store = snapshot_store_from(args.snapshots.clone().clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
         store.save_snapshot(&snapshot).await?;
     }
 
@@ -254,12 +254,7 @@ pub async fn cmd_hallucination_correct(args: HallucinationCorrectArgs) -> Result
         rejection_count: rejected_belief_ids.len(),
         remaining_grounded,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args.save.then(|| {
-            snapshot_store_from(args.snapshots.clone(), &args.root)
-                .file_path()
-                .display()
-                .to_string()
-        }),
+        snapshot_store_path: args.save.then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
     };
     print_serialized(&out, args.format)?;
 
