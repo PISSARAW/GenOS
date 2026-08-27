@@ -86,7 +86,7 @@ pub enum Commands {
     Transport(crate::cmd_transport::TransportArgs),
     Epigenetics(crate::cmd_orphans::EpigeneticsArgs),
     Operon(crate::cmd_orphans::OperonArgs),
-    Hgt(crate::cmd_orphans::HgtTransposonArgs),
+    Hgt(crate::cmd_hgt::HgtTransposonArgs),
     Scheduler(crate::cmd_orphans::SchedulerArgs),
 }
 
