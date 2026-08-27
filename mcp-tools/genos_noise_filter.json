@@ -1,0 +1,1 @@
+{ "name": "genos_noise_filter", "description": "Filter environmental noise from a JSON state string.", "parameters": { "type": "object", "properties": { "state_content": { "type": "string" } }, "required": ["state_content"] } }
