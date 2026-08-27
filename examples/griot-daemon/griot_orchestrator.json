@@ -63,6 +63,18 @@
     {
       "name": "background_daemon",
       "enabled": true
+    },
+    {
+      "name": "cryptobiosis_suspension",
+      "enabled": true
+    },
+    {
+      "name": "cellular_bbb_filtering",
+      "enabled": true
+    },
+    {
+      "name": "macrophage_clonal_expansion",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -91,6 +103,26 @@
         "tool": "network",
         "scope": "denied",
         "enabled": false
+      },
+      {
+        "tool": "genos_resilience_cryptobiosis",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_cellular_bbb",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_ais_danger_telemetry",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_ais_clonal_hypermutate",
+        "scope": "allowed",
+        "enabled": true
       }
     ]
   },
