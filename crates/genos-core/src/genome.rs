@@ -294,51 +294,24 @@ mod tests {
             breeding: None,
             ecological_niche: None,
             version: GenomeVersion("0.1.0".to_string()),
-            identity: Identity {
-                name: "test-agent".to_string(),
-                role: "tester".to_string(),
-            },
+            identity: Identity { name: "test".into(), role: "tester".into() },
             cognition: CognitionConfig {
                 chromosomes: vec![Chromosome {
                     name: "C1".to_string(),
                     loci: vec![
-                        Locus {
-                            gene_name: "exploration".to_string(),
-                            value: exploration,
-                            epigenetic_marker: 0.0,
-                        },
-                        Locus {
-                            gene_name: "risk_tolerance".to_string(),
-                            value: 0.25,
-                            epigenetic_marker: 0.0,
-                        },
-                        Locus {
-                            gene_name: "verification_threshold".to_string(),
-                            value: 0.5,
-                            epigenetic_marker: 0.0,
-                        },
+                        Locus { gene_name: "exploration".to_string(), value: exploration, epigenetic_marker: 0.0 },
+                        Locus { gene_name: "risk_tolerance".to_string(), value: 0.25, epigenetic_marker: 0.0 },
+                        Locus { gene_name: "verification_threshold".to_string(), value: 0.5, epigenetic_marker: 0.0 },
                     ],
                     operons: vec![],
                 }],
                 planning_depth: 4,
                 regulators: vec![],
             },
-            objectives: vec![],
-            policies: vec![],
-            capabilities: vec![],
-            memory_policy: MemoryPolicy {
-                working_max_items: 1,
-                episodic_enabled: false,
-                semantic_enabled: false,
-            },
-            model_policy: ModelPolicy {
-                strategy: "test".to_string(),
-                preferred_providers: vec![],
-                allow_local: true,
-            },
-            tool_policy: ToolPolicy {
-                permissions: vec![],
-            },
+            objectives: vec![], policies: vec![], capabilities: vec![],
+            memory_policy: MemoryPolicy { working_max_items: 1, episodic_enabled: false, semantic_enabled: false },
+            model_policy: ModelPolicy { strategy: "test".to_string(), preferred_providers: vec![], allow_local: true },
+            tool_policy: ToolPolicy { permissions: vec![] },
             inferred_traits: vec![],
         }
     }
