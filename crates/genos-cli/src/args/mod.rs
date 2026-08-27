@@ -87,7 +87,7 @@ pub enum Commands {
     Epigenetics(crate::cmd_epigenetics::EpigeneticsArgs),
     Operon(crate::cmd_operon::OperonArgs),
     Hgt(crate::cmd_hgt::HgtTransposonArgs),
-    Scheduler(crate::cmd_orphans::SchedulerArgs),
+    Scheduler(crate::cmd_scheduler::SchedulerArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
