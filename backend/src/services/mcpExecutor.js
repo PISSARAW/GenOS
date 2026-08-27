@@ -357,12 +357,6 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   }
 
 
-
-
-
-
-
-
   // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 
   const transport = configuredTransport();
