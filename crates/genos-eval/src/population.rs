@@ -221,7 +221,11 @@ mod inbreeding_tests {
 
     #[test]
     fn degenerate_sizes_are_handled() {
-        assert_eq!(wright_inbreeding_coefficient(0.0, 3), 1.0, "population éteinte");
+        assert_eq!(
+            wright_inbreeding_coefficient(0.0, 3),
+            1.0,
+            "population éteinte"
+        );
     }
 
     #[test]

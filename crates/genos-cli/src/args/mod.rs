@@ -78,6 +78,8 @@ pub enum Commands {
     Prompt(PromptCommand),
     /// Persistent evaluation datasets and batch scoring.
     Eval(EvalCommand),
+    Audit(crate::cmd_audit::AuditArgs),
+    Merge(crate::cmd_merge::MergeArgs),
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -145,5 +147,5 @@ pub enum OutputFormat {
 // in each per-domain file short without importing clap twice.
 use clap::Args as ArgsMacro;
 
-#[cfg(test)] mod tests;
-
+#[cfg(test)]
+mod tests;

@@ -75,6 +75,7 @@ async fn clone_without_llm_starts_identical_but_has_distinct_identity_and_stream
     assert_eq!(clone_a2.branch_id, clone_a2.state.event_cursor.branch_id);
 
     let a1_event_created = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: clone_a1.agent_id.clone(),
         branch_id: Some(clone_a1.branch_id.clone()),
@@ -86,6 +87,7 @@ async fn clone_without_llm_starts_identical_but_has_distinct_identity_and_stream
         correlation_id: Some(CorrelationId::new()),
     };
     let a2_event_created = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: clone_a2.agent_id.clone(),
         branch_id: Some(clone_a2.branch_id.clone()),

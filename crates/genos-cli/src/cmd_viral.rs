@@ -10,8 +10,8 @@ use crate::args::{
 };
 use anyhow::{Context, Result};
 use genos_core::resilience::viral_dynamics::{
-    ProphageLocus, SkillCassette, TransductionCapsule, ViralAction, ViralResponseController,
-    ViralDynamicsEngine,
+    ProphageLocus, SkillCassette, TransductionCapsule, ViralAction, ViralDynamicsEngine,
+    ViralResponseController,
 };
 use genos_core::resilience::virophage::{AttackGene, HoneypotFactory};
 use std::collections::BTreeMap;
@@ -30,8 +30,7 @@ fn load_registry(root: &Path) -> Result<CassetteRegistry> {
     if !path.exists() {
         return Ok(CassetteRegistry::default());
     }
-    let data = fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let data = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     serde_json::from_str(&data).with_context(|| format!("parsing {}", path.display()))
 }
 
@@ -49,8 +48,7 @@ fn load_honeypots(root: &Path) -> Result<HoneypotFactory> {
     if !path.exists() {
         return Ok(HoneypotFactory::new());
     }
-    let data = fs::read_to_string(&path)
-        .with_context(|| format!("reading {}", path.display()))?;
+    let data = fs::read_to_string(&path).with_context(|| format!("reading {}", path.display()))?;
     serde_json::from_str(&data).with_context(|| format!("parsing {}", path.display()))
 }
 
@@ -70,14 +68,20 @@ pub async fn cmd_resilience_viral_status(args: ViralStatusArgs) -> Result<()> {
     let registry = load_registry(&args.root).unwrap_or_default();
     let locus = registry.0.get(&args.agent_id).cloned().unwrap_or_default();
     match controller.evaluate(args.failures, args.progress, &locus) {
-        ViralAction::Nominal { stress } => println!(
-            "NOMINAL: stress {stress:.3} below induction threshold; no viral response"
-        ),
-        ViralAction::InduceCassettes { stress, cassette_ids } => println!(
+        ViralAction::Nominal { stress } => {
+            println!("NOMINAL: stress {stress:.3} below induction threshold; no viral response")
+        }
+        ViralAction::InduceCassettes {
+            stress,
+            cassette_ids,
+        } => println!(
             "INDUCE CASSETTES: stress {stress:.3}; dormant skills available: {}",
             cassette_ids.join(", ")
         ),
-        ViralAction::LyticBurst { stress, recommended_clones } => println!(
+        ViralAction::LyticBurst {
+            stress,
+            recommended_clones,
+        } => println!(
             "LYTIC BURST: stress {stress:.3}; no heritable answer to this failure \
              class; spawn {recommended_clones} divergent clones \
              (`genos resilience burst --genome-id {})`",
@@ -159,7 +163,10 @@ pub async fn cmd_resilience_cassette_induce(args: CassetteInduceArgs) -> Result<
         ViralAction::LyticBurst { stress, .. } => {
             println!("ESCALATION: stress {stress:.3} exceeds burst threshold; run `genos resilience burst")
         }
-        ViralAction::InduceCassettes { stress, cassette_ids } => {
+        ViralAction::InduceCassettes {
+            stress,
+            cassette_ids,
+        } => {
             let induced = locus.induce_all();
             save_registry(&args.root, &registry)?;
             if induced.is_empty() {
@@ -222,9 +229,9 @@ pub async fn cmd_resilience_transduce(args: TransduceArgs) -> Result<()> {
 
 fn excludes_all(capsule: &TransductionCapsule, residents: &[Vec<f32>]) -> bool {
     use genos_core::resilience::viral_dynamics::rbf_affinity;
-    residents
-        .iter()
-        .all(|r| rbf_affinity(r, &capsule.failure_mode_signature, NEGATIVE_SELECTION_GAMMA) < EXCLUSION_THETA)
+    residents.iter().all(|r| {
+        rbf_affinity(r, &capsule.failure_mode_signature, NEGATIVE_SELECTION_GAMMA) < EXCLUSION_THETA
+    })
 }
 
 pub async fn cmd_resilience_virophage_deploy(args: VirophageDeployArgs) -> Result<()> {

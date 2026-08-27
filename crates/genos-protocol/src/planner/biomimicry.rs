@@ -1,4 +1,4 @@
-﻿use crate::planner::builder::CommandPlanner;
+use crate::planner::builder::CommandPlanner;
 use crate::types::ProtocolError;
 use serde_json::Value;
 
@@ -118,8 +118,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "epigenetic_chromatin");
             planner.push_flag("--action", "modulate");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("promoter={}", planner.req_str("promoter")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("promoter={}", planner.req_str("promoter")?),
+            );
             if let Some(meth) = planner.opt_str("methylation_delta")? {
                 planner.push_flag("--param", &format!("methylation_delta={meth}"));
             }
@@ -181,7 +187,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "interferon");
             planner.push_flag("--action", "emit");
-            planner.push_flag("--param", &format!("source={}", planner.req_str("source_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("source={}", planner.req_str("source_id")?),
+            );
             planner.push_flag(
                 "--param",
                 &format!("signature={}", planner.req_str("signature")?),
@@ -210,7 +219,13 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             } else {
                 planner.push_flag("--action", "prime");
             }
-            for key in ["incident_id", "signature", "half_life_days", "now_day", "probe"] {
+            for key in [
+                "incident_id",
+                "signature",
+                "half_life_days",
+                "now_day",
+                "probe",
+            ] {
                 if let Some(value) = planner.opt_str(key)? {
                     planner.push_flag("--param", &format!("{key}={value}"));
                 }
@@ -226,7 +241,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "reciprocity");
             planner.push_flag("--action", "decide");
-            planner.push_flag("--param", &format!("peer_id={}", planner.req_str("peer_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("peer_id={}", planner.req_str("peer_id")?),
+            );
             for key in ["cooperations", "defections", "last_action"] {
                 if let Some(value) = planner.opt_str(key)? {
                     planner.push_flag("--param", &format!("{key}={value}"));
@@ -247,13 +265,7 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             } else {
                 planner.push_flag("--action", "compile");
             }
-            for key in [
-                "skill",
-                "successes",
-                "failures",
-                "variance",
-                "failure_rate",
-            ] {
+            for key in ["skill", "successes", "failures", "variance", "failure_rate"] {
                 if let Some(value) = planner.opt_str(key)? {
                     planner.push_flag("--param", &format!("{key}={value}"));
                 }
@@ -363,15 +375,28 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "embryogenesis");
             planner.push_flag("--action", "advance");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("target_phase={}", planner.req_str("target_phase")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("target_phase={}", planner.req_str("target_phase")?),
+            );
         }
         "biomimicry_hox_verify" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "hox");
             planner.push_flag("--action", "verify");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            if let Some(values) = planner.object.get("sequence").and_then(serde_json::Value::as_array) {
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            if let Some(values) = planner
+                .object
+                .get("sequence")
+                .and_then(serde_json::Value::as_array)
+            {
                 for value in values {
                     let value = value.as_str().unwrap_or_default();
                     planner.push_flag("--param", &format!("sequence={value}"));
@@ -382,11 +407,21 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "canalization");
             planner.push_flag("--action", "evaluate");
-            planner.push_flag("--param", &format!("expected_phenotype={}", planner.req_str("expected_phenotype")?));
+            planner.push_flag(
+                "--param",
+                &format!(
+                    "expected_phenotype={}",
+                    planner.req_str("expected_phenotype")?
+                ),
+            );
             if let Some(vw) = planner.opt_str("valley_width")? {
                 planner.push_flag("--param", &format!("valley_width={vw}"));
             }
-            if let Some(values) = planner.object.get("trajectory").and_then(serde_json::Value::as_array) {
+            if let Some(values) = planner
+                .object
+                .get("trajectory")
+                .and_then(serde_json::Value::as_array)
+            {
                 for value in values {
                     let value = value.as_str().unwrap_or_default();
                     planner.push_flag("--param", &format!("trajectory={value}"));
@@ -397,15 +432,29 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "metamorphosis");
             planner.push_flag("--action", "transition");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("current_stage={}", planner.req_str("current_stage")?));
-            if let Some(values) = planner.object.get("current_tool").and_then(serde_json::Value::as_array) {
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("current_stage={}", planner.req_str("current_stage")?),
+            );
+            if let Some(values) = planner
+                .object
+                .get("current_tool")
+                .and_then(serde_json::Value::as_array)
+            {
                 for value in values {
                     let value = value.as_str().unwrap_or_default();
                     planner.push_flag("--param", &format!("current_tool={value}"));
                 }
             }
-            if let Some(values) = planner.object.get("target_tool").and_then(serde_json::Value::as_array) {
+            if let Some(values) = planner
+                .object
+                .get("target_tool")
+                .and_then(serde_json::Value::as_array)
+            {
                 for value in values {
                     let value = value.as_str().unwrap_or_default();
                     planner.push_flag("--param", &format!("target_tool={value}"));
@@ -416,8 +465,17 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "regeneration");
             planner.push_flag("--action", "tissue");
-            planner.push_flag("--param", &format!("module_id={}", planner.req_str("module_id")?));
-            planner.push_flag("--param", &format!("regenerate_action={}", planner.req_str("regenerate_action")?));
+            planner.push_flag(
+                "--param",
+                &format!("module_id={}", planner.req_str("module_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!(
+                    "regenerate_action={}",
+                    planner.req_str("regenerate_action")?
+                ),
+            );
             if let Some(b) = planner.opt_str("base_checkpoint_hash")? {
                 planner.push_flag("--param", &format!("base_checkpoint_hash={b}"));
             }
@@ -429,7 +487,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             if let Some(b) = planner.opt_str("swarm_id")? {
                 planner.push_flag("--param", &format!("swarm_id={b}"));
             }
-            planner.push_flag("--param", &format!("endocrine_action={}", planner.req_str("endocrine_action")?));
+            planner.push_flag(
+                "--param",
+                &format!("endocrine_action={}", planner.req_str("endocrine_action")?),
+            );
             if let Some(b) = planner.opt_str("hormone")? {
                 planner.push_flag("--param", &format!("hormone={b}"));
             }
@@ -444,7 +505,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "reflex");
             planner.push_flag("--action", "trigger");
-            planner.push_flag("--param", &format!("stimulus={}", planner.req_str("stimulus")?));
+            planner.push_flag(
+                "--param",
+                &format!("stimulus={}", planner.req_str("stimulus")?),
+            );
             planner.push_flag("--param", &format!("value={}", planner.req_str("value")?));
             if let Some(b) = planner.opt_str("pain_threshold")? {
                 planner.push_flag("--param", &format!("pain_threshold={b}"));
@@ -457,17 +521,36 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "neuromodulation");
             planner.push_flag("--action", "rpe");
-            planner.push_flag("--param", &format!("node_id={}", planner.req_str("node_id")?));
-            planner.push_flag("--param", &format!("expected_reward={}", planner.req_str("expected_reward")?));
-            planner.push_flag("--param", &format!("actual_reward={}", planner.req_str("actual_reward")?));
+            planner.push_flag(
+                "--param",
+                &format!("node_id={}", planner.req_str("node_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("expected_reward={}", planner.req_str("expected_reward")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("actual_reward={}", planner.req_str("actual_reward")?),
+            );
         }
         "biomimicry_hippocampal_consolidate" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "hippocampal");
             planner.push_flag("--action", "consolidate");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("success_score={}", planner.req_str("success_score")?));
-            if let Some(values) = planner.object.get("dag_step").and_then(serde_json::Value::as_array) {
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("success_score={}", planner.req_str("success_score")?),
+            );
+            if let Some(values) = planner
+                .object
+                .get("dag_step")
+                .and_then(serde_json::Value::as_array)
+            {
                 for value in values {
                     let value = value.as_str().unwrap_or_default();
                     planner.push_flag("--param", &format!("dag_step={value}"));
@@ -478,15 +561,27 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "circadian");
             planner.push_flag("--action", "toggle");
-            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
-            planner.push_flag("--param", &format!("current_phase={}", planner.req_str("current_phase")?));
+            planner.push_flag(
+                "--param",
+                &format!("swarm_id={}", planner.req_str("swarm_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("current_phase={}", planner.req_str("current_phase")?),
+            );
         }
         "biomimicry_allostasis_anticipate" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "allostasis");
             planner.push_flag("--action", "anticipate");
-            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
-            planner.push_flag("--param", &format!("stress_cue={}", planner.req_str("stress_cue")?));
+            planner.push_flag(
+                "--param",
+                &format!("swarm_id={}", planner.req_str("swarm_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("stress_cue={}", planner.req_str("stress_cue")?),
+            );
             if let Some(b) = planner.opt_str("base_budget")? {
                 planner.push_flag("--param", &format!("base_budget={b}"));
             }
@@ -495,8 +590,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "plasticity");
             planner.push_flag("--action", "remap");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("failing_tool={}", planner.req_str("failing_tool")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("failing_tool={}", planner.req_str("failing_tool")?),
+            );
         }
         "biomimicry_immuno_inflammation" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
@@ -516,7 +617,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "autoimmunity");
             planner.push_flag("--action", &planner.req_str("action")?);
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
             if let Some(b) = planner.opt_str("threshold")? {
                 planner.push_flag("--param", &format!("threshold={b}"));
             }
@@ -528,8 +632,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "ecology");
             planner.push_flag("--action", "punctuated");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("improved={}", planner.req_str("improved")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("improved={}", planner.req_str("improved")?),
+            );
             if let Some(b) = planner.opt_str("stasis_counter")? {
                 planner.push_flag("--param", &format!("stasis_counter={b}"));
             }
@@ -541,9 +651,18 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "ecology");
             planner.push_flag("--action", "succession");
-            planner.push_flag("--param", &format!("project_id={}", planner.req_str("project_id")?));
-            planner.push_flag("--param", &format!("coverage={}", planner.req_str("coverage")?));
-            planner.push_flag("--param", &format!("stability={}", planner.req_str("stability")?));
+            planner.push_flag(
+                "--param",
+                &format!("project_id={}", planner.req_str("project_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("coverage={}", planner.req_str("coverage")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("stability={}", planner.req_str("stability")?),
+            );
             if let Some(b) = planner.opt_str("current_stage")? {
                 planner.push_flag("--param", &format!("current_stage={b}"));
             }
@@ -552,8 +671,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "behavior");
             planner.push_flag("--action", "social");
-            planner.push_flag("--param", &format!("junior_id={}", planner.req_str("junior_id")?));
-            planner.push_flag("--param", &format!("senior_id={}", planner.req_str("senior_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("junior_id={}", planner.req_str("junior_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("senior_id={}", planner.req_str("senior_id")?),
+            );
             if let Some(b) = planner.opt_str("alignment_score")? {
                 planner.push_flag("--param", &format!("alignment_score={b}"));
             }
@@ -562,7 +687,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "behavior");
             planner.push_flag("--action", "play");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
             planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
             if let Some(b) = planner.opt_str("play_budget")? {
                 planner.push_flag("--param", &format!("play_budget={b}"));
@@ -578,7 +706,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "behavior");
             planner.push_flag("--action", "thanatosis");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
             planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
             if let Some(b) = planner.opt_str("threat_source")? {
                 planner.push_flag("--param", &format!("threat_source={b}"));
@@ -588,15 +719,27 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "behavior");
             planner.push_flag("--action", "mimicry");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("target_profile={}", planner.req_str("target_profile")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("target_profile={}", planner.req_str("target_profile")?),
+            );
         }
         "biomimicry_cellular_endosymbiosis" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "cellular");
             planner.push_flag("--action", "endosymbiosis");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("external_tool={}", planner.req_str("external_tool")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("external_tool={}", planner.req_str("external_tool")?),
+            );
             if let Some(b) = planner.opt_str("success_rate")? {
                 planner.push_flag("--param", &format!("success_rate={b}"));
             }
@@ -605,8 +748,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "cellular");
             planner.push_flag("--action", "bbb");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            planner.push_flag("--param", &format!("strict_mode={}", planner.req_str("strict_mode")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("strict_mode={}", planner.req_str("strict_mode")?),
+            );
             if let Some(b) = planner.opt_str("risk_score")? {
                 planner.push_flag("--param", &format!("risk_score={b}"));
             }
@@ -615,7 +764,10 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "plant");
             planner.push_flag("--action", "seed");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
             planner.push_flag("--param", &format!("action={}", planner.req_str("action")?));
             if let Some(b) = planner.opt_str("condition")? {
                 planner.push_flag("--param", &format!("condition={b}"));
@@ -628,8 +780,14 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "plant");
             planner.push_flag("--action", "abscission");
-            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
-            planner.push_flag("--param", &format!("target_module={}", planner.req_str("target_module")?));
+            planner.push_flag(
+                "--param",
+                &format!("swarm_id={}", planner.req_str("swarm_id")?),
+            );
+            planner.push_flag(
+                "--param",
+                &format!("target_module={}", planner.req_str("target_module")?),
+            );
             if let Some(b) = planner.opt_str("reclaim_budget")? {
                 planner.push_flag("--param", &format!("reclaim_budget={b}"));
             }
@@ -638,26 +796,33 @@ pub fn plan_biomimicry(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "theory");
             planner.push_flag("--action", "autopoiesis");
-            planner.push_flag("--param", &format!("swarm_id={}", planner.req_str("swarm_id")?));
-            if let Some(b) = planner.opt_str("compute_budget")? { planner.push_flag("--param", &format!("compute_budget={b}")); }
-            if let Some(b) = planner.opt_str("error_rate")? { planner.push_flag("--param", &format!("error_rate={b}")); }
+            planner.push_flag(
+                "--param",
+                &format!("swarm_id={}", planner.req_str("swarm_id")?),
+            );
+            if let Some(b) = planner.opt_str("compute_budget")? {
+                planner.push_flag("--param", &format!("compute_budget={b}"));
+            }
+            if let Some(b) = planner.opt_str("error_rate")? {
+                planner.push_flag("--param", &format!("error_rate={b}"));
+            }
         }
         "biomimicry_lifecycle_senescence" => {
             planner.args = vec!["biomimicry".into(), "bio-feature".into()];
             planner.push_flag("--feature", "lifecycle");
             planner.push_flag("--action", "senescence");
-            planner.push_flag("--param", &format!("agent_id={}", planner.req_str("agent_id")?));
-            if let Some(b) = planner.opt_str("max_epochs")? { planner.push_flag("--param", &format!("max_epochs={b}")); }
-            if let Some(b) = planner.opt_str("current_epoch")? { planner.push_flag("--param", &format!("current_epoch={b}")); }
+            planner.push_flag(
+                "--param",
+                &format!("agent_id={}", planner.req_str("agent_id")?),
+            );
+            if let Some(b) = planner.opt_str("max_epochs")? {
+                planner.push_flag("--param", &format!("max_epochs={b}"));
+            }
+            if let Some(b) = planner.opt_str("current_epoch")? {
+                planner.push_flag("--param", &format!("current_epoch={b}"));
+            }
         }
         _ => return Ok(false),
     }
     Ok(true)
 }
-
-
-
-
-
-
-

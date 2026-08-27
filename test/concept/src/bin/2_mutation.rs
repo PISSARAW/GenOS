@@ -35,7 +35,7 @@ fn main() {
     );
     println!("> PROMPT ENVOYÉ (V1) :\n{}", prompt_worker_v1);
     println!("> ACTION DE L'AGENT : Au lieu de boucler, l'agent produit un outil interne `mutate_cognition(syntax_strictness=0.9)` car son stress monte.\n");
-    
+
     println!("--- 3. WORKER GENOS (Après Mutation O(1)) ---");
     let genome_v2 = "{ syntax_strictness: 0.9, log: 'Mutated from 0.5 to pass strict linter' }";
     let prompt_worker_v2 = format!(

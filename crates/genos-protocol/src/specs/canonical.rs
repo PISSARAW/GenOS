@@ -1,4 +1,4 @@
-﻿use serde_json::json;
+use serde_json::json;
 
 use crate::schema::{capsule_schema, object_schema, root_schema, string_schema};
 use crate::spec_builder::SpecBuilder;
@@ -105,6 +105,24 @@ pub fn canonical_specs() -> Vec<ToolSpec> {
             .schema(object_schema(
                 [("manifest", string_schema("Cognitive merge manifest path."))],
                 &["manifest"],
+            ))
+            .build(),
+        SpecBuilder::new("conditional_merge", "Conditionally merge branch", "Evaluate conditions (cost, tests, security) and merge branch if passed.")
+            .schema(object_schema(
+                [
+                    ("branch_id", string_schema("Branch ID to evaluate and merge.")),
+                    ("conditions", string_schema("Conditions to evaluate.")),
+                ],
+                &["branch_id", "conditions"],
+            ))
+            .build(),
+        SpecBuilder::new("export_audit", "Export audit bundle", "Export a complete audit bundle for a given snapshot.")
+            .schema(object_schema(
+                [
+                    ("snapshot_id", string_schema("Snapshot ID to audit.")),
+                    ("output", string_schema("Output file path.")),
+                ],
+                &["snapshot_id", "output"],
             ))
             .build(),
     ]

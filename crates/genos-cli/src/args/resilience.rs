@@ -192,4 +192,3 @@ pub struct VirophageHarvestArgs {
     #[arg(long, default_value = ".genos/viral")]
     pub root: PathBuf,
 }
-

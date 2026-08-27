@@ -11,12 +11,7 @@ use genos_runtime::{
 use genos_store::{CapsuleStore, LocalCapsuleStore};
 use genos_world::DirectoryWorldProvider;
 
-fn stores(
-    root: &std::path::Path,
-) -> (
-    LocalCapsuleStore,
-    anyhow::Result<DirectoryWorldProvider>,
-) {
+fn stores(root: &std::path::Path) -> (LocalCapsuleStore, anyhow::Result<DirectoryWorldProvider>) {
     (
         LocalCapsuleStore::from_root(root),
         DirectoryWorldProvider::new(root.join("worlds"), None),
@@ -40,12 +35,14 @@ pub async fn cmd_division_mitosis(args: DivisionMitosisArgs) -> Result<()> {
     }
     let (store, provider) = stores(&args.root);
     let parent = load(&store, &args.capsule_id).await?;
-    let outcome =
-        mitotic_fork_capsules(&provider?, &store, &parent, args.count).await?;
+    let outcome = mitotic_fork_capsules(&provider?, &store, &parent, args.count).await?;
     if !outcome.all_clones_verified {
         anyhow::bail!("mitotic attestation failed; daughters cancelled");
     }
-    print_serialized(&outcome.report(&parent.capsule_id.0), crate::args::OutputFormat::Json)
+    print_serialized(
+        &outcome.report(&parent.capsule_id.0),
+        crate::args::OutputFormat::Json,
+    )
 }
 
 pub async fn cmd_division_fission(args: DivisionFissionArgs) -> Result<()> {
@@ -55,7 +52,10 @@ pub async fn cmd_division_fission(args: DivisionFissionArgs) -> Result<()> {
     let (store, provider) = stores(&args.root);
     let parent = load(&store, &args.capsule_id).await?;
     let outcome = binary_fission_capsules(&provider?, &store, &parent, args.count).await?;
-    print_serialized(&outcome.report(&parent.capsule_id.0), crate::args::OutputFormat::Json)
+    print_serialized(
+        &outcome.report(&parent.capsule_id.0),
+        crate::args::OutputFormat::Json,
+    )
 }
 
 pub async fn cmd_division_bud(args: DivisionBudArgs) -> Result<()> {
@@ -77,7 +77,10 @@ pub async fn cmd_division_bud(args: DivisionBudArgs) -> Result<()> {
         "bud `{}` released with scar count {} on parent {}",
         args.label, outcome.scar_count, parent.capsule_id.0
     );
-    print_serialized(&outcome.report(&parent.capsule_id.0), crate::args::OutputFormat::Json)
+    print_serialized(
+        &outcome.report(&parent.capsule_id.0),
+        crate::args::OutputFormat::Json,
+    )
 }
 
 pub async fn cmd_division_schizogony(args: DivisionSchizogonyArgs) -> Result<()> {
@@ -98,5 +101,8 @@ pub async fn cmd_division_schizogony(args: DivisionSchizogonyArgs) -> Result<()>
         .collect::<Result<Vec<_>>>()?;
     let burst = schizogonic_burst(&provider?, &store, &parent, &specs).await?;
     println!("burst {} released", burst.burst_id);
-    print_serialized(&burst.report(&parent.capsule_id.0), crate::args::OutputFormat::Json)
+    print_serialized(
+        &burst.report(&parent.capsule_id.0),
+        crate::args::OutputFormat::Json,
+    )
 }

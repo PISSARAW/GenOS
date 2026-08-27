@@ -56,8 +56,7 @@ async fn mitosis_produces_attested_clones_of_the_parent() {
     assert_eq!(outcome.attestations.len(), 3);
     for daughter in &outcome.daughters {
         assert_eq!(
-            daughter.budget.steps_remaining,
-            parent.budget.steps_remaining,
+            daughter.budget.steps_remaining, parent.budget.steps_remaining,
             "mitotic clones inherit the full parent budget"
         );
         assert_eq!(
@@ -86,8 +85,7 @@ async fn fission_splits_the_budget_and_strips_metadata() {
             "prokaryote daughters carry no hypothesis metadata"
         );
         assert_ne!(
-            daughter.live_world_id,
-            parent.live_world_id,
+            daughter.live_world_id, parent.live_world_id,
             "daughters run in their own isolated worlds"
         );
     }
@@ -258,7 +256,10 @@ async fn schizogonic_burst_rejects_duplicate_labels_before_creating_resources() 
     // Validation happens in the internal phase: no daughter was released.
     let stored = store.list_all_capsules().await.unwrap();
     assert_eq!(
-        stored.iter().filter(|c| c.relation == CapsuleRelation::Fork).count(),
+        stored
+            .iter()
+            .filter(|c| c.relation == CapsuleRelation::Fork)
+            .count(),
         0,
         "no burst daughter may exist after a failed internal phase"
     );

@@ -68,7 +68,9 @@ pub fn plan_resilience(planner: &mut CommandPlanner) -> Result<bool, ProtocolErr
             planner.args.push("--session-id".into());
             planner.args.push(planner.req_str("session_id")?.into());
             planner.args.push("--source-signature".into());
-            planner.args.push(planner.req_str("source_signature")?.into());
+            planner
+                .args
+                .push(planner.req_str("source_signature")?.into());
         }
         "ais_negative_screen" => {
             planner.args = vec!["resilience".into(), "ais-negative-screen".into()];
