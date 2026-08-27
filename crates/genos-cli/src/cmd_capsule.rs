@@ -1,4 +1,4 @@
-﻿use crate::args::{AgentRunArgs, CapsuleCreateArgs, CapsuleForkArgs, CapsuleIdArgs};
+use crate::args::{AgentRunArgs, CapsuleCreateArgs, CapsuleForkArgs, CapsuleIdArgs};
 use crate::output::print_serialized;
 use crate::resolve::{event_store_from, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{Context, Result};
@@ -144,6 +144,7 @@ pub async fn cmd_agent_run(args: AgentRunArgs) -> Result<()> {
         .consume_step(event_id.clone())
         .map_err(anyhow::Error::msg)?;
     let event = AgentEvent {
+        cost_schema: None,
         event_id,
         agent_id: capsule.agent_snapshot.agent_id.clone(),
         branch_id: Some(capsule.branch_id.clone()),

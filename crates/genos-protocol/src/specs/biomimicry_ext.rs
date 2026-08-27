@@ -1,4 +1,4 @@
-﻿//! Extension specs for biomimicry tools (population & lifecycle family).
+//! Extension specs for biomimicry tools (population & lifecycle family).
 //! Kept separate from `biomimicry.rs` to respect the 400-line file budget;
 //! merged into the catalog by `biomimicry_specs()`.
 
@@ -124,20 +124,3 @@ pub fn biomimicry_ext_specs() -> Vec<ToolSpec> {
         .build(),
     ]
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

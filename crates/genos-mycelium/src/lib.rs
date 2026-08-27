@@ -105,15 +105,16 @@ impl MyceliumNetwork {
         similarity: f32,
         gamma_similarity: f32,
     ) -> AnastomosisOutcome {
-        if self.hyphae.iter().any(|h| {
-            (h.from == a && h.to == b) || (h.from == b && h.to == a)
-        }) {
+        if self
+            .hyphae
+            .iter()
+            .any(|h| (h.from == a && h.to == b) || (h.from == b && h.to == a))
+        {
             return AnastomosisOutcome::AlreadyConnected;
         }
         // Cherche une arête voisine sémantiquement proche de (a, b).
         let candidate = self.hyphae.iter().position(|h| {
-            let shares_tip =
-                h.from == a || h.from == b || h.to == a || h.to == b;
+            let shares_tip = h.from == a || h.from == b || h.to == a || h.to == b;
             shares_tip && similarity >= gamma_similarity
         });
         match candidate {
@@ -155,8 +156,7 @@ impl MyceliumNetwork {
             *net.entry(hypha.from.as_str()).or_insert(0.0) -= flow;
             *net.entry(hypha.to.as_str()).or_insert(0.0) += flow;
         }
-        net.values()
-            .fold(0.0_f32, |acc, v| acc.max(v.abs()))
+        net.values().fold(0.0_f32, |acc, v| acc.max(v.abs()))
     }
 
     /// Autolysis: digests every hypha unused for more than `max_idle_steps`
@@ -207,18 +207,26 @@ mod tests {
         net.connect("a", "b", 0.3, 2.0);
 
         // Similarité faible : pas de fusion, mais une nouvelle hyphe apparaît.
-        assert_eq!(net.anastomose("a", "c", 0.2, 0.7), AnastomosisOutcome::NoFusion);
+        assert_eq!(
+            net.anastomose("a", "c", 0.2, 0.7),
+            AnastomosisOutcome::NoFusion
+        );
         assert_eq!(net.hyphae().len(), 2);
 
         // Similarité forte sur un voisin partagé : fusion.
-        assert_eq!(net.anastomose("c", "b", 0.9, 0.7), AnastomosisOutcome::Fused);
+        assert_eq!(
+            net.anastomose("c", "b", 0.9, 0.7),
+            AnastomosisOutcome::Fused
+        );
         assert_eq!(
             net.hyphae().len(),
             2,
             "fusion ne crée pas d'arête supplémentaire"
         );
         // La conductance retenue est le max des deux.
-        assert!(net.hyphae()[0].conductance >= 0.9 - 1e-6 || net.hyphae()[1].conductance >= 0.9 - 1e-6);
+        assert!(
+            net.hyphae()[0].conductance >= 0.9 - 1e-6 || net.hyphae()[1].conductance >= 0.9 - 1e-6
+        );
     }
 
     #[test]
@@ -227,7 +235,10 @@ mod tests {
         net.ensure_node("a", 1.0);
         net.ensure_node("b", 1.0);
         net.connect("a", "b", 0.5, 1.0);
-        assert_eq!(net.anastomose("a", "b", 0.99, 0.7), AnastomosisOutcome::AlreadyConnected);
+        assert_eq!(
+            net.anastomose("a", "b", 0.99, 0.7),
+            AnastomosisOutcome::AlreadyConnected
+        );
     }
 
     #[test]
@@ -238,7 +249,7 @@ mod tests {
         net.ensure_node("k", 0.0);
         net.connect("s", "m", 1.0, 2.0); // Q = 2.5
         net.connect("m", "k", 1.0, 1.0); // Q = 5.0
-        // Déséquilibre au noeud m : entrée 2.5 vs sortie 5.0 -> |2.5| détecté.
+                                         // Déséquilibre au noeud m : entrée 2.5 vs sortie 5.0 -> |2.5| détecté.
         let imbalance = net.worst_flow_imbalance();
         assert!(imbalance > 1.0, "unbalanced junction detected: {imbalance}");
 

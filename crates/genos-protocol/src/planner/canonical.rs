@@ -14,6 +14,8 @@ pub fn plan_canonical(planner: &mut CommandPlanner) -> Result<bool, ProtocolErro
         "lineage" => plan_lineage(planner)?,
         "replay" => plan_replay(planner)?,
         "merge" => plan_merge(planner)?,
+        "conditional_merge" => plan_conditional_merge(planner)?,
+        "export_audit" => plan_export_audit(planner)?,
         _ => return Ok(false),
     }
     Ok(true)
@@ -137,6 +139,22 @@ fn plan_replay(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
 
 fn plan_merge(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
     planner.args.push(planner.req_str("manifest")?.to_string());
+    planner.push_flag("--format", "json");
+    Ok(())
+}
+
+fn plan_conditional_merge(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
+    planner.args.push(planner.req_str("branch_id")?.to_string());
+    planner.push_flag("--conditions", planner.req_str("conditions")?);
+    planner.push_flag("--format", "json");
+    Ok(())
+}
+
+fn plan_export_audit(planner: &mut CommandPlanner) -> Result<(), ProtocolError> {
+    planner
+        .args
+        .push(planner.req_str("snapshot_id")?.to_string());
+    planner.push_flag("--output", planner.req_str("output")?);
     planner.push_flag("--format", "json");
     Ok(())
 }

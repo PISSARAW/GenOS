@@ -3,7 +3,9 @@
 use anyhow::{bail, Result};
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
-    params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+    params
+        .iter()
+        .find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
 }
 
 fn collect_params<'a>(params: &'a [String], key: &str) -> Vec<&'a str> {
@@ -15,10 +17,14 @@ fn collect_params<'a>(params: &'a [String], key: &str) -> Vec<&'a str> {
 
 pub(crate) fn vaccination_train(params: &[String]) -> Result<()> {
     use genos_core::biomimicry::{ImmuneProfile, VaccineCorpus};
-    let malicious: Vec<String> =
-        collect_params(params, "malicious").iter().map(|s| s.to_string()).collect();
-    let benign: Vec<String> =
-        collect_params(params, "benign").iter().map(|s| s.to_string()).collect();
+    let malicious: Vec<String> = collect_params(params, "malicious")
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let benign: Vec<String> = collect_params(params, "benign")
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     if malicious.is_empty() {
         bail!("at least one --param malicious=<signature> is required");
     }
@@ -59,10 +65,16 @@ pub(crate) fn interferon_emit(params: &[String]) -> Result<()> {
     let signature = param_value(params, "signature")
         .ok_or_else(|| anyhow::anyhow!("missing --param signature=<threat tokens>"))?
         .to_string();
-    let ttl: u64 = param_value(params, "ttl_seconds").and_then(|v| v.parse().ok()).unwrap_or(300);
-    let now: u64 = param_value(params, "now_secs").and_then(|v| v.parse().ok()).unwrap_or(0);
-    let neighbors: Vec<String> =
-        collect_params(params, "neighbor").iter().map(|s| s.to_string()).collect();
+    let ttl: u64 = param_value(params, "ttl_seconds")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(300);
+    let now: u64 = param_value(params, "now_secs")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    let neighbors: Vec<String> = collect_params(params, "neighbor")
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     if neighbors.is_empty() {
         bail!("at least one --param neighbor=<capsule id> is required (paracrine radius)");
     }
@@ -82,7 +94,7 @@ pub(crate) fn interferon_emit(params: &[String]) -> Result<()> {
 }
 
 pub(crate) fn sar_action(params: &[String], action: &str) -> Result<()> {
-    use genos_core::biomimicry::{Priming, SystemResistance, tokenize};
+    use genos_core::biomimicry::{tokenize, Priming, SystemResistance};
     match action {
         "prime" => {
             let incident = param_value(params, "incident_id")
@@ -94,8 +106,9 @@ pub(crate) fn sar_action(params: &[String], action: &str) -> Result<()> {
             let half_life: f64 = param_value(params, "half_life_days")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(30.0);
-            let now_day: f64 =
-                param_value(params, "now_day").and_then(|v| v.parse().ok()).unwrap_or(0.0);
+            let now_day: f64 = param_value(params, "now_day")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.0);
             let mut sar = SystemResistance::default();
             let index = sar.prime(&incident, &signature, half_life, now_day);
             println!(
@@ -106,8 +119,9 @@ pub(crate) fn sar_action(params: &[String], action: &str) -> Result<()> {
         "assess" => {
             let probe = param_value(params, "probe")
                 .ok_or_else(|| anyhow::anyhow!("missing --param probe=<signature>"))?;
-            let now_day: f64 =
-                param_value(params, "now_day").and_then(|v| v.parse().ok()).unwrap_or(0.0);
+            let now_day: f64 = param_value(params, "now_day")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0.0);
             // Primings are passed as repeated --param priming=id:signature:half_life_days:primed_at_day
             let mut sar = SystemResistance::default();
             for raw in collect_params(params, "priming") {
@@ -127,7 +141,11 @@ pub(crate) fn sar_action(params: &[String], action: &str) -> Result<()> {
                 "Resistance against '{probe}': score={:.2} matched={} recommended={}",
                 score.score,
                 score.matched_incident_id.as_deref().unwrap_or("none"),
-                if score.primed_response_recommended { "yes" } else { "no" }
+                if score.primed_response_recommended {
+                    "yes"
+                } else {
+                    "no"
+                }
             );
             Ok(())
         }

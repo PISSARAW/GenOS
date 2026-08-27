@@ -15,6 +15,7 @@ static NEXT_TEMP_STORE_ID: AtomicU64 = AtomicU64::new(0);
 
 pub fn make_event(event_type: AgentEventType, sequence: u64, branch: &str) -> AgentEvent {
     AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: AgentId::new(),
         branch_id: Some(BranchId(branch.to_string())),

@@ -224,8 +224,7 @@ fn biomimicry_votes_parse() {
     ])
     .is_ok());
     assert!(
-        Cli::try_parse_from(["genos", "biomimicry", "swarm-consensus", "--target", "adr"])
-            .is_err(),
+        Cli::try_parse_from(["genos", "biomimicry", "swarm-consensus", "--target", "adr"]).is_err(),
         "at least one --vote is required"
     );
 }

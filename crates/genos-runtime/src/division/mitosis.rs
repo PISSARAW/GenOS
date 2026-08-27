@@ -82,9 +82,9 @@ pub async fn mitotic_fork_capsules(
         .iter()
         .map(|daughter| attest(&parent.agent_snapshot, daughter))
         .collect::<Vec<_>>();
-    let all_clones_verified = attestations.iter().all(|a| {
-        a.genome_identical && a.logical_state_identical && a.integrity_verified
-    });
+    let all_clones_verified = attestations
+        .iter()
+        .all(|a| a.genome_identical && a.logical_state_identical && a.integrity_verified);
 
     Ok(MitosisOutcome {
         daughters: capsules,

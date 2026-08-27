@@ -4,7 +4,6 @@ use crate::types::ToolSpec;
 #[path = "biomimicry_ext.rs"]
 mod ext;
 
-
 pub fn biomimicry_specs() -> Vec<ToolSpec> {
     let mut specs = vec![
         SpecBuilder::new(

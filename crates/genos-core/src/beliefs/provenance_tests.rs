@@ -146,6 +146,7 @@ fn inspect_belief_note_evidence_uses_noted_as_edge() {
 #[test]
 fn in_memory_lookup_resolves_known_events() {
     let event = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: crate::ids::AgentId::new(),
         branch_id: None,

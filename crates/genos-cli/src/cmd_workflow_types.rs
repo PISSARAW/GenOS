@@ -1,4 +1,4 @@
-use anyhow::{bail, Result, Context};
+use anyhow::{bail, Context, Result};
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};

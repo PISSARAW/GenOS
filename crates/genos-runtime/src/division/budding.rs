@@ -103,10 +103,7 @@ pub async fn bud_capsule(
 /// Count persisted buds of one parent capsule: children with relation `Fork`,
 /// the right parent, and a `bud:` label prefix. Integrity of every scanned
 /// capsule is already verified by the store.
-async fn count_bud_scars(
-    store: &dyn CapsuleStore,
-    parent_capsule_id: &str,
-) -> anyhow::Result<u32> {
+async fn count_bud_scars(store: &dyn CapsuleStore, parent_capsule_id: &str) -> anyhow::Result<u32> {
     let scars = store
         .list_all_capsules()
         .await?

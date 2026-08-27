@@ -1,4 +1,4 @@
-﻿use crate::{
+use crate::{
     checkpoint_capsule, default_capsule_components, fork_lineaged_counterfactual_capsules,
     initialize_project_snapshot, LineagedCounterfactualBranchSpec, LongRunningBranchOutcome,
     VerificationOutcome,
@@ -58,6 +58,7 @@ pub struct WorkspaceExperimentManifest {
     pub evaluations: Vec<RefactorBranchEvaluation>,
     #[serde(default)]
     pub objective_weights: Vec<ObjectiveWeight>,
+    pub merge_policies: Option<crate::conditional_merge::PolicyContext>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -119,6 +120,11 @@ pub async fn run_workspace_experiment(
     let mut lineage_events = Vec::new();
     let mut outcomes = Vec::new();
 
+    let conditional_merge = manifest
+        .merge_policies
+        .clone()
+        .map(crate::conditional_merge::ConditionalMergeHarness::new);
+
     for (index, spec) in manifest.branches.into_iter().enumerate() {
         let parent = capsules.get(&spec.parent).cloned().with_context(|| {
             format!(
@@ -153,8 +159,12 @@ pub async fn run_workspace_experiment(
         }
         let diff = provider.diff(root_world.clone(), world_id.clone()).await?;
         let mut verifications = Vec::new();
+        let mut current_cost = 0;
         for stage in &spec.verifications {
+            let start = std::time::Instant::now();
             let execution = provider.execute(world_id.clone(), &stage.command).await?;
+            let elapsed = start.elapsed().as_millis() as u64;
+            current_cost += elapsed; // Cost is time + compute
             fork.consume_step(EventId::new())
                 .map_err(anyhow::Error::msg)?;
             capsule_store.save_capsule(fork.clone()).await?;
@@ -170,6 +180,13 @@ pub async fn run_workspace_experiment(
                 break;
             }
         }
+
+        let cost_schema = genos_core::cost::CostSchema {
+            wall_time_ms: current_cost,
+            tool_call_count: verifications.len() as u64,
+            ..Default::default()
+        };
+
         let checkpoint = checkpoint_capsule(&provider, &capsule_store, &fork).await?;
         let outcome = LongRunningBranchOutcome {
             branch_id: checkpoint.branch_id.clone(),
@@ -202,6 +219,7 @@ pub async fn run_workspace_experiment(
             json!({ "files_changed": outcome.files_changed }),
         );
         lineage_events.push(AgentEvent {
+            cost_schema: Some(cost_schema),
             event_id: EventId::new(),
             agent_id: checkpoint.agent_snapshot.agent_id.clone(),
             branch_id: Some(BranchId(spec.id.clone())),
@@ -224,14 +242,29 @@ pub async fn run_workspace_experiment(
     let eligible = outcomes
         .iter()
         .filter(|outcome| {
-            !outcome.verifications.is_empty()
+            let tests_passed = !outcome.verifications.is_empty()
                 && outcome
                     .verifications
                     .iter()
-                    .all(|verification| verification.passed)
+                    .all(|verification| verification.passed);
+
+            if let Some(harness) = &conditional_merge {
+                let cost = outcome.verifications.len() as u64 * 10; // mock cost
+                let metrics = crate::conditional_merge::BranchMetrics {
+                    current_cost: cost,
+                    tests_passed,
+                    security_passed: true,
+                };
+                harness
+                    .evaluate_branch(&outcome.branch_id, &metrics)
+                    .is_ok()
+            } else {
+                tests_passed
+            }
         })
         .map(|outcome| outcome.branch_id.clone())
         .collect::<HashSet<_>>();
+
     let eligible_evaluations = manifest
         .evaluations
         .iter()

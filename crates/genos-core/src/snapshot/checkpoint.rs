@@ -1,4 +1,4 @@
-﻿use super::AgentSnapshot;
+use super::AgentSnapshot;
 use crate::events::{AgentEvent, AgentEventType};
 use crate::ids::{EventId, SnapshotId};
 use chrono::{DateTime, Utc};
@@ -11,7 +11,7 @@ use serde_json::json;
 #[derive(Clone, Debug)]
 pub struct CheckpointWrite {
     /// The new snapshot: fresh `snapshot_id`, same `agent_id` and
-    /// `branch_id` as `current`. Logical state copied verbatim â€” a
+    /// `branch_id` as `current`. Logical state copied verbatim — a
     /// checkpoint does not rewrite any `LOGICAL_STATE_FIELDS`.
     pub snapshot: AgentSnapshot,
     /// `SnapshotCreated` event bound to `current`'s branch, sequence
@@ -19,7 +19,7 @@ pub struct CheckpointWrite {
     /// Payload references the prior snapshot id so a replay can
     /// reconstruct the edge.
     pub event: AgentEvent,
-    /// The prior snapshot id the new one was forked from â€” duplicated in
+    /// The prior snapshot id the new one was forked from — duplicated in
     /// `event.payload["parent_snapshot_id"]` for downstream readers.
     pub parent_snapshot_id: SnapshotId,
 }
@@ -63,6 +63,7 @@ pub fn checkpoint_snapshot_at(
         "previous_sequence": previous_sequence,
     });
     let event = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: current.agent_id.clone(),
         branch_id: Some(current.branch_id.clone()),

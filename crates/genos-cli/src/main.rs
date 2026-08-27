@@ -1,30 +1,32 @@
 mod args;
 mod cmd_agent;
-mod cmd_biomimicry;
-mod cmd_capsule;
-mod cmd_bio_features;
-mod cmd_bio_development;
-mod cmd_bio_neuro;
-mod cmd_bio_immuno;
-mod cmd_bio_ecology;
+mod cmd_audit;
 mod cmd_bio_behavior;
 mod cmd_bio_cellular;
+mod cmd_bio_development;
+mod cmd_bio_ecology;
+mod cmd_bio_evolution;
+mod cmd_bio_features;
+mod cmd_bio_immunity;
+mod cmd_bio_immuno;
+mod cmd_bio_neuro;
 mod cmd_bio_plant;
 mod cmd_bio_theory;
+mod cmd_biomimicry;
+mod cmd_capsule;
 mod cmd_dev;
-mod cmd_bio_immunity;
+mod cmd_division;
 mod cmd_eval;
-mod cmd_bio_evolution;
 mod cmd_experiment;
 mod cmd_hallucination;
 mod cmd_inspect;
+mod cmd_merge;
 mod cmd_platform;
 mod cmd_prompt;
 mod cmd_replay;
 mod cmd_resilience;
-mod cmd_viral;
 mod cmd_snapshot;
-mod cmd_division;
+mod cmd_viral;
 mod cmd_workflow;
 mod cmd_workflow_types;
 mod cmd_world;
@@ -51,6 +53,7 @@ use crate::cmd_capsule::{
 };
 use crate::cmd_dev::*;
 use crate::cmd_division::*;
+use crate::cmd_division::*;
 use crate::cmd_eval::{cmd_eval_import, cmd_eval_parasitism, cmd_eval_run};
 use crate::cmd_experiment::{
     cmd_experiment_branch_evolution, cmd_experiment_bug_investigation,
@@ -65,7 +68,6 @@ use crate::cmd_platform::{cmd_platform_ingest, cmd_platform_search, cmd_platform
 use crate::cmd_prompt::{cmd_prompt_diff, cmd_prompt_publish, cmd_prompt_render};
 use crate::cmd_replay::{cmd_diff, cmd_replay_basic, cmd_replay_from_snapshot};
 use crate::cmd_resilience::*;
-use crate::cmd_division::*;
 use crate::cmd_snapshot::{
     cmd_snapshot_add_memory, cmd_snapshot_check_var, cmd_snapshot_checkpoint, cmd_snapshot_compare,
     cmd_snapshot_create, cmd_snapshot_get, cmd_snapshot_lineage, cmd_snapshot_list,
@@ -202,7 +204,9 @@ async fn main() -> Result<()> {
             ResilienceSubcommands::CassetteInduce(args) => {
                 crate::cmd_viral::cmd_resilience_cassette_induce(args).await
             }
-            ResilienceSubcommands::Transduce(args) => crate::cmd_viral::cmd_resilience_transduce(args).await,
+            ResilienceSubcommands::Transduce(args) => {
+                crate::cmd_viral::cmd_resilience_transduce(args).await
+            }
             ResilienceSubcommands::VirophageDeploy(args) => {
                 cmd_resilience_virophage_deploy(args).await
             }
@@ -261,13 +265,7 @@ async fn main() -> Result<()> {
             EvalSubcommands::Run(args) => cmd_eval_run(args),
             EvalSubcommands::Parasitism(args) => cmd_eval_parasitism(args),
         },
+        Commands::Audit(args) => cmd_audit::run(args).await,
+        Commands::Merge(args) => cmd_merge::run(args).await,
     }
 }
-
-
-
-
-
-
-
-

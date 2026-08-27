@@ -26,7 +26,7 @@ pub(crate) use mitosis::{build_daughter_capsule, rollback};
 pub use budding::{bud_capsule, BudOutcome, BudSpec, DEFAULT_HAYFLICK_LIMIT};
 pub use fission::{binary_fission_capsules, FissionOutcome};
 pub use mitosis::{mitotic_fork_capsules, DaughterAttestation, MitosisOutcome};
-pub use schizogony::{schizogonic_burst, SchizogonyBurst, SchizogonyBranchSpec};
+pub use schizogony::{schizogonic_burst, SchizogonyBranchSpec, SchizogonyBurst};
 
 #[cfg(test)]
 mod tests;

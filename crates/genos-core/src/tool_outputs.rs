@@ -148,6 +148,7 @@ pub fn record_tool_call_on_branch_at(
 
     let requested_sequence = snapshot.state.event_cursor.sequence + 1;
     let requested_event = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: snapshot.agent_id.clone(),
         branch_id: Some(snapshot.branch_id.clone()),
@@ -170,6 +171,7 @@ pub fn record_tool_call_on_branch_at(
         AgentEventType::ToolFailed
     };
     let completed_event = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: snapshot.agent_id.clone(),
         branch_id: Some(snapshot.branch_id.clone()),

@@ -61,12 +61,18 @@ impl TrophicNetwork {
     /// Biomasse soutenable pour chaque espèce, calculée du bas vers le haut
     /// par itération de point fixe (les niveaux supérieurs dépendent des
     /// capacités déjà calculées des niveaux inférieurs).
-    pub fn carrying_capacities(&self, producer_biomass: &BTreeMap<String, f64>) -> BTreeMap<String, f64> {
+    pub fn carrying_capacities(
+        &self,
+        producer_biomass: &BTreeMap<String, f64>,
+    ) -> BTreeMap<String, f64> {
         let mut capacities: BTreeMap<String, f64> = BTreeMap::new();
         // Amorçage : producteurs d'abord.
         for (name, role) in &self.roles {
             if matches!(role, TrophicRole::Producer) {
-                capacities.insert(name.clone(), producer_biomass.get(name).copied().unwrap_or(0.0));
+                capacities.insert(
+                    name.clone(),
+                    producer_biomass.get(name).copied().unwrap_or(0.0),
+                );
             }
         }
         // Itération jusqu'à stabilisation (au plus n tours).
@@ -107,8 +113,10 @@ impl TrophicNetwork {
         populations
             .iter()
             .filter(|(name, pop)| {
-                matches!(self.roles.get(*name), Some(TrophicRole::Consumer | TrophicRole::Predator))
-                    && **pop > capacities.get(*name).copied().unwrap_or(0.0) + 1e-9
+                matches!(
+                    self.roles.get(*name),
+                    Some(TrophicRole::Consumer | TrophicRole::Predator)
+                ) && **pop > capacities.get(*name).copied().unwrap_or(0.0) + 1e-9
             })
             .map(|(name, _)| name.clone())
             .collect()
@@ -197,8 +205,16 @@ mod tests {
         let caps = net.carrying_capacities(&producers);
         // Herbivore : 1000*0.5 = 500 d'entrée, x0.1 (Lindeman) => 50.
         // Carnivore : 50*0.3 = 15 d'entrée, x0.1 => 1.5.
-        assert!((caps["herbivore"] - 50.0).abs() < 1e-9, "obtenu {}", caps["herbivore"]);
-        assert!((caps["carnivore"] - 1.5).abs() < 1e-9, "obtenu {}", caps["carnivore"]);
+        assert!(
+            (caps["herbivore"] - 50.0).abs() < 1e-9,
+            "obtenu {}",
+            caps["herbivore"]
+        );
+        assert!(
+            (caps["carnivore"] - 1.5).abs() < 1e-9,
+            "obtenu {}",
+            caps["carnivore"]
+        );
         assert!(
             caps["carnivore"] < caps["herbivore"],
             "pyramide écologique : le sommet porte moins que l'étage inférieur"
@@ -241,7 +257,11 @@ mod tests {
         // Incendie sévère : retour au stade pionnier.
         eco.disturb(0.99);
         assert_eq!(eco.stage, SuccessionStage::Pioneer);
-        assert!(eco.biomass < 20.0, "la biomasse s'effondre ({})", eco.biomass);
+        assert!(
+            eco.biomass < 20.0,
+            "la biomasse s'effondre ({})",
+            eco.biomass
+        );
 
         // La succession repart.
         for _ in 0..300 {

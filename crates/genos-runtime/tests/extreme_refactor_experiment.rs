@@ -1,4 +1,4 @@
-﻿use genos_core::{
+use genos_core::{
     build_lineage_dag, AgentEvent, AgentEventType, AgentId, BranchId, CorrelationId, EventId,
     SnapshotId,
 };
@@ -27,6 +27,7 @@ fn write(path: &Path, contents: &str) -> anyhow::Result<()> {
 #[allow(clippy::too_many_arguments)]
 fn fork_event(parent: &SnapshotId, child: &SnapshotId, label: &str, sequence: u64) -> AgentEvent {
     AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: AgentId::new(),
         branch_id: Some(BranchId(label.to_string())),
@@ -303,7 +304,7 @@ async fn recursively_forked_critical_refactor_explains_selection_and_reuses_find
     assert_eq!(synthesis.selected_branch, BranchId("DB outbox".to_string()));
     assert_eq!(synthesis.rejected_hypotheses.len(), 3);
     assert_eq!(synthesis.reused_discoveries.len(), 7);
-    println!("lineage=S0â†’3 familiesâ†’7 strategies");
+    println!("lineage=S0→3 families→7 strategies");
     for outcome in &outcomes {
         println!(
             "{} pipeline=4/4 diff={} files",

@@ -74,11 +74,7 @@ pub fn migration_step(demes: &mut [Vec<AgentGenome>], migration_rate: f64) {
 /// Contrairement au bottleneck (qui ampute la population existante), le fondateur
 /// CRÉE une nouvelle lignée à partir de `founder_count` individus tirés dans
 /// `source`. L'échantillonnage est déterministe pour un même `seed`.
-pub fn founder_effect(
-    source: &[AgentGenome],
-    founder_count: usize,
-    seed: u64,
-) -> Vec<AgentGenome> {
+pub fn founder_effect(source: &[AgentGenome], founder_count: usize, seed: u64) -> Vec<AgentGenome> {
     if source.is_empty() || founder_count == 0 {
         return Vec::new();
     }

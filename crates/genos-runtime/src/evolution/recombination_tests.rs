@@ -173,7 +173,10 @@ fn test_hotspot_recombination_increases_local_shuffling() {
             from_b += 1;
         }
     }
-    assert!(from_a > 40 && from_b > 40, "brassage local attendu (a={from_a}, b={from_b})");
+    assert!(
+        from_a > 40 && from_b > 40,
+        "brassage local attendu (a={from_a}, b={from_b})"
+    );
 
     // Un gène hors hotspot suit le croisement standard (segment alice).
     let cold = locus("cold_gene", 0.0);
@@ -188,5 +191,8 @@ fn test_hotspot_recombination_increases_local_shuffling() {
         },
         &mut prng,
     );
-    assert_eq!(res.value, 0.0, "hors hotspot, le schéma mono-point s'applique");
+    assert_eq!(
+        res.value, 0.0,
+        "hors hotspot, le schéma mono-point s'applique"
+    );
 }

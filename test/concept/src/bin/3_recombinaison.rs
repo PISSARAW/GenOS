@@ -15,7 +15,10 @@ fn main() {
     println!("--- 2. AGENTS EXPERTS (Multi-agents classique) ---");
     let prompt_expert1 = "Tu es l'Expert Algo. Écris le tri.";
     let prompt_expert2 = "Tu es l'Expert Sécurité. Critique le code de l'Expert Algo.";
-    println!("> PROMPTS ENVOYÉS :\n1. {}\n2. {}\n", prompt_expert1, prompt_expert2);
+    println!(
+        "> PROMPTS ENVOYÉS :\n1. {}\n2. {}\n",
+        prompt_expert1, prompt_expert2
+    );
     println!("> RÉSULTAT ATTENDU :");
     println!("L'architecture multi-agents force les deux LLMs à discuter. Cela génère des allers-retours très coûteux en tokens et très lents.\n");
 
@@ -31,6 +34,8 @@ fn main() {
     println!("> PROMPT ENVOYÉ :\n{}\n", prompt_orchestrator);
     println!("> RÉSULTAT ATTENDU (Mécanique GenOS) :");
     println!("L'orchestrateur exécute la recombinaison (Méiose). Le backend crée mathématiquement l'Enfant_C (Hybride).");
-    println!("Enfant_C hérite de : {{ syntax_strictness: 0.9 (de A), exploration_drive: 0.9 (de B) }}.");
+    println!(
+        "Enfant_C hérite de : {{ syntax_strictness: 0.9 (de A), exploration_drive: 0.9 (de B) }}."
+    );
     println!("Ensuite, l'Orchestrateur déploie UN SEUL agent (l'Enfant_C) avec ce nouveau génome.\nLe coût en tokens est divisé par deux comparé au swarm classique, sans perte d'expertise.\n");
 }

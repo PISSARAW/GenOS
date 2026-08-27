@@ -1,4 +1,4 @@
-﻿use super::*;
+use super::*;
 use crate::events::{AgentEvent, AgentEventType};
 use crate::ids::{AgentId, BranchId, EventId, SnapshotId};
 use chrono::{DateTime, Utc};
@@ -12,6 +12,7 @@ fn evt(
     branch_id: BranchId,
 ) -> AgentEvent {
     AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: AgentId::new(),
         branch_id: Some(branch_id),

@@ -29,7 +29,9 @@ pub async fn cmd_resilience_cryptobiosis(args: CryptobiosisArgs) -> Result<()> {
     let mode = match args.mode.to_lowercase().as_str() {
         "cryobiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Cryobiosis,
         "osmobiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Osmobiosis,
-        "anoxybiosis" => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Anoxybiosis,
+        "anoxybiosis" => {
+            genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Anoxybiosis
+        }
         _ => genos_core::resilience::disaster::cryptobiose::CryptobiosisMode::Anhydrobiosis,
     };
     let spore = Spore::new(&state_data, mode);
@@ -79,8 +81,8 @@ pub async fn cmd_resilience_circuit_breaker(args: CircuitBreakerArgs) -> Result<
 }
 
 use crate::args::{
-    ViralStatusArgs, BurstArgs, CassetteIntegrateArgs, CassetteInduceArgs,
-    TransduceArgs, VirophageDeployArgs, VirophageObserveArgs, VirophageHarvestArgs
+    BurstArgs, CassetteInduceArgs, CassetteIntegrateArgs, TransduceArgs, ViralStatusArgs,
+    VirophageDeployArgs, VirophageHarvestArgs, VirophageObserveArgs,
 };
 
 pub async fn cmd_resilience_viral_status(args: ViralStatusArgs) -> Result<()> {

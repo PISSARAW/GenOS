@@ -1,4 +1,4 @@
-﻿use chrono::Utc;
+use chrono::Utc;
 use genos_core::{
     checkpoint_snapshot, upsert_belief_at, AgentEvent, AgentEventType, AgentSnapshot, BeliefStatus,
     CorrelationId, EventId, EvidenceRef,
@@ -126,6 +126,7 @@ fn create_merge_applied_event(
         .collect::<HashSet<_>>();
 
     AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: snapshot.agent_id.clone(),
         branch_id: Some(snapshot.branch_id.clone()),
