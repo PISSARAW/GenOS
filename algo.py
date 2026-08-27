@@ -23,7 +23,7 @@ def calculer_cout_dynamique(noeud_a, noeud_b, etape, total_noeuds):
     dy = noeud_b['y'] - noeud_a['y']
     dz = noeud_b['z'] - noeud_a['z']
     distance = math.sqrt(dx*dx + dy*dy + dz*dz)
-    penalite_alt = 1.2 if dz > 0 else 1.0
+    penalite_alt = 1.2 if dz != 0 else 1.0
     penalite_masse = 1.0 + (noeud_b['masse'] * (etape / float(total_noeuds)))
     return distance * penalite_alt * penalite_masse
 
