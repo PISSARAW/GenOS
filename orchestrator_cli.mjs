@@ -4,94 +4,80 @@ import { join } from 'node:path';
 
 const STATE_DIR = join('.genos', 'orchestrator');
 const SNAPSHOTS_DIR = join(STATE_DIR, 'snapshots');
+const MAX_SLOTS = 3;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-class TelemetryAgent {
+class ParkingLot {
     constructor() {
-        this.name = 'Observer';
+        this.parked = [];
     }
 
-    log(message) {
-        console.log(`[${this.name}] TELEMETRY: ${message}`);
+    park(slot) {
+        const entry = { ...slot, parkedAt: new Date().toISOString() };
+        this.parked.push(entry);
+        return entry;
     }
+
+    wake(agentId) {
+        const idx = this.parked.findIndex((s) => s.agentId === agentId);
+        if (idx === -1) return null;
+        const [entry] = this.parked.splice(idx, 1);
+        return entry;
+    }
+
+    bestMatch(task) {
+        if (this.parked.length === 0) return null;
+        const haystack = task.toLowerCase();
+        let best = null;
+        let bestScore = -1;
+        for (const entry of this.parked) {
+            const score = entry.keywords.reduce((s, k) => (haystack.includes(k) ? s + 1 : s), 0);
+            if (score > bestScore) { bestScore = score; best = entry; }
+        }
+        return bestScore > 0 ? best : null;
+    }
+}
+
+class TelemetryAgent {
+    log(message) { console.log(`[Observer] TELEMETRY: ${message}`); }
 }
 
 class Agent {
     constructor({ id, role, description, keywords }) {
-        this.id = id;
-        this.role = role;
-        this.description = description;
-        this.keywords = keywords;
+        Object.assign(this, { id, role, description, keywords });
     }
-
     score(task) {
-        const haystack = task.toLowerCase();
-        return this.keywords.reduce((sum, keyword) => (haystack.includes(keyword) ? sum + 1 : sum), 0);
+        const h = task.toLowerCase();
+        return this.keywords.reduce((s, k) => (h.includes(k) ? s + 1 : s), 0);
     }
-
-    plan(task) {
-        throw new Error(`${this.id} ne sait pas planifier`);
-    }
+    plan(_task) { throw new Error(`${this.id} ne sait pas planifier`); }
 }
 
 class BackendAgent extends Agent {
     constructor() {
-        super({
-            id: 'backend',
-            role: 'Ingénieur Backend',
-            description: 'Runtime, stockage, API et primitives Rust du workspace.',
-            keywords: ['api', 'backend', 'rust', 'runtime', 'store', 'storage', 'base de données', 'endpoint', 'serveur', 'cli', 'crates'],
-        });
+        super({ id: 'backend', role: 'Ingénieur Backend', description: 'Runtime, stockage, API et primitives Rust.', keywords: ['api', 'backend', 'rust', 'runtime', 'store', 'storage', 'base de données', 'endpoint', 'serveur', 'cli', 'crates'] });
     }
-
     plan(task) {
-        return [
-            `Analyse du besoin : "${task}".`,
-            "Isolation du travail dans une Capsule dédiée (aucun effet de bord sur le runtime principal).",
-            'Implémentation côté crates (genos-runtime / genos-store) avec tests unitaires associés.',
-            'Évaluation empirique locale, puis fusion conditionnelle dans la branche principale.',
-        ];
+        return [`Analyse : "${task}".`, "Isolation dans une Capsule dédiée.", 'Implémentation crates avec tests unitaires.', 'Fusion conditionnelle dans la branche principale.'];
     }
 }
 
 class FrontendAgent extends Agent {
     constructor() {
-        super({
-            id: 'frontend',
-            role: 'Ingénieur Frontend',
-            description: 'Studio web, interfaces, visualisation des lineage et telemetry.',
-            keywords: ['ui', 'interface', 'studio', 'web', 'frontend', 'écran', 'graphique', 'affichage', 'dashboard', 'visualisation'],
-        });
+        super({ id: 'frontend', role: 'Ingénieur Frontend', description: 'Studio web, interfaces, visualisation.', keywords: ['ui', 'interface', 'studio', 'web', 'frontend', 'écran', 'graphique', 'affichage', 'dashboard', 'visualisation'] });
     }
-
     plan(task) {
-        return [
-            `Analyse du besoin : "${task}".`,
-            'Fork du workspace courant pour expérimenter sans casser la vue stable du Studio.',
-            'Implémentation composants + état local versionné.',
-            'Replay causal des interactions pour vérifier que la nouvelle vue reste déterministe.',
-        ];
+        return [`Analyse : "${task}".`, 'Fork workspace pour expérimenter sans casser la vue stable.', 'Implémentation composants + état local versionné.', 'Replay causal pour vérifier la déterminisme.'];
     }
 }
 
 class QAAgent extends Agent {
     constructor() {
-        super({
-            id: 'qa',
-            role: 'Ingénieur QA',
-            description: 'Tests, régressions, évaluation empirique des hypothèses.',
-            keywords: ['test', 'qa', 'bug', 'régression', 'verifier', 'vérifier', 'qualité', 'benchmark', 'evaluation', 'évaluation'],
-        });
+        super({ id: 'qa', role: 'Ingénieur QA', description: 'Tests, régressions, évaluation empirique.', keywords: ['test', 'qa', 'bug', 'régression', 'verifier', 'vérifier', 'qualité', 'benchmark', 'evaluation', 'évaluation'] });
     }
-
     plan(task) {
-        return [
-            `Analyse du besoin : "${task}".`,
-            'Snapshot temporel de l\'état avant exécution (rollback garanti).',
-            'Exécution de la suite de tests + collecte des résultats bruts.',
-            'Rapport d\'évidence : chaque affirmation reliée à un test ou un exemple exécutable.',
-        ];
+        return [`Analyse : "${task}".`, "Snapshot avant exécution (rollback garanti).", 'Exécution de la suite de tests + collecte des résultats.', "Rapport d'évidence lié à un test exécutable."];
     }
 }
 
@@ -102,6 +88,8 @@ class Orchestrator {
         this.counter = 0;
         this.queue = [];
         this.history = [];
+        this.activeSlots = [];
+        this.lot = new ParkingLot();
         mkdirSync(SNAPSHOTS_DIR, { recursive: true });
         this.telemetry.log('Orchestrator Swarm initialisé (backend, frontend, qa + Observer).');
     }
@@ -120,28 +108,56 @@ class Orchestrator {
         return item;
     }
 
+    _parkOldest() {
+        const oldest = this.activeSlots.shift();
+        if (!oldest) return null;
+        const entry = this.lot.park(oldest);
+        this.telemetry.log(`Slot [${oldest.agentId}] garé (tâche #${oldest.task.id}).`);
+        return entry;
+    }
+
+    _occupySlot(agent, task, steps) {
+        const slot = { agentId: agent.id, keywords: agent.keywords, task, steps, startedAt: new Date().toISOString() };
+        this.activeSlots.push(slot);
+        return slot;
+    }
+
+    wakeAgent(agentId) {
+        const entry = this.lot.wake(agentId);
+        if (!entry) return `Aucun agent "${agentId}" dans le parking.`;
+        this.activeSlots.push({ ...entry, resumedAt: new Date().toISOString() });
+        this.telemetry.log(`Agent [${agentId}] réactivé depuis le parking (tâche #${entry.task.id}).`);
+        return `[${agentId}] réactivé — tâche #${entry.task.id} : "${entry.task.text}"`;
+    }
+
     async processNext() {
         const item = this.queue.shift();
         if (!item) return null;
+
+        if (this.activeSlots.length >= MAX_SLOTS) {
+            this._parkOldest();
+        }
+
+        const parkedMatch = this.lot.bestMatch(item.text);
+        if (parkedMatch) {
+            this.telemetry.log(`Match parking : réactivation de [${parkedMatch.agentId}] pour #${item.id}.`);
+            this.lot.wake(parkedMatch.agentId);
+        }
+
         const startedAt = Date.now();
         const ranked = this.selectAgent(item.text);
-
         let outcome;
+
         if (ranked[0].score === 0) {
-            this.telemetry.log(`Aucune spécialité dominante pour #${item.id} : délibération multi-agents.`);
+            this.telemetry.log(`Délibération multi-agents pour #${item.id}.`);
             const steps = [];
             for (const { agent } of ranked) {
                 this.telemetry.log(`[${agent.id}] formule son approche pour #${item.id}...`);
                 steps.push(...agent.plan(item.text));
                 await sleep(120);
             }
-            outcome = {
-                ...item,
-                mode: 'délibération',
-                assignedTo: this.agents.map((a) => a.id),
-                steps,
-                durationMs: Date.now() - startedAt,
-            };
+            this._occupySlot(ranked[0].agent, item, steps);
+            outcome = { ...item, mode: 'délibération', assignedTo: this.agents.map((a) => a.id), steps, durationMs: Date.now() - startedAt };
         } else {
             const { agent, score } = ranked[0];
             this.telemetry.log(`#${item.id} assignée à ${agent.id} (score ${score}).`);
@@ -150,14 +166,13 @@ class Orchestrator {
                 this.telemetry.log(`[${agent.id}] étape ${i + 1}/${steps.length}`);
                 await sleep(150);
             }
-            outcome = {
-                ...item,
-                mode: 'spécialiste',
-                assignedTo: [agent.id],
-                steps,
-                durationMs: Date.now() - startedAt,
-            };
+            this._occupySlot(agent, item, steps);
+            outcome = { ...item, mode: 'spécialiste', assignedTo: [agent.id], steps, durationMs: Date.now() - startedAt };
         }
+
+        this.activeSlots = this.activeSlots.filter((s) => s.task.id !== item.id);
+        this.lot.park({ agentId: outcome.assignedTo[0], keywords: ranked[0].agent.keywords, task: item, steps: outcome.steps, startedAt });
+        this.telemetry.log(`[${outcome.assignedTo[0]}] garé après tâche #${item.id}.`);
 
         this.history.push(outcome);
         this.persist();
@@ -186,6 +201,8 @@ class Orchestrator {
             counter: this.counter,
             queue: this.queue,
             history: this.history,
+            activeSlots: this.activeSlots,
+            parked: this.lot.parked,
         };
         const path = join(SNAPSHOTS_DIR, `${name}.json`);
         writeFileSync(path, JSON.stringify(payload, null, 2));
@@ -204,6 +221,8 @@ class Orchestrator {
         this.counter = payload.counter ?? 0;
         this.queue = payload.queue ?? [];
         this.history = payload.history ?? [];
+        this.activeSlots = payload.activeSlots ?? [];
+        this.lot.parked = payload.parked ?? [];
         this.persist();
         this.telemetry.log(`Snapshot "${name}" restauré (${this.history.length} tâches, ${this.queue.length} en attente).`);
         return null;
@@ -212,11 +231,22 @@ class Orchestrator {
     status() {
         return [
             `[Orchestrator] État courant`,
-            `  Compteur de tâches : ${this.counter}`,
+            `  Slots actifs       : ${this.activeSlots.length}/${MAX_SLOTS}`,
+            `  Parking lot        : ${this.lot.parked.length} agent(s)`,
             `  File d'attente     : ${this.queue.length}`,
             `  Historique         : ${this.history.length}`,
             `  Snapshots          : ${this.listSnapshots().join(', ') || 'aucun'}`,
         ].join('\n');
+    }
+
+    renderSlots() {
+        if (this.activeSlots.length === 0) return '[Orchestrator] Aucun slot actif.';
+        return this.activeSlots.map((s) => `  [${s.agentId}] tâche #${s.task.id} : "${s.task.text}" (depuis ${s.startedAt})`).join('\n');
+    }
+
+    renderParked() {
+        if (this.lot.parked.length === 0) return '[Orchestrator] Parking lot vide.';
+        return this.lot.parked.map((s) => `  [${s.agentId}] tâche #${s.task.id} : "${s.task.text}" (garé ${s.parkedAt})`).join('\n');
     }
 
     renderHistory(limit = 10) {
@@ -230,13 +260,16 @@ class Orchestrator {
 
 const HELP = [
     '=== GenOS CLI Orchestrator ===',
-    'Agents : backend | frontend | qa (+ Observer en télémétrie)',
+    `Agents : backend | frontend | qa (+ Observer) — ${MAX_SLOTS} slots max, rotation parking lot`,
     '',
     'Commandes :',
     '  help              Afficher cette aide',
     '  agents            Lister les agents et leurs spécialités',
     '  status            État de l\'orchestrateur',
     '  task <texte>      Soumettre une tâche au swarm (le texte libre fonctionne aussi)',
+    '  slots             Slots actifs actuels',
+    '  parked            Agents dans le parking lot',
+    '  wake <agentId>    Réactiver un agent garé (backend | frontend | qa)',
     '  history           Dernières tâches traitées',
     '  snapshot <nom>    Capturer l\'état courant',
     '  snapshots         Lister les snapshots disponibles',
@@ -264,6 +297,13 @@ async function handleInput(input, orchestrator) {
             if (!argument) return '[Orchestrator] Usage : task <description>';
             orchestrator.enqueue(argument);
             return orchestrator.renderOutcome(await orchestrator.processNext());
+        case 'slots':
+            return `[Orchestrator] Slots actifs :\n${orchestrator.renderSlots()}`;
+        case 'parked':
+            return `[Orchestrator] Parking lot :\n${orchestrator.renderParked()}`;
+        case 'wake':
+            if (!argument) return '[Orchestrator] Usage : wake <agentId>';
+            return orchestrator.wakeAgent(argument);
         case 'history':
             return `[Orchestrator] Historique :\n${orchestrator.renderHistory()}`;
         case 'snapshot':

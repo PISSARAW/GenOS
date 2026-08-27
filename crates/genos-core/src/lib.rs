@@ -52,3 +52,4 @@ pub use state::*;
 pub use tool_outputs::*;
 pub use variables::*;
 pub mod molecular;
+pub mod swarm;
