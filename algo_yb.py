@@ -53,20 +53,24 @@ def entrelacer_bits(x, y, z):
     return separer_bits(x) | (separer_bits(y) << 1) | (separer_bits(z) << 2)
 
 def algo_yahn(noeuds):
+    depot = noeuds[0]
     for n in noeuds:
         n['z_code'] = entrelacer_bits(n['x']/10, n['y']/10, n['z']/2)
     # Stratification : on divise en 5 groupes de masse décroissante
-    noeuds_tries = sorted(noeuds, key=lambda n: (-int(n['masse'] * 2), n['z_code']))
-    return [n['id'] for n in noeuds_tries]
+    noeuds_sans_depot = noeuds[1:]
+    noeuds_tries = sorted(noeuds_sans_depot, key=lambda n: (-n['masse'], n['z_code']))
+    return [depot['id']] + [n['id'] for n in noeuds_tries]
 
 # BOAZ : Algorithme de Pulsation Radiale
 # Totalement non-glouton : Tri par distance au centre
 def algo_boaz(noeuds):
+    depot = noeuds[0]
     centre_x, centre_y, centre_z = 5000, 5000, 1000
     for n in noeuds:
         n['dist_centre'] = math.sqrt((n['x']-centre_x)**2 + (n['y']-centre_y)**2 + ((n['z']-centre_z)*5)**2)
-    noeuds_tries = sorted(noeuds, key=lambda n: n['dist_centre'])
-    return [n['id'] for n in noeuds_tries]
+    noeuds_sans_depot = noeuds[1:]
+    noeuds_tries = sorted(noeuds_sans_depot, key=lambda n: n['dist_centre'])
+    return [depot['id']] + [n['id'] for n in noeuds_tries]
 
 def main():
     noeuds = lire_donnees("noeuds_10000.csv")
