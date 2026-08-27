@@ -1,0 +1,1 @@
+{ "name": "genos_molecular_prompt", "description": "Build a dynamic system prompt based on a simulated RNA sequence.", "parameters": { "type": "object", "properties": { "base_prompt": { "type": "string" }, "rna_sequence": { "type": "array", "items": { "type": "string" } }, "torpor_mode": { "type": "boolean" } }, "required": ["base_prompt", "rna_sequence", "torpor_mode"] } }
