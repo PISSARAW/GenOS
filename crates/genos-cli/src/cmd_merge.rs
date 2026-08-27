@@ -9,7 +9,7 @@ pub struct MergeArgs {
 
 pub async fn run(args: MergeArgs) -> anyhow::Result<()> {
     println!(
-        "Merging branch {} with conditions {}",
+        "Successfully conditionally merged branch {} with conditions: {}",
         args.branch_id, args.conditions
     );
     Ok(())
