@@ -158,7 +158,7 @@ export const McpSchemaFormBuilder: React.FC<FormBuilderProps> = ({ toolName, onC
             {schemaLoading && !schema && !schemaError && <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Loading schema…</div>}
             {schemaError && (
               <div style={{ gridColumn: 'span 2', fontSize: '0.8rem', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span>⚠ Failed to load schema: {schemaError}</span>
+                <span>Failed to load schema: {schemaError}</span>
                 <button onClick={fetchSchema} className="gh-btn" style={{ fontSize: '0.75rem', padding: '2px 8px' }}>Retry</button>
               </div>
             )}
