@@ -1,0 +1,18 @@
+﻿{
+  "name": "genos_world_hardlink_create",
+  "description": "Create a new GenOS world using the hardlink Copy-on-Write provider.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "world_id": {
+        "type": "string",
+        "description": "ID of the new world"
+      },
+      "seed": {
+        "type": "string",
+        "description": "Path to the seed directory to clone via hardlinks"
+      }
+    },
+    "required": ["world_id", "seed"]
+  }
+}

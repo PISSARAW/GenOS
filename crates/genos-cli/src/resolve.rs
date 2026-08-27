@@ -34,6 +34,9 @@ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldPr
             }
             Ok(Box::new(provider) as Box<dyn WorldProvider>)
         }
+        WorldProviderKind::Hardlink => {
+            Ok(Box::new(genos_world::HardlinkWorldProvider::new(root, seed)?) as Box<dyn WorldProvider>)
+        }
         WorldProviderKind::GitWorktree => {
             let repo = repo.context("--repo is required for provider git-worktree")?;
             Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?) as Box<dyn WorldProvider>)
@@ -44,6 +47,7 @@ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldPr
 pub fn provider_name(kind: WorldProviderKind) -> &'static str {
     match kind {
         WorldProviderKind::Directory => "directory",
+        WorldProviderKind::Hardlink => "hardlink",
         WorldProviderKind::GitWorktree => "git_worktree",
     }
 }

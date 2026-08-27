@@ -279,6 +279,9 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_strat_solver_tournament', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Solver Tournament strategy primitive' },
   { name: 'genos_strat_elo', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Elo strategy primitive' },
   { name: 'genos_strat_pareto', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute Pareto strategy primitive' },
+  { name: 'genos_cost_accounting', cat: 'Experimental Labs', risk: 'Low', desc: 'Calculate and report cost accounting for agents and resources.' },
+  { name: 'genos_merge', cat: 'Workspace Control', risk: 'High', desc: 'Merge a branch conditionally based on given conditions.' },
+  { name: 'genos_export_audit', cat: 'Experimental Labs', risk: 'Low', desc: 'Export an audit bundle for a specific snapshot.' }
 ];
 
 async function seedMcpTools(db) {

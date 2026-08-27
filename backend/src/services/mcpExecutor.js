@@ -103,45 +103,36 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
-  if (toolName === 'genos_merge') {
-    const cp = require('child_process');
-    try {
-      const out = cp.execSync(`genos merge ${args.branch_id} --conditions "${args.conditions}"`);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
-    } catch (e) {
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
-    }
+  const runLocal = (cmd) => {
+    try { return { configured: true, success: true, status: 'completed', transport: 'local', output: require('child_process').execSync(cmd).toString() }; }
+    catch (e) { return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
+  };
+  if (toolName === 'genos_agent_world_capsule') {
+    return runLocal(`genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''));
   }
-  if (toolName === 'genos_pareto_eval') {
-    const cp = require('child_process');
-    try {
-      const out = cp.execSync(`genos experiment select ${args.input_file} --format json`);
-      require('fs').writeFileSync(args.output_file, out);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Pareto evaluation written to ${args.output_file}` };
-    } catch (e) {
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
-    }
+  if (toolName === 'genos_deterministic_sha256_rag') {
+    if (args.action === 'ingest') return runLocal(`genos platform ingest "${args.document}"` + (args.index ? ` --index "${args.index}"` : ''));
+    if (args.action === 'search') return runLocal(`genos platform search "${args.query}"` + (args.index ? ` --index "${args.index}"` : ''));
+    return { configured: true, success: false, status: 'tool_error', transport: 'local', output: 'Invalid action for RAG.' };
   }
-  if (toolName === 'genos_export_audit') {
-    const cp = require('child_process');
-    const outputPath = args.output || `audit_${args.snapshot_id}.log`;
-    try {
-      const out = cp.execSync(`genos audit ${args.snapshot_id} --output "${outputPath}"`);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
-    } catch (e) {
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    if (toolName === 'genos_world_sandbox_execute') {
+      return runLocal(`genos world run --provider directory --root .genos/world --world-id ${args.world_id} --command "${args.command}" --sandbox-backend ${args.backend}`);
     }
-  }
-  if (toolName === 'genos_cost_accounting') {
-    const cp = require('child_process');
-    try {
-      const timeframeArg = args.timeframe ? `--timeframe ${args.timeframe}` : '';
-      const out = cp.execSync(`genos cost-accounting ${args.agent_id} ${timeframeArg}`);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
-    } catch (e) {
-      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    if (toolName === 'genos_world_hardlink_create') {
+      return runLocal(`genos world create --provider hardlink --root .genos/world --world-id ${args.world_id} --seed "${args.seed}"`);
     }
+    if (toolName === 'genos_biomimicry_sar_prime') {
+      return runLocal(`genos biomimicry bio-feature --feature sar --action prime --param incident_id=${args.incident_id} --param severity=${args.severity || 1.0}`);
+    }
+    if (toolName === 'genos_advanced_budget_allocation') {
+    let cmdParams = [`--param total_budget=${args.total_budget}`];
+    if (args.entropy !== undefined) cmdParams.push(`--param entropy=${args.entropy}`);
+    if (args.scenarios) args.scenarios.forEach(s => cmdParams.push(`--param scenario="${s}"`));
+    return runLocal(`genos biomimicry bio-feature --feature bet-hedging --action allocate ${cmdParams.join(' ')}`);
   }
+  if (toolName === 'genos_merge') return runLocal(`genos merge ${args.branch_id} --conditions "${args.conditions}"`);
+  if (toolName === 'genos_export_audit') return runLocal(`genos audit ${args.snapshot_id} --output "${args.output || `audit_${args.snapshot_id}.log`}"`);
+  if (toolName === 'genos_cost_accounting') return runLocal(`genos cost-accounting ${args.agent_id} ${args.timeframe ? `--timeframe ${args.timeframe}` : ''}`);
   if (toolName === 'genos_loop_detection_check') {
     const cp = require('child_process');
     const { history_file, exact_match = 3, stagnation = 5, similarity = 0.95 } = args;
@@ -306,8 +297,8 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_biomimicry_hippocampal_consolidate') {
     const cp = require('child_process');
     try {
-      const steps = (args.dag_step || []).map(s => `--step ${s}`).join(' ');
-      const out = cp.execSync(`genos bio neuro hippocampal consolidate --agent-id ${args.agent_id} --success-score ${args.success_score} ${steps}`);
+      const steps = (args.dag_step || []).map(s => `--param dag_step=${s}`).join(' ');
+      const out = cp.execSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${args.success_score} ${steps}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -336,7 +327,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       if (args.steps) args.steps.forEach(s => cmdParams.push(`--param step=${s}`));
       if (args.preconditions) args.preconditions.forEach(p => cmdParams.push(`--param precondition=${p}`));
       
-      const cmd = `genos bio-feature proceduralization ${args.action} ${cmdParams.join(' ')}`;
+      const cmd = `genos biomimicry bio-feature --feature proceduralization --action ${args.action} ${cmdParams.join(' ')}`;
       const out = cp.execSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
@@ -348,7 +339,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     try {
       let cmdParams = [`--param phase=${args.phase}`];
       if (args.facts) args.facts.forEach(f => cmdParams.push(f));
-      const cmd = `genos bio-feature gate evaluate ${cmdParams.join(' ')}`;
+      const cmd = `genos biomimicry bio-feature --feature gate --action evaluate ${cmdParams.join(' ')}`;
       const out = cp.execSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
