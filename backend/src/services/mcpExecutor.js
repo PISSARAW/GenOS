@@ -115,18 +115,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     return { configured: true, success: true, status: 'completed', transport: 'local', output: `Cost accounting report for agent ${args.agent_id}: 1500 credits used.` };
   }
 
-  if (toolName === 'genos_epigenetic_chromatin') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Modified epigenetic chromatin marker for locus ${args.locus} to ${args.value}` };
-  }
-  if (toolName === 'genos_operon_evaluate') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Evaluated operon ${args.operon_id}` };
-  }
-  if (toolName === 'genos_hgt_transposon') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Transposon ${args.transposon_name} inserted at target ${args.target}` };
-  }
-  if (toolName === 'genos_distributed_scheduler') {
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: `Started distributed scheduler with ${args.workers} workers` };
-  }
+  // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 
   const transport = configuredTransport();
 
