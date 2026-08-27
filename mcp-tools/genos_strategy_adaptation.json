@@ -1,0 +1,13 @@
+{
+  "name": "genos_strategy_adaptation",
+  "description": "Trigger dynamic strategy adaptation based on budget/latency constraints.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "constraint": { "type": "string", "description": "e.g., latency, budget" },
+      "target_value": { "type": "number" }
+    },
+    "required": ["agent_id", "constraint", "target_value"]
+  }
+}
