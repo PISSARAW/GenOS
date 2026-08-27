@@ -1,0 +1,26 @@
+{
+  "name": "genos_guardrails_verify",
+  "description": "Verifies execution metrics against the agent's strict execution guardrails.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "iteration": {
+        "type": "integer",
+        "description": "The current execution iteration number."
+      },
+      "tokens": {
+        "type": "integer",
+        "description": "Total tokens used in this execution."
+      },
+      "elapsed": {
+        "type": "integer",
+        "description": "Elapsed execution time in seconds."
+      },
+      "uncertainty": {
+        "type": "number",
+        "description": "Current semantic uncertainty score."
+      }
+    },
+    "required": ["iteration", "tokens", "elapsed", "uncertainty"]
+  }
+}
