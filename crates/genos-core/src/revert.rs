@@ -1,8 +1,9 @@
 use crate::causality::CausalBoundary;
 use crate::entities::{check_intersection, EntityRef};
+use serde::{Deserialize, Serialize};
 
 /// Représente une action exécutée par l'agent dans le graphe causal.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CausalAction {
     pub step_index: usize,
     pub boundary_id: String,
@@ -13,6 +14,7 @@ pub struct CausalAction {
 }
 
 /// Graphe acyclique dirigé (DAG) pour suivre les dépendances entre actions.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ActionDependencyGraph {
     pub actions: Vec<CausalAction>,
 }
