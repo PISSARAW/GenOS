@@ -92,6 +92,7 @@ pub enum Commands {
     Causality(crate::cmd_causality::CausalityArgs),
     Phenotype(crate::cmd_phenotype::PhenotypeArgs),
     Rebase(crate::cmd_rebase::RebaseArgs),
+    Guardrails(crate::cmd_guardrails::GuardrailsArgs),
     
 }
 
