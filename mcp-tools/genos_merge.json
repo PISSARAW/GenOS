@@ -1,5 +1,5 @@
 {
-  "name": "genos_conditional_merge",
+  "name": "genos_merge",
   "description": "Merge a branch conditionally based on given conditions.",
   "parameters": {
     "type": "object",
