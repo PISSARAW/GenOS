@@ -88,6 +88,8 @@ pub enum Commands {
     Operon(crate::cmd_operon::OperonArgs),
     Hgt(crate::cmd_hgt::HgtTransposonArgs),
     Scheduler(crate::cmd_scheduler::SchedulerArgs),
+    LoopDetection(crate::cmd_loop_detection::LoopDetectionArgs),
+    
 }
 
 #[derive(ArgsMacro, Debug)]
@@ -157,3 +159,12 @@ use clap::Args as ArgsMacro;
 
 #[cfg(test)]
 mod tests;
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum SandboxBackendArg {
+    Bwrap,
+    SandboxExec,
+    Gvisor,
+    Firecracker,
+    None,
+}
