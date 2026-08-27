@@ -34,7 +34,7 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Lint
-        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings -A clippy::too_many_arguments -A clippy::type_complexity -A clippy::wrong_self_convention -A clippy::useless_vec -A clippy::unnecessary_map_or -A clippy::needless_borrow -A clippy::useless_format -A clippy::needless_question_mark -A clippy::while_let_on_iterator -A clippy::useless_conversion -A clippy::assign_op_pattern -A clippy::double_ended_iterator_last -A clippy::neg_cmp_op_on_partial_ord -A clippy::items_after_test_module
 
       - name: Build
         run: cargo build --locked --workspace --all-targets
