@@ -12,10 +12,12 @@ To support robust, secure multi-tenant execution and deterministic isolation wit
 We will provide an optional, configurable `SandboxConfig` to the `WorldProvider` backend execution primitives, leveraging existing lightweight containerization and VM boundaries:
 - `bwrap` (Bubblewrap) for native lightweight namespace isolation on Linux.
 - `sandbox-exec` for macOS native profile-based isolation.
+- `wsl` (Windows Subsystem for Linux + Bubblewrap) for native isolated kernel execution on Windows.
 - `gVisor` (`runsc`) for highly secure user-space kernel isolation.
 - `Firecracker` for microVM-based strict isolation.
+- `WindowsSandbox` (pending full programmatic .wsb implementation) for native Windows VM execution.
 
-The configuration will define `network_enabled` and required volume mounts (read-only or writable). The underlying backend (CLI and MCP tools via `genos_run`) will allow specifying a `--sandbox-backend` and `--sandbox-network`. The default behavior will remain non-sandboxed unless a backend is auto-detected (like Bwrap on Linux) or explicitly selected.
+The configuration will define `network_enabled` and required volume mounts (read-only or writable). The underlying backend (CLI and MCP tools via `genos_run`) will allow specifying a `--sandbox-backend` and `--sandbox-network`. The default behavior will remain non-sandboxed unless a backend is auto-detected (like Bwrap on Linux, sandbox-exec on macOS, or WSL on Windows) or explicitly selected.
 
 ## Consequences
 

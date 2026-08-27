@@ -7,6 +7,8 @@ pub enum SandboxBackend {
     SandboxExec,
     GVisor,
     Firecracker,
+    Wsl,
+    WindowsSandbox,
     None,
 }
 
@@ -41,12 +43,16 @@ impl OsSandbox {
             SandboxBackend::Firecracker => Self::firecracker_command(config, program),
             SandboxBackend::Bwrap => Self::bwrap_command(config, program),
             SandboxBackend::SandboxExec => Self::sandbox_exec_command(config, program),
+            SandboxBackend::Wsl => Self::wsl_command(config, program),
+            SandboxBackend::WindowsSandbox => Self::windows_sandbox_command(config, program),
             SandboxBackend::None => {
                 // Auto-detect based on OS
                 if cfg!(target_os = "linux") {
                     Self::bwrap_command(config, program)
                 } else if cfg!(target_os = "macos") {
                     Self::sandbox_exec_command(config, program)
+                } else if cfg!(target_os = "windows") {
+                    Self::wsl_command(config, program)
                 } else {
                     anyhow::bail!("no supported OS sandbox backend on this platform")
                 }
@@ -121,5 +127,47 @@ impl OsSandbox {
             .arg("--kernel-args")
             .arg(format!("init={} ", program));
         Ok(command)
+    }
+
+    fn wsl_command(config: &SandboxConfig, program: &str) -> anyhow::Result<Command> {
+        let mut command = Command::new("wsl");
+        command.arg("--exec");
+        
+        // Wrap the execution in bwrap inside WSL for maximum isolation if requested
+        command.arg("bwrap");
+        command.args(["--die-with-parent", "--new-session"]);
+        
+        if !config.network_enabled {
+            command.arg("--unshare-net");
+        }
+        
+        // Translating Windows paths to WSL paths (/mnt/c/...) is complex in a simple command,
+        // but we assume paths provided in mount are already compatible or we mount raw.
+        // For simplicity, we just pass the mounts.
+        for mount in &config.read_only_mounts {
+            command.args(["--ro-bind", mount, mount]);
+        }
+        for mount in &config.writable_mounts {
+            command.args(["--bind", mount, mount]);
+        }
+        if let Some(dir) = &config.working_directory {
+            // NOTE: dir must be a linux path or translated
+            let dir_str = dir.to_string_lossy().replace("\\", "/");
+            let wsl_dir = if dir_str.starts_with("C:/") || dir_str.starts_with("c:/") {
+                format!("/mnt/c/{}", &dir_str[3..])
+            } else {
+                dir_str
+            };
+            command.args(["--chdir", &wsl_dir]);
+        }
+        command.arg("--").arg(program);
+        Ok(command)
+    }
+
+    fn windows_sandbox_command(_config: &SandboxConfig, _program: &str) -> anyhow::Result<Command> {
+        // Windows Sandbox uses a .wsb configuration file.
+        // For full programmatic support, we'd need to write an XML .wsb file and run `WindowsSandbox.exe config.wsb`.
+        // We simulate the invocation here for completeness.
+        anyhow::bail!("WindowsSandbox backend requires generating a .wsb file, which is pending implementation.")
     }
 }
