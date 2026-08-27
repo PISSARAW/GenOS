@@ -16,8 +16,8 @@ def genos_checkpoint_gate(post_content):
     print("Execution blocked: Waiting for HumanApprovalTask...")
     print(f"Content pending approval:\n{post_content}")
     print("-----------------------------")
-    # In a real GenOS environment, this would suspend execution and wait for human input.
-    return True # Simulated human approval
+    choice = input("Approve? (y/n): ")
+    return choice.strip().lower() == 'y'
 
 def publish_to_reddit(post_content):
     """Publishes the approved content to Reddit."""

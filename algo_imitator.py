@@ -44,12 +44,13 @@ def evaluer_parcours_complet(parcours, noeuds):
 
 def myxomycete_phase(noeuds):
     print("[1/2] Phase Myxomycète : Expansion du réseau...")
-    # On commence par le noeud avec la plus grosse masse pour s'en débarrasser (index 0)
+    # On commence par le noeud de départ (dépôt, id 0)
     ids_dispos = set(noeuds.keys())
-    depart = max(ids_dispos, key=lambda k: noeuds[k]['masse'])
+    depart = 0
+    if depart in ids_dispos:
+        ids_dispos.remove(depart)
     
     parcours = [depart]
-    ids_dispos.remove(depart)
     
     noeud_actuel = noeuds[depart]
     index_visite = 0
@@ -68,8 +69,8 @@ def myxomycete_phase(noeuds):
             cand = noeuds[cand_id]
             # Le score prend en compte le coût futur théorique (attractivité)
             cout = evaluer_cout_transition(noeud_actuel, cand, index_visite, total_noeuds)
-            # Bonus artificiel pour digérer les lourds rapidement
-            score = cout - (cand['masse'] * 1000 / (index_visite + 1))
+            # Bonus artificiel pour digérer les lourds rapidement (multiplié par 1e6 pour impacter face aux distances de ~1000)
+            score = cout - (cand['masse'] * 1_000_000 / (index_visite + 1))
             
             if score < meilleur_score:
                 meilleur_score = score
@@ -112,7 +113,22 @@ def cristallisation_quantique_phase(parcours, noeuds, iterations=5000):
         # Insérer à la nouvelle position
         nouveau_parcours = nouveau_parcours[:nouveau_idx_insertion] + bloc + nouveau_parcours[nouveau_idx_insertion:]
         
-        nouveau_cout = evaluer_parcours_complet(nouveau_parcours, noeuds)
+        # Performance: Calcul du delta de coût local au lieu d'un re-calcul complet O(n)
+        min_idx = max(0, min(idx_debut, nouveau_idx_insertion) - 1)
+        max_idx = min(total_parcours, max(idx_fin, nouveau_idx_insertion + taille_bloc) + 2)
+        
+        cout_avant = 0.0
+        cout_apres = 0.0
+        for j in range(min_idx, max_idx - 1):
+            n1_avant = noeuds[parcours_actuel[j]]
+            n2_avant = noeuds[parcours_actuel[j+1]]
+            cout_avant += evaluer_cout_transition(n1_avant, n2_avant, j, len(noeuds))
+            
+            n1_apres = noeuds[nouveau_parcours[j]]
+            n2_apres = noeuds[nouveau_parcours[j+1]]
+            cout_apres += evaluer_cout_transition(n1_apres, n2_apres, j, len(noeuds))
+            
+        nouveau_cout = cout_actuel - cout_avant + cout_apres
         
         # Transition quantique (acceptation d'états de plus haute énergie)
         delta_energie = nouveau_cout - cout_actuel
