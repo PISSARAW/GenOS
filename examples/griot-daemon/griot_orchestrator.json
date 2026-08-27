@@ -131,6 +131,14 @@
     {
       "name": "gene_regulatory_network_logic",
       "enabled": true
+    },
+    {
+      "name": "speciation_and_divergence",
+      "enabled": true
+    },
+    {
+      "name": "horizontal_gene_transfer",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -252,6 +260,16 @@
       },
       {
         "tool": "genos_biomimicry_gene_regulatory_network",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_speciation_check",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_evolution_assimilate_plasmid",
         "scope": "allowed",
         "enabled": true
       }

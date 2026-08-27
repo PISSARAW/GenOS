@@ -1,0 +1,13 @@
+{
+  "name": "genos_evolution_assimilate_plasmid",
+  "description": "Permet à l'agent d'assimiler un plasmide (compétence ou prompt) transféré horizontalement par un autre agent.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "plasmid_id": { "type": "string", "description": "ID du plasmide à assimiler" },
+      "source_agent": { "type": "string", "description": "Agent donneur du plasmide" }
+    },
+    "required": ["agent_id", "plasmid_id"]
+  }
+}

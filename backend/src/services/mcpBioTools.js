@@ -222,6 +222,24 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_biomimicry_speciation_check') {
+    try {
+      const out = cp.execSync(`genos biomimicry speciation-check --agent-id ${args.agent_id}` + (args.divergence_threshold ? ` --threshold ${args.divergence_threshold}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_evolution_assimilate_plasmid') {
+    try {
+      const out = cp.execSync(`genos evolution assimilate-plasmid --agent-id ${args.agent_id} --plasmid-id "${args.plasmid_id}"` + (args.source_agent ? ` --source ${args.source_agent}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 
