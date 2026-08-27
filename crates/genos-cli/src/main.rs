@@ -23,6 +23,7 @@ mod cmd_hallucination;
 mod cmd_hgt;
 mod cmd_inspect;
 mod cmd_merge;
+mod cmd_operon;
 mod cmd_orphans;
 mod cmd_platform;
 mod cmd_prompt;
@@ -276,7 +277,7 @@ async fn main() -> Result<()> {
         Commands::Storage(args) => cmd_storage::run(args).await,
         Commands::Transport(args) => cmd_transport::run(args).await,
         Commands::Epigenetics(args) => crate::cmd_epigenetics::cmd_epigenetics_modify(args).await,
-        Commands::Operon(args) => crate::cmd_orphans::cmd_operon_evaluate(args).await,
+        Commands::Operon(args) => crate::cmd_operon::cmd_operon_evaluate(args).await,
         Commands::Hgt(args) => crate::cmd_hgt::cmd_hgt_transposon_insert(args).await,
         Commands::Scheduler(args) => crate::cmd_orphans::cmd_scheduler_start(args).await,
     }
