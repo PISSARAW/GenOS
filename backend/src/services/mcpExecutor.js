@@ -343,6 +343,19 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_biomimicry_gate_evaluate') {
+    const cp = require('child_process');
+    try {
+      let cmdParams = [`--param phase=${args.phase}`];
+      if (args.facts) args.facts.forEach(f => cmdParams.push(f));
+      const cmd = `genos bio-feature gate evaluate ${cmdParams.join(' ')}`;
+      const out = cp.execSync(cmd);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
 
 
 
