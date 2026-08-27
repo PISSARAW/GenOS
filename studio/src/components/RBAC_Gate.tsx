@@ -2,12 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Lock, Key, User } from 'lucide-react';
 import { api, ensureTenantScope, getAuthToken, setAuthToken } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
+import { create } from 'zustand';
 
 interface RBACGateProps {
   children: React.ReactNode;
 }
 
 type AuthMode = 'login' | 'token';
+
+interface RBACStore {
+  locked: boolean;
+  setLocked: (locked: boolean) => void;
+}
+
+export const useRBACStore = create<RBACStore>((set) => ({
+  locked: true,
+  setLocked: (locked) => set({ locked }),
+}));
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -53,9 +64,6 @@ const AuthForm: React.FC<{ onAuthenticated: () => void }> = ({ onAuthenticated }
     setBusy(true);
     try {
       const res = await api.verifyToken(key);
-      // Only an explicit server-side `valid: true` unlocks the gate. Any
-      // other truthy shape (username, success flags…) is not proof of
-      // privilege and must stay locked out.
       if (res && res.valid === true) {
         setAuthToken(key);
         await ensureTenantScope();
@@ -158,8 +166,7 @@ const AuthForm: React.FC<{ onAuthenticated: () => void }> = ({ onAuthenticated }
 
 export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
   const [checking, setChecking] = useState(true);
-  const [locked, setLocked] = useState(true);
-  const [dismissed, setDismissed] = useState(false);
+  const { locked, setLocked } = useRBACStore();
 
   // A refreshed Studio must reuse a previously validated local access key or
   // session token. Without this, every reload incorrectly presents the login
@@ -192,39 +199,12 @@ export const RBAC_Gate: React.FC<RBACGateProps> = ({ children }) => {
         <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600 }}>GenOS Studio — Authentification</h3>
       </div>
       <AuthForm onAuthenticated={handleAuthenticated} />
-      {!dismissed && (
-        <button
-          onClick={() => setDismissed(true)}
-          style={{ marginTop: '12px', width: '100%', border: '0', background: 'none', color: 'var(--text-muted)', cursor: 'pointer', font: 'inherit', fontSize: '0.78rem' }}
-        >
-          Continuer en lecture seule (anonyme)
-        </button>
-      )}
     </div>
   );
 
   if (checking) return <>{children}</>;
 
   if (!locked) return <>{children}</>;
-
-  // Anonymous read-only browsing was explicitly chosen: only gate elevated
-  // actions through the modal.
-  if (dismissed) {
-    return (
-      <>
-        {/* Capture phase runs before the wrapped child's own onClick, so the
-            gate can actually swallow clicks on locked controls instead of
-            letting the action fire first and merely opening this modal. */}
-        <div onClickCapture={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setDismissed(false);
-        }}>
-          {children}
-        </div>
-      </>
-    );
-  }
 
   // No valid session yet: present the sign-in experience before anything else.
   return (

@@ -1,0 +1,88 @@
+{
+  "id": "01a0432c-d0b2-7de0-86f2-550b523de0d8",
+  "parent_genome": null,
+  "parent_genomes": [],
+  "mutation": null,
+  "version": "0.1.0",
+  "identity": {
+    "name": "frontend_resources_orchestrator",
+    "role": "Orchestrateur Frontend (Pages Actualités et Contact)"
+  },
+  "cognition": {
+    "chromosomes": [
+      {
+        "name": "C1",
+        "loci": [
+          {
+            "gene_name": "exploration",
+            "value": 0.7,
+            "epigenetic_marker": 0.0
+          },
+          {
+            "gene_name": "risk_tolerance",
+            "value": 0.25,
+            "epigenetic_marker": 0.0
+          },
+          {
+            "gene_name": "verification_threshold",
+            "value": 0.8,
+            "epigenetic_marker": 0.0
+          }
+        ],
+        "operons": []
+      }
+    ],
+    "planning_depth": 6,
+    "regulators": []
+  },
+  "objectives": [
+    {
+      "key": "tests_pass",
+      "description": "Run tests before completion"
+    }
+  ],
+  "policies": [
+    {
+      "key": "evidence_before_claim",
+      "description": "Claims require evidence"
+    }
+  ],
+  "capabilities": [
+    {
+      "name": "counterfactual_forking",
+      "enabled": false
+    }
+  ],
+  "memory_policy": {
+    "working_max_items": 100,
+    "episodic_enabled": true,
+    "semantic_enabled": true
+  },
+  "model_policy": {
+    "strategy": "provider-agnostic",
+    "preferred_providers": [],
+    "allow_local": true
+  },
+  "tool_policy": {
+    "permissions": [
+      {
+        "tool": "filesystem",
+        "scope": "workspace",
+        "enabled": true
+      },
+      {
+        "tool": "shell",
+        "scope": "sandboxed",
+        "enabled": true
+      },
+      {
+        "tool": "network",
+        "scope": "denied",
+        "enabled": false
+      }
+    ]
+  },
+  "inferred_traits": [],
+  "breeding": null,
+  "ecological_niche": null
+}
