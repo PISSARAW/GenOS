@@ -1,4 +1,4 @@
-﻿//! Cross-Modal Plasticity mapped to tool substitution and sensory remapping.
+//! Cross-Modal Plasticity mapped to tool substitution and sensory remapping.
 //!
 //! Biological mechanism: If one sensory modality is lost (e.g., blindness),
 //! the brain reallocates the visual cortex to process tactile/auditory data.
@@ -22,7 +22,10 @@ impl CrossModalPlasticity {
             "web_search" => Ok("local_rag_index".to_string()),
             "sql_database" => Ok("csv_in_memory_query".to_string()),
             "code_execution_sandbox" => Ok("static_ast_analyzer".to_string()),
-            _ => Err(format!("No known cross-modal substitute for {}", failing_tool)),
+            _ => Err(format!(
+                "No known cross-modal substitute for {}",
+                failing_tool
+            )),
         }
     }
 }

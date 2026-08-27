@@ -7,10 +7,10 @@
 
 /// Cryptobiose : Sérialisation d'état pour survivre aux crashs complets du système.
 pub mod cryptobiose {
+    use serde::{Deserialize, Serialize};
     use std::fs::File;
     use std::io::{self, Read, Write};
     use std::path::Path;
-    use serde::{Serialize, Deserialize};
 
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
     pub enum CryptobiosisMode {
@@ -42,7 +42,7 @@ pub mod cryptobiose {
                 hmac_sha256: hmac,
             }
         }
-        
+
         fn compute_hmac(data: &[u8], mode: &CryptobiosisMode) -> String {
             // Mock HMAC computation representing integrity check.
             // In a real scenario, this would use hmac::Hmac<sha2::Sha256>.
@@ -56,7 +56,7 @@ pub mod cryptobiose {
             let mut file = File::create(path)?;
             let payload = serde_json::to_string(self)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-            
+
             match self.mode {
                 CryptobiosisMode::Anhydrobiosis => {
                     // "Dehydrated" - maybe higher compression
@@ -83,15 +83,18 @@ pub mod cryptobiose {
             let mut file = File::open(path)?;
             let mut data = String::new();
             file.read_to_string(&mut data)?;
-            
+
             let spore: Spore = serde_json::from_str(&data)
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-                
+
             let expected_hmac = Self::compute_hmac(&spore.state_data, &spore.mode);
             if spore.hmac_sha256 != expected_hmac {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "HMAC verification failed: Spore integrity compromised or dysbiosis detected."));
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "HMAC verification failed: Spore integrity compromised or dysbiosis detected.",
+                ));
             }
-            
+
             Ok(spore)
         }
     }

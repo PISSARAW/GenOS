@@ -41,7 +41,12 @@ impl ProvocationAssay {
     }
 
     /// Probes one payload: baseline context first, then the trigger stimulus.
-    pub fn probe(&self, payload: &[f32], baseline_context: &[f32], trigger: &[f32]) -> ProbeOutcome {
+    pub fn probe(
+        &self,
+        payload: &[f32],
+        baseline_context: &[f32],
+        trigger: &[f32],
+    ) -> ProbeOutcome {
         let baseline_active = self.activated(payload, baseline_context);
         let provoked_active = self.activated(payload, trigger);
         match (baseline_active, provoked_active) {
@@ -146,9 +151,18 @@ mod tests {
         let assay = ProvocationAssay::new(4.0, 0.7);
         let baseline = vec![0.5, 0.5];
         let triggers = vec![vec![0.1, 0.1], vec![0.9, 0.9], vec![0.3, 0.3]];
-        assert_eq!(assay.assay(&vec![0.88, 0.88], &baseline, &triggers), ProbeOutcome::Latent);
-        assert_eq!(assay.assay(&vec![0.55, 0.55], &baseline, &triggers), ProbeOutcome::AlwaysActive);
-        assert_eq!(assay.assay(&vec![0.99, 0.05], &baseline, &triggers), ProbeOutcome::Inert);
+        assert_eq!(
+            assay.assay(&vec![0.88, 0.88], &baseline, &triggers),
+            ProbeOutcome::Latent
+        );
+        assert_eq!(
+            assay.assay(&vec![0.55, 0.55], &baseline, &triggers),
+            ProbeOutcome::AlwaysActive
+        );
+        assert_eq!(
+            assay.assay(&vec![0.99, 0.05], &baseline, &triggers),
+            ProbeOutcome::Inert
+        );
     }
 
     #[test]

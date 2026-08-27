@@ -8,7 +8,12 @@ use genos_core::build_lineage_dag;
 use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_lineage(args: SnapshotLineageArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root_dir).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root_dir,
+    )
+    .await
+    .unwrap();
     let event_store = event_store_from(args.events, &args.root_dir);
 
     // Resolve the anchor (root) snapshot, then build the dag, then walk.

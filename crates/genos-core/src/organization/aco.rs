@@ -44,8 +44,7 @@ impl AntColony {
     /// Samples one edge index from the probability distribution
     /// (deterministic for a given seed).
     pub fn choose_edge(&self, probabilities: &[f32], rng_state: &mut u64) -> usize {
-        let unit =
-            ((crate::hgt::splitmix64(rng_state) >> 40) as f32) / ((1u64 << 24) as f32);
+        let unit = ((crate::hgt::splitmix64(rng_state) >> 40) as f32) / ((1u64 << 24) as f32);
         let mut cumulative = 0.0;
         for (index, p) in probabilities.iter().enumerate() {
             cumulative += p;
@@ -78,8 +77,16 @@ mod tests {
 
     fn edges() -> Vec<AcoEdge> {
         vec![
-            AcoEdge { to: "short".into(), pheromone: 1.0, heuristic: 2.0 },
-            AcoEdge { to: "long".into(), pheromone: 1.0, heuristic: 1.0 },
+            AcoEdge {
+                to: "short".into(),
+                pheromone: 1.0,
+                heuristic: 2.0,
+            },
+            AcoEdge {
+                to: "long".into(),
+                pheromone: 1.0,
+                heuristic: 1.0,
+            },
         ]
     }
 

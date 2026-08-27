@@ -35,10 +35,9 @@ pub use prm::*;
 pub use reproducibility::*;
 pub use traits::*;
 pub mod causal;
-pub mod semantic;
 pub mod live_evaluator;
+pub mod semantic;
 
 pub use causal::*;
-pub use semantic::*;
 pub use live_evaluator::*;
-
+pub use semantic::*;

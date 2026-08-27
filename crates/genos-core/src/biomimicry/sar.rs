@@ -50,9 +50,10 @@ impl SystemResistance {
         now_day: f64,
     ) -> usize {
         let tokens = tokenize(signature);
-        let existing = self.primings.iter().position(|p| {
-            similarity(&p.signature_tokens, &tokens) >= 0.60
-        });
+        let existing = self
+            .primings
+            .iter()
+            .position(|p| similarity(&p.signature_tokens, &tokens) >= 0.60);
         match existing {
             Some(index) => {
                 self.primings[index].half_life_days = half_life_days.max(1.0);
@@ -133,8 +134,12 @@ mod tests {
     fn resistance_decays_by_half_lives() {
         let mut sar = SystemResistance::default();
         sar.prime("INC-7", "sql injection union select payload", 10.0, 0.0);
-        let early = sar.resistance_against("sql injection union select", 0.0).score;
-        let one_halflife = sar.resistance_against("sql injection union select", 10.0).score;
+        let early = sar
+            .resistance_against("sql injection union select", 0.0)
+            .score;
+        let one_halflife = sar
+            .resistance_against("sql injection union select", 10.0)
+            .score;
         assert!((early - 0.8).abs() < 1e-9); // Jaccard 4/5
         assert!((one_halflife - 0.4).abs() < 1e-9); // decayed by one half-life
     }

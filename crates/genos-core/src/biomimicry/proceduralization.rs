@@ -100,8 +100,7 @@ pub fn assess(stats: &ExecutionStats, rule: &ReadinessRule) -> Readiness {
         return Readiness::NotReady {
             reason: format!(
                 "variance proxy {:.2} above ceiling {:.2}: trajectory not stereotyped yet",
-                stats.variance_proxy,
-                rule.max_variance
+                stats.variance_proxy, rule.max_variance
             ),
         };
     }
@@ -138,7 +137,11 @@ pub fn recompile(previous: &SkillProgram, steps: Vec<String>) -> Result<SkillPro
     if steps.is_empty() {
         return Err("cannot compile an empty step sequence".to_string());
     }
-    Ok(SkillProgram { version: previous.version + 1, steps, ..previous.clone() })
+    Ok(SkillProgram {
+        version: previous.version + 1,
+        steps,
+        ..previous.clone()
+    })
 }
 
 /// Continuous monitoring: a proceduralized skill whose observed failure rate
@@ -162,23 +165,33 @@ mod tests {
 
     #[test]
     fn insufficient_sample_is_not_ready() {
-        let stats =
-            ExecutionStats { successes: 19, failures: 0, variance_proxy: 0.01 };
+        let stats = ExecutionStats {
+            successes: 19,
+            failures: 0,
+            variance_proxy: 0.01,
+        };
         let verdict = assess(&stats, &ReadinessRule::default());
         assert!(matches!(verdict, Readiness::NotReady { .. }));
     }
 
     #[test]
     fn inconsistent_trajectory_is_not_ready_even_with_high_success() {
-        let stats =
-            ExecutionStats { successes: 30, failures: 1, variance_proxy: 0.4 };
+        let stats = ExecutionStats {
+            successes: 30,
+            failures: 1,
+            variance_proxy: 0.4,
+        };
         let verdict = assess(&stats, &ReadinessRule::default());
         assert!(matches!(verdict, Readiness::NotReady { .. }));
     }
 
     #[test]
     fn stereotyped_success_compiles_into_a_reflex() {
-        let stats = ExecutionStats { successes: 30, failures: 1, variance_proxy: 0.05 };
+        let stats = ExecutionStats {
+            successes: 30,
+            failures: 1,
+            variance_proxy: 0.05,
+        };
         let program = compile(
             "release-pipeline",
             vec!["tests_green".into()],
@@ -194,7 +207,11 @@ mod tests {
 
     #[test]
     fn recompilation_bumps_version_and_keeps_contract() {
-        let stats = ExecutionStats { successes: 30, failures: 1, variance_proxy: 0.05 };
+        let stats = ExecutionStats {
+            successes: 30,
+            failures: 1,
+            variance_proxy: 0.05,
+        };
         let mut program = compile(
             "release-pipeline",
             vec!["tests_green".into()],
@@ -204,8 +221,11 @@ mod tests {
             &ReadinessRule::default(),
         )
         .unwrap();
-        program = recompile(&program, vec!["build".into(), "attest".into(), "deploy".into()])
-            .unwrap();
+        program = recompile(
+            &program,
+            vec!["build".into(), "attest".into(), "deploy".into()],
+        )
+        .unwrap();
         assert_eq!(program.version, 2);
         assert_eq!(program.preconditions, vec!["tests_green".to_string()]);
         assert!(recompile(&program, vec![]).is_err());

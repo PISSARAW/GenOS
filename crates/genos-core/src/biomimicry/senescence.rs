@@ -1,8 +1,8 @@
-﻿//! Cellular Senescence mapped to zombie-process elimination.
+//! Cellular Senescence mapped to zombie-process elimination.
 //!
-//! Biological mechanism: Cells stop dividing and enter senescence to prevent cancer, 
+//! Biological mechanism: Cells stop dividing and enter senescence to prevent cancer,
 //! eventually being cleared by the immune system.
-//! GenOS mapping: Detecting agents that have been running for too long without 
+//! GenOS mapping: Detecting agents that have been running for too long without
 //! yielding results (zombies) and gracefully clearing them to free up the swarm budget.
 
 #[derive(Debug, Clone)]
@@ -24,7 +24,8 @@ impl SenescenceMonitor {
     pub fn check_age(&mut self) -> String {
         self.epochs_active += 1;
         if self.epochs_active >= self.max_epochs {
-            "Senescence triggered. Agent has reached its maximum lifespan and will be cleared.".to_string()
+            "Senescence triggered. Agent has reached its maximum lifespan and will be cleared."
+                .to_string()
         } else {
             "Agent is healthy and within operational lifespan.".to_string()
         }
@@ -74,12 +75,15 @@ impl CapsuleVitals {
         }
         let total = (self.productive_ticks + self.idle_ticks).max(1) as f64;
         let idle_ratio = self.idle_ticks as f64 / total;
-        let sasp_score = (self.negative_externalities as f64 * 1000.0)
-            / (self.resources_consumed.max(1) as f64);
+        let sasp_score =
+            (self.negative_externalities as f64 * 1000.0) / (self.resources_consumed.max(1) as f64);
         if idle_ratio > thresholds.max_idle_ratio
             || sasp_score > thresholds.max_externalities_per_kilo_resource
         {
-            VitalState::Senescent { sasp_score, idle_ratio }
+            VitalState::Senescent {
+                sasp_score,
+                idle_ratio,
+            }
         } else {
             VitalState::Active
         }

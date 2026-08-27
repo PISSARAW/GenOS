@@ -184,8 +184,8 @@ mod tests {
 /// Calcule l'état global du système pour déclencher les mécanismes de résilience (throttling, hypermutation, apoptose).
 #[derive(Debug, Clone, PartialEq)]
 pub struct HomeostaticIndex {
-    pub error_rate: f32, // E_rate
-    pub latency: f32,    // latence
+    pub error_rate: f32,     // E_rate
+    pub latency: f32,        // latence
     pub semantic_drift: f32, // D_sem
 }
 
@@ -198,7 +198,11 @@ pub enum HomeostaticState {
 
 impl HomeostaticIndex {
     pub fn new(error_rate: f32, latency: f32, semantic_drift: f32) -> Self {
-        HomeostaticIndex { error_rate, latency, semantic_drift }
+        HomeostaticIndex {
+            error_rate,
+            latency,
+            semantic_drift,
+        }
     }
 
     /// `H_cell = 1 - (0.40 * E_rate + 0.25 * latence + 0.35 * D_sem)`

@@ -98,10 +98,15 @@ pub fn merge_into(
     match stored {
         // Expired or absent: treat as fresh exposure.
         None => AntiviralState { ..incoming.clone() },
-        Some(previous) if previous.expires_at_secs <= now_secs => AntiviralState {
-            ..incoming.clone()
-        },
-        Some(_) => receive(stored, &InterferonSignal::new("", "", 0), now_secs, ttl_seconds),
+        Some(previous) if previous.expires_at_secs <= now_secs => {
+            AntiviralState { ..incoming.clone() }
+        }
+        Some(_) => receive(
+            stored,
+            &InterferonSignal::new("", "", 0),
+            now_secs,
+            ttl_seconds,
+        ),
     }
 }
 

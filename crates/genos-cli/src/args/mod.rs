@@ -94,7 +94,6 @@ pub enum Commands {
     Rebase(crate::cmd_rebase::RebaseArgs),
     Guardrails(crate::cmd_guardrails::GuardrailsArgs),
     CostAccounting(crate::cmd_cost_accounting::CostAccountingArgs),
-    
 }
 
 #[derive(ArgsMacro, Debug)]

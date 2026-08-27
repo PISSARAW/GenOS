@@ -20,10 +20,16 @@ pub enum CausalitySubcommand {
 
 pub async fn run(args: CausalityArgs) -> Result<()> {
     match args.command {
-        CausalitySubcommand::Fork { boundary_id, new_boundary_id } => {
+        CausalitySubcommand::Fork {
+            boundary_id,
+            new_boundary_id,
+        } => {
             let boundary = CausalBoundary::new(boundary_id.clone(), None);
             let fork = boundary.fork(new_boundary_id);
-            println!("Forked causal boundary from {} to {}", boundary_id, fork.boundary_id);
+            println!(
+                "Forked causal boundary from {} to {}",
+                boundary_id, fork.boundary_id
+            );
             Ok(())
         }
     }

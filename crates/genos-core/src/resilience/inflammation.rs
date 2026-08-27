@@ -143,7 +143,10 @@ mod tests {
             site.heal_cycle(0.0);
         }
         assert_eq!(site.stage(), InflammationStage::Chronic);
-        assert!(site.requires_escalation(), "chronique => escalade apoptotique");
+        assert!(
+            site.requires_escalation(),
+            "chronique => escalade apoptotique"
+        );
     }
 
     #[test]

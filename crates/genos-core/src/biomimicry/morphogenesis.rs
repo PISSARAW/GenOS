@@ -54,14 +54,12 @@ impl MorphogenesisEngine {
         let mut activator = vec![0.0_f32; n];
         let mut rng = seed | 1;
         for cell in activator.iter_mut() {
-            let unit =
-                ((crate::hgt::splitmix64(&mut rng) >> 40) as f32) / ((1u64 << 24) as f32);
+            let unit = ((crate::hgt::splitmix64(&mut rng) >> 40) as f32) / ((1u64 << 24) as f32);
             // Quelques germes d'auto-catalyse suffisent à amorcer les motifs.
             *cell = if unit > 0.985 { 0.5 } else { 0.02 };
         }
         for cell in inhibitor.iter_mut() {
-            let unit =
-                ((crate::hgt::splitmix64(&mut rng) >> 40) as f32) / ((1u64 << 24) as f32);
+            let unit = ((crate::hgt::splitmix64(&mut rng) >> 40) as f32) / ((1u64 << 24) as f32);
             *cell -= unit * 0.01;
         }
         Self {
@@ -101,14 +99,10 @@ impl MorphogenesisEngine {
                 let u = self.inhibitor[i];
                 let v = self.activator[i];
                 let reaction = u * v * v;
-                next_u[i] = (u
-                    + self.du * self.laplacian(&self.inhibitor, x, y)
-                    - reaction
+                next_u[i] = (u + self.du * self.laplacian(&self.inhibitor, x, y) - reaction
                     + self.feed * (1.0 - u))
                     .clamp(0.0, 1.5);
-                next_v[i] = (v
-                    + self.dv * self.laplacian(&self.activator, x, y)
-                    + reaction
+                next_v[i] = (v + self.dv * self.laplacian(&self.activator, x, y) + reaction
                     - (self.feed + self.kill) * v)
                     .clamp(0.0, 1.5);
             }
@@ -251,7 +245,11 @@ mod tests {
         assert_eq!(classify_regime(0.005, 0.06), PatternRegime::Dead);
         assert_eq!(classify_regime(0.034, 0.0618), PatternRegime::Spots);
         assert_eq!(classify_regime(0.060, 0.062), PatternRegime::Stripes);
-        assert_eq!(classify_regime(0.09, 0.062), PatternRegime::Dead, "feed saturé = régime non viable");
+        assert_eq!(
+            classify_regime(0.09, 0.062),
+            PatternRegime::Dead,
+            "feed saturé = régime non viable"
+        );
         // Le moteur par défaut tombe dans le régime à taches.
         let engine = MorphogenesisEngine::new(8, 42);
         assert_eq!(
@@ -300,9 +298,3 @@ mod tests {
         assert!(roles.contains(&MorphogenRole::IdleReserve));
     }
 }
-
-
-
-
-
-

@@ -18,7 +18,11 @@ impl LiveEvaluator {
 
     pub fn evaluate_branch(&self, branch_id: &BranchId, metrics: &[f64]) -> LiveScore {
         let sum: f64 = metrics.iter().sum();
-        let score = if metrics.is_empty() { 0.0 } else { sum / metrics.len() as f64 };
+        let score = if metrics.is_empty() {
+            0.0
+        } else {
+            sum / metrics.len() as f64
+        };
         LiveScore {
             branch_id: branch_id.clone(),
             score,

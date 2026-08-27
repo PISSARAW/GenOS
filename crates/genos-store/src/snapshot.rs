@@ -18,7 +18,7 @@ pub trait SnapshotStore: Send + Sync {
     async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>>;
     async fn save_snapshot(&self, snapshot: &AgentSnapshot) -> anyhow::Result<()>;
     async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>>;
-    
+
     async fn get_snapshot(&self, id: String) -> anyhow::Result<Option<AgentSnapshot>> {
         self.load_snapshot(&SnapshotId(id)).await
     }
@@ -167,7 +167,7 @@ impl SnapshotStore for LocalSnapshotStore {
     async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>> {
         self.list_snapshot_ids_impl().await
     }
-    
+
     async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>> {
         if !fs::try_exists(&self.file_path).await? {
             return Ok(None);

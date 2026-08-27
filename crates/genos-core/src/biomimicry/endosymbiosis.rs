@@ -1,9 +1,9 @@
-﻿//! Endosymbiosis mapped to internalizing external dependencies.
+//! Endosymbiosis mapped to internalizing external dependencies.
 //!
 //! Biological mechanism: An ancient cell engulfed a bacterium, which over time
 //! became a permanent, highly efficient internal organelle (e.g., mitochondria).
-//! GenOS mapping: When an agent heavily relies on a slow external tool or API, 
-//! it can trigger "Endosymbiosis" to compile or rewrite that tool into an internal 
+//! GenOS mapping: When an agent heavily relies on a slow external tool or API,
+//! it can trigger "Endosymbiosis" to compile or rewrite that tool into an internal
 //! native Rust module or WebAssembly binary, drastically reducing latency.
 
 #[derive(Debug, Clone, PartialEq, Eq)]

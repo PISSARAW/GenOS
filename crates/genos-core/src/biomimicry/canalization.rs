@@ -1,4 +1,4 @@
-﻿//! Canalization / Waddington's Epigenetic Landscape
+//! Canalization / Waddington's Epigenetic Landscape
 //!
 //! Biological mechanism: Canalization is a measure of the ability of a population
 //! to produce the same phenotype regardless of variability of its environment or
@@ -22,7 +22,10 @@ pub struct WaddingtonLandscape {
 
 impl WaddingtonLandscape {
     pub fn new(expected_phenotype: String, valley_width: f64) -> Self {
-        Self { expected_phenotype, valley_width }
+        Self {
+            expected_phenotype,
+            valley_width,
+        }
     }
 
     /// Evaluates if a set of perturbed trajectories are canalized (they converge
@@ -40,11 +43,14 @@ impl WaddingtonLandscape {
         }
 
         let ratio = converged_count as f64 / trajectories.len() as f64;
-        
+
         if ratio >= self.valley_width {
             Ok(ratio)
         } else {
-            Err(format!("Phenotype is too brittle. Convergence ratio {:.2} < valley width {:.2}", ratio, self.valley_width))
+            Err(format!(
+                "Phenotype is too brittle. Convergence ratio {:.2} < valley width {:.2}",
+                ratio, self.valley_width
+            ))
         }
     }
 }

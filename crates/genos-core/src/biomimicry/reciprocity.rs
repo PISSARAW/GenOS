@@ -73,8 +73,8 @@ impl ReciprocityPolicy {
         let Some(last) = peer.last_action else {
             return Decision::Cooperate; // nice: never defect first
         };
-        let locked_in = peer.defection_ratio() >= self.sanction_threshold
-            && peer.interactions() >= 3;
+        let locked_in =
+            peer.defection_ratio() >= self.sanction_threshold && peer.interactions() >= 3;
         if locked_in {
             // Forgiveness path: recent sustained cooperation lifts the ban.
             let tail_coops = peer.cooperations.saturating_sub(1);
@@ -87,9 +87,7 @@ impl ReciprocityPolicy {
             PeerAction::Cooperate => Decision::Cooperate,
             // Noise tolerance (Tit-for-Two-Tats flavor): an isolated defection
             // from a well-behaved partner is treated as noise, not betrayal.
-            PeerAction::Defect
-                if peer.defection_ratio() < self.sanction_threshold / 2.0 =>
-            {
+            PeerAction::Defect if peer.defection_ratio() < self.sanction_threshold / 2.0 => {
                 Decision::Cooperate
             }
             PeerAction::Defect => Decision::Retaliate,
