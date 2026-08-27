@@ -168,6 +168,51 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_biomimicry_hypothalamus_homeostasis') {
+    try {
+      const out = cp.execSync(`genos biomimicry hypothalamus-homeostasis --agent-id ${args.agent_id} --nervous-state ${args.nervous_state}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_cerebellum_coprocessor') {
+    try {
+      const out = cp.execSync(`genos biomimicry cerebellum-coprocessor --agent-id ${args.agent_id} --task-type ${args.task_type} --parameters "${args.parameters}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_enteric_delegate') {
+    try {
+      const out = cp.execSync(`genos biomimicry enteric-delegate --agent-id ${args.agent_id} --data-source "${args.data_source}"` + (args.digestion_mode ? ` --digestion-mode ${args.digestion_mode}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_glial_cleanup') {
+    try {
+      const out = cp.execSync(`genos biomimicry glial-cleanup --agent-id ${args.agent_id}` + (args.intensity ? ` --intensity ${args.intensity}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_gene_regulatory_network') {
+    try {
+      const out = cp.execSync(`genos biomimicry gene-regulatory-network --agent-id ${args.agent_id} --condition "${args.condition}" --action-script "${args.action_script}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 
