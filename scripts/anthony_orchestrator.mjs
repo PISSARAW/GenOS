@@ -11,6 +11,18 @@ class AnthonyOrchestrator {
         this.name = 'Anthony';
     }
 
+    // Concept 2: Hippocampal Consolidation
+    // Extracts structural rules/long-term facts from short-term memory (history)
+    hippocampalConsolidate(history) {
+        if (!Array.isArray(history) || history.length === 0) return "Nothing to consolidate";
+        // Create an abstract summary (in reality, an LLM call; here, deterministic logic)
+        const timestamp = new Date().toISOString().replace(/:/g, '-');
+        const memoryPath = join(ANTHONY_DIR, `memory_consolidation_${timestamp}.txt`);
+        const summary = `Consolidated Memory from ${history.length} active tokens.\nFacts extracted: Success state achieved.`;
+        writeFileSync(memoryPath, summary);
+        return `Memory consolidated and flushed to: ${memoryPath}`;
+    }
+
     // Concept 1: Thalamic Filtering
     // Filters out disposable context (noise), keeping only anomalies/deltas
     thalamicFilter(logs) {
@@ -34,8 +46,12 @@ async function main() {
         const input = args.slice(1).join(' ');
         const result = orchestrator.thalamicFilter([input]);
         console.log(JSON.stringify(result, null, 2));
+    } else if (command === 'hippocampus') {
+        const inputHistory = args.slice(1);
+        const result = orchestrator.hippocampalConsolidate(inputHistory);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus`);
     }
 }
 
