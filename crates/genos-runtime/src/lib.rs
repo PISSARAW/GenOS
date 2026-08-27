@@ -331,3 +331,5 @@ pub async fn run_long_branch<P: WorldProvider>(
         files_changed: diff.files_changed,
     })
 }
+pub mod conditional_merge;
+pub use conditional_merge::*;

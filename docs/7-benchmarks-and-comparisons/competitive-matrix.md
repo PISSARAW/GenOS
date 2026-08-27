@@ -25,9 +25,9 @@ snapshot -> fork -> mutate -> isolated run -> event/cost/token capture
 | Event provenance | Branch events retain parentage and ordering needed by the reducer | Focused replay tests | Adapter missing |
 | Structural diff | Changed state is reported without comparing prose only | Runnable demo | Adapter missing |
 | Replay scope | Replayed fields and nondeterministic boundaries are explicit | Reducer-level proof | Adapter missing |
-| Cost accounting | Model, tool, token, wall-time, and storage costs use a shared schema | Missing | Adapter missing |
-| Conditional merge | Promotion is blocked when declared checks fail | Example-level evidence; common harness missing | Adapter missing |
-| Audit bundle | Revision, environment, commands, events, and results are exportable | Partial metadata in benchmark binaries | Adapter missing |
+| Cost accounting | Model, tool, token, wall-time, and storage costs use a shared schema | Added CostSchema | Adapter missing |
+| Conditional merge | Promotion is blocked when declared checks fail | Added ConditionalMergeHarness | Adapter missing |
+| Audit bundle | Revision, environment, commands, events, and results are exportable | Added AuditBundle | Adapter missing |
 
 “Missing” and “unsupported” are valid results. They must never be represented
 as zero, false, or a perfect score.
