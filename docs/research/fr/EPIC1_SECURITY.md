@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # EPIC 1: Sécurité Zero Trust, Tool Gateway & Taint Tracking
 
 Ce document détaille l'architecture implémentée pour l'EPIC 1 (Zero Trust & Tool Gateway), intégrant également les recommandations issues du rapport de Biomimétisme (Automate Half-Open).

@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Abscission : Perte Programmée et Propre des Modules
 
 > Domaine : botanique (abscission foliaire) — Statut : proposition de recherche

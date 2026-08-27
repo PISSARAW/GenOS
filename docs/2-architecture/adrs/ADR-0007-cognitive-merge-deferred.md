@@ -1,7 +1,7 @@
-# ADR-0007: Defer Cognitive Merge in V0
+# ADR-0007: Defer Cognitive Merge in V0 [OBSOLETE - Remplacé par ADR-0016]
 
 ## Status
-Superseded by ADR-0016
+[OBSOLETE - Remplacé par ADR-0016]
 
 ## Context
 Belief and memory reconciliation is the hardest part of agent branching.

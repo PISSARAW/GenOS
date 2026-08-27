@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Tropismes : Orientation Continue vers les Signaux Positifs
 
 > Domaine : physiologie végétale (phototropisme, gravitropisme, auxines) — Statut : proposition de recherche

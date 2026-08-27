@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Dormance des Graines : Dissémination Opportuniste de Capacités
 
 > Domaine : botanique (dormance, dispersion) — Statut : proposition de recherche

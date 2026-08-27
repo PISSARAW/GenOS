@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimicry Genetics (v2.0)
 
 Bienvenue dans la documentation officielle de la version 2.0 de l'architecture génétique de GenOS. Cette mise à jour introduit plusieurs concepts de biomimétisme pour améliorer l'adaptabilité, l'évolution et l'apprentissage continu des agents IA.

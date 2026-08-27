@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Architecture de la Mémoire GenOS v2.0 (EPIC 5)
 
 Ce document décrit la refonte fondamentale du sous-système de mémoire agentique de GenOS, introduisant l'empreinte mémoire $O(1)$ par Copy-on-Write (CoW) et la plasticité synaptique (STDP).

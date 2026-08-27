@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Neuromodulation Dopaminergique : Erreur de Prédiction de Récompense
 
 > Domaine : neurosciences (voie mésolimbique) — Statut : proposition de recherche

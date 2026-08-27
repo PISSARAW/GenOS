@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Homéorrhésie : Stabilité de Trajectoire plutôt que Point Fixe
 
 > Domaine : biologie théorique du développement (Waddington) — Statut : proposition de recherche

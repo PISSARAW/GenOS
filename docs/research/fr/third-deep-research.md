@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Recherche Approfondie : Construire des Agents IA Fiables, Économes, Sécurisés et Réellement Agentiques
 
 Ce document de référence synthétise les principes directeurs pour la construction d'architectures agentiques résilientes, économiques et conformes aux exigences de production industrielle.

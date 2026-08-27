@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Division cellulaire dans GenOS : mitose, méiose, fission, bourgeonnement, schizogonie
 
 Ce document mappe les modes de division cellulaire de la biologie sur les

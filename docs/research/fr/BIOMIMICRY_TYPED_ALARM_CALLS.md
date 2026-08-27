@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Alarmes Typées : Communication à Référents Structurés
 
 > Domaine : éthologie (cognition animale, vervets) — Statut : proposition de recherche

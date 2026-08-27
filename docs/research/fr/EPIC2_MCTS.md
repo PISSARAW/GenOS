@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Architecture EPIC 2 : MCTS & PRM
 
 Ce document décrit l'architecture du module de recherche arborescente contrefactuelle (MCTS) et du Process Reward Model (PRM) implémentés dans `genos-eval`.

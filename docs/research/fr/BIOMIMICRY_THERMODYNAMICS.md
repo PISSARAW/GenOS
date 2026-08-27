@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme Thermodynamique dans GenOS
 
 La résilience et la gestion de la mémoire des agents GenOS s'appuient fortement sur un modèle de biomimétisme thermodynamique, inspiré des systèmes biologiques cellulaires.

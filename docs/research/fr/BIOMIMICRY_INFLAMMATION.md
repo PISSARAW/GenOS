@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Inflammation / Fièvre : Mode Dégradé Global Transitoire
 
 > Domaine : immunologie (réponse innée) — Statut : proposition de recherche

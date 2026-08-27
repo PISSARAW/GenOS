@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Checkpoints du Cycle Cellulaire : Gates de Progression Obligatoires
 
 > Domaine : biologie cellulaire (cycle cellulaire, CDK) — Statut : proposition de recherche

@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Stigmergie : Navigation par Gradients Phéromonaux
 
 Ce document détaille l'implémentation de la Stigmergie et des principes biomimétiques appliqués à la topologie spatiale et au routage dans GenOS.

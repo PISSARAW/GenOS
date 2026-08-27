@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Jeu Animal : Exploration Sans Enjeu
 
 > Domaine : éthologie (jeu social/locomoteur/objet) — Statut : proposition de recherche

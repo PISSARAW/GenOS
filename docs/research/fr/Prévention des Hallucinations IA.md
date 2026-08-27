@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # **Analyse Approfondie des Hallucinations dans les Modèles de Langage : Mécanismes, Inévitabilité Théorique et Protocoles d'Honnêteté Artificielle**
 
 L'émergence et la démocratisation des grands modèles de langage (LLM) ont provoqué un changement de paradigme fondamental dans le traitement du langage naturel, l'acquisition d'informations et l'automatisation des flux de travail. Toutefois, l'intégration de ces systèmes dans des environnements critiques, tels que la médecine, le droit ou l'ingénierie financière, se heurte à une vulnérabilité systémique majeure : la propension des LLM à générer des contenus plausibles, grammaticalement irréprochables, mais factuellement incorrects ou non fondés, un phénomène communément qualifié d'« hallucination »1. Ce défi technologique est considérablement exacerbé par la capacité de ces architectures neuronales à formuler leurs inexactitudes avec un ton d'une certitude absolue, trompant ainsi non seulement les utilisateurs finaux mais également les systèmes d'évaluation automatisés2.  

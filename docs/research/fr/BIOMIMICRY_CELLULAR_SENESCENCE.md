@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Sénescence Cellulaire : Détection et Élimination des Zombies
 
 > Domaine : biologie du vieillissement (cellules sénescentes, senolytics) — Statut : proposition de recherche

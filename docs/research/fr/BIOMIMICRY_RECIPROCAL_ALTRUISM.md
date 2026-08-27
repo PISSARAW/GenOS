@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Altruisme Réciproque : Jeux Évolutionnaires et Sanction des Resquilleurs
 
 > Domaine : biologie évolutive / théorie des jeux (Trivers, Axelrod) — Statut : proposition de recherche

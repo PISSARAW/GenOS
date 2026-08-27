@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # EPIC 4: Network Mesh & Swarm Consensus
 
 Ce document détaille l'architecture réseau et la topologie d'essaim (Swarm) implémentées dans le cadre de l'**EPIC 4** de GenOS v2.0. Ces mécanismes permettent d'abandonner les systèmes asynchrones centralisés au profit d'une intelligence collective bio-inspirée.

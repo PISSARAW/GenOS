@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Index des Concepts Biomimétiques Non Exploités — Propositions de Recherche
 
 Cet index recense les 66 concepts biologiques proposés en extension de GenOS, un document par concept dans `docs/research/fr/`. Chaque document suit le gabarit : fondement biologique → formalisation → mapping vers les primitives existantes → cas d'usage → apports attendus → points d'intégration.

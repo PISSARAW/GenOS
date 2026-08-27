@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # GenOS v2.0 - Product Backlog
 
 Ce backlog structure les recommandations d'architecture avancée issues des recherches fondamentales (Anti-hallucination, RAG Moderne, Test-Time Compute, Sûreté Formelle).

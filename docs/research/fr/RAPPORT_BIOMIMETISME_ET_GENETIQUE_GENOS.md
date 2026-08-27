@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Rapport Maître de Recherche et Spécification d'Architecture : Biomimétisme, Biochimie Cellulaire, Génétique Moléculaire et Écologie de Superorganisme Appliqués à GenOS
 
 Ce rapport de recherche établit les fondements biologiques, métaboliques, génomiques et écologiques de GenOS, transformant les mécanismes du vivant en primitives logicielles déterministes.
