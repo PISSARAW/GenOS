@@ -71,6 +71,24 @@ class AnthonyOrchestrator {
         return `[Spiegelman Monitor: PASS] Complexity preserved.`;
     }
 
+    // Concept 9: Thymus Saboteur (Mutation Testing / Chaos Monkey)
+    // Injects a deliberate bug (AIRE gene) to verify if the QA test suite actually catches it
+    thymusSaboteur(sourceCode) {
+        if (!sourceCode) return "Error: No code provided";
+        // Simple mutator: replaces '+' with '-', or '===' with '!=='
+        let mutated = sourceCode;
+        if (mutated.includes('===')) {
+            mutated = mutated.replace('===', '!==');
+        } else if (mutated.includes('+')) {
+            mutated = mutated.replace('+', '-');
+        } else {
+            mutated = mutated + "\nthrow new Error('THYMUS_MUTATION');";
+        }
+        
+        const hash = crypto.createHash('md5').update(mutated).digest('hex').substring(0, 8);
+        return `[Thymus Saboteur: MUTATION_INJECTED] Code mutated (Strain ${hash}). If tests remain green, APOPTOSIS is required.\n--- MUTATED CODE ---\n${mutated}\n--------------------`;
+    }
+
     // Concept 5: Natural Killer (NK Cell)
     // Scans tests for the "Missing Self" (vacuous tests)
     naturalKillerScan(testCode) {
@@ -147,8 +165,12 @@ async function main() {
         const newCode = parts[1] || '';
         const result = orchestrator.spiegelmanMonitor(oldCode, newCode);
         console.log(result);
+    } else if (command === 'thymus') {
+        const sourceCode = args.slice(1).join(' ');
+        const result = orchestrator.thymusSaboteur(sourceCode);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman, thymus`);
     }
 }
 
