@@ -1,0 +1,14 @@
+{
+  "name": "genos_anthony_immune_compression",
+  "description": "Compresses a verbose stack trace or error log into a short, unique signature (Antibody) so the agent can recognize recurring errors without parsing the whole log.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "error_log": {
+        "type": "string",
+        "description": "The full error log or stack trace to compress."
+      }
+    },
+    "required": ["error_log"]
+  }
+}

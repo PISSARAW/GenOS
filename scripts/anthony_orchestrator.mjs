@@ -33,6 +33,16 @@ class AnthonyOrchestrator {
         return `[Pointer: file://${pointerPath}]`;
     }
 
+    // Concept 4: Immune Key Compression
+    // Compresses a large error/stack trace into a unique signature (Antibody)
+    immuneKeyCompress(errorLog) {
+        if (!errorLog) return null;
+        // Simple heuristic: extract the first line or the actual error message
+        const firstLine = errorLog.split('\n')[0].substring(0, 100);
+        const hash = crypto.createHash('md5').update(errorLog).digest('hex').substring(0, 8);
+        return `[ImmuneSignature:${hash}] ${firstLine}`;
+    }
+
     // Concept 1: Thalamic Filtering
     // Filters out disposable context (noise), keeping only anomalies/deltas
     thalamicFilter(logs) {
@@ -64,8 +74,12 @@ async function main() {
         const rawData = args.slice(1).join(' ');
         const result = orchestrator.createEpigeneticPointer(rawData);
         console.log(result);
+    } else if (command === 'immune') {
+        const errorLog = args.slice(1).join(' ');
+        const result = orchestrator.immuneKeyCompress(errorLog);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune`);
     }
 }
 
