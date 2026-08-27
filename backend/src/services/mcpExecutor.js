@@ -134,6 +134,16 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_phenotype_measure_divergence') {
+    const cp = require('child_process');
+    const { trait_name, expected, observed, tolerance } = args;
+    try {
+      const out = cp.execSync(`genos phenotype measure-divergence --trait-name "${trait_name}" --expected ${expected} --observed ${observed} --tolerance ${tolerance}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
 
   // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 
