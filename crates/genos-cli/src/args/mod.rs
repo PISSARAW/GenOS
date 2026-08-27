@@ -84,7 +84,7 @@ pub enum Commands {
     Storage(crate::cmd_storage::StorageArgs),
     /// Manage and expose network transports
     Transport(crate::cmd_transport::TransportArgs),
-    Epigenetics(crate::cmd_orphans::EpigeneticsArgs),
+    Epigenetics(crate::cmd_epigenetics::EpigeneticsArgs),
     Operon(crate::cmd_orphans::OperonArgs),
     Hgt(crate::cmd_hgt::HgtTransposonArgs),
     Scheduler(crate::cmd_orphans::SchedulerArgs),
