@@ -144,6 +144,17 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_rebase_compute_plan') {
+    const cp = require('child_process');
+    const { graph_file, injection_step, injected_keys } = args;
+    const keysArgs = injected_keys.map(k => `--injected-keys ${k}`).join(' ');
+    try {
+      const out = cp.execSync(`genos rebase compute-plan --graph-file ${graph_file} --injection-step ${injection_step} ${keysArgs}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
 
   // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 
