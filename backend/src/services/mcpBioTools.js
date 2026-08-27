@@ -249,6 +249,24 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_biomimicry_network_quorum') {
+    try {
+      const out = cp.execSync(`genos biomimicry network-quorum --agent-id ${args.agent_id} --threshold ${args.quorum_threshold} --action-id "${args.action_id}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_flocking_explore') {
+    try {
+      const out = cp.execSync(`genos biomimicry flocking-explore --agent-id ${args.agent_id} --zone "${args.target_zone}"` + (args.alignment_strength ? ` --alignment ${args.alignment_strength}` : ''));
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 

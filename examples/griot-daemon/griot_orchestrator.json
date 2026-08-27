@@ -147,6 +147,14 @@
     {
       "name": "senescence_and_succession",
       "enabled": true
+    },
+    {
+      "name": "quorum_sensing_collective",
+      "enabled": true
+    },
+    {
+      "name": "flocking_exploration",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -288,6 +296,16 @@
       },
       {
         "tool": "genos_biomimicry_senescence_assess",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_network_quorum",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_flocking_explore",
         "scope": "allowed",
         "enabled": true
       }
