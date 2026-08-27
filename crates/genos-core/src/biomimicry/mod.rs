@@ -43,6 +43,7 @@ pub mod speciation;
 pub mod telomere;
 pub mod vaccination;
 pub mod mycelium;
+pub mod stigmergy;
 
 pub use bet_hedging::*;
 pub use chaperone::*;
@@ -83,3 +84,4 @@ pub use speciation::*;
 pub use telomere::*;
 pub use vaccination::*;
 pub use mycelium::*;
+pub use stigmergy::*;
