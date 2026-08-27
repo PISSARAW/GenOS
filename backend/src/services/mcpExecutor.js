@@ -172,6 +172,24 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_incident_experiment') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos experiment incident ${args.manifest}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+  if (toolName === 'genos_bug_investigation') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos experiment bug-investigation ${args.manifest}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
   if (toolName === 'genos_phenotype_measure_divergence') {
     const cp = require('child_process');
     const { trait_name, expected, observed, tolerance } = args;
