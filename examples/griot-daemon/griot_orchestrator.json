@@ -111,6 +111,26 @@
     {
       "name": "autopoiesis_self_maintenance",
       "enabled": true
+    },
+    {
+      "name": "hypothalamus_homeostasis",
+      "enabled": true
+    },
+    {
+      "name": "cerebellum_coprocessor",
+      "enabled": true
+    },
+    {
+      "name": "enteric_delegate_digestion",
+      "enabled": true
+    },
+    {
+      "name": "glial_cell_cleanup",
+      "enabled": true
+    },
+    {
+      "name": "gene_regulatory_network_logic",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -211,7 +231,27 @@
         "enabled": true
       },
       {
-        "tool": "genos_biomimicry_theory_autopoiesis",
+        "tool": "genos_biomimicry_hypothalamus_homeostasis",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_cerebellum_coprocessor",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_enteric_delegate",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_glial_cleanup",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_gene_regulatory_network",
         "scope": "allowed",
         "enabled": true
       }

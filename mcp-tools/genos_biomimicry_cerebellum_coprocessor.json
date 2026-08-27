@@ -1,0 +1,13 @@
+{
+  "name": "genos_biomimicry_cerebellum_coprocessor",
+  "description": "Délègue un calcul lourd, fastidieux ou purement algorithmique à un co-processeur (cervelet) sans polluer le contexte conscient de l'agent.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "task_type": { "type": "string", "enum": ["math", "spatial", "search", "balistics"] },
+      "parameters": { "type": "string" }
+    },
+    "required": ["agent_id", "task_type", "parameters"]
+  }
+}
