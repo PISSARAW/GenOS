@@ -1,5 +1,5 @@
 {
-  "name": "genos_causal_analysis",
+  "name": "genos_causal_replay_experiment",
   "description": "Analyze causal boundaries in GenOS and trace logical effects across branches.",
   "parameters": {
     "type": "object",

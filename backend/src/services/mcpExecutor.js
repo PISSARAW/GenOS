@@ -162,6 +162,16 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_causal_replay_experiment') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos experiment causal-replay ${args.input_file}`);
+      require('fs').writeFileSync(args.output_file, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${args.output_file}` };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
   if (toolName === 'genos_phenotype_measure_divergence') {
     const cp = require('child_process');
     const { trait_name, expected, observed, tolerance } = args;
