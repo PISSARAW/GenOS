@@ -53,7 +53,7 @@ mod workers;
 pub use workers::*;
 mod distributed_scheduler;
 pub use distributed_scheduler::*;
-mod redis_queue;
+pub mod redis_queue;
 pub use redis_queue::*;
 
 #[cfg(test)]
