@@ -24,6 +24,22 @@ pub trait SnapshotStore: Send + Sync {
     }
 }
 
+#[async_trait]
+impl<T: ?Sized + SnapshotStore> SnapshotStore for Box<T> {
+    async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>> {
+        (**self).load_snapshot(id).await
+    }
+    async fn save_snapshot(&self, snapshot: &AgentSnapshot) -> anyhow::Result<()> {
+        (**self).save_snapshot(snapshot).await
+    }
+    async fn list_snapshot_ids(&self) -> anyhow::Result<Vec<String>> {
+        (**self).list_snapshot_ids().await
+    }
+    async fn get_snapshot(&self, id: String) -> anyhow::Result<Option<AgentSnapshot>> {
+        (**self).get_snapshot(id).await
+    }
+}
+
 pub struct LocalSnapshotStore {
     file_path: PathBuf,
     legacy_manifest_path: Option<PathBuf>,

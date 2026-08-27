@@ -1,0 +1,73 @@
+--- crates/genos-cli/src/resolve.rs
++++ crates/genos-cli/src/resolve.rs
+@@ -12,6 +12,7 @@ pub struct WorldProviderConfig {
+     pub root: PathBuf,
+     pub seed: Option<PathBuf>,
+     pub repo: Option<PathBuf>,
++    pub sandbox_config: Option<genos_world::sandbox::SandboxConfig>,
+ }
+ 
+ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldProvider>> {
+@@ -20,11 +21,16 @@ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldPr
+         root,
+         seed,
+         repo,
++        sandbox_config,
+     } = config;
+     fs::create_dir_all(&root)?;
+ 
+     match kind {
+         WorldProviderKind::Directory => {
+-            Ok(Box::new(DirectoryWorldProvider::new(root, seed)?) as Box<dyn WorldProvider>)
++            let mut provider = DirectoryWorldProvider::new(root, seed)?;
++            if let Some(cfg) = sandbox_config {
++                provider = provider.with_sandbox(cfg);
++            }
++            Ok(Box::new(provider) as Box<dyn WorldProvider>)
+         }
+         WorldProviderKind::GitWorktree => {
+@@ -41,10 +47,15 @@ pub fn provider_name(kind: WorldProviderKind) -> &'static str {
+     }
+ }
+ 
+-pub fn snapshot_store_from(store: Option<PathBuf>, root: &Path) -> LocalSnapshotStore {
+-    match store {
+-        Some(path) => LocalSnapshotStore::new(path),
+-        None => LocalSnapshotStore::from_root(root),
+-    }
++pub async fn snapshot_store_from(store: Option<String>, root: &Path) -> Result<Box<dyn genos_store::SnapshotStore>> {
++    let s: Box<dyn genos_store::SnapshotStore> = match store {
++        Some(path) => {
++            if path.starts_with("sqlite:") || path.starts_with("sqlite://") {
++                Box::new(genos_store::SqliteStore::new(&path).await?)
++            } else if path.starts_with("postgres:") || path.starts_with("postgres://") {
++                Box::new(genos_store::PostgresStore::new(&path).await?)
++            } else {
++                Box::new(LocalSnapshotStore::new(PathBuf::from(path)))
++            }
++        },
++        None => Box::new(LocalSnapshotStore::from_root(root)),
++    };
++    Ok(s)
+ }
+ 
+ pub fn event_store_from(events: Option<PathBuf>, root: &Path) -> LocalEventStore {
+@@ -57,7 +68,7 @@ pub fn event_store_from(events: Option<PathBuf>, root: &Path) -> LocalEventStore
+ /// Resolve a snapshot reference given either as a file path or as a snapshot id
+ /// held in store, so callers can chain commands without knowing which form the
+ /// caller happens to have at hand.
+-pub async fn resolve_snapshot_ref(spec: &str, store: &LocalSnapshotStore) -> Result<AgentSnapshot> {
++pub async fn resolve_snapshot_ref(spec: &str, store: &(dyn SnapshotStore + Send + Sync)) -> Result<AgentSnapshot> {
+     let path = Path::new(spec);
+     if path.is_file() {
+         return read_snapshot(path);
+@@ -69,8 +80,7 @@ pub async fn resolve_snapshot_ref(spec: &str, store: &LocalSnapshotStore) -> Res
+         .await?
+         .with_context(|| {
+             format!(
+-                "snapshot '{spec}' is neither an existing file nor a snapshot id in {}",
+-                store.file_path().display()
++                "snapshot '{spec}' is neither an existing file nor a snapshot id in the store"
+             )
+         })
+ }

@@ -19,8 +19,8 @@ use genos_core::{
 use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     // `--evidence` routes through `upsert_belief_with_evidence`, which
     // validates each `EvidenceRef::ToolOutput` against `state.tool_outputs`,
@@ -127,7 +127,7 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -156,8 +156,8 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
 }
 
 pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     // Tool input / output: try to parse as JSON, fall back to a JSON string so
     // the record carries the user's text verbatim in either case. This matches
@@ -231,7 +231,7 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),

@@ -29,9 +29,9 @@ async fn load_snapshot(
     snapshots: Option<PathBuf>,
     root: &Path,
 ) -> Result<(AgentSnapshot, PathBuf)> {
-    let store = snapshot_store_from(snapshots, root);
-    let snapshot = resolve_snapshot_ref(spec, &store).await?;
-    Ok((snapshot, store.file_path().to_path_buf()))
+    let store = snapshot_store_from(snapshots.clone().map(|p| p.display().to_string()), root).await.unwrap();
+    let snapshot = resolve_snapshot_ref(spec, &*store).await?;
+    Ok((snapshot, PathBuf::from("<dynamic>")))
 }
 
 fn receipt_is_verified(receipt: &Option<genos_core::ExecutionReceipt>) -> bool {

@@ -98,7 +98,7 @@ pub async fn cmd_hallucination_inject(args: HallucinationInjectArgs) -> Result<(
         write_serialized(path, &snapshot, OutputFormat::Json)?;
     }
     if args.save {
-        let store = snapshot_store_from(args.snapshots.clone(), &args.root);
+        let store = snapshot_store_from(args.snapshots.clone().clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
         store.save_snapshot(&snapshot).await?;
     }
 

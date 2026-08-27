@@ -1,4 +1,4 @@
-﻿use crate::args::{
+use crate::args::{
     OutputFormat, SnapshotCheckpointArgs, SnapshotCompareArgs, SnapshotGetArgs, SnapshotListArgs,
     SnapshotRestoreArgs, SnapshotSaveArgs,
 };
@@ -15,24 +15,24 @@ use std::path::PathBuf;
 
 pub async fn cmd_snapshot_save(args: SnapshotSaveArgs) -> Result<()> {
     let snapshot = read_snapshot(&args.snapshot)?;
-    let store = snapshot_store_from(args.store, &args.root);
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
 
     let snapshot_id = snapshot.snapshot_id.0.clone();
     store.save_snapshot(&snapshot).await?;
 
     let out = SnapshotSaveOutput {
-        store_path: store.file_path().display().to_string(),
+        store_path: args.store.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
         snapshot_id,
     };
     print_serialized(&out, args.format)
 }
 
 pub async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
-    let store = snapshot_store_from(args.store, &args.root);
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
 
     let snapshot = store.get_snapshot(args.snapshot_id.clone()).await?;
     let out = SnapshotGetOutput {
-        store_path: store.file_path().display().to_string(),
+        store_path: args.store.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
         snapshot_id: args.snapshot_id,
         found: snapshot.is_some(),
         snapshot,
@@ -42,11 +42,11 @@ pub async fn cmd_snapshot_get(args: SnapshotGetArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_list(args: SnapshotListArgs) -> Result<()> {
-    let store = snapshot_store_from(args.store, &args.root);
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
 
     let snapshot_ids = store.list_snapshot_ids().await?;
     let out = SnapshotListOutput {
-        store_path: store.file_path().display().to_string(),
+        store_path: args.store.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string()),
         count: snapshot_ids.len(),
         snapshot_ids,
     };
@@ -55,9 +55,9 @@ pub async fn cmd_snapshot_list(args: SnapshotListArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
-    let store = snapshot_store_from(args.store, &args.root);
-    let a = resolve_snapshot_ref(&args.a, &store).await?;
-    let b = resolve_snapshot_ref(&args.b, &store).await?;
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let a = resolve_snapshot_ref(&args.a, &*store).await?;
+    let b = resolve_snapshot_ref(&args.b, &*store).await?;
 
     let comparison = compare_snapshots(&a, &b);
     let out = SnapshotCompareOutput {
@@ -103,13 +103,13 @@ pub async fn cmd_snapshot_compare(args: SnapshotCompareArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
 
     // Resolve both ends. The target is the working snapshot whose logical
     // state we're rewinding; the source is the saved snapshot we're rewinding
     // *to*.
-    let target = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
-    let source = resolve_snapshot_ref(&args.source, &snapshot_store).await?;
+    let target = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
+    let source = resolve_snapshot_ref(&args.source, &*snapshot_store).await?;
 
     // Cross-branch restore is rejected by `restore_snapshot` (panic in
     // debug builds, assertion-failure in release). Catch it here and turn
@@ -125,7 +125,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
     let write = restore_snapshot(&target, &source);
 
     // The rewound target replaces the file the target was loaded from by
-    // default â€” that's where the user's "current" working snapshot lives.
+    // default — that's where the user's "current" working snapshot lives.
     let out_path = args
         .out
         .clone()
@@ -165,7 +165,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -181,7 +181,7 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
         let cmp = compare_snapshots(&write.snapshot, &source);
         // The cursor legitimately advances past the Restored event, so the
         // two cursor fields always differ. Filter them out: `expect_same_state`
-        // for restore means "working memory, beliefs, etc. all match" â€” the
+        // for restore means "working memory, beliefs, etc. all match" — the
         // cursor bookkeeping is part of the rewind itself.
         let unexpected: Vec<&str> = cmp
             .differing_fields
@@ -206,10 +206,10 @@ pub async fn cmd_snapshot_restore(args: SnapshotRestoreArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_checkpoint(args: SnapshotCheckpointArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone(), &args.root);
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
 
-    // Resolve the source snapshot â€” same shape as `cmd_snapshot_restore`.
-    let source = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    // Resolve the source snapshot — same shape as `cmd_snapshot_restore`.
+    let source = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let write = checkpoint_snapshot(&source);
 
@@ -252,7 +252,7 @@ pub async fn cmd_snapshot_checkpoint(args: SnapshotCheckpointArgs) -> Result<()>
         out_path: out_path.display().to_string(),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|s| s.file_path().display().to_string()),

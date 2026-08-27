@@ -89,6 +89,7 @@ pub enum Commands {
     Hgt(crate::cmd_hgt::HgtTransposonArgs),
     Scheduler(crate::cmd_scheduler::SchedulerArgs),
     LoopDetection(crate::cmd_loop_detection::LoopDetectionArgs),
+    Causality(crate::cmd_causality::CausalityArgs),
     
 }
 

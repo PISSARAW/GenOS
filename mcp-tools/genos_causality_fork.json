@@ -1,0 +1,18 @@
+{
+  "name": "genos_causality_fork",
+  "description": "Forks an existing causal boundary to create a new alternative reality for agent simulation.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "boundary_id": {
+        "type": "string",
+        "description": "The existing boundary ID to fork from."
+      },
+      "new_boundary_id": {
+        "type": "string",
+        "description": "The new boundary ID to create."
+      }
+    },
+    "required": ["boundary_id", "new_boundary_id"]
+  }
+}

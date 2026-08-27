@@ -12,7 +12,8 @@ use genos_model::{GenerationConfig, LlmProvider, Message, Role};
 use security::{AuthenticatedTenant, RateLimitConfig, SecurityState};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{convert::Infallible, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use std::{collections::HashMap, convert::Infallible, sync::Arc, time::{SystemTime, UNIX_EPOCH}};
+use axum::http::HeaderMap;
 
 pub mod security;
 
@@ -202,3 +203,4 @@ mod tests {
         assert_eq!(mapped, Role::System);
     }
 }
+

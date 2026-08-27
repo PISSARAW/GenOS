@@ -23,8 +23,8 @@ use genos_core::{
 use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let mut changed = Vec::new();
 
@@ -88,7 +88,7 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
     };
 
     if args.save {
@@ -99,8 +99,8 @@ pub async fn cmd_snapshot_set_cognition(args: SnapshotSetCognitionArgs) -> Resul
 }
 
 pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let write = write_variable_on_branch(&mut snapshot, &args.key, &args.value);
 
@@ -138,7 +138,7 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -154,8 +154,8 @@ pub async fn cmd_snapshot_set_var(args: SnapshotSetVarArgs) -> Result<()> {
 }
 
 pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots, &args.root);
-    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &snapshot_store).await?;
+    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let kind: MemoryKind = args.kind.into();
     let write = add_memory_on_branch(&mut snapshot, kind, &args.content, args.source.as_deref());
@@ -199,7 +199,7 @@ pub async fn cmd_snapshot_add_memory(args: SnapshotAddMemoryArgs) -> Result<()> 
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
         snapshot_store_path: args
             .save
-            .then(|| snapshot_store.file_path().display().to_string()),
+            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -226,12 +226,12 @@ pub async fn cmd_snapshot_check_var(args: SnapshotCheckVarArgs) -> Result<()> {
         );
     }
 
-    let store = snapshot_store_from(args.store, &args.root);
-    let parent = resolve_snapshot_ref(&args.parent, &store).await?;
+    let store = snapshot_store_from(args.store.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let parent = resolve_snapshot_ref(&args.parent, &*store).await?;
 
     let mut branches = Vec::with_capacity(args.branches.len());
     for spec in &args.branches {
-        branches.push(resolve_snapshot_ref(spec, &store).await?);
+        branches.push(resolve_snapshot_ref(spec, &*store).await?);
     }
 
     // Without an explicit expectation, a snapshot is expected to hold what it

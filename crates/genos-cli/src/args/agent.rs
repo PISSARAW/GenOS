@@ -55,6 +55,10 @@ pub struct AgentRunArgs {
     /// Return success even when the command exits with a non-zero status.
     #[arg(long)]
     pub allow_failure: bool,
+    #[arg(long, value_enum)]
+    pub sandbox_backend: Option<crate::args::SandboxBackendArg>,
+    #[arg(long)]
+    pub sandbox_network: bool,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     pub format: OutputFormat,
 }
