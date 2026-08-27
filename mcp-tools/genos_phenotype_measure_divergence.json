@@ -1,0 +1,26 @@
+{
+  "name": "genos_phenotype_measure_divergence",
+  "description": "Measures divergence of a phenotype trait between expected and observed values.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "trait_name": {
+        "type": "string",
+        "description": "Name of the trait."
+      },
+      "expected": {
+        "type": "number",
+        "description": "Expected value."
+      },
+      "observed": {
+        "type": "number",
+        "description": "Observed value."
+      },
+      "tolerance": {
+        "type": "number",
+        "description": "Allowed tolerance."
+      }
+    },
+    "required": ["trait_name", "expected", "observed", "tolerance"]
+  }
+}
