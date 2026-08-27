@@ -132,6 +132,42 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_biomimicry_mycelium_route') {
+    try {
+      const out = cp.execSync(`genos biomimicry mycelium-route --agent-id ${args.agent_id} --target-path "${args.target_path}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_cellular_endosymbiosis') {
+    try {
+      const out = cp.execSync(`genos biomimicry cellular-endosymbiosis --agent-id ${args.agent_id} --target-process "${args.target_process}" --organelle-name "${args.organelle_name}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_stigmergy_deposit') {
+    try {
+      const out = cp.execSync(`genos biomimicry stigmergy-deposit --agent-id ${args.agent_id} --target-file "${args.target_file}" --pheromone-type "${args.pheromone_type}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_theory_autopoiesis') {
+    try {
+      const out = cp.execSync(`genos biomimicry theory-autopoiesis --agent-id ${args.agent_id} --target-gene "${args.target_gene}" --new-value ${args.new_value}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 
