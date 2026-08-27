@@ -103,7 +103,7 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
-  if (toolName === 'genos_conditional_merge') {
+  if (toolName === 'genos_merge') {
     const cp = require('child_process');
     try {
       const out = cp.execSync(`genos merge ${args.branch_id} --conditions "${args.conditions}"`);
