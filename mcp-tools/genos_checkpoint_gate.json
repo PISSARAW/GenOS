@@ -1,0 +1,25 @@
+{
+  "name": "genos_checkpoint_gate",
+  "description": "Cellular Checkpoint Gate. Freezes the execution thread when business ambiguity is high and requires a deterministic binary choice (chemical signal) from the user or superior agent to resume.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "ambiguity": {
+        "type": "string",
+        "description": "Description of the ambiguity causing the freeze."
+      },
+      "option_a": {
+        "type": "string",
+        "description": "First binary option to resolve."
+      },
+      "option_b": {
+        "type": "string",
+        "description": "Second binary option to resolve."
+      },
+      "signal": {
+        "type": "string",
+        "description": "The provided signal choice (if resolving). Omit to freeze."
+      }
+    }
+  }
+}
