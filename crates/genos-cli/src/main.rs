@@ -25,6 +25,7 @@ mod cmd_inspect;
 mod cmd_loop_detection;
 mod cmd_causality;
 mod cmd_phenotype;
+mod cmd_rebase;
 mod cmd_merge;
 mod cmd_operon;
 mod cmd_platform;
@@ -286,5 +287,6 @@ async fn main() -> Result<()> {
         Commands::LoopDetection(args) => crate::cmd_loop_detection::cmd_loop_detection_check(args).await,
         Commands::Causality(args) => crate::cmd_causality::run(args).await,
         Commands::Phenotype(args) => crate::cmd_phenotype::run(args).await,
+        Commands::Rebase(args) => crate::cmd_rebase::run(args).await,
     }
 }
