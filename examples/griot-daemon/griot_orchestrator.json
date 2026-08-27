@@ -75,6 +75,26 @@
     {
       "name": "macrophage_clonal_expansion",
       "enabled": true
+    },
+    {
+      "name": "circadian_rhythm",
+      "enabled": true
+    },
+    {
+      "name": "hippocampal_consolidation",
+      "enabled": true
+    },
+    {
+      "name": "apoptotic_self_termination",
+      "enabled": true
+    },
+    {
+      "name": "adaptive_immunity_vaccination",
+      "enabled": true
+    },
+    {
+      "name": "hallucination_detection",
+      "enabled": true
     }
   ],
   "memory_policy": {
@@ -121,6 +141,41 @@
       },
       {
         "tool": "genos_ais_clonal_hypermutate",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_circadian_toggle",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_hippocampal_consolidate",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_resilience_apoptosis",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_inject_crispr_spacer",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_vaccinate",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_hallucination_detect",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_hallucination_correct",
         "scope": "allowed",
         "enabled": true
       }
