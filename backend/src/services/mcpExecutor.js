@@ -112,6 +112,16 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_pareto_eval') {
+    const cp = require('child_process');
+    try {
+      const out = cp.execSync(`genos experiment select ${args.input_file} --format json`);
+      require('fs').writeFileSync(args.output_file, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Pareto evaluation written to ${args.output_file}` };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
   if (toolName === 'genos_export_audit') {
     const cp = require('child_process');
     const outputPath = args.output || `audit_${args.snapshot_id}.log`;
