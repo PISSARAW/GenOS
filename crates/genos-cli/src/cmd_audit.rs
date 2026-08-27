@@ -12,5 +12,6 @@ pub async fn run(args: AuditArgs) -> anyhow::Result<()> {
         "Exporting audit bundle for snapshot {} to {}",
         args.snapshot_id, args.output
     );
+    std::fs::write(&args.output, format!("Audit bundle for snapshot {}", args.snapshot_id))?;
     Ok(())
 }
