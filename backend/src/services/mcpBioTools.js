@@ -240,6 +240,15 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  if (toolName === 'genos_biomimicry_senescence_assess') {
+    try {
+      const out = cp.execSync(`genos biomimicry senescence-assess --agent-id ${args.agent_id} --context-age ${args.context_age}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
   return null;
 }
 
