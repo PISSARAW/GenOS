@@ -255,7 +255,12 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
     if args.count == 0 {
         bail!("--count must be at least 1");
     }
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let parent = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
     let event_store = if args.emit_events {
         Some(event_store_from(args.events, &args.root))
@@ -304,7 +309,12 @@ pub async fn cmd_agent_fork_from_snapshot(args: AgentForkFromSnapshotArgs) -> Re
         parent_branch_id: parent.branch_id.0.clone(),
         count: forks.len(),
         saved_to_store: save,
-        snapshot_store_path: save.then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -377,4 +387,4 @@ async fn build_fork_entry(
         status: "success".to_string(),
         error: None,
     })
-}
+}

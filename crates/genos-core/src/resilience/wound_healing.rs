@@ -121,16 +121,36 @@ mod tests {
         assert_eq!(wound.phase(), HealingPhase::Hemostasis);
 
         let expected_order = [
-            (HealingPhase::Hemostasis, PHASE_DURATIONS[0], HealingPhase::Inflammation),
-            (HealingPhase::Inflammation, PHASE_DURATIONS[1], HealingPhase::Proliferation),
-            (HealingPhase::Proliferation, PHASE_DURATIONS[2], HealingPhase::Remodeling),
-            (HealingPhase::Remodeling, PHASE_DURATIONS[3], HealingPhase::Remodeling),
+            (
+                HealingPhase::Hemostasis,
+                PHASE_DURATIONS[0],
+                HealingPhase::Inflammation,
+            ),
+            (
+                HealingPhase::Inflammation,
+                PHASE_DURATIONS[1],
+                HealingPhase::Proliferation,
+            ),
+            (
+                HealingPhase::Proliferation,
+                PHASE_DURATIONS[2],
+                HealingPhase::Remodeling,
+            ),
+            (
+                HealingPhase::Remodeling,
+                PHASE_DURATIONS[3],
+                HealingPhase::Remodeling,
+            ),
         ];
         for (phase, duration, next) in expected_order {
             for _ in 0..duration {
                 assert_eq!(wound.heal_cycle(), phase);
             }
-            assert_eq!(wound.heal_cycle(), next, "transition après la durée de phase");
+            assert_eq!(
+                wound.heal_cycle(),
+                next,
+                "transition après la durée de phase"
+            );
         }
         // Cicatrice mûre : force nominale.
         assert!(wound.healed());
@@ -162,6 +182,10 @@ mod tests {
         for _ in 0..10 {
             wound.heal_cycle();
         }
-        assert_eq!(wound.elapsed_cycles(), total, "plus de progression après guérison");
+        assert_eq!(
+            wound.elapsed_cycles(),
+            total,
+            "plus de progression après guérison"
+        );
     }
 }

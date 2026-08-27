@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CompartmentState {
@@ -64,4 +64,3 @@ mod tests {
         assert_eq!(codit.energy_reserves, 5.0);
     }
 }
-

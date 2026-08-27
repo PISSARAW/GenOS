@@ -59,7 +59,12 @@ impl ClonalSelector {
     /// Cycle complet de maturation d'affinité : expansion clonale puis sélection
     /// du clone de meilleure affinité. Retourne `None` si aucun clone ne surpasse
     /// le parent (pas de régression autorisée).
-    pub fn mature_affinity(&self, parent: &Antibody, antigen: &[f32], seed: u64) -> Option<Antibody> {
+    pub fn mature_affinity(
+        &self,
+        parent: &Antibody,
+        antigen: &[f32],
+        seed: u64,
+    ) -> Option<Antibody> {
         let parent_affinity = rbf_affinity(&parent.centroid, antigen, self.gamma);
         let clones = self.expand_and_hypermutate(parent, antigen, seed);
         clones

@@ -19,7 +19,12 @@ use genos_core::{
 use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     // `--evidence` routes through `upsert_belief_with_evidence`, which
@@ -125,9 +130,12 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
         added_evidence: added_evidence_str,
         tool_output_id: tool_output_id_str,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args
-            .save
-            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: args.save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),
@@ -156,7 +164,12 @@ pub async fn cmd_snapshot_set_belief(args: SnapshotSetBeliefArgs) -> Result<()> 
 }
 
 pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let mut snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     // Tool input / output: try to parse as JSON, fall back to a JSON string so
@@ -229,9 +242,12 @@ pub async fn cmd_snapshot_record_tool_call(args: SnapshotRecordToolCallArgs) -> 
         completed_event_id,
         event_sequence: last_sequence,
         out_path: out_path.as_ref().map(|path| path.display().to_string()),
-        snapshot_store_path: args
-            .save
-            .then(|| args.snapshots.as_ref().map(|p| p.display().to_string()).unwrap_or_else(|| "<dynamic>".to_string())),
+        snapshot_store_path: args.save.then(|| {
+            args.snapshots
+                .as_ref()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|| "<dynamic>".to_string())
+        }),
         event_store_path: event_store
             .as_ref()
             .map(|store| store.file_path().display().to_string()),

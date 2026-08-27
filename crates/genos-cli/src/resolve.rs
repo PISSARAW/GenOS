@@ -34,9 +34,9 @@ pub fn provider_from_args(config: WorldProviderConfig) -> Result<Box<dyn WorldPr
             }
             Ok(Box::new(provider) as Box<dyn WorldProvider>)
         }
-        WorldProviderKind::Hardlink => {
-            Ok(Box::new(genos_world::HardlinkWorldProvider::new(root, seed)?) as Box<dyn WorldProvider>)
-        }
+        WorldProviderKind::Hardlink => Ok(Box::new(genos_world::HardlinkWorldProvider::new(
+            root, seed,
+        )?) as Box<dyn WorldProvider>),
         WorldProviderKind::GitWorktree => {
             let repo = repo.context("--repo is required for provider git-worktree")?;
             Ok(Box::new(GitWorktreeWorldProvider::new(root, repo)?) as Box<dyn WorldProvider>)
@@ -52,7 +52,10 @@ pub fn provider_name(kind: WorldProviderKind) -> &'static str {
     }
 }
 
-pub async fn snapshot_store_from(store: Option<String>, root: &Path) -> Result<Box<dyn genos_store::SnapshotStore + Send + Sync>> {
+pub async fn snapshot_store_from(
+    store: Option<String>,
+    root: &Path,
+) -> Result<Box<dyn genos_store::SnapshotStore + Send + Sync>> {
     let s: Box<dyn genos_store::SnapshotStore + Send + Sync> = match store {
         Some(path) => {
             if path.starts_with("sqlite:") || path.starts_with("sqlite://") {
@@ -62,7 +65,7 @@ pub async fn snapshot_store_from(store: Option<String>, root: &Path) -> Result<B
             } else {
                 Box::new(LocalSnapshotStore::new(PathBuf::from(path)))
             }
-        },
+        }
         None => Box::new(LocalSnapshotStore::from_root(root)),
     };
     Ok(s)
@@ -78,7 +81,10 @@ pub fn event_store_from(events: Option<PathBuf>, root: &Path) -> LocalEventStore
 /// Resolve a snapshot reference given either as a file path or as a snapshot id
 /// held in `store`, so callers can chain commands without knowing which form the
 /// caller happens to have at hand.
-pub async fn resolve_snapshot_ref(spec: &str, store: &(dyn SnapshotStore + Send + Sync)) -> Result<AgentSnapshot> {
+pub async fn resolve_snapshot_ref(
+    spec: &str,
+    store: &(dyn SnapshotStore + Send + Sync),
+) -> Result<AgentSnapshot> {
     let path = Path::new(spec);
     if path.is_file() {
         return read_snapshot(path);
@@ -88,9 +94,7 @@ pub async fn resolve_snapshot_ref(spec: &str, store: &(dyn SnapshotStore + Send 
         .get_snapshot(spec.to_string())
         .await?
         .with_context(|| {
-            format!(
-                "snapshot '{spec}' is neither an existing file nor a snapshot id in the store"
-            )
+            format!("snapshot '{spec}' is neither an existing file nor a snapshot id in the store")
         })
 }
 

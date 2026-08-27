@@ -9,7 +9,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 pub async fn cmd_inspect_belief(args: InspectBeliefArgs) -> Result<()> {
-    let snapshot_store = snapshot_store_from(args.snapshots.clone().map(|p| p.display().to_string()), &args.root).await.unwrap();
+    let snapshot_store = snapshot_store_from(
+        args.snapshots.clone().map(|p| p.display().to_string()),
+        &args.root,
+    )
+    .await
+    .unwrap();
     let snapshot = resolve_snapshot_ref(&args.snapshot, &*snapshot_store).await?;
 
     let belief_id = BeliefId(args.belief_id.clone());

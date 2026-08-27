@@ -1,12 +1,12 @@
-use async_trait::async_trait;
-use sqlx::{postgres::PgPool, Row};
-use genos_core::{AgentEvent, AgentWorldCapsule, AgentSnapshot};
-use genos_core::ids::SnapshotId;
-use genos_core::snapshot::CasHash;
-use crate::cas::CasStore;
 use crate::capsule::CapsuleStore;
+use crate::cas::CasStore;
 use crate::event::EventStore;
 use crate::snapshot::SnapshotStore;
+use async_trait::async_trait;
+use genos_core::ids::SnapshotId;
+use genos_core::snapshot::CasHash;
+use genos_core::{AgentEvent, AgentSnapshot, AgentWorldCapsule};
+use sqlx::{postgres::PgPool, Row};
 
 /// Postgres-based unified store for capsules, CAS, events, and snapshots.
 pub struct PostgresStore {
@@ -28,31 +28,39 @@ impl PostgresStore {
                 id TEXT PRIMARY KEY,
                 branch_id TEXT NOT NULL,
                 json_data JSONB NOT NULL
-            );"
-        ).execute(pool).await?;
+            );",
+        )
+        .execute(pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS cas_store (
                 hash TEXT PRIMARY KEY,
                 data BYTEA NOT NULL
-            );"
-        ).execute(pool).await?;
+            );",
+        )
+        .execute(pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS events (
                 id SERIAL PRIMARY KEY,
                 branch_id TEXT,
                 json_data JSONB NOT NULL
-            );"
-        ).execute(pool).await?;
+            );",
+        )
+        .execute(pool)
+        .await?;
 
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS snapshots (
                 seq SERIAL PRIMARY KEY,
                 id TEXT NOT NULL,
                 json_data JSONB NOT NULL
-            );"
-        ).execute(pool).await?;
+            );",
+        )
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -87,7 +95,10 @@ impl CapsuleStore for PostgresStore {
         }
     }
 
-    async fn list_branch_capsules(&self, branch_id: String) -> anyhow::Result<Vec<AgentWorldCapsule>> {
+    async fn list_branch_capsules(
+        &self,
+        branch_id: String,
+    ) -> anyhow::Result<Vec<AgentWorldCapsule>> {
         let rows = sqlx::query("SELECT json_data FROM capsules WHERE branch_id = $1")
             .bind(branch_id)
             .fetch_all(&self.pool)
@@ -116,15 +127,17 @@ impl CapsuleStore for PostgresStore {
 #[async_trait]
 impl CasStore for PostgresStore {
     async fn put(&self, data: &[u8]) -> anyhow::Result<CasHash> {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(data);
         let hash = format!("{:x}", hasher.finalize());
-        sqlx::query("INSERT INTO cas_store (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO NOTHING")
-            .bind(&hash)
-            .bind(data)
-            .execute(&self.pool)
-            .await?;
+        sqlx::query(
+            "INSERT INTO cas_store (hash, data) VALUES ($1, $2) ON CONFLICT (hash) DO NOTHING",
+        )
+        .bind(&hash)
+        .bind(data)
+        .execute(&self.pool)
+        .await?;
         Ok(CasHash(hash))
     }
 
@@ -177,10 +190,11 @@ impl EventStore for PostgresStore {
 #[async_trait]
 impl SnapshotStore for PostgresStore {
     async fn load_snapshot(&self, id: &SnapshotId) -> anyhow::Result<Option<AgentSnapshot>> {
-        let row = sqlx::query("SELECT json_data FROM snapshots WHERE id = $1 ORDER BY seq DESC LIMIT 1")
-            .bind(&id.0)
-            .fetch_optional(&self.pool)
-            .await?;
+        let row =
+            sqlx::query("SELECT json_data FROM snapshots WHERE id = $1 ORDER BY seq DESC LIMIT 1")
+                .bind(&id.0)
+                .fetch_optional(&self.pool)
+                .await?;
         if let Some(r) = row {
             let json: serde_json::Value = r.try_get("json_data")?;
             Ok(Some(serde_json::from_value(json)?))
@@ -219,7 +233,8 @@ mod tests {
     #[ignore]
     #[tokio::test]
     async fn test_postgres_cas() {
-        let db_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://localhost/test".into());
+        let db_url =
+            std::env::var("DATABASE_URL").unwrap_or_else(|_| "postgres://localhost/test".into());
         let store = PostgresStore::new(&db_url).await.unwrap();
         let data = b"hello pg";
         let hash = store.put(data).await.unwrap();

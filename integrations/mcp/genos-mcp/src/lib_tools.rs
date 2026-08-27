@@ -43,7 +43,7 @@ fn a_team_tool() -> ToolSpec {
         description: "Analyzes a complex project requirement and dynamically provisions an elite GenOS A-Team (Swarm). This tool formally defines the specialized roles, partitions the tasks according to GenOS constraints (max 400 lines/file, max 3 params/function), and automatically incorporates the mandatory 'telemetry_observer' agent before orchestration.".into(),
         input_schema: json!({"type":"object","additionalProperties":false,"properties":{
             "project_goal":{"type":"string","minLength":10,"description":"Detailed description of the final objective for the A-Team."},
-            "sub_systems":{"type":"array","items":{"type":"string"},"description":"List of decoupled subsystems the project is divided into (e.g., 'Backend', 'Frontend', 'Database', 'QA')."},
+            "sub_systems":{"type":"array","items":{"type":"string"},"minItems":2,"maxItems":3,"description":"List of decoupled subsystems the project is divided into (e.g., 'Backend', 'Frontend', 'Database', 'QA')."},
             "assigned_roles":{"type":"array","items":{"type":"string"},"description":"List of tailored roles that will be created and orchestrated for this swarm. Must include 'telemetry_observer'."},
             "enforce_genos_rules":{"type":"boolean","description":"Whether to enforce strict GenOS rules (max 400 lines, max 3 parameters, visual style) across all agents in the swarm. Should always be true."}
         },"required":["project_goal","sub_systems","assigned_roles","enforce_genos_rules"]}),

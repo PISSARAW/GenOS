@@ -22,9 +22,7 @@ impl ImmuneMemoryRegistry {
     /// Commet un anticorps mature en mémoire immunitaire.
     /// Politique LRU simplifiée : au-delà de la capacité, la plus ancienne clé est évincée.
     pub fn remember(&mut self, threat_signature: &str, antibody: Antibody) {
-        if !self.entries.contains_key(threat_signature)
-            && self.entries.len() >= self.max_entries
-        {
+        if !self.entries.contains_key(threat_signature) && self.entries.len() >= self.max_entries {
             let oldest = self.entries.keys().next().cloned();
             if let Some(oldest) = oldest {
                 self.entries.remove(&oldest);

@@ -1,4 +1,4 @@
-﻿//! Embryogenesis mapped to staged capsule bootstrapping.
+//! Embryogenesis mapped to staged capsule bootstrapping.
 //!
 //! Biological mechanism: organisms develop in strict phases (cleavage,
 //! blastulation, gastrulation, organogenesis). An error in an early stage
@@ -32,7 +32,7 @@ impl EmbryoPhase {
             _ => None,
         }
     }
-    
+
     pub fn next(&self) -> Option<Self> {
         match self {
             Self::Identity => Some(Self::Drives),
@@ -60,7 +60,10 @@ impl Embryogenesis {
     /// Advance to the next developmental phase if preconditions are met.
     pub fn advance(&mut self, preconditions_met: bool) -> Result<EmbryoPhase, String> {
         if !preconditions_met {
-            return Err(format!("Preconditions not met for phase {:?}", self.current_phase));
+            return Err(format!(
+                "Preconditions not met for phase {:?}",
+                self.current_phase
+            ));
         }
 
         if let Some(next_phase) = self.current_phase.next() {

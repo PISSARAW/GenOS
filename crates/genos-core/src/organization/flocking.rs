@@ -1,4 +1,4 @@
-﻿use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 // Ce fichier implÃ©mente plusieurs algorithmes d'organisation inspirÃ©s de la nature :
 // - Boids (NuÃ©es d'oiseaux)
 // - FSS (Fish School Search)

@@ -4,8 +4,8 @@
 //!
 //! Reference design: `docs/3-features-and-domain/resilience/virophage.md` (§Mavirus).
 
-use super::virophage::AttackGene;
 use super::viral_dynamics::{CassetteState, ProphageLocus, SkillCassette, Superinjection};
+use super::virophage::AttackGene;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -70,21 +70,28 @@ impl MavirusIntegrator {
         let mut outcomes = Vec::with_capacity(genes.len());
         for gene in genes {
             if self.converted.contains_key(&gene.signature_hash) {
-                outcomes.push((gene.signature_hash.clone(), IntegrationOutcome::AlreadyIntegrated));
+                outcomes.push((
+                    gene.signature_hash.clone(),
+                    IntegrationOutcome::AlreadyIntegrated,
+                ));
                 continue;
             }
-            let outcome = match locus.integrate(self.to_cassette(gene), self.gamma, self.theta_exclusion) {
-                Ok(state) => {
-                    let cassette_id = format!(
-                        "mv-{}",
-                        gene.signature_hash.chars().take(12).collect::<String>()
-                    );
-                    self.converted.insert(gene.signature_hash.clone(), cassette_id);
-                    IntegrationOutcome::Integrated(format!("{state:?}"))
-                }
-                Err(Superinjection::ExcludedBy(resident)) => IntegrationOutcome::ExcludedBy(resident),
-                Err(Superinjection::LocusFull) => IntegrationOutcome::LocusFull,
-            };
+            let outcome =
+                match locus.integrate(self.to_cassette(gene), self.gamma, self.theta_exclusion) {
+                    Ok(state) => {
+                        let cassette_id = format!(
+                            "mv-{}",
+                            gene.signature_hash.chars().take(12).collect::<String>()
+                        );
+                        self.converted
+                            .insert(gene.signature_hash.clone(), cassette_id);
+                        IntegrationOutcome::Integrated(format!("{state:?}"))
+                    }
+                    Err(Superinjection::ExcludedBy(resident)) => {
+                        IntegrationOutcome::ExcludedBy(resident)
+                    }
+                    Err(Superinjection::LocusFull) => IntegrationOutcome::LocusFull,
+                };
             outcomes.push((gene.signature_hash.clone(), outcome));
         }
         outcomes
@@ -110,9 +117,14 @@ mod tests {
         let harvest = vec![gene("aa11", 0.1), gene("bb22", 5.0)];
         let outcomes = integrator.integrate_harvest(&harvest, &mut locus);
 
-        assert!(outcomes.iter().all(|(_, o)| matches!(o, IntegrationOutcome::Integrated(_))));
+        assert!(outcomes
+            .iter()
+            .all(|(_, o)| matches!(o, IntegrationOutcome::Integrated(_))));
         assert_eq!(locus.cassettes().len(), 2);
-        assert!(locus.has_dormant(), "immunity is inherited dormant, not live");
+        assert!(
+            locus.has_dormant(),
+            "immunity is inherited dormant, not live"
+        );
         assert_eq!(integrator.converted_count(), 2);
         // Les payloads sont attenues : jamais le playbook brut.
         assert!(locus

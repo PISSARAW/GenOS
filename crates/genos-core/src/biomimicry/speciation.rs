@@ -44,7 +44,10 @@ pub struct SpeciesBoundary {
 
 impl Default for SpeciesBoundary {
     fn default() -> Self {
-        SpeciesBoundary { hybrid_threshold: 0.30, speciation_threshold: 0.60 }
+        SpeciesBoundary {
+            hybrid_threshold: 0.30,
+            speciation_threshold: 0.60,
+        }
     }
 }
 
@@ -139,16 +142,22 @@ mod tests {
 
     #[test]
     fn allopatric_divergence_accumulates_and_saturates() {
-        let barrier =
-            IsolationBarrier { group_a: "school-a".into(), group_b: "school-b".into(), since_day: 100.0 };
+        let barrier = IsolationBarrier {
+            group_a: "school-a".into(),
+            group_b: "school-b".into(),
+            since_day: 100.0,
+        };
         assert!((barrier.estimated_divergence(110.0, 0.02) - 0.20).abs() < 1e-9);
         assert_eq!(barrier.estimated_divergence(200.0, 0.02), 1.0);
     }
 
     #[test]
     fn merge_verdict_tracks_isolation_duration() {
-        let barrier =
-            IsolationBarrier { group_a: "a".into(), group_b: "b".into(), since_day: 0.0 };
+        let barrier = IsolationBarrier {
+            group_a: "a".into(),
+            group_b: "b".into(),
+            since_day: 0.0,
+        };
         let boundary = SpeciesBoundary::default();
         assert_eq!(
             barrier.merge_allowed(5.0, 0.02, &boundary),

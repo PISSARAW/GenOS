@@ -226,7 +226,11 @@ mod tests {
         facts.insert("world_isolated_cow".into(), true);
         facts.insert("budget_allocated".into(), true);
         let report = keeper.evaluate(Phase::Fork, &facts);
-        assert!(report.passed, "violated={:?} missing={:?}", report.violated_rules, report.missing_facts);
+        assert!(
+            report.passed,
+            "violated={:?} missing={:?}",
+            report.violated_rules, report.missing_facts
+        );
     }
 
     #[test]
@@ -253,16 +257,14 @@ mod tests {
         facts.insert("genome_coherent".into(), false);
         let report = keeper.evaluate(Phase::Init, &facts);
         assert!(!report.passed);
-        assert!(report.violated_rules.contains(&"requires_genome_coherent".to_string()));
+        assert!(report
+            .violated_rules
+            .contains(&"requires_genome_coherent".to_string()));
     }
 
     #[test]
     fn parse_facts_handles_truthy_and_rejects_garbage() {
-        let params = vec![
-            "a=true".to_string(),
-            "b=no".to_string(),
-            "c=1".to_string(),
-        ];
+        let params = vec!["a=true".to_string(), "b=no".to_string(), "c=1".to_string()];
         let facts = parse_facts(&params).unwrap();
         assert_eq!(facts.get("a"), Some(&true));
         assert_eq!(facts.get("b"), Some(&false));

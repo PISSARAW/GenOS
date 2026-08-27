@@ -57,7 +57,8 @@ impl StigmergyEngine {
     pub fn get_effective_trail(&self, edge: &PheromoneEdge) -> f32 {
         match self.edges.get(edge) {
             Some(state) => {
-                let raw = state.positive_trail - (self.negative_penalty_weight * state.negative_trail);
+                let raw =
+                    state.positive_trail - (self.negative_penalty_weight * state.negative_trail);
                 raw.max(0.01)
             }
             None => 1.0,

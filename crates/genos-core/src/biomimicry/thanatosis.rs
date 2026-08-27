@@ -1,10 +1,10 @@
-﻿//! Thanatosis mapped to defensive fake-death state.
+//! Thanatosis mapped to defensive fake-death state.
 //!
-//! Biological mechanism: "Playing dead" (Thanatosis) to deceive predators that 
+//! Biological mechanism: "Playing dead" (Thanatosis) to deceive predators that
 //! only attack live/moving prey, causing them to lose interest.
 //! GenOS mapping: When facing an aggressive adversarial attack (e.g., prompt injection
-//! or API trap), instead of analyzing and fighting it (costing tokens), the agent 
-//! feigns a crash. It returns a fake 500 error or "System Halted" message, 
+//! or API trap), instead of analyzing and fighting it (costing tokens), the agent
+//! feigns a crash. It returns a fake 500 error or "System Halted" message,
 //! forcing the attacker to drop the connection.
 
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ impl ThanatosisState {
     pub fn trigger_fake_death(&mut self, threat_source: &str) -> String {
         self.is_playing_dead = true;
         format!(
-            "Threat detected from {}. Initiating Thanatosis. Emitting fake FATAL_ERROR...", 
+            "Threat detected from {}. Initiating Thanatosis. Emitting fake FATAL_ERROR...",
             threat_source
         )
     }

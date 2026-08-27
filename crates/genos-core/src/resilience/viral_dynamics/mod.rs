@@ -114,12 +114,7 @@ impl ViralDynamicsEngine {
     /// error rate satisfies `u * L < ln(W_max / W_avg)`; expressed as a cloud
     /// width this bounds sigma to `sqrt(ln(W_max / W_avg) / L)`.
     /// Returns `None` when no exploration is admissible.
-    pub fn error_catastrophe_sigma(
-        &self,
-        info_length: f32,
-        w_max: f32,
-        w_avg: f32,
-    ) -> Option<f32> {
+    pub fn error_catastrophe_sigma(&self, info_length: f32, w_max: f32, w_avg: f32) -> Option<f32> {
         if info_length <= 0.0 || w_max <= w_avg || w_avg <= 0.0 {
             return None;
         }
@@ -211,7 +206,9 @@ struct XorShift64 {
 
 impl XorShift64 {
     fn new(seed: u64) -> Self {
-        Self { state: if seed == 0 { 0x9E3779B97F4A7C15 } else { seed } }
+        Self {
+            state: if seed == 0 { 0x9E3779B97F4A7C15 } else { seed },
+        }
     }
 
     fn next_u64(&mut self) -> u64 {
@@ -248,7 +245,9 @@ mod tests {
     #[test]
     fn error_catastrophe_guard_bounds_cloud_width() {
         let engine = ViralDynamicsEngine::default();
-        let sigma = engine.error_catastrophe_sigma(4.0, 2.0, 1.0).expect("fitness edge exists");
+        let sigma = engine
+            .error_catastrophe_sigma(4.0, 2.0, 1.0)
+            .expect("fitness edge exists");
         assert!((sigma - (2.0f32.ln() / 4.0).sqrt()).abs() < 1e-6);
         assert!(
             engine.error_catastrophe_sigma(4.0, 1.0, 1.0).is_none(),

@@ -33,7 +33,10 @@ pub const WARNING_ZONE_RATIO: f64 = 0.25;
 
 impl TelomereCounter {
     pub fn new(max_forks: u32) -> Self {
-        TelomereCounter { remaining: max_forks, max_forks }
+        TelomereCounter {
+            remaining: max_forks,
+            max_forks,
+        }
     }
 
     /// Consume one unit of fork budget, fail-closed at zero.
@@ -43,8 +46,7 @@ impl TelomereCounter {
         }
         self.remaining -= 1;
         let remaining_after = self.remaining;
-        let warning_floor =
-            (self.max_forks as f64 * WARNING_ZONE_RATIO).ceil() as u32;
+        let warning_floor = (self.max_forks as f64 * WARNING_ZONE_RATIO).ceil() as u32;
         if remaining_after <= warning_floor {
             ForkVerdict::AllowedWarning { remaining_after }
         } else {
@@ -93,7 +95,10 @@ impl TelomereCounter {
 
     /// True when the lineage should prefer breeding over forking.
     pub fn should_breed(&self) -> bool {
-        matches!(self.consume_preview(), ForkPreview::Warning | ForkPreview::Exhausted)
+        matches!(
+            self.consume_preview(),
+            ForkPreview::Warning | ForkPreview::Exhausted
+        )
     }
 }
 
@@ -110,8 +115,7 @@ impl TelomereCounter {
         if self.remaining == 0 {
             ForkPreview::Exhausted
         } else {
-            let warning_floor =
-                (self.max_forks as f64 * WARNING_ZONE_RATIO).ceil() as u32;
+            let warning_floor = (self.max_forks as f64 * WARNING_ZONE_RATIO).ceil() as u32;
             if self.remaining - 1 <= warning_floor {
                 ForkPreview::Warning
             } else {
@@ -152,10 +156,13 @@ mod tests {
             ForkVerdict::AllowedWarning { remaining_after: 3 }
         ));
         for expected in [2, 1, 0] {
-            assert!(matches!(
-                counter.consume_for_fork(),
-                ForkVerdict::AllowedWarning { .. }
-            ), "expected warning at {expected}");
+            assert!(
+                matches!(
+                    counter.consume_for_fork(),
+                    ForkVerdict::AllowedWarning { .. }
+                ),
+                "expected warning at {expected}"
+            );
         }
         assert_eq!(counter.consume_for_fork(), ForkVerdict::Exhausted);
     }
@@ -184,7 +191,10 @@ mod tests {
     fn breeding_is_advised_in_warning_zone() {
         let fresh = TelomereCounter::new(10);
         assert!(!fresh.should_breed());
-        let tired = TelomereCounter { remaining: 2, max_forks: 10 };
+        let tired = TelomereCounter {
+            remaining: 2,
+            max_forks: 10,
+        };
         assert!(tired.should_breed());
     }
 }

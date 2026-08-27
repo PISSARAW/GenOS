@@ -21,5 +21,8 @@ pub fn extract_semantic_claims(prose: &str, confidence_threshold: f64) -> Vec<Ex
         });
     }
     // Very basic dummy logic for MVP
-    claims.into_iter().filter(|c| c.confidence >= confidence_threshold).collect()
+    claims
+        .into_iter()
+        .filter(|c| c.confidence >= confidence_threshold)
+        .collect()
 }

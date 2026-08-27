@@ -135,7 +135,9 @@ mod tests {
     #[test]
     fn clearing_the_threat_cools_the_system_back_to_baseline() {
         let mut t = Thermoregulator::new();
-        t.expose_to(Pyrogen::ConfirmedThreat { signature: "sig-1".into() });
+        t.expose_to(Pyrogen::ConfirmedThreat {
+            signature: "sig-1".into(),
+        });
         for _ in 0..30 {
             t.regulate();
         }
@@ -158,9 +160,14 @@ mod tests {
     fn multiple_pyrogens_stack_but_respect_hyperpyrexia_cap() {
         let mut t = Thermoregulator::new();
         for i in 0..10 {
-            t.expose_to(Pyrogen::ConfirmedThreat { signature: format!("s{i}") });
+            t.expose_to(Pyrogen::ConfirmedThreat {
+                signature: format!("s{i}"),
+            });
         }
-        assert!((t.setpoint - MAX_TEMPERATURE).abs() < 1e-6, "plafond respecté");
+        assert!(
+            (t.setpoint - MAX_TEMPERATURE).abs() < 1e-6,
+            "plafond respecté"
+        );
     }
 
     #[test]

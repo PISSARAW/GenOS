@@ -5,10 +5,10 @@ pub mod cryptobiosis;
 pub mod dpo;
 pub mod event;
 pub mod fossil;
+pub mod postgres;
 pub mod replay;
 pub mod snapshot;
 pub mod sqlite;
-pub mod postgres;
 
 pub use artifact::{LocalArtifactStore, LocalSnapshotComponentStore, SnapshotComponentManifest};
 pub use capsule::{CapsuleStore, LocalCapsuleStore};
@@ -20,5 +20,5 @@ pub use replay::{
 };
 pub use snapshot::{LocalSnapshotStore, SnapshotStore};
 
-pub use sqlite::SqliteStore;
 pub use postgres::PostgresStore;
+pub use sqlite::SqliteStore;

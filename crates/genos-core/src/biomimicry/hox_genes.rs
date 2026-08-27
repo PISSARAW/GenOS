@@ -1,4 +1,4 @@
-﻿//! Hox Genes mapped to structural capability ordering.
+//! Hox Genes mapped to structural capability ordering.
 //!
 //! Biological mechanism: Hox genes determine the basic structure and orientation
 //! of an organism (antero-posterior axis). Their order on the chromosome matches
@@ -36,7 +36,11 @@ impl HoxBlueprint {
     }
 
     pub fn add_gene(&mut self, name: String, segment: BodySegment, position: usize) {
-        self.genes.push(HoxGene { name, segment, position });
+        self.genes.push(HoxGene {
+            name,
+            segment,
+            position,
+        });
         self.genes.sort_by_key(|g| (g.segment.clone(), g.position));
     }
 
@@ -44,7 +48,7 @@ impl HoxBlueprint {
     /// colinearity imposed by the Hox blueprint.
     pub fn verify_colinearity(&self, activated_capabilities: &[String]) -> Result<(), String> {
         let mut expected_iter = self.genes.iter();
-        
+
         for cap in activated_capabilities {
             let mut found = false;
             while let Some(gene) = expected_iter.next() {
@@ -54,7 +58,10 @@ impl HoxBlueprint {
                 }
             }
             if !found {
-                return Err(format!("Capability '{}' activated out of order or not in blueprint.", cap));
+                return Err(format!(
+                    "Capability '{}' activated out of order or not in blueprint.",
+                    cap
+                ));
             }
         }
         Ok(())

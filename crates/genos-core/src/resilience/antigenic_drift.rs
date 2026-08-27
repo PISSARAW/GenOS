@@ -63,8 +63,7 @@ impl AntigenicDriftTracker {
         let assessment = match &state.last_embedding {
             None => DriftAssessment::FirstSighting,
             Some(previous) => {
-                let affinity =
-                    super::viral_dynamics::rbf_affinity(previous, embedding, self.gamma);
+                let affinity = super::viral_dynamics::rbf_affinity(previous, embedding, self.gamma);
                 if affinity >= self.theta_stable {
                     state.consecutive_drifts = 0;
                     DriftAssessment::Stable { affinity }
@@ -97,7 +96,10 @@ mod tests {
     #[test]
     fn first_sighting_then_stability_on_similar_embeddings() {
         let mut tracker = AntigenicDriftTracker::new(4.0, 0.7);
-        assert_eq!(tracker.observe("attacker-a", &[0.5, 0.5]), DriftAssessment::FirstSighting);
+        assert_eq!(
+            tracker.observe("attacker-a", &[0.5, 0.5]),
+            DriftAssessment::FirstSighting
+        );
         let second = tracker.observe("attacker-a", &[0.51, 0.51]);
         match second {
             DriftAssessment::Stable { affinity } => assert!(affinity > 0.9),
@@ -125,7 +127,10 @@ mod tests {
         ));
         let state = tracker.source_state("attacker-a").unwrap();
         assert_eq!(state.consecutive_drifts, 0);
-        assert_eq!(state.variants_seen, 1, "stabilized variant is not re-counted");
+        assert_eq!(
+            state.variants_seen, 1,
+            "stabilized variant is not re-counted"
+        );
     }
 
     #[test]
@@ -142,7 +147,10 @@ mod tests {
     fn sources_are_tracked_independently() {
         let mut tracker = AntigenicDriftTracker::new(4.0, 0.7);
         tracker.observe("a", &[0.1, 0.1]);
-        assert_eq!(tracker.observe("b", &[0.8, 0.8]), DriftAssessment::FirstSighting);
+        assert_eq!(
+            tracker.observe("b", &[0.8, 0.8]),
+            DriftAssessment::FirstSighting
+        );
         assert_eq!(tracker.source_state("a").unwrap().observations, 1);
         assert_eq!(tracker.source_state("b").unwrap().observations, 1);
     }
