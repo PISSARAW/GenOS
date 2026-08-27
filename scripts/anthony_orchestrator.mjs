@@ -94,7 +94,7 @@ class AnthonyOrchestrator {
     naturalKillerScan(testCode) {
         if (!testCode) return "Error: No code provided";
         // Heuristics for vacuous tests (empty lists in all/every, hardcoded True assertions)
-        const hasMissingSelf = /all\(\[\]\)|\[\]\.every|\.length\s*(===|==)\s*0|assert\(\s*(true|1|True)\s*\)/i.test(testCode);
+        const hasMissingSelf = /all\(\[\]\)|\[\]\.every|\.every\(|\.length\s*(===|==)\s*0|assert(\.ok)?\(\s*(true|1|True)\s*\)/i.test(testCode);
         if (hasMissingSelf) {
             return `[NK Cell: APOPTOSIS TRIGGERED] Vacuous test detected (Missing Self). Test framework is empty.`;
         }
