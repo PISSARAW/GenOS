@@ -124,6 +124,16 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_causality_fork') {
+    const cp = require('child_process');
+    const { boundary_id, new_boundary_id } = args;
+    try {
+      const out = cp.execSync(`genos causality fork --boundary-id ${boundary_id} --new-boundary-id ${new_boundary_id}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
 
   // Hardcoded tools removed to allow fallback to configured MCP transport (which wraps the CLI)
 

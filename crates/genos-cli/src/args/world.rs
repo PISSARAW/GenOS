@@ -1,4 +1,4 @@
-﻿use super::{ArgsMacro, OutputFormat, WorldProviderKind};
+use super::{ArgsMacro, OutputFormat, WorldProviderKind};
 use std::path::PathBuf;
 
 #[derive(ArgsMacro, Debug)]
@@ -37,8 +37,11 @@ pub struct WorldRunArgs {
     #[arg(long)]
     pub command: String,
     /// Return success even when the command exits non-zero.
-    #[arg(long)]
     pub allow_failure: bool,
+    #[arg(long, value_enum)]
+    pub sandbox_backend: Option<crate::args::SandboxBackendArg>,
+    #[arg(long)]
+    pub sandbox_network: bool,
     #[arg(long)]
     pub repo: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]

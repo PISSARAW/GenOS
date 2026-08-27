@@ -15,9 +15,11 @@ use genos_world::{check_file_isolation, DestroyOutcome, WorldFileExpectation};
 pub async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: args.seed,
         repo: args.repo,
+        
     })?;
     let world_id = provider.create(AgentId::new(), BranchId::new()).await?;
 
@@ -31,6 +33,7 @@ pub async fn cmd_world_create(args: WorldCreateArgs) -> Result<()> {
 pub async fn cmd_world_snapshot(args: WorldSnapshotArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -49,6 +52,7 @@ pub async fn cmd_world_snapshot(args: WorldSnapshotArgs) -> Result<()> {
 pub async fn cmd_world_fork(args: WorldForkArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -67,6 +71,7 @@ pub async fn cmd_world_fork(args: WorldForkArgs) -> Result<()> {
 pub async fn cmd_world_diff(args: WorldDiffArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -87,6 +92,7 @@ pub async fn cmd_world_diff(args: WorldDiffArgs) -> Result<()> {
 pub async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -110,6 +116,7 @@ pub async fn cmd_world_destroy(args: WorldDestroyArgs) -> Result<()> {
 pub async fn cmd_world_read_file(args: WorldReadFileArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -130,6 +137,7 @@ pub async fn cmd_world_read_file(args: WorldReadFileArgs) -> Result<()> {
 pub async fn cmd_world_write_file(args: WorldWriteFileArgs) -> Result<()> {
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
@@ -153,11 +161,29 @@ pub async fn cmd_world_write_file(args: WorldWriteFileArgs) -> Result<()> {
 }
 
 pub async fn cmd_world_run(args: WorldRunArgs) -> Result<()> {
+    let sandbox_config = if args.sandbox_backend.is_some() || !args.sandbox_network {
+        Some(genos_world::sandbox::SandboxConfig {
+            network_enabled: args.sandbox_network,
+            backend: match args.sandbox_backend {
+                Some(crate::args::SandboxBackendArg::Bwrap) => genos_world::sandbox::SandboxBackend::Bwrap,
+                Some(crate::args::SandboxBackendArg::SandboxExec) => genos_world::sandbox::SandboxBackend::SandboxExec,
+                Some(crate::args::SandboxBackendArg::Gvisor) => genos_world::sandbox::SandboxBackend::GVisor,
+                Some(crate::args::SandboxBackendArg::Firecracker) => genos_world::sandbox::SandboxBackend::Firecracker,
+                Some(crate::args::SandboxBackendArg::None) => genos_world::sandbox::SandboxBackend::None,
+                None => genos_world::sandbox::SandboxBackend::None,
+            },
+            ..Default::default()
+        })
+    } else {
+        None
+    };
+
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
         root: args.root,
         seed: None,
         repo: args.repo,
+        sandbox_config,
     })?;
     let result = provider
         .execute(WorldId(args.world_id.clone()), &args.command)
@@ -193,6 +219,7 @@ pub async fn cmd_world_check_file(args: WorldCheckFileArgs) -> Result<()> {
 
     let provider = provider_from_args(WorldProviderConfig {
         kind: args.provider,
+        sandbox_config: None,
         root: args.root,
         seed: None,
         repo: args.repo,
