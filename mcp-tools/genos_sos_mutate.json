@@ -1,0 +1,1 @@
+{ "name": "genos_sos_mutate", "description": "Trigger SOS genetic response to mutate a genome under stress.", "parameters": { "type": "object", "properties": { "genome_id": { "type": "string" }, "multiplier": { "type": "number" }, "seed": { "type": "integer" } }, "required": ["genome_id", "multiplier", "seed"] } }
