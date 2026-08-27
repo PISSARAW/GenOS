@@ -46,6 +46,18 @@ class AnthonyOrchestrator {
         };
     }
 
+    // Concept 7: PD-L1 Blocker (Anti-Mock/Freeze Trap)
+    // Detects when complex logic is replaced by a hardcoded constant just to pass a test
+    pdl1BlockerScan(code) {
+        if (!code) return "Error: No code provided";
+        // Heuristic: looks for suspicious hardcoded returns in what should be complex functions
+        const hasFreezeTrap = /return\s+(42|true|false|"Je_Suis_Safe"|0|1)\s*;/i.test(code) || /jest\.mock/i.test(code);
+        if (hasFreezeTrap) {
+            return `[PD-L1 Blocker: REJECTED] Freeze Trap detected. The code uses a mock or a hardcoded constant to bypass logic.`;
+        }
+        return `[PD-L1 Blocker: PASS] No obvious PD-L1 mocks detected.`;
+    }
+
     // Concept 5: Natural Killer (NK Cell)
     // Scans tests for the "Missing Self" (vacuous tests)
     naturalKillerScan(testCode) {
@@ -111,8 +123,12 @@ async function main() {
         const truth = args.slice(1).join(' ');
         const result = orchestrator.methylateTruth(truth);
         console.log(JSON.stringify(result, null, 2));
+    } else if (command === 'pdl1') {
+        const code = args.slice(1).join(' ');
+        const result = orchestrator.pdl1BlockerScan(code);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1`);
     }
 }
 
