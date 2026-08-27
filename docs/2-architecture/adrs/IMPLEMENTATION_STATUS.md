@@ -5,6 +5,13 @@ decision is fully implemented. This matrix tracks executable coverage.
 
 | ADR | Implementation | Executable coverage | Major missing work |
 | --- | --- | --- | --- |
+| 0001 | Implemented | Genome state separation | — |
+| 0002 | Implemented | Event sourcing | — |
+| 0003 | Implemented | World separation | — |
+| 0004 | Implemented | Fork isolation | — |
+| 0005 | Implemented | State vs execution replay | — |
+| 0006 | Implemented | Provider neutrality | — |
+| 0007 | Obsolete | Defer Cognitive Merge in V0 | Superseded by ADR-0016 |
 | 0008 | Implemented | First-class phenotype records and divergence | — |
 | 0009 | Implemented | Controlled cohorts and factorial interaction analysis | — |
 | 0010 | Implemented | Mutation, controlled metrics, constraints, Pareto selection | — |
@@ -19,6 +26,7 @@ decision is fully implemented. This matrix tracks executable coverage.
 | 0019 | Implemented | Atomic S0→forks→experiences→merge→S1 orchestration and lineage URIs | Distributed transaction coordinator |
 | 0020 | Implemented | Ten canonical `agent` primitives, atomic capsule lifecycle, bounded isolated execution | Remote runtime transport |
 | 0021 | Implemented | Versioned tool catalogue and result schema, ten MCP tools, STDIO and stateless HTTP transports, Codex configuration, transport tests, and installation guide | Authentication and sessionful remote deployment |
+| 0022 | Implemented | OS network sandboxing | — |
 
 An ADR moves to `Implemented` only when its normative behavior has production
 code and proportionate tests. Schema or documentation alone counts as `None`,

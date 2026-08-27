@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Chaperonnes Moléculaires : Réparation Assistée des Configurations
 
 > Domaine : biologie moléculaire (Hsp70/Hsp60, repliage) — Statut : proposition de recherche

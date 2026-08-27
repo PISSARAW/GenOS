@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Sélection de Parentèle : Allocation aux Lignées Apparentées
 
 > Domaine : biologie évolutive (Hamilton, r·B > C) — Statut : proposition de recherche

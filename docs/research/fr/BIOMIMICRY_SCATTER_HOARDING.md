@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Cache Dispersé : Mémoire Écologique des Artefacts
 
 > Domaine : éthologie (mise en cache, mémoire spatiale) — Statut : proposition de recherche
