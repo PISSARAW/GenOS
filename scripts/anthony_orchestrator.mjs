@@ -23,6 +23,16 @@ class AnthonyOrchestrator {
         return `Memory consolidated and flushed to: ${memoryPath}`;
     }
 
+    // Concept 3: Epigenetic Pointers
+    // Replaces massive machine-consumed data with a local file pointer
+    createEpigeneticPointer(rawData) {
+        if (!rawData) return null;
+        const hash = crypto.createHash('sha256').update(rawData).digest('hex').substring(0, 8);
+        const pointerPath = join(ANTHONY_DIR, `epigenetic_data_${hash}.json`);
+        writeFileSync(pointerPath, JSON.stringify({ data: rawData }));
+        return `[Pointer: file://${pointerPath}]`;
+    }
+
     // Concept 1: Thalamic Filtering
     // Filters out disposable context (noise), keeping only anomalies/deltas
     thalamicFilter(logs) {
@@ -50,8 +60,12 @@ async function main() {
         const inputHistory = args.slice(1);
         const result = orchestrator.hippocampalConsolidate(inputHistory);
         console.log(result);
+    } else if (command === 'epigenetics') {
+        const rawData = args.slice(1).join(' ');
+        const result = orchestrator.createEpigeneticPointer(rawData);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics`);
     }
 }
 
