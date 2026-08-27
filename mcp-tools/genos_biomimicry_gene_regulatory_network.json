@@ -1,0 +1,13 @@
+{
+  "name": "genos_biomimicry_gene_regulatory_network",
+  "description": "Configure une porte logique (IF / THEN) basée sur l'ADN pour déclencher un processus automatiquement en réponse à un stimulus de l'environnement.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "condition": { "type": "string", "description": "Condition déclencheur (ex: perte_connexion, cpu_high)." },
+      "action_script": { "type": "string", "description": "Action automatique à déclencher (protéine générée)." }
+    },
+    "required": ["agent_id", "condition", "action_script"]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "name": "genos_biomimicry_hypothalamus_homeostasis",
+  "description": "Bascule l'agent entre le mode Combat (Sympathique : ressources maximales sur la résolution de tâche) et Maintenance (Parasympathique : apprentissage, indexation, repos).",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "nervous_state": { "type": "string", "enum": ["sympathetic", "parasympathetic"] }
+    },
+    "required": ["agent_id", "nervous_state"]
+  }
+}
