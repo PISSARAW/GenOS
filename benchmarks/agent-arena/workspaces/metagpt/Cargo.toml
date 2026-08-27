@@ -8,4 +8,4 @@ edition = "2018"
 [dependencies]
 sha2 = "0.10"
 rand = "0.8"
-criterion = "0.3"
+criterion = "0.5"
