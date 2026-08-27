@@ -1,0 +1,11 @@
+{
+  "name": "genos_allele_frequency_analyzer",
+  "description": "Analyze genomic allele frequencies in the swarm to classify traits as beneficial, lethal, or neutral.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "swarm_id": { "type": "string" }
+    },
+    "required": ["swarm_id"]
+  }
+}
