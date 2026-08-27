@@ -1,6 +1,4 @@
-use genos_core::{
-    fork_snapshot_with_hypothesis, AgentWorldCapsule, CorrelationId,
-};
+use genos_core::{fork_snapshot_with_hypothesis, AgentWorldCapsule, CorrelationId};
 use genos_store::CapsuleStore;
 use genos_world::WorldProvider;
 use serde::Serialize;

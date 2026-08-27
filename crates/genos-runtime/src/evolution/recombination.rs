@@ -114,5 +114,3 @@ pub(crate) fn calculate_recombined_locus(
         }
     }
 }
-
-

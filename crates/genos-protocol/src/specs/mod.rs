@@ -1,6 +1,6 @@
+pub mod ais;
 pub mod biomimicry;
 pub mod canonical;
-pub mod ais;
 pub mod dev;
 pub mod evolution;
 pub mod experiment;
@@ -10,8 +10,8 @@ pub mod memory;
 pub mod resilience;
 pub mod security;
 
-use self::biomimicry::biomimicry_specs;
 use self::ais::ais_specs;
+use self::biomimicry::biomimicry_specs;
 use self::canonical::canonical_specs;
 use self::dev::dev_specs;
 use self::evolution::evolution_specs;

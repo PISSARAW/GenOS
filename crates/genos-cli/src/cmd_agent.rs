@@ -363,6 +363,7 @@ async fn build_fork_entry(
     let fork_event_id = match event_store {
         Some(store) => {
             let event = AgentEvent {
+                cost_schema: None,
                 event_id: EventId::new(),
                 agent_id: fork.agent_id.clone(),
                 branch_id: Some(fork.branch_id.clone()),

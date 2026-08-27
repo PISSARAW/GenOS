@@ -1,4 +1,4 @@
-﻿//! Branch-local variables.
+//! Branch-local variables.
 //!
 //! A variable is a working-memory entry addressed by key. Because
 //! [`fork_snapshot`](crate::fork_snapshot) deep-copies the parent state, a write
@@ -113,6 +113,7 @@ pub fn write_variable_on_branch_at(
     let sequence = snapshot.state.event_cursor.sequence + 1;
 
     let event = AgentEvent {
+        cost_schema: None,
         event_id: EventId::new(),
         agent_id: snapshot.agent_id.clone(),
         branch_id: Some(snapshot.branch_id.clone()),

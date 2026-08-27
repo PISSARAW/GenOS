@@ -4,7 +4,8 @@ fn main() {
     println!(" Tâche : Refactoring d'un composant critique de paiement");
     println!("===============================================================\n");
 
-    let context = "Le composant gère les transactions bancaires. Il n'y a pas de tests unitaires complets.";
+    let context =
+        "Le composant gère les transactions bancaires. Il n'y a pas de tests unitaires complets.";
 
     // 1. Agent Simple
     println!("--- 1. AGENT SIMPLE ---");

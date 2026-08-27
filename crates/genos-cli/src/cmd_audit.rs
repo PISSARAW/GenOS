@@ -8,6 +8,9 @@ pub struct AuditArgs {
 }
 
 pub async fn run(args: AuditArgs) -> anyhow::Result<()> {
-    println!("Exporting audit bundle for snapshot {} to {}", args.snapshot_id, args.output);
+    println!(
+        "Exporting audit bundle for snapshot {} to {}",
+        args.snapshot_id, args.output
+    );
     Ok(())
 }

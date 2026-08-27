@@ -1,4 +1,4 @@
-﻿//! Biomimicry feature handlers behind the generic `bio-feature` entry point.
+//! Biomimicry feature handlers behind the generic `bio-feature` entry point.
 //!
 //! Each feature module (gate, chaperone, vaccination, interferon, sar, ...)
 //! exposes typed actions and consumes `key=value` parameters, so new features
@@ -9,16 +9,14 @@ use genos_core::biomimicry::{parse_facts, CycleGateKeeper, Phase};
 
 /// Generic dispatcher for biomimicry feature modules. Each new feature only
 /// adds a routing arm here; the CLI surface stays stable.
-pub async fn cmd_biomimicry_feature(
-    feature: &str,
-    action: &str,
-    params: &[String],
-) -> Result<()> {
+pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[String]) -> Result<()> {
     match (feature, action) {
         ("embryogenesis", "advance") => crate::cmd_bio_development::embryogenesis_advance(params),
         ("hox", "verify") => crate::cmd_bio_development::hox_verify(params),
         ("canalization", "evaluate") => crate::cmd_bio_development::canalization_evaluate(params),
-        ("metamorphosis", "transition") => crate::cmd_bio_development::metamorphosis_transition(params),
+        ("metamorphosis", "transition") => {
+            crate::cmd_bio_development::metamorphosis_transition(params)
+        }
         ("regeneration", "tissue") => crate::cmd_bio_development::regeneration_tissue(params),
         ("endocrine", "modulate") => crate::cmd_bio_neuro::endocrine_modulate(params),
         ("reflex", "trigger") => crate::cmd_bio_neuro::reflex_trigger(params),
@@ -27,8 +25,12 @@ pub async fn cmd_biomimicry_feature(
         ("circadian", "toggle") => crate::cmd_bio_neuro::circadian_toggle(params),
         ("allostasis", "anticipate") => crate::cmd_bio_neuro::allostasis_anticipate(params),
         ("plasticity", "remap") => crate::cmd_bio_neuro::cross_modal_remap(params),
-        ("inflammation", "trigger") | ("inflammation", "resolve") => crate::cmd_bio_immuno::immuno_inflammation(params),
-        ("autoimmunity", "evaluate") | ("autoimmunity", "log_kill") => crate::cmd_bio_immuno::immuno_autoimmunity(params),
+        ("inflammation", "trigger") | ("inflammation", "resolve") => {
+            crate::cmd_bio_immuno::immuno_inflammation(params)
+        }
+        ("autoimmunity", "evaluate") | ("autoimmunity", "log_kill") => {
+            crate::cmd_bio_immuno::immuno_autoimmunity(params)
+        }
         ("ecology", "punctuated") => crate::cmd_bio_ecology::ecology_punctuated(params),
         ("ecology", "succession") => crate::cmd_bio_ecology::ecology_succession(params),
         ("behavior", "social") => crate::cmd_bio_behavior::behavior_social(params),
@@ -45,25 +47,25 @@ pub async fn cmd_biomimicry_feature(
         ("chaperone", "repair") => chaperone_repair(params),
         ("vaccination", "train") => crate::cmd_bio_immunity::vaccination_train(params),
         ("interferon", "emit") => crate::cmd_bio_immunity::interferon_emit(params),
-        ("sar", "prime" | "assess" | "inherit") => crate::cmd_bio_immunity::sar_action(params, action),
-        ("reciprocity", "decide") => reciprocity_decide(params),
-        ("proceduralization", "compile" | "monitor") => {
-            proceduralization_action(params, action)
+        ("sar", "prime" | "assess" | "inherit") => {
+            crate::cmd_bio_immunity::sar_action(params, action)
         }
+        ("reciprocity", "decide") => reciprocity_decide(params),
+        ("proceduralization", "compile" | "monitor") => proceduralization_action(params, action),
         ("telomere", "fork" | "restore") => telomere_action(params, action),
         ("senescence", "assess") => senescence_assess(params),
         ("neoteny", "quota") => neoteny_quota(params),
         ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
         ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
-        ("epigenetic_chromatin", "modulate") => {
-            crate::cmd_biomimicry::chromatin_modulate(params)
-        }
+        ("epigenetic_chromatin", "modulate") => crate::cmd_biomimicry::chromatin_modulate(params),
         (feature, action) => bail!("unknown bio-feature '{feature}/{action}'"),
     }
 }
 
 fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
-    params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+    params
+        .iter()
+        .find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
 }
 
 fn collect_params<'a>(params: &'a [String], key: &str) -> Vec<&'a str> {
@@ -112,8 +114,10 @@ fn chaperone_repair(params: &[String]) -> Result<()> {
     let kind = param_value(params, "kind")
         .ok_or_else(|| anyhow::anyhow!("missing --param kind=<component kind>"))?
         .to_string();
-    let fragments: Vec<String> =
-        collect_params(params, "fragment").iter().map(|s| s.to_string()).collect();
+    let fragments: Vec<String> = collect_params(params, "fragment")
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
     if fragments.is_empty() {
         bail!("at least one --param fragment=<value> is required ('' models a mis-folded slot)");
     }
@@ -124,8 +128,9 @@ fn chaperone_repair(params: &[String]) -> Result<()> {
     let max_attempts: usize = param_value(params, "max_attempts")
         .and_then(|v| v.parse().ok())
         .unwrap_or(3);
-    let atp_budget: u64 =
-        param_value(params, "atp_budget").and_then(|v| v.parse().ok()).unwrap_or(5);
+    let atp_budget: u64 = param_value(params, "atp_budget")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(5);
 
     let mut slot_templates: Vec<Option<String>> = vec![None; fragments.len()];
     for (i, template) in templates.into_iter().enumerate() {
@@ -138,7 +143,11 @@ fn chaperone_repair(params: &[String]) -> Result<()> {
         slots: vec![SlotValidator::NonEmpty; fragments.len()],
         templates: slot_templates,
     };
-    let component = DamagedComponent { id: component_id.clone(), kind, fragments };
+    let component = DamagedComponent {
+        id: component_id.clone(),
+        kind,
+        fragments,
+    };
     let mut chaperone = Chaperone::new(max_attempts, atp_budget);
     match chaperone.repair(&component, &schema) {
         genos_core::biomimicry::RepairOutcome::Repaired(folded) => {
@@ -154,7 +163,6 @@ fn chaperone_repair(params: &[String]) -> Result<()> {
     }
 }
 
-
 fn proceduralization_action(params: &[String], action: &str) -> Result<()> {
     use genos_core::biomimicry::{
         compile, monitor, recompile, ExecutionStats, Health, ReadinessRule,
@@ -167,17 +175,33 @@ fn proceduralization_action(params: &[String], action: &str) -> Result<()> {
             let successes: u32 = param_value(params, "successes")
                 .ok_or_else(|| anyhow::anyhow!("missing --param successes=<n>"))?
                 .parse()?;
-            let failures: u32 =
-                param_value(params, "failures").and_then(|v| v.parse().ok()).unwrap_or(0);
+            let failures: u32 = param_value(params, "failures")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0);
             let variance: f64 = param_value(params, "variance")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0.0);
-            let steps: Vec<String> =
-                collect_params(params, "step").iter().map(|s| s.to_string()).collect();
-            let preconditions: Vec<String> =
-                collect_params(params, "precondition").iter().map(|s| s.to_string()).collect();
-            let stats = ExecutionStats { successes, failures, variance_proxy: variance };
-            match compile(&skill, preconditions, steps, vec![], &stats, &ReadinessRule::default()) {
+            let steps: Vec<String> = collect_params(params, "step")
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+            let preconditions: Vec<String> = collect_params(params, "precondition")
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
+            let stats = ExecutionStats {
+                successes,
+                failures,
+                variance_proxy: variance,
+            };
+            match compile(
+                &skill,
+                preconditions,
+                steps,
+                vec![],
+                &stats,
+                &ReadinessRule::default(),
+            ) {
                 Ok(program) => {
                     println!(
                         "Skill '{skill}' proceduralized (version {}): {} steps installed as reflex",
@@ -197,8 +221,10 @@ fn proceduralization_action(params: &[String], action: &str) -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("missing --param failure_rate=<0..1>"))?
                 .parse()?;
             // Optional refinement path when new steps are supplied.
-            let steps: Vec<String> =
-                collect_params(params, "step").iter().map(|s| s.to_string()).collect();
+            let steps: Vec<String> = collect_params(params, "step")
+                .iter()
+                .map(|s| s.to_string())
+                .collect();
             if !steps.is_empty() {
                 let previous = genos_core::biomimicry::SkillProgram {
                     name: skill.clone(),
@@ -207,12 +233,8 @@ fn proceduralization_action(params: &[String], action: &str) -> Result<()> {
                     steps: steps.clone(),
                     postconditions: vec![],
                 };
-                let updated =
-                    recompile(&previous, steps).map_err(anyhow::Error::msg)?;
-                println!(
-                    "Skill '{skill}' refined to version {}",
-                    updated.version
-                );
+                let updated = recompile(&previous, steps).map_err(anyhow::Error::msg)?;
+                println!("Skill '{skill}' refined to version {}", updated.version);
                 return Ok(());
             }
             match monitor(failure_rate) {
@@ -240,7 +262,10 @@ fn telomere_action(params: &[String], action: &str) -> Result<()> {
     let max_forks: u32 = param_value(params, "max_forks")
         .ok_or_else(|| anyhow::anyhow!("missing --param max_forks=<n>"))?
         .parse()?;
-    let mut counter = TelomereCounter { remaining, max_forks };
+    let mut counter = TelomereCounter {
+        remaining,
+        max_forks,
+    };
     match action {
         "fork" => match counter.consume_for_fork() {
             ForkVerdict::Allowed { remaining_after } => {
@@ -290,15 +315,18 @@ fn senescence_assess(params: &[String]) -> Result<()> {
     let productive_ticks: u32 = param_value(params, "productive_ticks")
         .ok_or_else(|| anyhow::anyhow!("missing --param productive_ticks=<n>"))?
         .parse()?;
-    let idle_ticks: u32 =
-        param_value(params, "idle_ticks").ok_or_else(|| anyhow::anyhow!("missing --param idle_ticks=<n>"))?.parse()?;
+    let idle_ticks: u32 = param_value(params, "idle_ticks")
+        .ok_or_else(|| anyhow::anyhow!("missing --param idle_ticks=<n>"))?
+        .parse()?;
     let resources_consumed: u64 = param_value(params, "resources_consumed")
         .ok_or_else(|| anyhow::anyhow!("missing --param resources_consumed=<n>"))?
         .parse()?;
-    let negative_externalities: u32 =
-        param_value(params, "negative_externalities").and_then(|v| v.parse().ok()).unwrap_or(0);
-    let intentional_dormancy =
-        param_value(params, "intentional_dormancy").map(|v| v == "true").unwrap_or(false);
+    let negative_externalities: u32 = param_value(params, "negative_externalities")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    let intentional_dormancy = param_value(params, "intentional_dormancy")
+        .map(|v| v == "true")
+        .unwrap_or(false);
     let vitals = CapsuleVitals {
         productive_ticks,
         idle_ticks,
@@ -324,16 +352,16 @@ fn senescence_assess(params: &[String]) -> Result<()> {
 }
 
 fn reciprocity_decide(params: &[String]) -> Result<()> {
-    use genos_core::biomimicry::{
-        PeerAction, PeerRecord, ReciprocityPolicy, ReputationLedger,
-    };
+    use genos_core::biomimicry::{PeerAction, PeerRecord, ReciprocityPolicy, ReputationLedger};
     let peer_id = param_value(params, "peer_id")
         .ok_or_else(|| anyhow::anyhow!("missing --param peer_id=<id>"))?
         .to_string();
-    let cooperations: u32 =
-        param_value(params, "cooperations").and_then(|v| v.parse().ok()).unwrap_or(0);
-    let defections: u32 =
-        param_value(params, "defections").and_then(|v| v.parse().ok()).unwrap_or(0);
+    let cooperations: u32 = param_value(params, "cooperations")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
+    let defections: u32 = param_value(params, "defections")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0);
     let last: Option<PeerAction> = match param_value(params, "last_action") {
         Some("cooperate") => Some(PeerAction::Cooperate),
         Some("defect") => Some(PeerAction::Defect),
@@ -384,15 +412,22 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         Some("specialist") => SpawnRequest::Specialist,
         _ => bail!("missing or invalid --param request=<neotenic|specialist>"),
     };
-    let fraction: f64 =
-        param_value(params, "fraction").and_then(|v| v.parse().ok()).unwrap_or(0.2);
+    let fraction: f64 = param_value(params, "fraction")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.2);
     let policy = NeotenyPolicy::new(fraction);
     match policy.decide_spawn(total, neotenic, request) {
         SpawnDecision::Allowed { as_neotenic } => {
             if as_neotenic {
-                println!("Spawn allowed: neotenic individual (reserve coverage {:.0}%)", policy.coverage(total, neotenic) * 100.0);
+                println!(
+                    "Spawn allowed: neotenic individual (reserve coverage {:.0}%)",
+                    policy.coverage(total, neotenic) * 100.0
+                );
             } else {
-                println!("Spawn allowed: specialist (reserve coverage {:.0}%)", policy.coverage(total, neotenic) * 100.0);
+                println!(
+                    "Spawn allowed: specialist (reserve coverage {:.0}%)",
+                    policy.coverage(total, neotenic) * 100.0
+                );
             }
             Ok(())
         }
@@ -401,19 +436,3 @@ fn neoteny_quota(params: &[String]) -> Result<()> {
         }
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

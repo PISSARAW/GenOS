@@ -12,16 +12,23 @@ use std::path::Path;
 
 pub use crate::cmd_bio_features::cmd_biomimicry_feature;
 
-
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
-    params.iter().find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
+    params
+        .iter()
+        .find_map(|p| p.strip_prefix(key)?.strip_prefix('='))
 }
 
 pub(crate) fn chromatin_modulate(params: &[String]) -> Result<()> {
     let agent_id = param_value(params, "agent_id").unwrap_or("unknown");
     let promoter = param_value(params, "promoter").unwrap_or("unknown");
-    let meth_delta = param_value(params, "methylation_delta").unwrap_or("0.0").parse::<f32>().unwrap_or(0.0);
-    let acetyl_delta = param_value(params, "acetylation_delta").unwrap_or("0.0").parse::<f32>().unwrap_or(0.0);
+    let meth_delta = param_value(params, "methylation_delta")
+        .unwrap_or("0.0")
+        .parse::<f32>()
+        .unwrap_or(0.0);
+    let acetyl_delta = param_value(params, "acetylation_delta")
+        .unwrap_or("0.0")
+        .parse::<f32>()
+        .unwrap_or(0.0);
 
     use genos_core::operon::{ChromatinVector, Operon};
     let mut operon = Operon {
@@ -30,7 +37,10 @@ pub(crate) fn chromatin_modulate(params: &[String]) -> Result<()> {
         chromatin: ChromatinVector::default(),
     };
 
-    println!("Modulating chromatin for agent {} on operon [promoter={}]", agent_id, promoter);
+    println!(
+        "Modulating chromatin for agent {} on operon [promoter={}]",
+        agent_id, promoter
+    );
     if meth_delta > 0.0 {
         operon.chromatin.condense(meth_delta);
         println!("  -> Condensed chromatin (methylation +{})", meth_delta);
@@ -38,7 +48,7 @@ pub(crate) fn chromatin_modulate(params: &[String]) -> Result<()> {
         operon.chromatin.relax(-meth_delta);
         println!("  -> Relaxed chromatin (methylation {})", meth_delta);
     }
-    
+
     if acetyl_delta > 0.0 {
         operon.chromatin.acetylate(acetyl_delta);
         println!("  -> Acetylated histones (acetylation +{})", acetyl_delta);
@@ -47,12 +57,15 @@ pub(crate) fn chromatin_modulate(params: &[String]) -> Result<()> {
         println!("  -> Deacetylated histones (acetylation {})", acetyl_delta);
     }
 
-    println!("  -> Final Chromatin Vector: methylation={:.2}, acetylation={:.2}, active={}", 
-        operon.chromatin.methylation_level, operon.chromatin.histone_acetylation, operon.is_active());
-        
+    println!(
+        "  -> Final Chromatin Vector: methylation={:.2}, acetylation={:.2}, active={}",
+        operon.chromatin.methylation_level,
+        operon.chromatin.histone_acetylation,
+        operon.is_active()
+    );
+
     Ok(())
 }
-
 
 pub async fn cmd_biomimicry_swarm_consensus(args: SwarmConsensusArgs) -> Result<()> {
     println!("Triggering swarm consensus for target: {}", args.target);

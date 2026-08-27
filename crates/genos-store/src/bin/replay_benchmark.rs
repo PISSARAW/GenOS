@@ -112,6 +112,7 @@ fn make_events(count: usize) -> Vec<AgentEvent> {
 
     (1..=count)
         .map(|sequence| AgentEvent {
+            cost_schema: None,
             event_id: EventId(format!("benchmark-event-{sequence:06}")),
             agent_id: agent_id.clone(),
             branch_id: Some(branch_id.clone()),
