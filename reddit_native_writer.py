@@ -12,12 +12,31 @@ def genos_checkpoint_gate(post_content):
     Halts execution and waits for a HumanApprovalTask.
     This acts as a checkpoint where human review is required before posting.
     """
+    import threading
+    
     print("--- GenOS Checkpoint Gate ---")
-    print("Execution blocked: Waiting for HumanApprovalTask...")
+    print("Execution blocked: Waiting for HumanApprovalTask (10s timeout)...")
     print(f"Content pending approval:\n{post_content}")
     print("-----------------------------")
-    choice = input("Approve? (y/n): ")
-    return choice.strip().lower() == 'y'
+    
+    approved = [False]
+    def wait_for_human():
+        try:
+            choice = input("Approve? (y/n): ")
+            approved[0] = choice.strip().lower() == 'y'
+        except Exception:
+            pass
+            
+    t = threading.Thread(target=wait_for_human)
+    t.daemon = True
+    t.start()
+    t.join(10.0)
+    
+    if t.is_alive():
+        print("\nTimeout reached. Safety override: denying approval.")
+        return False
+        
+    return approved[0]
 
 def publish_to_reddit(post_content):
     """Publishes the approved content to Reddit."""

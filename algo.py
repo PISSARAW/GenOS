@@ -18,24 +18,26 @@ def lire_noeuds(nom_fichier):
             })
     return noeuds
 
-def calculer_cout_dynamique(noeud_a, noeud_b, etape, total_noeuds):
+def calculer_cout_dynamique(noeud_a, noeud_b, index_visite, total_noeuds):
     dx = noeud_b['x'] - noeud_a['x']
     dy = noeud_b['y'] - noeud_a['y']
     dz = noeud_b['z'] - noeud_a['z']
     distance = math.sqrt(dx*dx + dy*dy + dz*dz)
-    penalite_alt = 1.2 if dz != 0 else 1.0
-    penalite_masse = 1.0 + (noeud_b['masse'] * (etape / float(total_noeuds)))
+    penalite_alt = 1.2 if dz > 0 else 1.0
+    penalite_masse = 1.0 + (noeud_b['masse'] * (index_visite / float(total_noeuds)))
     return distance * penalite_alt * penalite_masse
 
-def etendre_pseudopode(actuel, non_visites_dict, etape, total_noeuds):
+def etendre_pseudopode(actuel, non_visites_dict, index_visite, total_noeuds):
     cles = list(non_visites_dict.keys())
-    taille_echantillon = max(1, min(len(cles), 45))
+    if not cles:
+        return None
+    taille_echantillon = min(len(cles), 45)
     candidats_cles = random.sample(cles, taille_echantillon)
     meilleur_noeud = None
     cout_minimum = float('inf')
     for cle in candidats_cles:
         candidat = non_visites_dict[cle]
-        cout = calculer_cout_dynamique(actuel, candidat, etape, total_noeuds)
+        cout = calculer_cout_dynamique(actuel, candidat, index_visite, total_noeuds)
         if cout < cout_minimum:
             cout_minimum = cout
             meilleur_noeud = candidat
@@ -45,15 +47,16 @@ def resoudre_ormg(noeuds):
     non_visites = {n['id']: n for n in noeuds[1:]}
     actuel = noeuds[0]
     parcours = [actuel['id']]
-    etape = 1
+    index_visite = 0
     total_noeuds = len(noeuds)
     while non_visites:
-        prochain = etendre_pseudopode(actuel, non_visites, etape, total_noeuds)
+        prochain = etendre_pseudopode(actuel, non_visites, index_visite, total_noeuds)
+        if not prochain:
+            break
         parcours.append(prochain['id'])
         del non_visites[prochain['id']]
         actuel = prochain
-        etape += 1
-    parcours.append(noeuds[0]['id'])
+        index_visite += 1
     return parcours
 
 def ecrire_solution(parcours, nom_fichier):

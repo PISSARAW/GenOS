@@ -108,7 +108,7 @@ def cristallisation_quantique_phase(parcours, noeuds, iterations=5000):
         bloc = parcours_actuel[idx_debut:idx_fin]
         nouveau_parcours = parcours_actuel[:idx_debut] + parcours_actuel[idx_fin:]
         
-        nouveau_idx_insertion = random.randint(1, len(nouveau_parcours) - 1)
+        nouveau_idx_insertion = random.randint(1, len(nouveau_parcours))
         
         # Insérer à la nouvelle position
         nouveau_parcours = nouveau_parcours[:nouveau_idx_insertion] + bloc + nouveau_parcours[nouveau_idx_insertion:]
