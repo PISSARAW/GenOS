@@ -33,6 +33,19 @@ class AnthonyOrchestrator {
         return `[Pointer: file://${pointerPath}]`;
     }
 
+    // Concept 6: DNA Methylation (Source of Truth Timestamping)
+    // Prevents tautological tests (Bug == Bug) by enforcing an immutable truth
+    methylateTruth(groundTruthData) {
+        if (!groundTruthData) return null;
+        const timestamp = Date.now();
+        const hash = crypto.createHash('sha256').update(groundTruthData).digest('hex').substring(0, 16);
+        return {
+            methylated_id: `METHYL_${timestamp}_${hash}`,
+            original_data: groundTruthData,
+            is_immutable_truth: true
+        };
+    }
+
     // Concept 5: Natural Killer (NK Cell)
     // Scans tests for the "Missing Self" (vacuous tests)
     naturalKillerScan(testCode) {
@@ -94,8 +107,12 @@ async function main() {
         const testCode = args.slice(1).join(' ');
         const result = orchestrator.naturalKillerScan(testCode);
         console.log(result);
+    } else if (command === 'methylate') {
+        const truth = args.slice(1).join(' ');
+        const result = orchestrator.methylateTruth(truth);
+        console.log(JSON.stringify(result, null, 2));
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate`);
     }
 }
 
