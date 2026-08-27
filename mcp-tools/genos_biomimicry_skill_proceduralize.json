@@ -1,0 +1,18 @@
+{
+  "name": "genos_biomimicry_skill_proceduralize",
+  "description": "Compile successful deliberative skills into reflex procedural actions or monitor them.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "skill": { "type": "string", "description": "Name of the skill" },
+      "successes": { "type": "number", "description": "Number of successes" },
+      "failures": { "type": "number", "description": "Number of failures" },
+      "variance": { "type": "number", "description": "Variance proxy" },
+      "steps": { "type": "array", "items": { "type": "string" }, "description": "Steps to install" },
+      "preconditions": { "type": "array", "items": { "type": "string" }, "description": "Preconditions" },
+      "failure_rate": { "type": "number", "description": "Current failure rate for monitoring" },
+      "action": { "type": "string", "description": "Either 'compile' or 'monitor'" }
+    },
+    "required": ["skill", "action"]
+  }
+}
