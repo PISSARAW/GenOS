@@ -19,17 +19,25 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::sandbox::{OsSandbox, SandboxConfig};
+
 #[derive(Clone, Debug)]
 pub struct DirectoryWorldProvider {
     root_dir: PathBuf,
     seed_dir: Option<PathBuf>,
+    sandbox_config: Option<SandboxConfig>,
 }
 
 impl DirectoryWorldProvider {
     pub fn new(root_dir: PathBuf, seed_dir: Option<PathBuf>) -> anyhow::Result<Self> {
         fs::create_dir_all(root_dir.join("worlds"))?;
         fs::create_dir_all(root_dir.join("snapshots"))?;
-        Ok(Self { root_dir, seed_dir })
+        Ok(Self { root_dir, seed_dir, sandbox_config: None })
+    }
+    
+    pub fn with_sandbox(mut self, config: SandboxConfig) -> Self {
+        self.sandbox_config = Some(config);
+        self
     }
 
     fn snapshot_path(&self, snapshot_id: &SnapshotId) -> anyhow::Result<PathBuf> {
@@ -210,6 +218,26 @@ impl WorldProvider for DirectoryWorldProvider {
 
     async fn execute(&self, world_id: WorldId, command: &str) -> anyhow::Result<ExecuteResult> {
         let path = self.world_path(&world_id)?;
+        
+        if let Some(ref config) = self.sandbox_config {
+            let mut run_config = config.clone();
+            run_config.working_directory = Some(path.clone());
+            // Make sure the world itself is a writable mount
+            let world_path_str = path.to_string_lossy().to_string();
+            if !run_config.writable_mounts.contains(&world_path_str) {
+                run_config.writable_mounts.push(world_path_str);
+            }
+            
+            // Execute via OsSandbox
+            let mut cmd = OsSandbox::command(&run_config, command)?;
+            let output = cmd.output().await?;
+            return Ok(ExecuteResult {
+                exit_code: output.status.code().unwrap_or(-1),
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+            });
+        }
+
         execute_command_in_dir(&path, command).await
     }
 

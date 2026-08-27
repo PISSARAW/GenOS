@@ -1,0 +1,14 @@
+{
+  "name": "genos_live_evaluator",
+  "description": "Start a live evaluator to schedule branches based on evaluation budget according to ADR 0017.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "budget": {
+        "type": "number",
+        "description": "The global compute budget limit"
+      }
+    },
+    "required": ["budget"]
+  }
+}

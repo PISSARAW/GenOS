@@ -1,0 +1,18 @@
+{
+  "name": "genos_pareto_eval",
+  "description": "Evaluate multi-objective Pareto frontiers for a set of GenOS branches.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "input_file": {
+        "type": "string",
+        "description": "Path to the JSON file containing multi-objective branch scores"
+      },
+      "output_file": {
+        "type": "string",
+        "description": "Path where the JSON pareto assessments will be written"
+      }
+    },
+    "required": ["input_file", "output_file"]
+  }
+}

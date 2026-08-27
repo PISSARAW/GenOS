@@ -256,3 +256,26 @@ fn critical_behavior_below_equivalence_rejects_reproduction() {
     assert_eq!(report.verdict, ReproducibilityVerdict::NotEquivalent);
     assert_eq!(report.failing_metrics, vec!["belief_consistency"]);
 }
+
+#[test]
+fn test_semantic_extraction() {
+    let claims = crate::semantic::extract_semantic_claims("This causes that", 0.8);
+    assert_eq!(claims.len(), 1);
+    assert_eq!(claims[0].subject, "A");
+}
+
+#[test]
+fn test_live_evaluator() {
+    let evaluator = crate::live_evaluator::LiveEvaluator::new(100.0);
+    let score = evaluator.evaluate_branch(&genos_core::BranchId::new(), &vec![1.0, 2.0, 3.0]);
+    assert_eq!(score.score, 2.0);
+}
+
+#[test]
+fn test_causal_analysis() {
+    let boundaries = vec![genos_core::causality::CausalBoundary::new("b1".to_string(), None)];
+    let report = crate::causal::analyze_causal_boundaries(&boundaries);
+    assert_eq!(report.boundaries_analyzed, 1);
+    assert_eq!(report.root_causes[0], "b1");
+}
+
