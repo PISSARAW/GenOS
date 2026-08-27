@@ -7,6 +7,30 @@ import { useGenOSStore } from '../store/useGenOSStore';
 import { api } from '../api/client';
 import { useToastStore } from '../store/useToastStore';
 
+function getIdenticonConfig(username: string): { color: string, grid: number[] } {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+    hash = ((hash << 5) - hash) + username.charCodeAt(i);
+    hash |= 0;
+  }
+  hash = Math.imul(hash ^ (hash >>> 16), 2246822507);
+  hash = Math.imul(hash ^ (hash >>> 13), 3266489909);
+  hash ^= hash >>> 16;
+  
+  const grid = new Array(25).fill(0);
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 3; col++) {
+      const val = (hash & (1 << (row * 3 + col))) !== 0 ? 1 : 0;
+      grid[row * 5 + col] = val;
+      grid[row * 5 + (4 - col)] = val;
+    }
+  }
+  
+  const colors = ['#238636', '#1f6feb', '#8957e5', '#d29922', '#da3633'];
+  const color = colors[Math.abs(hash) % colors.length];
+  return { color, grid };
+}
+
 export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspacesCount?: number | null }> = ({ onNavigate, workspacesCount = null }) => {
   const [data, setData] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -62,6 +86,8 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
   };
 
   const username = data?.profile?.username || 'Commander';
+  const { color: identiconColor, grid: identiconGrid } = getIdenticonConfig(username);
+
   // The backend field is `org` (`profile.org`); keep `organization` as a
   // tolerant fallback so alternate payloads still render.
   const org = data?.profile?.org || data?.profile?.organization || 'GenOS Fleet';
@@ -104,14 +130,8 @@ export const Dashboard: React.FC<{ onNavigate?: (view: string) => void; workspac
           {/* Identicon */}
           <div style={{ width: '296px', height: '296px', borderRadius: '6px', border: '1px solid var(--panel-border)', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'var(--bg-panel)', marginBottom: '16px' }}>
             <div style={{ width: '160px', height: '160px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '4px' }}>
-              {[
-                1,0,1,0,1,
-                0,1,1,1,0,
-                1,1,1,1,1,
-                0,1,0,1,0,
-                1,0,1,0,1
-              ].map((fill, i) => (
-                <div key={i} style={{ background: fill ? '#238636' : '#21262d', borderRadius: '2px' }} />
+              {identiconGrid.map((fill, i) => (
+                <div key={i} style={{ background: fill ? identiconColor : '#21262d', borderRadius: '2px' }} />
               ))}
             </div>
           </div>
