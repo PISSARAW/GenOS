@@ -1,11 +1,11 @@
-﻿//! `snapshot lineage` command â€” build a lineage tree from the event stream.
+//! `snapshot lineage` command â€” build a lineage tree from the event stream.
 
 use crate::args::{LineageFormat, OutputFormat, SnapshotLineageArgs};
 use crate::output::{print_lineage_tree, print_serialized, SnapshotLineageOutput};
 use crate::resolve::{event_store_from, read_snapshot, snapshot_store_from};
 use anyhow::{bail, Result};
 use genos_core::build_lineage_dag;
-use genos_store::EventStore;
+use genos_store::{EventStore, SnapshotStore};
 
 pub async fn cmd_snapshot_lineage(args: SnapshotLineageArgs) -> Result<()> {
     let snapshot_store = snapshot_store_from(args.snapshots.clone(), &args.root_dir);

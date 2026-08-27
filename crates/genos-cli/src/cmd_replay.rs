@@ -1,4 +1,4 @@
-﻿use crate::args::{DiffArgs, DiffFormat, OutputFormat, ReplayBasicArgs, ReplayFromSnapshotArgs};
+use crate::args::{DiffArgs, DiffFormat, OutputFormat, ReplayBasicArgs, ReplayFromSnapshotArgs};
 use crate::output::{
     print_diff_text, print_serialized, DiffIdentity, DiffOutput, ReplayBasicOutput,
     ReplayFromSnapshotOutput,
@@ -6,7 +6,7 @@ use crate::output::{
 use crate::resolve::{event_store_from, resolve_snapshot_ref, snapshot_store_from};
 use anyhow::{bail, Context, Result};
 use genos_core::{compare_snapshots, diff_snapshots};
-use genos_store::{basic_state_from_snapshot, replay_basic_state_from, EventStore};
+use genos_store::{basic_state_from_snapshot, replay_basic_state_from, EventStore, SnapshotStore};
 
 pub async fn cmd_diff(args: DiffArgs) -> Result<()> {
     let store = snapshot_store_from(args.store, &args.root);

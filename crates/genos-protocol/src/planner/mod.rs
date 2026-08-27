@@ -46,6 +46,8 @@ pub fn plan_tool_call(name: &str, arguments: &Value) -> Result<PlannedCommand, P
         || plan_mcts(&mut planner)?
         || plan_evolution(&mut planner)?
         || plan_memory(&mut planner)?
+        || operation == "storage"
+        || operation == "transport"
     {
         Ok(planner.finish())
     } else {
