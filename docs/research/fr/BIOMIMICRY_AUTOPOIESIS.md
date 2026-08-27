@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Autopoïèse : Critère Formel de Viabilité Autonome
 
 > Domaine : biologie théorique (Maturana & Varela) — Statut : proposition de recherche

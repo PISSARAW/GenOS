@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Cascades de Signalisation : Amplification Contrôlée des Signaux Faibles
 
 > Domaine : biologie cellulaire (voie MAPK, transduction) — Statut : proposition de recherche

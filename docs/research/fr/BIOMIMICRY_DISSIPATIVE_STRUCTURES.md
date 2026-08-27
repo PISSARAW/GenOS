@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Structures Dissipatives : L'Ordre par le Flux
 
 > Domaine : thermodynamique hors équilibre (Prigogine) — Statut : proposition de recherche

@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Hallucinations, Incertitude et Honnêteté des IA Génératives : État de l’Art, Méthodes de Mitigation et Cartographie des Projets
 
 Ce rapport de recherche approfondie traite des défis de calibration, de détection de l'incertitude épistémique, de mitigation des hallucinations et des protocoles d'abstention honnête dans les agents intelligents.

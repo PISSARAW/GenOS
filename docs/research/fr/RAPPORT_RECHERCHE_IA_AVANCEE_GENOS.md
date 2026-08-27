@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Rapport de Recherche Approfondie — État de l'Art en Intelligence Artificielle & Recommandations Architecturales pour GenOS
 
 Ce rapport de recherche exhaustif analyse l'état de l'art mondial en intelligence artificielle, architectures cognitives, robustesse des LLMs et conception d'environnements d'exécution agentiques.

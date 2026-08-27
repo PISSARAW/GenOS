@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme : Morphogenèse et Différenciation Cellulaire dans GenOS
 
 L'architecture de GenOS (particulièrement le module `genos-eval` et son système MCTS) s'inspire profondément de la biologie du développement, en particulier des mécanismes de morphogenèse. Ce document détaille les fondements théoriques et l'implémentation de ces processus.

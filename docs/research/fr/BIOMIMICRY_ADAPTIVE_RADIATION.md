@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Radiation Adaptative : Exploitation Systématique des Innovations
 
 > Domaine : biologie évolutive (radiations adaptatives) — Statut : proposition de recherche

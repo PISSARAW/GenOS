@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Potentiels d'Action : Propagation Fiable Tout-ou-Rien
 
 > Domaine : neurophysiologie (codage tout-ou-rien) — Statut : proposition de recherche

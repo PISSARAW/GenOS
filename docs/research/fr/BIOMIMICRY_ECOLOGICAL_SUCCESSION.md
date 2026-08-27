@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Succession Écologique : Colonisation Graduelle des Domaines
 
 > Domaine : écologie (succession primaire/secondaire, climax) — Statut : proposition de recherche

@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Hallucinations des IA Génératives : Causes, Détection, Mitigation et Abstention Honnête
 
 Ce rapport fondamental examine les causes structurelles et probabilistes des hallucinations dans les grands modèles de langage (LLMs) et formule des stratégies rigoureuses de détection, mitigation et abstention calibrée.

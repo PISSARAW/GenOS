@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **Statut Canonique : Implémenté et Validé (GenOS v0.0.1)**
+> Ce document de recherche reflète l'architecture exacte du code natif Rust actuel.
+
 # Biomimétisme & Télomères : Limite de Divisions Intégrée (Hayflick)
 
 > Domaine : biologie du vieillissement (télomères, limite de Hayflick) — Statut : proposition de recherche
