@@ -313,6 +313,19 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_hypothesis_evidence') {
+    const cp = require('child_process');
+    try {
+      let cmd = `genos dev hypothesis-evidence ${args.diagnosis_id} ${args.hypothesis_id} --claim "${args.claim}" --source "${args.source}" --confidence ${args.confidence}`;
+      if (args.artifact) cmd += ` --artifact "${args.artifact}"`;
+      if (args.against) cmd += ` --against`;
+      const out = cp.execSync(cmd);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
 
 
 
