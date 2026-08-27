@@ -58,6 +58,19 @@ class AnthonyOrchestrator {
         return `[PD-L1 Blocker: PASS] No obvious PD-L1 mocks detected.`;
     }
 
+    // Concept 8: Spiegelman Monitor (Anti-Lazy Optimization)
+    // Prevents agents from deleting complex useful code to bypass a simple test
+    spiegelmanMonitor(oldCode, newCode) {
+        if (!oldCode || !newCode) return "Error: Missing code blocks";
+        const oldLines = oldCode.split('\n').length;
+        const newLines = newCode.split('\n').length;
+        // Heuristic: If code size drops by more than 80%, flag it
+        if (oldLines > 20 && newLines < (oldLines * 0.2)) {
+            return `[Spiegelman Monitor: APOPTOSIS] Code complexity collapsed from ${oldLines} lines to ${newLines}. Lazy optimization detected.`;
+        }
+        return `[Spiegelman Monitor: PASS] Complexity preserved.`;
+    }
+
     // Concept 5: Natural Killer (NK Cell)
     // Scans tests for the "Missing Self" (vacuous tests)
     naturalKillerScan(testCode) {
@@ -127,8 +140,15 @@ async function main() {
         const code = args.slice(1).join(' ');
         const result = orchestrator.pdl1BlockerScan(code);
         console.log(result);
+    } else if (command === 'spiegelman') {
+        // Mocking CLI args for simplicity (oldCode and newCode separated by '|||')
+        const parts = args.slice(1).join(' ').split('|||');
+        const oldCode = parts[0] || '';
+        const newCode = parts[1] || '';
+        const result = orchestrator.spiegelmanMonitor(oldCode, newCode);
+        console.log(result);
     } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1`);
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman`);
     }
 }
 
