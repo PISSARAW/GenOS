@@ -1,0 +1,12 @@
+{
+  "name": "genos_synaptic_prune_scale",
+  "description": "Prune underperforming synaptic traits from an agent's cognitive genome, keeping prompt size O(1).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" },
+      "threshold": { "type": "number", "description": "Synaptic weight threshold below which traits are pruned" }
+    },
+    "required": ["agent_id", "threshold"]
+  }
+}
