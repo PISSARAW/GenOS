@@ -325,6 +325,25 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
   }
+  if (toolName === 'genos_biomimicry_skill_proceduralize') {
+    const cp = require('child_process');
+    try {
+      let cmdParams = [`--param skill=${args.skill}`];
+      if (args.successes !== undefined) cmdParams.push(`--param successes=${args.successes}`);
+      if (args.failures !== undefined) cmdParams.push(`--param failures=${args.failures}`);
+      if (args.variance !== undefined) cmdParams.push(`--param variance=${args.variance}`);
+      if (args.failure_rate !== undefined) cmdParams.push(`--param failure_rate=${args.failure_rate}`);
+      if (args.steps) args.steps.forEach(s => cmdParams.push(`--param step=${s}`));
+      if (args.preconditions) args.preconditions.forEach(p => cmdParams.push(`--param precondition=${p}`));
+      
+      const cmd = `genos bio-feature proceduralization ${args.action} ${cmdParams.join(' ')}`;
+      const out = cp.execSync(cmd);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
 
 
 
