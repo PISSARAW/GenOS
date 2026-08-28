@@ -1,0 +1,18 @@
+{
+  "name": "genos_biomimicry_telomere_fork",
+  "description": "Simule l'érosion télomérique. Tente de dupliquer ou de forker le contexte de l'agent. Échoue (Senescence) si la limite de Hayflick (nombre de divisions maximales) est atteinte.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "description": "L'ID de l'agent qui demande la division."
+      },
+      "force_telomerase": {
+        "type": "boolean",
+        "description": "Si vrai, tente de réactiver la télomérase pour recréer le budget (action très restreinte, anti-immortalité)."
+      }
+    },
+    "required": ["agent_id"]
+  }
+}
