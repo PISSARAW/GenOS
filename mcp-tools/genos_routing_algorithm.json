@@ -1,0 +1,11 @@
+{
+  "name": "genos_routing_algorithm",
+  "description": "Routing algorithm execution",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" }
+    },
+    "required": ["agent_id"]
+  }
+}

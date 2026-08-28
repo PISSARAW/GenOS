@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_routing_algorithm', cat: 'Ecology', risk: 'Low', desc: 'Routing algorithm execution' },
   { name: 'genos_social_trust', cat: 'Ecology', risk: 'Low', desc: 'Social trust computation' },
   { name: 'genos_thalamic_filtering', cat: 'Neurobiology', risk: 'Low', desc: 'Thalamic filtering process' },
   { name: 'genos_multisensory_integration', cat: 'Neurobiology', risk: 'Low', desc: 'Multisensory integration system' },
@@ -260,6 +261,7 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 
 
