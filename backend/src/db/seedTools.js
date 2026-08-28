@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_multisensory_integration', cat: 'Neurobiology', risk: 'Low', desc: 'Multisensory integration system' },
   { name: 'genos_necrosis_ledger', cat: 'Cellular', risk: 'Low', desc: 'Necrosis ledger system' },
   { name: 'genos_molecular_chaperone', cat: 'Cellular', risk: 'Low', desc: 'Molecular chaperones manager' },
   { name: 'genos_cell_division', cat: 'Cellular', risk: 'Low', desc: 'Cell division orchestrator' },
@@ -257,6 +258,7 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 
 
