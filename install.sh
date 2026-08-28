@@ -24,7 +24,7 @@ mkdir -p "$BIN_DIR"
 # Paths to the built binaries and orchestrator bridge
 GENOS_EXE="$REPO_ROOT/target/release/genos"
 MCP_EXE="$REPO_ROOT/target/release/genos-mcp"
-ORCHESTRATOR_BRIDGE="$REPO_ROOT/orchestrator_cli.mjs"
+ORCHESTRATOR_BRIDGE="$REPO_ROOT/scripts/orchestrator_cli.mjs"
 
 # Create genos wrapper
 echo "Generating genos wrapper..."
