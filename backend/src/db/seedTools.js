@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_necrosis_ledger', cat: 'Cellular', risk: 'Low', desc: 'Necrosis ledger system' },
   { name: 'genos_molecular_chaperone', cat: 'Cellular', risk: 'Low', desc: 'Molecular chaperones manager' },
   { name: 'genos_cell_division', cat: 'Cellular', risk: 'Low', desc: 'Cell division orchestrator' },
   { name: 'genos_dna_methylation', cat: 'Epigenetics', risk: 'Low', desc: 'DNA Methylation integration' },
@@ -256,6 +257,7 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 
 
