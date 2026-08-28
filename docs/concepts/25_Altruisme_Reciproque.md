@@ -1,4 +1,4 @@
-﻿# 25. ALTRUISME RÉCIPROQUE
+# 25. ALTRUISME RÉCIPROQUE
 
 Inspiré de l'évolution et de l'éthologie, ce mécanisme explique comment et pourquoi les agents GenOS s'entraident sans autorité centrale.
 
@@ -11,15 +11,14 @@ Dans la théorie des jeux, l'altruisme réciproque est une stratégie gagnante. 
 Cela apporte **l'équilibrage de la charge par le mérite**. Les agents ne floodent pas le réseau de demandes inutiles, car chaque demande "coûte" en capital de confiance. Un agent "parasite" qui demande toujours de l'aide sans jamais réussir de tâches verra son score chuter et ne sera plus aidé.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     A[Agent A\n(Développeur bloqué)] -->|Demande Aide| B[Agent B\n(Expert dispo)]
     B -->|Consulte Registre Confiance| C{A est-il fiable ?}
     C -->|Oui| D[B dépense des tokens pour aider A]
     D -->|A réussit| E[Le score de confiance de A et B augmente]
     C -->|Non (Parasite)| F[Refus d'aide]
-`
-
+```
 ### Exemple Comparatif
 | Type d'Agent | Interaction | Résultat |
 |---|---|---|

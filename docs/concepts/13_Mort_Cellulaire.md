@@ -1,4 +1,4 @@
-﻿# 13. MORT CELLULAIRE & NETTOYAGE
+# 13. MORT CELLULAIRE & NETTOYAGE
 
 L'élimination des agents inutiles, buggés ou dangereux est aussi importante que leur création. GenOS est conçu pour que la mort d'un agent soit un processus utile au système.
 
@@ -12,14 +12,13 @@ Si un agent détecte une boucle infinie, une divergence sémantique, ou subit un
 Cela apporte **l'isolation des pannes (Containment)**. Le théorème 1 & 2 de GenOS prouve que l'apoptose borne la cascade d'erreurs à la longueur 1. Une erreur ne se propage pas.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     Detect[Détection: Boucle LLM infinie] --> Apoptose(Déclenchement Apoptose)
     Apoptose --> Lock[Libération des verrous]
     Apoptose --> Log[Création de 'granules forensiques' pour l'Orchestrateur]
     Apoptose --> Dead((Agent Détruit proprement))
-`
-
+```
 ---
 
 ## 13.2 Phagocytose et Autophagie (Nettoyage)

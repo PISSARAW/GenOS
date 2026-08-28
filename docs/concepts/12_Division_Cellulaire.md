@@ -1,4 +1,4 @@
-﻿# 12. DIVISION CELLULAIRE
+# 12. DIVISION CELLULAIRE
 
 Comment les agents GenOS se multiplient (scale-out) pour affronter la charge, en s'inspirant des modes de division biologique.
 
@@ -14,14 +14,13 @@ GenOS propose plusieurs stratégies de réplication selon le besoin de sécurit�
 4. **Amitose** : Refusée volontairement par le design GenOS. C'est la division sans vérification. (Ce que font les scripts Python classiques quand ils threadent des LLMs).
 
 ### Schéma Conceptuel (Bourgeonnement et Limite de Hayflick)
-`mermaid
+```mermaid
 flowchart LR
     A[Agent Principal\nDivisions restantes : 8] -->|Bourgeonnement| B[Sous-agent\nDivisions : 7]
     B -->|Bourgeonnement| C[Sous-agent\nDivisions : 6]
     C -.->|...| D[Sous-agent final\nDivisions : 0]
     D -.->|Division interdite| X((Arrêt))
-`
-
+```
 ### Exemple Comparatif : Résolution récursive d'un arbre de dépendances
 | Type d'Agent | Comportement | Résultat |
 |---|---|---|

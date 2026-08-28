@@ -1,4 +1,4 @@
-﻿# 33. REPLAY HIPPOCAMPIQUE ET RYTHME CIRCADIEN
+# 33. REPLAY HIPPOCAMPIQUE ET RYTHME CIRCADIEN
 
 Le sommeil et le rêve ne sont pas des temps morts, mais des phases critiques de consolidation de la mémoire.
 
@@ -19,11 +19,10 @@ Durant le "Sommeil", GenOS passe en revue les trajectoires marquantes de la jour
 Cela apporte **l'cristallisation de l'expertise**. Une solution trouvée par hasard le lundi devient une compétence durement codée (un instinct) le mardi matin.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     Jour[Phase de Veille\n(Exploration / Succès inattendu)] -->|Données Brutes| Hippo(Hippocampe\nMémoire Courte)
     Hippo --> Nuit[Phase de Sommeil\nRythme Circadien]
     Nuit -->|Replay en boucle\n(LLM local gratuit)| Consolidation(Création d'un Opéron)
     Consolidation --> Cortex[Cortex\nMémoire Long Terme / Génome]
-`
-
+```
