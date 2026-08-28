@@ -5,6 +5,15 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$HOME/.genos/bin"
 
+echo "Installing backend dependencies..."
+cd "$REPO_ROOT/backend"
+npm install
+
+echo "Building GenOS Studio..."
+cd "$REPO_ROOT/studio"
+npm install
+npm run build
+
 echo "Building GenOS release binaries..."
 cd "$REPO_ROOT"
 cargo build --release --workspace
