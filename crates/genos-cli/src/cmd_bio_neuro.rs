@@ -1,8 +1,8 @@
 use anyhow::{bail, Result};
 use genos_core::biomimicry::{
-    AllostasisEngine, CircadianClock, CircadianPhase, CrossModalPlasticity, DopaminergicSystem,
+    AllostasisEngine, CircadianPhase, CrossModalPlasticity, DopaminergicSystem,
     EndocrineSystem, HippocampalReplay, Hormone, MotorResponse, ReflexArc, RpeSignal,
-    SensoryStimulus,
+    SensoryStimulus, SuprachiasmaticNucleus, ZeitgeberSignal, EpisodicSequence,
 };
 
 pub(crate) fn param_value<'a>(params: &'a [String], key: &str) -> Option<&'a str> {
@@ -130,19 +130,23 @@ pub fn hippocampal_consolidate(params: &[String]) -> Result<()> {
         .unwrap_or("0.9")
         .parse()?;
 
-    // In real scenario, extract array of tools or steps
-    let mut dag = vec![];
+    let mut episode = EpisodicSequence::new();
+    let mut current_time = 0;
+    let mut has_step = false;
+
     for p in params {
         if let Some(step) = p.strip_prefix("dag_step=") {
-            dag.push(step.to_string());
+            episode.bind_event(step, current_time);
+            current_time += 100;
+            has_step = true;
         }
     }
-    if dag.is_empty() {
-        dag.push("default_step".to_string());
+    if !has_step {
+        episode.bind_event("default_step", 0);
     }
 
     let replay = HippocampalReplay::new(agent_id);
-    match replay.consolidate_memory(&dag, score) {
+    match replay.consolidate_memory(&episode, score) {
         Ok(res) => println!("{}", res),
         Err(e) => bail!("Replay failed: {}", e),
     }
@@ -159,8 +163,17 @@ pub fn circadian_toggle(params: &[String]) -> Result<()> {
         _ => bail!("Unknown phase"),
     };
 
-    let mut clock = CircadianClock::new(swarm_id.clone(), current);
-    let new_phase = clock.toggle_phase();
+    let mut clock = SuprachiasmaticNucleus::new(swarm_id.clone(), current.clone());
+    let new_phase = match current {
+        CircadianPhase::Diurnal => {
+            clock.reset_clock(ZeitgeberSignal::Darkness);
+            CircadianPhase::Nocturnal
+        },
+        CircadianPhase::Nocturnal => {
+            clock.reset_clock(ZeitgeberSignal::Light);
+            CircadianPhase::Diurnal
+        },
+    };
     println!("Swarm {} phase toggled to {:?}", swarm_id, new_phase);
     if clock.can_execute_heavy_maintenance() {
         println!("Nocturnal phase: Heavy maintenance (GC, Replay) permitted.");
