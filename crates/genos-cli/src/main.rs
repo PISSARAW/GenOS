@@ -38,6 +38,7 @@ mod cmd_resilience;
 mod cmd_scheduler;
 mod cmd_snapshot;
 mod cmd_storage;
+mod cmd_swarm;
 mod cmd_transport;
 mod cmd_viral;
 mod cmd_workflow;
@@ -53,7 +54,7 @@ use crate::args::{
     AgentSubcommands, BiomimicrySubcommands, CapsuleSubcommands, Cli, Commands, DevSubcommands,
     DivisionSubcommands, EvalSubcommands, ExperimentSubcommands, HallucinationSubcommands,
     InspectSubcommands, PlatformSubcommands, PromptSubcommands, ReplaySubcommands,
-    ResilienceSubcommands, SnapshotSubcommands, WorkflowSubcommands, WorldSubcommands,
+    ResilienceSubcommands, SnapshotSubcommands, SwarmSubcommands, WorkflowSubcommands, WorldSubcommands,
 };
 use crate::cmd_agent::{
     cmd_agent_breed, cmd_agent_create, cmd_agent_fork_from_snapshot, cmd_agent_infer_traits,
@@ -87,6 +88,7 @@ use crate::cmd_snapshot::{
     cmd_snapshot_record_tool_call, cmd_snapshot_restore, cmd_snapshot_save,
     cmd_snapshot_set_belief, cmd_snapshot_set_cognition, cmd_snapshot_set_var,
 };
+use crate::cmd_swarm::*;
 use crate::cmd_workflow::*;
 use crate::cmd_world::{
     cmd_world_check_file, cmd_world_create, cmd_world_destroy, cmd_world_diff, cmd_world_fork,
@@ -182,6 +184,9 @@ async fn main() -> Result<()> {
             SnapshotSubcommands::Restore(args) => cmd_snapshot_restore(args).await,
             SnapshotSubcommands::Checkpoint(args) => cmd_snapshot_checkpoint(args).await,
             SnapshotSubcommands::Lineage(args) => cmd_snapshot_lineage(args).await,
+        },
+        Commands::Swarm(swarm) => match swarm.command {
+            SwarmSubcommands::AlleleAnalyzer(args) => cmd_swarm_allele_analyzer(args),
         },
         Commands::World(world) => match world.command {
             WorldSubcommands::Create(args) => cmd_world_create(args).await,

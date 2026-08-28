@@ -16,6 +16,7 @@ pub mod prompt;
 pub mod replay;
 pub mod resilience;
 pub mod snapshot;
+pub mod swarm;
 pub mod workflow;
 pub mod world;
 
@@ -33,6 +34,7 @@ pub use prompt::*;
 pub use replay::*;
 pub use resilience::*;
 pub use snapshot::*;
+pub use swarm::*;
 pub use workflow::*;
 pub use world::*;
 
@@ -57,6 +59,7 @@ pub enum Commands {
     /// Run persisted counterfactual experiments from reusable manifests.
     Experiment(ExperimentCommand),
     Snapshot(SnapshotCommand),
+    Swarm(SwarmCommand),
     World(WorldCommand),
     Replay(ReplayCommand),
     /// Inspect typed entities on a snapshot â€” belief provenance trees, etc.
