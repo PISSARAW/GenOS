@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_thalamic_filtering', cat: 'Neurobiology', risk: 'Low', desc: 'Thalamic filtering process' },
   { name: 'genos_multisensory_integration', cat: 'Neurobiology', risk: 'Low', desc: 'Multisensory integration system' },
   { name: 'genos_necrosis_ledger', cat: 'Cellular', risk: 'Low', desc: 'Necrosis ledger system' },
   { name: 'genos_molecular_chaperone', cat: 'Cellular', risk: 'Low', desc: 'Molecular chaperones manager' },
@@ -258,6 +259,7 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 
 
