@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use crate::synaptic_path::SynapticPath;
 
 /// Configuration de la plasticité synaptique (STDP & Homéostasie).
 pub struct PlasticityConfig {
@@ -17,14 +18,14 @@ pub struct PlasticityConfig {
 /// causalement les concepts mémorisés (LTP/LTD) ainsi que le scaling de
 /// Turrigiano pour prévenir la saturation du contexte par des nœuds hyperactifs.
 pub struct SynapticMemoryGraph {
-    pub weights: HashMap<(String, String), f32>,
+    pub connections: HashMap<(String, String), SynapticPath>,
     pub config: PlasticityConfig,
 }
 
 impl SynapticMemoryGraph {
     pub fn new(config: PlasticityConfig) -> Self {
         Self {
-            weights: HashMap::new(),
+            connections: HashMap::new(),
             config,
         }
     }
@@ -36,17 +37,18 @@ impl SynapticMemoryGraph {
     pub fn apply_stdp(&mut self, pair: (&str, &str), delta_t_ms: i64) {
         let (pre_id, post_id) = pair;
         let key = (pre_id.to_string(), post_id.to_string());
-        let current_w = *self.weights.get(&key).unwrap_or(&0.5);
+        
+        let path = self.connections.entry(key).or_insert_with(|| {
+            SynapticPath::new(pre_id, post_id)
+        });
 
-        let new_w = if delta_t_ms >= 0 {
-            let dw = self.config.a_plus * (-(delta_t_ms as f32) / self.config.tau_plus).exp();
-            (current_w + dw).min(10.0)
+        if delta_t_ms >= 0 {
+            let intensity = self.config.a_plus * (-(delta_t_ms as f32) / self.config.tau_plus).exp();
+            path.trigger_impulse(intensity);
         } else {
-            let dw = self.config.a_minus * ((delta_t_ms as f32) / self.config.tau_minus).exp();
-            (current_w - dw).max(0.0)
-        };
-
-        self.weights.insert(key, new_w);
+            // Dans le cas d'une LTD, on accélère l'oubli
+            path.apply_decay();
+        }
     }
 
     /// Déclenche la phase de sommeil (élagage et scaling homéostatique).
@@ -55,18 +57,25 @@ impl SynapticMemoryGraph {
     /// et supprime les liaisons inférieures à `prune_threshold`.
     pub fn prune_and_scale(&mut self) {
         let mut in_activity: HashMap<String, f32> = HashMap::new();
-        for ((_, post), w) in &self.weights {
-            *in_activity.entry(post.clone()).or_insert(0.0) += *w;
+        
+        // Calcul de l'activité entrante basée sur le poids effectif
+        for ((_, post), path) in &self.connections {
+            *in_activity.entry(post.clone()).or_insert(0.0) += path.effective_weight();
         }
 
-        for ((_, post), w) in self.weights.iter_mut() {
+        for ((_, post), path) in self.connections.iter_mut() {
             let total_act = in_activity.get(post).copied().unwrap_or(0.0);
             let scale_factor =
                 (self.config.target_activity / total_act.max(1e-6)).powf(self.config.scaling_gamma);
-            *w = (*w * scale_factor).clamp(0.0, 10.0);
+            
+            // Si le scaling est très faible (dépression), on force un decay
+            if scale_factor < 0.5 {
+                path.apply_decay();
+            }
         }
 
-        self.weights
-            .retain(|_, &mut w| w >= self.config.prune_threshold);
+        // On conserve uniquement les chemins dont le poids effectif est >= au seuil
+        self.connections
+            .retain(|_, path| path.effective_weight() >= self.config.prune_threshold);
     }
 }
