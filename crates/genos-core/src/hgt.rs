@@ -1,7 +1,6 @@
 use crate::genome::{AgentGenome, Locus};
 use crate::operon::Operon;
 use serde::{Deserialize, Serialize};
-
 /// Unité génétique mobile (élément transposable) capable de s'insérer
 /// de manière autonome dans le génome pour propager des fragments (payload).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -10,7 +9,6 @@ pub struct Transposon {
     pub payload: Vec<Locus>,
     pub insertion_sequence: String,
 }
-
 /// Erreurs de transposition.
 #[derive(Clone, Debug, PartialEq)]
 pub enum TranspositionError {
@@ -22,7 +20,6 @@ pub enum TranspositionError {
     /// Le transposon ne porte aucun gène.
     EmptyPayload,
 }
-
 /// Rapport d'une insertion réussie d'élément transposable.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct InsertionReport {
@@ -30,7 +27,6 @@ pub struct InsertionReport {
     pub chromosome: String,
     pub insertion_index: usize,
 }
-
 /// PRNG déterministe (SplitMix64) : la transposition est reproductible.
 pub(crate) fn splitmix64(state: &mut u64) -> u64 {
     *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -39,7 +35,6 @@ pub(crate) fn splitmix64(state: &mut u64) -> u64 {
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
 }
-
 impl Transposon {
     /// Insère de manière autonome le payload du transposon dans le génome.
     ///
@@ -59,7 +54,6 @@ impl Transposon {
         if genome.cognition.chromosomes.is_empty() {
             return Err(TranspositionError::NoTargetChromosome);
         }
-
         // Immunisation : refus si un gène caractéristique du payload est déjà présent.
         let sentinel = &self.payload[0].gene_name;
         let already_present = genome
@@ -70,7 +64,6 @@ impl Transposon {
         if already_present {
             return Err(TranspositionError::AlreadyInserted);
         }
-
         // 1. Site spécifique.
         if !self.insertion_sequence.is_empty() {
             for chromosome in genome.cognition.chromosomes.iter_mut() {
@@ -89,7 +82,6 @@ impl Transposon {
                 }
             }
         }
-
         // 2. Fallback aléatoire déterministe.
         let mut state = seed;
         let chrom_index = (splitmix64(&mut state) as usize) % genome.cognition.chromosomes.len();
@@ -106,15 +98,32 @@ impl Transposon {
             insertion_index: index,
         })
     }
+    pub fn from_compiled_memory(name: &str, json_str: &str) -> Option<Self> {
+        let v: serde_json::Value = serde_json::from_str(json_str).ok()?;
+        let memory = v.get("output")?.get("memory")?;
+        let mut payload = Vec::new();
+        if let Some(decisions) = memory.get("decisions").and_then(|arr| arr.as_array()) {
+            for (i, _val) in decisions.iter().enumerate() {
+                payload.push(Locus {
+                    gene_name: format!("decision_{}", i),
+                    value: 1.0,
+                    epigenetic_marker: 0.0,
+                });
+            }
+        }
+        Some(Transposon {
+            name: name.to_string(),
+            payload,
+            insertion_sequence: "memory_site".to_string(),
+        })
+    }
 }
-
 /// Insère les loci du payload à l'index donné d'un chromosome.
 fn splice(chromosome: &mut crate::genome::Chromosome, index: usize, payload: &[Locus]) {
     for (offset, locus) in payload.iter().enumerate() {
         chromosome.loci.insert(index + offset, locus.clone());
     }
 }
-
 /// Véhicule de transfert horizontal, regroupant un ensemble d'opérons.
 /// Permet à un agent d'acquérir de nouvelles compétences "à la volée".
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -124,7 +133,6 @@ pub struct PlasmidPackage {
     pub operons: Vec<Operon>,
     pub compatibility_group: String,
 }
-
 /// Rejets possibles lors de l'absorption d'un plasmide.
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlasmidRejection {
@@ -137,19 +145,16 @@ pub enum PlasmidRejection {
     /// Ce plasmide a déjà été absorbé par ce génome.
     AlreadyAbsorbed,
 }
-
 /// Préfixe des marqueurs de capacité enregistrant la résidence plasmidique.
 const PLASMID_CAPABILITY_PREFIX: &str = "plasmid::";
 /// Séparateur du groupe d'incompatibilité dans le marqueur de capacité.
 const INC_GROUP_SEPARATOR: &str = "::inc::";
-
 fn plasmid_capability_name(plasmid_id: &str, compatibility_group: &str) -> String {
     format!(
         "{}{}{}{}",
         PLASMID_CAPABILITY_PREFIX, plasmid_id, INC_GROUP_SEPARATOR, compatibility_group
     )
 }
-
 /// Extrait le groupe d'incompatibilité d'un marqueur de capacité plasmidique.
 fn resident_inc_group(capability_name: &str) -> Option<&str> {
     capability_name
@@ -157,14 +162,12 @@ fn resident_inc_group(capability_name: &str) -> Option<&str> {
         .split(INC_GROUP_SEPARATOR)
         .nth(1)
 }
-
 /// Trait définissant la capacité d'un agent à assimiler des fragments génétiques externes.
 pub trait HorizontalGeneTransfer {
     /// Absorbe un plasmide et l'intègre au génome de l'agent, sous réserve de
     /// compatibilité plasmidique (un seul plasmide par groupe Inc).
     fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage) -> Result<(), PlasmidRejection>;
 }
-
 impl HorizontalGeneTransfer for AgentGenome {
     fn absorb_plasmid(&mut self, plasmid: &PlasmidPackage) -> Result<(), PlasmidRejection> {
         // Déjà résident ?
@@ -183,7 +186,6 @@ impl HorizontalGeneTransfer for AgentGenome {
                 }
             }
         }
-
         if let Some(chromosome) = self.cognition.chromosomes.first_mut() {
             chromosome.operons.extend(plasmid.operons.clone());
         }
@@ -195,13 +197,11 @@ impl HorizontalGeneTransfer for AgentGenome {
         Ok(())
     }
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::genome::{Chromosome, CognitionConfig, Identity};
     use crate::ids::GenomeId;
-
     fn locus(name: &str) -> Locus {
         Locus {
             gene_name: name.to_string(),
@@ -209,7 +209,6 @@ mod tests {
             epigenetic_marker: 0.0,
         }
     }
-
     fn genome_with(gene_names: &[&str]) -> AgentGenome {
         AgentGenome {
             id: GenomeId::new(),
@@ -258,7 +257,6 @@ mod tests {
             inferred_traits: vec![],
         }
     }
-
     fn test_transposon(target: &str) -> Transposon {
         Transposon {
             name: "Tn-compile".to_string(),
@@ -266,7 +264,6 @@ mod tests {
             insertion_sequence: target.to_string(),
         }
     }
-
     #[test]
     fn insertion_is_site_specific_when_target_present() {
         let mut g = genome_with(&["exploration", "verification_threshold"]);
@@ -283,7 +280,6 @@ mod tests {
             "build_parallelism"
         );
     }
-
     #[test]
     fn fallback_insertion_is_deterministic_for_same_seed() {
         let mut a = genome_with(&["exploration"]);
@@ -297,7 +293,6 @@ mod tests {
         let rc = tn.insert_into(&mut c, 8).unwrap();
         let _ = rc;
     }
-
     #[test]
     fn reinsertion_of_same_element_is_rejected() {
         let mut g = genome_with(&["exploration"]);
@@ -308,7 +303,6 @@ mod tests {
             Err(TranspositionError::AlreadyInserted)
         );
     }
-
     #[test]
     fn empty_payload_or_genome_is_rejected() {
         let empty_tn = Transposon {
@@ -321,7 +315,6 @@ mod tests {
             empty_tn.insert_into(&mut g, 1),
             Err(TranspositionError::EmptyPayload)
         );
-
         let tn = test_transposon("");
         let mut bare = genome_with(&[]);
         bare.cognition.chromosomes.clear();
@@ -330,7 +323,6 @@ mod tests {
             Err(TranspositionError::NoTargetChromosome)
         );
     }
-
     fn plasmid(id: &str, group: &str) -> PlasmidPackage {
         PlasmidPackage {
             id: id.to_string(),
@@ -343,7 +335,6 @@ mod tests {
             compatibility_group: group.to_string(),
         }
     }
-
     #[test]
     fn plasmid_absorption_records_residency() {
         let mut g = genome_with(&["exploration"]);
@@ -353,7 +344,6 @@ mod tests {
         // La résidence est tracée.
         assert!(g.capabilities.iter().any(|c| c.name.contains("P1")));
     }
-
     #[test]
     fn same_incompatibility_group_is_rejected() {
         let mut g = genome_with(&["exploration"]);
@@ -368,7 +358,6 @@ mod tests {
         // Le plasmide rejeté n'a pas intégré d'opéron.
         assert_eq!(g.cognition.chromosomes[0].operons.len(), 1);
     }
-
     #[test]
     fn different_compatibility_groups_coexist() {
         let mut g = genome_with(&["exploration"]);
@@ -376,7 +365,6 @@ mod tests {
         g.absorb_plasmid(&plasmid("P2", "IncB")).unwrap();
         assert_eq!(g.cognition.chromosomes[0].operons.len(), 2);
     }
-
     #[test]
     fn double_absorption_of_same_plasmid_is_rejected() {
         let mut g = genome_with(&["exploration"]);
