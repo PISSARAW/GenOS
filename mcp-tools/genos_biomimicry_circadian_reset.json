@@ -1,0 +1,19 @@
+{
+  "name": "genos_biomimicry_circadian_reset",
+  "description": "Envoie un signal Zeitgeber (Lumière ou Obscurité) au Noyau Suprachiasmatique (NSC) pour forcer la synchronisation du rythme biologique de l'agent (Macro-timing).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "agent_id": {
+        "type": "string",
+        "description": "ID de l'agent cible."
+      },
+      "zeitgeber_signal": {
+        "type": "string",
+        "enum": ["Light", "Darkness"],
+        "description": "Le signal de l'environnement externe (Lumière = Diurne, Obscurité = Nocturne)."
+      }
+    },
+    "required": ["agent_id", "zeitgeber_signal"]
+  }
+}
