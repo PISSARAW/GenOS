@@ -89,3 +89,29 @@ pub fn ecology_succession(params: &[String]) -> Result<()> {
 
     Ok(())
 }
+
+pub fn ecology_physarum(params: &[String]) -> Result<()> {
+    let source = param_value(params, "source").unwrap_or("node_a");
+    let target = param_value(params, "target").unwrap_or("node_b");
+    println!("Computing Physarum routing from {} to {}", source, target);
+    Ok(())
+}
+
+pub fn ecology_aco(params: &[String]) -> Result<()> {
+    let pheromone = param_value(params, "pheromone").unwrap_or("0.1");
+    println!("Applying Ant Colony Optimization with pheromone {}", pheromone);
+    Ok(())
+}
+
+pub fn ecology_gossip(params: &[String]) -> Result<()> {
+    let node = param_value(params, "node").unwrap_or("unknown");
+    println!("Propagating ecology gossip from node {}", node);
+    Ok(())
+}
+
+pub fn ecology_reciprocal(params: &[String]) -> Result<()> {
+    let agent = param_value(params, "agent").unwrap_or("unknown");
+    println!("Evaluating reciprocal altruism for agent {}", agent);
+    Ok(())
+}
+

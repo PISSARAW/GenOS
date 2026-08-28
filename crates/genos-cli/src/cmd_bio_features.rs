@@ -36,6 +36,10 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         }
         ("ecology", "punctuated") => crate::cmd_bio_ecology::ecology_punctuated(params),
         ("ecology", "succession") => crate::cmd_bio_ecology::ecology_succession(params),
+        ("ecology", "physarum") => crate::cmd_bio_ecology::ecology_physarum(params),
+        ("ecology", "aco") => crate::cmd_bio_ecology::ecology_aco(params),
+        ("ecology", "gossip") => crate::cmd_bio_ecology::ecology_gossip(params),
+        ("ecology", "reciprocal") => crate::cmd_bio_ecology::ecology_reciprocal(params),
         ("behavior", "social") => crate::cmd_bio_behavior::behavior_social(params),
         ("behavior", "play") => crate::cmd_bio_behavior::behavior_play(params),
         ("behavior", "thanatosis") => crate::cmd_bio_behavior::behavior_thanatosis(params),
