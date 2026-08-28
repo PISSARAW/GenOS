@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_lamarckian_mutation', cat: 'Epigenetics', risk: 'Low', desc: 'Lamarckian evolution simulation' },
   { name: 'genos_coevolution', cat: 'Genetics', risk: 'Low', desc: 'Coevolution orchestration' },
   { name: 'genos_quantitative_genetics', cat: 'Genetics', risk: 'Low', desc: 'Quantitative genetics integration' },
   // Workspace Control
@@ -252,5 +253,6 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 

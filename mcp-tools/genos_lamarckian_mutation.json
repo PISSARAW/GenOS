@@ -1,0 +1,11 @@
+{
+  "name": "genos_lamarckian_mutation",
+  "description": "Lamarckian evolution simulation",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" }
+    },
+    "required": ["agent_id"]
+  }
+}
