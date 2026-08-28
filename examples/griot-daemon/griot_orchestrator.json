@@ -317,6 +317,36 @@
         "tool": "genos_synaptic_prune_scale",
         "scope": "allowed",
         "enabled": true
+      },
+      {
+        "tool": "genos_security_virophage_deploy",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_immuno_inflammation",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_embryo_phase_advance",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_hox_verify",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_metamorphosis_transition",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_regeneration_tissue",
+        "scope": "allowed",
+        "enabled": true
       }
     ]
   },
