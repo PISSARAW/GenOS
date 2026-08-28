@@ -59,6 +59,8 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         ("senescence", "assess") => senescence_assess(params),
         ("neoteny", "quota") => crate::cmd_bio_novel::neoteny_quota(params),
         ("speciation", "check") => crate::cmd_bio_evolution::speciation_check(params),
+        ("genetics", "quantitative") => crate::cmd_bio_evolution::quantitative_genetics(params),
+        ("genetics", "coevolution") => crate::cmd_bio_evolution::coevolution(params),
         ("bet-hedging", "allocate") => crate::cmd_bio_evolution::bet_hedge_allocate(params),
         ("epigenetic_chromatin", "modulate") => crate::cmd_biomimicry::chromatin_modulate(params),
         ("active_sensing", "emit") => crate::cmd_bio_novel::active_sensing_emit(params),

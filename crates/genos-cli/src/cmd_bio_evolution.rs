@@ -100,3 +100,18 @@ pub fn bet_hedge_allocate(params: &[String]) -> Result<()> {
     );
     Ok(())
 }
+
+pub fn quantitative_genetics(params: &[String]) -> Result<()> {
+    let trait_name = param_value(params, "trait").unwrap_or("unknown");
+    let heritability: f64 = param_value(params, "heritability").unwrap_or("0.5").parse()?;
+    println!("Analyzing quantitative genetics for trait {} (h^2: {})", trait_name, heritability);
+    Ok(())
+}
+
+pub fn coevolution(params: &[String]) -> Result<()> {
+    let partner = param_value(params, "partner").unwrap_or("unknown");
+    let pressure: f64 = param_value(params, "pressure").unwrap_or("0.5").parse()?;
+    println!("Evaluating coevolutionary pressure with partner {} (pressure: {})", partner, pressure);
+    Ok(())
+}
+
