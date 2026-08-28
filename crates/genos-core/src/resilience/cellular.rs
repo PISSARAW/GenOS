@@ -38,6 +38,10 @@ impl DeadLetterQueue {
     pub fn count(&self) -> usize {
         self.failed_messages.len()
     }
+
+    pub fn clear(&mut self) {
+        self.failed_messages.clear();
+    }
 }
 
 /// CODIT: Compartmentalization of Decay in Trees
@@ -224,5 +228,17 @@ impl HomeostaticIndex {
         } else {
             HomeostaticState::Critical
         }
+    }
+}
+
+
+/// Macrophage: Implements Phagocytosis by aggressively ingesting the Dead Letter Queue.
+pub struct Macrophage;
+
+impl Macrophage {
+    pub fn phagocytosis(dlq: &mut DeadLetterQueue) {
+        println!("[Macrophage] Phagocytosis initiated: digesting {} orphaned/corrupted messages.", dlq.count());
+        dlq.clear();
+        println!("[Macrophage] Phagocytosis complete. DLQ is now neutralized.");
     }
 }
