@@ -287,6 +287,24 @@ pub fn mutate_cognition(
     child
 }
 
+pub fn dpo_mutate_cognition(
+    parent: &AgentGenome,
+    chosen: std::collections::BTreeMap<String, f32>,
+    rejected: std::collections::BTreeMap<String, f32>,
+) -> AgentGenome {
+    let mut changes = std::collections::BTreeMap::new();
+    let beta = 0.1;
+
+    for (drive, chosen_val) in chosen {
+        let rejected_val = rejected.get(&drive).copied().unwrap_or(0.5);
+        let parent_val = parent.cognition.get_drive(&drive).unwrap_or(0.5);
+        let new_val = parent_val + beta * (chosen_val - rejected_val);
+        changes.insert(drive, new_val);
+    }
+
+    mutate_cognition(parent, changes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
