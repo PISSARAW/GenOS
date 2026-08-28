@@ -1,0 +1,11 @@
+{
+  "name": "genos_grns",
+  "description": "Gene Regulatory Networks integration",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" }
+    },
+    "required": ["agent_id"]
+  }
+}
