@@ -26,7 +26,7 @@ if (-not (Test-Path $BinDir)) {
 
 $GenosExe = Join-Path $RepoRoot "target\release\genos.exe"
 $McpExe = Join-Path $RepoRoot "target\release\genos-mcp.exe"
-$OrchestratorBridge = Join-Path $RepoRoot "orchestrator_cli.mjs"
+$OrchestratorBridge = Join-Path $RepoRoot "scripts\orchestrator_cli.mjs"
 
 Write-Host "Generating wrappers..."
 
