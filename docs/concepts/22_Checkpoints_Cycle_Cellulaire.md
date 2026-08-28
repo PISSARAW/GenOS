@@ -1,4 +1,4 @@
-﻿# 22. CHECKPOINTS DU CYCLE CELLULAIRE
+# 22. CHECKPOINTS DU CYCLE CELLULAIRE
 
 Inspiré de la division cellulaire (mitose), ce concept introduit des points de contrôle stricts (G1, G2, M) qu'un agent doit valider avant de pouvoir progresser dans son cycle d'exécution ou se cloner.
 
@@ -11,7 +11,7 @@ En biologie, les checkpoints vérifient que l'ADN n'est pas endommagé avant la 
 Cela apporte **l'impossibilité mathématique de propager une erreur**. Contrairement à un script classique qui plante au milieu d'un processus, l'agent GenOS est "mis en pause" au checkpoint et déclenche des mécanismes de réparation s'il n'est pas conforme.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart LR
     A[Phase de Raisonnement\n(LLM / Génération)] --> C1{Checkpoint G1\n(Syntaxe & Types)}
     C1 -->|Échec| R1[Réparation (Prompting)]
@@ -20,8 +20,7 @@ flowchart LR
     B --> C2{Checkpoint G2\n(Tests Unitaires & Lint)}
     C2 -->|Pass| D[Phase de Clonage/Commit]
     C2 -->|Échec fatal| Apo((Apoptose))
-`
-
+```
 ### Exemple Comparatif : Génération d'une Pull Request
 | Type d'Agent | Mécanique | Résultat |
 |---|---|---|

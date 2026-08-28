@@ -1,4 +1,4 @@
-﻿# 14. HOMÉOSTASIE & MÉTABOLISME
+# 14. HOMÉOSTASIE & MÉTABOLISME
 
 Comment GenOS maintient un équilibre interne stable (taux de requêtes API, charge cognitive) malgré des perturbations extérieures constantes.
 
@@ -16,15 +16,14 @@ Il définit 3 modes :
 Cela apporte la **gestion parfaite du Rate-Limiting et de la facturation**. L'agent "sent" sa fatigue financière et ralentit de lui-même sans avoir besoin d'un script externe de throttling.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 stateDiagram-v2
     [*] --> Anabolique: Beaucoup de Tokens
     Anabolique --> Catabolique: Budget se réduit
     Catabolique --> Conservation: Rate Limit (Erreur 429)
     Conservation --> Conservation: Torpeur (Sleep)
     Conservation --> Anabolique: Reset du quota API
-`
-
+```
 ---
 
 ## 14.2 Scaling homéostatique de Turrigiano

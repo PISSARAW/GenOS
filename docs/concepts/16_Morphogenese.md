@@ -1,4 +1,4 @@
-﻿# 16. MORPHOGENÈSE
+# 16. MORPHOGENÈSE
 
 L'étude de la façon dont les structures complexes émergent de règles locales simples.
 
@@ -12,12 +12,11 @@ Un agent qui devient "Leader" émet un signal "Activateur" (demande d'aide) et u
 Cela apporte une **auto-organisation pure (Zero Central Bottleneck)**. L'Orchestrateur n'a même pas besoin de micro-manager ; l'équipe se structure chimiquement d'elle-même.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     A[Agent A (Devient Leader)] -->|Émet Inhibiteur| B[Agent B]
     A -->|Émet Inhibiteur| C[Agent C]
     B -->|Inhibé| B_Role[Devient Worker (Exploit)]
     C -->|Inhibé| C_Role[Devient Worker (Exploit)]
     D[Agent D (Hors de portée de l'Inhibiteur)] -->|Se sent seul| D_Role[Devient Leader]
-`
-
+```

@@ -1,4 +1,4 @@
-﻿# 21. INTELLIGENCE COLLECTIVE / ÉTHOLOGIE
+# 21. INTELLIGENCE COLLECTIVE / ÉTHOLOGIE
 
 Comment des agents simples, en suivant des règles basiques, produisent une intelligence de groupe supérieure.
 
@@ -13,14 +13,13 @@ L'essaim s'organise selon des Castes (Reine, Ouvrière, Soldat) comme le rat-tau
 Cela apporte une **collaboration silencieuse et peu coûteuse**. Des centaines d'agents peuvent travailler sur le même projet sans se paralyser par des réunions (synchronisation).
 
 ### Schéma Conceptuel (Stigmergie)
-`mermaid
+```mermaid
 flowchart TD
     A[Agent A (Trouve un bug majeur)] -->|Dépose| P[Phéromone d'Alarme (Intensité 100)]
     P -.->|Temps (Évaporation)| P2[Phéromone (Intensité 50)]
     P2 -->|Attire| B[Agent B (Passe à proximité du fichier)]
     B -->|Renforce| Action[Correction du Bug]
-`
-
+```
 ### Exemple Comparatif : Mobilisation sur un problème
 | Type d'Agent | Communication | Impact |
 |---|---|---|

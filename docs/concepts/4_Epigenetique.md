@@ -1,4 +1,4 @@
-﻿# 4. ÉPIGÉNÉTIQUE
+# 4. ÉPIGÉNÉTIQUE
 
 Ce document détaille la couche épigénétique de GenOS. Si le génome est le "matériel" (hard-coded), l'épigénétique est le "logiciel" : elle modifie comment les gènes s'expriment en fonction de l'expérience et du contexte, sans altérer le code source initial.
 
@@ -11,7 +11,7 @@ Chaque locus possède un epigenetic_marker qui vient moduler l'expression de bas
 Cela apporte une **mémoire transgénérationnelle à court terme**. Si une génération d'agents a souffert d'un environnement instable (stress élevé), ses enfants naîtront "sur le qui-vive" (expression modifiée), mais s'ils grandissent dans un environnement sain, ce trait s'estompera au fil des générations.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     G[Gène de Prudence\nValeur = 0.5] --> E1(Expression = 0.8)
     M1[Marqueur Épigénétique de Stress\nValeur = +0.3] --> E1
@@ -22,8 +22,7 @@ flowchart TD
     
     G2[Gène Enfant\nValeur = 0.5] --> E2(Expression = 0.71)
     M2 --> E2
-`
-
+```
 ### Cas d'usage
 - **Adaptation rapide d'essaim** : Un essaim attaque une API qui rate-limit. Les premiers agents échouent, développent un marqueur épigénétique de lenteur, et leurs successeurs héritent de cette lenteur "par prudence" avant même d'avoir touché l'API.
 

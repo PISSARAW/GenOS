@@ -1,4 +1,4 @@
-﻿# 6. TRANSFERT HORIZONTAL DE GÈNES (HGT)
+# 6. TRANSFERT HORIZONTAL DE GÈNES (HGT)
 
 Ce document explique comment l'information, l'apprentissage et les compétences sont propagés transversalement entre les agents GenOS en cours d'exécution, simulant le transfert horizontal de gènes (HGT) des bactéries.
 
@@ -11,7 +11,7 @@ Un plasmide bactérien est un petit bout d'ADN circulaire qui peut s'échanger d
 Cela apporte **le partage d'expertise en temps réel**. Si un agent découvre comment compiler une dépendance obscure, il package cette connaissance dans un plasmide. Ses pairs l'absorbent et obtiennent instantanément cette capacité, sans avoir à la réapprendre ou à utiliser le RAG.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 sequenceDiagram
     participant A as Agent A (Pionnier)
     participant S as Swarm Network (Gossip)
@@ -23,8 +23,7 @@ sequenceDiagram
     S->>B: Réception du Plasmide
     B->>B: Intégration (absorb_plasmid)
     Note over B: B possède maintenant la compétence\nsans l'avoir apprise
-`
-
+```
 ### Cas d'usage
 - **Déploiement de correctifs à chaud** : Lors d'une cyberattaque ou d'un bug majeur en production, le premier agent qui trouve la parade distribue un plasmide d'immunité. L'ensemble de l'essaim devient résistant en quelques millisecondes.
 
