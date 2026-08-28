@@ -89,39 +89,6 @@ class AnthonyOrchestrator {
         return `[Thymus Saboteur: MUTATION_INJECTED] Code mutated (Strain ${hash}). If tests remain green, APOPTOSIS is required.\n--- MUTATED CODE ---\n${mutated}\n--------------------`;
     }
 
-    // Concept 10: p53 Checkpoint (Allosteric Governance)
-    // Physical barrier enforcing policies (RBAC, File Length, Aesthetic) before execution
-    p53Checkpoint(actionType, payload, clearanceLevel = 'DEFAULT') {
-        if (!actionType || !payload) return "Error: Missing action data";
-        
-        // Policy 1: File Length (Rule 1)
-        if (actionType === 'WRITE_FILE') {
-            const lines = payload.split('\n').length;
-            if (lines > 400) {
-                return `[p53 Checkpoint: ACCESS DENIED] Rule 1 Violation: File exceeds 400 lines (current: ${lines}).`;
-            }
-        }
-        
-        // Policy 2: Intransigent Security (Rule 6)
-        if (actionType === 'WRITE_FILE' || actionType === 'READ_FILE') {
-            const isSensitive = payload.includes('/secrets') || payload.includes('.env');
-            if (isSensitive && clearanceLevel !== 'ADMIN') {
-                return `[p53 Checkpoint: ACCESS DENIED] Rule 6 Violation: Unauthorized access to sensitive path. Requires ADMIN clearance.`;
-            }
-        }
-
-        // Policy 3: Strict Aesthetic (Rule 5)
-        if (actionType === 'UPDATE_FRONTEND') {
-            // Regex for common emojis or linear-gradient
-            const hasForbiddenAesthetic = /linear-gradient/i.test(payload) || /[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/.test(payload);
-            if (hasForbiddenAesthetic) {
-                return `[p53 Checkpoint: ACCESS DENIED] Rule 5 Violation: Forbidden aesthetic detected (gradients or emojis). GitHub strict style required.`;
-            }
-        }
-
-        return `[p53 Checkpoint: PASS] Action ${actionType} complies with all governance policies.`;
-    }
-
     // Concept 5: Natural Killer (NK Cell)
     // Scans tests for the "Missing Self" (vacuous tests)
     naturalKillerScan(testCode) {
@@ -202,14 +169,8 @@ async function main() {
         const sourceCode = args.slice(1).join(' ');
         const result = orchestrator.thymusSaboteur(sourceCode);
         console.log(result);
-    } else if (command === 'p53') {
-        const actionType = args[1];
-        const clearanceLevel = args[2];
-        const payload = args.slice(3).join(' ');
-        const result = orchestrator.p53Checkpoint(actionType, payload, clearanceLevel);
-        console.log(result);
-    } else {
-        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman, thymus, p53`);
+} else {
+        console.log(`[Anthony Orchestrator] Mode CLI. Commandes dispos: thalamus, hippocampus, epigenetics, immune, nk, methylate, pdl1, spiegelman, thymus`);
     }
 }
 
@@ -219,3 +180,4 @@ if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
 }
 
 export { AnthonyOrchestrator };
+
