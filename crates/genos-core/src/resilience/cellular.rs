@@ -242,3 +242,13 @@ impl Macrophage {
         println!("[Macrophage] Phagocytosis complete. DLQ is now neutralized.");
     }
 }
+
+impl ResilienceSystem {
+    /// Detects infinite LLM loops and triggers apoptosis to prevent resource exhaustion.
+    pub fn detect_infinite_loop(&self, loop_count: usize, threshold: usize) {
+        if loop_count >= threshold {
+            println!("[ResilienceSystem] Infinite LLM loop detected (count: {}). Initiating self-destruction.", loop_count);
+            trigger_apoptosis("LLM Agent (Infinite Loop)");
+        }
+    }
+}
