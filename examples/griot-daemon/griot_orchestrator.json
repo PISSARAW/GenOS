@@ -347,6 +347,16 @@
         "tool": "genos_biomimicry_regeneration_tissue",
         "scope": "allowed",
         "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_canalization_evaluate",
+        "scope": "allowed",
+        "enabled": true
+      },
+      {
+        "tool": "genos_biomimicry_telomere_fork",
+        "scope": "allowed",
+        "enabled": true
       }
     ]
   },
