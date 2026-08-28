@@ -69,6 +69,7 @@ impl SynapticMemoryGraph {
                 (self.config.target_activity / total_act.max(1e-6)).powf(self.config.scaling_gamma);
             
             // Si le scaling est très faible (dépression), on force un decay
+            path.scale_weight(scale_factor);
             if scale_factor < 0.5 {
                 path.apply_decay();
             }
@@ -79,3 +80,4 @@ impl SynapticMemoryGraph {
             .retain(|_, path| path.effective_weight() >= self.config.prune_threshold);
     }
 }
+
