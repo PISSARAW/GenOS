@@ -1,4 +1,4 @@
-﻿# 27. EMBRYOGENÈSE ET PLANS D'ORGANISATION
+# 27. EMBRYOGENÈSE ET PLANS D'ORGANISATION
 
 La manière dont GenOS crée des systèmes complexes (comme une architecture logicielle) n'est pas "top-down" (du haut vers le bas, tout écrit d'un coup), mais biologique (croissance cellulaire à partir d'une "graine" ou embryon).
 
@@ -11,7 +11,7 @@ Dans un développement classique, on génère un boilerplate immense via un temp
 Cela apporte **l'adaptabilité architecturale**. Le plan d'organisation n'est pas rigide ; il s'adapte à son environnement. Si l'embryon détecte qu'il a très peu de ressources mémoire, il va ajuster sa croissance pour générer une architecture plus légère (ex: SQLite au lieu de PostgreSQL).
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     Zygote[Agent Zygote\n(Généraliste Totipotent)] -->|Division et Spécialisation| Endoderme[Couche Data\n(Agents DB)]
     Zygote -->|Division et Spécialisation| Mesoderme[Couche Logique\n(Agents Backend)]
@@ -20,8 +20,7 @@ flowchart TD
     Endoderme --> DB[(Base de Données)]
     Mesoderme --> API[API REST]
     Ectoderme --> React[Frontend React]
-`
-
+```
 ### Exemple Comparatif : Démarrage d'un nouveau projet
 | Type d'Agent | Action initiale | Limite |
 |---|---|---|

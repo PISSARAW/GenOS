@@ -1,4 +1,4 @@
-﻿# 23. CHAPERONNES MOLÉCULAIRES
+# 23. CHAPERONNES MOLÉCULAIRES
 
 Les protéines chaperonnes aident les autres protéines nouvellement synthétisées à acquérir leur bonne forme 3D. GenOS applique ce concept à la structuration de la donnée.
 
@@ -11,14 +11,13 @@ Les LLMs génèrent parfois du JSON malformé, du Markdown cassé, ou du code av
 Cela apporte **une tolérance aux pannes de formatage**. Plutôt que de forcer l'agent à dépenser de précieux tokens pour relire et corriger un JSON cassé (ce qui stresse l'agent), la chaperonne algorithmique fait le travail déterministe gratuitement.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart TD
     LLM[Agent LLM] -->|Output JSON brut\navec syntaxe cassée| Chap(Chaperonne Moléculaire)
     Chap -->|Tentative de Repliement\n(Fix JSON)| V{Valide ?}
     V -->|Oui| Out[Output Propre exploitable]
     V -->|Non| Rej[Rejet au Checkpoint]
-`
-
+```
 ### Exemple Comparatif : Récupération d'un JSON
 | Type d'Agent | Problème (Accolade manquante) | Résultat |
 |---|---|---|

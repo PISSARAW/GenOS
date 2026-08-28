@@ -1,4 +1,4 @@
-﻿# 26. PROCÉDURALISATION CÉRÉBELLEUSE
+# 26. PROCÉDURALISATION CÉRÉBELLEUSE
 
 Comment GenOS décharge le LLM (le Cortex) en transférant les tâches vers des scripts rapides et déterministes (le Cervelet).
 
@@ -12,15 +12,14 @@ Dans GenOS, si un Agent LLM accomplit la même tâche plusieurs fois (ex: extrai
 Cela apporte **l'effondrement des coûts d'inférence**. Ce qui coûtait 2000 tokens et 3 secondes de LLM devient un réflexe algorithmique qui coûte 0 token et 1 milliseconde.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart LR
     Task(Nouvelle Tâche) --> LLM[Raisonnement LLM\nCortex (Lent, Cher)]
     LLM --> Repet{Répétition > Seuil ?}
     Repet -->|Oui| Cereb[Procéduralisation\n(Génération d'un script)]
     Cereb --> Reflexe[Exécution par Script\nCervelet (Rapide, Gratuit)]
     Task -.-> Reflexe
-`
-
+```
 ### Exemple Comparatif : Trier des centaines de fichiers par date
 | Type d'Agent | Traitement | Coût / Vitesse |
 |---|---|---|

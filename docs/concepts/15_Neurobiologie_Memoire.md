@@ -1,4 +1,4 @@
-﻿# 15. NEUROBIOLOGIE & MÉMOIRE
+# 15. NEUROBIOLOGIE & MÉMOIRE
 
 Ce document explique comment GenOS modélise la mémoire et l'apprentissage à l'échelle des "synapses" (les liens entre les concepts manipulés par l'agent).
 
@@ -11,13 +11,12 @@ En neurobiologie, "les neurones qui s'activent ensemble se lient ensemble", mais
 Cela apporte **un raisonnement causal robuste**. L'agent ne fait pas que mémoriser des faits pêle-mêle ; il construit un graphe de connaissances orienté. Si A $\rightarrow$ B fonctionne, la route synaptique est optimisée.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart LR
     A[Recherche 'NullPointerException'] -->|Avant| B[Trouve 'Fichier config']
     B -->|Renforcement STDP (LTP)| C[Solution Validée]
     A -.->|Après STDP, Lien ultra-rapide| C
-`
-
+```
 ---
 
 ## 15.2 Nociception (Douleur)

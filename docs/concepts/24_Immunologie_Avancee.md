@@ -1,4 +1,4 @@
-﻿# 24. IMMUNOLOGIE AVANCÉE
+# 24. IMMUNOLOGIE AVANCÉE
 
 Ce document regroupe les concepts immunologiques récemment implémentés : Vaccination, Interférons et SAR (Systemic Acquired Resistance).
 
@@ -20,7 +20,7 @@ Dans GenOS, si un Agent A subit une attaque (ex: une tentative de Jailbreak), il
 Cela apporte **une défense collective instantanée**.
 
 ### Schéma Conceptuel (Interférons)
-`mermaid
+```mermaid
 sequenceDiagram
     participant Attaquant
     participant Agent A (Infecté)
@@ -32,8 +32,7 @@ sequenceDiagram
     Agent B->>Agent B: Condense sa chromatine (Mode Paranoïa)
     Attaquant->>Agent B: Injection Prompt Malveillant
     Agent B-->>Attaquant: Rejet Immédiat O(1)
-`
-
+```
 ---
 
 ## 24.3 SAR Héritable (Systemic Acquired Resistance)

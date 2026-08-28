@@ -1,4 +1,4 @@
-﻿# 32. RPE DOPAMINERGIQUE (Reward Prediction Error)
+# 32. RPE DOPAMINERGIQUE (Reward Prediction Error)
 
 GenOS intègre la mécanique fondamentale de l'apprentissage par renforcement biologique : l'erreur de prédiction de la récompense (Dopamine).
 
@@ -15,14 +15,13 @@ Quand un agent entreprend une action, il émet une prédiction sur le succès at
 Cela apporte **un apprentissage concentré uniquement sur l'inconnu**. L'agent ne gaspille pas de ressources à se féliciter d'avoir réussi une tâche basique. Il n'apprend que de ses surprises, maximisant l'usage des tokens pour les vraies nouveautés.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 xychart-beta
     title "Sécrétion de Dopamine (RPE) selon le Résultat"
     x-axis ["Échec Surprise", "Succès Prévu (Routine)", "Succès Surprise (Eurêka)"]
     y-axis "Niveau de Dopamine" -1.0 --> 1.0
     bar [-0.8, 0.0, 0.9]
-`
-
+```
 ### Exemple Comparatif
 | Type d'Agent | Face à un succès routinier | Impact |
 |---|---|---|

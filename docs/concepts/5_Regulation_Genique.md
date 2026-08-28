@@ -1,4 +1,4 @@
-﻿# 5. RÉGULATION GÉNIQUE
+# 5. RÉGULATION GÉNIQUE
 
 Ce document traite de la manière dont les gènes interagissent entre eux et se déclenchent conditionnellement dans GenOS.
 
@@ -12,7 +12,7 @@ Le "promoteur" est la condition d'activation de ce bloc.
 Cela apporte **la modularité extrême**. Plutôt que d'avoir un agent monolithique, l'agent est un assemblage d'opérons qu'il peut activer ou désactiver.
 
 ### Schéma Conceptuel
-`mermaid
+```mermaid
 flowchart LR
     Promoteur{Condition:\n'Fichier SQL détecté'} -->|Match| Operon[Opéron 'DB Expert']
     Operon --> G1(Prompt spécialisé SQL)
@@ -20,8 +20,7 @@ flowchart LR
     Operon --> G3(Linter SQL)
     
     Promoteur -->|Pas de match| Repos[Opéron silencieux]
-`
-
+```
 ### Cas d'usage
 - **Chargement à chaud de compétences** : Un agent généraliste navigue dans le code. S'il ouvre un fichier Docker, son promoteur "Docker" s'active et déploie l'opéron entier (les outils Docker et le contexte associé) dans sa mémoire de travail. Quand il quitte le fichier, l'opéron est réprimé (libérant les tokens).
 
