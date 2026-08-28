@@ -39,6 +39,8 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         ("behavior", "mimicry") => crate::cmd_bio_behavior::behavior_mimicry(params),
         ("cellular", "endosymbiosis") => crate::cmd_bio_cellular::cellular_endosymbiosis(params),
         ("cellular", "bbb") => crate::cmd_bio_cellular::cellular_bbb(params),
+        ("cellular", "p53") => crate::cmd_bio_cellular::cellular_p53(params),
+        ("cellular", "necrosis") => crate::cmd_bio_cellular::cellular_necrosis(params),
         ("plant", "seed") => crate::cmd_bio_plant::plant_seed(params),
         ("plant", "abscission") => crate::cmd_bio_plant::plant_abscission(params),
         ("theory", "autopoiesis") => crate::cmd_bio_theory::theory_autopoiesis(params),
