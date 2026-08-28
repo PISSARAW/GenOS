@@ -13,6 +13,7 @@ pub mod clonal;
 pub mod danger;
 pub mod detectors;
 pub mod memory;
+pub mod prr;
 
 pub use clonal::ClonalSelector;
 pub use danger::{DamSignal, DangerModel};
