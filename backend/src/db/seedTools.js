@@ -3,6 +3,8 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_coevolution', cat: 'Genetics', risk: 'Low', desc: 'Coevolution orchestration' },
+  { name: 'genos_quantitative_genetics', cat: 'Genetics', risk: 'Low', desc: 'Quantitative genetics integration' },
   // Workspace Control
   { name: 'genos_create', cat: 'Workspace Control', risk: 'Amber', desc: 'Creates isolated branch workspace' },
   { name: 'genos_snapshot', cat: 'Workspace Control', risk: 'Low', desc: 'Captures full workspace timeline snapshot' },
@@ -250,3 +252,5 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
+

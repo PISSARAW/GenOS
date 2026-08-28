@@ -340,7 +340,8 @@ function executeBioTool(toolName, args) {
     }
   }
 
-  return null;
+  return require('./mcpBioExtra').executeBioExtra(toolName, args);
 }
 
 module.exports = { executeBioTool };
+
