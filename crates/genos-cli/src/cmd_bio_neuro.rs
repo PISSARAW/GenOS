@@ -218,3 +218,17 @@ pub fn cross_modal_remap(params: &[String]) -> Result<()> {
     }
     Ok(())
 }
+
+pub fn multisensory_integration(params: &[String]) -> Result<()> {
+    let sensory_input = param_value(params, "input").unwrap_or("visual,auditory");
+    println!("Performing multisensory integration on inputs: {}", sensory_input);
+    Ok(())
+}
+
+pub fn thalamic_filtering(params: &[String]) -> Result<()> {
+    let input = param_value(params, "input").unwrap_or("default_input");
+    let threshold: f64 = param_value(params, "threshold").unwrap_or("0.5").parse()?;
+    println!("Applying thalamic filtering to {} with threshold {}", input, threshold);
+    Ok(())
+}
+
