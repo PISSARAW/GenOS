@@ -182,3 +182,11 @@ pub fn regeneration_tissue(params: &[String]) -> Result<()> {
         bail!("Unknown regenerate action");
     }
 }
+
+pub fn observe_gradient(params: &[String]) -> Result<()> {
+    let source = param_value(params, "source").unwrap_or("unknown");
+    let concentration: f64 = param_value(params, "concentration").unwrap_or("0.0").parse()?;
+    println!("Observing morphogenesis gradient from {} at concentration {}", source, concentration);
+    Ok(())
+}
+
