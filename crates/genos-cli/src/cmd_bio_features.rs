@@ -26,6 +26,8 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         ("circadian", "toggle") => crate::cmd_bio_neuro::circadian_toggle(params),
         ("allostasis", "anticipate") => crate::cmd_bio_neuro::allostasis_anticipate(params),
         ("plasticity", "remap") => crate::cmd_bio_neuro::cross_modal_remap(params),
+        ("neuro", "multisensory") => crate::cmd_bio_neuro::multisensory_integration(params),
+        ("neuro", "thalamic") => crate::cmd_bio_neuro::thalamic_filtering(params),
         ("inflammation", "trigger") | ("inflammation", "resolve") => {
             crate::cmd_bio_immuno::immuno_inflammation(params)
         }
