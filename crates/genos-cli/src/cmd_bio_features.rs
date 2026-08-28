@@ -17,6 +17,7 @@ pub async fn cmd_biomimicry_feature(feature: &str, action: &str, params: &[Strin
         ("metamorphosis", "transition") => {
             crate::cmd_bio_development::metamorphosis_transition(params)
         }
+        ("morphogenesis", "observe_gradient") => crate::cmd_bio_development::observe_gradient(params),
         ("regeneration", "tissue") => crate::cmd_bio_development::regeneration_tissue(params),
         ("endocrine", "modulate") => crate::cmd_bio_neuro::endocrine_modulate(params),
         ("reflex", "trigger") => crate::cmd_bio_neuro::reflex_trigger(params),
