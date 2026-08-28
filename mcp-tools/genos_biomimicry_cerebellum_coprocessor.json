@@ -1,13 +1,15 @@
 {
   "name": "genos_biomimicry_cerebellum_coprocessor",
-  "description": "Délègue un calcul lourd, fastidieux ou purement algorithmique à un co-processeur (cervelet) sans polluer le contexte conscient de l'agent.",
-  "inputSchema": {
+  "description": "Délègue la correction d'erreur de micro-timing au cervelet. Compare l'intention (valeur et latence attendue) à la réalité pour appliquer un ajustement immédiat (cruise control) sans perturber le planificateur MCTS.",
+  "parameters": {
     "type": "object",
     "properties": {
       "agent_id": { "type": "string" },
-      "task_type": { "type": "string", "enum": ["math", "spatial", "search", "balistics"] },
-      "parameters": { "type": "string" }
+      "target_value": { "type": "number", "description": "L'objectif quantitatif prévu par le cortex" },
+      "expected_latency": { "type": "number", "description": "Temps d'exécution prévu (ms)" },
+      "current_value": { "type": "number", "description": "Valeur réellement observée (feedback)" },
+      "actual_latency": { "type": "number", "description": "Latence réelle constatée (ms)" }
     },
-    "required": ["agent_id", "task_type", "parameters"]
+    "required": ["agent_id", "target_value", "expected_latency", "current_value", "actual_latency"]
   }
 }
