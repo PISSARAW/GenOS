@@ -252,6 +252,12 @@ pub fn mutate_cognition(
     child.breeding = None;
     let mut changes = Vec::new();
 
+    for chrom in &mut child.cognition.chromosomes {
+        for locus in &mut chrom.loci {
+            locus.epigenetic_marker *= 0.7;
+        }
+    }
+
     for (drive_name, new_value) in drive_changes {
         let previous_value = child.cognition.get_drive(&drive_name).unwrap_or(0.5); // Default to 0.5 if not found
 
@@ -279,6 +285,24 @@ pub fn mutate_cognition(
 
     child.mutation = Some(GenomeMutationMetadata { changes });
     child
+}
+
+pub fn dpo_mutate_cognition(
+    parent: &AgentGenome,
+    chosen: std::collections::BTreeMap<String, f32>,
+    rejected: std::collections::BTreeMap<String, f32>,
+) -> AgentGenome {
+    let mut changes = std::collections::BTreeMap::new();
+    let beta = 0.1;
+
+    for (drive, chosen_val) in chosen {
+        let rejected_val = rejected.get(&drive).copied().unwrap_or(0.5);
+        let parent_val = parent.cognition.get_drive(&drive).unwrap_or(0.5);
+        let new_val = parent_val + beta * (chosen_val - rejected_val);
+        changes.insert(drive, new_val);
+    }
+
+    mutate_cognition(parent, changes)
 }
 
 #[cfg(test)]

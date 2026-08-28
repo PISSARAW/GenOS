@@ -89,6 +89,21 @@ impl SynapticPath {
     }
 
     /// Renvoie une pondération équivalente pour le graphe STDP classique
+    
+    /// Turrigiano Scaling: Normalizes synaptic weights to prevent Attentional Collapse.
+    pub fn scale_weight(&mut self, factor: f32) {
+        match &mut self.level {
+            SynapticLevel::Transient { neurotransmitters } => {
+                *neurotransmitters *= factor;
+            }
+            SynapticLevel::DynamicLTP { potentiation } => {
+                *potentiation *= factor;
+            }
+            SynapticLevel::PhysicalTrace { receptors: _, efficiency } => {
+                *efficiency *= factor;
+            }
+        }
+    }
     pub fn effective_weight(&self) -> f32 {
         match &self.level {
             SynapticLevel::Transient { neurotransmitters } => *neurotransmitters * 0.1,
@@ -99,3 +114,4 @@ impl SynapticPath {
         }
     }
 }
+
