@@ -1,0 +1,11 @@
+{
+  "name": "genos_necrosis_ledger",
+  "description": "Necrosis ledger system",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" }
+    },
+    "required": ["agent_id"]
+  }
+}
