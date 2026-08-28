@@ -42,3 +42,18 @@ pub fn cellular_bbb(params: &[String]) -> Result<()> {
 
     Ok(())
 }
+
+pub fn cellular_p53(params: &[String]) -> Result<()> {
+    let damage: f64 = param_value(params, "damage").unwrap_or("0.0").parse()?;
+    if damage > 0.8 {
+        bail!("p53 checkpoint: DNA damage too high, triggering apoptosis");
+    }
+    println!("p53 checkpoint passed (damage: {})", damage);
+    Ok(())
+}
+
+pub fn cellular_necrosis(params: &[String]) -> Result<()> {
+    let agent_id = param_value(params, "agent_id").unwrap_or("unknown");
+    println!("Recording necrosis for agent {}", agent_id);
+    Ok(())
+}
