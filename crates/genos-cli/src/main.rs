@@ -287,7 +287,7 @@ async fn main() -> Result<()> {
         Commands::Merge(args) => cmd_merge::run(args).await,
         Commands::Storage(args) => cmd_storage::run(args).await,
         Commands::Transport(args) => cmd_transport::run(args).await,
-        Commands::Epigenetics(args) => crate::cmd_epigenetics::cmd_epigenetics_modify(args).await,
+        Commands::Epigenetics(args) => crate::cmd_epigenetics::run(args).await,
         Commands::Operon(args) => crate::cmd_operon::cmd_operon_evaluate(args).await,
         Commands::Hgt(args) => crate::cmd_hgt::cmd_hgt_transposon_insert(args).await,
         Commands::Scheduler(args) => crate::cmd_scheduler::cmd_scheduler_start(args).await,
