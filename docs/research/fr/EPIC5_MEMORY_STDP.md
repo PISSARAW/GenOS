@@ -14,8 +14,9 @@ L'explosion combinatoire des mondes contrefactuels (MCTS) saturait la VRAM. La n
 
 ## 2. Plasticité Synaptique STDP et Scaling de Turrigiano
 Les agents IA traditionnels concatènent indéfiniment les faits dans la fenêtre de contexte ("context stuffing"), menant à l'amnésie et aux hallucinations. GenOS résout cela via le crate dédié `genos-synaptic` :
-- **Graphe STDP (Spike-Timing Dependent Plasticity)** : Les liaisons entre les concepts mémorisés sont renforcées si elles sont chronologiquement causales, et atténuées dans le cas contraire. L'agent "apprend" à associer ce qui a logiquement fonctionné.
-- **Élagage de Phase de Sommeil (Pruning)** : Lors du cycle de repos métabolique, les liaisons inférieures à un seuil critique (`prune_threshold`) sont physiquement effacées du graphe.
+- **Graphe STDP (Spike-Timing Dependent Plasticity)** : Les liaisons entre les concepts mémorisés sont renforcées si elles sont chronologiquement causales, et atténuées dans le cas contraire. L'agent "apprend" à associer ce qui a logiquement fonctionné. 
+- **Modélisation Structurée (Chemin Synaptique)** : Chaque connexion est modélisée par le `SynapticPath` à 3 niveaux : *Transient*, *DynamicLTP*, et *PhysicalTrace* (voir [36_Synaptic_Path.md](../concepts/36_Synaptic_Path.md)), reproduisant fidèlement l'ancrage progressif de la mémoire.
+- **Élagage de Phase de Sommeil (Pruning)** : Lors du cycle de repos métabolique, les liaisons inférieures à un seuil critique (`prune_threshold`) subissent un affaiblissement (*decay*) et sont physiquement effacées du graphe si elles perdent leur trace physique.
 - **Scaling Homéostatique (Turrigiano)** : Une normalisation multiplicative régule l'attention synaptique. Cela empêche l'apparition de "Nœuds Hubs" (concepts répétitifs) qui accapareraient toute l'attention du LLM lors du rappel vectoriel.
 
 ## 3. Condensation Chromatinienne
