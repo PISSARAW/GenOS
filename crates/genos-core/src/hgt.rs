@@ -99,23 +99,12 @@ impl Transposon {
         })
     }
     pub fn from_compiled_memory(name: &str, json_str: &str) -> Option<Self> {
-        let v: serde_json::Value = serde_json::from_str(json_str).ok()?;
-        let memory = v.get("output")?.get("memory")?;
-        let mut payload = Vec::new();
-        if let Some(decisions) = memory.get("decisions").and_then(|arr| arr.as_array()) {
-            for (i, _val) in decisions.iter().enumerate() {
-                payload.push(Locus {
-                    gene_name: format!("decision_{}", i),
-                    value: 1.0,
-                    epigenetic_marker: 0.0,
-                });
-            }
-        }
-        Some(Transposon {
-            name: name.to_string(),
-            payload,
-            insertion_sequence: "memory_site".to_string(),
-        })
+        let decisions = serde_json::from_str::<serde_json::Value>(json_str).ok()?
+            .get("output")?.get("memory")?.get("decisions")?.as_array()?.clone();
+        let payload = decisions.iter().enumerate().map(|(i, _)| Locus {
+            gene_name: format!("decision_{}", i), value: 1.0, epigenetic_marker: 0.0
+        }).collect();
+        Some(Transposon { name: name.to_string(), payload, insertion_sequence: "memory_site".to_string() })
     }
 }
 /// Insère les loci du payload à l'index donné d'un chromosome.
