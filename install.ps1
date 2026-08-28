@@ -6,6 +6,17 @@ $BinDir = Join-Path $HOME ".genos\bin"
 
 Write-Host "Building GenOS release binaries..."
 Set-Location $RepoRoot
+
+Write-Host "Installing backend dependencies..."
+Set-Location "$RepoRoot\backend"
+npm install
+
+Write-Host "Building GenOS Studio..."
+Set-Location "$RepoRoot\studio"
+npm install
+npm run build
+
+Set-Location $RepoRoot
 cargo build --release --workspace
 
 Write-Host "Creating global bin directory at $BinDir..."
