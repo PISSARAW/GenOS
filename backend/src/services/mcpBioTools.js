@@ -179,7 +179,7 @@ function executeBioTool(toolName, args) {
 
   if (toolName === 'genos_biomimicry_cerebellum_coprocessor') {
     try {
-      const out = cp.execSync(`genos biomimicry cerebellum-coprocessor --agent-id ${args.agent_id} --task-type ${args.task_type} --parameters "${args.parameters}"`);
+      const out = cp.execSync(`genos biomimicry cerebellum-coprocessor --agent-id ${args.agent_id} --target-value ${args.target_value} --expected-latency ${args.expected_latency} --current-value ${args.current_value} --actual-latency ${args.actual_latency}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -270,6 +270,70 @@ function executeBioTool(toolName, args) {
   if (toolName === 'genos_synaptic_prune_scale') {
     try {
       const out = cp.execSync(`genos synaptic prune-scale --agent-id ${args.agent_id} --scale ${args.scale}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_synaptic_path_evaluate') {
+    try {
+      const out = cp.execSync(`genos synaptic path-evaluate --agent-id ${args.agent_id} --pre-node "${args.pre_node}" --post-node "${args.post_node}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_ais_prr_scan') {
+    try {
+      const patterns = args.patterns_detected ? args.patterns_detected.join(',') : '';
+      const out = cp.execSync(`genos ais prr-scan --agent-id ${args.agent_id} --patterns "${patterns}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_enzyme_catalyze') {
+    try {
+      const out = cp.execSync(`genos biomimicry enzyme-catalyze --enzyme "${args.enzyme_name}" --signature "${args.substrate_signature}" --payload "${args.payload}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_colliculus_fusion') {
+    try {
+      const out = cp.execSync(`genos biomimicry colliculus-fusion --agent-id ${args.agent_id} --signals '${args.signals_json}'`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_reflex_arc') {
+    try {
+      const out = cp.execSync(`genos biomimicry reflex-arc --agent-id ${args.agent_id} --stimulus "${args.stimulus_type}" --payload "${args.intensity_or_signal}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_circadian_reset') {
+    try {
+      const out = cp.execSync(`genos biomimicry circadian-reset --agent-id ${args.agent_id} --signal "${args.zeitgeber_signal}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_telomere_fork') {
+    try {
+      const out = cp.execSync(`genos biomimicry telomere-fork --agent-id ${args.agent_id}` + (args.force_telomerase ? ` --force-telomerase` : ''));
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
