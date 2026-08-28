@@ -3,6 +3,7 @@
  */
 
 const MCP_TOOLS_LIST = [
+  { name: 'genos_cell_division', cat: 'Cellular', risk: 'Low', desc: 'Cell division orchestrator' },
   { name: 'genos_dna_methylation', cat: 'Epigenetics', risk: 'Low', desc: 'DNA Methylation integration' },
   { name: 'genos_lamarckian_mutation', cat: 'Epigenetics', risk: 'Low', desc: 'Lamarckian evolution simulation' },
   { name: 'genos_coevolution', cat: 'Genetics', risk: 'Low', desc: 'Coevolution orchestration' },
@@ -254,6 +255,7 @@ async function seedMcpTools(db) {
 }
 
 module.exports = { seedMcpTools, MCP_TOOLS_LIST };
+
 
 
 

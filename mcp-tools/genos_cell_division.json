@@ -1,0 +1,11 @@
+{
+  "name": "genos_cell_division",
+  "description": "Cell division orchestrator",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "agent_id": { "type": "string" }
+    },
+    "required": ["agent_id"]
+  }
+}
