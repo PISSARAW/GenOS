@@ -1,12 +1,39 @@
 import subprocess
 import sys
+import shutil
 
-try:
-    import speech_recognition as sr
-except ImportError:
-    print("Erreur : La librairie SpeechRecognition n'est pas installée.")
-    print("Lancez : pip install SpeechRecognition pyaudio openai-whisper")
-    sys.exit(1)
+# --- AUTOPOIESIS (Auto-installation par Griot) ---
+def ensure_dependencies():
+    print("[Griot] 🧬 Vérification de mon système auditif (dépendances)...")
+    
+    # 1. Vérification de ffmpeg (requis par Whisper)
+    if not shutil.which("ffmpeg"):
+        print("[Griot] ⚠️ FFMPEG manquant. Croissance de l'organe en cours via winget...")
+        try:
+            subprocess.check_call(["winget", "install", "ffmpeg", "-e", "--accept-source-agreements", "--accept-package-agreements"])
+            print("[Griot] ✅ FFMPEG installé.")
+        except Exception as e:
+            print(f"[Griot] ❌ Échec de l'installation de ffmpeg : {e}")
+            print("Veuillez installer ffmpeg manuellement.")
+            sys.exit(1)
+            
+    # 2. Vérification des modules Python
+    try:
+        import speech_recognition as sr
+        import whisper
+        import pyaudio
+    except ImportError:
+        print("[Griot] ⚠️ Tissus neuronaux manquants. Synthèse en cours (pip install)...")
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "SpeechRecognition", "pyaudio", "openai-whisper"])
+            print("[Griot] ✅ Connexions synaptiques établies.")
+        except Exception as e:
+            print(f"[Griot] ❌ Échec de l'installation des paquets Python : {e}")
+            sys.exit(1)
+
+ensure_dependencies()
+import speech_recognition as sr
+
 
 def listen_to_griot():
     r = sr.Recognizer()
