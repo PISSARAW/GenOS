@@ -68,10 +68,33 @@ async function localRoutingPolicy(db, context, discovered = []) {
   };
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk' }) {
+function parseSize(name) {
+  const match = name.match(/(\d+)(b|m)/i);
+  if (!match) return 7e9; // Fallback to 7B if unknown
+  const val = parseInt(match[1], 10);
+  return match[2].toLowerCase() === 'm' ? val * 1e6 : val * 1e9;
+}
+
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium' }) {
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   const configuredCandidates = candidateModels(model, policy);
-  const candidates = configuredCandidates.length ? configuredCandidates : await localModelDiscovery.discoverChatModelUris();
+  
+  let candidates = configuredCandidates;
+  if (!candidates.length) {
+    const rawModels = await localModelDiscovery.discoverLocalModels();
+    const chatModels = rawModels.filter((m) => m.chatCapable);
+    if (chatModels.length > 0) {
+      const sorted = chatModels.sort((a, b) => (a.size || parseSize(a.model)) - (b.size || parseSize(b.model)));
+      let selectedModel;
+      if (complexity === 'low') selectedModel = sorted[0];
+      else if (complexity === 'high') selectedModel = sorted[sorted.length - 1];
+      else selectedModel = sorted[Math.floor(sorted.length / 2)];
+      
+      const others = sorted.filter(m => m.uri !== selectedModel.uri).map(m => m.uri);
+      candidates = [selectedModel.uri, ...others];
+    }
+  }
+  
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {
