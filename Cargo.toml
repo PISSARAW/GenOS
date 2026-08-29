@@ -42,10 +42,10 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-reqwest = { version = "0.12", features = ["json"] }
-redis = { version = "0.27", features = ["tokio-comp"] }
+reqwest = { version = "0.13", features = ["json"] }
+redis = { version = "1.6", features = ["tokio-comp"] }
 serde_yaml = "0.9"
-sha2 = "0.10"
+sha2 = "0.11"
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tracing = "0.1"
