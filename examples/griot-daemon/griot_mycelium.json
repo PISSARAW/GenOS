@@ -1,0 +1,23 @@
+{
+  "id": "10000000-0000-0000-0000-griotmycel001",
+  "version": "1.0.0",
+  "identity": {
+    "name": "griot_mycelium",
+    "role": "Orchestrateur spatial via Réseau Mycélien"
+  },
+  "capabilities": [
+    {
+      "name": "mycelial_omniscience",
+      "enabled": true
+    }
+  ],
+  "tool_policy": {
+    "permissions": [
+      {
+        "tool": "genos_biomimicry_mycelium_network",
+        "scope": "allowed",
+        "enabled": true
+      }
+    ]
+  }
+}
