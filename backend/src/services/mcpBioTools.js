@@ -361,6 +361,15 @@ function executeBioTool(toolName, args) {
 
   if (toolName === 'genos_biomimicry_echolocation') {
     try {
+      if (args.action === 'listen') {
+        const path = require('path');
+        const scriptPath = path.resolve(process.cwd(), 'examples/griot-daemon/griot_ear.py');
+        // Spawn le script d'écoute en tant que processus détaché
+        const child = cp.spawn('python', [scriptPath], { detached: true, stdio: 'ignore' });
+        child.unref();
+        return { configured: true, success: true, status: 'completed', transport: 'local', output: "Oreille de Griot activée. Mode écoute en arrière-plan (Autopoïèse complète)." };
+      }
+
       // VRAI BINDING AUDIO LOCAL (Simulation d'appel PowerShell pour l'audio sur Windows)
       // En production, ce binding appellerait un processus natif ou une librairie C++
       const audioCmd = `powershell -c "[System.Console]::Beep(${args.freq || 440}, ${args.duration || 500})"`;
