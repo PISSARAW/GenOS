@@ -340,6 +340,38 @@ function executeBioTool(toolName, args) {
     }
   }
 
+  
+  if (toolName === 'genos_biomimicry_mycelium_network') {
+    try {
+      const out = cp.execSync(`genos biomimicry mycelium-network --action ${args.action}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_proprioception') {
+    try {
+      const out = cp.execSync(`genos biomimicry proprioception --focus ${args.focus}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_echolocation') {
+    try {
+      // VRAI BINDING AUDIO LOCAL (Simulation d'appel PowerShell pour l'audio sur Windows)
+      // En production, ce binding appellerait un processus natif ou une librairie C++
+      const audioCmd = `powershell -c "[System.Console]::Beep(${args.freq || 440}, ${args.duration || 500})"`;
+      cp.execSync(audioCmd);
+      const out = cp.execSync(`genos biomimicry echolocation --freq ${args.freq}`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+    }
+  }
+
   return require('./mcpBioExtra').executeBioExtra(toolName, args);
 }
 
