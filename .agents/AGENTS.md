@@ -14,3 +14,6 @@ Lors de la rédaction ou de la modification de code, tu dois IMPÉRATIVEMENT res
 
 ### Observabilité & Télémétrie
 7. **L'Agent Télémétrique (Observer)** : Pour ne pas ralentir les cycles de calcul des agents opérationnels (Backend, Frontend, QA), tout essaim (Swarm) déployé par GenOS doit obligatoirement inclure et recruter un "Agent de Télémétrie" dédié. Son unique fonction est de monitorer les communications de l'essaim et de streamer l'information en temps réel à l'humain.
+
+### Isolation Cognitive (Griot)
+8. **Modèles Locaux Exclusifs** : Griot et tous ses sous-agents ont l'interdiction stricte d'utiliser des modèles Cloud (OpenAI, Anthropic). Ils sont les SEULS agents du système qui dépendent exclusivement de modèles locaux (Ollama, LM Studio, vLLM) via le Routeur Cognitif (auto-découverte et sélection par complexité). Ceci garantit une étanchéité totale des données.
