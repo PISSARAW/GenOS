@@ -8,10 +8,14 @@ const { createApp } = require('./src/app');
 const { getDatabase, closeDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
+const { enableGriotAutostart } = require('./src/services/griotAutostart');
 
 const PORT = process.env.PORT || 4000;
 
 async function startServer() {
+  // Configure Griot to auto-start on Windows boot automatically
+  enableGriotAutostart();
+
   try {
     // 1. Initialize SQLite Database & Schema
     console.log('[GenOS Backend] Initializing SQLite database...');
