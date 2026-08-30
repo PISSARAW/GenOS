@@ -6,15 +6,15 @@ from pathlib import Path
 
 def search_docs(query, docs_dir):
     """
-    Recherche basique par mots-clés dans les fichiers markdown de docs_dir.
-    Simule un RAG sémantique pour la couche Knowledge.
+    Basic keyword search in the markdown files of docs_dir.
+    Simulates a semantic RAG for the Knowledge layer.
     """
     results = []
     query_lower = query.lower()
     
     docs_path = Path(docs_dir)
     if not docs_path.exists():
-        return {"error": f"Le dossier {docs_dir} n'existe pas."}
+        return {"error": f"The directory {docs_dir} does not exist."}
         
     for root, _, files in os.walk(docs_path):
         for file in files:
@@ -24,9 +24,9 @@ def search_docs(query, docs_dir):
                     with open(file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
                         
-                    # Recherche très basique (dans une vraie implémentation, on utiliserait des embeddings)
+                    # Very basic search (in a real implementation, embeddings would be used)
                     if query_lower in content.lower() or query_lower in file.lower():
-                        # Extraire le début du fichier pour le "lazy loading"
+                        # Extract the beginning of the file for "lazy loading"
                         preview = content[:500] + "..." if len(content) > 500 else content
                         results.append({
                             "concept_file": str(file_path.relative_to(docs_path)),
@@ -36,14 +36,14 @@ def search_docs(query, docs_dir):
                     pass
                     
     if not results:
-        return {"message": f"Aucun concept trouvé pour '{query}'."}
+        return {"message": f"No concept found for '{query}'."}
         
-    return {"results": results[:3]} # Limiter aux 3 meilleurs résultats pour préserver le contexte
+    return {"results": results[:3]} # Limit to the top 3 results to preserve context
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GenOS Knowledge RAG Simulator")
-    parser.add_argument("--query", required=True, help="Le concept à chercher")
-    parser.add_argument("--docs", default="docs/concepts", help="Dossier des concepts")
+    parser.add_argument("--query", required=True, help="The concept to search for")
+    parser.add_argument("--docs", default="docs/concepts", help="Concepts directory")
     
     args = parser.parse_args()
     

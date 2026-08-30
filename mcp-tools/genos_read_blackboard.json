@@ -1,12 +1,12 @@
 {
   "name": "genos_read_blackboard",
-  "description": "Couche STATE. Lit le registre d'événements asynchrone (le Blackboard). À utiliser pour vérifier le statut compressé des tâches lancées par les commandes d'intention (Explore, Verify, Merge) sans avoir à analyser les logs de bas niveau.",
+  "description": "STATE Layer. Reads the asynchronous event ledger (the Blackboard). Use this to check the compressed status of tasks launched by intent commands (Explore, Verify, Merge) without having to parse low-level logs.",
   "parameters": {
     "type": "object",
     "properties": {
       "filter_intent_id": {
         "type": "string",
-        "description": "Optionnel. Filtre l'état pour une intention asynchrone spécifique."
+        "description": "Optional. Filters the state for a specific asynchronous intent."
       }
     },
     "required": []

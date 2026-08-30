@@ -1,12 +1,12 @@
 {
   "name": "genos_knowledge_query",
-  "description": "Couche KNOWLEDGE. Interroge dynamiquement la documentation biomimétique de GenOS pour comprendre un concept ou trouver le bon outil de bas niveau sans saturer le contexte du prompt.",
+  "description": "KNOWLEDGE Layer. Dynamically queries the biomimetic documentation of GenOS to understand a concept or find the right low-level tool without saturating the prompt context.",
   "parameters": {
     "type": "object",
     "properties": {
       "query": {
         "type": "string",
-        "description": "Le concept biologique ou le problème métier (ex: 'apoptose', 'fuite mémoire', 'résilience')."
+        "description": "The biological concept or business problem (e.g., 'apoptosis', 'memory leak', 'resilience')."
       }
     },
     "required": ["query"]
