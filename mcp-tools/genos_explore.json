@@ -1,0 +1,19 @@
+{
+  "name": "genos_explore",
+  "description": "Couche INTENT. Commande asynchrone (Fire and Forget). L'agent fournit un problème, et GenOS spawne un sous-agent éphémère (Chirurgien) qui manipule les outils biologiques en arrière-plan. Le résultat sera écrit sur le Blackboard. Consultez genos_read_blackboard pour voir le résultat. Nécessite une validation humaine si le coût est élevé.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "problem_description": {
+        "type": "string",
+        "description": "Description of the problem to solve."
+      },
+      "num_branches": {
+        "type": "integer",
+        "description": "Number of parallel worlds (branches) to generate. Note: High values will trigger a human validation prompt due to token costs.",
+        "default": 3
+      }
+    },
+    "required": ["problem_description", "num_branches"]
+  }
+}

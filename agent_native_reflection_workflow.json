@@ -1,0 +1,31 @@
+{
+  "name": "agent-native-reflection-workflow",
+  "description": "Un workflow où l'orchestrateur Architecte analyse l'interface GenOS et consulte Griot.",
+  "steps": [
+    {
+      "id": "analyze_current_state",
+      "agent": "agent_native_architect",
+      "action": "inspect_genos_tools",
+      "prompt": "Analyse les 94 outils MCP (mitose, apoptose, thymus_saboteur, etc.). Ces outils te semblent-ils optimaux pour exprimer tes intentions métiers, ou la métaphore biologique te ralentit-elle ?"
+    },
+    {
+      "id": "wake_up_griot",
+      "agent": "agent_native_architect",
+      "action": "message",
+      "target": "griot_router",
+      "prompt": "Griot, en tant que routeur cognitif utilisant des modèles locaux (soumis à de fortes contraintes de tokens et de contexte), as-tu besoin de ces 94 commandes granulaires ? Ou préfèrerais-tu une interface Intent (Run, Verify, Merge) où GenOS gère l'état (State) en arrière-plan ?"
+    },
+    {
+      "id": "griot_response",
+      "agent": "griot_router",
+      "action": "reply",
+      "prompt": "Analyse la demande de l'Architecte en tenant compte de tes contraintes de modèles locaux (Règle 8). Que recommanderais-tu pour économiser du contexte et éviter de reconstruire l'arbre d'état biologique ?"
+    },
+    {
+      "id": "synthesize_optimal_interface",
+      "agent": "agent_native_architect",
+      "action": "synthesize",
+      "prompt": "Sur la base de ton analyse et de la réponse de Griot, synthétise l'architecture MCP optimale pour GenOS, sans forcément adopter les solutions pré-conçues. Que voulez-VOUS, en tant qu'agents ?"
+    }
+  ]
+}

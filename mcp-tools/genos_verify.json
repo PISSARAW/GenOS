@@ -1,0 +1,14 @@
+{
+  "name": "genos_verify",
+  "description": "Couche INTENT. Commande asynchrone (Fire and Forget). Demande la vérification d'une branche. Un sous-agent 'Chirurgien' exécutera les tests et utilisera le thymus saboteur en arrière-plan. L'état compressé (Succès ou Faux Positif) sera publié sur le Blackboard.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "branch_id": {
+        "type": "string",
+        "description": "The ID of the branch or capsule to verify."
+      }
+    },
+    "required": ["branch_id"]
+  }
+}
