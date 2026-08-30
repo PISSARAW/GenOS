@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Provider-neutral bridge between Studio deployments and a real GenOS agent runtime.
  * The configured executable receives one framed protobuf mission on stdin and emits framed
  * protobuf events on stdout. Each event is forwarded to the Studio telemetry bus and agent state.
@@ -65,7 +65,7 @@ async function startMissionInternal(mission) {
     normalizedMission.localRoutingCriteria = route.criteria;
   }
   const runtimeEnvironment = bundledRuntimeEnvironment();
-  const genosCapsule = await agentCapsules.provision({
+  console.log("adapter: provision"); const genosCapsule = await agentCapsules.provision({
     executable: runtimeEnvironment.GENOS_BIN,
     workspaceRoot: normalizedMission.workspaceRoot,
     capsuleRoot: normalizedMission.capsuleRoot,
@@ -85,7 +85,7 @@ async function startMissionInternal(mission) {
   // terminate a new mission.
   await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
   emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
-  const autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
+  console.log("adapter: plan"); const autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
   const silentUpdates = userProgress.silenceRequested(
     normalizedMission.prompt || normalizedMission.currentTask || '',
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
@@ -107,7 +107,7 @@ async function startMissionInternal(mission) {
       tokens: Math.max(1, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
     }
     : normalizedMission.executionBudget;
-  const executionRun = await strategyExecution.createExecutionRun(db, {
+  console.log("adapter: executionRun"); const executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
     budget: runtimeBudget,
     contractRecord
@@ -122,7 +122,7 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
+  console.log("adapter: localModel"); if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
 
   // The orchestrator creates and dispatches its own bounded worker fleet. A worker
   // never recurses here: authority is deliberately one-way.
@@ -170,7 +170,7 @@ async function startMissionInternal(mission) {
     await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan, contractRecord, autonomousWorkers });
   }
 
-  return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable });
+  console.log("adapter: superviseMission"); return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable });
 }
 function startMission(mission) {
   const agentId = mission.agentId || mission.id;

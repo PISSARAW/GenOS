@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 interface Message {
@@ -18,29 +18,58 @@ function parseGriotResponse(text: string) {
   }
 }
 
-function GriotDataView({ data }: { data: any }) {
+function GriotDataView({ data, showTelemetry }: { data: any, showTelemetry: boolean }) {
   if (!data || !data.agents) return null;
+  if (!showTelemetry) return null;
   
-  const completed = data.agents.filter((a: any) => a.status === 'completed').length;
-  const errored = data.agents.filter((a: any) => a.status === 'error').length;
-  const total = data.agents.length;
+  const orchestrator = data.agents.find((a: any) => a.id === data.orchestratorId) || { status: 'unknown' };
+  const subAgents = data.agents.filter((a: any) => a.id !== data.orchestratorId);
 
   return (
-    <div className="griot-data">
-      <div className="griot-summary">
-        <strong>Mission Status:</strong> {completed}/{total} agents completed ({errored} errors)
-      </div>
-      <details className="griot-details">
-        <summary>View Telemetry Logs ({data.telemetry?.length || 0} events)</summary>
-        <div className="telemetry-log">
-          {data.telemetry?.slice(-15).map((t: any, i: number) => (
-            <div key={i} className={`log-entry ${t.severity}`}>
-              <span className="log-action">[{t.action}]</span> {t.detail}
-            </div>
-          ))}
-          {data.telemetry?.length > 15 && <div className="log-entry">... (logs truncated)</div>}
+    <div className="griot-dashboard">
+      <div className="dashboard-card">
+        <div className="card-header">🧠 Griot Orchestrator</div>
+        <div className="card-body">
+          <strong>Status:</strong> <span className={`status-badge ${orchestrator.status}`}>{orchestrator.status}</span>
         </div>
-      </details>
+      </div>
+
+      <div className="dashboard-card">
+        <div className="card-header">📡 Agent Télémétrique (Observer)</div>
+        <div className="card-body">
+          <details className="griot-details" open>
+            <summary>Flux de communication ({data.telemetry?.length || 0} événements capturés)</summary>
+            <div className="telemetry-log">
+              {data.telemetry?.slice(-20).map((t: any, i: number) => (
+                <div key={i} className={`log-entry ${t.severity}`}>
+                  <span className="log-action">[{t.action}]</span> {t.detail}
+                </div>
+              ))}
+              {data.telemetry?.length > 20 && <div className="log-entry">... (anciens logs tronqués)</div>}
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div className="dashboard-card">
+        <div className="card-header">🐝 Sous-Agents ({subAgents.length})</div>
+        <div className="card-body">
+          {subAgents.length === 0 ? (
+            <span style={{ color: 'var(--text-muted)' }}>Aucun sous-agent déployé.</span>
+          ) : (
+            <div className="agent-grid">
+              {subAgents.map((agent: any) => (
+                <div key={agent.id} className="agent-item">
+                  <div className="agent-id" title={agent.id}>
+                    {agent.id.replace('worker_griot_orchestrator_', 'worker_')}
+                  </div>
+                  <div className={`status-badge ${agent.status}`}>{agent.status}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -51,6 +80,20 @@ function App() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showTelemetry, setShowTelemetry] = useState(true);
+
+  useEffect(() => {
+    try {
+      const electron = (window as any).require('electron');
+      const handleToggle = (_event: any, value: boolean) => {
+        setShowTelemetry(value);
+      };
+      electron.ipcRenderer.on('toggle-telemetry', handleToggle);
+      return () => {
+        electron.ipcRenderer.removeListener('toggle-telemetry', handleToggle);
+      };
+    } catch (e) {}
+  }, []);
 
   const handleSubmit = async (e: any) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -88,7 +131,7 @@ function App() {
               <div className="message-author">{msg.author}</div>
               <div className="message-content">
                 {parsed.prefix && <div style={{ marginBottom: parsed.data ? '8px' : '0', whiteSpace: 'pre-wrap' }}>{parsed.prefix}</div>}
-                {parsed.data && <GriotDataView data={parsed.data} />}
+                {parsed.data && <GriotDataView data={parsed.data} showTelemetry={showTelemetry} />}
               </div>
             </div>
           );

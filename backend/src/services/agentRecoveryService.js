@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Worker failure recovery: failure reports, recovery decisions (retry, mutate,
  * fork, replace), and the dispatch of recovery missions.
  */
@@ -11,6 +11,7 @@ const {
   activeWorkerBarriers, emit, updateAgent
 } = require('./agentOrchestrationState');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const { getDatabase } = require('../db');
 
 async function applyOrganizationDecision(orchestratorId, organization, reason) {
   if (!orchestratorId || !dynamicOrganization.organizationProfile(organization)) return null;
