@@ -19,6 +19,9 @@ process.stdin.on('end', async () => {
     prompt = prompt.split('\n')[0].trim();
   }
 
+  // Frame the prompt for the small model so it knows it should answer a question
+  const framedPrompt = `System: You are a helpful AI assistant. Answer the user's request accurately and directly in the same language.\nUser: ${prompt}\nAssistant:`;
+
   process.stdout.write(encodeEvent({
     eventType: 'AGENT_PLAN_CREATED',
     action: 'PLAN',
@@ -28,7 +31,7 @@ process.stdin.on('end', async () => {
   }));
 
   try {
-    const reply = await modelRouter.generate(prompt, { role: 'orchestrator' });
+    const reply = await modelRouter.generate(framedPrompt, { role: 'orchestrator' });
     
     const report = { 
         outcome: 'success', 
