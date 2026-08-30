@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Process supervision for one agent runtime: spawns the framed-protobuf child,
  * decodes its event stream into telemetry, guardrails, and orchestration
  * decisions, and translates the exit into a terminal agent outcome.
@@ -52,7 +52,13 @@ async function superviseMission({ db, agentId, normalizedMission, dispatchedAgen
   // the repository root or from backend/.
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const resolvedExecutable = resolveExecutable(executable, workspaceRoot);
-  const child = spawn(resolvedExecutable, [], {
+  let spawnCmd = resolvedExecutable;
+  let spawnArgs = [];
+  if (resolvedExecutable.endsWith('.cjs') || resolvedExecutable.endsWith('.js')) {
+    spawnCmd = 'node';
+    spawnArgs = [resolvedExecutable];
+  }
+  const child = spawn(spawnCmd, spawnArgs, {
     cwd: workspaceRoot,
     env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false' },
     stdio: ['pipe', 'pipe', 'pipe']
@@ -173,7 +179,7 @@ async function superviseMission({ db, agentId, normalizedMission, dispatchedAgen
     await updateAgent(agentId, 'error', error.message);
     emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
-  child.on('close', async (code, signal) => {
+  child.on('close', async (code, signal) => { require('fs').writeFileSync('close.log', `closed with ${code}`);
     await executionQueue;
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.
@@ -200,7 +206,7 @@ async function superviseMission({ db, agentId, normalizedMission, dispatchedAgen
     await dispatchWorkerRecovery(agentId);
     dispatchPendingContinuation(agentId);
   });
-  await updateAgent(agentId, 'running', mission.prompt);
+  await updateAgent(agentId, 'running', normalizedMission.prompt);
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
   child.stdin.end(encodeMission({
     agentId,
