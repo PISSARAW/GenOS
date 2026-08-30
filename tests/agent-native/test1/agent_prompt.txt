@@ -1,0 +1,1 @@
+CRITICAL: OOM_KILLER invoked on pid 4092. Memory utilization 99%.
