@@ -1,0 +1,18 @@
+{
+  "name": "genos_merge",
+  "description": "Merge a branch conditionally based on given conditions.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "branch_id": {
+        "type": "string",
+        "description": "The branch ID to merge"
+      },
+      "conditions": {
+        "type": "string",
+        "description": "Conditions for the merge"
+      }
+    },
+    "required": ["branch_id", "conditions"]
+  }
+}

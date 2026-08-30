@@ -1,18 +1,14 @@
 {
   "name": "genos_merge",
-  "description": "Merge a branch conditionally based on given conditions.",
+  "description": "Couche INTENT. Commande asynchrone (Fire and Forget). L'agent choisit la branche vainqueur. Un sous-agent s'occupe de tuer les autres branches (apoptose) et de fusionner le code. Résultat mis à jour sur le Blackboard.",
   "parameters": {
     "type": "object",
     "properties": {
-      "branch_id": {
+      "winning_branch_id": {
         "type": "string",
-        "description": "The branch ID to merge"
-      },
-      "conditions": {
-        "type": "string",
-        "description": "Conditions for the merge"
+        "description": "The ID of the branch that was verified as successful and should be merged."
       }
     },
-    "required": ["branch_id", "conditions"]
+    "required": ["winning_branch_id"]
   }
 }

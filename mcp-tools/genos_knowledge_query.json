@@ -1,0 +1,14 @@
+{
+  "name": "genos_knowledge_query",
+  "description": "Couche KNOWLEDGE. Interroge dynamiquement la documentation biomimétique de GenOS pour comprendre un concept ou trouver le bon outil de bas niveau sans saturer le contexte du prompt.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Le concept biologique ou le problème métier (ex: 'apoptose', 'fuite mémoire', 'résilience')."
+      }
+    },
+    "required": ["query"]
+  }
+}

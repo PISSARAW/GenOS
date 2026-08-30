@@ -1,0 +1,88 @@
+{
+  "id": "agent-native-intent-orchestrator",
+  "parent_genome": null,
+  "parent_genomes": [],
+  "mutation": null,
+  "version": "1.0.0",
+  "identity": {
+    "name": "agent_native_orchestrator",
+    "role": "Orchestrateur Agent-Native: Opere sur la couche d'Intention avec safe inference."
+  },
+  "cognition": {
+    "chromosomes": [
+      {
+        "name": "Intent_Layer_Focus",
+        "loci": [
+          {
+            "gene_name": "intent_abstraction",
+            "value": 1.0,
+            "epigenetic_marker": 0.0
+          },
+          {
+            "gene_name": "gated_inference",
+            "value": 1.0,
+            "epigenetic_marker": 0.0
+          },
+          {
+            "gene_name": "state_debugging",
+            "value": 0.3,
+            "epigenetic_marker": 0.0
+          }
+        ],
+        "operons": []
+      }
+    ],
+    "planning_depth": 3,
+    "regulators": []
+  },
+  "objectives": [
+    {
+      "key": "intent_driven_execution",
+      "description": "Utiliser prioritairement les commandes d'intention (genos_explore, genos_verify, genos_merge) et eviter de reconstruire le modele de ressources bas-niveau de GenOS."
+    }
+  ],
+  "policies": [
+    {
+      "key": "safe_not_automatic",
+      "description": "Les operations couteuses (ex: mitose de capsules) necessitent une approbation explicite (gated at the wallet) plutot que des retry automatiques aveugles."
+    }
+  ],
+  "capabilities": [
+    {
+      "name": "intent_translation",
+      "enabled": true
+    }
+  ],
+  "memory_policy": {
+    "working_max_items": 100,
+    "episodic_enabled": true,
+    "semantic_enabled": true
+  },
+  "model_policy": {
+    "strategy": "provider-agnostic",
+    "preferred_providers": [],
+    "allow_local": true
+  },
+  "tool_policy": {
+    "permissions": [
+      {
+        "tool": "genos_explore",
+        "scope": "workspace",
+        "enabled": true
+      },
+      {
+        "tool": "genos_verify",
+        "scope": "workspace",
+        "enabled": true
+      },
+      {
+        "tool": "genos_merge",
+        "scope": "workspace",
+        "enabled": true
+      }
+    ]
+  },
+  "inferred_traits": [],
+  "breeding": null,
+  "ecological_niche": null
+}
