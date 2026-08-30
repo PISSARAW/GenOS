@@ -64,7 +64,7 @@ ipcMain.handle('ask-griot', async (event, promptText) => {
     
     const payload = JSON.stringify({
       action: 'orchestrate',
-      orchestratorId: 'griot_orchestrator',
+      orchestratorId: `griot_orchestrator_${Date.now()}`,
       mission: promptText,
       allowed_commands: [],
       allow_file_edits: false
