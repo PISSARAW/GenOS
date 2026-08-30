@@ -35,17 +35,17 @@ function GriotDataView({ data, showTelemetry }: { data: any, showTelemetry: bool
       </div>
 
       <div className="dashboard-card">
-        <div className="card-header">📡 Agent Télémétrique (Observer)</div>
+        <div className="card-header">📡 Agent Telemetrique (Observer)</div>
         <div className="card-body">
           <details className="griot-details" open>
-            <summary>Flux de communication ({data.telemetry?.length || 0} événements capturés)</summary>
+            <summary>Flux de communication ({data.telemetry?.length || 0} evenements captures)</summary>
             <div className="telemetry-log">
               {data.telemetry?.slice(-20).map((t: any, i: number) => (
                 <div key={i} className={`log-entry ${t.severity}`}>
                   <span className="log-action">[{t.action}]</span> {t.detail}
                 </div>
               ))}
-              {data.telemetry?.length > 20 && <div className="log-entry">... (anciens logs tronqués)</div>}
+              {data.telemetry?.length > 20 && <div className="log-entry">... (anciens logs tronques)</div>}
             </div>
           </details>
         </div>
@@ -55,7 +55,7 @@ function GriotDataView({ data, showTelemetry }: { data: any, showTelemetry: bool
         <div className="card-header">🐝 Sous-Agents ({subAgents.length})</div>
         <div className="card-body">
           {subAgents.length === 0 ? (
-            <span style={{ color: 'var(--text-muted)' }}>Aucun sous-agent déployé.</span>
+            <span style={{ color: 'var(--text-muted)' }}>Aucun sous-agent deploye.</span>
           ) : (
             <div className="agent-grid">
               {subAgents.map((agent: any) => (
@@ -81,16 +81,29 @@ function App() {
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [showTelemetry, setShowTelemetry] = useState(true);
+  const [liveTelemetry, setLiveTelemetry] = useState<any[]>([]);
 
   useEffect(() => {
     try {
       const electron = (window as any).require('electron');
+      
       const handleToggle = (_event: any, value: boolean) => {
         setShowTelemetry(value);
       };
+      
+      const handleStream = (_event: any, evtObj: any) => {
+        setLiveTelemetry(prev => {
+          const updated = [...prev, evtObj];
+          return updated.slice(-30); // Keep last 30 live events to avoid lag
+        });
+      };
+
       electron.ipcRenderer.on('toggle-telemetry', handleToggle);
+      electron.ipcRenderer.on('telemetry-stream', handleStream);
+      
       return () => {
         electron.ipcRenderer.removeListener('toggle-telemetry', handleToggle);
+        electron.ipcRenderer.removeListener('telemetry-stream', handleStream);
       };
     } catch (e) {}
   }, []);
@@ -103,11 +116,16 @@ function App() {
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
     setIsProcessing(true);
+    setLiveTelemetry([]); // Reset live stream
 
     try {
       const electron = (window as any).require('electron');
       const response = await electron.ipcRenderer.invoke('ask-griot', userMessage.text);
-      setMessages(prev => [...prev, { id: Date.now() + 1, author: 'Griot', text: response }]);
+      
+      // Nettoyer la réponse des logs de stream parasites
+      const cleanResponse = response.split('\n').filter((l: string) => !l.startsWith('GENOS_STREAM:')).join('\n');
+      
+      setMessages(prev => [...prev, { id: Date.now() + 1, author: 'Griot', text: cleanResponse }]);
     } catch (err) {
       setMessages(prev => [...prev, { id: Date.now() + 1, author: 'Griot', text: `Error: ${err}` }]);
     } finally {
@@ -136,10 +154,30 @@ function App() {
             </div>
           );
         })}
+        
         {isProcessing && (
           <div className="message griot">
-            <div className="message-author">Griot</div>
-            <div className="message-content" style={{ color: 'var(--text-muted)' }}>Computing...</div>
+            <div className="message-author">Griot (Travail en cours...)</div>
+            <div className="message-content">
+              {showTelemetry && liveTelemetry.length > 0 ? (
+                <div className="griot-dashboard">
+                  <div className="dashboard-card">
+                    <div className="card-header">📡 Streaming en direct...</div>
+                    <div className="card-body">
+                      <div className="telemetry-log" style={{ maxHeight: '200px' }}>
+                        {liveTelemetry.map((t, i) => (
+                          <div key={i} className={`log-entry ${t.severity || 'info'}`}>
+                            <span className="log-action">[{t.action || 'LIVE'}]</span> {t.detail || 'Traitement...'}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <span style={{ color: 'var(--text-muted)' }}>Computing... (L'interface attend le retour de l'orchestrateur)</span>
+              )}
+            </div>
           </div>
         )}
       </main>

@@ -14,6 +14,12 @@ const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 
+if (process.env.GENOS_STREAM_TELEMETRY === '1') {
+  telemetry.on('telemetry', (evt) => {
+    process.stdout.write(`GENOS_STREAM:${JSON.stringify(evt)}\n`);
+  });
+}
+
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
