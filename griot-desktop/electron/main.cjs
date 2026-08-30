@@ -74,7 +74,11 @@ ipcMain.handle('ask-griot', async (event, promptText) => {
     let streamBuffer = '';
     
     const child = spawn('node', [backendScript, payload], {
-      env: { ...process.env, GENOS_STREAM_TELEMETRY: '1' }
+      env: { 
+        ...process.env, 
+        GENOS_STREAM_TELEMETRY: '1',
+        GENOS_AGENT_EXECUTOR: path.join(__dirname, '../../backend/bin/local-codex-runtime.cjs')
+      }
     });
 
     child.stdout.on('data', (data) => {
