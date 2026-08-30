@@ -24,7 +24,13 @@ function parseGriotResponse(text: string) {
             if (payload.evidenceReport && payload.evidenceReport.claims && payload.evidenceReport.claims.length > 0) {
               const statement = payload.evidenceReport.claims[0].statement;
               if (statement) {
-                prefix = statement;
+                if (typeof statement === 'object' && statement.text) {
+                  prefix = statement.text;
+                } else if (typeof statement === 'object') {
+                  prefix = JSON.stringify(statement);
+                } else {
+                  prefix = statement;
+                }
                 break;
               }
             }
