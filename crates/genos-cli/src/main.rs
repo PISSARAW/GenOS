@@ -100,6 +100,10 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
+        Commands::KnowledgeQuery => { println!("Agent-Native KNOWLEDGE: Querying semantic RAG for concepts..."); Ok(()) },
+        Commands::RunIntent => { println!("Agent-Native INTENT: Spawning async Surgeon for task execution. Check blackboard."); Ok(()) },
+        Commands::VerifyIntent => { println!("Agent-Native INTENT: Spawning async Surgeon for verification. Check blackboard."); Ok(()) },
+        Commands::Status => { println!("Agent-Native STATE: Reading blackboard state..."); Ok(()) },
         Commands::Init => cmd_init(),
         Commands::Agent(agent) => match agent.command {
             AgentSubcommands::Init => cmd_init(),

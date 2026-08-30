@@ -49,53 +49,94 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// KNOWLEDGE Layer: Query biomimetic concepts dynamically
+    KnowledgeQuery,
+    /// INTENT Layer: Asynchronous execution of a problem
+    RunIntent,
+    /// INTENT Layer: Asynchronous verification
+    VerifyIntent,
+    /// STATE Layer: Read the asynchronous blackboard
+    Status,
+    #[command(hide = true)]
     Init,
+    #[command(hide = true)]
     Agent(AgentCommand),
+    #[command(hide = true)]
     Capsule(CapsuleCommand),
     /// Cell-division primitives: mitosis, binary fission, budding, schizogony.
+    #[command(hide = true)]
     Division(DivisionCommand),
     /// Software-development trajectory engineering and organizational memory.
+    #[command(hide = true)]
     Dev(DevCommand),
     /// Run persisted counterfactual experiments from reusable manifests.
+    #[command(hide = true)]
     Experiment(ExperimentCommand),
+    #[command(hide = true)]
     Snapshot(SnapshotCommand),
+    #[command(hide = true)]
     Swarm(SwarmCommand),
+    #[command(hide = true)]
     World(WorldCommand),
+    #[command(hide = true)]
     Replay(ReplayCommand),
     /// Inspect typed entities on a snapshot â€” belief provenance trees, etc.
+    #[command(hide = true)]
     Inspect(InspectCommand),
     /// Diff the logical state of two snapshots. Identity fields are excluded,
     /// so two untouched forks of one snapshot diff to nothing.
+    #[command(hide = true)]
     Diff(DiffArgs),
     /// Triggers for biological resilience concepts like Apoptosis and Fuzzing.
+    #[command(hide = true)]
     Resilience(ResilienceCommand),
     /// Triggers for biomimetic organizational concepts like Swarms and Flocking.
+    #[command(hide = true)]
     Biomimicry(BiomimicryCommand),
     /// Hallucination mitigation and detection commands.
+    #[command(hide = true)]
     Hallucination(HallucinationCommand),
     /// Configurable agent graphs, workflows, streaming and human approval.
+    #[command(hide = true)]
     Workflow(WorkflowCommand),
     /// Platform primitives: RAG indexing, retrieval and citations.
+    #[command(hide = true)]
     Platform(PlatformCommand),
     /// Versioned prompt templates and dynamic context rendering.
+    #[command(hide = true)]
     Prompt(PromptCommand),
     /// Persistent evaluation datasets and batch scoring.
+    #[command(hide = true)]
     Eval(EvalCommand),
+    #[command(hide = true)]
     Audit(crate::cmd_audit::AuditArgs),
+    #[command(hide = true)]
     Merge(crate::cmd_merge::MergeArgs),
     /// Manage and expose storage adapters
+    #[command(hide = true)]
     Storage(crate::cmd_storage::StorageArgs),
     /// Manage and expose network transports
+    #[command(hide = true)]
     Transport(crate::cmd_transport::TransportArgs),
+    #[command(hide = true)]
     Epigenetics(crate::cmd_epigenetics::EpigeneticsArgs),
+    #[command(hide = true)]
     Operon(crate::cmd_operon::OperonArgs),
+    #[command(hide = true)]
     Hgt(crate::cmd_hgt::HgtTransposonArgs),
+    #[command(hide = true)]
     Scheduler(crate::cmd_scheduler::SchedulerArgs),
+    #[command(hide = true)]
     LoopDetection(crate::cmd_loop_detection::LoopDetectionArgs),
+    #[command(hide = true)]
     Causality(crate::cmd_causality::CausalityArgs),
+    #[command(hide = true)]
     Phenotype(crate::cmd_phenotype::PhenotypeArgs),
+    #[command(hide = true)]
     Rebase(crate::cmd_rebase::RebaseArgs),
+    #[command(hide = true)]
     Guardrails(crate::cmd_guardrails::GuardrailsArgs),
+    #[command(hide = true)]
     CostAccounting(crate::cmd_cost_accounting::CostAccountingArgs),
 }
 
