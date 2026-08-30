@@ -5,12 +5,24 @@ import sys
 from pathlib import Path
 
 def search_docs(query, docs_dir):
+    # Hybrid RAG: Map common intents to biological concepts to prevent 'Invisible Tools'
+    alias_map = {
+        'memory leak': 'apoptosis',
+        'concurrency': 'flocking',
+        'crash': 'resilience',
+        'garbage collection': 'apoptosis',
+        'telemetry': 'observer',
+        'network': 'quorum',
+    }
+    query_lower = query.lower()
+    for k, v in alias_map.items():
+        if k in query_lower:
+            query_lower = f"{query_lower} {v}"
     """
     Basic keyword search in the markdown files of docs_dir.
     Simulates a semantic RAG for the Knowledge layer.
     """
     results = []
-    query_lower = query.lower()
     
     docs_path = Path(docs_dir)
     if not docs_path.exists():
