@@ -5,8 +5,9 @@
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on tcp:5173 && electron .\"",
+    "dev": "concurrently -k \"cross-env NODE_ENV=development vite\" \"wait-on http://127.0.0.1:5180 && electron .\"",
     "build": "tsc -b && vite build",
+    "start": "cross-env NODE_ENV=production electron .",
     "lint": "oxlint",
     "preview": "vite preview"
   },
