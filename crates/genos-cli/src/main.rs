@@ -104,6 +104,8 @@ async fn main() -> Result<()> {
         Commands::RunIntent => { println!("Agent-Native INTENT: Spawning async Surgeon for task execution. Check blackboard."); Ok(()) },
         Commands::VerifyIntent => { println!("Agent-Native INTENT: Spawning async Surgeon for verification. Check blackboard."); Ok(()) },
         Commands::Status => { println!("Agent-Native STATE: Reading blackboard state..."); Ok(()) },
+        Commands::GarbageCollect => { println!("Agent-Native INTENT: Compressing blackboard state (Garbage Collection)..."); Ok(()) },
+        Commands::Telemetry => { println!("Agent-Native OBSERVER: Streaming hidden Swarm telemetry..."); Ok(()) },
         Commands::Init => cmd_init(),
         Commands::Agent(agent) => match agent.command {
             AgentSubcommands::Init => cmd_init(),
