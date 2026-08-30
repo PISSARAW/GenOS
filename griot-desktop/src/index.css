@@ -139,18 +139,89 @@ body {
   cursor: not-allowed;
 }
 
-.griot-data {
+.griot-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+  font-size: 13px;
+}
+
+.dashboard-card {
   background-color: #f6f8fa;
   border: 1px solid #d0d7de;
   border-radius: 6px;
-  padding: 12px;
-  font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
-  font-size: 12px;
+  overflow: hidden;
 }
 
-.griot-summary {
-  margin-bottom: 8px;
-  font-size: 13px;
+.card-header {
+  background-color: #eaeef2;
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #d0d7de;
+  color: #24292f;
+}
+
+.card-body {
+  padding: 12px;
+  background-color: #ffffff;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2em;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.status-badge.completed {
+  background-color: #dafbe1;
+  color: #1a7f37;
+  border-color: rgba(26, 127, 55, 0.2);
+}
+
+.status-badge.error {
+  background-color: #ffebe9;
+  color: #cf222e;
+  border-color: rgba(207, 34, 46, 0.2);
+}
+
+.status-badge.idle {
+  background-color: #f3f4f6;
+  color: #57606a;
+  border-color: rgba(87, 96, 106, 0.2);
+}
+
+.status-badge.unknown {
+  background-color: #ddf4ff;
+  color: #0969da;
+  border-color: rgba(9, 105, 218, 0.2);
+}
+
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.agent-item {
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.agent-id {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #24292f;
 }
 
 .griot-details summary {
@@ -164,10 +235,11 @@ body {
   margin-top: 8px;
   max-height: 250px;
   overflow-y: auto;
-  background-color: #ffffff;
+  background-color: #f6f8fa;
   border: 1px solid #d0d7de;
   border-radius: 4px;
   padding: 8px;
+  font-size: 12px;
 }
 
 .log-entry {
