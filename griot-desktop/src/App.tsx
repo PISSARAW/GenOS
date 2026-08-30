@@ -146,10 +146,15 @@ function App() {
           
           return (
             <div key={msg.id} className={`message ${msg.author.toLowerCase()}`}>
-              <div className="message-author">{msg.author}</div>
-              <div className="message-content">
-                {parsed.prefix && <div style={{ marginBottom: parsed.data ? '8px' : '0', whiteSpace: 'pre-wrap' }}>{parsed.prefix}</div>}
-                {parsed.data && <GriotDataView data={parsed.data} showTelemetry={showTelemetry} />}
+              <div className="message-avatar">
+                {msg.author === 'User' ? 'U' : 'G'}
+              </div>
+              <div className="message-content-wrapper">
+                <div className="message-author-name">{msg.author}</div>
+                <div className="message-text">
+                  {parsed.prefix && <div style={{ marginBottom: parsed.data ? '8px' : '0', whiteSpace: 'pre-wrap' }}>{parsed.prefix}</div>}
+                  {parsed.data && <GriotDataView data={parsed.data} showTelemetry={showTelemetry} />}
+                </div>
               </div>
             </div>
           );
@@ -157,26 +162,26 @@ function App() {
         
         {isProcessing && (
           <div className="message griot">
-            <div className="message-author">Griot (Travail en cours...)</div>
-            <div className="message-content">
-              {showTelemetry && liveTelemetry.length > 0 ? (
-                <div className="griot-dashboard">
-                  <div className="dashboard-card">
-                    <div className="card-header">📡 Streaming en direct...</div>
-                    <div className="card-body">
-                      <div className="telemetry-log" style={{ maxHeight: '200px' }}>
-                        {liveTelemetry.map((t, i) => (
-                          <div key={i} className={`log-entry ${t.severity || 'info'}`}>
-                            <span className="log-action">[{t.action || 'LIVE'}]</span> {t.detail || 'Traitement...'}
-                          </div>
-                        ))}
-                      </div>
+            <div className="message-avatar">G</div>
+            <div className="message-content-wrapper">
+              <div className="message-author-name">Griot</div>
+              <div className="message-text">
+                {showTelemetry ? (
+                  <details className="antigravity-thinking" open>
+                    <summary>Thinking Process...</summary>
+                    <div className="thinking-content">
+                      {liveTelemetry.length === 0 && <div className="log-entry info">Starting mission...</div>}
+                      {liveTelemetry.map((t, i) => (
+                        <div key={i} className={`log-entry ${t.severity || 'info'}`}>
+                          <span className="log-action">[{t.action || 'LIVE'}]</span> {t.detail || 'Traitement...'}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                </div>
-              ) : (
-                <span style={{ color: 'var(--text-muted)' }}>Computing... (L'interface attend le retour de l'orchestrateur)</span>
-              )}
+                  </details>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>Computing...</span>
+                )}
+              </div>
             </div>
           </div>
         )}
