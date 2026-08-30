@@ -1,19 +1,19 @@
-# Règles de Codage GenOS
+﻿# RÃ¨gles de Codage GenOS
 
-Lors de la rédaction ou de la modification de code, tu dois IMPÉRATIVEMENT respecter les 3 règles suivantes :
+Lors de la rÃ©daction ou de la modification de code, tu dois IMPÃ‰RATIVEMENT respecter les 3 rÃ¨gles suivantes :
 1. **Longueur des fichiers** : Ne jamais faire plus de 400 lignes par fichier.
-2. **Paramètres de fonction** : Ne jamais avoir plus de 3 paramètres dans une fonction.
-3. **Complexité** : Ne jamais avoir une complexité cyclomatique élevée (privilégier les fonctions courtes, simples, et éviter l'imbrication excessive de conditions/boucles).
+2. **ParamÃ¨tres de fonction** : Ne jamais avoir plus de 3 paramÃ¨tres dans une fonction.
+3. **ComplexitÃ©** : Ne jamais avoir une complexitÃ© cyclomatique Ã©levÃ©e (privilÃ©gier les fonctions courtes, simples, et Ã©viter l'imbrication excessive de conditions/boucles).
 
-### Évolution de l'Interface (GenOS UI)
-4. **Co-évolution Frontend** : Les agents ont **carte blanche** pour modifier, inventer et faire évoluer les composants React et les fonctionnalités du frontend s'ils jugent cela nécessaire pour améliorer la communication ou l'efficacité de leurs propres données (ex: agrandir un diff, rajouter un filtre, changer une vue).
-5. **Esthétique Stricte Inviolable** : La SEULE limite absolue à cette liberté d'évolution est le respect de la charte visuelle. Le site doit **toujours rester visuellement basé sur GitHub** : aucun emoji, aucun dégradé (gradient), aucun aspect futuriste/cybernétique cliché. Le design doit rester utilitaire, strict, plat et professionnel.
+### Ã‰volution de l'Interface (GenOS UI)
+4. **Co-Ã©volution Frontend** : Les agents ont **carte blanche** pour modifier, inventer et faire Ã©voluer les composants React et les fonctionnalitÃ©s du frontend s'ils jugent cela nÃ©cessaire pour amÃ©liorer la communication ou l'efficacitÃ© de leurs propres donnÃ©es (ex: agrandir un diff, rajouter un filtre, changer une vue).
+5. **EsthÃ©tique Stricte Inviolable** : La SEULE limite absolue Ã  cette libertÃ© d'Ã©volution est le respect de la charte visuelle. Le site doit **toujours rester visuellement basÃ© sur GitHub** : aucun emoji, aucun dÃ©gradÃ© (gradient), aucun aspect futuriste/cybernÃ©tique clichÃ©. Le design doit rester utilitaire, strict, plat et professionnel.
 
-### Sécurité du Système
-6. **Sécurité Locale Intransigeante** : Bien que GenOS Studio s'exécute en local (`localhost`), la sécurité doit être traitée comme s'il s'agissait d'une infrastructure militaire exposée au web. Les agents doivent implémenter une authentification forte (RBAC, clés d'accès), empêcher toute faille (XSS/CSRF), et sécuriser rigoureusement l'exécution des outils MCP destructifs (circuit breakers et kill switches protégés).
+### SÃ©curitÃ© du SystÃ¨me
+6. **SÃ©curitÃ© Locale Intransigeante** : Bien que GenOS Studio s'exÃ©cute en local (`localhost`), la sÃ©curitÃ© doit Ãªtre traitÃ©e comme s'il s'agissait d'une infrastructure militaire exposÃ©e au web. Les agents doivent implÃ©menter une authentification forte (RBAC, clÃ©s d'accÃ¨s), empÃªcher toute faille (XSS/CSRF), et sÃ©curiser rigoureusement l'exÃ©cution des outils MCP destructifs (circuit breakers et kill switches protÃ©gÃ©s).
 
-### Observabilité & Télémétrie
-7. **L'Agent Télémétrique (Observer)** : Pour ne pas ralentir les cycles de calcul des agents opérationnels (Backend, Frontend, QA), tout essaim (Swarm) déployé par GenOS doit obligatoirement inclure et recruter un "Agent de Télémétrie" dédié. Son unique fonction est de monitorer les communications de l'essaim et de streamer l'information en temps réel à l'humain.
+### ObservabilitÃ© & TÃ©lÃ©mÃ©trie
+7. **L'Agent TÃ©lÃ©mÃ©trique (Observer)** : Pour ne pas ralentir les cycles de calcul des agents opÃ©rationnels (Backend, Frontend, QA), tout essaim (Swarm) dÃ©ployÃ© par GenOS doit obligatoirement inclure et recruter un "Agent de TÃ©lÃ©mÃ©trie" dÃ©diÃ©. Son unique fonction est de monitorer les communications de l'essaim et de streamer l'information en temps rÃ©el Ã  l'humain.
 
 ### Isolation Cognitive (Griot)
-8. **Modèles Locaux Exclusifs** : Griot et tous ses sous-agents ont l'interdiction stricte d'utiliser des modèles Cloud (OpenAI, Anthropic). Ils sont les SEULS agents du système qui dépendent exclusivement de modèles locaux (Ollama, LM Studio, vLLM) via le Routeur Cognitif (auto-découverte et sélection par complexité). Ceci garantit une étanchéité totale des données.
+8. **ModÃ¨les Locaux Exclusifs** : Griot et tous ses sous-agents ont l'interdiction stricte d'utiliser des modÃ¨les Cloud (OpenAI, Anthropic). Ils sont les SEULS agents du systÃ¨me qui dÃ©pendent exclusivement de modÃ¨les locaux (Ollama, LM Studio, vLLM) via le Routeur Cognitif (auto-dÃ©couverte et sÃ©lection par complexitÃ©). Ceci garantit une Ã©tanchÃ©itÃ© totale des donnÃ©es.
