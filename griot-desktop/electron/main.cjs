@@ -12,8 +12,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false
     },
-    title: "Griot - Local Cognitive Node",
-    autoHideMenuBar: true
+    title: "Griot - Local Cognitive Node"
   });
 
   const isDev = !app.isPackaged && process.env.NODE_ENV !== 'production';
@@ -29,7 +28,7 @@ function createWindow() {
       label: 'Affichage',
       submenu: [
         {
-          label: 'Afficher la télémétrie',
+          label: 'Afficher la telemetrie',
           type: 'checkbox',
           checked: true,
           click: (menuItem) => {
@@ -41,7 +40,7 @@ function createWindow() {
       ]
     },
     {
-      label: 'Fenêtre',
+      label: 'Fenetre',
       submenu: [
         { role: 'reload' },
         { role: 'toggledevtools' },
@@ -72,10 +71,31 @@ ipcMain.handle('ask-griot', async (event, promptText) => {
     });
 
     let output = '';
-    const child = spawn('node', [backendScript, payload]);
+    let streamBuffer = '';
+    
+    const child = spawn('node', [backendScript, payload], {
+      env: { ...process.env, GENOS_STREAM_TELEMETRY: '1' }
+    });
 
     child.stdout.on('data', (data) => {
-      output += data.toString();
+      const chunk = data.toString();
+      output += chunk;
+      streamBuffer += chunk;
+      
+      let newlineIdx;
+      while ((newlineIdx = streamBuffer.indexOf('\n')) !== -1) {
+        const line = streamBuffer.substring(0, newlineIdx).trim();
+        streamBuffer = streamBuffer.substring(newlineIdx + 1);
+        
+        if (line.startsWith('GENOS_STREAM:')) {
+          try {
+            const evtObj = JSON.parse(line.substring(13));
+            if (mainWindow) {
+              mainWindow.webContents.send('telemetry-stream', evtObj);
+            }
+          } catch(e) {}
+        }
+      }
     });
 
     child.stderr.on('data', (data) => {
