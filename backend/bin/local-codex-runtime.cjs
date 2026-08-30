@@ -12,7 +12,12 @@ process.stdin.on('end', async () => {
       process.exit(2); 
   }
 
-  const prompt = mission.prompt || mission.currentTask || "No prompt provided";
+  let prompt = mission.prompt || mission.currentTask || "No prompt provided";
+
+  // Clean the massive GenOS orchestration meta-prompt to avoid confusing small local models
+  if (prompt.includes('MANDATORY FINAL SYNTHESIS PHASE') || prompt.includes('Assigned branch:')) {
+    prompt = prompt.split('\n')[0].trim();
+  }
 
   process.stdout.write(encodeEvent({
     eventType: 'AGENT_PLAN_CREATED',
