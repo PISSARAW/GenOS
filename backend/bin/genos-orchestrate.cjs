@@ -42,7 +42,7 @@ async function waitForCompletion(db) {
   const deadline = Date.now() + Number(request.timeoutMs || 14 * 60 * 1000);
   while (Date.now() < deadline) {
     const agents = await db.all('SELECT id, status FROM agents WHERE id = ? OR parent_agent_id = ?', id, id);
-    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis'].includes(agent.status))) return agents;
+    if (agents.length && agents.every((agent) => ['idle', 'blocked', 'error', 'terminated', 'apoptosis', 'completed'].includes(agent.status))) return agents;
     await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('GenOS orchestrator timed out');
@@ -294,7 +294,7 @@ async function main() {
       if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       let inheritedCommands = [];
       try { inheritedCommands = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]'); } catch {}
-      await runtime.startMission({
+      console.log("starting"); await runtime.startMission({
         agentId: id, name, role, prompt: task, modelTier: request.model_tier || reusable?.modelTier || parent.model_tier,
         workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id,
         fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: orchestratorId,
@@ -306,7 +306,7 @@ async function main() {
         },
         toolLease: runtime.workerToolLease(role), autonomousOrchestration: false
       });
-      const agents = await waitForCompletion(db);
+      console.log("started"); const agents = await waitForCompletion(db);
       process.stdout.write(JSON.stringify({
         orchestratorId,
         workerId: id,
@@ -318,15 +318,16 @@ async function main() {
       }));
       return;
     }
-    await db.run(`INSERT INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+    await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
       VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
+    await db.run(`UPDATE agents SET status = 'idle', current_task = ? WHERE id = ?`, task, id);
     const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
-    await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
+    console.log("starting"); await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
       modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {},
       executionPolicy: { allowedCommands, allowFileEdits },
       silentUpdates: policyRequest.silent_updates === true,
       autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
-    const agents = await waitForCompletion(db);
+    console.log("started"); const agents = await waitForCompletion(db);
     const telemetryRows = await db.all('SELECT event_type, action, detail, severity FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs) }));

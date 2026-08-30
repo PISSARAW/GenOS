@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Autonomous worker fleets: creation from a strategy plan, the sequential
  * specialist pipeline, local-model workers, and the evidence barrier that
  * feeds the orchestrator's final synthesis.
@@ -13,15 +13,17 @@ const userProgress = require('./userProgressService');
 const workerGarage = require('./workerGarageService');
 const {
   activeProcesses, missionStarts, autonomousRounds, activeWorkerBarriers,
-  workerEvidenceRounds, emit, updateAgent
+  workerEvidenceRounds, emit, updateAgent, TERMINAL_AGENT_STATUSES,
+  pendingContinuations, pendingWorkerRecoveries, activeWorkerRecoveryDispatches
 } = require('./agentOrchestrationState');
 const {
   recordWorkerEvidence, workerEvidenceDossiers, buildWorkerSynthesisPrompt
 } = require('./agentEvidenceService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
-const { advanceAutonomousRound } = require('./agentRoundService');
+const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundService');
 const { queueWorkerRecovery } = require('./agentRecoveryService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const { workerToolLease } = require('./agentOrchestrationState');
 
 async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
   const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 14 * 60 * 1000);
@@ -75,7 +77,9 @@ async function runLocalWorker(db, mission, executionRun) {
       policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
         ? `You are a bounded GenOS local code worker. Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
-        : `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
+        : (mission.role === 'Autonomous Orchestrator' || (mission.executionMode || mission.execution_mode) === 'orchestrator' || /orchestrator/i.test(mission.agentId))
+          ? `You are a GenOS orchestrator. Mission:\n${mission.prompt}`
+          : `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     let evidenceReport;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -23,6 +23,35 @@ function createWindow() {
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+
+  const template = [
+    {
+      label: 'Affichage',
+      submenu: [
+        {
+          label: 'Afficher la télémétrie',
+          type: 'checkbox',
+          checked: true,
+          click: (menuItem) => {
+            if (mainWindow) {
+              mainWindow.webContents.send('toggle-telemetry', menuItem.checked);
+            }
+          }
+        }
+      ]
+    },
+    {
+      label: 'Fenêtre',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggledevtools' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 
   mainWindow.on('closed', () => {
     mainWindow = null;

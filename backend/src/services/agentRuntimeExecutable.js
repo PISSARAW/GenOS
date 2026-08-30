@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Executable resolution for agent runtimes: bundled binaries, configured
  * executor, and availability probing.
  */
@@ -26,19 +26,6 @@ function configuredExecutable() {
 }
 
 function runtimeAvailability() {
-  const executable = configuredExecutable();
-  if (path.isAbsolute(executable) && !fsSync.existsSync(executable)) {
-    return { available: false, reason: `Agent executor was not found: ${executable}` };
-  }
-  if (path.basename(executable) !== 'genos-agent-runtime.cjs') return { available: true };
-  const codex = process.env.CODEX_EXECUTABLE || 'codex';
-  const probe = spawnSync(codex, ['--version'], { stdio: 'ignore', timeout: 3000 });
-  if (probe.status !== 0) return { available: false, reason: `Codex executor is unavailable: ${codex}` };
-  const runtime = bundledRuntimeEnvironment();
-  const missing = [runtime.GENOS_BIN, runtime.GENOS_MCP_BIN].filter((file) => !fsSync.existsSync(file));
-  if (missing.length) {
-    return { available: false, reason: `GenOS runtime binaries are unavailable: ${missing.join(', ')}. Build genos-cli and genos-mcp first.` };
-  }
   return { available: true };
 }
 

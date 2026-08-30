@@ -290,6 +290,7 @@ process.stdin.on('end', () => {
     emit({ eventType: 'AGENT_RUNTIME_ERROR', action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });
     process.exitCode = 1;
     cleanup();
+    process.exit(1);
   });
   child.on('close', (code, signal) => {
     const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
@@ -338,5 +339,6 @@ process.stdin.on('end', () => {
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
     if (process.exitCode === undefined) process.exitCode = code || 0;
     cleanup();
+    process.exit(process.exitCode || 0);
   });
 });
