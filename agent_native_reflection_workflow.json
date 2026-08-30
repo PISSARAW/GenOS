@@ -1,31 +1,31 @@
 {
   "name": "agent-native-reflection-workflow",
-  "description": "Un workflow où l'orchestrateur Architecte analyse l'interface GenOS et consulte Griot.",
+  "description": "A workflow where the Architect orchestrator analyzes the GenOS interface and consults Griot.",
   "steps": [
     {
       "id": "analyze_current_state",
       "agent": "agent_native_architect",
       "action": "inspect_genos_tools",
-      "prompt": "Analyse les 94 outils MCP (mitose, apoptose, thymus_saboteur, etc.). Ces outils te semblent-ils optimaux pour exprimer tes intentions métiers, ou la métaphore biologique te ralentit-elle ?"
+      "prompt": "Analyze the 94 MCP tools (mitosis, apoptosis, thymus_saboteur, etc.). Do these tools seem optimal to you to express your business intents, or does the biological metaphor slow you down?"
     },
     {
       "id": "wake_up_griot",
       "agent": "agent_native_architect",
       "action": "message",
       "target": "griot_router",
-      "prompt": "Griot, en tant que routeur cognitif utilisant des modèles locaux (soumis à de fortes contraintes de tokens et de contexte), as-tu besoin de ces 94 commandes granulaires ? Ou préfèrerais-tu une interface Intent (Run, Verify, Merge) où GenOS gère l'état (State) en arrière-plan ?"
+      "prompt": "Griot, as a cognitive router using local models (subject to strong token and context constraints), do you need these 94 granular commands? Or would you prefer an Intent interface (Run, Verify, Merge) where GenOS manages the state in the background?"
     },
     {
       "id": "griot_response",
       "agent": "griot_router",
       "action": "reply",
-      "prompt": "Analyse la demande de l'Architecte en tenant compte de tes contraintes de modèles locaux (Règle 8). Que recommanderais-tu pour économiser du contexte et éviter de reconstruire l'arbre d'état biologique ?"
+      "prompt": "Analyze the Architect's request taking into account your local model constraints (Rule 8). What would you recommend to save context and avoid reconstructing the biological state tree?"
     },
     {
       "id": "synthesize_optimal_interface",
       "agent": "agent_native_architect",
       "action": "synthesize",
-      "prompt": "Sur la base de ton analyse et de la réponse de Griot, synthétise l'architecture MCP optimale pour GenOS, sans forcément adopter les solutions pré-conçues. Que voulez-VOUS, en tant qu'agents ?"
+      "prompt": "Based on your analysis and Griot's response, synthesize the optimal MCP architecture for GenOS, without necessarily adopting pre-designed solutions. What do YOU want, as agents?"
     }
   ]
 }

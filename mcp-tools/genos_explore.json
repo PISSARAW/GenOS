@@ -1,6 +1,6 @@
 {
   "name": "genos_explore",
-  "description": "Couche INTENT. Commande asynchrone (Fire and Forget). L'agent fournit un problème, et GenOS spawne un sous-agent éphémère (Chirurgien) qui manipule les outils biologiques en arrière-plan. Le résultat sera écrit sur le Blackboard. Consultez genos_read_blackboard pour voir le résultat. Nécessite une validation humaine si le coût est élevé.",
+  "description": "INTENT Layer. Asynchronous command (Fire and Forget). The agent provides a problem, and GenOS spawns an ephemeral sub-agent (Surgeon) that manipulates biological tools in the background. The result will be written to the Blackboard. Check genos_read_blackboard to see the result. Requires human validation if the cost is high.",
   "parameters": {
     "type": "object",
     "properties": {
