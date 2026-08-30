@@ -1,6 +1,6 @@
 {
   "name": "genos_merge",
-  "description": "Couche INTENT. Commande asynchrone (Fire and Forget). L'agent choisit la branche vainqueur. Un sous-agent s'occupe de tuer les autres branches (apoptose) et de fusionner le code. Résultat mis à jour sur le Blackboard.",
+  "description": "INTENT Layer. Asynchronous command (Fire and Forget). The agent chooses the winning branch. A sub-agent takes care of killing the other branches (apoptosis) and merging the code. Result updated on the Blackboard.",
   "parameters": {
     "type": "object",
     "properties": {
