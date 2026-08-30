@@ -57,6 +57,10 @@ pub enum Commands {
     VerifyIntent,
     /// STATE Layer: Read the asynchronous blackboard
     Status,
+    /// INTENT Layer: Garbage collect the blackboard state
+    GarbageCollect,
+    /// OBSERVER Layer: Stream telemetry of a running swarm
+    Telemetry,
     #[command(hide = true)]
     Init,
     #[command(hide = true)]
