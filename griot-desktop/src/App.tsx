@@ -12,7 +12,33 @@ function parseGriotResponse(text: string) {
   if (jsonStart === -1) return { prefix: text, data: null };
   try {
     const data = JSON.parse(text.substring(jsonStart));
-    return { prefix: text.substring(0, jsonStart).trim(), data };
+    let prefix = text.substring(0, jsonStart).trim();
+    
+    // Extraire la réponse générée par l'IA (cachée dans la télémétrie)
+    if (data.telemetry && Array.isArray(data.telemetry)) {
+      const completedEvents = [...data.telemetry].reverse().filter((t: any) => t.event_type === 'AGENT_COMPLETED');
+      for (const evt of completedEvents) {
+        if (evt.payload_json) {
+          try {
+            const payload = JSON.parse(evt.payload_json);
+            if (payload.evidenceReport && payload.evidenceReport.claims && payload.evidenceReport.claims.length > 0) {
+              const statement = payload.evidenceReport.claims[0].statement;
+              if (statement) {
+                prefix = statement;
+                break;
+              }
+            }
+          } catch(e) {}
+        }
+      }
+    }
+    
+    // Si la réponse n'est toujours qu'un log technique de démarrage, on la cache
+    if (prefix.includes('starting') && prefix.includes('adapter:')) {
+      prefix = "Mission terminée. Voir les détails ci-dessous.";
+    }
+
+    return { prefix, data };
   } catch (e) {
     return { prefix: text, data: null };
   }
