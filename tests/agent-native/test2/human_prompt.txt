@@ -1,0 +1,1 @@
+Les requêtes de l'API s'entrechoquent et font tomber la base de données quand il y a trop de trafic, aide-moi.
