@@ -29,3 +29,7 @@ backend/.genos-db-backups/
 
 *.log
 .genos-studio/
+
+*.csv
+*.txt
+clippy.json

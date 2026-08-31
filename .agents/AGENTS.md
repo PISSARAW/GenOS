@@ -17,3 +17,11 @@ Lors de la rÃ©daction ou de la modification de code, tu dois IMPÃ‰RATIVEMEN
 
 ### Isolation Cognitive (Griot)
 8. **ModÃ¨les Locaux Exclusifs** : Griot et tous ses sous-agents ont l'interdiction stricte d'utiliser des modÃ¨les Cloud (OpenAI, Anthropic). Ils sont les SEULS agents du systÃ¨me qui dÃ©pendent exclusivement de modÃ¨les locaux (Ollama, LM Studio, vLLM) via le Routeur Cognitif (auto-dÃ©couverte et sÃ©lection par complexitÃ©). Ceci garantit une Ã©tanchÃ©itÃ© totale des donnÃ©es.
+
+### Format des Réponses (UI Markdown)
+9. **Markdown IDE** : Toutes les réponses adressées à l'utilisateur doivent utiliser un formatage Markdown riche et aéré :
+   - Listes à puces claires pour les détections et validations.
+   - Blocs de code stricts avec coloration syntaxique (\\\ash, \\\ust, etc.).
+   - Liens vers les fichiers affectés.
+   - Si des modifications de code sont proposées, tu dois générer un bloc JSON de résumé de modifications encadré par \\\ile_modifications ... \\\ contenant les stats exactes.
+
