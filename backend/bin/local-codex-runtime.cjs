@@ -31,7 +31,7 @@ process.stdin.on('end', async () => {
   }));
 
   try {
-    const reply = await modelRouter.generate(framedPrompt, { role: 'orchestrator' });
+    const reply = await modelRouter.generate({ prompt: framedPrompt, priority: 'interactive' });
     
     const report = { 
         outcome: 'success', 
