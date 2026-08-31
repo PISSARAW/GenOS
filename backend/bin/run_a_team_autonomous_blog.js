@@ -16,59 +16,9 @@ L'équipe doit être constituée de 5 auteurs, chacun ayant son style, et se ré
 ${DIVISIONS.join(', ')}.`;
 
 // -----------------------------------------------------------------------------
-// MOTEUR DE BASE
+// SYSTÈME IMMUNITAIRE GLOBAL
 // -----------------------------------------------------------------------------
-async function askLocalLLM(prompt, complexity) {
-    try {
-        const res = await generate({ agentId: 'ateam_orchestrator', prompt: prompt, complexity: complexity, maxTokens: 3000 });
-        return res.text || res.content || res.response || String(res);
-    } catch (e) {
-        return null;
-    }
-}
-
-// -----------------------------------------------------------------------------
-// SYSTÈME IMMUNITAIRE COGNITIF (Homéostasie, Inflammation, Apoptose)
-// -----------------------------------------------------------------------------
-async function askLocalLLMWithImmunity(basePrompt, complexity, validatorFn, maxRetries = 3) {
-    let currentPrompt = basePrompt;
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        console.log(`[Système Immunitaire] Phagocytose en cours... Essai ${attempt}/${maxRetries}`);
-        const rawRes = await askLocalLLM(currentPrompt, complexity);
-        
-        if (!rawRes) {
-            console.log("[Apoptose] Mort silencieuse du LLM (pas de réponse).");
-            continue;
-        }
-
-        try {
-            let cleanJson = rawRes.replace(/```json/g, '').replace(/```/g, '').trim();
-            const jsonMatch = cleanJson.match(/\{[\s\S]*\}/);
-            if (!jsonMatch) throw new Error("Aucun objet JSON détecté.");
-            
-            const parsed = JSON.parse(jsonMatch[0]);
-            
-            // Le validateur (Macrophage) vérifie l'intégrité de la structure
-            if (validatorFn) {
-                validatorFn(parsed);
-            }
-            
-            console.log("[Homéostasie] Format validé et sain !");
-            return parsed;
-        } catch (e) {
-            console.warn(`[Réponse Inflammatoire] Mutation détectée : ${e.message}`);
-            if (attempt === maxRetries) {
-                console.error("[Apoptose Cellulaire] Échec irrécupérable de la génération. On abandonne cette cellule.");
-                return null;
-            }
-            // Feedback Sémantique (Signal de Douleur au LLM pour le forcer à s'auto-corriger)
-            currentPrompt = `${basePrompt}\n\n[ERREUR CRITIQUE DU SYSTÈME] Ta tentative précédente a muté et fait crasher le système avec cette erreur : "${e.message}". 
-            CORRIGE TON ERREUR. Tu dois formater les données EXACTEMENT comme demandé, sans ajouter d'objets inutiles.`;
-        }
-    }
-    return null;
-}
+const { withImmunity, askLocalLLM } = require('../src/services/immuneSystem.js');
 
 // -----------------------------------------------------------------------------
 // PHASES BIOMIMÉTIQUES
@@ -92,7 +42,7 @@ async function phase1DesignTeam() {
         });
     };
 
-    return await askLocalLLMWithImmunity(prompt, 'high', validator);
+    return await withImmunity(prompt, 'high', validator, 3, 'ateam_orchestrator');
 }
 
 // 1.5. Génération des sujets ciblés (Cascade enzymatique locale)
@@ -112,7 +62,7 @@ async function generateTopicsForAuthor(author) {
         });
     };
 
-    const plan = await askLocalLLMWithImmunity(prompt, 'high', validator);
+    const plan = await withImmunity(prompt, 'high', validator, 3, 'ateam_orchestrator');
     if (plan) {
         author.articles = plan.articles;
     } else {
