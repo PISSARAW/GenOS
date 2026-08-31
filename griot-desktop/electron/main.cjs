@@ -86,30 +86,32 @@ ipcMain.handle('list-recent-tasks', async () => {
   });
 });
 
-// Lecture du filesystem pour les projets (Sidebar)
-ipcMain.handle('list-github-projects', async () => {
-  try {
-    const fs = require('fs');
-    const ghPath = path.join(process.env.USERPROFILE || 'C:\\Users\\Shadow', 'Documents', 'GitHub');
-    if (fs.existsSync(ghPath)) {
-      return fs.readdirSync(ghPath, { withFileTypes: true })
-               .filter(dirent => dirent.isDirectory() && !dirent.name.startsWith('.'))
-               .map(dirent => dirent.name);
-    }
-    return ['Banini', 'Exocompute', 'GenOS']; // Fallback
-  } catch (err) {
-    return ['Banini', 'Exocompute', 'GenOS'];
-  }
-});
+// Workspaces & Conversations Managers
+const { getWorkspaces, addWorkspace, setActiveWorkspace } = require('./workspaceManager.cjs');
+const { listConversations, saveConversation, loadConversation } = require('./conversationManager.cjs');
+
+ipcMain.handle('list-workspaces', async () => getWorkspaces());
+ipcMain.handle('add-workspace', async () => await addWorkspace());
+ipcMain.handle('set-active-workspace', async (e, wp) => setActiveWorkspace(wp));
+
+ipcMain.handle('list-conversations', async () => listConversations());
+ipcMain.handle('save-conversation', async (e, conv) => saveConversation(conv));
+ipcMain.handle('load-conversation', async (e, id) => loadConversation(id));
 
 // Fetch git stats for the current GenOS project
 ipcMain.handle('get-git-stats', async () => {
   return new Promise((resolve) => {
-    const targetDir = path.join(__dirname, '../../'); // GenOS root
-    exec(`git status --porcelain`, { cwd: targetDir }, (err, stdout) => {
-      const lines = stdout.trim().split('\n').filter(Boolean);
-      const additions = lines.filter(l => l.startsWith('A') || l.startsWith('M') || l.startsWith('??')).length;
-      const deletions = lines.filter(l => l.startsWith('D')).length;
+    const active = getWorkspaces().active;
+    const targetDir = active || path.join(__dirname, '../../'); // Fallback to GenOS root
+    exec(`git diff HEAD --shortstat`, { cwd: targetDir }, (err, stdout) => {
+      let additions = 0;
+      let deletions = 0;
+      if (stdout) {
+        const addMatch = stdout.match(/(\d+)\s+insertion/);
+        const delMatch = stdout.match(/(\d+)\s+deletion/);
+        if (addMatch) additions = parseInt(addMatch[1], 10);
+        if (delMatch) deletions = parseInt(delMatch[1], 10);
+      }
       exec(`git branch --show-current`, { cwd: targetDir }, (err2, branchOut) => {
         resolve({ 
           additions: additions > 0 ? `+${additions}` : '+0', 
@@ -154,7 +156,11 @@ ipcMain.handle('ask-griot', async (event, requestData) => {
     let output = '';
     let streamBuffer = '';
     
+    const active = getWorkspaces().active;
+    const targetCwd = active || path.join(__dirname, '../../');
+
     const child = spawn('node', [backendScript, payload], {
+      cwd: targetCwd,
       env: { 
         ...process.env, 
         GENOS_STREAM_TELEMETRY: '1',
