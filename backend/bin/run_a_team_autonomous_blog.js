@@ -80,11 +80,12 @@ async function phase2DraftAndReview(author, title, variantIndex) {
     let draft = await askLocalLLM(draftPrompt, 'medium', 'ateam_orchestrator', variantIndex);
     if (!draft) return;
 
-    console.log(`-> Peer-Review (Literary Critic) en cours...`);
+    console.log(`-> Peer-Review (Literary Critic) en cours (Divergence Cognitive: Modèle alternatif)...`);
     const reviewPrompt = `Voici un brouillon d'article. Enlève absolument tous les tics de langage des IA (ex: "En conclusion").
     Garde le style de ${author.name}, rends-le percutant. Vérifie que l'article soit très long et fourni. Brouillon : ${draft}`;
 
-    let finalArticle = await askLocalLLM(reviewPrompt, 'high', 'ateam_orchestrator', variantIndex);
+    // Divergence Cognitive : On ajoute +1 au variantIndex pour forcer le Reviewer à utiliser un modèle local différent de l'Auteur
+    let finalArticle = await askLocalLLM(reviewPrompt, 'high', 'ateam_orchestrator', variantIndex + 1);
     return finalArticle || draft;
 }
 

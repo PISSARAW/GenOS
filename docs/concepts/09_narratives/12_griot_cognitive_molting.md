@@ -32,3 +32,16 @@ graph TD
     I -->|Pléiotropie (Essai 2)| M2(Modèle Qwen)
     M2 -->|Succès| O[Output Valide]
 ```
+
+## Divergence Cognitive (Consanguinité Zéro)
+Ce mécanisme est également mis à la disposition de tout Orchestrateur pour simuler de multiples "Personas".
+Le cas d'usage typique est le **Pair-Programming** ou le **Peer-Review**. 
+
+Si un Modèle A (Dev) écrit du code, il a ses propres "angles morts" cognitifs (biais algorithmiques). Si vous utilisez ce même Modèle A pour "Reviewer" son propre code, il passera souvent à côté de ses propres bugs.
+
+En exposant le `variantIndex` à tous les agents, l'Orchestrateur peut appliquer une **Divergence Cognitive** :
+- Agent Rédacteur (Dev) : `variantIndex = 0` (ex: Llama-3)
+- Agent Critique (Reviewer) : `variantIndex = 1` (ex: Mistral)
+
+En croisant deux matrices probabilistes différentes, on assure une qualité de review bien supérieure, tout comme deux humains pensant différemment trouveront plus de failles ensemble.
+
