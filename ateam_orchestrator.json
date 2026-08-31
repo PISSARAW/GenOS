@@ -67,95 +67,11 @@
                              "enabled":  true
                          },
                          {
-                             "name":  "background_daemon",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "cryptobiosis_suspension",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "cellular_bbb_filtering",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "macrophage_clonal_expansion",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "circadian_rhythm",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "hippocampal_consolidation",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "apoptotic_self_termination",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "adaptive_immunity_vaccination",
-                             "enabled":  true
-                         },
-                         {
                              "name":  "hallucination_detection",
                              "enabled":  true
                          },
                          {
-                             "name":  "mycelial_omniscience",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "cellular_endosymbiosis_tools",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "stigmergic_communication",
-                             "enabled":  true
-                         },
-                         {
                              "name":  "autopoiesis_self_maintenance",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "hypothalamus_homeostasis",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "cerebellum_coprocessor",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "enteric_delegate_digestion",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "glial_cell_cleanup",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "gene_regulatory_network_logic",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "speciation_and_divergence",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "horizontal_gene_transfer",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "neoteny_learning_phase",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "senescence_and_succession",
-                             "enabled":  true
-                         },
-                         {
-                             "name":  "quorum_sensing_collective",
                              "enabled":  true
                          },
                          {
@@ -206,42 +122,7 @@
                                                 "enabled":  true
                                             },
                                             {
-                                                "tool":  "genos_biomimicry_cellular_bbb",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_ais_danger_telemetry",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_ais_clonal_hypermutate",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_circadian_toggle",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_hippocampal_consolidate",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
                                                 "tool":  "genos_resilience_apoptosis",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_inject_crispr_spacer",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_vaccinate",
                                                 "scope":  "allowed",
                                                 "enabled":  true
                                             },
@@ -256,66 +137,6 @@
                                                 "enabled":  true
                                             },
                                             {
-                                                "tool":  "genos_biomimicry_mycelium_route",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_cellular_endosymbiosis",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_stigmergy_deposit",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_hypothalamus_homeostasis",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_cerebellum_coprocessor",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_enteric_delegate",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_glial_cleanup",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_gene_regulatory_network",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_speciation_check",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_evolution_assimilate_plasmid",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_neoteny_quota",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_senescence_assess",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
                                                 "tool":  "genos_biomimicry_network_quorum",
                                                 "scope":  "allowed",
                                                 "enabled":  true
@@ -326,58 +147,53 @@
                                                 "enabled":  true
                                             },
                                             {
-                                                "tool":  "genos_synaptic_prune_scale",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_security_virophage_deploy",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_immuno_inflammation",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_embryo_phase_advance",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_hox_verify",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_metamorphosis_transition",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_regeneration_tissue",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_canalization_evaluate",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_telomere_fork",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
-                                                "tool":  "genos_biomimicry_reciprocity_decide",
-                                                "scope":  "allowed",
-                                                "enabled":  true
-                                            },
-                                            {
                                                 "scope":  "allowed",
                                                 "tool":  "genos_a_team_preview",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_trinity_launch",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_adversarial_review",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_solve",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_evaluate_trajectories",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_diagnose",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_hypothesis_evidence",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_resilience_hypermutation",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_resilience_circuit_breaker",
+                                                "enabled":  true
+                                            },
+                                            {
+                                                "scope":  "allowed",
+                                                "tool":  "genos_report_progress",
                                                 "enabled":  true
                                             }
                                         ]
