@@ -107,10 +107,17 @@ function GriotDataView({ data, showTelemetry }: { data: any, showTelemetry: bool
 }
 
 const SLASH_COMMANDS = [
+  // Orchestration & Base
   { cmd: '/trinity ', desc: "Force l'orchestrateur à lancer sur 3 mondes parallèles." },
   { cmd: '/snapshot', desc: "Fige l'état actuel du workspace." },
   { cmd: '/apoptosis', desc: "Stoppe immédiatement tous les sous-agents bloqués." },
-  { cmd: '/budget ', desc: "Alloue un nombre maximum de tokens." }
+  { cmd: '/budget ', desc: "Alloue un nombre maximum de tokens." },
+  // Concepts Biomimétiques
+  { cmd: '/cryptobiosis', desc: "Gèle l'essaim pour préserver l'état et le budget (Survie Cellulaire)." },
+  { cmd: '/redteam', desc: "Déploie un agent parasite pour auditer/attaquer la solution (Immunologie)." },
+  { cmd: '/consolidate', desc: "Nettoie et consolide la mémoire vectorielle des erreurs (Neurobiologie)." },
+  { cmd: '/hypermutation', desc: "Augmente la température créative d'un agent bloqué (Génétique)." },
+  { cmd: '/stigmergy', desc: "Active la coordination indirecte par traces entre agents (Écologie)." }
 ];
 
 function MessageWithActions({ text }: { text: string }) {
