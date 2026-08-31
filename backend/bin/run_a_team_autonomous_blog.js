@@ -104,8 +104,20 @@ function phase3SaveArticle(author, title, content) {
 async function runAutonomousDaemon() {
     console.log("=== DÉMARRAGE DU DAEMON A-TEAM (AVEC SYSTÈME IMMUNITAIRE) ===");
     
-    const plan = await phase1DesignTeam();
-    if (!plan || !plan.authors) return console.log("Échec total de la planification (Apoptose globale).");
+    let plan = await phase1DesignTeam();
+    
+    if (!plan || !plan.authors) {
+        console.warn("[Système Immunitaire] Échec de la neurogenèse (Planification). Activation de l'équipe de réserve (Stem Cells).");
+        plan = {
+            authors: [
+                { name: "Amadou Diop", style: "NYT Tech", divisions: ["Intelligence Artificielle", "Science de données"] },
+                { name: "Dr. Fatima Zahra", style: "NYT Health", divisions: ["Ingénierie Biomédicale", "Ingénierie Chimique"] },
+                { name: "Kwame Osei", style: "NYT Climate", divisions: ["Systèmes Énergétiques", "Génie Environnemental"] },
+                { name: "Nadia Benali", style: "NYT Architecture", divisions: ["Ingénierie Civile", "Ingénierie Mécanique"] },
+                { name: "Samuel Kalu", style: "NYT Business", divisions: ["Ingénierie Logicielle", "TIC", "Nouvelles Technologies"] }
+            ]
+        };
+    }
 
     for (const author of plan.authors) {
         console.log(`\n=== ACTIVATION DU SOUS-AGENT : ${author.name} ===`);
