@@ -106,6 +106,34 @@ function GriotDataView({ data, showTelemetry }: { data: any, showTelemetry: bool
   );
 }
 
+const SLASH_COMMANDS = [
+  { cmd: '/trinity ', desc: "Force l'orchestrateur à lancer sur 3 mondes parallèles." },
+  { cmd: '/snapshot', desc: "Fige l'état actuel du workspace." },
+  { cmd: '/apoptosis', desc: "Stoppe immédiatement tous les sous-agents bloqués." },
+  { cmd: '/budget ', desc: "Alloue un nombre maximum de tokens." }
+];
+
+function MessageWithActions({ text }: { text: string }) {
+  // Regex pour trouver [ Execute: blabla ]
+  const parts = text.split(/(\[\s*Execute:\s*[^\]]+\s*\])/g);
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        const match = part.match(/\[\s*Execute:\s*([^\]]+)\s*\]/);
+        if (match) {
+          return (
+            <button key={index} className="action-btn" onClick={() => console.log(`Triggering ${match[1]}`)}>
+              ▶ Execute: {match[1].trim()}
+            </button>
+          );
+        }
+        return <span key={index}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([
     { id: 1, author: 'Griot', text: 'Griot Local Cognitive Engine ready. How can I assist you with your GenOS tasks today?' }
@@ -114,6 +142,11 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showTelemetry, setShowTelemetry] = useState(true);
   const [liveTelemetry, setLiveTelemetry] = useState<any[]>([]);
+  
+  // New States
+  const [selectedModel, setSelectedModel] = useState('auto');
+  const [slashMenuVisible, setSlashMenuVisible] = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
 
   useEffect(() => {
     try {
@@ -140,9 +173,28 @@ function App() {
     } catch (e) {}
   }, []);
 
+  const handleInputChange = (e: any) => {
+    const val = e.target.value;
+    setInputValue(val);
+    
+    if (val.startsWith('/')) {
+      setSlashMenuVisible(true);
+      setSlashFilter(val.substring(1).toLowerCase());
+    } else {
+      setSlashMenuVisible(false);
+    }
+  };
+
+  const handleCommandSelect = (cmd: string) => {
+    setInputValue(cmd);
+    setSlashMenuVisible(false);
+  };
+
   const handleSubmit = async (e: any) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!inputValue.trim()) return;
+    
+    setSlashMenuVisible(false);
 
     const userMessage: Message = { id: Date.now(), author: 'User', text: inputValue };
     setMessages(prev => [...prev, userMessage]);
@@ -184,7 +236,11 @@ function App() {
               <div className="message-content-wrapper">
                 <div className="message-author-name">{msg.author}</div>
                 <div className="message-text">
-                  {parsed.prefix && <div style={{ marginBottom: parsed.data ? '8px' : '0', whiteSpace: 'pre-wrap' }}>{parsed.prefix}</div>}
+                  {parsed.prefix && (
+                    <div style={{ marginBottom: parsed.data ? '8px' : '0', whiteSpace: 'pre-wrap' }}>
+                      <MessageWithActions text={parsed.prefix} />
+                    </div>
+                  )}
                   {parsed.data && <GriotDataView data={parsed.data} showTelemetry={showTelemetry} />}
                 </div>
               </div>
@@ -220,14 +276,47 @@ function App() {
       </main>
 
       <div className="input-container">
-        <input 
-          type="text" 
-          placeholder="Ask Griot..." 
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSubmit(e as any); }}
+        <select 
+          className="model-select" 
+          value={selectedModel} 
+          onChange={(e) => setSelectedModel(e.target.value)}
           disabled={isProcessing}
-        />
+        >
+          <option value="auto">Auto Router (Qwen/Mistral)</option>
+          <option value="qwen2.5:0.5b">Force: Qwen 2.5</option>
+          <option value="mistral-nemo">Force: Mistral Nemo</option>
+        </select>
+
+        <div className="input-wrapper">
+          {slashMenuVisible && (
+            <div className="slash-menu">
+              {SLASH_COMMANDS.filter(cmd => cmd.cmd.substring(1).startsWith(slashFilter)).map(cmd => (
+                <div 
+                  key={cmd.cmd} 
+                  className="slash-menu-item"
+                  onClick={() => handleCommandSelect(cmd.cmd)}
+                >
+                  <span className="slash-cmd">{cmd.cmd}</span>
+                  <span className="slash-desc">{cmd.desc}</span>
+                </div>
+              ))}
+              {SLASH_COMMANDS.filter(cmd => cmd.cmd.substring(1).startsWith(slashFilter)).length === 0 && (
+                <div className="slash-menu-item" style={{ color: 'var(--text-muted)' }}>Aucune commande trouvée</div>
+              )}
+            </div>
+          )}
+          <input 
+            type="text" 
+            placeholder="Ask Griot ou tapez / pour les commandes..." 
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={(e) => { 
+              if (e.key === 'Enter') handleSubmit(e as any); 
+              if (e.key === 'Escape') setSlashMenuVisible(false);
+            }}
+            disabled={isProcessing}
+          />
+        </div>
         <button onClick={handleSubmit as any} disabled={isProcessing || !inputValue.trim()}>Send</button>
       </div>
     </div>
