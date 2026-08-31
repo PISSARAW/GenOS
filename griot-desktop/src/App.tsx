@@ -2,16 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import './index.css';
 import { parseGriotResponse } from './utils/parser';
 import {
-  IconChat,
-  IconFolder,
-  IconCloud,
-  IconPlus,
-  IconMic,
-  IconArrowUp,
-  IconGitBranch,
-  IconCode,
-  IconShare,
-  IconLayout
+  IconChat, IconFolder, IconCloud, IconPlus, IconMic, IconArrowUp,
+  IconGitBranch, IconCode, IconShare, IconLayout
 } from './components/Icons';
 import { GriotExecutionHeader } from './components/GriotExecutionHeader';
 import { MessageWithActions } from './components/MessageWithActions';
@@ -43,11 +35,13 @@ export default function App() {
   const [selectedModel, setSelectedModel] = useState('Personnalisé Moyen');
   const [slashMenuVisible, setSlashMenuVisible] = useState(false);
   const [slashFilter, setSlashFilter] = useState('');
-  const [projects, setProjects] = useState<string[]>([]);
-  const [recentTasks, setRecentTasks] = useState<string[]>([]);
   const [gitStats, setGitStats] = useState({ additions: '+0', deletions: '-0', branch: 'main' });
   const [localModels, setLocalModels] = useState<string[]>([]);
   const [autoApprove, setAutoApprove] = useState(false);
+
+  const [workspaces, setWorkspaces] = useState<{active: string|null, list: string[]}>({active: null, list: []});
+  const [conversations, setConversations] = useState<{id: string, title: string, updatedAt: number}[]>([]);
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -58,15 +52,16 @@ export default function App() {
   useEffect(() => {
     try {
       const electron = (window as any).require('electron');
-      electron.ipcRenderer.invoke('list-github-projects').then((dirs: string[]) => {
-        if (dirs?.length) setProjects(dirs.slice(0, 10));
-      }).catch(() => {});
-      electron.ipcRenderer.invoke('list-recent-tasks').then((tasks: string[]) => {
-        if (tasks?.length) setRecentTasks(tasks);
-      }).catch(() => {});
-      electron.ipcRenderer.invoke('get-git-stats').then((stats: any) => {
-        if (stats) setGitStats(stats);
-      }).catch(() => {});
+      electron.ipcRenderer.invoke('list-workspaces').then(setWorkspaces).catch(() => {});
+      electron.ipcRenderer.invoke('list-conversations').then(setConversations).catch(() => {});
+      
+      const fetchGitStats = () => {
+        electron.ipcRenderer.invoke('get-git-stats').then((stats: any) => {
+          if (stats) setGitStats(stats);
+        }).catch(() => {});
+      };
+      fetchGitStats();
+      const gitInterval = setInterval(fetchGitStats, 2000);
       electron.ipcRenderer.invoke('list-local-models').then((models: string[]) => {
         if (models?.length) {
           setLocalModels(models);
@@ -80,11 +75,68 @@ export default function App() {
       electron.ipcRenderer.on('telemetry-stream', handleStream);
       return () => {
         electron.ipcRenderer.removeListener('telemetry-stream', handleStream);
+        clearInterval(gitInterval);
       };
     } catch {
       // Outside Electron environment
     }
   }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const saveConv = async () => {
+      let id = currentConvId;
+      let title = 'Nouvelle conversation';
+      if (!id) {
+        id = 'conv_' + Date.now();
+        setCurrentConvId(id);
+        title = messages[0].text.substring(0, 30);
+      } else {
+        const existing = conversations.find(c => c.id === id);
+        title = existing ? existing.title : messages[0].text.substring(0, 30);
+      }
+      try {
+        const electron = (window as any).require('electron');
+        await electron.ipcRenderer.invoke('save-conversation', { id, title, messages });
+        const list = await electron.ipcRenderer.invoke('list-conversations');
+        if (list) setConversations(list);
+      } catch {}
+    };
+    saveConv();
+  }, [messages]);
+
+  const handleAddWorkspace = async () => {
+    try {
+      const electron = (window as any).require('electron');
+      const res = await electron.ipcRenderer.invoke('add-workspace');
+      if (res) setWorkspaces(res);
+    } catch {}
+  };
+
+  const handleSetActiveWorkspace = async (path: string) => {
+    try {
+      const electron = (window as any).require('electron');
+      const res = await electron.ipcRenderer.invoke('set-active-workspace', path);
+      if (res) setWorkspaces(res);
+    } catch {}
+  };
+
+  const loadConversation = async (id: string) => {
+    try {
+      const electron = (window as any).require('electron');
+      const res = await electron.ipcRenderer.invoke('load-conversation', id);
+      if (res) {
+        setCurrentConvId(res.id);
+        setMessages(res.messages || []);
+      }
+    } catch {}
+  };
+
+  const handleNewChat = () => {
+    setCurrentConvId(null);
+    setMessages([]);
+    setInputValue('');
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
@@ -177,20 +229,41 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Left Sidebar */}
       <aside className="sidebar">
         <div className="sidebar-header"><span>Griot</span></div>
         <div className="sidebar-nav">
-          <div className="nav-item active" onClick={() => { setMessages([]); setInputValue(''); }}>
+          <div className="nav-item active" onClick={handleNewChat}>
             <IconChat /> Nouveau chat
           </div>
         </div>
         <div className="sidebar-scroll">
           <div className="sidebar-section">
-            <div className="sidebar-title">Projets GitHub Locaux</div>
-            {projects.map(p => <div key={p} className="project-folder"><IconFolder /> {p}</div>)}
-            {recentTasks.map((t, idx) => (
-              <div key={idx} className="project-task" title={t} onClick={() => setInputValue(t)}>{t}</div>
+            <div className="sidebar-title">
+              WORKSPACES 
+              <div className="sidebar-title-action" onClick={handleAddWorkspace}><IconPlus /></div>
+            </div>
+            {workspaces.list.map(w => (
+              <div 
+                key={w} 
+                className={`project-folder ${w === workspaces.active ? 'active' : ''}`}
+                onClick={() => handleSetActiveWorkspace(w)}
+                title={w}
+              >
+                <IconFolder /> {w.split(/[/\\]/).pop()}
+              </div>
+            ))}
+          </div>
+          <div className="sidebar-section">
+            <div className="sidebar-title">HISTORIQUE</div>
+            {conversations.map(c => (
+              <div 
+                key={c.id} 
+                className={`conversation-item ${c.id === currentConvId ? 'active' : ''}`}
+                onClick={() => loadConversation(c.id)}
+                title={c.title}
+              >
+                <IconChat /> {c.title}
+              </div>
             ))}
           </div>
         </div>
@@ -199,10 +272,12 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Center Content */}
       <main className="main-content">
         <header className="main-header">
-          <div className="header-pill"><IconFolder /> Griot Workspace</div>
+          <div className="header-pill">
+            <IconFolder /> 
+            {workspaces.active ? workspaces.active.split(/[/\\]/).pop() : 'Griot Workspace'}
+          </div>
           <div className="header-actions">
             <div className="header-action-item"><IconShare /> Partager</div>
             <div className="header-action-item"><IconLayout /></div>
@@ -250,12 +325,12 @@ export default function App() {
                       <div className="execution-body">
                         <div className="timeline-container" style={{ maxHeight: '180px' }}>
                           {liveTelemetry.map((t, idx) => (
-                            <div key={idx} className="timeline-item">
-                              <span className="timeline-detail">
-                                {typeof t === 'string' ? t : (t.type ? `[${t.type}] ${t.content || t.action || ''}` : JSON.stringify(t))}
-                              </span>
-                            </div>
-                          ))}
+                             <div key={idx} className="timeline-item">
+                               <span className="timeline-detail">
+                                 {typeof t === 'string' ? t : (t.type ? `[${t.type}] ${t.content || t.action || ''}` : JSON.stringify(t))}
+                               </span>
+                             </div>
+                           ))}
                         </div>
                       </div>
                     </details>
@@ -269,7 +344,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Right Sidebar */}
       <aside className="right-sidebar">
         <div className="rs-section">
           <div className="rs-header">Environnement <IconPlus /></div>
