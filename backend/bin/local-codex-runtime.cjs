@@ -19,8 +19,8 @@ process.stdin.on('end', async () => {
     prompt = prompt.split('\n')[0].trim();
   }
 
-  // Frame the prompt for the small model so it knows it should answer a question
-  const framedPrompt = `System: You are a helpful AI assistant. Answer the user's request accurately and directly in the same language.\nUser: ${prompt}\nAssistant:`;
+  // Use a simple, natural language instruction instead of pseudo-roles (which conflict with API chat templates)
+  const framedPrompt = `Please act as a helpful AI assistant and answer the following question accurately:\n\n${prompt}`;
 
   process.stdout.write(encodeEvent({
     eventType: 'AGENT_PLAN_CREATED',
