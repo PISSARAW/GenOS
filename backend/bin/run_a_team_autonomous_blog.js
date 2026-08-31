@@ -46,7 +46,7 @@ async function phase1DesignTeam() {
 }
 
 // 1.5. Génération des sujets ciblés (Cascade enzymatique locale)
-async function generateTopicsForAuthor(author) {
+async function generateTopicsForAuthor(author, variantIndex) {
     console.log(`[Orchestrateur] Génération des 6 sujets pour ${author.name}...`);
     const prompt = `Tu es le rédacteur en chef de l'UDA. L'auteur ${author.name} (Style: ${author.style}) couvre : ${author.divisions.join(', ')}.
     Invente 6 titres d'articles pertinents sur des innovations en Afrique.
@@ -62,7 +62,7 @@ async function generateTopicsForAuthor(author) {
         });
     };
 
-    const plan = await withImmunity(prompt, 'high', validator, 3, 'ateam_orchestrator');
+    const plan = await withImmunity(prompt, 'high', validator, 3, 'ateam_orchestrator', null, variantIndex);
     if (plan) {
         author.articles = plan.articles;
     } else {
@@ -72,19 +72,19 @@ async function generateTopicsForAuthor(author) {
 }
 
 // 2. Le duo "Author" et "Critic" rédige l'article (Stigmergie Conceptuelle)
-async function phase2DraftAndReview(author, title) {
+async function phase2DraftAndReview(author, title, variantIndex) {
     console.log(`\n-> Rédaction en cours : "${title}" par ${author.name}...`);
     const draftPrompt = `Tu es ${author.name} (${author.style}). Écris un article de 800 mots sur : "${title}". 
     L'article doit être sourcé avec des faits réels, sans clichés d'IA. Renvoie uniquement le Markdown.`;
     
-    let draft = await askLocalLLM(draftPrompt, 'medium');
+    let draft = await askLocalLLM(draftPrompt, 'medium', 'ateam_orchestrator', variantIndex);
     if (!draft) return;
 
     console.log(`-> Peer-Review (Literary Critic) en cours...`);
     const reviewPrompt = `Voici un brouillon d'article. Enlève absolument tous les tics de langage des IA (ex: "En conclusion").
-    Garde le style de ${author.name}, rends-le percutant. Brouillon : ${draft}`;
+    Garde le style de ${author.name}, rends-le percutant. Vérifie que l'article soit très long et fourni. Brouillon : ${draft}`;
 
-    let finalArticle = await askLocalLLM(reviewPrompt, 'high');
+    let finalArticle = await askLocalLLM(reviewPrompt, 'high', 'ateam_orchestrator', variantIndex);
     return finalArticle || draft;
 }
 
@@ -102,7 +102,7 @@ function phase3SaveArticle(author, title, content) {
 }
 
 async function runAutonomousDaemon() {
-    console.log("=== DÉMARRAGE DU DAEMON A-TEAM (AVEC SYSTÈME IMMUNITAIRE) ===");
+    console.log("=== DÉMARRAGE DU DAEMON A-TEAM (AVEC SYSTÈME IMMUNITAIRE ET MUE COGNITIVE) ===");
     
     let plan = await phase1DesignTeam();
     
@@ -119,12 +119,14 @@ async function runAutonomousDaemon() {
         };
     }
 
+    let authorIndex = 0;
     for (const author of plan.authors) {
-        console.log(`\n=== ACTIVATION DU SOUS-AGENT : ${author.name} ===`);
-        await generateTopicsForAuthor(author);
+        authorIndex++;
+        console.log(`\n=== ACTIVATION DU SOUS-AGENT : ${author.name} (Mue Cognitive: Modèle N°${authorIndex}) ===`);
+        await generateTopicsForAuthor(author, authorIndex);
         
         for (const title of author.articles) {
-            const finalContent = await phase2DraftAndReview(author, title);
+            const finalContent = await phase2DraftAndReview(author, title, authorIndex);
             if (finalContent) phase3SaveArticle(author, title, finalContent);
         }
     }

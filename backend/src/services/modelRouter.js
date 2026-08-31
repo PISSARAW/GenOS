@@ -75,20 +75,27 @@ function parseSize(name) {
   return match[2].toLowerCase() === 'm' ? val * 1e6 : val * 1e9;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium' }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   const configuredCandidates = candidateModels(model, policy);
   
   let candidates = configuredCandidates;
-  if (!candidates.length) {
+  if (!candidates.length || candidates[0] === 'auto') {
     const rawModels = await localModelDiscovery.discoverLocalModels();
     const chatModels = rawModels.filter((m) => m.chatCapable);
     if (chatModels.length > 0) {
       const sorted = chatModels.sort((a, b) => (a.size || parseSize(a.model)) - (b.size || parseSize(b.model)));
       let selectedModel;
-      if (complexity === 'low') selectedModel = sorted[0];
-      else if (complexity === 'high') selectedModel = sorted[sorted.length - 1];
-      else selectedModel = sorted[Math.floor(sorted.length / 2)];
+      if (variantIndex !== undefined) {
+         // MUE COGNITIVE (Polymorphisme) : Rotation à travers les modèles disponibles
+         selectedModel = sorted[variantIndex % sorted.length];
+      } else if (complexity === 'low') {
+         selectedModel = sorted[0];
+      } else if (complexity === 'high') {
+         selectedModel = sorted[sorted.length - 1];
+      } else {
+         selectedModel = sorted[Math.floor(sorted.length / 2)];
+      }
       
       const others = sorted.filter(m => m.uri !== selectedModel.uri).map(m => m.uri);
       candidates = [selectedModel.uri, ...others];

@@ -5,9 +5,9 @@ const { generate } = require('./modelRouter.js');
  * Accessible par l'Agent, l'Orchestrateur, Griot et la A-Team.
  */
 
-async function askLocalLLM(prompt, complexity, agentId = 'griot') {
+async function askLocalLLM(prompt, complexity, agentId = 'griot', variantIndex = undefined) {
     try {
-        const res = await generate({ agentId, prompt, complexity, maxTokens: 3000 });
+        const res = await generate({ agentId, prompt, complexity, maxTokens: 3000, variantIndex });
         return res.text || res.content || res.response || String(res);
     } catch (e) {
         return null;
@@ -24,15 +24,17 @@ async function askLocalLLM(prompt, complexity, agentId = 'griot') {
  * @param {number} maxRetries Nombre d'essais avant apoptose
  * @param {string} agentId L'identité de l'agent qui fait l'appel
  * @param {any} stemCellFallback (Optionnel) Valeur de secours "Cellule Souche" retournée en cas d'Apoptose
+ * @param {number} variantIndex (Optionnel) Index pour forcer la Mue Cognitive d'un agent.
  */
-async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3, agentId = 'griot', stemCellFallback = null) {
+async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3, agentId = 'griot', stemCellFallback = null, variantIndex = undefined) {
     let currentPrompt = basePrompt;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        // PLÉIOTROPIE : Si on est au 2e essai, on pourrait signaler au routeur de changer de modèle.
-        // On passe 'pleiotropyAttempt: attempt' pour que le modelRouter puisse (à l'avenir) pivoter de Llama à Mistral.
-        console.log(`[ImmuneSystem:${agentId}] Phagocytose... Essai ${attempt}/${maxRetries} (Pléiotropie: ${attempt > 1 ? 'Active' : 'Inactive'})`);
-        const rawRes = await askLocalLLM(currentPrompt, complexity, agentId);
+        // PLÉIOTROPIE & MUE : On combine l'index de mue de l'agent et l'essai courant pour changer de modèle.
+        const currentVariant = (variantIndex !== undefined ? variantIndex : 0) + (attempt - 1);
+        
+        console.log(`[ImmuneSystem:${agentId}] Phagocytose... Essai ${attempt}/${maxRetries} (Pléiotropie/Mue: Modèle index ${currentVariant})`);
+        const rawRes = await askLocalLLM(currentPrompt, complexity, agentId, currentVariant);
         
         if (!rawRes) {
             console.log(`[Apoptose:${agentId}] Mort silencieuse (pas de réponse).`);
