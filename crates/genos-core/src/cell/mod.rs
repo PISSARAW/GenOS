@@ -10,6 +10,7 @@ pub mod vacuole;
 pub mod phagosome;
 pub mod bbb;
 pub mod sensory;
+pub mod adipocyte;
 #[cfg(test)]
 pub mod tests;
 
@@ -64,6 +65,8 @@ pub struct AgentCell {
     pub bbb: bbb::BloodBrainBarrier,
     /// Organes Sensoriels (Vision, Ouïe) pour la Multimodalité
     pub sensory_organs: sensory::SensoryOrgans,
+    /// Tissu Adipeux (Stockage des Tokens LLM et Budget USD)
+    pub adipocyte: adipocyte::Adipocyte,
 }
 
 impl Default for AgentCell {
@@ -140,6 +143,7 @@ impl Default for AgentCell {
             phagosome: phagosome::Phagosome::default(),
             bbb: bbb::BloodBrainBarrier::default(),
             sensory_organs: sensory::SensoryOrgans::default(),
+            adipocyte: adipocyte::Adipocyte::default(),
         }
     }
 }
