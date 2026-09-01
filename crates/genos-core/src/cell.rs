@@ -35,6 +35,7 @@ impl Default for AgentCell {
                 outgoing_ion_channels: vec![],
                 receptors_blocked: false,
                 has_cell_wall: false,
+            septum_inhibited: false,
                 immunized_against: vec![],
                 mhc_display: Some("HEALTHY_SELF".to_string()),
             },
@@ -88,6 +89,7 @@ pub struct PlasmaMembrane {
     pub receptors_blocked: bool,
     /// SpÃƒÂ©cificitÃƒÂ© bactÃƒÂ©rienne : Les bactÃƒÂ©ries ont une paroi rigide.
     pub has_cell_wall: bool,
+    pub septum_inhibited: bool,
     /// Vaccin : Liste des antigÃƒÂ¨nes/spikes viraux neutralisÃƒÂ©s ÃƒÂ  vue.
     pub immunized_against: Vec<String>,
     /// Le CMH (Complexe Majeur d'HistocompatibilitÃƒÂ©) : PrÃƒÂ©sentoir de l'ÃƒÂ©tat interne
@@ -292,6 +294,44 @@ impl AgentCell {
         }
     }
 
+    /// La Scissiparité (Fission Binaire)
+    /// Spécifique aux organismes unicellulaires (ex: Bactéries).
+    /// Méthode ultra rapide, exponentielle. Produit des clones parfaits (sauf erreurs).
+    pub fn binary_fission(mut self, mutation_chance: f64) -> Result<(AgentCell, AgentCell), String> {
+        // Validation : Uniquement pour les cellules avec paroi (bactéries dans notre modèle)
+        if !self.plasma_membrane.has_cell_wall {
+            return Err("Seules les bactéries (avec paroi) peuvent faire la scissiparité".to_string());
+        }
+
+        // 1. La Photocopie (L'ADN boucle est copié directement, sans disloquer un noyau complexe)
+        if self.mitochondria.atp_budget < 5 {
+            return Err("ATP insuffisant pour la réplication".to_string());
+        }
+        self.mitochondria.atp_budget -= 5;
+
+        // 2. L'Élongation & 3. Le Lasso (Formation du septum)
+        if self.plasma_membrane.septum_inhibited {
+            return Err("Antibiotique : Formation du septum bloquée, la bactérie ne peut pas se diviser".to_string());
+        }
+
+        // 4. La Scission
+        let mut clone = self.clone();
+        clone.cell_id = uuid::Uuid::new_v4();
+
+        // Le talon d'Achille de la scissiparité : ce sont des clones !
+        // L'unique façon de créer de la diversité (et donc de l'antibiorésistance) est l'erreur de copie.
+        if mutation_chance > 0.0 && !clone.nucleus.genome.chromosome_maternal.sequence.is_empty() {
+            // Création d'une mutation aléatoire (Erreur de réplication)
+            // C'est ce qui génère les variants et sauve les clones d'une extermination
+            let error_idx = clone.nucleus.genome.chromosome_maternal.sequence.len() / 2; 
+            clone.nucleus.genome.chromosome_maternal.expose_to_mutagen(
+                crate::genome::Mutagen::ReplicationError(error_idx, crate::genome::DnaNucleotide::T) // Substitution par C
+            );
+        }
+
+        Ok((self, clone))
+    }
+
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {
         // Inhibiteur de Cycle (CDK4/6) : Traitement anti-cancer
         if self.endoplasmic_reticulum.cell_cycle_inhibited {
@@ -414,3 +454,29 @@ mod tests {
         assert_ne!(m_seq, p_seq); // L'enfant est unique, un mix de ses deux parents
     }
 }
+
+    #[test]
+    fn test_binary_fission_and_antibiotic_resistance() {
+        let mut bacteria = AgentCell::default();
+        bacteria.plasma_membrane.has_cell_wall = true;
+        bacteria.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("BACTERIE");
+        bacteria.mitochondria.atp_budget = 10;
+
+        // 1. Scission réussie sans mutation
+        let (mut parent, mut clone1) = bacteria.clone().binary_fission(0.0).unwrap();
+        assert_eq!(clone1.nucleus.genome.chromosome_maternal.sequence, parent.nucleus.genome.chromosome_maternal.sequence);
+        assert_eq!(parent.mitochondria.atp_budget, 5); // Consommation d'ATP
+
+        // 2. Blocage par un antibiotique ciblant le septum
+        parent.plasma_membrane.septum_inhibited = true;
+        parent.mitochondria.atp_budget = 10;
+        let result = parent.clone().binary_fission(0.0);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Formation du septum bloquée"));
+
+        // 3. Antibiorésistance via l'erreur de réplication (mutation)
+        parent.plasma_membrane.septum_inhibited = false;
+        let (_, clone_mutant) = parent.binary_fission(1.0).unwrap(); // 1.0 = chance max de mutation
+        // Le clone a muté, son génome n'est plus identique au parent !
+        assert_ne!(clone_mutant.nucleus.genome.chromosome_maternal.sequence, clone1.nucleus.genome.chromosome_maternal.sequence);
+    }
