@@ -47,7 +47,11 @@ impl Thalamus {
                 format: "ollama".into(),
             }]);
 
-        let client = Client::builder().timeout(std::time::Duration::from_secs(3)).build().unwrap();
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(3))
+            .user_agent("curl/8.21.0")
+            .build()
+            .unwrap();
 
         let mut found_fast: Option<RouteTarget> = None;
         let mut found_logic: Option<RouteTarget> = None;
@@ -59,57 +63,65 @@ impl Thalamus {
                 req = req.header("Authorization", format!("Bearer {}", provider.key));
             }
 
-            if let Ok(res) = req.send().await {
-                if let Ok(json) = res.json::<Value>().await {
-                    let mut models_list = vec![];
+            match req.send().await {
+                Ok(res) => {
+                    match res.json::<Value>().await {
+                        Ok(json) => {
+                            let mut models_list = vec![];
 
-                    if provider.format == "ollama" {
-                        if let Some(arr) = json.get("models").and_then(|m| m.as_array()) {
-                            for m in arr {
-                                let name = m.get("name").and_then(|n| n.as_str()).unwrap_or_default();
-                                let size = m.get("details").and_then(|d| d.get("parameter_size")).and_then(|s| s.as_str()).unwrap_or_default();
-                                models_list.push((name.to_string(), size.to_string()));
+                            if provider.format == "ollama" {
+                                if let Some(arr) = json.get("models").and_then(|m| m.as_array()) {
+                                    for m in arr {
+                                        let name = m.get("name").and_then(|n| n.as_str()).unwrap_or_default();
+                                        let size = m.get("details").and_then(|d| d.get("parameter_size")).and_then(|s| s.as_str()).unwrap_or_default();
+                                        models_list.push((name.to_string(), size.to_string()));
+                                    }
+                                }
+                            } else {
+                                // format openai
+                                if let Some(arr) = json.get("data").and_then(|m| m.as_array()) {
+                                    for m in arr {
+                                        let name = m.get("id").and_then(|n| n.as_str()).unwrap_or_default();
+                                        models_list.push((name.to_string(), "".to_string()));
+                                    }
+                                } else {
+                                    println!("⚠️ [Erreur] Pas de champ 'data' dans le JSON de {}", provider.name);
+                                }
                             }
-                        }
-                    } else {
-                        // format openai
-                        if let Some(arr) = json.get("data").and_then(|m| m.as_array()) {
-                            for m in arr {
-                                let name = m.get("id").and_then(|n| n.as_str()).unwrap_or_default();
-                                models_list.push((name.to_string(), "".to_string()));
+
+                            for (name, size_str) in models_list {
+                                let name_lower = name.to_lowercase();
+                                let mut size_in_b = 8.0;
+
+                                let size_upper = size_str.to_uppercase();
+                                if size_upper.ends_with('B') {
+                                    if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v; }
+                                } else if size_upper.ends_with('M') {
+                                    if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v / 1000.0; }
+                                }
+
+                                // Cloud heuristics
+                                if name_lower.contains("gpt-4") || name_lower.contains("opus") || name_lower.contains("large") || name_lower.contains("pro") || name_lower.contains("70b") {
+                                    size_in_b = 50.0;
+                                } else if name_lower.contains("mini") || name_lower.contains("haiku") || name_lower.contains("flash") || name_lower.contains("8b") || name_lower.contains("0.5b") {
+                                    size_in_b = 3.0;
+                                }
+
+                                let target = RouteTarget {
+                                    model: name.clone(),
+                                    chat_url: provider.chat_url.clone(),
+                                    key: provider.key.clone(),
+                                };
+
+                                if size_in_b < 4.0 && found_fast.is_none() { found_fast = Some(target.clone()); }
+                                else if size_in_b >= 4.0 && size_in_b < 30.0 && found_logic.is_none() { found_logic = Some(target.clone()); }
+                                else if size_in_b >= 30.0 && found_heavy.is_none() { found_heavy = Some(target.clone()); }
                             }
-                        }
+                        },
+                        Err(e) => println!("⚠️ [Erreur] Parse JSON échoué pour {}: {}", provider.name, e),
                     }
-
-                    for (name, size_str) in models_list {
-                        let name_lower = name.to_lowercase();
-                        let mut size_in_b = 8.0;
-
-                        let size_upper = size_str.to_uppercase();
-                        if size_upper.ends_with('B') {
-                            if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v; }
-                        } else if size_upper.ends_with('M') {
-                            if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v / 1000.0; }
-                        }
-
-                        // Cloud heuristics
-                        if name_lower.contains("gpt-4") || name_lower.contains("opus") || name_lower.contains("large") || name_lower.contains("pro") || name_lower.contains("70b") {
-                            size_in_b = 50.0;
-                        } else if name_lower.contains("mini") || name_lower.contains("haiku") || name_lower.contains("flash") || name_lower.contains("8b") || name_lower.contains("0.5b") {
-                            size_in_b = 3.0;
-                        }
-
-                        let target = RouteTarget {
-                            model: name.clone(),
-                            chat_url: provider.chat_url.clone(),
-                            key: provider.key.clone(),
-                        };
-
-                        if size_in_b < 4.0 && found_fast.is_none() { found_fast = Some(target); }
-                        else if size_in_b >= 4.0 && size_in_b < 30.0 && found_logic.is_none() { found_logic = Some(target); }
-                        else if size_in_b >= 30.0 && found_heavy.is_none() { found_heavy = Some(target); }
-                    }
-                }
+                },
+                Err(e) => println!("⚠️ [Erreur] Requête échouée pour {}: {}", provider.name, e),
             }
         }
 
