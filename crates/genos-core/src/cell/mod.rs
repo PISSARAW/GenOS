@@ -20,6 +20,7 @@ pub mod neuro_symbolic;
 pub mod invariants;
 pub mod causality;
 pub mod ood_resilience;
+pub mod recurrence;
 #[cfg(test)]
 pub mod tests;
 
@@ -96,6 +97,8 @@ pub struct AgentCell {
     pub causality: causality::CausalEngine,
     /// Résilience OOD (Surprise, Construction de Niche, Fallback)
     pub ood_resilience: ood_resilience::GracefulDegradation,
+    /// Récurrence Temporelle (Boucle Phonologique, Mémoire de travail)
+    pub recurrence: recurrence::RecurrentNetwork,
 }
 
 impl Default for AgentCell {
@@ -183,6 +186,7 @@ impl Default for AgentCell {
             semantic_grounding: crate::linguistics::SemanticGrounding::default(),
             causality: causality::CausalEngine::default(),
             ood_resilience: ood_resilience::GracefulDegradation::default(),
+            recurrence: recurrence::RecurrentNetwork::default(),
         }
     }
 }
