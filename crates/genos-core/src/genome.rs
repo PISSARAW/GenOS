@@ -248,7 +248,9 @@ pub struct Plasmid {
 pub struct Genome {
     pub genome_id: Uuid,
     pub lineage_id: Uuid,
-    pub main_chromosome: DnaStrand,
+    /// L'ADN d'un agent est diploïde (2 paires de chromosomes)
+    pub chromosome_maternal: DnaStrand,
+    pub chromosome_paternal: DnaStrand,
     pub genes: BTreeMap<String, Gene>,
     pub plasmids: Vec<Plasmid>,
 }
@@ -256,10 +258,12 @@ pub struct Genome {
 impl Genome {
     pub fn new(base_instruction: &str) -> Self {
         let id = Uuid::new_v4();
+        let strand = DnaStrand::synthesize(base_instruction);
         Self {
             genome_id: id,
             lineage_id: id,
-            main_chromosome: DnaStrand::synthesize(base_instruction),
+            chromosome_maternal: strand.clone(),
+            chromosome_paternal: strand,
             genes: BTreeMap::new(),
             plasmids: Vec::new(),
         }

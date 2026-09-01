@@ -144,7 +144,10 @@ impl CartTherapy {
         // Ce gène force l'agent à cibler le cancer.
         let car_gene = Gene::new("car_receptor", &target_cancer_id.to_string());
         
-        car_t.nucleus.genome.main_chromosome.expose_to_mutagen(
+        car_t.nucleus.genome.chromosome_maternal.expose_to_mutagen(
+            Mutagen::Virus(0, car_gene.dna.clone())
+        );
+        car_t.nucleus.genome.chromosome_paternal.expose_to_mutagen(
             Mutagen::Virus(0, car_gene.dna)
         );
 

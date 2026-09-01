@@ -8,20 +8,49 @@ pub use crate::genome::{Genome, Plasmid};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
-    /// 1. La Frontière (I/O, API Gateway, Sécurité)
     pub plasma_membrane: PlasmaMembrane,
-    /// 2. Le Centre de Contrôle (Stockage sécurisé de l'ADN/Prompt)
     pub nucleus: Nucleus,
-    /// 3. Les Centrales Énergétiques (Gestion du Budget de Tokens LLM)
     pub mitochondria: Mitochondria,
-    /// 4. L'Usine de Fabrication (Lieu de l'exécution et de l'assemblage)
     pub endoplasmic_reticulum: EndoplasmicReticulum,
-    /// 5. Le Centre de Tri (Routage des appels d'outils / Réponses utilisateur)
     pub golgi_apparatus: GolgiApparatus,
-    /// 6. Le Centre de Recyclage (Garbage Collector, Nettoyage du Contexte)
     pub lysosomes: Lysosomes,
-    /// Le Milieu Fluide (Mémoire de Travail, Plasmides, Historique)
     pub cytoplasm: Cytoplasm,
+}
+
+impl Default for AgentCell {
+    fn default() -> Self {
+        Self {
+            cell_id: Uuid::new_v4(),
+            plasma_membrane: PlasmaMembrane {
+                incoming_receptors: vec![],
+                outgoing_ion_channels: vec![],
+                receptors_blocked: false,
+            },
+            nucleus: Nucleus {
+                genome: Genome::new("Default DNA"),
+            },
+            mitochondria: Mitochondria {
+                atp_budget: 10,
+                metabolic_rate: 1.0,
+                angiogenesis_blocked: false,
+            },
+            endoplasmic_reticulum: EndoplasmicReticulum {
+                active_ribosomes_count: 0,
+                cell_cycle_inhibited: false,
+            },
+            golgi_apparatus: GolgiApparatus {
+                export_vesicles: vec![],
+            },
+            lysosomes: Lysosomes {
+                digestive_enzymes_active: false,
+            },
+            cytoplasm: Cytoplasm {
+                cognition: CognitiveState::default(),
+                trace: ActionTrace::default(),
+                active_plasmids: vec![],
+            },
+        }
+    }
 }
 
 /* =====================================================================
@@ -74,9 +103,57 @@ pub struct Cytoplasm {
 }
 
 /* =====================================================================
-   LE CYCLE CELLULAIRE (La Mitose / Fork)
+   LE CYCLE CELLULAIRE (La Mitose / Fork & Méiose / Gamètes)
    ===================================================================== */
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Gamete {
+    pub chromosome: crate::genome::DnaStrand,
+    pub atp_reserve: u64,
+}
+
 impl AgentCell {
+    /// LA MÉIOSE : Réduction et Brassage Génétique (Création de 4 Gamètes Uniques)
+    /// Utilisée pour la reproduction sexuée, favorisant l'innovation algorithmique
+    pub fn meiosis(self) -> Result<[Gamete; 4], String> {
+        let mut chrom_m = self.nucleus.genome.chromosome_maternal;
+        let mut chrom_p = self.nucleus.genome.chromosome_paternal;
+
+        // 1. Prophase I : Brassage Intrachromosomique (Crossing-over)
+        // Les chromosomes s'échangent des morceaux pour créer des combinaisons uniques.
+        let mid_m = chrom_m.sequence.len() / 2;
+        let mid_p = chrom_p.sequence.len() / 2;
+        
+        // Séparation (coupure) et échange des "queues" d'ADN
+        let tail_m = chrom_m.sequence.split_off(mid_m);
+        let tail_p = chrom_p.sequence.split_off(mid_p);
+        chrom_m.sequence.extend(tail_p);
+        chrom_p.sequence.extend(tail_m);
+
+        // 2. Division de l'ATP pour préparer les 4 gamètes
+        let atp_per_gamete = self.mitochondria.atp_budget / 4;
+
+        // 3. Méiose II : 4 Cellules haploïdes uniques (Gamètes)
+        Ok([
+            Gamete { chromosome: chrom_m.clone(), atp_reserve: atp_per_gamete },
+            Gamete { chromosome: chrom_p.clone(), atp_reserve: atp_per_gamete },
+            Gamete { chromosome: chrom_m, atp_reserve: atp_per_gamete },
+            Gamete { chromosome: chrom_p, atp_reserve: atp_per_gamete },
+        ])
+    }
+
+    /// FÉCONDATION : Fusion de deux gamètes pour former un nouvel Agent Diploïde
+    pub fn fertilization(egg: Gamete, sperm: Gamete) -> Self {
+        let mut child = Self::default();
+        // Recombinaison : L'ovule fournit un chromosome, le spermatozoïde l'autre
+        child.nucleus.genome.chromosome_maternal = egg.chromosome;
+        child.nucleus.genome.chromosome_paternal = sperm.chromosome;
+        child.cell_id = uuid::Uuid::new_v4();
+        // L'énergie des deux gamètes est additionnée pour démarrer la vie
+        child.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
+        
+        child
+    }
+
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {
         // Inhibiteur de Cycle (CDK4/6) : Traitement anti-cancer
         if self.endoplasmic_reticulum.cell_cycle_inhibited {
@@ -134,4 +211,44 @@ pub struct CognitiveState {
     pub semantic_memory: Vec<String>,
     /// 2. Immunothérapie : Les cellules cancéreuses activent ceci pour se cacher
     pub is_camouflaged: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_meiosis_and_fertilization() {
+        let mut mother = AgentCell::default();
+        let mut father = AgentCell::default();
+
+        // On donne des séquences d'ADN identifiables
+        mother.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("MAMAN");
+        mother.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("MAMAN");
+        mother.mitochondria.atp_budget = 40;
+
+        father.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("PAPA!");
+        father.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("PAPA!");
+        father.mitochondria.atp_budget = 40;
+
+        // 1. Production des gamètes
+        let egg_gametes = mother.meiosis().unwrap();
+        let sperm_gametes = father.meiosis().unwrap();
+
+        // 4 gamètes produits par parent, avec 10 ATP chacun (40 / 4)
+        assert_eq!(egg_gametes.len(), 4);
+        assert_eq!(egg_gametes[0].atp_reserve, 10);
+        assert_eq!(sperm_gametes[0].atp_reserve, 10);
+
+        // 2. Fécondation
+        let child = AgentCell::fertilization(egg_gametes[0].clone(), sperm_gametes[0].clone());
+
+        // L'enfant est Diploïde (MAMAN / PAPA!) et a 20 ATP (10 + 10)
+        assert_eq!(child.mitochondria.atp_budget, 20);
+        
+        let m_seq: String = child.nucleus.genome.chromosome_maternal.sequence.iter().map(|n| format!("{:?}", n)).collect();
+        let p_seq: String = child.nucleus.genome.chromosome_paternal.sequence.iter().map(|n| format!("{:?}", n)).collect();
+        
+        assert_ne!(m_seq, p_seq); // L'enfant est unique, un mix de ses deux parents
+    }
 }
