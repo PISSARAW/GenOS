@@ -92,15 +92,33 @@ impl Thalamus {
 
     pub fn route(&self, memory: &[ChatMessage]) -> String {
         let total_length: usize = memory.iter().map(|m| m.content.len()).sum();
-        let requires_logic = memory.iter().any(|m| {
+        
+        // Base de données des récepteurs sensoriels (Domaines nécessitant un raisonnement profond)
+        let advanced_domains = [
+            // Informatique & Code
+            "code", "logic", "fn ", "bug", "algo", "rust", "python", "sql", "cyber", "script", "api", "json",
+            // Mathématiques
+            "math", "calcul", "équation", "equation", "intégrale", "dérivée", "algèbre", "théorème", "matrice", "vecteur", "statistique", "probabilité",
+            // Physique & Ingénierie
+            "physique", "mécanique", "quantique", "thermodynamique", "relativité", "ingénierie", "électromagnétisme", "gravité", "astrophysique",
+            // Chimie & Biologie
+            "chimie", "molécule", "atome", "biologie", "génétique", "adn", "protéine", "cellule", "virus", "évolution", "neuroscience",
+            // Médecine & Santé
+            "médecine", "symptôme", "diagnostic", "maladie", "anatomie", "pharmacologie", "chirurgie",
+            // Droit, Économie & Géopolitique
+            "droit", "loi", "juridique", "constitution", "finance", "économie", "bourse", "inflation", "géopolitique",
+            // Philosophie & Sciences Analytiques
+            "philosophie", "éthique", "épistémologie", "ontologie", "psychologie", "sociologie"
+        ];
+
+        let requires_advanced_reasoning = memory.iter().any(|m| {
             let txt = m.content.to_lowercase();
-            txt.contains("code") || txt.contains("logic") || txt.contains("fn ") || txt.contains("bug") ||
-            txt.contains("math") || txt.contains("calcul") || txt.contains("équation") || txt.contains("equation") || txt.contains("intégrale")
+            advanced_domains.iter().any(|&domain| txt.contains(domain))
         });
         
         if total_length > 8000 {
             self.routes.get("heavy").cloned().unwrap_or_default()
-        } else if requires_logic {
+        } else if requires_advanced_reasoning {
             self.routes.get("logic").cloned().unwrap_or_default()
         } else {
             self.routes.get("fast").cloned().unwrap_or_default()
