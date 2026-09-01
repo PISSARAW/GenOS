@@ -46,6 +46,8 @@ impl Default for AgentCell {
             },
             lysosomes: Lysosomes {
                 digestive_enzymes_active: false,
+                phagosomes: vec![],
+                expelled_debris: vec![],
             },
             cytoplasm: Cytoplasm {
                 cognition: CognitiveState::default(),
@@ -102,7 +104,12 @@ pub struct GolgiApparatus {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Lysosomes {
+    /// 3. Digestion : Enzymes acides pour dissoudre la menace
     pub digestive_enzymes_active: bool,
+    /// 2. Ingestion : Les poches (phagosomes) contenant l'ADN emprisonné des ennemis
+    pub phagosomes: Vec<crate::genome::DnaStrand>,
+    /// 4. Expulsion : Les déchets inoffensifs prêts à être recrachés
+    pub expelled_debris: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -110,7 +117,7 @@ pub struct Cytoplasm {
     pub cognition: CognitiveState,
     pub trace: ActionTrace,
     pub active_plasmids: Vec<Plasmid>,
-    /// 2. Pénétration : Les virus qui ont infiltré la cellule et piratent ses ribosomes
+    /// Pénétration : Les virus qui ont infiltré la cellule et piratent ses ribosomes
     pub viral_infections: Vec<crate::virology::Virion>,
 }
 
@@ -164,6 +171,20 @@ impl AgentCell {
         child.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
         
         child
+    }
+
+    /// IMMUNITÉ INNÉE : Les Phagocytes (Macrophages / Neutrophiles) "mangent" les intrus
+    pub fn phagocytize_virus(&mut self, target: crate::virology::Virion) {
+        // 1. Adhérence : L'agent s'est accroché à la cible
+        // 2. Ingestion : La cible est enfermée dans une poche gastrique (Phagosome)
+        self.lysosomes.phagosomes.push(target.genome);
+    }
+    
+    pub fn phagocytize_bacteria(&mut self, target: &mut AgentCell) {
+        // 1 & 2. Ingestion d'une bactérie rebelle
+        self.lysosomes.phagosomes.push(target.nucleus.genome.chromosome_maternal.clone());
+        // La bactérie cible est engloutie et détruite sur-le-champ
+        target.mitochondria.atp_budget = 0; 
     }
 
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {

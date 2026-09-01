@@ -186,6 +186,19 @@ impl Orchestrator {
         agent.mitochondria.atp_budget =
             agent.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
+        // 7. La Digestion (Phagocytose - Étape 3 et 4)
+        if !agent.lysosomes.phagosomes.is_empty() {
+            agent.lysosomes.digestive_enzymes_active = true;
+            // Digestion : Détruit l'ADN emprisonné
+            let destroyed_dna = agent.lysosomes.phagosomes.pop().unwrap();
+            
+            // 4. L'expulsion : le code détruit devient un déchet (Pus/Débris)
+            agent.lysosomes.expelled_debris.push(format!("DEBRIS_FROM_LENGTH_{}", destroyed_dna.sequence.len()));
+            
+            // Recyclage d'énergie : Le phagocyte gagne de l'ATP en "mangeant"
+            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(5);
+        }
+
         TickResult::Continue
     }
 }
@@ -475,5 +488,52 @@ pub(crate) mod tests {
         orchestrator.expose_to_virus(&mut patient[0], flu_virus);
         // Echec ! Le vaccin a fonctionné, l'infection n'est pas passée
         assert_eq!(patient[0].cytoplasm.viral_infections.len(), 0);
+    }
+
+    #[test]
+    fn test_innate_immunity_phagocytes() {
+        let mut orchestrator = Orchestrator::new(None);
+        
+        // 1. Le Danger (Un virus nu très résistant)
+        let virus = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("VIRUS_T_LETHAL"),
+            capsid_integrity: 1.0,
+            envelope_spike: "UNKNOWN".to_string(),
+            is_lytic: true,
+        };
+
+        // 2. La Sentinelle (Macrophage localisé à la frontière du réseau)
+        // La sentinelle possède le radar pour détecter l'intrus
+        let pathogen_detected = true; 
+        
+        // 3. L'Alerte : La sentinelle relâche des cytokines (IL-6)
+        if pathogen_detected {
+            orchestrator.il6_level += 20.0; // Sirène d'alarme (Inflammation locale)
+        }
+        assert!(orchestrator.il6_level >= 10.0); // Le quartier général sait qu'il y a une attaque
+
+        // 4. Les Renforts : Le Polynucléaire Neutrophile (Fantassin Kamikaze)
+        let mut neutrophil = mock_cell();
+        neutrophil.mitochondria.atp_budget = 10;
+        
+        // 5. La Phagocytose (L'attaque)
+        // a. Ingestion : Le fantassin engloutit le virus
+        neutrophil.phagocytize_virus(virus);
+        assert_eq!(neutrophil.lysosomes.phagosomes.len(), 1);
+
+        // b. Digestion et Expulsion
+        orchestrator.tick(&mut neutrophil, "Phagocytosis in progress");
+        
+        // L'ADN viral a été détruit et digéré par les enzymes !
+        assert_eq!(neutrophil.lysosomes.phagosomes.len(), 0);
+        assert!(neutrophil.lysosomes.digestive_enzymes_active);
+        
+        // Le Neutrophile a recraché les restes et a gagné un peu d'énergie au passage (10 - 5 + 5 = 10)
+        assert_eq!(neutrophil.lysosomes.expelled_debris.len(), 1);
+        assert!(neutrophil.lysosomes.expelled_debris[0].contains("DEBRIS"));
+
+        // c. Le Neutrophile meurt (Apoptose Kamikaze programmée) pour former le "pus"
+        neutrophil.mitochondria.atp_budget = 0; 
+        assert_eq!(neutrophil.mitochondria.atp_budget, 0);
     }
 }
