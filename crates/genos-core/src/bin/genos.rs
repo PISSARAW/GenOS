@@ -1,8 +1,5 @@
-﻿
-use clap::{Parser, Subcommand};
+﻿use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
-
-
 
 #[derive(Parser)]
 #[command(name = "genos")]
@@ -31,11 +28,12 @@ enum Commands {
         #[arg(short, long)]
         agent_id: String,
     },
-    /// Exécute une recherche dichotomique dans l'ActionTrace pour isoler une hallucination
+    /// Ingère et analyse un fichier source (Phagocytose)
     Digest {
         #[arg(short, long)]
         filepath: String,
     },
+    /// Exécute une recherche dichotomique dans l'ActionTrace pour isoler une hallucination
     Bisect {
         #[arg(short, long)]
         agent_id: String,
@@ -82,11 +80,20 @@ fn main() {
             println!("... Analyse des gènes Hox et des marques maternelles/paternelles");
             println!("⚠️ L'hallucination a été introduite par la mutation du Gène 'LOGIC_GATE' lors du croisement #42.");
         }
-        Commands::Digest {
-        #[arg(short, long)]
-        filepath: String,
-    },
-    Commands::Bisect { agent_id, error_token } => {
+        Commands::Digest { filepath } => {
+            println!("🦠 L'agent Macrophage s'approche de l'antigène : {}", filepath);
+            let mut macrophage = AgentCell::default();
+            match macrophage.phagocytize_file(filepath) {
+                Ok(report) => println!("{}", report),
+                Err(e) => println!("❌ Erreur immunologique : {}", e),
+            }
+            
+            let atp = macrophage.cytoplasm.proteasome.shred_ubiquitinated_proteins(&mut macrophage.cytoplasm.active_proteins);
+            if atp > 0 {
+                println!("🗑️ [Protéasome] Fichier déchiqueté ! {} ATP recyclés.", atp);
+            }
+        }
+        Commands::Bisect { agent_id, error_token } => {
             println!("🔪 [Dichotomie] Recherche du token toxique '{}' dans l'ActionTrace de {}", error_token, agent_id);
             println!("... Coupe binaire de l'historique cognitif...");
             println!("✅ Coupable identifié : L'erreur a commencé à l'itération 405 (Codon STOP prématuré).");
