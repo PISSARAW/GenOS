@@ -88,6 +88,8 @@ pub struct AgentCell {
     pub neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge,
     /// Cœur Invariant (Sécurité Sous-Corticale, Homéostasie, Réflexes)
     pub invariant_core: invariants::InvariantCore,
+    /// Organe Linguistique (Ancrage Sémantique, Anti-Cryptophasie)
+    pub semantic_grounding: crate::linguistics::SemanticGrounding,
 }
 
 impl Default for AgentCell {
@@ -172,6 +174,7 @@ impl Default for AgentCell {
             sparse_cortex: sparse_cortex::SparseCortex::default(),
             neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge::default(),
             invariant_core: invariants::InvariantCore::default(),
+            semantic_grounding: crate::linguistics::SemanticGrounding::default(),
         }
     }
 }
