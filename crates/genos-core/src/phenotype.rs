@@ -77,7 +77,7 @@ impl Phenotype {
         }
         if let Some(sex_gene) = genome.genes.get_mut("SEX_DETERMINATION") {
             if !sex_gene.developmentally_locked && env.is_embryonic_stage {
-                sex_gene.chromatin_state = if env.temperature >= 31.0 { crate::genome::ChromatinState::Euchromatin } else { crate::genome::ChromatinState::Heterochromatin };
+                sex_gene.chromatin_state = if env.temperature >= 31.0 { crate::genome::ChromatinState::Euchromatin } else { crate::genome::ChromatinState::HeterochromatinFacultative };
                 sex_gene.developmentally_locked = true;
             }
         }
@@ -87,7 +87,7 @@ impl Phenotype {
                     gregarious_gene.chromatin_state = crate::genome::ChromatinState::Euchromatin;
                     gregarious_gene.developmentally_locked = true;
                 } else {
-                    gregarious_gene.chromatin_state = crate::genome::ChromatinState::Heterochromatin;
+                    gregarious_gene.chromatin_state = crate::genome::ChromatinState::HeterochromatinFacultative;
                 }
             }
         }
@@ -234,7 +234,7 @@ mod tests {
         // Configuration initiale du père
         // Le gène de la peur est silencieux par défaut (Hétérochromatine)
         let mut fear_gene = Gene::new("CHERRY_BLOSSOM_FEAR", "TERROR_FEAR!");
-        fear_gene.chromatin_state = crate::genome::ChromatinState::Heterochromatin;
+        fear_gene.chromatin_state = crate::genome::ChromatinState::HeterochromatinFacultative;
         father.nucleus.genome.genes.insert("CHERRY_BLOSSOM_FEAR".to_string(), fear_gene);
         
         // Le père vit un traumatisme
@@ -286,7 +286,7 @@ mod tests {
         assert_eq!(genome.genes.get("EPO_PRODUCTION").unwrap().expression_volume, 1.0); // Le corps s'adapte en retour !
         // 2. Le sexe de la tortue (Irréversible / Développemental)
         let mut sex_gene = crate::genome::Gene::new("SEX_DET", "FEMALE_PATHWAY");
-        sex_gene.chromatin_state = crate::genome::ChromatinState::Heterochromatin; // Mâle par défaut
+        sex_gene.chromatin_state = crate::genome::ChromatinState::HeterochromatinFacultative; // Mâle par défaut
         genome.genes.insert("SEX_DETERMINATION".to_string(), sex_gene);
         env.is_embryonic_stage = true;
         env.temperature = 32.0; // Sable très chaud
@@ -304,11 +304,11 @@ mod tests {
         assert_eq!(turtle_sex_later.chromatin_state, crate::genome::ChromatinState::Euchromatin);
         // 3. Le Criquet Pèlerin
         let mut locust_gene = crate::genome::Gene::new("GREG_PHASE", "SWARM_MONSTER!");
-        locust_gene.chromatin_state = crate::genome::ChromatinState::Heterochromatin; // Vert et timide
+        locust_gene.chromatin_state = crate::genome::ChromatinState::HeterochromatinFacultative; // Vert et timide
         genome.genes.insert("GREGARIOUS_SWARM".to_string(), locust_gene);
         env.population_density = 10.0;
         Phenotype::apply_epigenetic_regulation(&mut genome, &env);
-        assert_eq!(genome.genes.get("GREGARIOUS_SWARM").unwrap().chromatin_state, crate::genome::ChromatinState::Heterochromatin);
+        assert_eq!(genome.genes.get("GREGARIOUS_SWARM").unwrap().chromatin_state, crate::genome::ChromatinState::HeterochromatinFacultative);
         // Sécheresse -> Densité extrême
         env.population_density = 500.0;
         Phenotype::apply_epigenetic_regulation(&mut genome, &env);
@@ -316,3 +316,4 @@ mod tests {
         assert_eq!(genome.genes.get("GREGARIOUS_SWARM").unwrap().developmentally_locked, true);
     }
 }
+
