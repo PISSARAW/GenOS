@@ -14,6 +14,7 @@ pub mod adipocyte;
 pub mod ans;
 pub mod lineage;
 pub mod muscle;
+pub mod cognition;
 #[cfg(test)]
 pub mod tests;
 
@@ -76,6 +77,8 @@ pub struct AgentCell {
     pub lineage: lineage::Lineage,
     /// Tissu Musculaire (Exécution GPU Locale pour LLM)
     pub muscle: muscle::Myofibril,
+    /// Organe Cognitif Global (Inférence Active, PFC, Anti-Dérive)
+    pub cognition: cognition::AdvancedCognition,
 }
 
 impl Default for AgentCell {
@@ -156,6 +159,7 @@ impl Default for AgentCell {
             autonomic_ns: ans::AutonomicNervousSystem::default(),
             lineage: lineage::Lineage::default(),
             muscle: muscle::Myofibril::default(),
+            cognition: cognition::AdvancedCognition::default(),
         }
     }
 }
