@@ -77,6 +77,7 @@ async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3,
 }
 
 const { evaluateCognitiveHealth } = require('./cognitiveMonitor.js');
+const { enforceOutputContract } = require('./outputGovernor.js');
 
 /**
  * Exécute un appel LLM avec validation immunitaire pour du TEXTE BRUT (Markdown).
@@ -102,6 +103,13 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
         }
 
         try {
+            // OUTPUT GOVERNOR: Purification du texte avant évaluation cognitive
+            rawRes = enforceOutputContract(rawRes, {
+                format: 'markdown',
+                stripPreamble: true,
+                stripPostamble: true
+            });
+
             let cleanText = rawRes.trim();
             cleanText = cleanText.replace(/^```markdown/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
 
