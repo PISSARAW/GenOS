@@ -8,6 +8,7 @@ pub mod cilia;
 pub mod vagus_nerve;
 pub mod vacuole;
 pub mod phagosome;
+pub mod bbb;
 #[cfg(test)]
 pub mod tests;
 
@@ -58,6 +59,8 @@ pub struct AgentCell {
     pub vacuole: vacuole::Vacuole,
     /// Isolat Wasm pour l'exécution sécurisée des plugins
     pub phagosome: phagosome::Phagosome,
+    /// Barrière Hémato-Encéphalique (Human-In-The-Loop)
+    pub bbb: bbb::BloodBrainBarrier,
 }
 
 impl Default for AgentCell {
@@ -132,6 +135,7 @@ impl Default for AgentCell {
             cilia: cilia::Cilia::default(),
             vacuole: vacuole::Vacuole::default(),
             phagosome: phagosome::Phagosome::default(),
+            bbb: bbb::BloodBrainBarrier::default(),
         }
     }
 }
