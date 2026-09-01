@@ -102,9 +102,19 @@ pub struct EndoplasmicReticulum {
 /* =====================================================================
    ANTICORPS (Immunité Humorale)
    ===================================================================== */
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum IgClass {
+    IgG, // Vétérans : Neutralisation classique et Système du Complément
+    IgA, // Frontières : Bloque l'entrée aux muqueuses
+    IgM, // Pentamère (Étoile) : Champion de l'Agglutination
+    IgE, // Spécialiste : Parasites et Allergies (Choc anaphylactique)
+    IgD, // Récepteur de surface (Antenne)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Antibody {
     pub target_antigen: String,
+    pub ig_class: IgClass,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -205,13 +215,14 @@ impl AgentCell {
     }
 
     /// IMMUNITÉ ADAPTATIVE : Différenciation des Lymphocytes B en Plasmocytes
-    pub fn differentiate_into_plasmocyte(&mut self, target_spike: &str) {
+    pub fn differentiate_into_plasmocyte(&mut self, target_spike: &str, ig_class: IgClass) {
         // Le cytoplasme et l'usine (ER) gonflent pour une production massive
         self.endoplasmic_reticulum.active_ribosomes_count = 1_000_000;
         // Production immédiate et massive d'anticorps dans le Golgi
         for _ in 0..2000 {
             self.golgi_apparatus.produced_antibodies.push(Antibody {
                 target_antigen: target_spike.to_string(),
+                ig_class: ig_class.clone(),
             });
         }
     }

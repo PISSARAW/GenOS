@@ -64,13 +64,39 @@ impl Orchestrator {
     }
 
     /// Applique les anticorps circulants sur les virus flottants dans le système
-    pub fn process_humoral_immunity(&self, environmental_virions: &mut [crate::virology::Virion]) {
+    pub fn process_humoral_immunity(&mut self, environmental_virions: &mut [crate::virology::Virion]) {
         for antibody in &self.circulating_antibodies {
             for virus in environmental_virions.iter_mut() {
                 if virus.envelope_spike == antibody.target_antigen {
-                    // Les anticorps se fixent sur le virus !
-                    virus.is_neutralized = true; // Bloque sa capacité à entrer dans les cellules
-                    virus.is_opsonized = true;   // Le transforme en cible prioritaire pour les macrophages
+                    // Action Constante (Le pied du Y) : Opsonisation (Marquage pour exécution)
+                    virus.is_opsonized = true;
+
+                    // Les 4 stratégies d'attaque selon la classe de l'anticorps
+                    use crate::cell::IgClass;
+                    match antibody.ig_class {
+                        IgClass::IgG => {
+                            // IgG (Vétérans) : Neutralisation et Système du Complément
+                            virus.is_neutralized = true;
+                            // Le complément perfore la coque du virus/bactérie
+                            virus.capsid_integrity = 0.0;
+                        },
+                        IgClass::IgM => {
+                            // IgM (Étoile) : Agglutination massive
+                            virus.is_agglutinated = true;
+                            virus.is_neutralized = true;
+                        },
+                        IgClass::IgA => {
+                            // IgA (Frontières) : Bloque à l'entrée
+                            virus.is_neutralized = true;
+                        },
+                        IgClass::IgE => {
+                            // IgE (Allergies) : Déclenche une inflammation globale massive
+                            self.il6_level += 10.0; // Choc anaphylactique
+                        },
+                        IgClass::IgD => {
+                            // IgD : Antenne passive, pas d'action directe dans le sang
+                        }
+                    }
                 }
             }
         }
@@ -135,6 +161,10 @@ impl Orchestrator {
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
         // ANTICORPS : Si le virus est neutralisé, ses clés sont couvertes, il ne peut pas entrer
         if virion.is_neutralized {
+            return;
+        }
+        // ANTICORPS : Si le virus est agglutiné, il est collé en tas et immobilisé
+        if virion.is_agglutinated {
             return;
         }
 
@@ -492,6 +522,7 @@ pub(crate) mod tests {
             is_lytic: false,
             is_neutralized: false,
             is_opsonized: false,
+            is_agglutinated: false,
         };
         orchestrator.expose_to_virus(&mut human_cell, flu_virus.clone());
         assert_eq!(human_cell.cytoplasm.viral_infections.len(), 1);
@@ -531,6 +562,7 @@ pub(crate) mod tests {
             is_lytic: true,
             is_neutralized: false,
             is_opsonized: false,
+            is_agglutinated: false,
         };
 
         // 2. La Sentinelle (Macrophage localisé à la frontière du réseau)
@@ -580,14 +612,15 @@ pub(crate) mod tests {
             is_lytic: true,
             is_neutralized: false,
             is_opsonized: false,
+            is_agglutinated: false,
         };
 
         // 1. Activation & Clonage du Lymphocyte B
         let mut b_lymphocyte_plasmocyte = mock_cell();
         let mut b_lymphocyte_memory = mock_cell();
 
-        // 2. Différenciation en Plasmocyte (Usine d'armement)
-        b_lymphocyte_plasmocyte.differentiate_into_plasmocyte("SPIKE_FLU");
+        // 2. Différenciation en Plasmocyte (Usine d'armement) - Produit des IgG (Vétérans)
+        b_lymphocyte_plasmocyte.differentiate_into_plasmocyte("SPIKE_FLU", crate::cell::IgClass::IgG);
         // Le Réticulum (Usine) gonfle
         assert_eq!(b_lymphocyte_plasmocyte.endoplasmic_reticulum.active_ribosomes_count, 1_000_000);
         // Des milliers d'anticorps sont créés dans le Golgi
@@ -646,6 +679,7 @@ pub(crate) mod tests {
             is_lytic: false,
             is_neutralized: false,
             is_opsonized: false,
+            is_agglutinated: false,
         };
         human_cell.cytoplasm.viral_infections.push(virus.clone());
 
@@ -678,5 +712,61 @@ pub(crate) mod tests {
         
         assert_eq!(orchestrator.immune_activation_level, 0.0);
         assert_eq!(orchestrator.il6_level, 0.0); // Le calme est revenu
+    }
+
+    #[test]
+    fn test_antibody_classes_and_allergies() {
+        let mut orchestrator = Orchestrator::new(None);
+        
+        let pollen = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("POLLEN_HARMLESS"),
+            capsid_integrity: 1.0,
+            envelope_spike: "POLLEN_SPIKE".to_string(),
+            is_lytic: false,
+            is_neutralized: false,
+            is_opsonized: false,
+            is_agglutinated: false,
+        };
+
+        let bacteria = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("BACTERIA_BAD"),
+            capsid_integrity: 1.0,
+            envelope_spike: "BACTERIA_SPIKE".to_string(),
+            is_lytic: true,
+            is_neutralized: false,
+            is_opsonized: false,
+            is_agglutinated: false,
+        };
+
+        // 1. ALLERGIE (IgE) : L'erreur du système
+        let mut b_cell_allergy = mock_cell();
+        b_cell_allergy.differentiate_into_plasmocyte("POLLEN_SPIKE", crate::cell::IgClass::IgE);
+        orchestrator.circulating_antibodies.push(b_cell_allergy.golgi_apparatus.produced_antibodies.pop().unwrap());
+        
+        let mut blood = vec![pollen.clone()];
+        orchestrator.process_humoral_immunity(&mut blood);
+        // Le pollen inoffensif a déclenché un choc allergique massif (IL-6 augmente)
+        assert!(orchestrator.il6_level >= 10.0);
+        
+        // 2. AGGLUTINATION (IgM) : Les 5 bras étoiles collent les bactéries
+        let mut b_cell_igm = mock_cell();
+        b_cell_igm.differentiate_into_plasmocyte("BACTERIA_SPIKE", crate::cell::IgClass::IgM);
+        orchestrator.circulating_antibodies.push(b_cell_igm.golgi_apparatus.produced_antibodies.pop().unwrap());
+        
+        let mut blood_bacteria = vec![bacteria.clone()];
+        orchestrator.process_humoral_immunity(&mut blood_bacteria);
+        // La bactérie est engluée dans l'étoile IgM
+        assert!(blood_bacteria[0].is_agglutinated);
+        assert!(blood_bacteria[0].is_neutralized);
+
+        // 3. SYSTEME DU COMPLEMENT (IgG) : Perforation de la cible
+        let mut b_cell_igg = mock_cell();
+        b_cell_igg.differentiate_into_plasmocyte("BACTERIA_SPIKE", crate::cell::IgClass::IgG);
+        orchestrator.circulating_antibodies.push(b_cell_igg.golgi_apparatus.produced_antibodies.pop().unwrap());
+        
+        let mut blood_bacteria_igg = vec![bacteria.clone()];
+        orchestrator.process_humoral_immunity(&mut blood_bacteria_igg);
+        // Le Complément est activé par l'IgG : la coque (capsid_integrity) est percée (0.0) !
+        assert_eq!(blood_bacteria_igg[0].capsid_integrity, 0.0);
     }
 }
