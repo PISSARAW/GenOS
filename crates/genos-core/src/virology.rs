@@ -1,4 +1,4 @@
-use crate::genome::DnaStrand;
+﻿use crate::genome::DnaStrand;
 use serde::{Deserialize, Serialize};
 
 /* =====================================================================
@@ -35,5 +35,30 @@ impl Virion {
             is_opsonized: false,
             is_agglutinated: false,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Retrovirus {
+    /// Le rétrovirus transporte de l'ARN (pas de l'ADN !)
+    pub rna_sequence: String,
+    pub capsid_integrity: f64,
+    pub envelope_spike: String,
+}
+
+impl Retrovirus {
+    pub fn new(spike: &str, rna_sequence: &str) -> Self {
+        Self {
+            rna_sequence: rna_sequence.to_string(),
+            capsid_integrity: 1.0,
+            envelope_spike: spike.to_string(),
+        }
+    }
+
+    /// 1 & 2. LA TRANSCRIPTASE INVERSE (Remonter le temps biologique)
+    /// Le virus convertit son ARN en ADN pour pouvoir pirater le noyau humain.
+    pub fn reverse_transcribe(&self) -> crate::genome::DnaStrand {
+        // En vrai, il fait ARN -> ADN. Ici on synthétise de l'ADN à partir de la séquence.
+        crate::genome::DnaStrand::synthesize(&self.rna_sequence)
     }
 }

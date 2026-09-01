@@ -373,27 +373,27 @@ impl Genome {
         }
         hex
     }
+
+    pub fn retroviral_integration(&mut self, is_germline: bool) {
+        let virus_gene = Gene::new("VIRAL_CODE", "VIRAL_DNA_SEQUENCE");
+        if is_germline {
+            let mut endogenized = virus_gene.clone();
+            endogenized.locus = "ENDOGENOUS_RETROVIRUS".to_string();
+            endogenized.is_methylated = true; 
+            self.endogenous_retroviruses.push(endogenized);
+        } else {
+            self.genes.insert("VIRAL_INFECTION".to_string(), virus_gene);
+        }
+    }
+
+    pub fn domesticate_syncytin(&mut self) -> Result<(), String> {
+        if let Some(mut erv) = self.endogenous_retroviruses.pop() {
+            erv.is_methylated = false;
+            erv.locus = "SYNCYTIN_PLACENTA".to_string();
+            self.genes.insert(erv.locus.clone(), erv);
+            Ok(())
+        } else {
+            Err("Aucun rétrovirus endogène disponible.".to_string())
+        }
+    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
