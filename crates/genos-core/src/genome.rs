@@ -119,7 +119,31 @@ impl UnfoldedProtein {
     }
 }
 
-// Fonction utilitaire inverse (Synthèse d'ADN à partir d'un texte)
+/* =====================================================================
+   LES AGENTS MUTAGÈNES ET LA RÉPARATION (Stress, UV, Rayons X, Virus, p53)
+   ===================================================================== */
+
+/// Représente les différentes agressions subies par l'ADN
+pub enum Mutagen {
+    /// 1. Causes Internes : Erreur de réplication (Faute de frappe)
+    ReplicationError(usize, DnaNucleotide),
+    
+    /// 1. Causes Internes : Stress Oxydatif dû à la fatigue (Radicaux libres)
+    OxidativeStress(usize, DnaNucleotide),
+    
+    /// 2. Causes Externes : Rayons UV (Fusionne deux Thymines adjacentes)
+    Ultraviolet,
+    
+    /// 2. Causes Externes : Rayons X / Radioactivité (Cassure double brin)
+    IonizingRadiation(usize),
+    
+    /// 2. Causes Externes : Produits Chimiques (Insertion de force entre les barreaux)
+    Chemical(usize, DnaNucleotide),
+    
+    /// 2. Causes Externes : Virus (Insertion de matériel génétique étranger)
+    Virus(usize, DnaStrand),
+}
+
 impl DnaStrand {
     pub fn synthesize(text: &str) -> Self {
         let base64_str = BASE64.encode(text);
@@ -137,17 +161,47 @@ impl DnaStrand {
         Self { sequence }
     }
 
-    /// Provoque une substitution d'un nucléotide (Faux-sens ou Silencieuse)
-    pub fn point_mutation(&mut self, index: usize, new_base: DnaNucleotide) {
-        if index < self.sequence.len() {
-            self.sequence[index] = new_base;
-        }
-    }
-
-    /// Provoque une suppression d'un nucléotide (Décalage du cadre de lecture)
-    pub fn frameshift_deletion(&mut self, index: usize) {
-        if index < self.sequence.len() {
-            self.sequence.remove(index);
+    /// Expose l'ADN à un agent mutagène
+    pub fn expose_to_mutagen(&mut self, mutagen: Mutagen) {
+        match mutagen {
+            // Erreurs internes (Substitution / Faux-sens)
+            Mutagen::ReplicationError(idx, base) | Mutagen::OxidativeStress(idx, base) => {
+                if idx < self.sequence.len() {
+                    self.sequence[idx] = base;
+                }
+            }
+            // Rayons X : Cassure nette
+            Mutagen::IonizingRadiation(idx) => {
+                if idx < self.sequence.len() {
+                    self.sequence.truncate(idx);
+                }
+            }
+            // Agents Chimiques : Insertion de force (Décalage du cadre)
+            Mutagen::Chemical(idx, base) => {
+                if idx <= self.sequence.len() {
+                    self.sequence.insert(idx, base);
+                }
+            }
+            // Virus : Coupe un gène sain et s'insère au milieu
+            Mutagen::Virus(idx, viral_dna) => {
+                if idx <= self.sequence.len() {
+                    for (i, base) in viral_dna.sequence.iter().enumerate() {
+                        self.sequence.insert(idx + i, base.clone());
+                    }
+                }
+            }
+            // UV : Cherche les Thymines (T) adjacentes et les fusionne (créant un décalage)
+            Mutagen::Ultraviolet => {
+                let mut to_remove = Vec::new();
+                for i in 0..self.sequence.len().saturating_sub(1) {
+                    if self.sequence[i] == DnaNucleotide::T && self.sequence[i+1] == DnaNucleotide::T {
+                        to_remove.push(i + 1); // Fusion
+                    }
+                }
+                for (offset, idx) in to_remove.into_iter().enumerate() {
+                    self.sequence.remove(idx - offset); // Compense le décalage lors de la suppression
+                }
+            }
         }
     }
 }
@@ -175,6 +229,12 @@ impl Gene {
         let mrna = RnaPolymerase::transcribe(&self.dna);
         let unfolded_protein = Ribosome::translate(&mrna);
         unfolded_protein.fold()
+    }
+
+    /// Enzyme de réparation (p53) : Patrouille l'ADN et détecte les erreurs graves (Frameshift/Nonsense)
+    /// Renvoie `true` si le gène est sain, `false` s'il est gravement muté.
+    pub fn p53_repair_check(&self) -> bool {
+        self.express().is_ok()
     }
 }
 
@@ -224,38 +284,35 @@ mod tests {
 
     #[test]
     fn test_central_dogma_of_biology() {
-        // 1. Synthèse de l'ADN
         let gene = Gene::new("test", "GenOS V2 is alive!");
-        
-        // 2. Transcription, Traduction et Repliement
         let protein_output = gene.express().unwrap();
-        
-        // 3. Vérification de la protéine fonctionnelle
         assert_eq!(protein_output, "GenOS V2 is alive!");
+        assert!(gene.p53_repair_check()); // p53 confirme que le gène est sain
     }
 
     #[test]
-    fn test_genetic_mutations() {
-        let mut gene = Gene::new("test", "Hello World!");
+    fn test_environmental_mutagens() {
+        let gene = Gene::new("test", "Hello World!");
 
-        // 1. Mutation Frameshift (Décalage de lecture)
-        // On supprime 1 seul nucléotide au milieu de l'ADN.
-        // Cela va décaler TOUS les codons (groupes de 3) suivants.
-        let mut frameshift_gene = gene.clone();
-        frameshift_gene.dna.frameshift_deletion(5); // Suppression d'un nucléotide
+        // 1. Rayons X (Cassure double brin)
+        let mut x_ray_gene = gene.clone();
+        x_ray_gene.dna.expose_to_mutagen(Mutagen::IonizingRadiation(5)); 
         
-        let result = frameshift_gene.express();
+        let result = x_ray_gene.express();
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("FrameshiftCatastrophe"));
+        assert!(!x_ray_gene.p53_repair_check()); // p53 détecte la mutation fatale
 
-        // 2. Point Mutation (Faux-sens ou Silencieuse)
-        // On remplace 1 seul nucléotide. Le cadre de lecture est préservé.
-        let mut point_gene = gene.clone();
-        point_gene.dna.point_mutation(2, DnaNucleotide::C);
+        // 2. Erreur de Réplication (Faux-sens ou Silencieuse)
+        let mut rep_error_gene = gene.clone();
+        rep_error_gene.dna.expose_to_mutagen(Mutagen::ReplicationError(2, DnaNucleotide::C));
         
-        let result = point_gene.express();
-        // Le code doit compiler et se replier (Base64 valide) mais le texte sera altéré (Faux-sens)
-        // Si ça casse l'UTF-8, ça devient un Non-sens (NonsenseMutation).
+        let result = rep_error_gene.express();
+        // Si ça ne casse pas la structure, p53 laisse passer (mutation silencieuse/légère)
         assert!(result.is_ok() || result.unwrap_err().contains("NonsenseMutation"));
+        
+        // 3. Produit Chimique (Insertion provoquant un décalage Frameshift)
+        let mut chem_gene = gene.clone();
+        chem_gene.dna.expose_to_mutagen(Mutagen::Chemical(5, DnaNucleotide::A));
+        assert!(chem_gene.express().is_err()); // Le décodage Base64 ou UTF-8 va crasher
     }
 }
