@@ -18,6 +18,7 @@ pub mod cognition;
 pub mod sparse_cortex;
 pub mod neuro_symbolic;
 pub mod invariants;
+pub mod causality;
 #[cfg(test)]
 pub mod tests;
 
@@ -90,6 +91,8 @@ pub struct AgentCell {
     pub invariant_core: invariants::InvariantCore,
     /// Organe Linguistique (Ancrage Sémantique, Anti-Cryptophasie)
     pub semantic_grounding: crate::linguistics::SemanticGrounding,
+    /// Moteur Causal (do(X), Copie d'efférence, Simulation Contrefactuelle)
+    pub causality: causality::CausalEngine,
 }
 
 impl Default for AgentCell {
@@ -175,6 +178,7 @@ impl Default for AgentCell {
             neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge::default(),
             invariant_core: invariants::InvariantCore::default(),
             semantic_grounding: crate::linguistics::SemanticGrounding::default(),
+            causality: causality::CausalEngine::default(),
         }
     }
 }
