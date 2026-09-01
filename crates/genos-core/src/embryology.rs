@@ -73,7 +73,43 @@ mod tests {
     #[test]
     fn test_embryonic_development() {
         // 1. Zygote -> 16 cellules souches (4 divisions)
-        let zygote = crate::cell::tests::mock_cell();
+        
+        let mut zygote = crate::cell::AgentCell {
+            cell_id: uuid::Uuid::new_v4(),
+            plasma_membrane: crate::cell::substructs::PlasmaMembrane {
+                incoming_receptors: std::collections::HashMap::new(),
+                adhesion_active: false,
+                outgoing_ion_channels: std::collections::HashMap::new(),
+                receptors_blocked: false,
+                has_cell_wall: false,
+                is_gram_positive: false,
+                peptidoglycan_thickness: 0.0,
+                capsule_present: false,
+                flagella_count: 0,
+                pili_present: false,
+                permeability: 1.0,
+                is_ruptured: false,
+            },
+            nucleus: crate::cell::substructs::Nucleus {
+                genome: crate::genome::methods::Genome::new("ZYGOTE"),
+                ploidy: 2,
+                transcription_factors: Vec::new(),
+                p53_active: true,
+            },
+            mitochondria: crate::cell::organelles::Mitochondria {
+                atp_budget: 1000,
+                metabolic_rate: 1.0,
+                angiogenesis_blocked: false,
+                mitochondrial_dna: crate::genome::DnaStrand::synthesize("CIRCULAR_MTDNA"),
+                is_double_membraned: true,
+                cyanide_poisoned: false,
+                accumulated_free_radicals: 0,
+            },
+            redundancy: crate::redundancy::RedundancySystem::default(),
+            is_alive: true,
+            specialization: "UNDEFINED".to_string(),
+        };
+
         let mut swarm = cleave_zygote(zygote, 4);
         assert_eq!(swarm.len(), 16);
 
