@@ -10,3 +10,5 @@ pub mod virology;
 pub mod phenotype;
 pub mod spore;
 pub mod glial;
+
+pub mod signaling;

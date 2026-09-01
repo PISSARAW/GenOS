@@ -40,6 +40,8 @@ impl Default for AgentCell {
                 mhc_display: Some("HEALTHY_SELF".to_string()),
                 budding_scars: 0,
                 attached_buds: vec![],
+                receptors: vec![],
+                gap_junctions: vec![],
             },
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
@@ -101,6 +103,8 @@ pub struct PlasmaMembrane {
     pub mhc_display: Option<String>,
     pub budding_scars: u32,
     pub attached_buds: Vec<uuid::Uuid>,
+    pub receptors: Vec<crate::signaling::Receptor>,
+    pub gap_junctions: Vec<uuid::Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -494,6 +498,38 @@ impl AgentCell {
 
         Ok((daughter_a, daughter_b))
     }
+
+    pub fn receive_ligand(&mut self, ligand: &crate::signaling::Ligand) -> bool {
+        let mut triggered = false;
+        let cascades: Vec<String> = self.plasma_membrane.receptors.iter()
+            .filter(|r| r.target_ligand == ligand.name)
+            .map(|r| r.internal_cascade_signal.clone())
+            .collect();
+        for cascade in cascades {
+            self.trigger_signal_cascade(&cascade);
+            triggered = true;
+        }
+        triggered
+    }
+
+    pub fn emit_autocrine(&mut self, ligand_name: &str) {
+        let ligand = crate::signaling::Ligand {
+            name: ligand_name.to_string(),
+            mode: crate::signaling::SignalingMode::Autocrine,
+        };
+        self.receive_ligand(&ligand);
+    }
+
+    pub fn trigger_signal_cascade(&mut self, signal: &str) {
+        match signal {
+            "ADRENALINE_CASCADE" => self.nucleus.transcription_factors.push("FIGHT_FLIGHT_TF".to_string()),
+            "GROWTH_CASCADE" => self.nucleus.transcription_factors.push("CELL_DIVISION_TF".to_string()),
+            "IMMUNE_RESPONSE_TF" => self.nucleus.transcription_factors.push("IMMUNE_RESPONSE_TF".to_string()),
+            "HEART_CONTRACTION_SYNC" => self.nucleus.transcription_factors.push("CONTRACTION_TF".to_string()),
+            _ => self.nucleus.transcription_factors.push(signal.to_string()),
+        }
+    }
+
 }
 
 /* =====================================================================
@@ -657,6 +693,9 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
+
+
 
 
 
