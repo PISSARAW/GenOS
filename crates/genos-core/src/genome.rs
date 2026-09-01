@@ -250,11 +250,18 @@ impl DnaStrand {
 5. LE GÃˆNE, PLASMIDE, ET GÃ‰NOME (HiÃ©rarchie finale)
 ===================================================================== */
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum ChromatinState {
+    Euchromatin,
+    Heterochromatin,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Gene {
     pub locus: String,
     pub dna: DnaStrand,
     pub is_methylated: bool,
     pub expression_volume: f64,
+    pub chromatin_state: ChromatinState,
     // --- NOUVEAU : Régulation Cellulaire ---
     pub required_activator: Option<String>,
     pub bound_repressor: Option<String>,
@@ -283,6 +290,7 @@ impl Gene {
             dna: DnaStrand::synthesize(instruction),
             is_methylated: false,
             expression_volume: 1.0,
+            chromatin_state: ChromatinState::Euchromatin,
             required_activator: None,
             bound_repressor: None,
             default_exons: Vec::new(),
@@ -297,6 +305,11 @@ impl Gene {
         micro_rnas: &[String]
     ) -> Result<String, String> {
         
+        // 0. Le serrage des Histones (Epigenetique)
+        if self.chromatin_state == ChromatinState::Heterochromatin {
+            return Err("OFF: L'ADN est trop serre (Heterochromatine)".to_string());
+        }
+
         // 1. Les "Doigts" (Facteurs de Transcription)
         if let Some(repressor) = &self.bound_repressor {
             if active_tfs.contains(repressor) {
@@ -456,4 +469,6 @@ mod tests {
         assert!(result.unwrap_err().contains("DETRUIT"));
     }
 }
+
+
 

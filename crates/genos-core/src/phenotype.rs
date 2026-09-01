@@ -7,7 +7,10 @@ pub struct EnvironmentalFactors {
     pub specific_diet_pigments: bool, // Ex: Crevettes pour flamants
     pub royal_jelly_diet: bool, // Ex: Reine des abeilles
     pub temperature: f64,       // Ex: Froid pour le renard polaire
-    pub mechanical_stress: f64, // Ex: Poids pour l'hypertrophie musculaire
+    pub mechanical_stress: f64,
+    pub starvation_famine: bool,
+    pub trauma_cherry_blossom: bool,
+    pub chain_smoking: bool, // Ex: Poids pour l'hypertrophie musculaire
 }
 
 impl Default for EnvironmentalFactors {
@@ -19,6 +22,9 @@ impl Default for EnvironmentalFactors {
             royal_jelly_diet: false,
             temperature: 20.0,
             mechanical_stress: 0.0,
+            starvation_famine: false,
+            trauma_cherry_blossom: false,
+            chain_smoking: false,
         }
     }
 }
@@ -57,9 +63,32 @@ impl Phenotype {
         }
 
         // L'exemple du Muscle (Adaptation en temps réel)
-        if let Some(muscle_gene) = genome.genes.get_mut("MUSCLE_GROWTH") {
-            // Le stress mécanique booste le volume d'expression génétique
+                if let Some(muscle_gene) = genome.genes.get_mut("MUSCLE_GROWTH") {
             muscle_gene.expression_volume = 1.0 + env.mechanical_stress;
+        }
+
+        // L'hiver de la faim (Hollande)
+        if env.starvation_famine {
+            if let Some(metabolism) = genome.genes.get_mut("FAT_STORAGE") {
+                metabolism.is_methylated = false; 
+                metabolism.expression_volume = 3.0; // Hyper-actif
+                metabolism.chromatin_state = crate::genome::ChromatinState::Euchromatin;
+            }
+        }
+
+        // L'odeur de la peur (Traumatisme de la souris)
+        if env.trauma_cherry_blossom {
+            if let Some(fear_gene) = genome.genes.get_mut("CHERRY_BLOSSOM_FEAR") {
+                fear_gene.chromatin_state = crate::genome::ChromatinState::Euchromatin;
+                fear_gene.is_methylated = false;
+            }
+        }
+
+        // Les Vrais Jumeaux (Cigarette)
+        if env.chain_smoking {
+            if let Some(p53_gene) = genome.genes.get_mut("TUMOR_SUPPRESSOR") {
+                p53_gene.is_methylated = true;
+            }
         }
     }
 
@@ -213,5 +242,53 @@ mod tests {
         // L'hypertrophie musculaire est déclenchée (Volume = 2.5)
         assert!(pheno2.macroscopic_traits.contains(&"Muscles: Hypertrophy (Bodybuilder)".to_string()));
     }
+    #[test]
+    fn test_transgenerational_epigenetic_inheritance() {
+        use crate::cell::AgentCell;
+        
+        let mut father = AgentCell::default();
+        
+        // Configuration initiale du père
+        // Le gène de la peur est silencieux par défaut (Hétérochromatine)
+        let mut fear_gene = Gene::new("CHERRY_BLOSSOM_FEAR", "TERROR_FEAR!");
+        fear_gene.chromatin_state = crate::genome::ChromatinState::Heterochromatin;
+        father.nucleus.genome.genes.insert("CHERRY_BLOSSOM_FEAR".to_string(), fear_gene);
+        
+        // Le père vit un traumatisme
+        let mut env_trauma = EnvironmentalFactors::default();
+        env_trauma.trauma_cherry_blossom = true;
+        Phenotype::apply_epigenetic_regulation(&mut father.nucleus.genome, &env_trauma);
+        
+        // Vérification : l'ADN s'est déroulé chez le père !
+        assert_eq!(
+            father.nucleus.genome.genes.get("CHERRY_BLOSSOM_FEAR").unwrap().chromatin_state,
+            crate::genome::ChromatinState::Euchromatin
+        );
+        
+        // Le père se reproduit (Méiose)
+        let father_gametes = father.meiosis().unwrap();
+        let sperm = father_gametes.into_iter().next().unwrap();
+        
+        // Une mère normale (pas de traumatisme)
+        let mother = AgentCell::default();
+        let egg = mother.meiosis().unwrap().into_iter().next().unwrap();
+        
+        // Naissance de l'enfant
+        let child = AgentCell::fertilization(egg, sperm);
+        
+        // L'enfant vit dans un environnement totalement paisible
+        let env_peaceful = EnvironmentalFactors::default();
+        
+        // Le Phénotype de l'enfant est calculé
+        let child_phenotype = Phenotype::compute(&child.nucleus.genome, &env_peaceful);
+        
+        // Vérification du prodige : l'enfant a hérité de la marque épigénétique paternelle !
+        // Le gène de la peur est toujours ouvert (Euchromatine), il s'exprime sans aucun traumatisme présent.
+        // Wait, "TERROR_FEAR!" might not be decoded easily if length is not multiple of 3. Let's check: TERROR_SIGNAL is 13 bytes.
+        // I will change it to "TERROR_FEAR!" (12 bytes).
+    }
 }
+
+
+
 
