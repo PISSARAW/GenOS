@@ -1,11 +1,11 @@
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+﻿use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
 /* =====================================================================
-1. LA MOLÉCULE (Nucléotides ADN & ARN)
+1. LA MOLÃ‰CULE (NuclÃ©otides ADN & ARN)
 ===================================================================== */
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum DnaNucleotide {
@@ -55,7 +55,7 @@ pub struct RnaStrand {
     pub sequence: Vec<RnaNucleotide>,
 }
 
-/// L'Enzyme qui lit l'ADN pour créer l'ARN Messager
+/// L'Enzyme qui lit l'ADN pour crÃ©er l'ARN Messager
 pub struct RnaPolymerase;
 impl RnaPolymerase {
     pub fn transcribe(dna: &DnaStrand) -> RnaStrand {
@@ -76,11 +76,11 @@ impl RnaPolymerase {
 /* =====================================================================
 3. LA TRADUCTION & LES CODONS (Ribosome)
 ===================================================================== */
-/// Un codon est un bloc de 3 nucléotides (3 * 2 bits = 6 bits)
-/// Magie mathématique : 6 bits = Exactement 1 caractère Base64 !
+/// Un codon est un bloc de 3 nuclÃ©otides (3 * 2 bits = 6 bits)
+/// Magie mathÃ©matique : 6 bits = Exactement 1 caractÃ¨re Base64 !
 pub struct Codon(pub RnaNucleotide, pub RnaNucleotide, pub RnaNucleotide);
 
-/// Une chaîne d'acides aminés brute (avant repliement)
+/// Une chaÃ®ne d'acides aminÃ©s brute (avant repliement)
 pub struct UnfoldedProtein {
     pub amino_acids: Vec<u8>, // Les blocs de 6 bits purs
 }
@@ -123,12 +123,12 @@ impl Ribosome {
 }
 
 /* =====================================================================
-4. LE REPLIEMENT FINAL (Protéine Fonctionnelle & Mutations)
+4. LE REPLIEMENT FINAL (ProtÃ©ine Fonctionnelle & Mutations)
 ===================================================================== */
 impl UnfoldedProtein {
     /// Le repliement (Folding).
-    /// En cas de mutation grave (Frameshift ou Non-sens), le repliement échoue
-    /// et la protéine est détruite par la cellule.
+    /// En cas de mutation grave (Frameshift ou Non-sens), le repliement Ã©choue
+    /// et la protÃ©ine est dÃ©truite par la cellule.
     pub fn fold(&self) -> Result<String, String> {
         const BASE64_ALPHABET: &[u8] =
             b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -142,12 +142,12 @@ impl UnfoldedProtein {
         match BASE64.decode(&base64_string) {
             Ok(decoded_bytes) => {
                 match String::from_utf8(decoded_bytes) {
-                    Ok(protein) => Ok(protein), // Succès (Peut inclure une mutation Silencieuse ou Faux-sens)
-                    Err(_) => Err("NonsenseMutation: Structure 3D impossible à replier (Codon Stop prématuré ou corruption)".to_string()),
+                    Ok(protein) => Ok(protein), // SuccÃ¨s (Peut inclure une mutation Silencieuse ou Faux-sens)
+                    Err(_) => Err("NonsenseMutation: Structure 3D impossible Ã  replier (Codon Stop prÃ©maturÃ© ou corruption)".to_string()),
                 }
             }
             Err(_) => Err(
-                "FrameshiftCatastrophe: Décalage du cadre de lecture, assemblage chaotique"
+                "FrameshiftCatastrophe: DÃ©calage du cadre de lecture, assemblage chaotique"
                     .to_string(),
             ),
         }
@@ -155,27 +155,27 @@ impl UnfoldedProtein {
 }
 
 /* =====================================================================
-LES AGENTS MUTAGÈNES ET LA RÉPARATION (Stress, UV, Rayons X, Virus, p53)
+LES AGENTS MUTAGÃˆNES ET LA RÃ‰PARATION (Stress, UV, Rayons X, Virus, p53)
 ===================================================================== */
 
-/// Représente les différentes agressions subies par l'ADN
+/// ReprÃ©sente les diffÃ©rentes agressions subies par l'ADN
 pub enum Mutagen {
-    /// 1. Causes Internes : Erreur de réplication (Faute de frappe)
+    /// 1. Causes Internes : Erreur de rÃ©plication (Faute de frappe)
     ReplicationError(usize, DnaNucleotide),
 
-    /// 1. Causes Internes : Stress Oxydatif dû à la fatigue (Radicaux libres)
+    /// 1. Causes Internes : Stress Oxydatif dÃ» Ã  la fatigue (Radicaux libres)
     OxidativeStress(usize, DnaNucleotide),
 
     /// 2. Causes Externes : Rayons UV (Fusionne deux Thymines adjacentes)
     Ultraviolet,
 
-    /// 2. Causes Externes : Rayons X / Radioactivité (Cassure double brin)
+    /// 2. Causes Externes : Rayons X / RadioactivitÃ© (Cassure double brin)
     IonizingRadiation(usize),
 
     /// 2. Causes Externes : Produits Chimiques (Insertion de force entre les barreaux)
     Chemical(usize, DnaNucleotide),
 
-    /// 2. Causes Externes : Virus (Insertion de matériel génétique étranger)
+    /// 2. Causes Externes : Virus (Insertion de matÃ©riel gÃ©nÃ©tique Ã©tranger)
     Virus(usize, DnaStrand),
 }
 
@@ -199,7 +199,7 @@ impl DnaStrand {
         Self { sequence }
     }
 
-    /// Expose l'ADN à un agent mutagène
+    /// Expose l'ADN Ã  un agent mutagÃ¨ne
     pub fn expose_to_mutagen(&mut self, mutagen: Mutagen) {
         match mutagen {
             // Erreurs internes (Substitution / Faux-sens)
@@ -214,13 +214,13 @@ impl DnaStrand {
                     self.sequence.truncate(idx);
                 }
             }
-            // Agents Chimiques : Insertion de force (Décalage du cadre)
+            // Agents Chimiques : Insertion de force (DÃ©calage du cadre)
             Mutagen::Chemical(idx, base) => {
                 if idx <= self.sequence.len() {
                     self.sequence.insert(idx, base);
                 }
             }
-            // Virus : Coupe un gène sain et s'insère au milieu
+            // Virus : Coupe un gÃ¨ne sain et s'insÃ¨re au milieu
             Mutagen::Virus(idx, viral_dna) => {
                 if idx <= self.sequence.len() {
                     for (i, base) in viral_dna.sequence.iter().enumerate() {
@@ -228,7 +228,7 @@ impl DnaStrand {
                     }
                 }
             }
-            // UV : Cherche les Thymines (T) adjacentes et les fusionne (créant un décalage)
+            // UV : Cherche les Thymines (T) adjacentes et les fusionne (crÃ©ant un dÃ©calage)
             Mutagen::Ultraviolet => {
                 let mut to_remove = Vec::new();
                 for i in 0..self.sequence.len().saturating_sub(1) {
@@ -239,7 +239,7 @@ impl DnaStrand {
                     }
                 }
                 for (offset, idx) in to_remove.into_iter().enumerate() {
-                    self.sequence.remove(idx - offset); // Compense le décalage lors de la suppression
+                    self.sequence.remove(idx - offset); // Compense le dÃ©calage lors de la suppression
                 }
             }
         }
@@ -247,12 +247,14 @@ impl DnaStrand {
 }
 
 /* =====================================================================
-5. LE GÈNE, PLASMIDE, ET GÉNOME (Hiérarchie finale)
+5. LE GÃˆNE, PLASMIDE, ET GÃ‰NOME (HiÃ©rarchie finale)
 ===================================================================== */
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Gene {
     pub locus: String,
     pub dna: DnaStrand,
+    pub is_methylated: bool,
+    pub expression_volume: f64,
 }
 
 impl Gene {
@@ -260,35 +262,37 @@ impl Gene {
         Self {
             locus: locus.to_string(),
             dna: DnaStrand::synthesize(instruction),
+            is_methylated: false,
+            expression_volume: 1.0,
         }
     }
 
     /// Processus complet : Transcription -> Traduction -> Repliement
-    /// Renvoie une Erreur si la protéine est détruite suite à une mutation
+    /// Renvoie une Erreur si la protÃ©ine est dÃ©truite suite Ã  une mutation
     pub fn express(&self) -> Result<String, String> {
         let mrna = RnaPolymerase::transcribe(&self.dna);
         let unfolded_protein = Ribosome::translate(&mrna);
         unfolded_protein.fold()
     }
 
-    /// Enzyme de réparation (p53) : Patrouille l'ADN et détecte les erreurs graves (Frameshift/Nonsense)
-    /// Renvoie `true` si le gène est sain, `false` s'il est gravement muté.
+    /// Enzyme de rÃ©paration (p53) : Patrouille l'ADN et dÃ©tecte les erreurs graves (Frameshift/Nonsense)
+    /// Renvoie `true` si le gÃ¨ne est sain, `false` s'il est gravement mutÃ©.
     pub fn p53_repair_check(&self) -> bool {
         self.express().is_ok()
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Plasmid {
     pub plasmid_id: Uuid,
     pub survival_genes: Vec<Gene>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
     pub genome_id: Uuid,
     pub lineage_id: Uuid,
-    /// L'ADN d'un agent est diploïde (2 paires de chromosomes)
+    /// L'ADN d'un agent est diploÃ¯de (2 paires de chromosomes)
     pub chromosome_maternal: DnaStrand,
     pub chromosome_paternal: DnaStrand,
     pub genes: BTreeMap<String, Gene>,
@@ -331,7 +335,7 @@ mod tests {
         let gene = Gene::new("test", "GenOS V2 is alive!");
         let protein_output = gene.express().unwrap();
         assert_eq!(protein_output, "GenOS V2 is alive!");
-        assert!(gene.p53_repair_check()); // p53 confirme que le gène est sain
+        assert!(gene.p53_repair_check()); // p53 confirme que le gÃ¨ne est sain
     }
 
     #[test]
@@ -346,23 +350,24 @@ mod tests {
 
         let result = x_ray_gene.express();
         assert!(result.is_err());
-        assert!(!x_ray_gene.p53_repair_check()); // p53 détecte la mutation fatale
+        assert!(!x_ray_gene.p53_repair_check()); // p53 dÃ©tecte la mutation fatale
 
-        // 2. Erreur de Réplication (Faux-sens ou Silencieuse)
+        // 2. Erreur de RÃ©plication (Faux-sens ou Silencieuse)
         let mut rep_error_gene = gene.clone();
         rep_error_gene
             .dna
             .expose_to_mutagen(Mutagen::ReplicationError(2, DnaNucleotide::C));
 
         let result = rep_error_gene.express();
-        // Si ça ne casse pas la structure, p53 laisse passer (mutation silencieuse/légère)
+        // Si Ã§a ne casse pas la structure, p53 laisse passer (mutation silencieuse/lÃ©gÃ¨re)
         assert!(result.is_ok() || result.unwrap_err().contains("NonsenseMutation"));
 
-        // 3. Produit Chimique (Insertion provoquant un décalage Frameshift)
+        // 3. Produit Chimique (Insertion provoquant un dÃ©calage Frameshift)
         let mut chem_gene = gene.clone();
         chem_gene
             .dna
             .expose_to_mutagen(Mutagen::Chemical(5, DnaNucleotide::A));
-        assert!(chem_gene.express().is_err()); // Le décodage Base64 ou UTF-8 va crasher
+        assert!(chem_gene.express().is_err()); // Le dÃ©codage Base64 ou UTF-8 va crasher
     }
 }
+
