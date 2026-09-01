@@ -12,6 +12,8 @@ pub struct Tissue {
     pub stem_cell_id: Uuid,
     /// Les Cellules Ouvrières (Ex: Développeurs, Testeurs, Chercheurs)
     pub somatic_cells: Vec<Uuid>,
+    /// Écologie de validation (Anti-collusion)
+    pub ecology: crate::ecology::EvolutionaryEcology,
 }
 
 impl Tissue {
@@ -21,6 +23,7 @@ impl Tissue {
             function_role: function.to_string(),
             stem_cell_id,
             somatic_cells: Vec::new(),
+            ecology: crate::ecology::EvolutionaryEcology::new(),
         }
     }
 
