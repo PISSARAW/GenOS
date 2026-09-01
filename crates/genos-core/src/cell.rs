@@ -345,6 +345,41 @@ impl AgentCell {
     /// L'Endomitose (Endoréduplication)
     /// Le "piratage" de la mitose : la cellule réplique son ADN sans se diviser physiquement.
     /// Transforme la cellule en méga-usine (ex: Hépatocytes, Mégacaryocytes, Trophoblastes).
+    /// La Sporulation Reproductive (L'essaim fongique)
+    /// Le champignon mise sur la quantité : crée des millions de spores légères pour la dispersion par le vent.
+    pub fn fungal_sporulation(&mut self) -> Result<Vec<crate::spore::Spore>, String> {
+        if self.mitochondria.atp_budget < 50 {
+            return Err("ATP insuffisant pour fabriquer l'essaim de spores".to_string());
+        }
+        self.mitochondria.atp_budget -= 50;
+
+        let mut swarm = Vec::new();
+        // Simulation d'une libération massive (100 spores modélisées)
+        for _ in 0..100 {
+            swarm.push(crate::spore::Spore {
+                spore_type: crate::spore::SporeType::FungalReproductive,
+                genome: self.nucleus.genome.clone(),
+                bunker_armor: 0, // Légère et sans réserve d'énergie
+            });
+        }
+        Ok(swarm)
+    }
+
+    /// L'Endosporulation de Survie (Le bunker de l'apocalypse Bactérien)
+    /// La bactérie enferme son ADN dans un coffre-fort indestructible et sacrifie son corps.
+    pub fn bacterial_endosporulation(self) -> Result<crate::spore::Spore, String> {
+        if !self.plasma_membrane.has_cell_wall {
+            return Err("Seules les bactéries peuvent s'enfermer dans une endospore".to_string());
+        }
+        
+        // La bactérie mère meurt (self est consommé) et libère la stase cryogénique absolue.
+        Ok(crate::spore::Spore {
+            spore_type: crate::spore::SporeType::BacterialEndospore,
+            genome: self.nucleus.genome,
+            bunker_armor: 9999, // Armure maximale : vide spatial, UV, ébullition
+        })
+    }
+
     pub fn endomitosis(&mut self) -> Result<(), String> {
         let cost = (10 * (self.nucleus.ploidy / 2)) as u64; // Le coût augmente avec la taille de l'ADN à copier
         if self.mitochondria.atp_budget < cost {
@@ -618,4 +653,5 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
 
