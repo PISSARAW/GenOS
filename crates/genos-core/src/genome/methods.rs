@@ -42,6 +42,36 @@ impl DnaStrand {
         Ok(())
     }
 
+    pub fn chromosomal_deletion(&mut self, start: usize, length: usize) {
+        if start + length <= self.sequence.len() {
+            self.sequence.drain(start..start + length);
+        }
+    }
+
+    pub fn chromosomal_duplication(&mut self, start: usize, length: usize, insert_at: usize) {
+        if start + length <= self.sequence.len() && insert_at <= self.sequence.len() {
+            let chunk = self.sequence[start..start + length].to_vec();
+            let mut tail = self.sequence.split_off(insert_at);
+            self.sequence.extend(chunk);
+            self.sequence.extend(tail);
+        }
+    }
+
+    pub fn chromosomal_inversion(&mut self, start: usize, length: usize) {
+        if start + length <= self.sequence.len() {
+            self.sequence[start..start + length].reverse();
+        }
+    }
+
+    pub fn chromosomal_translocation(&mut self, other_chromosome: &mut DnaStrand, start: usize, length: usize, insert_at: usize) {
+        if start + length <= self.sequence.len() && insert_at <= other_chromosome.sequence.len() {
+            let chunk = self.sequence.drain(start..start + length).collect::<Vec<_>>();
+            let mut tail = other_chromosome.sequence.split_off(insert_at);
+            other_chromosome.sequence.extend(chunk);
+            other_chromosome.sequence.extend(tail);
+        }
+    }
+
     pub fn synthesize(text: &str) -> Self {
         let base64_str = BASE64.encode(text);
         let mut sequence = Vec::new();
@@ -228,6 +258,8 @@ pub struct Genome {
     pub plasmids: Vec<Plasmid>,
     pub endogenous_retroviruses: Vec<Gene>,
     pub regulatory_enhancers: Vec<String>,
+    pub extra_chromosomes: Vec<DnaStrand>,
+    pub missing_chromosomes: usize,
 }
 
 
@@ -245,11 +277,49 @@ impl Genome {
             plasmids: Vec::new(),
             endogenous_retroviruses: Vec::new(),
             regulatory_enhancers: Vec::new(),
+            extra_chromosomes: Vec::new(),
+            missing_chromosomes: 0,
         }
     }
 
     pub fn insert_gene(&mut self, gene: Gene) {
         self.genes.insert(gene.locus.clone(), gene);
+    }
+
+    pub fn repair_double_strand_break(&mut self, is_maternal_broken: bool, start: usize, length: usize) {
+        let brca_functional = self.genes.get("BRCA").map_or(false, |g| g.p53_repair_check());
+
+        if brca_functional {
+            // RECOMBINAISON HOMOLOGUE (Copie parfaite depuis le jumeau)
+            // Contournement du borrow checker pour modifier l'un en lisant l'autre
+            let missing_chunk = if is_maternal_broken {
+                if start + length <= self.chromosome_paternal.sequence.len() {
+                    Some(self.chromosome_paternal.sequence[start..start+length].to_vec())
+                } else { None }
+            } else {
+                if start + length <= self.chromosome_maternal.sequence.len() {
+                    Some(self.chromosome_maternal.sequence[start..start+length].to_vec())
+                } else { None }
+            };
+
+            if let Some(chunk) = missing_chunk {
+                let broken = if is_maternal_broken {
+                    &mut self.chromosome_maternal
+                } else {
+                    &mut self.chromosome_paternal
+                };
+                
+                if start <= broken.sequence.len() {
+                    let mut tail = broken.sequence.split_off(start);
+                    broken.sequence.extend(chunk);
+                    broken.sequence.extend(tail);
+                }
+            }
+        } else {
+            // NHEJ (Non-Homologous End Joining) - Mode Brouillon
+            // Raccorde les bouts casses en sacrifiant ce qui a ete perdu (Deletion irreversible)
+            // => On ne recopie rien, la perte est definitive !
+        }
     }
 
     pub fn epigenetic_prison_for_transposons(&mut self) {
@@ -277,6 +347,9 @@ impl Genome {
         hex
     }
 }
+
+
+
 
 
 
