@@ -27,6 +27,56 @@ pub struct Receptor {
     pub internal_cascade_signal: String,
 }
 
+
+use crate::cell::AgentCell;
+
+/// La matrice extra-cellulaire (Le liquide entre les cellules)
+/// Utilisée spécifiquement pour simuler la communication Paracrine (diffusion locale et dégradation rapide)
+pub struct ExtracellularMatrix {
+    // (Index de l'émetteur, Ligand, Temps de vie / TTL)
+    pub paracrine_signals: Vec<(usize, Ligand, u32)>,
+}
+
+impl ExtracellularMatrix {
+    pub fn new() -> Self {
+        Self {
+            paracrine_signals: Vec::new(),
+        }
+    }
+
+    /// La cellule relâche un messager chimique dans son voisinage.
+    /// TTL (Time-To-Live) garantit que le message ne deviendra jamais Endocrine.
+    pub fn emit_paracrine(&mut self, position: usize, ligand: Ligand, ttl: u32) {
+        self.paracrine_signals.push((position, ligand, ttl));
+    }
+
+    /// Fait voyager les signaux localement, puis les dégrade d'un "tick".
+    /// Si le TTL tombe à 0, les enzymes détruisent le ligand.
+    pub fn diffuse_and_degrade(&mut self, cells: &mut [AgentCell]) {
+        let mut retained_signals = Vec::new();
+        
+        for (pos, ligand, mut ttl) in self.paracrine_signals.drain(..) {
+            if ttl > 0 {
+                // Diffusion locale (Rayon = 1 cellule de chaque côté)
+                let min = pos.saturating_sub(1);
+                let max = (pos + 1).min(cells.len().saturating_sub(1));
+                
+                for i in min..=max {
+                    if i != pos {
+                        cells[i].receive_ligand(&ligand);
+                    }
+                }
+                
+                ttl -= 1; // Le temps passe, la molécule se dégrade
+                if ttl > 0 {
+                    retained_signals.push((pos, ligand, ttl));
+                }
+            }
+        }
+        self.paracrine_signals = retained_signals;
+    }
+}
+
 impl Receptor {
     pub fn new(target_ligand: &str, internal_cascade_signal: &str) -> Self {
         Self {
@@ -98,4 +148,5 @@ mod tests {
         assert!(cancer_cell.nucleus.transcription_factors.contains(&"CELL_DIVISION_TF".to_string()));
     }
 }
+
 

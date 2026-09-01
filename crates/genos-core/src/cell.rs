@@ -558,6 +558,14 @@ impl AgentCell {
                 // Inhibition latérale via Notch
                 self.nucleus.transcription_factors.push("GLIAL_FATE".to_string());
             },
+            "HISTAMINE_CASCADE" => {
+                // Allergie/Inflammation: Vasodilatation locale
+                self.nucleus.transcription_factors.push("LOCAL_INFLAMMATION_SWELLING".to_string());
+            },
+            "WOUND_HEALING_CASCADE" => {
+                // Cicatrisation: Ordre de se multiplier pour boucher le trou
+                self.nucleus.transcription_factors.push("TISSUE_REPAIR_MITOSIS".to_string());
+            },
             _ => self.nucleus.transcription_factors.push(signal.to_string()),
         }
     }
@@ -725,6 +733,7 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
 
 
 
