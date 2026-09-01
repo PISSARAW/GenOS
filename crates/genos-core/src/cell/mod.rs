@@ -21,6 +21,7 @@ pub mod invariants;
 pub mod causality;
 pub mod ood_resilience;
 pub mod recurrence;
+pub mod halting;
 #[cfg(test)]
 pub mod tests;
 
@@ -99,6 +100,8 @@ pub struct AgentCell {
     pub ood_resilience: ood_resilience::GracefulDegradation,
     /// Récurrence Temporelle (Boucle Phonologique, Mémoire de travail)
     pub recurrence: recurrence::RecurrentNetwork,
+    /// Heuristiques d'Arrêt Biologique (Satisficing, Fatigue, Ennui, FOR)
+    pub halting: halting::HaltingHeuristics,
 }
 
 impl Default for AgentCell {
@@ -187,6 +190,7 @@ impl Default for AgentCell {
             causality: causality::CausalEngine::default(),
             ood_resilience: ood_resilience::GracefulDegradation::default(),
             recurrence: recurrence::RecurrentNetwork::default(),
+            halting: halting::HaltingHeuristics::default(),
         }
     }
 }
