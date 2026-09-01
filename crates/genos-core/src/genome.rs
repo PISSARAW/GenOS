@@ -257,6 +257,8 @@ pub enum ChromatinState {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Gene {
+    /// La canalisation développementale : Si true, la plasticité est terminée, l'état épigénétique est irréversible.
+    pub developmentally_locked: bool,
     pub locus: String,
     pub dna: DnaStrand,
     pub is_methylated: bool,
@@ -291,6 +293,7 @@ impl Gene {
             is_methylated: false,
             expression_volume: 1.0,
             chromatin_state: ChromatinState::Euchromatin,
+            developmentally_locked: false,
             required_activator: None,
             bound_repressor: None,
             default_exons: Vec::new(),
@@ -469,6 +472,8 @@ mod tests {
         assert!(result.unwrap_err().contains("DETRUIT"));
     }
 }
+
+
 
 
 
