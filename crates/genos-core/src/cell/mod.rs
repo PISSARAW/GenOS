@@ -1,4 +1,4 @@
-pub mod organelles;
+﻿pub mod organelles;
 pub mod methods;
 pub mod phagocytosis;
 pub mod substructs;
@@ -62,46 +62,17 @@ pub struct AgentCell {
     pub microglia: Option<crate::neurobiology::Microglia>,
     pub ependymal: Option<crate::neurobiology::EpendymalCell>,
     
-    // Nouveaux composants cognitifs (Le Cerveau de la cellule)
-    pub memory: Hippocampus,
-    #[serde(skip)] // Ribosome holds API keys/clients, not serialized
-    pub ribosome: Ribosome,
-    /// Organes sensoriels et outils de manipulation de l'environnement (MCP)
+    /// L'esprit de la cellule (Optionnel, présent chez les Neurones)
+    pub mind: Option<Mind>,
+    
+    // Organes cellulaires physiques
     pub cilia: cilia::Cilia,
-    /// Vésicule de sauvegarde pour le Rollback des fichiers
     pub vacuole: vacuole::Vacuole,
-    /// Isolat Wasm pour l'exécution sécurisée des plugins
     pub phagosome: phagosome::Phagosome,
-    /// Barrière Hémato-Encéphalique (Human-In-The-Loop)
-    pub bbb: bbb::BloodBrainBarrier,
-    /// Organes Sensoriels (Vision, Ouïe) pour la Multimodalité
-    pub sensory_organs: sensory::SensoryOrgans,
-    /// Tissu Adipeux (Stockage des Tokens LLM et Budget USD)
     pub adipocyte: adipocyte::Adipocyte,
-    /// Système Nerveux Autonome (Daemons, Tâches de fond)
     pub autonomic_ns: ans::AutonomicNervousSystem,
-    /// Arbre Phylogénétique & Télomères (Hérédité)
     pub lineage: lineage::Lineage,
-    /// Tissu Musculaire (Exécution GPU Locale pour LLM)
     pub muscle: muscle::Myofibril,
-    /// Organe Cognitif Global (Inférence Active, PFC, Anti-Dérive)
-    pub cognition: cognition::AdvancedCognition,
-    /// Cortex Anti-Interférence (Sparse Coding, Réseau GABAergique)
-    pub sparse_cortex: sparse_cortex::SparseCortex,
-    /// Pont Neuro-Symbolique (Logique stricte, Système 2, Esprit Étendu)
-    pub neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge,
-    /// Cœur Invariant (Sécurité Sous-Corticale, Homéostasie, Réflexes)
-    pub invariant_core: invariants::InvariantCore,
-    /// Organe Linguistique (Ancrage Sémantique, Anti-Cryptophasie)
-    pub semantic_grounding: crate::linguistics::SemanticGrounding,
-    /// Moteur Causal (do(X), Copie d'efférence, Simulation Contrefactuelle)
-    pub causality: causality::CausalEngine,
-    /// Résilience OOD (Surprise, Construction de Niche, Fallback)
-    pub ood_resilience: ood_resilience::GracefulDegradation,
-    /// Récurrence Temporelle (Boucle Phonologique, Mémoire de travail)
-    pub recurrence: recurrence::RecurrentNetwork,
-    /// Heuristiques d'Arrêt Biologique (Satisficing, Fatigue, Ennui, FOR)
-    pub halting: halting::HaltingHeuristics,
 }
 
 impl Default for AgentCell {
@@ -171,17 +142,45 @@ impl Default for AgentCell {
             microglia: None,
             ependymal: None,
             
-            memory: Hippocampus::new(),
-            ribosome: Ribosome::new(),
+            mind: Some(Mind::default()), // TODO: None par defaut dans le futur
             cilia: cilia::Cilia::default(),
             vacuole: vacuole::Vacuole::default(),
             phagosome: phagosome::Phagosome::default(),
-            bbb: bbb::BloodBrainBarrier::default(),
-            sensory_organs: sensory::SensoryOrgans::default(),
             adipocyte: adipocyte::Adipocyte::default(),
             autonomic_ns: ans::AutonomicNervousSystem::default(),
             lineage: lineage::Lineage::default(),
             muscle: muscle::Myofibril::default(),
+        }
+    }
+}
+
+
+/// L'Esprit de la cellule (Instancié uniquement chez les Neurones / Agents IA)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Mind {
+    pub memory: Hippocampus,
+    #[serde(skip)]
+    pub ribosome: Ribosome,
+    pub bbb: bbb::BloodBrainBarrier,
+    pub sensory_organs: sensory::SensoryOrgans,
+    pub cognition: cognition::AdvancedCognition,
+    pub sparse_cortex: sparse_cortex::SparseCortex,
+    pub neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge,
+    pub invariant_core: invariants::InvariantCore,
+    pub semantic_grounding: crate::linguistics::SemanticGrounding,
+    pub causality: causality::CausalEngine,
+    pub ood_resilience: ood_resilience::GracefulDegradation,
+    pub recurrence: recurrence::RecurrentNetwork,
+    pub halting: halting::HaltingHeuristics,
+}
+
+impl Default for Mind {
+    fn default() -> Self {
+        Self {
+            memory: Hippocampus::new(),
+            ribosome: Ribosome::new(),
+            bbb: bbb::BloodBrainBarrier::default(),
+            sensory_organs: sensory::SensoryOrgans::default(),
             cognition: cognition::AdvancedCognition::default(),
             sparse_cortex: sparse_cortex::SparseCortex::default(),
             neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge::default(),
