@@ -1,8 +1,8 @@
 ﻿
 use clap::{Parser, Subcommand};
-use genos_core::cell::{AgentCell, Cytoplasm, organelles::Proteasome};
-use genos_core::genome::{Genome, Chromosome};
-use uuid::Uuid;
+use genos_core::cell::AgentCell;
+
+
 
 #[derive(Parser)]
 #[command(name = "genos")]
@@ -65,7 +65,7 @@ fn main() {
                 println!("❌ Échec de la mitose: {}", e);
                 std::process::exit(1);
             });
-            println!("✅ Clone réussi. Nouvel ID: {}", clones[1].cell_id);
+            println!("✅ Clone réussi. Nouvel ID: {}", clones.1.cell_id);
         }
         Commands::Replay { agent_id } => {
             println!("🧠 [Hippocampe] Lancement du Replay Causal pour l'agent {}", agent_id);
