@@ -76,15 +76,22 @@ async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3,
     return stemCellFallback || null;
 }
 
+const { evaluateCognitiveHealth } = require('./cognitiveMonitor.js');
+
 /**
  * Exécute un appel LLM avec validation immunitaire pour du TEXTE BRUT (Markdown).
  * (Chaperon Structurel Épigénétique)
  */
-async function withTextImmunity(basePrompt, complexity, validatorFn, maxRetries = 3, agentId = 'griot', stemCellFallback = null, variantIndex = undefined) {
+async function withTextImmunity(basePrompt, complexity, opts = {}) {
     let currentPrompt = basePrompt;
+    const maxRetries = opts.maxRetries || 3;
+    const agentId = opts.agentId || 'griot';
+    
+    // Extraction de mots-clés du prompt pour le moniteur
+    const expectedTerms = basePrompt.split(/\s+/).filter(w => w.length > 5).slice(0, 5);
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        const currentVariant = (variantIndex !== undefined ? variantIndex : 0) + (attempt - 1);
+        const currentVariant = (opts.variantIndex !== undefined ? opts.variantIndex : 0) + (attempt - 1);
         console.log(`[ImmuneSystem-Text:${agentId}] Phagocytose Structurelle... Essai ${attempt}/${maxRetries} (Pléiotropie: Modèle index ${currentVariant})`);
         
         let rawRes = await askLocalLLM(currentPrompt, complexity, agentId, currentVariant);
@@ -96,11 +103,20 @@ async function withTextImmunity(basePrompt, complexity, validatorFn, maxRetries 
 
         try {
             let cleanText = rawRes.trim();
-            // On enlève les balises markdown globales si le LLM a mis tout l'article dans un bloc de code
             cleanText = cleanText.replace(/^```markdown/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
 
-            if (validatorFn) {
-                validatorFn(cleanText);
+            // Moniteur Cognitif
+            const health = evaluateCognitiveHealth(cleanText, expectedTerms, opts.forbiddenTerms || []);
+            
+            if (health.health_score < 0.3) {
+                throw new Error("ANOMALY: Repetition excessive détectée. Abort trajectory.");
+            }
+            if (health.health_score < 0.6) {
+                throw new Error("ANOMALY: Dérive sémantique détectée. Re-concentre ton attention sur le sujet initial et évite le hors-sujet.");
+            }
+
+            if (opts.validatorFn) {
+                opts.validatorFn(cleanText);
             }
             
             console.log(`[Homéostasie-Text:${agentId}] Structure Markdown validée.`);
@@ -109,14 +125,14 @@ async function withTextImmunity(basePrompt, complexity, validatorFn, maxRetries 
             console.warn(`[Inflammation-Text:${agentId}] Mutation structurelle détectée : ${e.message}`);
             if (attempt === maxRetries) {
                 console.error(`[Apoptose-Text:${agentId}] Échec irrécupérable de la structure.`);
-                if (stemCellFallback) return stemCellFallback;
+                if (opts.stemCellFallback) return opts.stemCellFallback;
                 return null;
             }
             currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
-            CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée (H2, H3, Sources, etc.).`;
+            CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée.`;
         }
     }
-    return stemCellFallback || null;
+    return opts.stemCellFallback || null;
 }
 
 module.exports = {

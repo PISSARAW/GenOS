@@ -76,7 +76,11 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     };
 
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
-    const reply = await withTextImmunity(framedPrompt, 'high', griotValidator, 3, 'griot_runtime');
+    const reply = await withTextImmunity(framedPrompt, 'high', {
+        validatorFn: griotValidator,
+        maxRetries: 3,
+        agentId: 'griot_runtime'
+    });
     
     if (!reply) {
         throw new Error("Échec critique de la génération (Apoptose).");

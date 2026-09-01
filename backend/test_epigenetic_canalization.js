@@ -45,7 +45,11 @@ async function runTests() {
         if (!text.includes("## Sources")) throw new Error("Il manque Sources");
     };
 
-    const result = await withTextImmunity("Génère l'article", 'high', validator, 3, 'test_agent');
+    const result = await withTextImmunity("Génère l'article", 'high', {
+        validatorFn: validator,
+        maxRetries: 3,
+        agentId: 'test_agent'
+    });
     
     assert.ok(result);
     assert.strictEqual(result.includes("## Sources"), true);

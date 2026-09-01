@@ -123,7 +123,13 @@ async function phase2DraftAndReview(author, title, variantIndex) {
 
     // Divergence Cognitive : variantIndex + 1
     // Fallback Stem Cell : si le critic échoue totalement après 3 essais à respecter la structure, on renvoie le draft brut
-    let finalArticle = await withTextImmunity(reviewPrompt, 'high', textValidator, 3, 'ateam_orchestrator', draft, variantIndex + 1);
+    let finalArticle = await withTextImmunity(reviewPrompt, 'high', {
+        validatorFn: textValidator,
+        maxRetries: 3,
+        agentId: 'ateam_orchestrator',
+        stemCellFallback: draft,
+        variantIndex: variantIndex + 1
+    });
     
     // 3. Consolidation Mécanique (Nettoyage final)
     if (finalArticle) {
