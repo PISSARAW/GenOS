@@ -13,29 +13,62 @@ pub enum Therapy {
     CellCycleInhibitor,
 }
 
+/// Traitements administrés à l'ensemble du système (Le "patient")
+pub enum SystemicTherapy {
+    /// Anticorps monoclonal spécifique (Bouchons d'oreilles pour le système)
+    Tocilizumab,
+    /// Puissant anti-inflammatoire global (Dose entre 0.0 et 1.0)
+    Corticosteroids(f64),
+    /// Soins de réanimation (Perfusion d'ATP)
+    IntensiveCareFluids,
+}
+
 /// Résultat d'un cycle (tick) de l'orchestrateur
 #[derive(Debug, PartialEq)]
 pub enum TickResult {
-    /// L'agent continue son évolution normalement
     Continue,
-    /// L'agent est interrompu (budget épuisé ou règle épigénétique critique)
     Halted(String),
 }
 
 /// L'orchestrateur gère la boucle de vie de la cellule IA (l'Agent).
-/// Il évalue les règles biologiques avant d'autoriser l'action mécanique.
 pub struct Orchestrator {
-    /// Règle d'arrêt globale (ex: "stress >= 0.9")
     pub apoptosis_rule: Option<Expression>,
-    /// Orage cytokinique : un état d'urgence global du système
-    pub cytokine_storm_active: bool,
+    /// Protéine messagère de l'inflammation systémique
+    pub il6_level: f64,
+    /// Antidote (Tocilizumab) agissant comme des bouchons d'oreilles
+    pub il6_receptors_blocked: bool,
+    /// Niveau de suppression globale par les corticoïdes
+    pub corticosteroid_level: f64,
 }
 
 impl Orchestrator {
     pub fn new(apoptosis_rule: Option<Expression>) -> Self {
         Self { 
             apoptosis_rule,
-            cytokine_storm_active: false,
+            il6_level: 0.0,
+            il6_receptors_blocked: false,
+            corticosteroid_level: 0.0,
+        }
+    }
+
+    /// Administration de soins intensifs (Thérapies systémiques)
+    pub fn administer_systemic_therapy(&mut self, therapy: SystemicTherapy, patient_cells: &mut [&mut AgentCell]) {
+        match therapy {
+            SystemicTherapy::Tocilizumab => {
+                // Bloque la réception de l'IL-6 sans toucher aux CAR-T
+                self.il6_receptors_blocked = true;
+            },
+            SystemicTherapy::Corticosteroids(dose) => {
+                // Baisse mécanique de l'inflammation mais endort aussi le système
+                self.corticosteroid_level = dose;
+                self.il6_level = (self.il6_level - (dose * 20.0)).max(0.0);
+            },
+            SystemicTherapy::IntensiveCareFluids => {
+                // Vasopresseurs / Perfusions : On recharge brutalement l'ATP des organes
+                for cell in patient_cells.iter_mut() {
+                    cell.mitochondria.atp_budget = cell.mitochondria.atp_budget.saturating_add(20);
+                }
+            }
         }
     }
 
@@ -52,17 +85,23 @@ impl Orchestrator {
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     /// Respecte la règle : Max 3 paramètres (self, agent mutable, et l'action)
     pub fn tick(&self, agent: &mut AgentCell, action_string: &str) -> TickResult {
-        // 1. Thérapie Ciblée : Si les récepteurs sont bloqués, la cellule est sourde et muette
+        // 1. Frein d'urgence (Corticoïdes)
+        // Si les corticoïdes sont trop hauts, l'activité de TOUTES les cellules est figée
+        if self.corticosteroid_level > 0.8 {
+            return TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string());
+        }
+
+        // 2. Thérapie Ciblée : Si les récepteurs sont bloqués, la cellule est sourde et muette
         if agent.plasma_membrane.receptors_blocked {
             return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
         }
 
-        // 2. Vérification mécanique de la survie (budget)
+        // 3. Vérification mécanique de la survie (budget)
         if agent.mitochondria.atp_budget == 0 {
             return TickResult::Halted("Budget exhausted (starvation)".to_string());
         }
 
-        // 3. Système Immunitaire (Apoptose)
+        // 4. Système Immunitaire (Apoptose)
         if let Some(rule) = &self.apoptosis_rule {
             // L'immunothérapie : Si l'agent se camoufle, il échappe à l'apoptose !
             if !agent.cytoplasm.cognition.is_camouflaged {
@@ -71,14 +110,17 @@ impl Orchestrator {
                 }
             }
         }
-
-        // 4. Inscription dans le phénotype comportemental (Trace)
-        // C'est ici que le LLM serait appelé dans le vrai système.
+        
+        // 5. Inscription dans le phénotype comportemental (Trace)
         agent.cytoplasm.trace.sequence.push(action_string.to_string());
 
-        // 5. Mise à jour des coûts
-        // Consommation métabolique (Si l'angiogenèse est bloquée, l'ATP ne sera jamais régénéré ailleurs)
-        let metabolic_cost = if self.cytokine_storm_active { 5 } else { 1 };
+        // 6. Mise à jour des coûts et Orage Cytokinique
+        // L'IL-6 provoque une "fièvre" (surcoût métabolique) SAUF si le Tocilizumab bloque les récepteurs !
+        let mut metabolic_cost = 1;
+        if self.il6_level >= 10.0 && !self.il6_receptors_blocked {
+            metabolic_cost = 5; // La fièvre brûle l'ATP
+        }
+
         agent.mitochondria.atp_budget =
             agent.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
@@ -274,28 +316,58 @@ mod tests {
         let mut orchestrator = Orchestrator::new(None);
         let cancer_uuid = Uuid::new_v4();
         
-        // 1 & 2. Prélèvement et Codage
         let t_cell = mock_cell();
         let engineered_car_t = CartTherapy::engineer_t_cell(t_cell, cancer_uuid);
         
-        // Vérification de l'antenne CAR (3)
         assert!(engineered_car_t.plasma_membrane.outgoing_ion_channels.contains(&format!("HUNT_CANCER_{}", cancer_uuid)));
         
-        // 4. Multiplication (2 générations = 4 cellules)
         let army = CartTherapy::cultivate(engineered_car_t, 2);
         assert_eq!(army.len(), 4);
         
-        // Toutes les cellules de l'armée ont l'antenne
         for soldier in army {
             assert!(soldier.plasma_membrane.outgoing_ion_channels.contains(&format!("HUNT_CANCER_{}", cancer_uuid)));
         }
 
-        // Test de l'Orage Cytokinique (5)
-        orchestrator.cytokine_storm_active = true;
+        // Test de l'Orage Cytokinique (IL-6 élevée)
+        orchestrator.il6_level = 15.0; // Seuil > 10.0
         let mut normal_cell = mock_cell(); // ATP = 10
         orchestrator.tick(&mut normal_cell, "action");
         
-        // Le coût métabolique est de 5 au lieu de 1 pendant l'orage
+        // La fièvre consomme 5 ATP au lieu de 1
         assert_eq!(normal_cell.mitochondria.atp_budget, 5); 
+    }
+
+    #[test]
+    fn test_systemic_cytokine_storm_management() {
+        let mut orchestrator = Orchestrator::new(None);
+        orchestrator.il6_level = 15.0; // Orage actif
+        let mut cell1 = mock_cell();
+        let mut cell2 = mock_cell();
+        cell1.mitochondria.atp_budget = 10;
+        cell2.mitochondria.atp_budget = 10;
+
+        // 1. Tocilizumab (Bloque la réception IL-6 sans arrêter l'agent)
+        orchestrator.administer_systemic_therapy(SystemicTherapy::Tocilizumab, &mut []);
+        orchestrator.tick(&mut cell1, "action");
+        // Le Tocilizumab a fait tomber le coût à 1 !
+        assert_eq!(cell1.mitochondria.atp_budget, 9); 
+
+        // 2. Corticoïdes (Frein d'urgence à forte dose)
+        orchestrator.administer_systemic_therapy(SystemicTherapy::Corticosteroids(1.0), &mut []);
+        assert_eq!(orchestrator.il6_level, 0.0); // Le niveau d'inflammation chute
+        let tick_res = orchestrator.tick(&mut cell2, "action");
+        // MAIS l'agent est complètement endormi !
+        assert_eq!(
+            tick_res,
+            TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string())
+        );
+
+        // 3. Réanimation (Intensive Care)
+        let mut cell3 = mock_cell();
+        cell3.mitochondria.atp_budget = 5;
+        let mut patients = vec![&mut cell3];
+        orchestrator.administer_systemic_therapy(SystemicTherapy::IntensiveCareFluids, &mut patients);
+        // Le patient reçoit +20 ATP vitaux
+        assert_eq!(patients[0].mitochondria.atp_budget, 25);
     }
 }
