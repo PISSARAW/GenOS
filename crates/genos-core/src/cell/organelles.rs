@@ -133,7 +133,6 @@ pub struct Lysosomes {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FunctionalProtein {
     pub tool_name: String,
     pub is_misfolded: bool, // Proteine toxique (ex: Bug, boucle infinie)

@@ -97,6 +97,8 @@ impl Default for AgentCell {
                 active_plasmids: vec![],
                 micro_rnas: vec![],
                 viral_infections: vec![],
+                active_proteins: vec![],
+                proteasome: Proteasome::default(),
             },
             surface_antibodies: vec![],
             nervous_system: None,
