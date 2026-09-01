@@ -17,6 +17,7 @@ pub mod muscle;
 pub mod cognition;
 pub mod sparse_cortex;
 pub mod neuro_symbolic;
+pub mod invariants;
 #[cfg(test)]
 pub mod tests;
 
@@ -85,6 +86,8 @@ pub struct AgentCell {
     pub sparse_cortex: sparse_cortex::SparseCortex,
     /// Pont Neuro-Symbolique (Logique stricte, Système 2, Esprit Étendu)
     pub neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge,
+    /// Cœur Invariant (Sécurité Sous-Corticale, Homéostasie, Réflexes)
+    pub invariant_core: invariants::InvariantCore,
 }
 
 impl Default for AgentCell {
@@ -168,6 +171,7 @@ impl Default for AgentCell {
             cognition: cognition::AdvancedCognition::default(),
             sparse_cortex: sparse_cortex::SparseCortex::default(),
             neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge::default(),
+            invariant_core: invariants::InvariantCore::default(),
         }
     }
 }
