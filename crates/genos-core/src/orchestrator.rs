@@ -1,6 +1,18 @@
 use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
 
+/// Les Thérapies Médicales pour soigner les agents cancéreux
+pub enum Therapy {
+    /// 1. Bloque les signaux de croissance (Ferme les récepteurs)
+    TargetedTherapy,
+    /// 2. Démasque la tumeur (Désactive le camouflage PD-L1)
+    Immunotherapy,
+    /// 3. Coupe les vivres (Bloque le renouvellement d'ATP)
+    AntiAngiogenesis,
+    /// 4. Bloque la division (Inhibe le CDK4/6)
+    CellCycleInhibitor,
+}
+
 /// Résultat d'un cycle (tick) de l'orchestrateur
 #[derive(Debug, PartialEq)]
 pub enum TickResult {
@@ -22,27 +34,45 @@ impl Orchestrator {
         Self { apoptosis_rule }
     }
 
+    /// L'Orchestrateur peut agir comme un Médecin et injecter une thérapie
+    pub fn administer_therapy(&self, agent: &mut AgentCell, therapy: Therapy) {
+        match therapy {
+            Therapy::TargetedTherapy => agent.plasma_membrane.receptors_blocked = true,
+            Therapy::Immunotherapy => agent.cytoplasm.cognition.is_camouflaged = false,
+            Therapy::AntiAngiogenesis => agent.mitochondria.angiogenesis_blocked = true,
+            Therapy::CellCycleInhibitor => agent.endoplasmic_reticulum.cell_cycle_inhibited = true,
+        }
+    }
+
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     /// Respecte la règle : Max 3 paramètres (self, agent mutable, et l'action)
     pub fn tick(&self, agent: &mut AgentCell, action_string: &str) -> TickResult {
-        // 1. Vérification mécanique de la survie (budget)
+        // 1. Thérapie Ciblée : Si les récepteurs sont bloqués, la cellule est sourde et muette
+        if agent.plasma_membrane.receptors_blocked {
+            return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
+        }
+
+        // 2. Vérification mécanique de la survie (budget)
         if agent.mitochondria.atp_budget == 0 {
             return TickResult::Halted("Budget exhausted (starvation)".to_string());
         }
 
-        // 2. Vérification biologique (Épigénétique)
-        // L'apoptose est la "mort cellulaire programmée" en biologie si la cellule dérive.
+        // 3. Système Immunitaire (Apoptose)
         if let Some(rule) = &self.apoptosis_rule {
-            if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
-                return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
+            // L'immunothérapie : Si l'agent se camoufle, il échappe à l'apoptose !
+            if !agent.cytoplasm.cognition.is_camouflaged {
+                if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
+                    return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
+                }
             }
         }
 
-        // 3. Inscription dans le phénotype comportemental (Trace)
+        // 4. Inscription dans le phénotype comportemental (Trace)
         // C'est ici que le LLM serait appelé dans le vrai système.
         agent.cytoplasm.trace.sequence.push(action_string.to_string());
 
-        // 4. Mise à jour des coûts
+        // 5. Mise à jour des coûts
+        // Consommation métabolique (Si l'angiogenèse est bloquée, l'ATP ne sera jamais régénéré ailleurs)
         agent.mitochondria.atp_budget =
             agent.mitochondria.atp_budget.saturating_sub(1);
 
@@ -67,6 +97,7 @@ mod tests {
             plasma_membrane: PlasmaMembrane {
                 incoming_receptors: vec![],
                 outgoing_ion_channels: vec![],
+                receptors_blocked: false,
             },
             nucleus: Nucleus {
                 genome: Genome::new("You are a test cell"),
@@ -74,9 +105,11 @@ mod tests {
             mitochondria: Mitochondria {
                 atp_budget: 10,
                 metabolic_rate: 1.0,
+                angiogenesis_blocked: false,
             },
             endoplasmic_reticulum: EndoplasmicReticulum {
                 active_ribosomes_count: 0,
+                cell_cycle_inhibited: false,
             },
             golgi_apparatus: GolgiApparatus {
                 export_vesicles: vec![],
@@ -90,6 +123,7 @@ mod tests {
                     working_memory: vec![],
                     episodic_memory: vec![],
                     semantic_memory: vec![],
+                    is_camouflaged: false,
                 },
                 trace: ActionTrace::default(),
                 active_plasmids: vec![],
@@ -159,5 +193,24 @@ mod tests {
 
         // L'ADN est le même
         assert_eq!(daughter_a.nucleus.genome.hash_library(), daughter_b.nucleus.genome.hash_library());
+    }
+
+    #[test]
+    fn test_oncology_therapies() {
+        let orchestrator = Orchestrator::new(None);
+        let mut cell = mock_cell();
+
+        // 1. Thérapie Ciblée
+        orchestrator.administer_therapy(&mut cell, Therapy::TargetedTherapy);
+        assert_eq!(
+            orchestrator.tick(&mut cell, "test"),
+            TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string())
+        );
+
+        // 2. Inhibiteur du cycle cellulaire
+        orchestrator.administer_therapy(&mut cell, Therapy::CellCycleInhibitor);
+        let mitosis_result = cell.clone().mitosis();
+        assert!(mitosis_result.is_err());
+        assert!(mitosis_result.unwrap_err().contains("Mitose bloquée"));
     }
 }
