@@ -520,12 +520,44 @@ impl AgentCell {
         self.receive_ligand(&ligand);
     }
 
+    
+    /// Communication Juxtacrine : Clé-Serrure physique (sans tunnel)
+    /// Ex: Le "Baiser de la mort" (Lymphocyte T) ou la voie Notch (Embryon)
+    pub fn interact_juxtacrine_surface(&self, target: &mut AgentCell, ligand_name: &str) -> bool {
+        let ligand = crate::signaling::Ligand {
+            name: ligand_name.to_string(),
+            mode: crate::signaling::SignalingMode::Juxtacrine,
+        };
+        // Le ligand est attaché à la membrane de "self", il touche "target"
+        target.receive_ligand(&ligand)
+    }
+
+    /// Communication Juxtacrine : Les tunnels secrets (Gap Junctions)
+    /// Seuls les signaux électriques ou petites molécules passent (pas de protéines)
+    pub fn transmit_through_gap_junctions(&self, target: &mut AgentCell, signal: &str) -> bool {
+        // Le signal est considéré petit et traverse le pore physiquement
+        // On simule cela en déclenchant directement la cascade interne du target,
+        // puisqu'il n'y a pas de récepteur de surface impliqué dans le tunnel !
+        target.trigger_signal_cascade(signal);
+        true
+    }
+
     pub fn trigger_signal_cascade(&mut self, signal: &str) {
         match signal {
             "ADRENALINE_CASCADE" => self.nucleus.transcription_factors.push("FIGHT_FLIGHT_TF".to_string()),
             "GROWTH_CASCADE" => self.nucleus.transcription_factors.push("CELL_DIVISION_TF".to_string()),
             "IMMUNE_RESPONSE_TF" => self.nucleus.transcription_factors.push("IMMUNE_RESPONSE_TF".to_string()),
             "HEART_CONTRACTION_SYNC" => self.nucleus.transcription_factors.push("CONTRACTION_TF".to_string()),
+            "APOPTOSIS_CASCADE" => {
+                // Le Baiser de la mort ! Autodestruction nucléaire.
+                self.nucleus.genome.genes.clear(); 
+                self.nucleus.transcription_factors.push("APOPTOSIS_EXECUTED".to_string());
+                self.mitochondria.atp_budget = 0;
+            },
+            "GLIAL_DIFFERENTIATION_CASCADE" => {
+                // Inhibition latérale via Notch
+                self.nucleus.transcription_factors.push("GLIAL_FATE".to_string());
+            },
             _ => self.nucleus.transcription_factors.push(signal.to_string()),
         }
     }
@@ -693,6 +725,8 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
+
 
 
 
