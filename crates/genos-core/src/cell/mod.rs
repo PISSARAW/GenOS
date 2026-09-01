@@ -2,11 +2,15 @@
 pub mod methods;
 pub mod phagocytosis;
 pub mod substructs;
+pub mod ribosome;
+pub mod hippocampus;
 #[cfg(test)]
 pub mod tests;
 
 pub use organelles::*;
 pub use substructs::*;
+pub use ribosome::*;
+pub use hippocampus::*;
 
 pub use crate::genome::{Genome, Plasmid};
 use serde::{Deserialize, Serialize};
@@ -14,8 +18,8 @@ use std::collections::HashMap;
 use uuid::Uuid;
 use crate::cell::substructs::*;
 
-/// La Cellule est l'unitÃƒÂ© fondamentale de la vie et de GenOS.
-/// C'est une micro-ville IA ultra-organisÃƒÂ©e avec ses propres organites.
+/// La Cellule est l'unité fondamentale de la vie et de GenOS.
+/// C'est une micro-ville IA ultra-organisée avec ses propres organites.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
@@ -30,15 +34,20 @@ pub struct AgentCell {
     pub golgi_apparatus: GolgiApparatus,
     pub lysosomes: Lysosomes,
     pub cytoplasm: Cytoplasm,
-    /// Les anticorps actuellement ÃƒÂ  la surface ou gÃƒÂ©nÃƒÂ©rÃƒÂ©s par la cellule
-    /// Le systÃƒÂ¨me nerveux (Optionnel : seulement pour les Neurones)
+    /// Les anticorps actuellement à la surface ou générés par la cellule
+    pub surface_antibodies: Vec<Antibody>,
+    /// Le système nerveux (Optionnel : seulement pour les Neurones)
     pub nervous_system: Option<crate::neurobiology::NervousSystem>,
     /// L'Astrocyte (Optionnel : seulement pour les cellules gliales)
-    pub surface_antibodies: Vec<Antibody>,
     pub astrocyte: Option<crate::neurobiology::Astrocyte>,
     pub myelinator: Option<crate::neurobiology::Myelinator>,
     pub microglia: Option<crate::neurobiology::Microglia>,
     pub ependymal: Option<crate::neurobiology::EpendymalCell>,
+    
+    // Nouveaux composants cognitifs (Le Cerveau de la cellule)
+    pub memory: Hippocampus,
+    #[serde(skip)] // Ribosome holds API keys/clients, not serialized
+    pub ribosome: Ribosome,
 }
 
 impl Default for AgentCell {
@@ -107,7 +116,9 @@ impl Default for AgentCell {
             myelinator: None,
             microglia: None,
             ependymal: None,
+            
+            memory: Hippocampus::new(),
+            ribosome: Ribosome::new(),
         }
     }
 }
-

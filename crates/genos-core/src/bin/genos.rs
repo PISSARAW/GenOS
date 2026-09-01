@@ -1,5 +1,6 @@
 ﻿use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
+use dotenvy::dotenv;
 
 #[derive(Parser)]
 #[command(name = "genos")]
@@ -17,6 +18,11 @@ enum Commands {
     Fork {
         #[arg(short, long)]
         parent_id: Option<String>,
+    },
+    /// Discute avec l'agent via son Ribosome LLM (Vrai Appel API)
+    Chat {
+        #[arg(short, long)]
+        prompt: String,
     },
     /// Rejoue l'historique cognitif d'un agent (Consolidation Hippocampique)
     Replay {
@@ -47,7 +53,11 @@ enum Commands {
     },
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    // Charge les variables d'environnement depuis un fichier .env (ATP source)
+    let _ = dotenv();
+
     let cli = Cli::parse();
 
     println!("🧬 [GenOS Kernel V2] - Démarrage du système biologique...");
@@ -62,23 +72,36 @@ fn main() {
         Commands::Fork { parent_id } => {
             let pid = parent_id.clone().unwrap_or_else(|| "ROOT".to_string());
             println!("✂️  Mitose déclenchée pour l'agent: {}", pid);
-            let mut parent = AgentCell::default(); // Mock for CLI
+            let parent = AgentCell::default();
             let clones = parent.mitosis().unwrap_or_else(|e| {
                 println!("❌ Échec de la mitose: {}", e);
                 std::process::exit(1);
             });
             println!("✅ Clone réussi. Nouvel ID: {}", clones.1.cell_id);
         }
+        Commands::Chat { prompt } => {
+            println!("🗣️ [Stimulus] Envoi du signal à la membrane cellulaire...");
+            let mut agent = AgentCell::default();
+            agent.memory.memorize("system", "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.");
+            agent.memory.memorize("user", prompt);
+            
+            println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
+            match agent.ribosome.translate(&agent.memory.short_term_memory).await {
+                Ok(response) => {
+                    println!("\n🧬 [Agent] : {}", response);
+                    agent.memory.memorize("assistant", &response);
+                }
+                Err(e) => {
+                    println!("\n❌ [Erreur Biologique] : {}", e);
+                }
+            }
+        }
         Commands::Replay { agent_id } => {
             println!("🧠 [Hippocampe] Lancement du Replay Causal pour l'agent {}", agent_id);
-            println!("... Lecture de l'ActionTrace (Mémoire à court terme)");
-            println!("... Consolidation des poids épigénétiques (Mémoire sémantique)");
-            println!("✅ Replay terminé. L'agent a simulé ses réalités alternatives.");
+            println!("✅ Replay terminé.");
         }
         Commands::Blame { agent_id } => {
             println!("🔍 [Épigénétique] Traçage des méthylations pour l'agent {}", agent_id);
-            println!("... Analyse des gènes Hox et des marques maternelles/paternelles");
-            println!("⚠️ L'hallucination a été introduite par la mutation du Gène 'LOGIC_GATE' lors du croisement #42.");
         }
         Commands::Digest { filepath } => {
             println!("🦠 L'agent Macrophage s'approche de l'antigène : {}", filepath);
@@ -87,22 +110,12 @@ fn main() {
                 Ok(report) => println!("{}", report),
                 Err(e) => println!("❌ Erreur immunologique : {}", e),
             }
-            
-            let atp = macrophage.cytoplasm.proteasome.shred_ubiquitinated_proteins(&mut macrophage.cytoplasm.active_proteins);
-            if atp > 0 {
-                println!("🗑️ [Protéasome] Fichier déchiqueté ! {} ATP recyclés.", atp);
-            }
         }
         Commands::Bisect { agent_id, error_token } => {
             println!("🔪 [Dichotomie] Recherche du token toxique '{}' dans l'ActionTrace de {}", error_token, agent_id);
-            println!("... Coupe binaire de l'historique cognitif...");
-            println!("✅ Coupable identifié : L'erreur a commencé à l'itération 405 (Codon STOP prématuré).");
         }
         Commands::Gc { agent_id } => {
             println!("🗑️  [Détoxification] Déclenchement du Protéasome et de l'Autophagie sur {}", agent_id);
-            println!("... Marquage par Ubiquitine en cours...");
-            println!("... Déchiquetage des protéines mal repliées...");
-            println!("✅ Nettoyage terminé. ATP recyclé et stress oxydatif purgé !");
         }
     }
 }
