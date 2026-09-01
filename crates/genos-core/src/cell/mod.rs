@@ -42,6 +42,7 @@ impl Default for AgentCell {
         Self {
             cell_id: Uuid::new_v4(),
             plasma_membrane: PlasmaMembrane {
+                adhesion_active: true,
                 incoming_receptors: vec![],
                 outgoing_ion_channels: vec![],
                 receptors_blocked: false,
@@ -58,6 +59,7 @@ impl Default for AgentCell {
                 genome: Genome::new("Default DNA"),
                 ploidy: 2,
             transcription_factors: Vec::new(),
+                p53_active: true,
             },
             mitochondria: Mitochondria {
                 atp_budget: 10,

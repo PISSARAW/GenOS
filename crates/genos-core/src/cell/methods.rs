@@ -1,7 +1,5 @@
 ﻿use crate::cell::*;
 impl AgentCell {
-    /// LA MÃƒÆ’Ã¢â‚¬Â°IOSE : RÃƒÆ’Ã‚Â©duction et Brassage GÃƒÆ’Ã‚Â©nÃƒÆ’Ã‚Â©tique (CrÃƒÆ’Ã‚Â©ation de 4 GamÃƒÆ’Ã‚Â¨tes Uniques)
-    /// UtilisÃƒÆ’Ã‚Â©e pour la reproduction sexuÃƒÆ’Ã‚Â©e, favorisant l'innovation algorithmique
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
         let mut chrom_m = self.nucleus.genome.chromosome_maternal;
         let mut chrom_p = self.nucleus.genome.chromosome_paternal;
@@ -35,7 +33,6 @@ impl AgentCell {
             },
         ])
     }
-    /// FÃƒÆ’Ã¢â‚¬Â°CONDATION : Fusion de deux gamÃƒÆ’Ã‚Â¨tes pour former un nouvel Agent DiploÃƒÆ’Ã‚Â¯de
     pub fn fertilization(egg: Gamete, sperm: Gamete) -> Self {
         let mut child = Self::default();
         child.nucleus.genome.chromosome_maternal = egg.chromosome;
@@ -45,7 +42,6 @@ impl AgentCell {
         child.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
         child
     }
-    /// IMMUNITÃƒÆ’Ã¢â‚¬Â° INNÃƒÆ’Ã¢â‚¬Â°E : Les Phagocytes (Macrophages / Neutrophiles) "mangent" les intrus
     pub fn phagocytize_virus(&mut self, target: crate::virology::Virion) {
         // OPSONISATION : Si le virus est recouvert d'anticorps, le phagocyte a un boost massif d'appÃƒÆ’Ã‚Â©tit
         if target.is_opsonized {
@@ -63,8 +59,6 @@ impl AgentCell {
         // La bactÃƒÆ’Ã‚Â©rie cible est engloutie et dÃƒÆ’Ã‚Â©truite sur-le-champ
         target.mitochondria.atp_budget = 0;
     }
-
-    /// IMMUNITÃƒÆ’Ã¢â‚¬Â° ADAPTATIVE : DiffÃƒÆ’Ã‚Â©renciation des Lymphocytes B en Plasmocytes
     pub fn differentiate_into_plasmocyte(&mut self, target_spike: &str, ig_class: IgClass) {
         // Le cytoplasme et l'usine (ER) gonflent pour une production massive
         self.endoplasmic_reticulum.active_ribosomes_count = 1_000_000;
@@ -76,8 +70,6 @@ impl AgentCell {
             });
         }
     }
-
-    /// IMMUNITÃƒÆ’Ã¢â‚¬Â° ADAPTATIVE : DiffÃƒÆ’Ã‚Â©renciation en Cellule MÃƒÆ’Ã‚Â©moire
     pub fn differentiate_into_memory_b_cell(&mut self, target_spike: &str) {
         // LongÃƒÆ’Ã‚Â©vitÃƒÆ’Ã‚Â© extrÃƒÆ’Ã‚Âªme (Baisse drastique du mÃƒÆ’Ã‚Â©tabolisme pour survivre des annÃƒÆ’Ã‚Â©es)
         self.mitochondria.metabolic_rate = 0.1;
@@ -87,8 +79,6 @@ impl AgentCell {
             .semantic_memory
             .push(format!("KNOWN_ANTIGEN_{}", target_spike));
     }
-
-    /// IMMUNITÃƒÆ’Ã¢â‚¬Â° CELLULAIRE : Mise ÃƒÆ’Ã‚Â  jour du PrÃƒÆ’Ã‚Â©sentoir CMH (Complexe Majeur d'HistocompatibilitÃƒÆ’Ã‚Â©)
     pub fn update_mhc_display(&mut self) {
         if let Some(virus) = self.cytoplasm.viral_infections.first() {
             // La cellule crie ÃƒÆ’Ã‚Â  l'aide en affichant un morceau du virus ÃƒÆ’Ã‚Â  sa surface
@@ -101,8 +91,6 @@ impl AgentCell {
             self.plasma_membrane.mhc_display = Some("HEALTHY_SELF".to_string());
         }
     }
-
-    /// IMMUNITÃƒÆ’Ã¢â‚¬Â° CELLULAIRE : Lymphocyte T Cytotoxique (CD8) - Le tueur au corps ÃƒÆ’Ã‚Â  corps
     pub fn t_cell_perforin_attack(&self, target: &mut AgentCell, programmed_antigen: &str) {
         if let Some(mhc) = &target.plasma_membrane.mhc_display {
             if mhc == programmed_antigen {
@@ -112,10 +100,6 @@ impl AgentCell {
             }
         }
     }
-
-    /// La ScissiparitÃ© (Fission Binaire)
-    /// SpÃ©cifique aux organismes unicellulaires (ex: BactÃ©ries).
-    /// MÃ©thode ultra rapide, exponentielle. Produit des clones parfaits (sauf erreurs).
     pub fn binary_fission(mut self, mutation_chance: f64) -> Result<(AgentCell, AgentCell), String> {
         // Validation : Uniquement pour les cellules avec paroi (bactÃ©ries dans notre modÃ¨le)
         if !self.plasma_membrane.has_cell_wall {
@@ -150,16 +134,6 @@ impl AgentCell {
 
         Ok((self, clone))
     }
-
-    /// Le Bourgeonnement (Cellules isolÃ©es ou animaux coloniaux)
-    /// Reproduction asymÃ©trique : la mÃ¨re crÃ©e un petit clone sur son flanc.
-    /// detach : Si true (Levure, Hydre), le bourgeon se dÃ©tache et laisse une cicatrice.
-    ///            Si false (Coraux), le bourgeon reste attachÃ© pour former une colonie.
-    /// L'Endomitose (EndorÃ©duplication)
-    /// Le "piratage" de la mitose : la cellule rÃ©plique son ADN sans se diviser physiquement.
-    /// Transforme la cellule en mÃ©ga-usine (ex: HÃ©patocytes, MÃ©gacaryocytes, Trophoblastes).
-    /// La Sporulation Reproductive (L'essaim fongique)
-    /// Le champignon mise sur la quantitÃ© : crÃ©e des millions de spores lÃ©gÃ¨res pour la dispersion par le vent.
     pub fn fungal_sporulation(&mut self) -> Result<Vec<crate::spore::Spore>, String> {
         if self.mitochondria.atp_budget < 50 {
             return Err("ATP insuffisant pour fabriquer l'essaim de spores".to_string());
@@ -177,9 +151,6 @@ impl AgentCell {
         }
         Ok(swarm)
     }
-
-    /// L'Endosporulation de Survie (Le bunker de l'apocalypse BactÃ©rien)
-    /// La bactÃ©rie enferme son ADN dans un coffre-fort indestructible et sacrifie son corps.
     pub fn bacterial_endosporulation(self) -> Result<crate::spore::Spore, String> {
         if !self.plasma_membrane.has_cell_wall {
             return Err("Seules les bactÃ©ries peuvent s'enfermer dans une endospore".to_string());
@@ -208,9 +179,6 @@ impl AgentCell {
         
         Ok(())
     }
-
-    /// SpÃ©cificitÃ© des MÃ©gacaryocytes (Moelle osseuse)
-    /// La cellule gÃ©ante (polyploÃ¯de) se fragmente volontairement pour crÃ©er les plaquettes sanguines.
     pub fn fragment_into_platelets(self) -> Result<u32, String> {
         if self.nucleus.ploidy < 32 {
             return Err("La cellule n'est pas assez grosse (ploÃ¯die < 32n) pour se fragmenter en plaquettes".to_string());
@@ -324,10 +292,6 @@ impl AgentCell {
         };
         self.receive_ligand(&ligand);
     }
-
-    
-    /// Communication Juxtacrine : ClÃ©-Serrure physique (sans tunnel)
-    /// Ex: Le "Baiser de la mort" (Lymphocyte T) ou la voie Notch (Embryon)
     pub fn interact_juxtacrine_surface(&self, target: &mut AgentCell, ligand_name: &str) -> bool {
         let ligand = crate::signaling::Ligand {
             name: ligand_name.to_string(),
@@ -336,9 +300,6 @@ impl AgentCell {
         // Le ligand est attachÃ© Ã  la membrane de "self", il touche "target"
         target.receive_ligand(&ligand)
     }
-
-    /// Communication Juxtacrine : Les tunnels secrets (Gap Junctions)
-    /// Seuls les signaux Ã©lectriques ou petites molÃ©cules passent (pas de protÃ©ines)
     pub fn transmit_through_gap_junctions(&self, target: &mut AgentCell, signal: &str) -> bool {
         // Le signal est considÃ©rÃ© petit et traverse le pore physiquement
         // On simule cela en dÃ©clenchant directement la cascade interne du target,
@@ -392,5 +353,39 @@ impl AgentCell {
     }
     pub fn bacterial_transduction(&mut self, viral_delivery: crate::genome::Gene) {
         self.nucleus.genome.insert_gene(viral_delivery);
+    }
+    pub fn check_multicellular_pact(&self) -> Result<(), String> {
+        // Règle 1 : L'Adhésion (Se coller aux autres)
+        if !self.plasma_membrane.adhesion_active {
+            return Err("Pacte rompu : Perte d'adhésion cellulaire (Risque de Métastase)".to_string());
+        }
+
+        // Règle 2 : La Communication (Réseaux de contact)
+        if self.plasma_membrane.receptors.is_empty() && self.plasma_membrane.gap_junctions.is_empty() {
+            return Err("Pacte rompu : Isolement total (Cellule asociale)".to_string());
+        }
+
+        // Règle 3 : La Différenciation (Spécialisation épigénétique)
+        // La cellule doit avoir verrouillé une partie de son ADN pour être spécialisée
+        if !self.nucleus.genome.genes.values().any(|g| g.is_methylated) {
+            return Err("Pacte rompu : Cellule indifférenciée (Régression à l'état anarchique)".to_string());
+        }
+
+        // Règle 4 : L'Altruisme (Accepter l'Apoptose via p53)
+        if !self.nucleus.p53_active {
+            return Err("Pacte rompu : Gène p53 désactivé (Refus de mourir, Immortalité)".to_string());
+        }
+
+        Ok(())
+    }
+    pub fn trigger_metastasis(&mut self) {
+        // La cellule cancéreuse désactive p53 (refus de mourir)
+        self.nucleus.p53_active = false;
+        // Elle se décolle du tissu originel pour voyager (perte d'adhésion)
+        self.plasma_membrane.adhesion_active = false;
+        // Elle se dé-spécialise (efface l'épigénétique pour retrouver une autonomie totale)
+        for gene in self.nucleus.genome.genes.values_mut() {
+            gene.is_methylated = false;
+        }
     }
 }

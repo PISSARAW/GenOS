@@ -9,6 +9,7 @@ use crate::cell::substructs::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PlasmaMembrane {
     pub incoming_receptors: Vec<String>,
+    pub adhesion_active: bool,
     pub outgoing_ion_channels: Vec<String>,
     /// 1. ThÃƒÂ©rapie ciblÃƒÂ©e : Bloque les signaux de croissance
     pub receptors_blocked: bool,
@@ -30,6 +31,7 @@ pub struct Nucleus {
     pub genome: Genome,
     pub ploidy: u32,
     pub transcription_factors: Vec<String>,
+    pub p53_active: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
