@@ -138,4 +138,26 @@ mod tests {
         );
         assert_eq!(cell.cytoplasm.trace.sequence.len(), 0);
     }
+
+    #[test]
+    fn test_cellular_mitosis() {
+        let mut mother_cell = mock_cell();
+        let mother_atp_initial = mother_cell.mitochondria.atp_budget; // 10
+        let mother_id_initial = mother_cell.cell_id;
+
+        // On déclenche la mitose (Le move consomme la mère)
+        let (daughter_a, daughter_b) = mother_cell.mitosis().expect("Mitosis failed");
+
+        // Cytocinèse réussie : Deux nouvelles entités physiques
+        assert_ne!(daughter_a.cell_id, mother_id_initial);
+        assert_ne!(daughter_b.cell_id, mother_id_initial);
+        assert_ne!(daughter_a.cell_id, daughter_b.cell_id);
+
+        // Anaphase réussie : L'énergie a été divisée en deux
+        assert_eq!(daughter_a.mitochondria.atp_budget, mother_atp_initial / 2);
+        assert_eq!(daughter_b.mitochondria.atp_budget, mother_atp_initial / 2);
+
+        // L'ADN est le même
+        assert_eq!(daughter_a.nucleus.genome.hash_library(), daughter_b.nucleus.genome.hash_library());
+    }
 }

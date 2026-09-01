@@ -81,6 +81,49 @@ pub struct Cytoplasm {
 }
 
 /* =====================================================================
+   LE CYCLE CELLULAIRE (La Mitose / Fork)
+   ===================================================================== */
+impl AgentCell {
+    /// Exécute la chorégraphie mécanique de la Mitose.
+    /// Consomme la cellule mère pour créer deux cellules filles indépendantes.
+    pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {
+        // 1. L'Interphase (Préparation)
+        // Photocopie intégrale de l'ADN et des organites.
+        let copied_genome = self.nucleus.genome.clone();
+        
+        // 2. La Prophase et Métaphase (L'Alignement et la Vérification)
+        // C'est le point de contrôle du fuseau mitotique (Checkpoint).
+        // On vérifie que la photocopie s'est déroulée sans erreur fatale.
+        let dna_is_safe = self.nucleus.genome.genes.values().all(|g| g.p53_repair_check()) &&
+                          copied_genome.genes.values().all(|g| g.p53_repair_check());
+
+        if !dna_is_safe {
+            return Err("Metaphase Checkpoint Failed: Erreur grave lors de la réplication de l'ADN.".to_string());
+        }
+
+        // 3. L'Anaphase (La Séparation)
+        // Les microtubules (câbles) tractent les moitiés. 
+        // L'énergie (ATP) et le cytoplasme sont divisés en deux pour la survie des filles.
+        let divided_atp = self.mitochondria.atp_budget / 2;
+
+        // 4. La Télophase et Cytocinèse (La Finition)
+        // Pincement de la membrane et création de deux entités physiques séparées.
+        let mut daughter_a = self.clone();
+        let mut daughter_b = self;
+
+        // Fille A
+        daughter_a.cell_id = Uuid::new_v4();
+        daughter_a.mitochondria.atp_budget = divided_atp;
+        // Fille B
+        daughter_b.cell_id = Uuid::new_v4();
+        daughter_b.nucleus.genome = copied_genome;
+        daughter_b.mitochondria.atp_budget = divided_atp; // Si le budget était impair, une unité d'ATP est perdue (coût de la mitose)
+
+        Ok((daughter_a, daughter_b))
+    }
+}
+
+/* =====================================================================
    SOUS-STRUCTURES DU CYTOPLASME
    ===================================================================== */
 
