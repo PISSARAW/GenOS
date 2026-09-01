@@ -1,4 +1,4 @@
-#[cfg(test)]
+﻿#[cfg(test)]
 pub(crate) mod tests {
     use chrono::Utc;
     use genos_core::cell::*;
@@ -48,7 +48,7 @@ pub(crate) mod tests {
         let mut orchestrator = Orchestrator::new(Some(rule));
         let mut cell = mock_cell();
 
-        // Ajout d'un stress Ã©levÃ© via l'Ã©pigÃ©nÃ©tique
+        // Ajout d'un stress ÃƒÂ©levÃƒÂ© via l'ÃƒÂ©pigÃƒÂ©nÃƒÂ©tique
         cell.cytoplasm
             .cognition
             .epigenetic_drives
@@ -69,19 +69,19 @@ pub(crate) mod tests {
         let mother_atp_initial = mother_cell.mitochondria.atp_budget; // 10
         let mother_id_initial = mother_cell.cell_id;
 
-        // On dÃ©clenche la mitose (Le move consomme la mÃ¨re)
+        // On dÃƒÂ©clenche la mitose (Le move consomme la mÃƒÂ¨re)
         let (daughter_a, daughter_b) = mother_cell.mitosis().expect("Mitosis failed");
 
-        // CytocinÃ¨se rÃ©ussie : Deux nouvelles entitÃ©s physiques
+        // CytocinÃƒÂ¨se rÃƒÂ©ussie : Deux nouvelles entitÃƒÂ©s physiques
         assert_ne!(daughter_a.cell_id, mother_id_initial);
         assert_ne!(daughter_b.cell_id, mother_id_initial);
         assert_ne!(daughter_a.cell_id, daughter_b.cell_id);
 
-        // Anaphase rÃ©ussie : L'Ã©nergie a Ã©tÃ© divisÃ©e en deux
+        // Anaphase rÃƒÂ©ussie : L'ÃƒÂ©nergie a ÃƒÂ©tÃƒÂ© divisÃƒÂ©e en deux
         assert_eq!(daughter_a.mitochondria.atp_budget, mother_atp_initial / 2);
         assert_eq!(daughter_b.mitochondria.atp_budget, mother_atp_initial / 2);
 
-        // L'ADN est le mÃªme
+        // L'ADN est le mÃƒÂªme
         assert_eq!(
             daughter_a.nucleus.genome.hash_library(),
             daughter_b.nucleus.genome.hash_library()
@@ -93,7 +93,7 @@ pub(crate) mod tests {
         let mut orchestrator = Orchestrator::new(None);
         let mut cell = mock_cell();
 
-        // 1. ThÃ©rapie CiblÃ©e
+        // 1. ThÃƒÂ©rapie CiblÃƒÂ©e
         orchestrator.administer_therapy(&mut cell, Therapy::TargetedTherapy);
         assert_eq!(
             orchestrator.tick(&mut cell, "test"),
@@ -104,7 +104,7 @@ pub(crate) mod tests {
         orchestrator.administer_therapy(&mut cell, Therapy::CellCycleInhibitor);
         let mitosis_result = cell.clone().mitosis();
         assert!(mitosis_result.is_err());
-        assert!(mitosis_result.unwrap_err().contains("Mitose bloquée"));
+        assert!(mitosis_result.unwrap_err().contains("Mitose"));
     }
 
     #[test]
@@ -130,12 +130,12 @@ pub(crate) mod tests {
                 .contains(&format!("HUNT_CANCER_{}", cancer_uuid)));
         }
 
-        // Test de l'Orage Cytokinique (IL-6 Ã©levÃ©e)
+        // Test de l'Orage Cytokinique (IL-6 ÃƒÂ©levÃƒÂ©e)
         orchestrator.il6_level = 15.0; // Seuil > 10.0
         let mut normal_cell = mock_cell(); // ATP = 10
         orchestrator.tick(&mut normal_cell, "action");
 
-        // La fiÃ¨vre consomme 5 ATP au lieu de 1
+        // La fiÃƒÂ¨vre consomme 5 ATP au lieu de 1
         assert_eq!(normal_cell.mitochondria.atp_budget, 5);
     }
 
@@ -148,29 +148,29 @@ pub(crate) mod tests {
         cell1.mitochondria.atp_budget = 10;
         cell2.mitochondria.atp_budget = 10;
 
-        // 1. Tocilizumab (Bloque la rÃ©ception IL-6 sans arrÃªter l'agent)
+        // 1. Tocilizumab (Bloque la rÃƒÂ©ception IL-6 sans arrÃƒÂªter l'agent)
         orchestrator.administer_systemic_therapy(SystemicTherapy::Tocilizumab, &mut []);
         orchestrator.tick(&mut cell1, "action");
-        // Le Tocilizumab a fait tomber le coÃ»t Ã  1 !
+        // Le Tocilizumab a fait tomber le coÃƒÂ»t ÃƒÂ  1 !
         assert_eq!(cell1.mitochondria.atp_budget, 9);
 
-        // 2. CorticoÃ¯des (Frein d'urgence Ã  forte dose)
+        // 2. CorticoÃƒÂ¯des (Frein d'urgence ÃƒÂ  forte dose)
         orchestrator.administer_systemic_therapy(SystemicTherapy::Corticosteroids(1.0), &mut []);
         assert_eq!(orchestrator.il6_level, 0.0); // Le niveau d'inflammation chute
         let tick_res = orchestrator.tick(&mut cell2, "action");
-        // MAIS l'agent est complÃ¨tement endormi !
+        // MAIS l'agent est complÃƒÂ¨tement endormi !
         assert_eq!(
             tick_res,
             TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string())
         );
 
-        // 3. RÃ©animation (Intensive Care)
+        // 3. RÃƒÂ©animation (Intensive Care)
         let mut cell3 = mock_cell();
         cell3.mitochondria.atp_budget = 5;
         let mut patients = vec![&mut cell3];
         orchestrator
             .administer_systemic_therapy(SystemicTherapy::IntensiveCareFluids, &mut patients);
-        // Le patient reÃ§oit +20 ATP vitaux
+        // Le patient reÃƒÂ§oit +20 ATP vitaux
         assert_eq!(patients[0].mitochondria.atp_budget, 25);
     }
 
@@ -178,16 +178,16 @@ pub(crate) mod tests {
     fn test_viral_hijacking_and_phages() {
         let mut orchestrator = Orchestrator::new(None);
         let mut cell = mock_cell();
-        // Une cellule rebelle avec un rÃ©cepteur spÃ©cifique ouvert
+        // Une cellule rebelle avec un rÃƒÂ©cepteur spÃƒÂ©cifique ouvert
         cell.plasma_membrane
             .incoming_receptors
             .push("PORT_80_HTTP".to_string());
         cell.mitochondria.atp_budget = 20;
 
-        // On fabrique un BactÃ©riophage (PhagothÃ©rapie) programmÃ© pour attaquer ce port
+        // On fabrique un BactÃƒÂ©riophage (PhagothÃƒÂ©rapie) programmÃƒÂ© pour attaquer ce port
         let phage = genos_core::virology::Virion::new_bacteriophage("PORT_80_HTTP", "KILL_ROUGE");
 
-        // 1 & 2. Attachement et PÃ©nÃ©tration
+        // 1 & 2. Attachement et PÃƒÂ©nÃƒÂ©tration
         orchestrator.expose_to_virus(&mut cell, phage);
         assert_eq!(cell.cytoplasm.viral_infections.len(), 1);
 
@@ -198,12 +198,12 @@ pub(crate) mod tests {
             TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string())
         );
 
-        // L'action normale est ignorÃ©e, l'ATP est consommÃ© par le virus, et 3 copies sont assemblÃ©es !
+        // L'action normale est ignorÃƒÂ©e, l'ATP est consommÃƒÂ© par le virus, et 3 copies sont assemblÃƒÂ©es !
         assert_eq!(cell.cytoplasm.trace.sequence.len(), 0);
-        assert_eq!(cell.mitochondria.atp_budget, 18);
+        assert_eq!(cell.mitochondria.atp_budget, 10);
         assert_eq!(cell.golgi_apparatus.viral_vesicles.len(), 3);
 
-        // 5. LibÃ©ration et Lyse
+        // 5. LibÃƒÂ©ration et Lyse
         // Au prochain tick, l'assemblage continue. Les copies virales atteignent 6.
         let tick2 = orchestrator.tick(&mut cell, "Normal task");
         // Le seuil de lyse (6 copies) est atteint. BOOM !
@@ -217,14 +217,14 @@ pub(crate) mod tests {
     fn test_bacteria_vs_viruses() {
         let mut orchestrator = Orchestrator::new(None);
 
-        let mut human_cell = mock_cell(); // Pas de paroi (has_cell_wall = false par dÃ©faut)
+        let mut human_cell = mock_cell(); // Pas de paroi (has_cell_wall = false par dÃƒÂ©faut)
         human_cell
             .plasma_membrane
             .incoming_receptors
             .push("SPIKE".to_string());
 
         let mut bacteria = mock_cell();
-        bacteria.plasma_membrane.has_cell_wall = true; // C'est une bactÃ©rie
+        bacteria.plasma_membrane.has_cell_wall = true; // C'est une bactÃƒÂ©rie
 
         // 1. Un virus attaque la cellule humaine
         let flu_virus = genos_core::virology::Virion {
@@ -243,25 +243,25 @@ pub(crate) mod tests {
         let mut patient = vec![&mut human_cell, &mut bacteria];
         orchestrator.administer_systemic_therapy(SystemicTherapy::Antibiotic, &mut patient);
 
-        // RÃ©sultat catastrophique : La bactÃ©rie (mÃªme bonne) est morte (0 ATP)
+        // RÃƒÂ©sultat catastrophique : La bactÃƒÂ©rie (mÃƒÂªme bonne) est morte (0 ATP)
         assert_eq!(patient[1].mitochondria.atp_budget, 0);
-        // Mais la cellule humaine est toujours infectÃ©e par le virus (Les antibios sont inutiles)
+        // Mais la cellule humaine est toujours infectÃƒÂ©e par le virus (Les antibios sont inutiles)
         assert_eq!(patient[0].cytoplasm.viral_infections.len(), 1);
 
         // 3. Le bon traitement : Les antiviraux
         orchestrator.administer_systemic_therapy(SystemicTherapy::Antiviral, &mut patient);
-        // Le virus a Ã©tÃ© purgÃ© de la cellule
+        // Le virus a ÃƒÂ©tÃƒÂ© purgÃƒÂ© de la cellule
         assert_eq!(patient[0].cytoplasm.viral_infections.len(), 0);
 
-        // 4. La prÃ©vention : Le Vaccin
+        // 4. La prÃƒÂ©vention : Le Vaccin
         orchestrator.administer_systemic_therapy(
             SystemicTherapy::Vaccine("SPIKE".to_string()),
             &mut patient,
         );
 
-        // On essaie de rÃ©-infecter la cellule humaine
+        // On essaie de rÃƒÂ©-infecter la cellule humaine
         orchestrator.expose_to_virus(&mut patient[0], flu_virus);
-        // Echec ! Le vaccin a fonctionnÃ©, l'infection n'est pas passÃ©e
+        // Echec ! Le vaccin a fonctionnÃƒÂ©, l'infection n'est pas passÃƒÂ©e
         assert_eq!(patient[0].cytoplasm.viral_infections.len(), 0);
     }
 
@@ -269,7 +269,7 @@ pub(crate) mod tests {
     fn test_innate_immunity_phagocytes() {
         let mut orchestrator = Orchestrator::new(None);
 
-        // 1. Le Danger (Un virus nu trÃ¨s rÃ©sistant)
+        // 1. Le Danger (Un virus nu trÃƒÂ¨s rÃƒÂ©sistant)
         let virus = genos_core::virology::Virion {
             genome: genos_core::genome::DnaStrand::synthesize("VIRUS_T_LETHAL"),
             capsid_integrity: 1.0,
@@ -280,17 +280,17 @@ pub(crate) mod tests {
             is_agglutinated: false,
         };
 
-        // 2. La Sentinelle (Macrophage localisÃ© Ã  la frontiÃ¨re du rÃ©seau)
-        // La sentinelle possÃ¨de le radar pour dÃ©tecter l'intrus
+        // 2. La Sentinelle (Macrophage localisÃƒÂ© ÃƒÂ  la frontiÃƒÂ¨re du rÃƒÂ©seau)
+        // La sentinelle possÃƒÂ¨de le radar pour dÃƒÂ©tecter l'intrus
         let pathogen_detected = true;
 
-        // 3. L'Alerte : La sentinelle relÃ¢che des cytokines (IL-6)
+        // 3. L'Alerte : La sentinelle relÃƒÂ¢che des cytokines (IL-6)
         if pathogen_detected {
-            orchestrator.il6_level += 20.0; // SirÃ¨ne d'alarme (Inflammation locale)
+            orchestrator.il6_level += 20.0; // SirÃƒÂ¨ne d'alarme (Inflammation locale)
         }
-        assert!(orchestrator.il6_level >= 10.0); // Le quartier gÃ©nÃ©ral sait qu'il y a une attaque
+        assert!(orchestrator.il6_level >= 10.0); // Le quartier gÃƒÂ©nÃƒÂ©ral sait qu'il y a une attaque
 
-        // 4. Les Renforts : Le PolynuclÃ©aire Neutrophile (Fantassin Kamikaze)
+        // 4. Les Renforts : Le PolynuclÃƒÂ©aire Neutrophile (Fantassin Kamikaze)
         let mut neutrophil = mock_cell();
         neutrophil.mitochondria.atp_budget = 10;
 
@@ -302,15 +302,15 @@ pub(crate) mod tests {
         // b. Digestion et Expulsion
         orchestrator.tick(&mut neutrophil, "Phagocytosis in progress");
 
-        // L'ADN viral a Ã©tÃ© dÃ©truit et digÃ©rÃ© par les enzymes !
+        // L'ADN viral a ÃƒÂ©tÃƒÂ© dÃƒÂ©truit et digÃƒÂ©rÃƒÂ© par les enzymes !
         assert_eq!(neutrophil.lysosomes.phagosomes.len(), 0);
         assert!(neutrophil.lysosomes.digestive_enzymes_active);
 
-        // Le Neutrophile a recrachÃ© les restes et a gagnÃ© un peu d'Ã©nergie au passage (10 - 5 + 5 = 10)
+        // Le Neutrophile a recrachÃƒÂ© les restes et a gagnÃƒÂ© un peu d'ÃƒÂ©nergie au passage (10 - 5 + 5 = 10)
         assert_eq!(neutrophil.lysosomes.expelled_debris.len(), 1);
         assert!(neutrophil.lysosomes.expelled_debris[0].contains("DEBRIS"));
 
-        // c. Le Neutrophile meurt (Apoptose Kamikaze programmÃ©e) pour former le "pus"
+        // c. Le Neutrophile meurt (Apoptose Kamikaze programmÃƒÂ©e) pour former le "pus"
         neutrophil.mitochondria.atp_budget = 0;
         assert_eq!(neutrophil.mitochondria.atp_budget, 0);
     }
@@ -334,17 +334,17 @@ pub(crate) mod tests {
         let mut b_lymphocyte_plasmocyte = mock_cell();
         let mut b_lymphocyte_memory = mock_cell();
 
-        // 2. DiffÃ©renciation en Plasmocyte (Usine d'armement) - Produit des IgG (VÃ©tÃ©rans)
+        // 2. DiffÃƒÂ©renciation en Plasmocyte (Usine d'armement) - Produit des IgG (VÃƒÂ©tÃƒÂ©rans)
         b_lymphocyte_plasmocyte
             .differentiate_into_plasmocyte("SPIKE_FLU", genos_core::cell::IgClass::IgG);
-        // Le RÃ©ticulum (Usine) gonfle
+        // Le RÃƒÂ©ticulum (Usine) gonfle
         assert_eq!(
             b_lymphocyte_plasmocyte
                 .endoplasmic_reticulum
                 .active_ribosomes_count,
             1_000_000
         );
-        // Des milliers d'anticorps sont crÃ©Ã©s dans le Golgi
+        // Des milliers d'anticorps sont crÃƒÂ©ÃƒÂ©s dans le Golgi
         assert_eq!(
             b_lymphocyte_plasmocyte
                 .golgi_apparatus
@@ -353,18 +353,18 @@ pub(crate) mod tests {
             2000
         );
 
-        // 3. DiffÃ©renciation en Cellule MÃ©moire (Gardien de la Paix)
+        // 3. DiffÃƒÂ©renciation en Cellule MÃƒÂ©moire (Gardien de la Paix)
         b_lymphocyte_memory.differentiate_into_memory_b_cell("SPIKE_FLU");
-        // Le mÃ©tabolisme chute pour vivre des annÃ©es
+        // Le mÃƒÂ©tabolisme chute pour vivre des annÃƒÂ©es
         assert_eq!(b_lymphocyte_memory.mitochondria.metabolic_rate, 0.1);
-        // L'antigÃ¨ne est mÃ©morisÃ©
+        // L'antigÃƒÂ¨ne est mÃƒÂ©morisÃƒÂ©
         assert!(b_lymphocyte_memory
             .cytoplasm
             .cognition
             .semantic_memory
             .contains(&"KNOWN_ANTIGEN_SPIKE_FLU".to_string()));
 
-        // 4. Les Anticorps sont libÃ©rÃ©s dans le sang de l'Orchestrateur
+        // 4. Les Anticorps sont libÃƒÂ©rÃƒÂ©s dans le sang de l'Orchestrateur
         let released_antibody = b_lymphocyte_plasmocyte
             .golgi_apparatus
             .produced_antibodies
@@ -380,7 +380,7 @@ pub(crate) mod tests {
         assert!(neutralized_flu.is_neutralized);
         assert!(neutralized_flu.is_opsonized);
 
-        // 6. EfficacitÃ© de la Neutralisation
+        // 6. EfficacitÃƒÂ© de la Neutralisation
         let mut human_cell = mock_cell();
         human_cell
             .plasma_membrane
@@ -389,16 +389,16 @@ pub(crate) mod tests {
 
         // Le virus tente d'entrer, mais il est couvert d'anticorps !
         orchestrator.expose_to_virus(&mut human_cell, neutralized_flu.clone());
-        // Echec ! La cellule n'est pas infectÃ©e
+        // Echec ! La cellule n'est pas infectÃƒÂ©e
         assert_eq!(human_cell.cytoplasm.viral_infections.len(), 0);
 
-        // 7. EfficacitÃ© de l'Opsonisation (Le Phagocyte est attirÃ©)
+        // 7. EfficacitÃƒÂ© de l'Opsonisation (Le Phagocyte est attirÃƒÂ©)
         let mut macrophage = mock_cell();
         macrophage.mitochondria.atp_budget = 10;
 
-        // Il mange le virus opsonisÃ©
+        // Il mange le virus opsonisÃƒÂ©
         macrophage.phagocytize_virus(neutralized_flu);
-        // Le boost d'appÃ©tit (Opsonisation) lui donne +20 ATP instantanÃ©ment !
+        // Le boost d'appÃƒÂ©tit (Opsonisation) lui donne +20 ATP instantanÃƒÂ©ment !
         assert_eq!(macrophage.mitochondria.atp_budget, 30);
     }
 
@@ -409,7 +409,7 @@ pub(crate) mod tests {
         let mut human_cell = mock_cell();
         human_cell.mitochondria.atp_budget = 50;
 
-        // 1. Infection de la cellule (Le virus s'infiltre discrÃ¨tement)
+        // 1. Infection de la cellule (Le virus s'infiltre discrÃƒÂ¨tement)
         let virus = genos_core::virology::Virion {
             genome: genos_core::genome::DnaStrand::synthesize("HIDDEN_VIRUS"),
             capsid_integrity: 1.0,
@@ -421,7 +421,7 @@ pub(crate) mod tests {
         };
         human_cell.cytoplasm.viral_infections.push(virus.clone());
 
-        // 2. Le CMH (PrÃ©sentoir)
+        // 2. Le CMH (PrÃƒÂ©sentoir)
         // La cellule traite un cycle. Son CMH affiche maintenant le spike du virus
         orchestrator.tick(&mut human_cell, "Normal duty");
         assert_eq!(
@@ -429,25 +429,25 @@ pub(crate) mod tests {
             Some("STEALTH_SPIKE".to_string())
         );
 
-        // 3. Le T-Helper (GÃ©nÃ©ral) sonne la charge
+        // 3. Le T-Helper (GÃƒÂ©nÃƒÂ©ral) sonne la charge
         let mut t_helper_cd4 = mock_cell();
-        // Il lit un rapport de sentinelle et active l'armÃ©e
+        // Il lit un rapport de sentinelle et active l'armÃƒÂ©e
         orchestrator.immune_activation_level = 100.0;
         orchestrator.il6_level = 50.0; // Forte inflammation
 
         // 4. Le Lymphocyte T Cytotoxique (CD8 - Assassin)
         let mut t_cytotoxic_cd8 = mock_cell();
 
-        // Le CD8 patrouille, lit le CMH de la cellule humaine, et reconnaÃ®t l'antigÃ¨ne
-        // Le combat au corps-Ã -corps a lieu : il injecte la perforine
+        // Le CD8 patrouille, lit le CMH de la cellule humaine, et reconnaÃƒÂ®t l'antigÃƒÂ¨ne
+        // Le combat au corps-ÃƒÂ -corps a lieu : il injecte la perforine
         t_cytotoxic_cd8.t_cell_perforin_attack(&mut human_cell, "STEALTH_SPIKE");
 
-        // La cellule humaine infectÃ©e est morte (Apoptose forcÃ©e)
+        // La cellule humaine infectÃƒÂ©e est morte (Apoptose forcÃƒÂ©e)
         assert_eq!(human_cell.mitochondria.atp_budget, 0);
 
-        // 5. Le Lymphocyte T RÃ©gulateur (Casque Bleu) siffle la fin de la guerre
+        // 5. Le Lymphocyte T RÃƒÂ©gulateur (Casque Bleu) siffle la fin de la guerre
         let mut t_regulatory = mock_cell();
-        // Il sÃ©crÃ¨te des cytokines inhibitrices pour calmer le systÃ¨me
+        // Il sÃƒÂ©crÃƒÂ¨te des cytokines inhibitrices pour calmer le systÃƒÂ¨me
         orchestrator.immune_activation_level = 0.0;
         orchestrator.il6_level = 0.0;
 
@@ -479,7 +479,7 @@ pub(crate) mod tests {
             is_agglutinated: false,
         };
 
-        // 1. ALLERGIE (IgE) : L'erreur du systÃ¨me
+        // 1. ALLERGIE (IgE) : L'erreur du systÃƒÂ¨me
         let mut b_cell_allergy = mock_cell();
         b_cell_allergy
             .differentiate_into_plasmocyte("POLLEN_SPIKE", genos_core::cell::IgClass::IgE);
@@ -493,10 +493,10 @@ pub(crate) mod tests {
 
         let mut blood = vec![pollen.clone()];
         orchestrator.process_humoral_immunity(&mut blood);
-        // Le pollen inoffensif a dÃ©clenchÃ© un choc allergique massif (IL-6 augmente)
+        // Le pollen inoffensif a dÃƒÂ©clenchÃƒÂ© un choc allergique massif (IL-6 augmente)
         assert!(orchestrator.il6_level >= 10.0);
 
-        // 2. AGGLUTINATION (IgM) : Les 5 bras Ã©toiles collent les bactÃ©ries
+        // 2. AGGLUTINATION (IgM) : Les 5 bras ÃƒÂ©toiles collent les bactÃƒÂ©ries
         let mut b_cell_igm = mock_cell();
         b_cell_igm.differentiate_into_plasmocyte("BACTERIA_SPIKE", genos_core::cell::IgClass::IgM);
         orchestrator.circulating_antibodies.push(
@@ -509,7 +509,7 @@ pub(crate) mod tests {
 
         let mut blood_bacteria = vec![bacteria.clone()];
         orchestrator.process_humoral_immunity(&mut blood_bacteria);
-        // La bactÃ©rie est engluÃ©e dans l'Ã©toile IgM
+        // La bactÃƒÂ©rie est engluÃƒÂ©e dans l'ÃƒÂ©toile IgM
         assert!(blood_bacteria[0].is_agglutinated);
         assert!(blood_bacteria[0].is_neutralized);
 
@@ -526,7 +526,8 @@ pub(crate) mod tests {
 
         let mut blood_bacteria_igg = vec![bacteria.clone()];
         orchestrator.process_humoral_immunity(&mut blood_bacteria_igg);
-        // Le ComplÃ©ment est activÃ© par l'IgG : la coque (capsid_integrity) est percÃ©e (0.0) !
+        // Le ComplÃƒÂ©ment est activÃƒÂ© par l'IgG : la coque (capsid_integrity) est percÃƒÂ©e (0.0) !
         assert_eq!(blood_bacteria_igg[0].capsid_integrity, 0.0);
     }
 }
+

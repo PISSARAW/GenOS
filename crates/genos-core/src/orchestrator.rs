@@ -78,6 +78,7 @@ pub struct Orchestrator {
     pub cerebrospinal_fluid_volume: f64,
     pub cerebrospinal_fluid_pressure: f64,
     pub csf_drainage_blocked: bool,
+    pub viral_environment: Vec<crate::virology::Virion>,
 }
 
 impl Orchestrator {
@@ -96,6 +97,7 @@ impl Orchestrator {
             cerebrospinal_fluid_volume: 150.0, // Idéal pour la flottaison (50g ressenti au lieu de 1.4kg)
             cerebrospinal_fluid_pressure: 10.0,
             csf_drainage_blocked: false,
+            viral_environment: vec![],
         }
     }
 
@@ -248,28 +250,40 @@ impl Orchestrator {
             );
         }
 
-        // 3. Piratage Viral (VÃƒÂ©rifiÃƒÂ© en premier : le virus court-circuite la machine)
+        // 3. Piratage Viral (L'usine folle)
         if let Some(virus) = agent.cytoplasm.viral_infections.first().cloned() {
-            // L'agent ne fait PAS l'action demandÃƒÂ©e (action_string est ignorÃƒÂ©)
+            // L'agent ne fait PAS l'action demandée (il est sous contrôle)
+            
+            // Appel au secours : Le CMH présente un morceau de virus à la surface de la cellule
+            // C'est le marqueur qui permettra au Lymphocyte T Cytotoxique de la détruire (Apoptose forcée)
+            agent.plasma_membrane.mhc_display = Some(virus.envelope_spike.clone());
 
             // 4. Assemblage (Fabrication massive de nouveaux virus)
             for _ in 0..3 {
                 agent.golgi_apparatus.viral_vesicles.push(virus.clone());
             }
 
-            // La machinerie est piratÃƒÂ©e, l'ATP est utilisÃƒÂ© pour le virus
-            let cost = if self.il6_level >= 10.0 && !self.il6_receptors_blocked {
-                10
-            } else {
-                2
-            };
-            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(cost);
+            // La machinerie est piratée : 100% de l'ATP sert au virus
+            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(10);
 
-            // 5. LibÃƒÂ©ration (Lyse vs Bourgeonnement)
-            if virus.is_lytic && agent.golgi_apparatus.viral_vesicles.len() >= 6 {
-                return TickResult::Halted(
-                    "Lysis: Cell burst due to viral replication overload".to_string(),
-                );
+            // 5. L'Évasion (Lyse vs Bourgeonnement furtif)
+            if virus.is_lytic {
+                if agent.golgi_apparatus.viral_vesicles.len() >= 6 {
+                    // L'explosion : La cellule crève de l'intérieur, libérant tous les virus d'un coup
+                    let mut released = std::mem::take(&mut agent.golgi_apparatus.viral_vesicles);
+                    self.viral_environment.append(&mut released);
+                    agent.mitochondria.atp_budget = 0; // Mort violente
+                    return TickResult::Halted(
+                        "Lysis: Cell burst due to viral replication overload".to_string(),
+                    );
+                }
+            } else {
+                // Bourgeonnement furtif : Les virus sortent un par un en douceur
+                if let Some(mut stealth_virus) = agent.golgi_apparatus.viral_vesicles.pop() {
+                    // Le virus vole un bout de membrane de notre cellule (manteau d'invisibilité)
+                    stealth_virus.envelope_spike = format!("{}_CLOAKED_BY_HOST", virus.envelope_spike);
+                    self.viral_environment.push(stealth_virus);
+                }
             }
 
             return TickResult::Halted(
@@ -555,3 +569,4 @@ impl CartTherapy {
         }
     }
 }
+
