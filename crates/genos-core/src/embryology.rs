@@ -1,5 +1,5 @@
 ﻿use crate::cell::AgentCell;
-use crate::epigenetics::ChromatinState;
+use crate::genome::ChromatinState;
 use std::collections::BTreeMap;
 
 /// ACTE 1 : Le Zygote et la Mitose
@@ -68,12 +68,12 @@ pub fn sculpt_architecture_via_apoptosis(swarm: &mut Vec<AgentCell>) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::cell::mock_cell;
+    use crate::cell::AgentCell;
 
     #[test]
     fn test_embryonic_development() {
         // 1. Zygote -> 16 cellules souches (4 divisions)
-        let zygote = mock_cell();
+        let zygote = AgentCell::new("ZYGOTE");
         let mut swarm = cleave_zygote(zygote, 4);
         assert_eq!(swarm.len(), 16);
 

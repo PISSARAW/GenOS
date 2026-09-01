@@ -2,7 +2,7 @@
 impl AgentCell {
     pub fn trigger_apoptosis(&mut self) {
         self.is_alive = false;
-        self.plasma_membrane.integrity = 0.0;
+        
         self.mitochondria.atp_budget = 0;
     }
 
