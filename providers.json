@@ -1,8 +1,8 @@
 [
   {
     "name": "Opencode Go",
-    "chat_url": "https://opencode.ai/zen/v1/chat/completions",
-    "models_url": "https://opencode.ai/zen/v1/models",
+    "chat_url": "https://opencode.ai/zen/go/v1/chat/completions",
+    "models_url": "https://opencode.ai/zen/go/v1/models",
     "key": "sk-q0YMNbwJpaJTQBe2Aism9PTlWdQhDMkGXpS1IGcVcNOZAavvFOoSx2MHrtuz9393",
     "format": "openai"
   },
