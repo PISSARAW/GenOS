@@ -3,6 +3,7 @@ use crate::genome::DnaStrand;
 use crate::genome::RnaStrand;
 use crate::epigenetics::ChromatinState;
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Gene {
     /// La canalisation dÃ©veloppementale : Si true, la plasticitÃ© est terminÃ©e, l'Ã©tat Ã©pigÃ©nÃ©tique est irrÃ©versible.
     pub developmentally_locked: bool,
@@ -17,6 +18,7 @@ pub struct Gene {
     pub default_exons: Vec<(usize, usize)>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Spliceosome;
 impl Spliceosome {
     /// Ã‰pissage Alternatif : DÃ©coupe l'ARN prÃ©-messager pour ne garder que les Exons
@@ -101,4 +103,3 @@ pub struct Plasmid {
     pub instruction: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]

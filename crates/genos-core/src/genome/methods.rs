@@ -149,6 +149,7 @@ pub enum ChromatinState {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
 
     pub genome_id: Uuid,
