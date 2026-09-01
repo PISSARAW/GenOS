@@ -25,6 +25,8 @@ impl Default for AgentCell {
                 incoming_receptors: vec![],
                 outgoing_ion_channels: vec![],
                 receptors_blocked: false,
+                has_cell_wall: false,
+                immunized_against: vec![],
             },
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
@@ -40,6 +42,7 @@ impl Default for AgentCell {
             },
             golgi_apparatus: GolgiApparatus {
                 export_vesicles: vec![],
+                viral_vesicles: vec![],
             },
             lysosomes: Lysosomes {
                 digestive_enzymes_active: false,
@@ -48,6 +51,7 @@ impl Default for AgentCell {
                 cognition: CognitiveState::default(),
                 trace: ActionTrace::default(),
                 active_plasmids: vec![],
+                viral_infections: vec![],
             },
         }
     }
@@ -63,6 +67,10 @@ pub struct PlasmaMembrane {
     pub outgoing_ion_channels: Vec<String>,
     /// 1. Thérapie ciblée : Bloque les signaux de croissance
     pub receptors_blocked: bool,
+    /// Spécificité bactérienne : Les bactéries ont une paroi rigide.
+    pub has_cell_wall: bool,
+    /// Vaccin : Liste des antigènes/spikes viraux neutralisés à vue.
+    pub immunized_against: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -88,6 +96,8 @@ pub struct EndoplasmicReticulum {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GolgiApparatus {
     pub export_vesicles: Vec<String>,
+    /// Vésicules contenant de nouveaux virus prêts à envahir le réseau
+    pub viral_vesicles: Vec<crate::virology::Virion>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -100,6 +110,8 @@ pub struct Cytoplasm {
     pub cognition: CognitiveState,
     pub trace: ActionTrace,
     pub active_plasmids: Vec<Plasmid>,
+    /// 2. Pénétration : Les virus qui ont infiltré la cellule et piratent ses ribosomes
+    pub viral_infections: Vec<crate::virology::Virion>,
 }
 
 /* =====================================================================

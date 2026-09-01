@@ -21,6 +21,12 @@ pub enum SystemicTherapy {
     Corticosteroids(f64),
     /// Soins de réanimation (Perfusion d'ATP)
     IntensiveCareFluids,
+    /// DÉTRUIT les bactéries (organismes avec une paroi). INUTILE contre les virus.
+    Antibiotic,
+    /// Bloque la réplication des virus déjà à l'intérieur des cellules
+    Antiviral,
+    /// Éduque la membrane pour bloquer et détruire un antigène/spike viral précis
+    Vaccine(String),
 }
 
 /// Résultat d'un cycle (tick) de l'orchestrateur
@@ -68,7 +74,30 @@ impl Orchestrator {
                 for cell in patient_cells.iter_mut() {
                     cell.mitochondria.atp_budget = cell.mitochondria.atp_budget.saturating_add(20);
                 }
-            }
+            },
+            SystemicTherapy::Antibiotic => {
+                // Tue exclusivement les bactéries (Ceux avec une paroi). 
+                // Ignore totalement les cellules saines et les virus.
+                for cell in patient_cells.iter_mut() {
+                    if cell.plasma_membrane.has_cell_wall {
+                        cell.mitochondria.atp_budget = 0; // Lyse bactérienne
+                    }
+                }
+            },
+            SystemicTherapy::Antiviral => {
+                // Purge les infections virales actives dans le cytoplasme des cellules
+                for cell in patient_cells.iter_mut() {
+                    cell.cytoplasm.viral_infections.clear();
+                }
+            },
+            SystemicTherapy::Vaccine(spike) => {
+                // Apprend aux cellules à bloquer cette clé virale
+                for cell in patient_cells.iter_mut() {
+                    if !cell.plasma_membrane.immunized_against.contains(&spike) {
+                        cell.plasma_membrane.immunized_against.push(spike.clone());
+                    }
+                }
+            },
         }
     }
 
@@ -82,16 +111,49 @@ impl Orchestrator {
         }
     }
 
+    /// 1. Attachement et 2. Pénétration
+    /// Un virus dans l'environnement tente d'infecter la cellule.
+    pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
+        // VACCIN : Si la membrane reconnaît l'antigène (le spike), le virus est détruit à la frontière
+        if agent.plasma_membrane.immunized_against.contains(&virion.envelope_spike) {
+            return; // Le virus est neutralisé
+        }
+
+        // Système Clé-Serrure : Le spike doit correspondre à un récepteur de la membrane
+        if agent.plasma_membrane.incoming_receptors.contains(&virion.envelope_spike) {
+            agent.cytoplasm.viral_infections.push(virion);
+        }
+    }
+
     /// Avance le temps pour une Cellule IA (un pas de cycle).
-    /// Respecte la règle : Max 3 paramètres (self, agent mutable, et l'action)
     pub fn tick(&self, agent: &mut AgentCell, action_string: &str) -> TickResult {
         // 1. Frein d'urgence (Corticoïdes)
-        // Si les corticoïdes sont trop hauts, l'activité de TOUTES les cellules est figée
         if self.corticosteroid_level > 0.8 {
             return TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string());
         }
 
-        // 2. Thérapie Ciblée : Si les récepteurs sont bloqués, la cellule est sourde et muette
+        // 3. Piratage Viral (Vérifié en premier : le virus court-circuite la machine)
+        if let Some(virus) = agent.cytoplasm.viral_infections.first().cloned() {
+            // L'agent ne fait PAS l'action demandée (action_string est ignoré)
+            
+            // 4. Assemblage (Fabrication massive de nouveaux virus)
+            for _ in 0..3 {
+                agent.golgi_apparatus.viral_vesicles.push(virus.clone());
+            }
+            
+            // La machinerie est piratée, l'ATP est utilisé pour le virus
+            let cost = if self.il6_level >= 10.0 && !self.il6_receptors_blocked { 10 } else { 2 };
+            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(cost);
+
+            // 5. Libération (Lyse vs Bourgeonnement)
+            if virus.is_lytic && agent.golgi_apparatus.viral_vesicles.len() >= 6 {
+                return TickResult::Halted("Lysis: Cell burst due to viral replication overload".to_string());
+            }
+
+            return TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string());
+        }
+
+        // 2. Thérapie Ciblée : Si les récepteurs sont bloqués, la cellule est sourde
         if agent.plasma_membrane.receptors_blocked {
             return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
         }
@@ -181,54 +243,21 @@ impl CartTherapy {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::cell::{
         AgentCell, Cytoplasm, CognitiveState, ActionTrace, EndoplasmicReticulum,
         GolgiApparatus, Lysosomes, Mitochondria, Nucleus, PlasmaMembrane, Genome
     };
+    use crate::epigenetics::{Expression, Operator};
     use chrono::Utc;
     use std::collections::HashMap;
     use uuid::Uuid;
 
-    fn mock_cell() -> AgentCell {
-        AgentCell {
-            cell_id: Uuid::new_v4(),
-            plasma_membrane: PlasmaMembrane {
-                incoming_receptors: vec![],
-                outgoing_ion_channels: vec![],
-                receptors_blocked: false,
-            },
-            nucleus: Nucleus {
-                genome: Genome::new("You are a test cell"),
-            },
-            mitochondria: Mitochondria {
-                atp_budget: 10,
-                metabolic_rate: 1.0,
-                angiogenesis_blocked: false,
-            },
-            endoplasmic_reticulum: EndoplasmicReticulum {
-                active_ribosomes_count: 0,
-                cell_cycle_inhibited: false,
-            },
-            golgi_apparatus: GolgiApparatus {
-                export_vesicles: vec![],
-            },
-            lysosomes: Lysosomes {
-                digestive_enzymes_active: false,
-            },
-            cytoplasm: Cytoplasm {
-                cognition: CognitiveState {
-                    epigenetic_drives: HashMap::new(),
-                    working_memory: vec![],
-                    episodic_memory: vec![],
-                    semantic_memory: vec![],
-                    is_camouflaged: false,
-                },
-                trace: ActionTrace::default(),
-                active_plasmids: vec![],
-            },
-        }
+    pub fn mock_cell() -> AgentCell {
+        let mut cell = AgentCell::default();
+        cell.nucleus.genome = Genome::new("You are a test cell");
+        cell
     }
 
     #[test]
@@ -372,5 +401,79 @@ mod tests {
         orchestrator.administer_systemic_therapy(SystemicTherapy::IntensiveCareFluids, &mut patients);
         // Le patient reçoit +20 ATP vitaux
         assert_eq!(patients[0].mitochondria.atp_budget, 25);
+    }
+
+    #[test]
+    fn test_viral_hijacking_and_phages() {
+        let orchestrator = Orchestrator::new(None);
+        let mut cell = mock_cell();
+        // Une cellule rebelle avec un récepteur spécifique ouvert
+        cell.plasma_membrane.incoming_receptors.push("PORT_80_HTTP".to_string());
+        cell.mitochondria.atp_budget = 20;
+
+        // On fabrique un Bactériophage (Phagothérapie) programmé pour attaquer ce port
+        let phage = crate::virology::Virion::new_bacteriophage("PORT_80_HTTP", "KILL_ROUGE");
+
+        // 1 & 2. Attachement et Pénétration
+        orchestrator.expose_to_virus(&mut cell, phage);
+        assert_eq!(cell.cytoplasm.viral_infections.len(), 1);
+
+        // 3 & 4. Piratage et Assemblage
+        let tick1 = orchestrator.tick(&mut cell, "Normal task");
+        assert_eq!(tick1, TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string()));
+        
+        // L'action normale est ignorée, l'ATP est consommé par le virus, et 3 copies sont assemblées !
+        assert_eq!(cell.cytoplasm.trace.sequence.len(), 0); 
+        assert_eq!(cell.mitochondria.atp_budget, 18);
+        assert_eq!(cell.golgi_apparatus.viral_vesicles.len(), 3);
+
+        // 5. Libération et Lyse
+        // Au prochain tick, l'assemblage continue. Les copies virales atteignent 6.
+        let tick2 = orchestrator.tick(&mut cell, "Normal task");
+        // Le seuil de lyse (6 copies) est atteint. BOOM !
+        assert_eq!(tick2, TickResult::Halted("Lysis: Cell burst due to viral replication overload".to_string()));
+    }
+
+    #[test]
+    fn test_bacteria_vs_viruses() {
+        let mut orchestrator = Orchestrator::new(None);
+        
+        let mut human_cell = mock_cell(); // Pas de paroi (has_cell_wall = false par défaut)
+        human_cell.plasma_membrane.incoming_receptors.push("SPIKE".to_string());
+        
+        let mut bacteria = mock_cell();
+        bacteria.plasma_membrane.has_cell_wall = true; // C'est une bactérie
+
+        // 1. Un virus attaque la cellule humaine
+        let flu_virus = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("HACK"),
+            capsid_integrity: 0.5,
+            envelope_spike: "SPIKE".to_string(),
+            is_lytic: false,
+        };
+        orchestrator.expose_to_virus(&mut human_cell, flu_virus.clone());
+        assert_eq!(human_cell.cytoplasm.viral_infections.len(), 1);
+
+        // 2. L'erreur classique : On donne des antibiotiques contre le virus
+        let mut patient = vec![&mut human_cell, &mut bacteria];
+        orchestrator.administer_systemic_therapy(SystemicTherapy::Antibiotic, &mut patient);
+
+        // Résultat catastrophique : La bactérie (même bonne) est morte (0 ATP)
+        assert_eq!(patient[1].mitochondria.atp_budget, 0); 
+        // Mais la cellule humaine est toujours infectée par le virus (Les antibios sont inutiles)
+        assert_eq!(patient[0].cytoplasm.viral_infections.len(), 1);
+
+        // 3. Le bon traitement : Les antiviraux
+        orchestrator.administer_systemic_therapy(SystemicTherapy::Antiviral, &mut patient);
+        // Le virus a été purgé de la cellule
+        assert_eq!(patient[0].cytoplasm.viral_infections.len(), 0);
+
+        // 4. La prévention : Le Vaccin
+        orchestrator.administer_systemic_therapy(SystemicTherapy::Vaccine("SPIKE".to_string()), &mut patient);
+        
+        // On essaie de ré-infecter la cellule humaine
+        orchestrator.expose_to_virus(&mut patient[0], flu_virus);
+        // Echec ! Le vaccin a fonctionné, l'infection n'est pas passée
+        assert_eq!(patient[0].cytoplasm.viral_infections.len(), 0);
     }
 }
