@@ -17,5 +17,6 @@ pub mod signaling;
 pub mod phylogeny;
 pub mod genomics;
 pub mod embryology;
+pub mod anatomy;
 pub mod paleogenetics;
 
