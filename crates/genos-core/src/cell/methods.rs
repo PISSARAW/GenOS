@@ -13,10 +13,8 @@ impl AgentCell {
     }
     pub fn trigger_apoptosis(&mut self) {
         self.is_alive = false;
-        
         self.mitochondria.atp_budget = 0;
     }
-
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
         let mut chrom_m = self.nucleus.genome.chromosome_maternal;
         let mut chrom_p = self.nucleus.genome.chromosome_paternal;
@@ -67,7 +65,6 @@ impl AgentCell {
         // 1. AdhÃƒÆ’Ã‚Â©rence & 2. Ingestion : La cible est enfermÃƒÆ’Ã‚Â©e dans une poche gastrique (Phagosome)
         self.lysosomes.phagosomes.push(target.genome);
     }
-
     pub fn phagocytize_bacteria(&mut self, target: &mut AgentCell) {
         // 1 & 2. Ingestion d'une bactÃƒÆ’Ã‚Â©rie rebelle
         self.lysosomes
@@ -122,22 +119,18 @@ impl AgentCell {
         if !self.plasma_membrane.has_cell_wall {
             return Err("Seules les bactÃ©ries (avec paroi) peuvent faire la scissiparitÃ©".to_string());
         }
-
         // 1. La Photocopie (L'ADN boucle est copiÃ© directement, sans disloquer un noyau complexe)
         if self.mitochondria.atp_budget < 5 {
             return Err("ATP insuffisant pour la rÃ©plication".to_string());
         }
         self.mitochondria.atp_budget -= 5;
-
         // 2. L'Ã‰longation & 3. Le Lasso (Formation du septum)
         if self.plasma_membrane.septum_inhibited {
             return Err("Antibiotique : Formation du septum bloquÃ©e, la bactÃ©rie ne peut pas se diviser".to_string());
         }
-
         // 4. La Scission
         let mut clone = self.clone();
         clone.cell_id = uuid::Uuid::new_v4();
-
         // Le talon d'Achille de la scissiparitÃ© : ce sont des clones !
         // L'unique faÃ§on de crÃ©er de la diversitÃ© (et donc de l'antibiorÃ©sistance) est l'erreur de copie.
         if mutation_chance > 0.0 && !clone.nucleus.genome.chromosome_maternal.sequence.is_empty() {
@@ -148,7 +141,6 @@ impl AgentCell {
                 crate::genome::Mutagen::ReplicationError(error_idx, crate::genome::DnaNucleotide::T) // Substitution par C
             );
         }
-
         Ok((self, clone))
     }
     pub fn fungal_sporulation(&mut self) -> Result<Vec<crate::spore::Spore>, String> {
@@ -156,7 +148,6 @@ impl AgentCell {
             return Err("ATP insuffisant pour fabriquer l'essaim de spores".to_string());
         }
         self.mitochondria.atp_budget -= 50;
-
         let mut swarm = Vec::new();
         // Simulation d'une libÃ©ration massive (100 spores modÃ©lisÃ©es)
         for _ in 0..100 {
@@ -172,7 +163,6 @@ impl AgentCell {
         if !self.plasma_membrane.has_cell_wall {
             return Err("Seules les bactÃ©ries peuvent s'enfermer dans une endospore".to_string());
         }
-        
         // La bactÃ©rie mÃ¨re meurt (self est consommÃ©) et libÃ¨re la stase cryogÃ©nique absolue.
         Ok(crate::spore::Spore {
             spore_type: crate::spore::SporeType::BacterialEndospore,
@@ -180,20 +170,16 @@ impl AgentCell {
             bunker_armor: 9999, // Armure maximale : vide spatial, UV, Ã©bullition
         })
     }
-
     pub fn endomitosis(&mut self) -> Result<(), String> {
         let cost = (10 * (self.nucleus.ploidy / 2)) as u64; // Le coÃ»t augmente avec la taille de l'ADN Ã  copier
         if self.mitochondria.atp_budget < cost {
             return Err("ATP insuffisant pour rÃ©pliquer une telle masse d'ADN".to_string());
         }
         self.mitochondria.atp_budget -= cost;
-
         // On saute la cytokinÃ¨se (la scission) : le noyau gonfle, la ploÃ¯die double ! (2n -> 4n -> 8n...)
         self.nucleus.ploidy *= 2;
-        
         // Mode MÃ©ga-Usine : Plus il y a de plans d'ADN, plus la production mÃ©tabolique explose
         self.mitochondria.metabolic_rate *= 1.8; 
-        
         Ok(())
     }
     pub fn fragment_into_platelets(self) -> Result<u32, String> {
@@ -205,30 +191,24 @@ impl AgentCell {
         let platelets_generated = self.nucleus.ploidy * 100;
         Ok(platelets_generated)
     }
-
     pub fn budding(&mut self, detach: bool) -> Result<AgentCell, String> {
         let max_scars = 25;
-
         // Le vieillissement cellulaire (La place sur la membrane est limitÃ©e)
         if self.plasma_membrane.budding_scars + (self.plasma_membrane.attached_buds.len() as u32) >= max_scars {
             return Err("Surface entiÃ¨rement couverte de cicatrices. La cellule mÃ¨re est trop vieille pour bourgeonner.".to_string());
         }
-
         // Ã‰nergie requise pour construire le bourgeon (harnachement asymÃ©trique)
         if self.mitochondria.atp_budget < 20 {
             return Err("ATP insuffisant pour gÃ©nÃ©rer un bourgeon.".to_string());
         }
         self.mitochondria.atp_budget -= 15; // La mÃ¨re paie la construction
-
         // CrÃ©ation du bourgeon (asymÃ©trie)
         let mut bud = self.clone();
         bud.cell_id = uuid::Uuid::new_v4();
         bud.mitochondria.atp_budget = 5; // Le bÃ©bÃ© naÃ®t avec peu d'Ã©nergie
-
         // Le bourgeon est tout neuf, il n'hÃ©rite pas des cicatrices de sa mÃ¨re !
         bud.plasma_membrane.budding_scars = 0;
         bud.plasma_membrane.attached_buds.clear();
-
         if detach {
             // Le bourgeon se dÃ©tache et part faire sa vie. Il laisse une cicatrice en chitine.
             self.plasma_membrane.budding_scars += 1;
@@ -236,10 +216,8 @@ impl AgentCell {
             // Coraux : Le bourgeon reste physiquement attachÃ© (Colonie)
             self.plasma_membrane.attached_buds.push(bud.cell_id);
         }
-
         Ok(bud)
     }
-
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {
         // Inhibiteur de Cycle (CDK4/6) : Traitement anti-cancer
         if self.endoplasmic_reticulum.cell_cycle_inhibited {
@@ -247,9 +225,7 @@ impl AgentCell {
                 "Cell Cycle Inhibitor (CDK4/6) : Mitose bloquÃ©e thÃ©rapeutiquement.".to_string(),
             );
         }
-
         let copied_genome = self.nucleus.genome.clone();
-
         // 2. La Prophase et MÃƒÆ’Ã‚Â©taphase (L'Alignement et la VÃƒÆ’Ã‚Â©rification)
         // C'est le point de contrÃƒÆ’Ã‚Â´le du fuseau mitotique (Checkpoint).
         // On vÃƒÆ’Ã‚Â©rifie que la photocopie s'est dÃƒÆ’Ã‚Â©roulÃƒÆ’Ã‚Â©e sans erreur fatale.
@@ -260,24 +236,20 @@ impl AgentCell {
             .values()
             .all(|g| g.p53_repair_check())
             && copied_genome.genes.values().all(|g| g.p53_repair_check());
-
         if !dna_is_safe {
             return Err(
                 "Metaphase Checkpoint Failed: Erreur grave lors de la rÃƒÆ’Ã‚Â©plication de l'ADN."
                     .to_string(),
             );
         }
-
         // 3. L'Anaphase (La SÃƒÆ’Ã‚Â©paration)
         // Les microtubules (cÃƒÆ’Ã‚Â¢bles) tractent les moitiÃƒÆ’Ã‚Â©s.
         // L'ÃƒÆ’Ã‚Â©nergie (ATP) et le cytoplasme sont divisÃƒÆ’Ã‚Â©s en deux pour la survie des filles.
         let divided_atp = self.mitochondria.atp_budget / 2;
-
         // 4. La TÃƒÆ’Ã‚Â©lophase et CytocinÃƒÆ’Ã‚Â¨se (La Finition)
         // Pincement de la membrane et crÃƒÆ’Ã‚Â©ation de deux entitÃƒÆ’Ã‚Â©s physiques sÃƒÆ’Ã‚Â©parÃƒÆ’Ã‚Â©es.
         let mut daughter_a = self.clone();
         let mut daughter_b = self;
-
         // Fille A
         daughter_a.cell_id = Uuid::new_v4();
         daughter_a.mitochondria.atp_budget = divided_atp;
@@ -285,10 +257,8 @@ impl AgentCell {
         daughter_b.cell_id = Uuid::new_v4();
         daughter_b.nucleus.genome = copied_genome;
         daughter_b.mitochondria.atp_budget = divided_atp; // Si le budget ÃƒÆ’Ã‚Â©tait impair, une unitÃƒÆ’Ã‚Â© d'ATP est perdue (coÃƒÆ’Ã‚Â»t de la mitose)
-
         Ok((daughter_a, daughter_b))
     }
-
     pub fn receive_ligand(&mut self, ligand: &crate::signaling::Ligand) -> bool {
         let mut triggered = false;
         let cascades: Vec<String> = self.plasma_membrane.receptors.iter()
@@ -301,7 +271,6 @@ impl AgentCell {
         }
         triggered
     }
-
     pub fn emit_autocrine(&mut self, ligand_name: &str) {
         let ligand = crate::signaling::Ligand {
             name: ligand_name.to_string(),
@@ -324,7 +293,6 @@ impl AgentCell {
         target.trigger_signal_cascade(signal);
         true
     }
-
     pub fn trigger_signal_cascade(&mut self, signal: &str) {
         match signal {
             "ADRENALINE_CASCADE" => self.nucleus.transcription_factors.push("FIGHT_FLIGHT_TF".to_string()),
@@ -357,7 +325,6 @@ impl AgentCell {
             _ => self.nucleus.transcription_factors.push(signal.to_string()),
         }
     }
-
     pub fn bacterial_conjugation(&self, other: &mut AgentCell) {
         for plasmid in &self.nucleus.genome.plasmids {
             if !other.nucleus.genome.plasmids.iter().any(|p| p.id == plasmid.id) {
@@ -376,23 +343,19 @@ impl AgentCell {
         if !self.plasma_membrane.adhesion_active {
             return Err("Pacte rompu : Perte d'adhésion cellulaire (Risque de Métastase)".to_string());
         }
-
         // Règle 2 : La Communication (Réseaux de contact)
         if self.plasma_membrane.receptors.is_empty() && self.plasma_membrane.gap_junctions.is_empty() {
             return Err("Pacte rompu : Isolement total (Cellule asociale)".to_string());
         }
-
         // Règle 3 : La Différenciation (Spécialisation épigénétique)
         // La cellule doit avoir verrouillé une partie de son ADN pour être spécialisée
         if !self.nucleus.genome.genes.values().any(|g| g.is_methylated) {
             return Err("Pacte rompu : Cellule indifférenciée (Régression à l'état anarchique)".to_string());
         }
-
         // Règle 4 : L'Altruisme (Accepter l'Apoptose via p53)
         if !self.nucleus.p53_active {
             return Err("Pacte rompu : Gène p53 désactivé (Refus de mourir, Immortalité)".to_string());
         }
-
         Ok(())
     }
     pub fn trigger_metastasis(&mut self) {
