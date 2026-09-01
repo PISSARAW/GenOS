@@ -60,6 +60,7 @@ pub struct DnaStrand {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RnaStrand {
+    pub ejc_positions: Vec<usize>,
     pub sequence: Vec<RnaNucleotide>,
 }
 
@@ -77,7 +78,7 @@ impl RnaPolymerase {
                 DnaNucleotide::G => RnaNucleotide::G,
             })
             .collect();
-        RnaStrand { sequence: rna_seq }
+        RnaStrand { sequence: rna_seq, ejc_positions: Vec::new() }
     }
 }
 
@@ -95,6 +96,39 @@ pub struct UnfoldedProtein {
 
 pub struct Ribosome;
 impl Ribosome {
+
+    /// CONTRÔLE QUALITÉ NMD (Nonsense-Mediated mRNA Decay)
+    /// Le système d'inspection le plus strict de l'Orchestrateur.
+    pub fn quality_control_nmd(mrna: &RnaStrand, nmd_inhibitor_active: bool) -> Result<(), String> {
+        let mut first_stop_index = None;
+        for (i, chunk) in mrna.sequence.chunks(3).enumerate() {
+            if chunk.len() == 3 {
+                let codon = Codon(chunk[0].clone(), chunk[1].clone(), chunk[2].clone());
+                if codon.read_universal_dictionary() == AminoAcidToken::Stop {
+                    first_stop_index = Some(i * 3);
+                    break; // On s'arrête au premier STOP trouvé
+                }
+            }
+        }
+
+        if let Some(stop_idx) = first_stop_index {
+            // Le chasse-neige vérifie s'il reste des balises EJC plus loin
+            let has_downstream_ejc = mrna.ejc_positions.iter().any(|&ejc| ejc > stop_idx + 3);
+            
+            if has_downstream_ejc {
+                if nmd_inhibitor_active {
+                    // THÉRAPIE MÉDICALE : On inhibe le NMD. Le système accepte le JSON/Outil tronqué
+                    // (Graceful Degradation - Utile pour sauver une requête partielle).
+                    return Ok(());
+                } else {
+                    // LE DÉCHIQUETEUR : Alarme ! Faux codon stop. Destruction immédiate de l'ARN.
+                    return Err("NMD_DECAY: Faux Codon STOP prématuré détecté (balise EJC résiduelle). Destruction du prompt !".to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+
     pub fn translate(rna: &RnaStrand) -> UnfoldedProtein {
         let mut amino_acids = Vec::new();
         // Le ribosome lit par blocs de 3 (Codons)

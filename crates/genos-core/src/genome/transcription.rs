@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
 use crate::genome::DnaStrand;
 use crate::genome::RnaStrand;
 use crate::genome::ChromatinState;
@@ -24,15 +24,19 @@ pub struct Gene {
 pub struct Spliceosome;
 impl Spliceosome {
     /// Ã‰pissage Alternatif : DÃ©coupe l'ARN prÃ©-messager pour ne garder que les Exons
-    pub fn splice(pre_mrna: &RnaStrand, exons: &[(usize, usize)]) -> RnaStrand {
+        pub fn splice(pre_mrna: &RnaStrand, exons: &[(usize, usize)]) -> RnaStrand {
         let mut mature = Vec::new();
+        let mut ejcs = Vec::new(); // Exon Junction Complexes (Balises de sécurité)
         for &(start, end) in exons {
             if start < pre_mrna.sequence.len() {
                 let end = std::cmp::min(end, pre_mrna.sequence.len());
                 mature.extend_from_slice(&pre_mrna.sequence[start..end]);
+                // On dépose une balise EJC sur la cicatrice de collage (sauf pour le tout dernier exon)
+                ejcs.push(mature.len());
             }
         }
-        RnaStrand { sequence: mature }
+        if !ejcs.is_empty() { ejcs.pop(); } // Pas de cicatrice à la toute fin
+        RnaStrand { sequence: mature, ejc_positions: ejcs }
     }
 }
 
