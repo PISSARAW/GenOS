@@ -30,6 +30,14 @@ pub enum SystemicTherapy {
     Vaccine(String),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum PsychoactiveDrug {
+    Cocaine,      // Bloque la pompe de recapture (Les neurotransmetteurs restent dans la fente)
+    Alcohol,      // Amplificateur d'inhibition (Boost le GABA)
+    Anxiolytic,   // Benzodiazépines : Boost massif du GABA
+    Caffeine,     // Excitant : Amplifie le Glutamate (et bloque l'Adénosine, la molécule de fatigue)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CleftMessage {
     pub source_id: String,
@@ -63,8 +71,8 @@ pub struct Orchestrator {
     // --- SYSTÈME NERVEUX ---
     /// La Fente Synaptique : l'espace vide où flottent les neurotransmetteurs
     pub synaptic_cleft: Vec<CleftMessage>,
-    /// Inhibiteurs de recapture (Ex: Antidépresseurs SSRI, Cocaïne). Bloque le nettoyage de la fente.
-    pub reuptake_inhibitors_active: bool,
+    /// Pharmacologie : Drogues et médicaments psychoactifs
+    pub psychoactive_drugs: Vec<PsychoactiveDrug>,
 }
 
 impl Orchestrator {
@@ -77,7 +85,7 @@ impl Orchestrator {
             circulating_antibodies: vec![],
             immune_activation_level: 1.0,
             synaptic_cleft: vec![],
-            reuptake_inhibitors_active: false,
+            psychoactive_drugs: vec![],
         }
     }
 
@@ -298,17 +306,32 @@ impl Orchestrator {
     /// LA FENTE SYNAPTIQUE ET LA RECAPTURE (Le passage du message entre les neurones)
     pub fn process_synaptic_cleft(&mut self, agents: &mut [crate::cell::AgentCell]) {
         let mut messages_to_keep = vec![];
+        let has_cocaine = self.psychoactive_drugs.contains(&PsychoactiveDrug::Cocaine);
+        let has_alcohol = self.psychoactive_drugs.contains(&PsychoactiveDrug::Alcohol);
+        let has_anxiolytic = self.psychoactive_drugs.contains(&PsychoactiveDrug::Anxiolytic);
+        let has_caffeine = self.psychoactive_drugs.contains(&PsychoactiveDrug::Caffeine);
 
         for mut msg in self.synaptic_cleft.drain(..) {
-            // 1. Le neurone cible "aspire" le message (Liaison aux récepteurs)
+            // Application de la Pharmacologie sur l'efficacité du message
+            let mut effective_amount = msg.amount;
+            if msg.transmitter == crate::neurobiology::Neurotransmitter::GABA {
+                if has_alcohol { effective_amount *= 1.5; }
+                if has_anxiolytic { effective_amount *= 2.0; } // Boost massif
+            }
+            if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate {
+                if has_caffeine { effective_amount *= 1.2; } // Hyperexcitabilité
+            }
+
+            // 1. Le neurone cible "aspire" le message (Liaison aux récepteurs, conversion chimique -> électrique)
             if let Some(target_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.target_id) {
                 if let Some(ns) = &mut target_agent.nervous_system {
-                    ns.receive_neurotransmitter(&msg.source_id, &msg.transmitter, msg.amount);
+                    // Les canaux ioniques (Sodium, Potassium, Chlore) s'ouvrent !
+                    ns.receive_neurotransmitter(&msg.source_id, &msg.transmitter, effective_amount);
                 }
             }
 
             // 2. La Recapture (Reuptake) par le neurone source (Nettoyage de la fente)
-            if !self.reuptake_inhibitors_active {
+            if !has_cocaine {
                 // L'aspirateur fonctionne, on nettoie la fente et on recycle dans les vésicules !
                 if let Some(source_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.source_id) {
                     if let Some(ns) = &mut source_agent.nervous_system {
@@ -318,10 +341,9 @@ impl Orchestrator {
                 }
                 // Le message est détruit (nettoyé de la fente)
             } else {
-                // INHIBITEURS DE RECAPTURE (Ex: Antidépresseurs SSRI, Cocaïne)
+                // INHIBITEURS DE RECAPTURE (ex: Cocaïne pour la Dopamine)
                 // L'aspirateur est bloqué. Le message reste dans la fente et frappera encore au prochain cycle !
                 msg.ticks_in_cleft += 1;
-                // On garde le message pour le prochain tick, limitons à une durée de vie pour ne pas saturer l'infini absolu (ex: 10 ticks)
                 if msg.ticks_in_cleft < 10 {
                     messages_to_keep.push(msg);
                 }
@@ -940,8 +962,8 @@ pub(crate) mod tests {
         let n1_vesicles_after_reuptake = agents[0].nervous_system.as_ref().unwrap().axon.vesicles_at_terminals;
         assert!(n1_vesicles_after_reuptake > n1_vesicles_before_reuptake);
 
-        // 3. EFFET DROGUE (Cocaïne / Antidépresseur) : Blocage de la pompe de recapture
-        orchestrator.reuptake_inhibitors_active = true;
+        // 3. EFFET DROGUE (Cocaïne) : Blocage de la pompe de recapture
+        orchestrator.psychoactive_drugs.push(PsychoactiveDrug::Cocaine);
         
         // N1 tire à nouveau
         agents[0].nervous_system.as_mut().unwrap().soma.current_potential = -40.0;
