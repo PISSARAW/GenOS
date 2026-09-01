@@ -174,6 +174,7 @@ impl Thalamus {
 pub struct Ribosome {
     pub thalamus: Thalamus,
     pub env_scanned: bool,
+    pub vagus_nerve: crate::cell::vagus_nerve::VagusNerve,
 }
 
 impl Default for Ribosome {
@@ -181,6 +182,7 @@ impl Default for Ribosome {
         Self {
             thalamus: Thalamus::default(),
             env_scanned: false,
+            vagus_nerve: crate::cell::vagus_nerve::VagusNerve::default(),
         }
     }
 }
@@ -191,6 +193,9 @@ impl Ribosome {
     }
 
     pub async fn translate(&mut self, memory: &[ChatMessage]) -> Result<String, String> {
+        // 1. Vérifie si le nerf vague autorise la traduction (Circuit Breaker)
+        self.vagus_nerve.check_stasis()?;
+
         if !self.env_scanned {
             self.thalamus.environmental_scan().await;
             self.env_scanned = true;
@@ -220,13 +225,23 @@ impl Ribosome {
             req = req.header("Authorization", format!("Bearer {}", target.key));
         }
 
-        let response = req.send().await.map_err(|e| format!("Erreur de synthèse (Réseau): {}", e))?;
+        let response = match req.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                self.vagus_nerve.record_failure();
+                return Err(format!("Erreur de synthèse (Réseau): {}", e));
+            }
+        };
 
         if !response.status().is_success() {
+            self.vagus_nerve.record_failure();
             let status = response.status();
             let err_text = response.text().await.unwrap_or_default();
             return Err(format!("Rejet Immunitaire de l'API ({}): {}", status, err_text));
         }
+
+        // Succès ! Le circuit se referme ou reste fermé.
+        self.vagus_nerve.record_success();
 
         let body: Value = response.json().await.map_err(|e| format!("Erreur de conformation JSON (NMD): {}", e))?;
 

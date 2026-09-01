@@ -1,9 +1,13 @@
-﻿pub mod organelles;
+pub mod organelles;
 pub mod methods;
 pub mod phagocytosis;
 pub mod substructs;
 pub mod ribosome;
 pub mod hippocampus;
+pub mod cilia;
+pub mod vagus_nerve;
+pub mod vacuole;
+pub mod phagosome;
 #[cfg(test)]
 pub mod tests;
 
@@ -48,6 +52,12 @@ pub struct AgentCell {
     pub memory: Hippocampus,
     #[serde(skip)] // Ribosome holds API keys/clients, not serialized
     pub ribosome: Ribosome,
+    /// Organes sensoriels et outils de manipulation de l'environnement (MCP)
+    pub cilia: cilia::Cilia,
+    /// Vésicule de sauvegarde pour le Rollback des fichiers
+    pub vacuole: vacuole::Vacuole,
+    /// Isolat Wasm pour l'exécution sécurisée des plugins
+    pub phagosome: phagosome::Phagosome,
 }
 
 impl Default for AgentCell {
@@ -119,6 +129,9 @@ impl Default for AgentCell {
             
             memory: Hippocampus::new(),
             ribosome: Ribosome::new(),
+            cilia: cilia::Cilia::default(),
+            vacuole: vacuole::Vacuole::default(),
+            phagosome: phagosome::Phagosome::default(),
         }
     }
 }
