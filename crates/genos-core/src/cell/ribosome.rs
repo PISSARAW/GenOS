@@ -1,115 +1,139 @@
 use crate::cell::hippocampus::ChatMessage;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
 
-/// Le Thalamus agit comme un routeur cognitif.
-/// Il analyse la charge cognitive et redirige vers le bon modèle local ou distant.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Provider {
+    pub name: String,
+    pub chat_url: String,
+    pub models_url: String,
+    pub key: String,
+    pub format: String, // "ollama" ou "openai"
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct RouteTarget {
+    pub model: String,
+    pub chat_url: String,
+    pub key: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct Thalamus {
-    pub default_url: String,
-    pub default_key: String,
-    pub routes: HashMap<String, String>,
+    pub routes: HashMap<String, RouteTarget>,
 }
 
 impl Default for Thalamus {
     fn default() -> Self {
-        let mut routes = HashMap::new();
-        routes.insert("logic".to_string(), env::var("GENOS_MODEL_LOGIC").unwrap_or_else(|_| "llama3".to_string()));
-        routes.insert("fast".to_string(), env::var("GENOS_MODEL_FAST").unwrap_or_else(|_| "phi3".to_string()));
-        routes.insert("heavy".to_string(), env::var("GENOS_MODEL_HEAVY").unwrap_or_else(|_| "gpt-4o".to_string()));
-
-        Self {
-            default_url: env::var("GENOS_LLM_API_URL").unwrap_or_else(|_| "http://localhost:11434/v1/chat/completions".to_string()),
-            default_key: env::var("GENOS_LLM_API_KEY").unwrap_or_else(|_| "local-no-key".to_string()),
-            routes,
-        }
+        Self { routes: HashMap::new() }
     }
 }
 
 impl Thalamus {
-    /// 🔬 Chimiotaxie : Scan l'environnement pour auto-détecter les modèles Ollama installés.
-    /// Utilise la "Masse Moléculaire" (parameter_size) pour trier les modèles.
+    /// 🔬 Chimiotaxie : Scan tous les fournisseurs (Ollama, Cloud, Opencode)
     pub async fn environmental_scan(&mut self) {
-        if !self.default_url.contains("localhost") && !self.default_url.contains("127.0.0.1") {
-            return;
-        }
+        let providers_path = "providers.json";
+        let providers: Vec<Provider> = std::fs::read_to_string(providers_path)
+            .ok()
+            .and_then(|d| serde_json::from_str(&d).ok())
+            .unwrap_or_else(|| vec![Provider {
+                name: "Ollama Local".into(),
+                chat_url: "http://localhost:11434/v1/chat/completions".into(),
+                models_url: "http://localhost:11434/api/tags".into(),
+                key: "".into(),
+                format: "ollama".into(),
+            }]);
 
-        let ollama_tags_url = "http://localhost:11434/api/tags";
-        let client = Client::builder().timeout(std::time::Duration::from_secs(2)).build().unwrap();
-        
-        if let Ok(response) = client.get(ollama_tags_url).send().await {
-            if let Ok(json) = response.json::<Value>().await {
-                if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
-                    let mut found_fast = None;
-                    let mut found_logic = None;
-                    let mut found_heavy = None;
+        let client = Client::builder().timeout(std::time::Duration::from_secs(3)).build().unwrap();
 
-                    for model in models {
-                        let name = model.get("name").and_then(|n| n.as_str()).unwrap_or_default();
-                        let size_str = model.get("details")
-                                            .and_then(|d| d.get("parameter_size"))
-                                            .and_then(|s| s.as_str())
-                                            .unwrap_or_default()
-                                            .to_uppercase();
+        let mut found_fast: Option<RouteTarget> = None;
+        let mut found_logic: Option<RouteTarget> = None;
+        let mut found_heavy: Option<RouteTarget> = None;
 
-                        // Extraction de la masse (en Milliards de paramètres)
-                        let mut size_in_b = 8.0; // Poids moyen par défaut si inconnu
-                        if size_str.ends_with('B') {
-                            if let Ok(val) = size_str[..size_str.len()-1].parse::<f32>() {
-                                size_in_b = val;
-                            }
-                        } else if size_str.ends_with('M') {
-                            if let Ok(val) = size_str[..size_str.len()-1].parse::<f32>() {
-                                size_in_b = val / 1000.0;
+        for provider in providers {
+            let mut req = client.get(&provider.models_url);
+            if !provider.key.is_empty() {
+                req = req.header("Authorization", format!("Bearer {}", provider.key));
+            }
+
+            if let Ok(res) = req.send().await {
+                if let Ok(json) = res.json::<Value>().await {
+                    let mut models_list = vec![];
+
+                    if provider.format == "ollama" {
+                        if let Some(arr) = json.get("models").and_then(|m| m.as_array()) {
+                            for m in arr {
+                                let name = m.get("name").and_then(|n| n.as_str()).unwrap_or_default();
+                                let size = m.get("details").and_then(|d| d.get("parameter_size")).and_then(|s| s.as_str()).unwrap_or_default();
+                                models_list.push((name.to_string(), size.to_string()));
                             }
                         }
-
-                        // Tri par spectrométrie de masse (Taille des paramètres)
-                        if size_in_b < 4.0 {
-                            // Poids plume (< 4B) -> Fast (ex: qwen:0.5b, phi3:3.8b)
-                            if found_fast.is_none() { found_fast = Some(name.to_string()); }
-                        } else if size_in_b >= 4.0 && size_in_b < 30.0 {
-                            // Poids moyen (4B à 30B) -> Logic (ex: llama3:8b, mistral:7b, qwen:14b)
-                            if found_logic.is_none() { found_logic = Some(name.to_string()); }
-                        } else {
-                            // Poids lourd (>= 30B) -> Heavy (ex: command-r:35b, qwen:72b, llama3:70b)
-                            if found_heavy.is_none() { found_heavy = Some(name.to_string()); }
+                    } else {
+                        // format openai
+                        if let Some(arr) = json.get("data").and_then(|m| m.as_array()) {
+                            for m in arr {
+                                let name = m.get("id").and_then(|n| n.as_str()).unwrap_or_default();
+                                models_list.push((name.to_string(), "".to_string()));
+                            }
                         }
                     }
 
-                    if let Some(fast) = found_fast { self.routes.insert("fast".to_string(), fast); }
-                    if let Some(logic) = found_logic { self.routes.insert("logic".to_string(), logic); }
-                    if let Some(heavy) = found_heavy { self.routes.insert("heavy".to_string(), heavy); }
-                    
-                    println!("📡 [Spectrométrie de Masse] Modèles classés -> Rapide (<4B): {:?}, Logique (4-30B): {:?}, Lourd (>30B): {:?}", 
-                        self.routes.get("fast"), self.routes.get("logic"), self.routes.get("heavy"));
+                    for (name, size_str) in models_list {
+                        let name_lower = name.to_lowercase();
+                        let mut size_in_b = 8.0;
+
+                        let size_upper = size_str.to_uppercase();
+                        if size_upper.ends_with('B') {
+                            if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v; }
+                        } else if size_upper.ends_with('M') {
+                            if let Ok(v) = size_upper[..size_upper.len()-1].parse::<f32>() { size_in_b = v / 1000.0; }
+                        }
+
+                        // Cloud heuristics
+                        if name_lower.contains("gpt-4") || name_lower.contains("opus") || name_lower.contains("large") || name_lower.contains("pro") || name_lower.contains("70b") {
+                            size_in_b = 50.0;
+                        } else if name_lower.contains("mini") || name_lower.contains("haiku") || name_lower.contains("flash") || name_lower.contains("8b") || name_lower.contains("0.5b") {
+                            size_in_b = 3.0;
+                        }
+
+                        let target = RouteTarget {
+                            model: name.clone(),
+                            chat_url: provider.chat_url.clone(),
+                            key: provider.key.clone(),
+                        };
+
+                        if size_in_b < 4.0 && found_fast.is_none() { found_fast = Some(target); }
+                        else if size_in_b >= 4.0 && size_in_b < 30.0 && found_logic.is_none() { found_logic = Some(target); }
+                        else if size_in_b >= 30.0 && found_heavy.is_none() { found_heavy = Some(target); }
+                    }
                 }
             }
         }
+
+        if let Some(f) = found_fast { self.routes.insert("fast".to_string(), f); }
+        if let Some(l) = found_logic { self.routes.insert("logic".to_string(), l); }
+        if let Some(h) = found_heavy { self.routes.insert("heavy".to_string(), h); }
+        
+        println!("📡 [Sensing Multi-Cloud] Rapide: {:?}, Logique: {:?}, Lourd: {:?}", 
+            self.routes.get("fast").map(|t| &t.model),
+            self.routes.get("logic").map(|t| &t.model),
+            self.routes.get("heavy").map(|t| &t.model));
     }
 
-    pub fn route(&self, memory: &[ChatMessage]) -> String {
+    pub fn route(&self, memory: &[ChatMessage]) -> RouteTarget {
         let total_length: usize = memory.iter().map(|m| m.content.len()).sum();
         
-        // Base de données des récepteurs sensoriels (Domaines nécessitant un raisonnement profond)
         let advanced_domains = [
-            // Informatique & Code
             "code", "logic", "fn ", "bug", "algo", "rust", "python", "sql", "cyber", "script", "api", "json",
-            // Mathématiques
             "math", "calcul", "équation", "equation", "intégrale", "dérivée", "algèbre", "théorème", "matrice", "vecteur", "statistique", "probabilité",
-            // Physique & Ingénierie
             "physique", "mécanique", "quantique", "thermodynamique", "relativité", "ingénierie", "électromagnétisme", "gravité", "astrophysique",
-            // Chimie & Biologie
             "chimie", "molécule", "atome", "biologie", "génétique", "adn", "protéine", "cellule", "virus", "évolution", "neuroscience",
-            // Médecine & Santé
             "médecine", "symptôme", "diagnostic", "maladie", "anatomie", "pharmacologie", "chirurgie",
-            // Droit, Économie & Géopolitique
             "droit", "loi", "juridique", "constitution", "finance", "économie", "bourse", "inflation", "géopolitique",
-            // Philosophie & Sciences Analytiques
             "philosophie", "éthique", "épistémologie", "ontologie", "psychologie", "sociologie",
-            // Arts, Lettres, Histoire & Créativité
             "histoire", "littérature", "poésie", "art", "peinture", "musique", "cinéma", "linguistique", "théologie", "mythologie", "géographie", "archéologie", "architecture"
         ];
 
@@ -154,37 +178,31 @@ impl Ribosome {
             self.env_scanned = true;
         }
 
-        let target_model = self.thalamus.route(memory);
-        let api_url = &self.thalamus.default_url;
-        let api_key = &self.thalamus.default_key;
+        let target = self.thalamus.route(memory);
 
-        println!("🧠 [Thalamus] Routage cognitif dynamique activé -> Sélection du modèle: {}", target_model);
+        println!("🧠 [Thalamus] Routage cognitif dynamique activé -> Modèle sélectionné: {} (API: {})", target.model, target.chat_url);
 
         let client = Client::new();
         let messages_json: Vec<Value> = memory
             .iter()
-            .map(|msg| {
-                json!({
-                    "role": msg.role,
-                    "content": msg.content
-                })
-            })
+            .map(|msg| json!({ "role": msg.role, "content": msg.content }))
             .collect();
 
         let payload = json!({
-            "model": target_model,
+            "model": target.model,
             "messages": messages_json,
             "temperature": 0.2
         });
 
-        let response = client
-            .post(api_url)
-            .header("Authorization", format!("Bearer {}", api_key))
+        let mut req = client.post(&target.chat_url)
             .header("Content-Type", "application/json")
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| format!("Erreur de synthèse (Réseau): {}", e))?;
+            .json(&payload);
+
+        if !target.key.is_empty() {
+            req = req.header("Authorization", format!("Bearer {}", target.key));
+        }
+
+        let response = req.send().await.map_err(|e| format!("Erreur de synthèse (Réseau): {}", e))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -192,15 +210,9 @@ impl Ribosome {
             return Err(format!("Rejet Immunitaire de l'API ({}): {}", status, err_text));
         }
 
-        let body: Value = response
-            .json()
-            .await
-            .map_err(|e| format!("Erreur de conformation JSON (NMD): {}", e))?;
+        let body: Value = response.json().await.map_err(|e| format!("Erreur de conformation JSON (NMD): {}", e))?;
 
-        let reply = body["choices"][0]["message"]["content"]
-            .as_str()
-            .unwrap_or_default()
-            .to_string();
+        let reply = body["choices"][0]["message"]["content"].as_str().unwrap_or_default().to_string();
 
         Ok(reply)
     }

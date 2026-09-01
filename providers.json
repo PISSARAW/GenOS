@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Ollama Local",
+    "chat_url": "http://localhost:11434/v1/chat/completions",
+    "models_url": "http://localhost:11434/api/tags",
+    "key": "",
+    "format": "ollama"
+  },
+  {
+    "name": "Opencode Go",
+    "chat_url": "https://api.opencode.go/v1/chat/completions",
+    "models_url": "https://api.opencode.go/v1/models",
+    "key": "votre_cle_api",
+    "format": "openai"
+  }
+]
