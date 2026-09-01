@@ -1,4 +1,4 @@
-﻿use crate::cell::*;
+use crate::cell::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -80,7 +80,6 @@ impl Mitochondria {
         self.cyanide_poisoned = true;
         self.atp_budget = 0; // Mort immédiate
     }
-}
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
