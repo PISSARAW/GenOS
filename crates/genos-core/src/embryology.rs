@@ -44,7 +44,7 @@ pub fn differentiate_swarm(swarm: &mut Vec<AgentCell>, topology_gradient: f64) {
         // La cellule perd son statut de "Page Blanche" et verrouille les outils inutiles.
         for (locus, gene) in cell.nucleus.genome.genes.iter_mut() {
             if locus.contains("HOX") && !locus.contains(&cell.specialization) {
-                gene.chromatin_state = ChromatinState::Heterochromatin; // Cadenassé
+                gene.chromatin_state = ChromatinState::HeterochromatinFacultative; // Cadenassé
                 gene.developmentally_locked = true; // Définitif
             }
         }
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_embryonic_development() {
         // 1. Zygote -> 16 cellules souches (4 divisions)
-        let zygote = AgentCell::new("ZYGOTE");
+        let zygote = crate::cell::tests::mock_cell();
         let mut swarm = cleave_zygote(zygote, 4);
         assert_eq!(swarm.len(), 16);
 
