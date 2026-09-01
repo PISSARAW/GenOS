@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum SignalingMode {
@@ -35,12 +35,49 @@ use crate::cell::AgentCell;
 pub struct ExtracellularMatrix {
     // (Index de l'émetteur, Ligand, Temps de vie / TTL)
     pub paracrine_signals: Vec<(usize, Ligand, u32)>,
+    /// Territoires occupés (Verrous de Fichiers) : Fichier -> UUID de la Cellule
+    /// Simule l'Inhibition de Contact (Juxtacrine) pour éviter les collisions d'écritures.
+    pub occupied_territories: std::collections::HashMap<String, uuid::Uuid>,
 }
 
 impl ExtracellularMatrix {
     pub fn new() -> Self {
         Self {
             paracrine_signals: Vec::new(),
+            occupied_territories: std::collections::HashMap::new(),
+        }
+    }
+
+    /// Inhibition de contact : Une cellule tente de s'attacher à un fichier pour l'éditer (Exocytose).
+    pub fn attach_to_territory(&mut self, cell: &mut AgentCell, filepath: &str, position: usize) -> Result<(), String> {
+        if let Some(&occupant_id) = self.occupied_territories.get(filepath) {
+            if occupant_id != cell.cell_id {
+                // Inhibition de contact ! La cellule se bloque et ne peut pas écrire.
+                cell.endoplasmic_reticulum.cell_cycle_inhibited = true;
+                return Err(format!("Inhibition de contact : Le territoire '{}' est déjà occupé par {}. Exocytose bloquée.", filepath, occupant_id));
+            }
+        }
+        
+        // La cellule s'attache physiquement
+        self.occupied_territories.insert(filepath.to_string(), cell.cell_id);
+        
+        // Quorum Sensing (Paracrine) : Elle prévient les voisines de ne pas s'approcher
+        let ligand = Ligand {
+            name: format!("QUORUM_LOCKED_{}", filepath),
+            mode: SignalingMode::Paracrine,
+        };
+        // Le signal met 3 ticks à se dissiper
+        self.emit_paracrine(position, ligand, 3);
+        
+        Ok(())
+    }
+
+    /// La cellule relâche le fichier après avoir sécrété son code.
+    pub fn detach_from_territory(&mut self, cell: &AgentCell, filepath: &str) {
+        if let Some(&occupant_id) = self.occupied_territories.get(filepath) {
+            if occupant_id == cell.cell_id {
+                self.occupied_territories.remove(filepath);
+            }
         }
     }
 
@@ -146,6 +183,35 @@ mod tests {
         // La cellule cancéreuse relâche un facteur de croissance et l'absorbe elle-même
         cancer_cell.emit_autocrine("GROWTH_FACTOR");
         assert!(cancer_cell.nucleus.transcription_factors.contains(&"CELL_DIVISION_TF".to_string()));
+    }
+
+    #[test]
+    fn test_contact_inhibition() {
+        use crate::signaling::ExtracellularMatrix;
+        let mut ecm = ExtracellularMatrix::new();
+        let mut cell_a = AgentCell::default();
+        let mut cell_b = AgentCell::default();
+
+        let filepath = "src/main.rs";
+
+        // Cell A attaches to the file
+        assert!(ecm.attach_to_territory(&mut cell_a, filepath, 0).is_ok());
+        
+        // Quorum Sensing ligand should be emitted
+        assert_eq!(ecm.paracrine_signals.len(), 1);
+        assert_eq!(ecm.paracrine_signals[0].1.name, "QUORUM_LOCKED_src/main.rs");
+
+        // Cell B tries to attach to the same file
+        let err = ecm.attach_to_territory(&mut cell_b, filepath, 1);
+        assert!(err.is_err());
+        // Cell B's cell cycle should be inhibited!
+        assert!(cell_b.endoplasmic_reticulum.cell_cycle_inhibited);
+
+        // Cell A detaches
+        ecm.detach_from_territory(&cell_a, filepath);
+
+        // Now Cell B can attach
+        assert!(ecm.attach_to_territory(&mut cell_b, filepath, 1).is_ok());
     }
 }
 
