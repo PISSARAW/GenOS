@@ -75,7 +75,10 @@ pub fn evaluate_convergence(
     agent_b: &AgentCell,
     embeddings: (&[f32], &[f32]),
 ) -> ConvergenceResult {
-    let trace_distance = trace_levenshtein(&agent_a.cytoplasm.trace.sequence, &agent_b.cytoplasm.trace.sequence);
+    let trace_distance = trace_levenshtein(
+        &agent_a.cytoplasm.trace.sequence,
+        &agent_b.cytoplasm.trace.sequence,
+    );
     let semantic_similarity = cosine_similarity(embeddings.0, embeddings.1);
 
     ConvergenceResult {

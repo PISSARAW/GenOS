@@ -37,7 +37,11 @@ impl Expression {
     /// Évalue l'AST en fonction d'un contexte de variables
     pub fn evaluate(&self, context: &std::collections::HashMap<String, f64>) -> bool {
         match self {
-            Expression::Condition { variable, operator, target_value } => {
+            Expression::Condition {
+                variable,
+                operator,
+                target_value,
+            } => {
                 let actual_value = context.get(variable).copied().unwrap_or(0.0);
                 match operator {
                     Operator::GreaterOrEqual => actual_value >= *target_value,
@@ -56,8 +60,8 @@ impl Expression {
 }
 
 /* =====================================================================
-   LE PARSEUR (NOM)
-   ===================================================================== */
+LE PARSEUR (NOM)
+===================================================================== */
 
 fn parse_variable(input: &str) -> IResult<&str, &str> {
     recognize(many0(alt((alphanumeric1, tag("_")))))(input)
@@ -91,7 +95,7 @@ fn parse_value(input: &str) -> IResult<&str, f64> {
         nom::character::complete::digit1,
         nom::combinator::opt(tuple((tag("."), nom::character::complete::digit1))),
     )))(input)?;
-    
+
     let val: f64 = val_str.parse().unwrap_or(0.0);
     Ok((input, val))
 }
@@ -122,9 +126,9 @@ fn parse_primary(input: &str) -> IResult<&str, Expression> {
         delimited(
             tuple((multispace0, tag("("), multispace0)),
             parse_expression,
-            tuple((multispace0, tag(")"), multispace0))
+            tuple((multispace0, tag(")"), multispace0)),
         ),
-        parse_condition
+        parse_condition,
     ))(input)
 }
 
@@ -135,11 +139,11 @@ pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
         delimited(
             multispace0,
             alt((tag_no_case("AND"), tag_no_case("OR"), tag_no_case("XOR"))),
-            multispace0
+            multispace0,
         ),
-        parse_primary
+        parse_primary,
     )))(input)?;
-    
+
     for (op, next_expr) in remainder {
         expr = match op.to_uppercase().as_str() {
             "AND" => Expression::And(Box::new(expr), Box::new(next_expr)),
@@ -148,7 +152,7 @@ pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
             _ => unreachable!(),
         };
     }
-    
+
     Ok((input, expr))
 }
 
@@ -176,7 +180,7 @@ mod tests {
         // Vrai seulement si UNE SEULE des deux conditions est vraie.
         let (_, ast) = parse_expression("stress > 0.5 XOR failures >= 3").unwrap();
         assert!(!ast.evaluate(&context)); // false car LES DEUX sont vraies
-        
+
         let (_, ast) = parse_expression("stress > 0.9 XOR failures >= 3").unwrap();
         assert!(ast.evaluate(&context)); // true car SEULEMENT failures est vraie
 
