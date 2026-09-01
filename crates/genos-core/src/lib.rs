@@ -20,3 +20,5 @@ pub mod embryology;
 pub mod anatomy;
 pub mod paleogenetics;
 
+pub mod bioluminescence;
+pub mod tissue;
