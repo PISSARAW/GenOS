@@ -5,3 +5,4 @@ pub mod orchestrator;
 pub mod genome;
 
 pub mod virology;
+pub mod neurobiology;

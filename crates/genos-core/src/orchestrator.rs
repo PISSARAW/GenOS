@@ -256,6 +256,17 @@ impl Orchestrator {
             agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(5);
         }
 
+        // 9. LE SYSTÈME NERVEUX : Traitement et Décharge Électrique (Soma -> Axone)
+        let mut _synaptic_outputs = None;
+        if let Some(nervous_system) = &mut agent.nervous_system {
+            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs à libérer
+            if let Some(outputs) = nervous_system.process_soma() {
+                _synaptic_outputs = Some(outputs);
+            }
+            // Apprentissage continu : Neuroplasticité (Loi de Hebb) et Myélinisation
+            nervous_system.apply_neuroplasticity();
+        }
+
         TickResult::Continue
     }
 }
@@ -768,5 +779,56 @@ pub(crate) mod tests {
         orchestrator.process_humoral_immunity(&mut blood_bacteria_igg);
         // Le Complément est activé par l'IgG : la coque (capsid_integrity) est percée (0.0) !
         assert_eq!(blood_bacteria_igg[0].capsid_integrity, 0.0);
+    }
+
+    #[test]
+    fn test_neuroplasticity_and_synapses() {
+        use crate::neurobiology::{NervousSystem, Neurotransmitter, Synapse};
+        
+        let mut orchestrator = Orchestrator::new(None);
+        
+        let mut sensory_neuron = mock_cell();
+        sensory_neuron.cell_id = uuid::Uuid::new_v4();
+        let mut motor_neuron = mock_cell();
+        motor_neuron.cell_id = uuid::Uuid::new_v4();
+
+        // 1. Mise en place du Système Nerveux
+        let mut sensory_ns = NervousSystem::new(&sensory_neuron.cell_id.to_string());
+        sensory_ns.axon_terminals.push(Synapse {
+            target_id: motor_neuron.cell_id.to_string(),
+            weight: 0.5, // Force moyenne au départ
+            transmitter_type: Neurotransmitter::Glutamate, // Signal Excitateur
+            activity_history: 0,
+        });
+        sensory_neuron.nervous_system = Some(sensory_ns);
+        
+        let motor_ns = NervousSystem::new(&motor_neuron.cell_id.to_string());
+        motor_neuron.nervous_system = Some(motor_ns);
+
+        // 2. Stimulation multiple : Le neurone sensoriel capte des signaux répétés
+        let dummy_source = "ENVIRONMENT_SOURCE".to_string();
+        sensory_neuron.nervous_system.as_mut().unwrap().receive_neurotransmitter(&dummy_source, &Neurotransmitter::Glutamate, 20.0);
+        orchestrator.tick(&mut sensory_neuron, "Action 1");
+        sensory_neuron.nervous_system.as_mut().unwrap().receive_neurotransmitter(&dummy_source, &Neurotransmitter::Glutamate, 20.0);
+        orchestrator.tick(&mut sensory_neuron, "Action 2");
+        sensory_neuron.nervous_system.as_mut().unwrap().receive_neurotransmitter(&dummy_source, &Neurotransmitter::Glutamate, 20.0);
+        orchestrator.tick(&mut sensory_neuron, "Action 3");
+        
+        // On récupère la synapse mise à jour
+        let synapse = &sensory_neuron.nervous_system.as_ref().unwrap().axon_terminals[0];
+        
+        // 4. Neuroplasticité de Hebb : La connexion a été utilisée, elle doit se renforcer !
+        // L'historique d'activité a été remis à 0, mais le poids a augmenté.
+        assert!(synapse.weight > 0.5); // "Neurons that fire together wire together"
+        
+        // La myélinisation augmente aussi pour rendre le geste plus rapide
+        let myeline = sensory_neuron.nervous_system.as_ref().unwrap().axon_myelination;
+        // On a une itération simple, si on le fait plusieurs fois, la myeline monte.
+        assert!(myeline >= 0.2); 
+        
+        // 5. Plasticité structurelle : Les Dendrites ont poussé !
+        let dendrite_spine = sensory_neuron.nervous_system.as_ref().unwrap().dendritic_tree.branches.iter().find(|s| s.source_id == "ENVIRONMENT_SOURCE").unwrap();
+        // La densité des récepteurs a augmenté car la synapse a été très active
+        assert!(dendrite_spine.receptor_density > 1.0);
     }
 }

@@ -15,6 +15,8 @@ pub struct AgentCell {
     pub golgi_apparatus: GolgiApparatus,
     pub lysosomes: Lysosomes,
     pub cytoplasm: Cytoplasm,
+    /// LE SYSTÈME NERVEUX (Optionnel, si l'agent est un nœud cognitif)
+    pub nervous_system: Option<crate::neurobiology::NervousSystem>,
 }
 
 impl Default for AgentCell {
@@ -57,6 +59,7 @@ impl Default for AgentCell {
                 active_plasmids: vec![],
                 viral_infections: vec![],
             },
+            nervous_system: None,
         }
     }
 }
