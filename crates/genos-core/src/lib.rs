@@ -5,6 +5,7 @@ pub mod metrics;
 pub mod redundancy;
 pub mod orchestrator;
 pub mod ecology;
+pub mod linguistics;
 
 pub mod neurobiology;
 pub mod therapy;
