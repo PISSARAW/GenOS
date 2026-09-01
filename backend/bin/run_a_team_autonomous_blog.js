@@ -19,6 +19,7 @@ ${DIVISIONS.join(', ')}.`;
 // SYSTÈME IMMUNITAIRE GLOBAL
 // -----------------------------------------------------------------------------
 const { withImmunity, withTextImmunity, askLocalLLM } = require('../src/services/immuneSystem.js');
+const { EpistemicData, evaluatePerception } = require('../src/services/epistemics.js');
 
 // -----------------------------------------------------------------------------
 // PHASES BIOMIMÉTIQUES
@@ -67,7 +68,11 @@ async function generateTopicsForAuthor(author, variantIndex) {
         author.articles = plan.articles;
     } else {
         console.error(`[Apoptose] Sujets par défaut pour ${author.name}`);
-        author.articles = ["Sujet de secours 1", "Sujet de secours 2", "Sujet de secours 3"];
+        author.articles = [
+            new EpistemicData({ value: "Sujet de secours 1", provenance: { origin: "fallback", failure: true }, confidence: 0, epistemic_state: "INVALID", forbidden_ops: ["generate"] }),
+            new EpistemicData({ value: "Sujet de secours 2", provenance: { origin: "fallback", failure: true }, confidence: 0, epistemic_state: "INVALID", forbidden_ops: ["generate"] }),
+            new EpistemicData({ value: "Sujet de secours 3", provenance: { origin: "fallback", failure: true }, confidence: 0, epistemic_state: "INVALID", forbidden_ops: ["generate"] })
+        ];
     }
 }
 
@@ -166,8 +171,15 @@ async function runAutonomousDaemon() {
         await generateTopicsForAuthor(author, authorIndex);
         
         for (const title of author.articles) {
-            const finalContent = await phase2DraftAndReview(author, title, authorIndex);
-            if (finalContent) phase3SaveArticle(author, title, finalContent);
+            try {
+                evaluatePerception(title, "generate");
+            } catch (error) {
+                console.error(`[Anomalie] Abstention : ${error.message}`);
+                continue;
+            }
+            const actualTitle = title instanceof EpistemicData ? title.value : title;
+            const finalContent = await phase2DraftAndReview(author, actualTitle, authorIndex);
+            if (finalContent) phase3SaveArticle(author, actualTitle, finalContent);
         }
     }
     console.log("\n=== MISSION TERMINÉE. ===");
