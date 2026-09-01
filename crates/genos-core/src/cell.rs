@@ -38,6 +38,8 @@ impl Default for AgentCell {
             septum_inhibited: false,
                 immunized_against: vec![],
                 mhc_display: Some("HEALTHY_SELF".to_string()),
+                budding_scars: 0,
+                attached_buds: vec![],
             },
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
@@ -94,6 +96,8 @@ pub struct PlasmaMembrane {
     pub immunized_against: Vec<String>,
     /// Le CMH (Complexe Majeur d'HistocompatibilitÃƒÂ©) : PrÃƒÂ©sentoir de l'ÃƒÂ©tat interne
     pub mhc_display: Option<String>,
+    pub budding_scars: u32,
+    pub attached_buds: Vec<uuid::Uuid>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -332,6 +336,44 @@ impl AgentCell {
         Ok((self, clone))
     }
 
+    /// Le Bourgeonnement (Cellules isolées ou animaux coloniaux)
+    /// Reproduction asymétrique : la mère crée un petit clone sur son flanc.
+    /// detach : Si true (Levure, Hydre), le bourgeon se détache et laisse une cicatrice.
+    ///            Si false (Coraux), le bourgeon reste attaché pour former une colonie.
+    pub fn budding(&mut self, detach: bool) -> Result<AgentCell, String> {
+        let max_scars = 25;
+
+        // Le vieillissement cellulaire (La place sur la membrane est limitée)
+        if self.plasma_membrane.budding_scars + (self.plasma_membrane.attached_buds.len() as u32) >= max_scars {
+            return Err("Surface entièrement couverte de cicatrices. La cellule mère est trop vieille pour bourgeonner.".to_string());
+        }
+
+        // Énergie requise pour construire le bourgeon (harnachement asymétrique)
+        if self.mitochondria.atp_budget < 20 {
+            return Err("ATP insuffisant pour générer un bourgeon.".to_string());
+        }
+        self.mitochondria.atp_budget -= 15; // La mère paie la construction
+
+        // Création du bourgeon (asymétrie)
+        let mut bud = self.clone();
+        bud.cell_id = uuid::Uuid::new_v4();
+        bud.mitochondria.atp_budget = 5; // Le bébé naît avec peu d'énergie
+
+        // Le bourgeon est tout neuf, il n'hérite pas des cicatrices de sa mère !
+        bud.plasma_membrane.budding_scars = 0;
+        bud.plasma_membrane.attached_buds.clear();
+
+        if detach {
+            // Le bourgeon se détache et part faire sa vie. Il laisse une cicatrice en chitine.
+            self.plasma_membrane.budding_scars += 1;
+        } else {
+            // Coraux : Le bourgeon reste physiquement attaché (Colonie)
+            self.plasma_membrane.attached_buds.push(bud.cell_id);
+        }
+
+        Ok(bud)
+    }
+
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {
         // Inhibiteur de Cycle (CDK4/6) : Traitement anti-cancer
         if self.endoplasmic_reticulum.cell_cycle_inhibited {
@@ -480,3 +522,37 @@ mod tests {
         // Le clone a muté, son génome n'est plus identique au parent !
         assert_ne!(clone_mutant.nucleus.genome.chromosome_maternal.sequence, clone1.nucleus.genome.chromosome_maternal.sequence);
     }
+    #[test]
+    fn test_budding_and_aging() {
+        let mut yeast = AgentCell::default();
+        yeast.mitochondria.atp_budget = 1000; // Beaucoup d'énergie
+
+        // 1. Bourgeonnement normal (Détachement)
+        let bud1 = yeast.budding(true).unwrap();
+        assert_eq!(yeast.plasma_membrane.budding_scars, 1);
+        assert_eq!(bud1.plasma_membrane.budding_scars, 0); // Le bébé naît sans cicatrices
+        assert_eq!(bud1.mitochondria.atp_budget, 5); // Asymétrie
+
+        // 2. Bourgeonnement Colonial (Coraux)
+        let coral_bud = yeast.budding(false).unwrap();
+        // Pas de cicatrice car pas de détachement
+        assert_eq!(yeast.plasma_membrane.budding_scars, 1);
+        // Mais enregistré dans la colonie
+        assert_eq!(yeast.plasma_membrane.attached_buds.len(), 1);
+        assert_eq!(yeast.plasma_membrane.attached_buds[0], coral_bud.cell_id);
+
+        // 3. Vieillissement par bourgeonnement
+        // On fait bourgeonner la mère jusqu'à la limite (25)
+        for _ in 0..23 {
+            yeast.budding(true).unwrap();
+        }
+        // Total : 1 + 1 (colonial) + 23 = 25 emplacements utilisés.
+        assert_eq!(yeast.plasma_membrane.budding_scars, 24);
+        assert_eq!(yeast.plasma_membrane.attached_buds.len(), 1);
+
+        // La prochaine tentative doit échouer (Cellule trop vieille)
+        let old_age_fail = yeast.budding(true);
+        assert!(old_age_fail.is_err());
+        assert!(old_age_fail.unwrap_err().contains("vieille"));
+    }
+
