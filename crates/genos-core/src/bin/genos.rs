@@ -32,6 +32,10 @@ enum Commands {
         agent_id: String,
     },
     /// Exécute une recherche dichotomique dans l'ActionTrace pour isoler une hallucination
+    Digest {
+        #[arg(short, long)]
+        filepath: String,
+    },
     Bisect {
         #[arg(short, long)]
         agent_id: String,
@@ -78,7 +82,11 @@ fn main() {
             println!("... Analyse des gènes Hox et des marques maternelles/paternelles");
             println!("⚠️ L'hallucination a été introduite par la mutation du Gène 'LOGIC_GATE' lors du croisement #42.");
         }
-        Commands::Bisect { agent_id, error_token } => {
+        Commands::Digest {
+        #[arg(short, long)]
+        filepath: String,
+    },
+    Commands::Bisect { agent_id, error_token } => {
             println!("🔪 [Dichotomie] Recherche du token toxique '{}' dans l'ActionTrace de {}", error_token, agent_id);
             println!("... Coupe binaire de l'historique cognitif...");
             println!("✅ Coupable identifié : L'erreur a commencé à l'itération 405 (Codon STOP prématuré).");

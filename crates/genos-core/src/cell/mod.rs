@@ -1,5 +1,6 @@
 ﻿pub mod organelles;
 pub mod methods;
+pub mod phagocytosis;
 pub mod substructs;
 #[cfg(test)]
 pub mod tests;
