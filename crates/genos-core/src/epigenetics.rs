@@ -1,8 +1,8 @@
 use nom::{
     branch::alt,
-    bytes::complete::tag,
-    character::complete::{alphanumeric1, multispace0, multispace1},
-    combinator::{map, map_res, recognize},
+    bytes::complete::{tag, tag_no_case},
+    character::complete::{alphanumeric1, multispace0},
+    combinator::recognize,
     multi::many0,
     sequence::{delimited, tuple},
     IResult,
@@ -21,22 +21,20 @@ pub enum Operator {
 }
 
 /// L'Arbre Syntaxique Abstrait (AST) de notre moteur de règles.
-/// Au lieu d'avoir un "String", on a une structure mathématique que le processeur peut évaluer formellement.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Expression {
-    /// Une condition simple: "variable >= valeur"
     Condition {
         variable: String,
         operator: Operator,
         target_value: f64,
     },
-    /// On anticipe l'avenir: possibilité de combiner des règles ! (Ex: "A >= 1 AND B < 2")
     And(Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
+    Xor(Box<Expression>, Box<Expression>),
 }
 
 impl Expression {
-    /// Évalue l'AST en fonction d'un contexte de variables (ton `CognitiveState` ou `Metadata`)
+    /// Évalue l'AST en fonction d'un contexte de variables
     pub fn evaluate(&self, context: &std::collections::HashMap<String, f64>) -> bool {
         match self {
             Expression::Condition { variable, operator, target_value } => {
@@ -52,20 +50,19 @@ impl Expression {
             }
             Expression::And(left, right) => left.evaluate(context) && right.evaluate(context),
             Expression::Or(left, right) => left.evaluate(context) || right.evaluate(context),
+            Expression::Xor(left, right) => left.evaluate(context) ^ right.evaluate(context),
         }
     }
 }
 
 /* =====================================================================
-   LE PARSEUR (NOM) - Transforme la String en AST
+   LE PARSEUR (NOM)
    ===================================================================== */
 
-// 1. Parser le nom de la variable (ex: "consecutive_failures")
 fn parse_variable(input: &str) -> IResult<&str, &str> {
     recognize(many0(alt((alphanumeric1, tag("_")))))(input)
 }
 
-// 2. Parser l'opérateur (ex: ">=")
 fn parse_operator(input: &str) -> IResult<&str, Operator> {
     let (input, op) = alt((
         tag(">="),
@@ -88,7 +85,6 @@ fn parse_operator(input: &str) -> IResult<&str, Operator> {
     Ok((input, operator))
 }
 
-// 3. Parser la valeur (f64)
 fn parse_value(input: &str) -> IResult<&str, f64> {
     let (input, val_str) = recognize(tuple((
         nom::combinator::opt(tag("-")),
@@ -100,8 +96,8 @@ fn parse_value(input: &str) -> IResult<&str, f64> {
     Ok((input, val))
 }
 
-// 4. Parser la condition entière ("variable >= valeur") avec gestion des espaces
-pub fn parse_condition(input: &str) -> IResult<&str, Expression> {
+/// Parse une condition simple: "variable >= valeur"
+fn parse_condition(input: &str) -> IResult<&str, Expression> {
     let (input, _) = multispace0(input)?;
     let (input, variable) = parse_variable(input)?;
     let (input, _) = multispace0(input)?;
@@ -120,24 +116,72 @@ pub fn parse_condition(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
+/// Parse un élément primaire (soit une condition, soit une expression entre parenthèses)
+fn parse_primary(input: &str) -> IResult<&str, Expression> {
+    alt((
+        delimited(
+            tuple((multispace0, tag("("), multispace0)),
+            parse_expression,
+            tuple((multispace0, tag(")"), multispace0))
+        ),
+        parse_condition
+    ))(input)
+}
+
+/// Parse l'expression complète avec AND, OR, XOR évalués de gauche à droite
+pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
+    let (input, mut expr) = parse_primary(input)?;
+    let (input, remainder) = many0(tuple((
+        delimited(
+            multispace0,
+            alt((tag_no_case("AND"), tag_no_case("OR"), tag_no_case("XOR"))),
+            multispace0
+        ),
+        parse_primary
+    )))(input)?;
+    
+    for (op, next_expr) in remainder {
+        expr = match op.to_uppercase().as_str() {
+            "AND" => Expression::And(Box::new(expr), Box::new(next_expr)),
+            "OR" => Expression::Or(Box::new(expr), Box::new(next_expr)),
+            "XOR" => Expression::Xor(Box::new(expr), Box::new(next_expr)),
+            _ => unreachable!(),
+        };
+    }
+    
+    Ok((input, expr))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
 
     #[test]
-    fn test_parse_and_evaluate() {
-        let (rest, ast) = parse_condition("consecutive_failures >= 3.5").unwrap();
-        assert_eq!(rest, ""); // Tout a été parsé
-
+    fn test_complex_expressions() {
         let mut context = HashMap::new();
-        context.insert("consecutive_failures".to_string(), 4.0);
-        
-        // 4.0 >= 3.5 -> true
+        context.insert("failures".to_string(), 3.0);
+        context.insert("stress".to_string(), 0.8);
+        context.insert("budget".to_string(), 10.0);
+
+        // Test 1: AND
+        let (_, ast) = parse_expression("failures >= 3 AND stress > 0.5").unwrap();
         assert!(ast.evaluate(&context));
+
+        // Test 2: OR
+        let (_, ast) = parse_expression("budget < 5 OR failures >= 3").unwrap();
+        assert!(ast.evaluate(&context)); // true car failures >= 3
+
+        // Test 3: XOR (Exclusive OR)
+        // Vrai seulement si UNE SEULE des deux conditions est vraie.
+        let (_, ast) = parse_expression("stress > 0.5 XOR failures >= 3").unwrap();
+        assert!(!ast.evaluate(&context)); // false car LES DEUX sont vraies
         
-        context.insert("consecutive_failures".to_string(), 2.0);
-        // 2.0 >= 3.5 -> false
-        assert!(!ast.evaluate(&context));
+        let (_, ast) = parse_expression("stress > 0.9 XOR failures >= 3").unwrap();
+        assert!(ast.evaluate(&context)); // true car SEULEMENT failures est vraie
+
+        // Test 4: Parenthèses
+        let (_, ast) = parse_expression("(budget < 5 OR failures >= 3) AND stress > 0.5").unwrap();
+        assert!(ast.evaluate(&context));
     }
 }
