@@ -1,89 +1,98 @@
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
-
-/// Représente l'Agent IA comme une Cellule Biologique stricte.
-/// Chaque bloc possède sa propre méthode d'évaluation mathématique.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentCell {
-    /// Bloc 1 : Métadonnées pures (Non-déterministe, ignoré pour les comparaisons)
-    pub metadata: InstanceMetadata,
-
-    /// Bloc 2 : Le milieu extracellulaire (Hachage strict SHA256)
-    pub environment: EnvironmentContext,
-
-    /// Bloc 3 : L'ADN immuable de l'agent (Hachage strict SHA256)
-    pub genome: Genome,
-
-    /// Bloc 4 : Plasmides et infections (Intersection d'ensembles)
-    pub microbiome: Microbiome,
-
-    /// Bloc 5 : Historique comportemental (Distance de Levenshtein)
-    pub trace: ActionTrace,
-
-    /// Bloc 6 : Cerveau et états épigénétiques (Embeddings Vectoriels & Similarité Cosinus)
-    pub cognition: CognitiveState,
-}
-
-/* =====================================================================
-   BLOC 1 : L'Enveloppe (Bruit d'exécution)
-   ===================================================================== */
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct InstanceMetadata {
-    pub agent_id: Uuid,
-    pub snapshot_id: Uuid,
-    pub branch_id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub budget_tokens_remaining: u64,
-}
-
-/* =====================================================================
-   BLOC 2 : L'Environnement (Contexte)
-   ===================================================================== */
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct EnvironmentContext {
-    pub world_id: Uuid,
-    /// Identifiants des agents avec qui il peut communiquer (Topologie de l'essaim)
-    pub peer_ids: Vec<Uuid>,
-    /// Noms des outils mis à disposition par le système
-    pub available_tools: Vec<String>,
-}
-
 pub use crate::genome::{Genome, Plasmid};
 
+/// La Cellule est l'unité fondamentale de la vie et de GenOS.
+/// C'est une micro-ville IA ultra-organisée avec ses propres organites.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AgentCell {
+    pub cell_id: Uuid,
+    /// 1. La Frontière (I/O, API Gateway, Sécurité)
+    pub plasma_membrane: PlasmaMembrane,
+    /// 2. Le Centre de Contrôle (Stockage sécurisé de l'ADN/Prompt)
+    pub nucleus: Nucleus,
+    /// 3. Les Centrales Énergétiques (Gestion du Budget de Tokens LLM)
+    pub mitochondria: Mitochondria,
+    /// 4. L'Usine de Fabrication (Lieu de l'exécution et de l'assemblage)
+    pub endoplasmic_reticulum: EndoplasmicReticulum,
+    /// 5. Le Centre de Tri (Routage des appels d'outils / Réponses utilisateur)
+    pub golgi_apparatus: GolgiApparatus,
+    /// 6. Le Centre de Recyclage (Garbage Collector, Nettoyage du Contexte)
+    pub lysosomes: Lysosomes,
+    /// Le Milieu Fluide (Mémoire de Travail, Plasmides, Historique)
+    pub cytoplasm: Cytoplasm,
+}
+
 /* =====================================================================
-   BLOC 4 : Le Microbiome (Mutations / Infections temporaires)
+   LES ORGANITES (Départements de l'Agent IA)
    ===================================================================== */
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct Microbiome {
-    /// Plasmides échangés dynamiquement avec l'environnement
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PlasmaMembrane {
+    /// Les "douaniers" qui filtrent les requêtes entrantes
+    pub incoming_receptors: Vec<String>,
+    /// Les "canaux" autorisés pour les appels d'outils sortants
+    pub outgoing_ion_channels: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Nucleus {
+    /// Le coffre-fort contenant le génome (le code source de l'agent).
+    /// Ne quitte jamais le noyau. Seul l'ARNm en sort.
+    pub genome: Genome,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Mitochondria {
+    /// La "monnaie énergétique" de la cellule (Les Tokens LLM restants)
+    pub atp_budget: u64,
+    /// Consommation métabolique (ex: coût de calcul du modèle)
+    pub metabolic_rate: f64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EndoplasmicReticulum {
+    /// L'atelier où les Ribosomes traduisent l'ARN en actions réelles
+    pub active_ribosomes_count: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GolgiApparatus {
+    /// Les vésicules prêtes à être expédiées hors de la cellule (Messages réseaux, API)
+    pub export_vesicles: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Lysosomes {
+    /// Enzymes capables de nettoyer le contexte si la fenêtre de tokens sature
+    /// (Oubli des vieux souvenirs, destruction des hallucinations)
+    pub digestive_enzymes_active: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Cytoplasm {
+    /// L'état cognitif (Les molécules et protéines en flottaison dans le gel)
+    pub cognition: CognitiveState,
+    /// Le squelette interne qui garde la forme de la cellule (La trajectoire des actions)
+    pub trace: ActionTrace,
+    /// Les anneaux d'ADN flottants échangés avec les autres bactéries (Virus/Infections)
     pub active_plasmids: Vec<Plasmid>,
 }
 
 /* =====================================================================
-   BLOC 5 : La Trajectoire (Phénotype Comportemental)
+   SOUS-STRUCTURES DU CYTOPLASME
    ===================================================================== */
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ActionTrace {
-    /// Séquence stricte des actions effectuées (sans timestamps ni IDs générés)
-    /// Ex: ["read_file(main.rs)", "bash(ls -la)"]
     pub sequence: Vec<String>,
 }
 
-/* =====================================================================
-   BLOC 6 : Le Cerveau (Cognition et Épigénétique)
-   ===================================================================== */
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CognitiveState {
-    /// Les "drives" actuels (ex: exploration: 0.8) - Modulateurs épigénétiques
     pub epigenetic_drives: HashMap<String, f64>,
-    /// Mémoire de travail (Contexte immédiat)
     pub working_memory: Vec<String>,
-    /// Souvenirs des événements passés (Épisodique)
     pub episodic_memory: Vec<String>,
-    /// Faits déduits et invariants (Sémantique)
     pub semantic_memory: Vec<String>,
-    /// Ce que l'agent tente de résoudre actuellement
-    pub active_goals: Vec<String>,
 }
