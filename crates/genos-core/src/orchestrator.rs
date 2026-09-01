@@ -74,7 +74,7 @@ mod tests {
                 peer_ids: vec![],
                 available_tools: vec![],
             },
-            genome: Genome::new("You are a test cell", "test-model"),
+            genome: Genome::new("You are a test cell"),
             microbiome: Microbiome::default(),
             trace: ActionTrace::default(),
             cognition: CognitiveState {

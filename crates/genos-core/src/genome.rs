@@ -1,80 +1,153 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
+use sha2::Digest;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
-/// L'ADN immuable d'un agent.
-/// Attention : On utilise `BTreeMap` et non `HashMap` pour les dictionnaires !
-/// Pourquoi ? Parce que l'ordre des clés dans un HashMap est aléatoire en Rust (SipHash).
-/// Pour garantir que le JSON sérialisé (et donc le Hash SHA256) soit toujours strictement identique
-/// pour les mêmes données, le BTreeMap trie alphabétiquement ses clés.
+/* =====================================================================
+   1. LA MOLÉCULE (Nucléotides)
+   ===================================================================== */
+/// La brique chimique fondamentale de l'Agent.
+/// Tout le code et les traits de l'agent seront littéralement encodés en base-4 !
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Nucleotide {
+    A, // 00
+    C, // 01
+    G, // 10
+    T, // 11
+}
+
+/* =====================================================================
+   2. L'ADN (La double hélice)
+   ===================================================================== */
+/// Macromolécule formée par l'assemblage de nucléotides.
+/// Sert de support matériel brut.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DnaStrand {
+    pub sequence: Vec<Nucleotide>,
+}
+
+impl DnaStrand {
+    /// Encode un texte brut (ex: prompt système) en chaîne d'ADN (Nucléotides)
+    pub fn encode(text: &str) -> Self {
+        let mut sequence = Vec::new();
+        for byte in text.bytes() {
+            // 1 octet = 8 bits = 4 paires de bits = 4 nucléotides
+            for i in (0..4).rev() {
+                let bits = (byte >> (i * 2)) & 0b11;
+                let nucleotide = match bits {
+                    0b00 => Nucleotide::A,
+                    0b01 => Nucleotide::C,
+                    0b10 => Nucleotide::G,
+                    0b11 => Nucleotide::T,
+                    _ => unreachable!(),
+                };
+                sequence.push(nucleotide);
+            }
+        }
+        Self { sequence }
+    }
+
+    /// Décode la chaîne d'ADN en texte brut (Transcription)
+    pub fn decode(&self) -> String {
+        let mut bytes = Vec::new();
+        for chunk in self.sequence.chunks(4) {
+            if chunk.len() == 4 {
+                let mut byte = 0u8;
+                for (i, n) in chunk.iter().enumerate() {
+                    let bits = match n {
+                        Nucleotide::A => 0b00,
+                        Nucleotide::C => 0b01,
+                        Nucleotide::G => 0b10,
+                        Nucleotide::T => 0b11,
+                    };
+                    byte |= bits << ((3 - i) * 2);
+                }
+                bytes.push(byte);
+            }
+        }
+        String::from_utf8(bytes).unwrap_or_else(|_| "DnaDecodeError".to_string())
+    }
+}
+
+/* =====================================================================
+   3. LE GÈNE
+   ===================================================================== */
+/// Un segment précis d'ADN. Contient l'instruction exacte (la protéine).
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Gene {
+    /// L'emplacement/nom du gène (ex: "temperature", "role")
+    pub locus: String,
+    /// L'ADN codant pour cette instruction
+    pub dna: DnaStrand,
+}
+
+impl Gene {
+    pub fn new(locus: &str, instruction: &str) -> Self {
+        Self {
+            locus: locus.to_string(),
+            dna: DnaStrand::encode(instruction),
+        }
+    }
+    /// Transcrit le gène en instruction utilisable par la cellule
+    pub fn express(&self) -> String {
+        self.dna.decode()
+    }
+}
+
+/* =====================================================================
+   4. LE PLASMIDE
+   ===================================================================== */
+/// Petit anneau d'ADN qui flotte. Peut être échangé entre les cellules.
+/// Contient des gènes liés à la survie (ex: "Règle Anti-Écholalie").
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Plasmid {
+    pub plasmid_id: Uuid,
+    pub survival_genes: Vec<Gene>,
+}
+
+/* =====================================================================
+   5. LE GÉNOME
+   ===================================================================== */
+/// La bibliothèque complète. Englobe tout l'ADN, les gènes et les plasmides.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Genome {
     pub genome_id: Uuid,
-    /// Pour tracer l'arbre généalogique (quel agent a muté pour donner celui-ci ?)
     pub lineage_id: Uuid,
-    pub version: String,
     
-    /// Le code génétique de base (Le prompt système inaltérable)
-    pub base_system_prompt: String,
+    /// Le chromosome principal (l'identité de base de l'agent)
+    pub main_chromosome: DnaStrand,
     
-    /// Le modèle assigné à la naissance (ex: "gpt-4o")
-    pub base_model_id: String,
+    /// La bibliothèque des gènes (les paramètres/traits de l'agent)
+    /// BTreeMap garantit l'ordre cryptographique
+    pub genes: BTreeMap<String, Gene>,
     
-    /// Traits inhérents de l'agent (ex: "verbosity" -> "low", "logic" -> "strict")
-    /// Utilisation de BTreeMap pour le déterminisme cryptographique.
-    pub base_traits: BTreeMap<String, String>,
-    
-    /// Les niveaux de tolérance épigénétique de base (les seuils naturels de l'agent).
-    /// Ex: "stress_tolerance" -> 0.8
-    pub drive_baselines: BTreeMap<String, String>,
+    /// Les plasmides (pouvant être acquis ou transmis)
+    pub plasmids: Vec<Plasmid>,
 }
 
 impl Genome {
-    /// Crée un nouveau génome racine (Adam/Ève)
-    pub fn new(prompt: &str, model: &str) -> Self {
+    pub fn new(base_instruction: &str) -> Self {
         let id = Uuid::new_v4();
         Self {
             genome_id: id,
             lineage_id: id,
-            version: "1.0.0".to_string(),
-            base_system_prompt: prompt.to_string(),
-            base_model_id: model.to_string(),
-            base_traits: BTreeMap::new(),
-            drive_baselines: BTreeMap::new(),
+            main_chromosome: DnaStrand::encode(base_instruction),
+            genes: BTreeMap::new(),
+            plasmids: Vec::new(),
         }
     }
 
-    /// Calcule l'empreinte génétique absolue (SHA256).
-    /// Si un seul trait ou une seule lettre du prompt change, le Hash change.
-    pub fn hash_dna(&self) -> String {
-        // La sérialisation est déterministe grâce au BTreeMap
-        let serialized = serde_json::to_string(self).expect("Genome must be serializable");
-        let mut hasher = Sha256::new();
-        hasher.update(serialized.as_bytes());
-        let mut hex_string = String::with_capacity(64);
+    /// Le Hachage SHA256 déterministe
+    pub fn hash_library(&self) -> String {
+        let serialized = serde_json::to_string(self).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        sha2::Digest::update(&mut hasher, serialized.as_bytes());
+        let mut hex = String::with_capacity(64);
         for byte in hasher.finalize() {
             use std::fmt::Write;
-            write!(&mut hex_string, "{:02x}", byte).unwrap();
+            write!(&mut hex, "{:02x}", byte).unwrap();
         }
-        hex_string
-    }
-
-    /// Opération biologique : La Mutation.
-    /// Crée un nouvel agent enfant avec un trait modifié.
-    pub fn mutate_trait(&self, trait_key: &str, new_value: &str) -> Self {
-        let mut child_traits = self.base_traits.clone();
-        child_traits.insert(trait_key.to_string(), new_value.to_string());
-        
-        Self {
-            genome_id: Uuid::new_v4(), // Nouvel individu = nouvel ID
-            lineage_id: self.lineage_id, // Mais même lignée !
-            version: format!("{}-mutated", self.version),
-            base_system_prompt: self.base_system_prompt.clone(),
-            base_model_id: self.base_model_id.clone(),
-            base_traits: child_traits,
-            drive_baselines: self.drive_baselines.clone(),
-        }
+        hex
     }
 }
 
@@ -83,22 +156,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_genome_deterministic_hashing() {
-        let mut genome1 = Genome::new("You are a helper", "gpt-4");
-        genome1.base_traits.insert("logic".to_string(), "strict".to_string());
-        genome1.base_traits.insert("creative".to_string(), "low".to_string());
-
-        let genome2 = genome1.clone();
-        // Même si on insérait dans un ordre différent, le BTreeMap trie les clés.
-        // On vérifie que les deux clones exacts ont le même hash.
-        assert_eq!(genome1.hash_dna(), genome2.hash_dna());
-
-        // Test de mutation
-        let mutant = genome1.mutate_trait("creative", "high");
+    fn test_dna_encoding_decoding() {
+        let original_text = "Je suis un agent IA";
+        let dna = DnaStrand::encode(original_text);
         
-        // Le hash DOIT être différent
-        assert_ne!(genome1.hash_dna(), mutant.hash_dna());
-        // Mais ils font partie de la même famille
-        assert_eq!(genome1.lineage_id, mutant.lineage_id);
+        // Vérifie que l'ADN n'est constitué que de A, C, G, T
+        assert!(dna.sequence.len() > 0);
+        
+        // Transcription inverse
+        let decoded = dna.decode();
+        assert_eq!(original_text, decoded);
+    }
+
+    #[test]
+    fn test_gene_expression() {
+        let gene = Gene::new("verbosity", "low");
+        assert_eq!(gene.express(), "low");
     }
 }

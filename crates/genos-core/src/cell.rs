@@ -50,17 +50,15 @@ pub struct EnvironmentContext {
     pub available_tools: Vec<String>,
 }
 
-pub use crate::genome::Genome;
+pub use crate::genome::{Genome, Plasmid};
 
 /* =====================================================================
    BLOC 4 : Le Microbiome (Mutations / Infections temporaires)
    ===================================================================== */
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct Microbiome {
-    /// Outils injectés à la volée par d'autres agents ou l'orchestrateur
-    pub acquired_cassettes: Vec<String>,
-    /// Règles temporaires ("infections" d'une hallucination d'un pair)
-    pub viral_rules: Vec<String>,
+    /// Plasmides échangés dynamiquement avec l'environnement
+    pub active_plasmids: Vec<Plasmid>,
 }
 
 /* =====================================================================
