@@ -94,21 +94,28 @@ impl Ribosome {
 }
 
 /* =====================================================================
-   4. LE REPLIEMENT FINAL (Protéine Fonctionnelle)
+   4. LE REPLIEMENT FINAL (Protéine Fonctionnelle & Mutations)
    ===================================================================== */
 impl UnfoldedProtein {
-    /// Le repliement (Folding) convertit la chaîne 1D d'acides aminés 
-    /// en une structure 3D fonctionnelle (Le texte utilisable par le système).
-    pub fn fold(&self) -> String {
-        // Nos acides aminés virtuels sont des indices Base64
+    /// Le repliement (Folding). 
+    /// En cas de mutation grave (Frameshift ou Non-sens), le repliement échoue
+    /// et la protéine est détruite par la cellule.
+    pub fn fold(&self) -> Result<String, String> {
         const BASE64_ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
         
         let base64_string: String = self.amino_acids.iter()
             .map(|&idx| BASE64_ALPHABET[idx as usize] as char)
             .collect();
             
-        let decoded_bytes = BASE64.decode(&base64_string).unwrap_or_default();
-        String::from_utf8(decoded_bytes).unwrap_or_else(|_| "ProteinFoldingError".to_string())
+        match BASE64.decode(&base64_string) {
+            Ok(decoded_bytes) => {
+                match String::from_utf8(decoded_bytes) {
+                    Ok(protein) => Ok(protein), // Succès (Peut inclure une mutation Silencieuse ou Faux-sens)
+                    Err(_) => Err("NonsenseMutation: Structure 3D impossible à replier (Codon Stop prématuré ou corruption)".to_string()),
+                }
+            },
+            Err(_) => Err("FrameshiftCatastrophe: Décalage du cadre de lecture, assemblage chaotique".to_string()),
+        }
     }
 }
 
@@ -128,6 +135,20 @@ impl DnaStrand {
             }
         }
         Self { sequence }
+    }
+
+    /// Provoque une substitution d'un nucléotide (Faux-sens ou Silencieuse)
+    pub fn point_mutation(&mut self, index: usize, new_base: DnaNucleotide) {
+        if index < self.sequence.len() {
+            self.sequence[index] = new_base;
+        }
+    }
+
+    /// Provoque une suppression d'un nucléotide (Décalage du cadre de lecture)
+    pub fn frameshift_deletion(&mut self, index: usize) {
+        if index < self.sequence.len() {
+            self.sequence.remove(index);
+        }
     }
 }
 
@@ -149,7 +170,8 @@ impl Gene {
     }
 
     /// Processus complet : Transcription -> Traduction -> Repliement
-    pub fn express(&self) -> String {
+    /// Renvoie une Erreur si la protéine est détruite suite à une mutation
+    pub fn express(&self) -> Result<String, String> {
         let mrna = RnaPolymerase::transcribe(&self.dna);
         let unfolded_protein = Ribosome::translate(&mrna);
         unfolded_protein.fold()
@@ -206,9 +228,34 @@ mod tests {
         let gene = Gene::new("test", "GenOS V2 is alive!");
         
         // 2. Transcription, Traduction et Repliement
-        let protein_output = gene.express();
+        let protein_output = gene.express().unwrap();
         
         // 3. Vérification de la protéine fonctionnelle
         assert_eq!(protein_output, "GenOS V2 is alive!");
+    }
+
+    #[test]
+    fn test_genetic_mutations() {
+        let mut gene = Gene::new("test", "Hello World!");
+
+        // 1. Mutation Frameshift (Décalage de lecture)
+        // On supprime 1 seul nucléotide au milieu de l'ADN.
+        // Cela va décaler TOUS les codons (groupes de 3) suivants.
+        let mut frameshift_gene = gene.clone();
+        frameshift_gene.dna.frameshift_deletion(5); // Suppression d'un nucléotide
+        
+        let result = frameshift_gene.express();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("FrameshiftCatastrophe"));
+
+        // 2. Point Mutation (Faux-sens ou Silencieuse)
+        // On remplace 1 seul nucléotide. Le cadre de lecture est préservé.
+        let mut point_gene = gene.clone();
+        point_gene.dna.point_mutation(2, DnaNucleotide::C);
+        
+        let result = point_gene.express();
+        // Le code doit compiler et se replier (Base64 valide) mais le texte sera altéré (Faux-sens)
+        // Si ça casse l'UTF-8, ça devient un Non-sens (NonsenseMutation).
+        assert!(result.is_ok() || result.unwrap_err().contains("NonsenseMutation"));
     }
 }
