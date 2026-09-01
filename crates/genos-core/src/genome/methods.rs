@@ -350,6 +350,18 @@ impl Genome {
         }
     }
 
+    pub fn apply_genomic_imprinting_conflict(&mut self) {
+        let mut igf2_pat = Gene::new("IGF2_PATERNAL", "MAX_GROWTH_FACTOR_11");
+        igf2_pat.is_methylated = false; 
+        let mut igf2_mat = Gene::new("IGF2_MATERNAL", "MAX_GROWTH_FACTOR_11");
+        igf2_mat.is_methylated = true; 
+        let mut igf2r_mat = Gene::new("IGF2R_MATERNAL", "GROWTH_DECOY_RECEPTOR");
+        igf2r_mat.is_methylated = false; 
+        self.genes.insert("IGF2_PATERNAL".to_string(), igf2_pat);
+        self.genes.insert("IGF2_MATERNAL".to_string(), igf2_mat);
+        self.genes.insert("IGF2R_MATERNAL".to_string(), igf2r_mat);
+    }
+
     pub fn hash_library(&self) -> String {
         let serialized = serde_json::to_string(self).unwrap();
         let mut hasher = sha2::Sha256::new();
