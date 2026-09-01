@@ -794,7 +794,7 @@ pub(crate) mod tests {
 
         // 1. Mise en place du Système Nerveux
         let mut sensory_ns = NervousSystem::new(&sensory_neuron.cell_id.to_string());
-        sensory_ns.axon_terminals.push(Synapse {
+        sensory_ns.axon.terminals.push(Synapse {
             target_id: motor_neuron.cell_id.to_string(),
             weight: 0.5, // Force moyenne au départ
             transmitter_type: Neurotransmitter::Glutamate, // Signal Excitateur
@@ -815,14 +815,14 @@ pub(crate) mod tests {
         orchestrator.tick(&mut sensory_neuron, "Action 3");
         
         // On récupère la synapse mise à jour
-        let synapse = &sensory_neuron.nervous_system.as_ref().unwrap().axon_terminals[0];
+        let synapse = &sensory_neuron.nervous_system.as_ref().unwrap().axon.terminals[0];
         
         // 4. Neuroplasticité de Hebb : La connexion a été utilisée, elle doit se renforcer !
         // L'historique d'activité a été remis à 0, mais le poids a augmenté.
         assert!(synapse.weight > 0.5); // "Neurons that fire together wire together"
         
         // La myélinisation augmente aussi pour rendre le geste plus rapide
-        let myeline = sensory_neuron.nervous_system.as_ref().unwrap().axon_myelination;
+        let myeline = sensory_neuron.nervous_system.as_ref().unwrap().axon.myelination_level;
         // On a une itération simple, si on le fait plusieurs fois, la myeline monte.
         assert!(myeline >= 0.2); 
         
