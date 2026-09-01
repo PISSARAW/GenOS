@@ -1,0 +1,298 @@
+﻿use crate::genome::*;
+use serde::{Deserialize, Serialize};
+
+
+pub enum TransposonType {
+    CutAndPaste,
+    CopyAndPaste,
+}
+
+impl DnaStrand {
+    pub fn transposon_jump(&mut self, source_idx: usize, length: usize, dest_idx: usize, mode: TransposonType) -> Result<(), String> {
+        if source_idx + length > self.sequence.len() || dest_idx > self.sequence.len() {
+            return Err("Index hors limites".to_string());
+        }
+
+        let fragment = match mode {
+            TransposonType::CutAndPaste => {
+                let tail = self.sequence.split_off(source_idx + length);
+                let cut = self.sequence.split_off(source_idx);
+                self.sequence.extend(tail);
+                cut
+            },
+            TransposonType::CopyAndPaste => {
+                self.sequence[source_idx..source_idx + length].to_vec()
+            }
+        };
+
+        let actual_dest = if let TransposonType::CutAndPaste = mode {
+            if dest_idx > source_idx {
+                dest_idx.saturating_sub(length)
+            } else {
+                dest_idx
+            }
+        } else {
+            dest_idx
+        };
+        
+        let tail = self.sequence.split_off(actual_dest);
+        self.sequence.extend(fragment);
+        self.sequence.extend(tail);
+
+        Ok(())
+    }
+
+    pub fn synthesize(text: &str) -> Self {
+        let base64_str = BASE64.encode(text);
+        let mut sequence = Vec::new();
+        const BASE64_ALPHABET: &[u8] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+        for c in base64_str.chars() {
+            if let Some(idx) = BASE64_ALPHABET.iter().position(|&x| x == c as u8) {
+                let n1 = DnaNucleotide::from_bits((idx >> 4) as u8);
+                let n2 = DnaNucleotide::from_bits((idx >> 2) as u8);
+                let n3 = DnaNucleotide::from_bits(idx as u8);
+                sequence.push(n1);
+                sequence.push(n2);
+                sequence.push(n3);
+            }
+        }
+        Self { sequence }
+    }
+
+    /// Expose l'ADN ÃƒÂ  un agent mutagÃƒÂ¨ne
+    pub fn expose_to_mutagen(&mut self, mutagen: Mutagen) {
+        match mutagen {
+            // Erreurs internes (Substitution / Faux-sens)
+            Mutagen::ReplicationError(idx, base) | Mutagen::OxidativeStress(idx, base) => {
+                if idx < self.sequence.len() {
+                    self.sequence[idx] = base;
+                }
+            }
+            // Rayons X : Cassure nette
+            Mutagen::IonizingRadiation(idx) => {
+                if idx < self.sequence.len() {
+                    self.sequence.truncate(idx);
+                }
+            }
+            // Agents Chimiques : Insertion de force (DÃƒÂ©calage du cadre)
+            Mutagen::Chemical(idx, base) => {
+                if idx <= self.sequence.len() {
+                    self.sequence.insert(idx, base);
+                }
+            }
+            // Virus : Coupe un gÃƒÂ¨ne sain et s'insÃƒÂ¨re au milieu
+            Mutagen::Virus(idx, viral_dna) => {
+                if idx <= self.sequence.len() {
+                    for (i, base) in viral_dna.sequence.iter().enumerate() {
+                        self.sequence.insert(idx + i, base.clone());
+                    }
+                }
+            }
+            // UV : Cherche les Thymines (T) adjacentes et les fusionne (crÃƒÂ©ant un dÃƒÂ©calage)
+            Mutagen::Ultraviolet => {
+                let mut to_remove = Vec::new();
+                for i in 0..self.sequence.len().saturating_sub(1) {
+                    if self.sequence[i] == DnaNucleotide::T
+                        && self.sequence[i + 1] == DnaNucleotide::T
+                    {
+                        to_remove.push(i + 1); // Fusion
+                    }
+                }
+                for (offset, idx) in to_remove.into_iter().enumerate() {
+                    self.sequence.remove(idx - offset); // Compense le dÃƒÂ©calage lors de la suppression
+                }
+            }
+        }
+    }
+}
+
+/* =====================================================================
+5. LE GÃƒË†NE, PLASMIDE, ET GÃƒâ€°NOME (HiÃƒÂ©rarchie finale)
+===================================================================== */
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum ChromatinState {
+    Euchromatin,
+    HeterochromatinConstitutive,
+    HeterochromatinFacultative,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct Gene {
+    /// La canalisation dÃ©veloppementale : Si true, la plasticitÃ© est terminÃ©e, l'Ã©tat Ã©pigÃ©nÃ©tique est irrÃ©versible.
+    pub developmentally_locked: bool,
+    pub locus: String,
+    pub dna: DnaStrand,
+    pub is_methylated: bool,
+    pub expression_volume: f64,
+    pub chromatin_state: ChromatinState,
+    // --- NOUVEAU : RÃ©gulation Cellulaire ---
+    pub required_activator: Option<String>,
+    pub bound_repressor: Option<String>,
+    pub default_exons: Vec<(usize, usize)>,
+}
+
+pub struct Spliceosome;
+impl Spliceosome {
+    /// Ã‰pissage Alternatif : DÃ©coupe l'ARN prÃ©-messager pour ne garder que les Exons
+    pub fn splice(pre_mrna: &RnaStrand, exons: &[(usize, usize)]) -> RnaStrand {
+        let mut mature = Vec::new();
+        for &(start, end) in exons {
+            if start < pre_mrna.sequence.len() {
+                let end = std::cmp::min(end, pre_mrna.sequence.len());
+                mature.extend_from_slice(&pre_mrna.sequence[start..end]);
+            }
+        }
+        RnaStrand { sequence: mature }
+    }
+}
+
+
+impl Gene {
+    pub fn new(locus: &str, instruction: &str) -> Self {
+        Self {
+            locus: locus.to_string(),
+            dna: DnaStrand::synthesize(instruction),
+            is_methylated: false,
+            expression_volume: 1.0,
+            chromatin_state: ChromatinState::Euchromatin,
+            developmentally_locked: false,
+            required_activator: None,
+            bound_repressor: None,
+            default_exons: Vec::new(),
+        }
+    }
+
+    pub fn express(
+        &self, 
+        active_tfs: &[String], 
+        alternative_splicing: Option<&[(usize, usize)]>,
+        micro_rnas: &[String]
+    ) -> Result<String, String> {
+        if self.chromatin_state == ChromatinState::HeterochromatinConstitutive || self.chromatin_state == ChromatinState::HeterochromatinFacultative {
+            return Err("OFF: L'ADN est trop serre (Heterochromatine)".to_string());
+        }
+
+        if let Some(repressor) = &self.bound_repressor {
+            if active_tfs.contains(repressor) {
+                return Err("OFF: Un Represseur bloque physiquement le gene.".to_string());
+            }
+        }
+        if let Some(activator) = &self.required_activator {
+            if !active_tfs.contains(activator) {
+                return Err("OFF: En attente de l'Activateur pour demarrer.".to_string());
+            }
+        }
+
+        let pre_mrna = RnaPolymerase::transcribe(&self.dna);
+
+        let mature_mrna = if let Some(custom_exons) = alternative_splicing {
+            Spliceosome::splice(&pre_mrna, custom_exons)
+        } else if !self.default_exons.is_empty() {
+            Spliceosome::splice(&pre_mrna, &self.default_exons)
+        } else {
+            pre_mrna
+        };
+
+        if micro_rnas.contains(&self.locus) {
+            return Err("DETRUIT: Le microARN a detruit l'ARNm.".to_string());
+        }
+
+        let protein = Ribosome::translate(&mature_mrna);
+        protein.fold()
+    }
+
+    pub fn p53_repair_check(&self) -> bool {
+        self.express(&[], None, &[]).is_ok()
+    }
+}
+
+
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Plasmid {
+    pub id: Uuid,
+    pub instruction: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Genome {
+
+    pub genome_id: Uuid,
+    pub lineage_id: Uuid,
+    pub chromosome_maternal: DnaStrand,
+    pub chromosome_paternal: DnaStrand,
+    pub genes: BTreeMap<String, Gene>,
+    pub plasmids: Vec<Plasmid>,
+    pub endogenous_retroviruses: Vec<Gene>,
+    pub regulatory_enhancers: Vec<String>,
+}
+
+
+impl Genome {
+
+    pub fn new(base_instruction: &str) -> Self {
+        let id = Uuid::new_v4();
+        let strand = DnaStrand::synthesize(base_instruction);
+        Self {
+            genome_id: id,
+            lineage_id: id,
+            chromosome_maternal: strand.clone(),
+            chromosome_paternal: strand,
+            genes: BTreeMap::new(),
+            plasmids: Vec::new(),
+            endogenous_retroviruses: Vec::new(),
+            regulatory_enhancers: Vec::new(),
+        }
+    }
+
+    pub fn insert_gene(&mut self, gene: Gene) {
+        self.genes.insert(gene.locus.clone(), gene);
+    }
+
+    pub fn epigenetic_prison_for_transposons(&mut self) {
+        for gene in self.endogenous_retroviruses.iter_mut() {
+            gene.is_methylated = true;
+            gene.chromatin_state = ChromatinState::HeterochromatinConstitutive;
+        }
+        for (_, gene) in self.genes.iter_mut() {
+            if gene.locus.contains("TRANSPOSON") {
+                gene.is_methylated = true;
+                gene.chromatin_state = ChromatinState::HeterochromatinConstitutive;
+            }
+        }
+    }
+
+    pub fn hash_library(&self) -> String {
+        let serialized = serde_json::to_string(self).unwrap();
+        let mut hasher = sha2::Sha256::new();
+        sha2::Digest::update(&mut hasher, serialized.as_bytes());
+        let mut hex = String::with_capacity(64);
+        for byte in hasher.finalize() {
+            use std::fmt::Write;
+            write!(&mut hex, "{:02x}", byte).unwrap();
+        }
+        hex
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
