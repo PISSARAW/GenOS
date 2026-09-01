@@ -1,4 +1,4 @@
-﻿use crate::genome::*;
+use crate::genome::*;
 use serde::{Deserialize, Serialize};
 
 
@@ -284,6 +284,40 @@ impl Genome {
 
     pub fn insert_gene(&mut self, gene: Gene) {
         self.genes.insert(gene.locus.clone(), gene);
+    }
+
+    /// CRISPR-Cas9 (Knockout Génétique Moderne)
+    pub fn crispr_cas9_knockout(&mut self, target_gene_name: &str) -> bool {
+        self.genes.remove(target_gene_name).is_some()
+    }
+
+    /// Recombinaison Homologue (Knockout Vieille École)
+    pub fn homologous_recombination_knockout(&mut self, target_gene_name: &str) -> bool {
+        if let Some(gene) = self.genes.get_mut(target_gene_name) {
+            gene.dna = crate::genome::DnaStrand::synthesize("STOP_CODON_BROKEN_TOOL");
+            true
+        } else {
+            false
+        }
+    }
+
+    /// PSEUDOGÉNISATION (Fossilisation d'un Outil)
+    pub fn pseudogenize(&mut self, target_gene_name: &str) -> bool {
+        if let Some(gene) = self.genes.get_mut(target_gene_name) {
+            gene.required_activator = Some("BROKEN_PROMOTER_NEVER_ACTIVATES".to_string());
+            gene.is_methylated = true; // Silencieux à jamais
+            true
+        } else {
+            false
+        }
+    }
+
+    /// RÉTRO-PSEUDOGÈNE (Le piratage raté)
+    pub fn insert_retro_pseudogene(&mut self, name: &str, sequence: &str) {
+        let mut pseudo = Gene::new(name, sequence);
+        pseudo.default_exons = vec![(0, pseudo.dna.sequence.len())];
+        pseudo.required_activator = Some("MISSING_PROMOTER".to_string());
+        self.endogenous_retroviruses.push(pseudo);
     }
 
     pub fn repair_double_strand_break(&mut self, is_maternal_broken: bool, start: usize, length: usize) {
