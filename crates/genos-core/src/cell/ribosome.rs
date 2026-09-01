@@ -1,4 +1,4 @@
-﻿use crate::cell::hippocampus::ChatMessage;
+use crate::cell::hippocampus::ChatMessage;
 use reqwest::Client;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -92,7 +92,11 @@ impl Thalamus {
 
     pub fn route(&self, memory: &[ChatMessage]) -> String {
         let total_length: usize = memory.iter().map(|m| m.content.len()).sum();
-        let requires_logic = memory.iter().any(|m| m.content.contains("code") || m.content.contains("logic") || m.content.contains("fn ") || m.content.contains("bug"));
+        let requires_logic = memory.iter().any(|m| {
+            let txt = m.content.to_lowercase();
+            txt.contains("code") || txt.contains("logic") || txt.contains("fn ") || txt.contains("bug") ||
+            txt.contains("math") || txt.contains("calcul") || txt.contains("équation") || txt.contains("equation") || txt.contains("intégrale")
+        });
         
         if total_length > 8000 {
             self.routes.get("heavy").cloned().unwrap_or_default()
