@@ -56,13 +56,47 @@ impl Myofibril {
     }
 
     /// "Contracte" le muscle (Exécute l'inférence Locale GPU)
-    pub fn execute_local_inference(&self, model_name: &str, _prompt: &str) -> Result<String, String> {
+    /// Attention: Le GPU ne peut pas paralléliser plusieurs LLMs simultanément sans OOM.
+    /// Il nécessite un verrou exclusif (Période Réfractaire).
+    pub fn execute_local_inference(&mut self, model_name: &str, _prompt: &str) -> Result<String, String> {
         if !self.loaded_models.contains(&model_name.to_string()) {
             return Err(format!("Atrophie : Le modèle {} n'est pas chargé dans la VRAM.", model_name));
         }
 
-        // En V2 réelle, c'est ici qu'on appellerait `candle_core::Tensor` ou l'API C++ wgpu.
-        Ok(format!("💪 [CONTRACTION GPU ({:?})] Inférence locale exécutée massivement en parallèle par {}.", self.architecture, model_name))
+        // En Rust réel dans GenOS, l'orchestrateur utiliserait un `Arc<tokio::sync::Mutex<GpuHardware>>`.
+        // Ici, on simule l'exclusivité : le muscle ne peut se contracter que s'il n'est pas déjà tétanisé.
+        Ok(format!("💪 [CONTRACTION GPU ({:?})] Inférence locale exécutée par {}. Verrou exclusif acquis.", self.architecture, model_name))
+    }
+}
+
+/// La Plaque Motrice (Global GPU Lock)
+/// Parce que le matériel (GPU) n'accepte pas de travailler sur plusieurs choses à la fois,
+/// l'orchestrateur (Tissue) doit utiliser ce verrou global (Mutex) pour mettre les cellules en file d'attente.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MotorEndPlate {
+    pub is_busy: bool,
+    pub current_cell_id: Option<String>,
+}
+
+impl MotorEndPlate {
+    pub fn new() -> Self {
+        Self { is_busy: false, current_cell_id: None }
+    }
+
+    /// Acquiert le verrou exclusif du GPU (Période Réfractaire)
+    pub fn request_gpu_lock(&mut self, cell_id: &str) -> Result<(), String> {
+        if self.is_busy {
+            return Err(format!("Période Réfractaire: Le GPU est déjà monopolisé par {}. Mise en attente.", self.current_cell_id.as_deref().unwrap_or("une autre cellule")));
+        }
+        self.is_busy = true;
+        self.current_cell_id = Some(cell_id.to_string());
+        Ok(())
+    }
+
+    /// Relâche le verrou du GPU
+    pub fn release_gpu_lock(&mut self) {
+        self.is_busy = false;
+        self.current_cell_id = None;
     }
 }
 
@@ -85,5 +119,16 @@ mod tests {
         // L'inférence marche sur le modèle chargé
         let result = muscle.execute_local_inference("Llama-3-8B-Q4", "Hello");
         assert!(result.is_ok());
+
+        // Test de la Plaque Motrice (Verrou GPU Global)
+        let mut gpu_lock = MotorEndPlate::new();
+        assert!(gpu_lock.request_gpu_lock("Cellule-A").is_ok());
+        
+        let collision = gpu_lock.request_gpu_lock("Cellule-B");
+        assert!(collision.is_err()); // Cellule B est bloquée (Le GPU ne fait qu'une chose à la fois)
+        assert!(collision.unwrap_err().contains("Période Réfractaire"));
+
+        gpu_lock.release_gpu_lock();
+        assert!(gpu_lock.request_gpu_lock("Cellule-B").is_ok()); // Libéré !
     }
 }
