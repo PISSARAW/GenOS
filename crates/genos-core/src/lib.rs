@@ -15,4 +15,5 @@ pub mod glial;
 pub mod signaling;
 
 pub mod phylogeny;
+pub mod genomics;
 
