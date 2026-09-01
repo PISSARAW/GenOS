@@ -92,7 +92,7 @@ pub struct ActionTrace {
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CognitiveState {
     /// Les "drives" actuels (ex: exploration: 0.8) - Modulateurs épigénétiques
-    pub epigenetic_drives: HashMap<String, f32>,
+    pub epigenetic_drives: HashMap<String, f64>,
     /// Mémoire de travail (Contexte immédiat)
     pub working_memory: Vec<String>,
     /// Souvenirs des événements passés (Épisodique)
