@@ -67,6 +67,8 @@ impl Default for AgentCell {
                 metabolic_rate: 1.0,
                 angiogenesis_blocked: false,
                 mitochondrial_dna: crate::genome::DnaStrand::synthesize("CIRCULAR_MTDNA"),
+                cyanide_poisoned: false,
+                accumulated_free_radicals: 0,
                 is_double_membraned: true,
             },
             redundancy: crate::redundancy::RedundancySystem::new(),

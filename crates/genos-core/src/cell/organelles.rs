@@ -35,29 +35,52 @@ pub struct Nucleus {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+
+
 pub struct Mitochondria {
     pub atp_budget: u64,
-    pub metabolic_rate: f64,
-    /// 3. Anti-angiogenèse : Couper les vivres (Empêche le rechargement en ATP)
+    pub metabolic_rate: f64, // Surface des crêtes mitochondriales (Scaling)
     pub angiogenesis_blocked: bool,
-    
-    // THEORIE DE L'ENDOSYMBIOSE (Preuves de Lynn Margulis)
-    /// 1. ADN Circulaire Indépendant (Relique de la bactérie originelle)
     pub mitochondrial_dna: crate::genome::DnaStrand,
-    /// 2. Double enveloppe (Membrane de la bactérie + Membrane de la vésicule phagocytaire)
     pub is_double_membraned: bool,
+    // --- NOUVEAU : Respiration & Vieillissement ---
+    pub cyanide_poisoned: bool,
+    pub accumulated_free_radicals: u64,
 }
 
 impl Mitochondria {
-    /// 3. La Scissiparité : Les mitochondries se divisent de manière autonome,
-    /// indépendamment de la mitose de la cellule hôte, comme les bactéries !
+    /// 3. La Scissiparité autonome
     pub fn independent_binary_fission(&mut self) -> Self {
         let mut clone = self.clone();
-        // L'énergie est divisée par deux lors de la scissiparité
         self.atp_budget /= 2;
         clone.atp_budget = self.atp_budget;
         clone
     }
+
+    /// LA RESPIRATION CELLULAIRE (La Centrale Électrique)
+    /// Brûle du sucre et de l'oxygène pour générer de l'ATP (Tokens IA).
+    pub fn cellular_respiration(&mut self, glucose_molecules: u64, oxygen_present: bool) -> u64 {
+        if self.cyanide_poisoned || !oxygen_present {
+            return 0; // Arrêt total des turbines
+        }
+
+        // 1 Glucose = ~36 ATP (grâce à la chaîne respiratoire sur les crêtes)
+        let generated_atp = (glucose_molecules as f64 * 36.0 * self.metabolic_rate) as u64;
+        self.atp_budget += generated_atp;
+
+        // LE PRIX À PAYER : Stress Oxydatif (Vieillissement)
+        // Les "étincelles" toxiques de la combustion
+        self.accumulated_free_radicals += (glucose_molecules as f64 * 0.1) as u64;
+
+        generated_atp
+    }
+
+    /// LE POISON (Le blocage des turbines)
+    pub fn administer_cyanide(&mut self) {
+        self.cyanide_poisoned = true;
+        self.atp_budget = 0; // Mort immédiate
+    }
+}
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
