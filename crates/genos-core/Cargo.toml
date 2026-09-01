@@ -1,0 +1,10 @@
+[package]
+name = "genos-core"
+version = "0.2.0"
+edition = "2021"
+description = "Core biological and deterministic structures for GenOS"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.10", features = ["serde", "v4"] }

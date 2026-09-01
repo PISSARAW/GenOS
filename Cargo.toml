@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "crates/genos-core"
+]
+resolver = "2"
