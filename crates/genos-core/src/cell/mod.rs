@@ -9,6 +9,7 @@ pub mod vagus_nerve;
 pub mod vacuole;
 pub mod phagosome;
 pub mod bbb;
+pub mod sensory;
 #[cfg(test)]
 pub mod tests;
 
@@ -61,6 +62,8 @@ pub struct AgentCell {
     pub phagosome: phagosome::Phagosome,
     /// Barrière Hémato-Encéphalique (Human-In-The-Loop)
     pub bbb: bbb::BloodBrainBarrier,
+    /// Organes Sensoriels (Vision, Ouïe) pour la Multimodalité
+    pub sensory_organs: sensory::SensoryOrgans,
 }
 
 impl Default for AgentCell {
@@ -136,6 +139,7 @@ impl Default for AgentCell {
             vacuole: vacuole::Vacuole::default(),
             phagosome: phagosome::Phagosome::default(),
             bbb: bbb::BloodBrainBarrier::default(),
+            sensory_organs: sensory::SensoryOrgans::default(),
         }
     }
 }
