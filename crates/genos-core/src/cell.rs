@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Représente l'Agent IA comme une Cellule Biologique stricte.
@@ -50,20 +50,7 @@ pub struct EnvironmentContext {
     pub available_tools: Vec<String>,
 }
 
-/* =====================================================================
-   BLOC 3 : Le Génome (ADN)
-   ===================================================================== */
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Genome {
-    pub genome_id: Uuid,
-    pub version: String,
-    /// Prompt système profond, inaltérable
-    pub base_system_prompt: String,
-    /// Traits inhérents de l'agent (ex: "creative", "strict")
-    pub base_traits: HashSet<String>,
-    /// Le modèle assigné à la naissance (ex: "gpt-4o")
-    pub base_model_id: String,
-}
+pub use crate::genome::Genome;
 
 /* =====================================================================
    BLOC 4 : Le Microbiome (Mutations / Infections temporaires)

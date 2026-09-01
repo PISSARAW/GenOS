@@ -57,7 +57,7 @@ mod tests {
         ActionTrace, CognitiveState, EnvironmentContext, Genome, InstanceMetadata, Microbiome,
     };
     use chrono::Utc;
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use uuid::Uuid;
 
     fn mock_cell() -> AgentCell {
@@ -74,13 +74,7 @@ mod tests {
                 peer_ids: vec![],
                 available_tools: vec![],
             },
-            genome: Genome {
-                genome_id: Uuid::new_v4(),
-                version: "1.0".to_string(),
-                base_system_prompt: "You are a test cell".to_string(),
-                base_traits: HashSet::new(),
-                base_model_id: "test-model".to_string(),
-            },
+            genome: Genome::new("You are a test cell", "test-model"),
             microbiome: Microbiome::default(),
             trace: ActionTrace::default(),
             cognition: CognitiveState {
