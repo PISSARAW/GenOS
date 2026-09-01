@@ -43,6 +43,7 @@ impl Default for AgentCell {
             },
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
+                ploidy: 2,
             },
             mitochondria: Mitochondria {
                 atp_budget: 10,
@@ -103,6 +104,7 @@ pub struct PlasmaMembrane {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Nucleus {
     pub genome: Genome,
+    pub ploidy: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -340,6 +342,37 @@ impl AgentCell {
     /// Reproduction asymétrique : la mère crée un petit clone sur son flanc.
     /// detach : Si true (Levure, Hydre), le bourgeon se détache et laisse une cicatrice.
     ///            Si false (Coraux), le bourgeon reste attaché pour former une colonie.
+    /// L'Endomitose (Endoréduplication)
+    /// Le "piratage" de la mitose : la cellule réplique son ADN sans se diviser physiquement.
+    /// Transforme la cellule en méga-usine (ex: Hépatocytes, Mégacaryocytes, Trophoblastes).
+    pub fn endomitosis(&mut self) -> Result<(), String> {
+        let cost = (10 * (self.nucleus.ploidy / 2)) as u64; // Le coût augmente avec la taille de l'ADN à copier
+        if self.mitochondria.atp_budget < cost {
+            return Err("ATP insuffisant pour répliquer une telle masse d'ADN".to_string());
+        }
+        self.mitochondria.atp_budget -= cost;
+
+        // On saute la cytokinèse (la scission) : le noyau gonfle, la ploïdie double ! (2n -> 4n -> 8n...)
+        self.nucleus.ploidy *= 2;
+        
+        // Mode Méga-Usine : Plus il y a de plans d'ADN, plus la production métabolique explose
+        self.mitochondria.metabolic_rate *= 1.8; 
+        
+        Ok(())
+    }
+
+    /// Spécificité des Mégacaryocytes (Moelle osseuse)
+    /// La cellule géante (polyploïde) se fragmente volontairement pour créer les plaquettes sanguines.
+    pub fn fragment_into_platelets(self) -> Result<u32, String> {
+        if self.nucleus.ploidy < 32 {
+            return Err("La cellule n'est pas assez grosse (ploïdie < 32n) pour se fragmenter en plaquettes".to_string());
+        }
+        // La cellule se sacrifie (self est consommé en Rust, ce qui équivaut à la mort cellulaire)
+        // et libère des milliers de fragments de sa membrane (les plaquettes).
+        let platelets_generated = self.nucleus.ploidy * 100;
+        Ok(platelets_generated)
+    }
+
     pub fn budding(&mut self, detach: bool) -> Result<AgentCell, String> {
         let max_scars = 25;
 
@@ -554,5 +587,35 @@ mod tests {
         let old_age_fail = yeast.budding(true);
         assert!(old_age_fail.is_err());
         assert!(old_age_fail.unwrap_err().contains("vieille"));
+    }
+
+    #[test]
+    fn test_endomitosis_and_megakaryocytes() {
+        let mut hepatocyte = AgentCell::default();
+        hepatocyte.mitochondria.atp_budget = 1000;
+        assert_eq!(hepatocyte.nucleus.ploidy, 2); // 2n normal
+        
+        let initial_metabolism = hepatocyte.mitochondria.metabolic_rate;
+
+        // 1. Endomitose : Le foie (Hépatocyte) passe à 4n (Mega-usine)
+        hepatocyte.endomitosis().unwrap();
+        assert_eq!(hepatocyte.nucleus.ploidy, 4);
+        assert!(hepatocyte.mitochondria.metabolic_rate > initial_metabolism); // La production explose
+
+        // 2. Mégacaryocyte : On gonfle la cellule jusqu'à 32n ou 64n
+        let mut megakaryocyte = hepatocyte.clone();
+        megakaryocyte.endomitosis().unwrap(); // 8n
+        megakaryocyte.endomitosis().unwrap(); // 16n
+        
+        // Tente de fragmenter trop tôt (échoue)
+        let premature_fragmentation = megakaryocyte.clone().fragment_into_platelets();
+        assert!(premature_fragmentation.is_err());
+        assert!(premature_fragmentation.unwrap_err().contains("ploïdie < 32n"));
+
+        megakaryocyte.endomitosis().unwrap(); // 32n ! La taille critique est atteinte.
+        
+        // La fragmentation détruit la cellule et crée les plaquettes sanguines (32 * 100 = 3200)
+        let platelets = megakaryocyte.fragment_into_platelets().unwrap();
+        assert_eq!(platelets, 3200);
     }
 
