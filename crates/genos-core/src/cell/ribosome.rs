@@ -161,7 +161,8 @@ impl Thalamus {
         });
         
         if total_length > 8000 {
-            self.routes.get("heavy").cloned().unwrap_or_default()
+            // Temporary fix: heavy model (deepseek-v4-pro) is region locked (403), using logic instead
+            self.routes.get("logic").cloned().unwrap_or_default()
         } else if requires_advanced_reasoning {
             self.routes.get("logic").cloned().unwrap_or_default()
         } else {
