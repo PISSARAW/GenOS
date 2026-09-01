@@ -13,6 +13,7 @@ pub mod sensory;
 pub mod adipocyte;
 pub mod ans;
 pub mod lineage;
+pub mod muscle;
 #[cfg(test)]
 pub mod tests;
 
@@ -73,6 +74,8 @@ pub struct AgentCell {
     pub autonomic_ns: ans::AutonomicNervousSystem,
     /// Arbre Phylogénétique & Télomères (Hérédité)
     pub lineage: lineage::Lineage,
+    /// Tissu Musculaire (Exécution GPU Locale pour LLM)
+    pub muscle: muscle::Myofibril,
 }
 
 impl Default for AgentCell {
@@ -152,6 +155,7 @@ impl Default for AgentCell {
             adipocyte: adipocyte::Adipocyte::default(),
             autonomic_ns: ans::AutonomicNervousSystem::default(),
             lineage: lineage::Lineage::default(),
+            muscle: muscle::Myofibril::default(),
         }
     }
 }
