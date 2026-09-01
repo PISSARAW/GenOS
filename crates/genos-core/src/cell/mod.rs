@@ -12,6 +12,7 @@ pub mod bbb;
 pub mod sensory;
 pub mod adipocyte;
 pub mod ans;
+pub mod lineage;
 #[cfg(test)]
 pub mod tests;
 
@@ -70,6 +71,8 @@ pub struct AgentCell {
     pub adipocyte: adipocyte::Adipocyte,
     /// Système Nerveux Autonome (Daemons, Tâches de fond)
     pub autonomic_ns: ans::AutonomicNervousSystem,
+    /// Arbre Phylogénétique & Télomères (Hérédité)
+    pub lineage: lineage::Lineage,
 }
 
 impl Default for AgentCell {
@@ -148,6 +151,7 @@ impl Default for AgentCell {
             sensory_organs: sensory::SensoryOrgans::default(),
             adipocyte: adipocyte::Adipocyte::default(),
             autonomic_ns: ans::AutonomicNervousSystem::default(),
+            lineage: lineage::Lineage::default(),
         }
     }
 }
