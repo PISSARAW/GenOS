@@ -16,7 +16,7 @@ pub struct Thalamus {
 impl Default for Thalamus {
     fn default() -> Self {
         let mut routes = HashMap::new();
-        // Fallback local models (Ollama defaults)
+        // Fallback local models 
         routes.insert("logic".to_string(), env::var("GENOS_MODEL_LOGIC").unwrap_or_else(|_| "llama3".to_string()));
         routes.insert("fast".to_string(), env::var("GENOS_MODEL_FAST").unwrap_or_else(|_| "phi3".to_string()));
         routes.insert("heavy".to_string(), env::var("GENOS_MODEL_HEAVY").unwrap_or_else(|_| "gpt-4o".to_string()));
@@ -31,21 +31,59 @@ impl Default for Thalamus {
 }
 
 impl Thalamus {
+    /// 🔬 Chimiotaxie : Scan l'environnement pour auto-détecter les modèles Ollama installés.
+    pub async fn environmental_scan(&mut self) {
+        // Ne scanne que si nous visons une API locale (Ollama par défaut sur 11434)
+        if !self.default_url.contains("localhost") && !self.default_url.contains("127.0.0.1") {
+            return;
+        }
+
+        let ollama_tags_url = "http://localhost:11434/api/tags";
+        let client = Client::builder().timeout(std::time::Duration::from_secs(2)).build().unwrap();
+        
+        if let Ok(response) = client.get(ollama_tags_url).send().await {
+            if let Ok(json) = response.json::<Value>().await {
+                if let Some(models) = json.get("models").and_then(|m| m.as_array()) {
+                    let mut found_fast = None;
+                    let mut found_logic = None;
+                    let mut found_heavy = None;
+
+                    for model in models {
+                        if let Some(name) = model.get("name").and_then(|n| n.as_str()) {
+                            let name_lower = name.to_lowercase();
+                            // Détection heuristique
+                            if name_lower.contains("phi") || name_lower.contains("qwen") || name_lower.contains("gemma") {
+                                if found_fast.is_none() { found_fast = Some(name.to_string()); }
+                            } else if name_lower.contains("mixtral") || name_lower.contains("command") || name_lower.contains("70b") {
+                                if found_heavy.is_none() { found_heavy = Some(name.to_string()); }
+                            } else if name_lower.contains("llama") || name_lower.contains("coder") || name_lower.contains("deepseek") || name_lower.contains("mistral") {
+                                if found_logic.is_none() { found_logic = Some(name.to_string()); }
+                            }
+                        }
+                    }
+
+                    // Mise à jour de l'ADN de routage avec ce qui a été trouvé dans l'environnement
+                    if let Some(fast) = found_fast { self.routes.insert("fast".to_string(), fast); }
+                    if let Some(logic) = found_logic { self.routes.insert("logic".to_string(), logic); }
+                    if let Some(heavy) = found_heavy { self.routes.insert("heavy".to_string(), heavy); }
+                    
+                    println!("📡 [Sensing Environnemental] Modèles détectés et mappés -> Rapide: {:?}, Logique: {:?}, Lourd: {:?}", 
+                        self.routes.get("fast"), self.routes.get("logic"), self.routes.get("heavy"));
+                }
+            }
+        }
+    }
+
     /// Analyse la complexité de l'ActionTrace (Mémoire) pour router vers le bon modèle
     pub fn route(&self, memory: &[ChatMessage]) -> String {
-        // Logique de Quorum Sensing (Routing heuristique)
         let total_length: usize = memory.iter().map(|m| m.content.len()).sum();
-        
         let requires_logic = memory.iter().any(|m| m.content.contains("code") || m.content.contains("logic") || m.content.contains("fn ") || m.content.contains("bug"));
         
         if total_length > 8000 {
-            // Contexte massif -> heavy
             self.routes.get("heavy").cloned().unwrap_or_default()
         } else if requires_logic {
-            // Besoin de réflexion structurée
             self.routes.get("logic").cloned().unwrap_or_default()
         } else {
-            // Tâche rapide
             self.routes.get("fast").cloned().unwrap_or_default()
         }
     }
@@ -54,12 +92,14 @@ impl Thalamus {
 #[derive(Clone, Debug)]
 pub struct Ribosome {
     pub thalamus: Thalamus,
+    pub env_scanned: bool,
 }
 
 impl Default for Ribosome {
     fn default() -> Self {
         Self {
             thalamus: Thalamus::default(),
+            env_scanned: false,
         }
     }
 }
@@ -70,7 +110,13 @@ impl Ribosome {
     }
 
     /// Transcrit l'ARN en protéine via le modèle sélectionné par le Thalamus
-    pub async fn translate(&self, memory: &[ChatMessage]) -> Result<String, String> {
+    pub async fn translate(&mut self, memory: &[ChatMessage]) -> Result<String, String> {
+        // Auto-détection (Chimiotaxie) lors de la première utilisation
+        if !self.env_scanned {
+            self.thalamus.environmental_scan().await;
+            self.env_scanned = true;
+        }
+
         let target_model = self.thalamus.route(memory);
         let api_url = &self.thalamus.default_url;
         let api_key = &self.thalamus.default_key;
