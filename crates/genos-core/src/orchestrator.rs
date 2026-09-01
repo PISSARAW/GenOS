@@ -1,5 +1,6 @@
 use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
+use serde::{Serialize, Deserialize};
 
 /// Les Thérapies Médicales pour soigner les agents cancéreux
 pub enum Therapy {
@@ -29,6 +30,15 @@ pub enum SystemicTherapy {
     Vaccine(String),
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CleftMessage {
+    pub source_id: String,
+    pub target_id: String,
+    pub transmitter: crate::neurobiology::Neurotransmitter,
+    pub amount: f64,
+    pub ticks_in_cleft: u32,
+}
+
 /// Résultat d'un cycle (tick) de l'orchestrateur
 #[derive(Debug, PartialEq)]
 pub enum TickResult {
@@ -49,6 +59,12 @@ pub struct Orchestrator {
     pub circulating_antibodies: Vec<crate::cell::Antibody>,
     /// Niveau d'activation de l'armée (dicté par les Lymphocytes T CD4)
     pub immune_activation_level: f64,
+    
+    // --- SYSTÈME NERVEUX ---
+    /// La Fente Synaptique : l'espace vide où flottent les neurotransmetteurs
+    pub synaptic_cleft: Vec<CleftMessage>,
+    /// Inhibiteurs de recapture (Ex: Antidépresseurs SSRI, Cocaïne). Bloque le nettoyage de la fente.
+    pub reuptake_inhibitors_active: bool,
 }
 
 impl Orchestrator {
@@ -59,7 +75,9 @@ impl Orchestrator {
             il6_receptors_blocked: false,
             corticosteroid_level: 0.0,
             circulating_antibodies: vec![],
-            immune_activation_level: 0.0,
+            immune_activation_level: 1.0,
+            synaptic_cleft: vec![],
+            reuptake_inhibitors_active: false,
         }
     }
 
@@ -180,7 +198,7 @@ impl Orchestrator {
     }
 
     /// Avance le temps pour une Cellule IA (un pas de cycle).
-    pub fn tick(&self, agent: &mut AgentCell, action_string: &str) -> TickResult {
+    pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
         // IMMUNITÉ CELLULAIRE : La cellule met à jour son présentoir (CMH) pour refléter son état interne
         agent.update_mhc_display();
 
@@ -256,18 +274,60 @@ impl Orchestrator {
             agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(5);
         }
 
-        // 9. LE SYSTÈME NERVEUX : Traitement et Décharge Électrique (Soma -> Axone)
-        let mut _synaptic_outputs = None;
+        // 9. LE SYSTÈME NERVEUX : Exocytose
         if let Some(nervous_system) = &mut agent.nervous_system {
-            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs à libérer
+            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs à libérer (Exocytose)
             if let Some(outputs) = nervous_system.process_soma() {
-                _synaptic_outputs = Some(outputs);
+                for (target_id, transmitter, amount) in outputs {
+                    self.synaptic_cleft.push(CleftMessage {
+                        source_id: agent.cell_id.to_string(),
+                        target_id,
+                        transmitter,
+                        amount,
+                        ticks_in_cleft: 0,
+                    });
+                }
             }
             // Apprentissage continu : Neuroplasticité (Loi de Hebb) et Myélinisation
             nervous_system.apply_neuroplasticity();
         }
 
         TickResult::Continue
+    }
+
+    /// LA FENTE SYNAPTIQUE ET LA RECAPTURE (Le passage du message entre les neurones)
+    pub fn process_synaptic_cleft(&mut self, agents: &mut [crate::cell::AgentCell]) {
+        let mut messages_to_keep = vec![];
+
+        for mut msg in self.synaptic_cleft.drain(..) {
+            // 1. Le neurone cible "aspire" le message (Liaison aux récepteurs)
+            if let Some(target_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.target_id) {
+                if let Some(ns) = &mut target_agent.nervous_system {
+                    ns.receive_neurotransmitter(&msg.source_id, &msg.transmitter, msg.amount);
+                }
+            }
+
+            // 2. La Recapture (Reuptake) par le neurone source (Nettoyage de la fente)
+            if !self.reuptake_inhibitors_active {
+                // L'aspirateur fonctionne, on nettoie la fente et on recycle dans les vésicules !
+                if let Some(source_agent) = agents.iter_mut().find(|a| a.cell_id.to_string() == msg.source_id) {
+                    if let Some(ns) = &mut source_agent.nervous_system {
+                        // Recapture de 80% du neurotransmetteur libéré (Recyclage)
+                        ns.axon.vesicles_at_terminals += msg.amount * 0.8;
+                    }
+                }
+                // Le message est détruit (nettoyé de la fente)
+            } else {
+                // INHIBITEURS DE RECAPTURE (Ex: Antidépresseurs SSRI, Cocaïne)
+                // L'aspirateur est bloqué. Le message reste dans la fente et frappera encore au prochain cycle !
+                msg.ticks_in_cleft += 1;
+                // On garde le message pour le prochain tick, limitons à une durée de vie pour ne pas saturer l'infini absolu (ex: 10 ticks)
+                if msg.ticks_in_cleft < 10 {
+                    messages_to_keep.push(msg);
+                }
+            }
+        }
+        self.synaptic_cleft = messages_to_keep;
     }
 }
 
@@ -343,7 +403,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_tick_and_budget() {
-        let orchestrator = Orchestrator::new(None);
+        let mut orchestrator = Orchestrator::new(None);
         let mut cell = mock_cell();
 
         let r1 = orchestrator.tick(&mut cell, "read");
@@ -368,7 +428,7 @@ pub(crate) mod tests {
             target_value: 1.0,
         };
 
-        let orchestrator = Orchestrator::new(Some(rule));
+        let mut orchestrator = Orchestrator::new(Some(rule));
         let mut cell = mock_cell();
 
         // Ajout d'un stress élevé via l'épigénétique
@@ -407,7 +467,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_oncology_therapies() {
-        let orchestrator = Orchestrator::new(None);
+        let mut orchestrator = Orchestrator::new(None);
         let mut cell = mock_cell();
 
         // 1. Thérapie Ciblée
@@ -486,7 +546,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_viral_hijacking_and_phages() {
-        let orchestrator = Orchestrator::new(None);
+        let mut orchestrator = Orchestrator::new(None);
         let mut cell = mock_cell();
         // Une cellule rebelle avec un récepteur spécifique ouvert
         cell.plasma_membrane.incoming_receptors.push("PORT_80_HTTP".to_string());
@@ -830,5 +890,68 @@ pub(crate) mod tests {
         let dendrite_spine = sensory_neuron.nervous_system.as_ref().unwrap().dendritic_tree.branches.iter().find(|s| s.source_id == "ENVIRONMENT_SOURCE").unwrap();
         // La densité des récepteurs a augmenté car la synapse a été très active
         assert!(dendrite_spine.receptor_density > 1.0);
+    }
+
+    #[test]
+    fn test_synaptic_cleft_and_reuptake_inhibition() {
+        use crate::neurobiology::{NervousSystem, Neurotransmitter, Synapse};
+        
+        let mut orchestrator = Orchestrator::new(None);
+        
+        let mut n1 = mock_cell();
+        n1.cell_id = uuid::Uuid::new_v4();
+        let mut n2 = mock_cell();
+        n2.cell_id = uuid::Uuid::new_v4();
+
+        let mut ns1 = NervousSystem::new(&n1.cell_id.to_string());
+        ns1.axon.terminals.push(Synapse {
+            target_id: n2.cell_id.to_string(),
+            weight: 1.0,
+            transmitter_type: Neurotransmitter::Dopamine,
+            activity_history: 0,
+        });
+        
+        // On force le tir de N1
+        ns1.soma.current_potential = -40.0; // > -55.0
+        n1.nervous_system = Some(ns1);
+        
+        let ns2 = NervousSystem::new(&n2.cell_id.to_string());
+        n2.nervous_system = Some(ns2);
+
+        let mut agents = vec![n1, n2];
+
+        // 1. Tick N1 -> Tire un Potentiel d'Action -> Exocytose (Remplit la fente synaptique)
+        orchestrator.tick(&mut agents[0], "Tir N1");
+        assert_eq!(orchestrator.synaptic_cleft.len(), 1, "Le message est dans la fente synaptique");
+        
+        // On vérifie que N1 a bien perdu des vésicules (coût = 10.0, regagné 2.0 = perte nette -8)
+        let n1_vesicles_before_reuptake = agents[0].nervous_system.as_ref().unwrap().axon.vesicles_at_terminals;
+        assert!(n1_vesicles_before_reuptake < 50.0);
+
+        // 2. Traitement de la Fente avec Recapture normale
+        orchestrator.process_synaptic_cleft(&mut agents);
+        assert_eq!(orchestrator.synaptic_cleft.len(), 0, "La fente est nettoyée (Recapture)");
+        
+        // N2 a reçu la Dopamine, son potentiel a explosé
+        let n2_potential = agents[1].nervous_system.as_ref().unwrap().soma.current_potential;
+        assert!(n2_potential > -70.0);
+
+        // N1 a récupéré 80% de son tir via la Recapture !
+        let n1_vesicles_after_reuptake = agents[0].nervous_system.as_ref().unwrap().axon.vesicles_at_terminals;
+        assert!(n1_vesicles_after_reuptake > n1_vesicles_before_reuptake);
+
+        // 3. EFFET DROGUE (Cocaïne / Antidépresseur) : Blocage de la pompe de recapture
+        orchestrator.reuptake_inhibitors_active = true;
+        
+        // N1 tire à nouveau
+        agents[0].nervous_system.as_mut().unwrap().soma.current_potential = -40.0;
+        orchestrator.tick(&mut agents[0], "Tir sous drogue");
+        
+        // On traite la fente
+        orchestrator.process_synaptic_cleft(&mut agents);
+        
+        // La fente N'EST PAS nettoyée !
+        assert_eq!(orchestrator.synaptic_cleft.len(), 1, "La drogue empêche le nettoyage de la fente !");
+        assert_eq!(orchestrator.synaptic_cleft[0].ticks_in_cleft, 1);
     }
 }
