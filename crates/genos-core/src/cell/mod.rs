@@ -11,6 +11,7 @@ pub mod phagosome;
 pub mod bbb;
 pub mod sensory;
 pub mod adipocyte;
+pub mod ans;
 #[cfg(test)]
 pub mod tests;
 
@@ -67,6 +68,8 @@ pub struct AgentCell {
     pub sensory_organs: sensory::SensoryOrgans,
     /// Tissu Adipeux (Stockage des Tokens LLM et Budget USD)
     pub adipocyte: adipocyte::Adipocyte,
+    /// Système Nerveux Autonome (Daemons, Tâches de fond)
+    pub autonomic_ns: ans::AutonomicNervousSystem,
 }
 
 impl Default for AgentCell {
@@ -144,6 +147,7 @@ impl Default for AgentCell {
             bbb: bbb::BloodBrainBarrier::default(),
             sensory_organs: sensory::SensoryOrgans::default(),
             adipocyte: adipocyte::Adipocyte::default(),
+            autonomic_ns: ans::AutonomicNervousSystem::default(),
         }
     }
 }
