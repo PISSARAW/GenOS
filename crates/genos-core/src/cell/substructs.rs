@@ -1,4 +1,4 @@
-﻿use crate::cell::*;
+use crate::cell::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -9,13 +9,74 @@ pub struct ActionTrace {
     pub sequence: Vec<String>,
 }
 
+/// Trace Mnésique (Le souvenir vectorisé)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Engram {
+    pub content: String,
+    pub vector: Vec<f32>,
+    /// Neuroplasticité : Poids synaptique (fiabilité/importance) de ce souvenir
+    pub synaptic_weight: f32,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct CognitiveState {
     pub epigenetic_drives: HashMap<String, f64>,
     pub working_memory: Vec<String>,
     pub episodic_memory: Vec<String>,
-    pub semantic_memory: Vec<String>,
-    /// 2. ImmunothÃƒÆ’Ã‚Â©rapie : Les cellules cancÃƒÆ’Ã‚Â©reuses activent ceci pour se cacher
+    pub semantic_memory: Vec<String>, // Legacy (text-only)
+    /// Le Cortex Cérébral : Base de données vectorielle (RAG interne)
+    pub cerebral_cortex: Vec<Engram>,
+    /// 2. Immunothérapie : Les cellules cancéreuses activent ceci pour se cacher
     pub is_camouflaged: bool,
+}
+
+impl CognitiveState {
+    /// RAG Biologique : Recherche un souvenir (Engramme) par similarité cosinus.
+    pub fn retrieve_memory(&self, query_embedding: &[f32], threshold: f32) -> Option<&Engram> {
+        let mut best_match = None;
+        let mut best_score = threshold;
+
+        for engram in &self.cerebral_cortex {
+            let score = crate::metrics::cosine_similarity(query_embedding, &engram.vector);
+            // La Loi de Hebb influence le rappel (les souvenirs fréquents pèsent plus lourd)
+            let hebbian_score = score * engram.synaptic_weight; 
+            
+            if hebbian_score > best_score {
+                best_score = hebbian_score;
+                best_match = Some(engram);
+            }
+        }
+        best_match
+    }
+
+    /// Consolidation Mnésique : Transforme une information en mémoire à long terme
+    pub fn consolidate_memory(&mut self, content: String, vector: Vec<f32>) {
+        self.cerebral_cortex.push(Engram {
+            content,
+            vector,
+            synaptic_weight: 1.0, // Connexion initiale
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cerebral_cortex_rag() {
+        let mut cognition = CognitiveState::default();
+
+        // 1. Consolidation (Apprentissage)
+        cognition.consolidate_memory("Le ciel est bleu".to_string(), vec![1.0, 0.0, 0.0]);
+        cognition.consolidate_memory("L'herbe est verte".to_string(), vec![0.0, 1.0, 0.0]);
+
+        // 2. Rappel (RAG Biologique) - Requête : "Couleur du ciel" (Similaire au vecteur 1)
+        let query_ciel = vec![0.9, 0.1, 0.0];
+        let recall = cognition.retrieve_memory(&query_ciel, 0.5);
+        
+        assert!(recall.is_some());
+        assert_eq!(recall.unwrap().content, "Le ciel est bleu");
+    }
 }
 
