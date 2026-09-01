@@ -354,3 +354,25 @@ pub enum Myelinator {
     },
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum MicrogliaState {
+    Sentinel,
+    Amoeboid,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Microglia {
+    pub state: MicrogliaState,
+    pub plaque_accumulation: f64,
+    pub inflammatory_cytokines: f64,
+}
+
+impl Default for Microglia {
+    fn default() -> Self {
+        Self {
+            state: MicrogliaState::Sentinel,
+            plaque_accumulation: 0.0,
+            inflammatory_cytokines: 0.0,
+        }
+    }
+}

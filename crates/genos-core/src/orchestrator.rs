@@ -74,6 +74,7 @@ pub struct Orchestrator {
     /// Pharmacologie : Drogues et mÃƒÂ©dicaments psychoactifs
     pub psychoactive_drugs: Vec<PsychoactiveDrug>,
     pub blood_brain_barrier_integrity: f64,
+    pub amyloid_plaques: f64,
 }
 
 impl Orchestrator {
@@ -88,6 +89,7 @@ impl Orchestrator {
             synaptic_cleft: vec![],
             psychoactive_drugs: vec![],
             blood_brain_barrier_integrity: 1.0,
+            amyloid_plaques: 0.0,
         }
     }
 

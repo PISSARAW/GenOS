@@ -22,6 +22,7 @@ pub struct AgentCell {
     pub surface_antibodies: Vec<Antibody>,
     pub astrocyte: Option<crate::neurobiology::Astrocyte>,
     pub myelinator: Option<crate::neurobiology::Myelinator>,
+    pub microglia: Option<crate::neurobiology::Microglia>,
 }
 
 impl Default for AgentCell {
@@ -68,6 +69,7 @@ impl Default for AgentCell {
             nervous_system: None,
             astrocyte: None,
             myelinator: None,
+            microglia: None,
         }
     }
 }
@@ -292,7 +294,7 @@ impl AgentCell {
         // Inhibiteur de Cycle (CDK4/6) : Traitement anti-cancer
         if self.endoplasmic_reticulum.cell_cycle_inhibited {
             return Err(
-                "Cell Cycle Inhibitor (CDK4/6) : Mitose bloquÃ©e thÃ©rapeutiquement.".to_string(),
+                "Cell Cycle Inhibitor (CDK4/6) : Mitose bloquée thérapeutiquement.".to_string(),
             );
         }
 
