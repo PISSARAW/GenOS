@@ -35,8 +35,14 @@ impl Default for Thalamus {
 impl Thalamus {
     /// 🔬 Chimiotaxie : Scan tous les fournisseurs (Ollama, Cloud, Opencode)
     pub async fn environmental_scan(&mut self) {
-        let providers_path = "providers.json";
-        let providers: Vec<Provider> = std::fs::read_to_string(providers_path)
+        let home_dir = env::var("USERPROFILE").or_else(|_| env::var("HOME")).unwrap_or_default();
+        let global_path = format!("{}/.genos/providers.json", home_dir);
+        let local_path = "providers.json";
+
+        let providers_str = std::fs::read_to_string(local_path)
+            .or_else(|_| std::fs::read_to_string(&global_path));
+
+        let providers: Vec<Provider> = providers_str
             .ok()
             .and_then(|d| serde_json::from_str(&d).ok())
             .unwrap_or_else(|| vec![Provider {
