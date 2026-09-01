@@ -19,6 +19,7 @@ pub mod sparse_cortex;
 pub mod neuro_symbolic;
 pub mod invariants;
 pub mod causality;
+pub mod ood_resilience;
 #[cfg(test)]
 pub mod tests;
 
@@ -93,6 +94,8 @@ pub struct AgentCell {
     pub semantic_grounding: crate::linguistics::SemanticGrounding,
     /// Moteur Causal (do(X), Copie d'efférence, Simulation Contrefactuelle)
     pub causality: causality::CausalEngine,
+    /// Résilience OOD (Surprise, Construction de Niche, Fallback)
+    pub ood_resilience: ood_resilience::GracefulDegradation,
 }
 
 impl Default for AgentCell {
@@ -179,6 +182,7 @@ impl Default for AgentCell {
             invariant_core: invariants::InvariantCore::default(),
             semantic_grounding: crate::linguistics::SemanticGrounding::default(),
             causality: causality::CausalEngine::default(),
+            ood_resilience: ood_resilience::GracefulDegradation::default(),
         }
     }
 }
