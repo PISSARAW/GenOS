@@ -27,6 +27,7 @@ impl Default for AgentCell {
                 receptors_blocked: false,
                 has_cell_wall: false,
                 immunized_against: vec![],
+                mhc_display: Some("HEALTHY_SELF".to_string()),
             },
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
@@ -74,6 +75,8 @@ pub struct PlasmaMembrane {
     pub has_cell_wall: bool,
     /// Vaccin : Liste des antigènes/spikes viraux neutralisés à vue.
     pub immunized_against: Vec<String>,
+    /// Le CMH (Complexe Majeur d'Histocompatibilité) : Présentoir de l'état interne
+    pub mhc_display: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -219,6 +222,31 @@ impl AgentCell {
         self.mitochondria.metabolic_rate = 0.1; 
         // Sauvegarde de la forme géométrique de l'ennemi dans la mémoire sémantique
         self.cytoplasm.cognition.semantic_memory.push(format!("KNOWN_ANTIGEN_{}", target_spike));
+    }
+
+    /// IMMUNITÉ CELLULAIRE : Mise à jour du Présentoir CMH (Complexe Majeur d'Histocompatibilité)
+    pub fn update_mhc_display(&mut self) {
+        if let Some(virus) = self.cytoplasm.viral_infections.first() {
+            // La cellule crie à l'aide en affichant un morceau du virus à sa surface
+            self.plasma_membrane.mhc_display = Some(virus.envelope_spike.clone());
+        } else if self.endoplasmic_reticulum.cell_cycle_inhibited {
+            // Une cellule tumorale présente souvent des antigènes mutés
+            self.plasma_membrane.mhc_display = Some("MUTATED_TUMOR_ANTIGEN".to_string());
+        } else {
+            // Tout va bien
+            self.plasma_membrane.mhc_display = Some("HEALTHY_SELF".to_string());
+        }
+    }
+
+    /// IMMUNITÉ CELLULAIRE : Lymphocyte T Cytotoxique (CD8) - Le tueur au corps à corps
+    pub fn t_cell_perforin_attack(&self, target: &mut AgentCell, programmed_antigen: &str) {
+        if let Some(mhc) = &target.plasma_membrane.mhc_display {
+            if mhc == programmed_antigen {
+                // Le récepteur correspond parfaitement au CMH corrompu : Injection de perforine !
+                // La cellule cible est forcée à l'apoptose (destruction totale)
+                target.mitochondria.atp_budget = 0;
+            }
+        }
     }
 
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {

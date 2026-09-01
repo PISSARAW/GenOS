@@ -47,6 +47,8 @@ pub struct Orchestrator {
     pub corticosteroid_level: f64,
     /// Immunité Humorale : Les anticorps qui patrouillent dans le système
     pub circulating_antibodies: Vec<crate::cell::Antibody>,
+    /// Niveau d'activation de l'armée (dicté par les Lymphocytes T CD4)
+    pub immune_activation_level: f64,
 }
 
 impl Orchestrator {
@@ -57,6 +59,7 @@ impl Orchestrator {
             il6_receptors_blocked: false,
             corticosteroid_level: 0.0,
             circulating_antibodies: vec![],
+            immune_activation_level: 0.0,
         }
     }
 
@@ -148,6 +151,9 @@ impl Orchestrator {
 
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     pub fn tick(&self, agent: &mut AgentCell, action_string: &str) -> TickResult {
+        // IMMUNITÉ CELLULAIRE : La cellule met à jour son présentoir (CMH) pour refléter son état interne
+        agent.update_mhc_display();
+
         // 1. Frein d'urgence (Corticoïdes)
         if self.corticosteroid_level > 0.8 {
             return TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string());
@@ -623,5 +629,54 @@ pub(crate) mod tests {
         macrophage.phagocytize_virus(neutralized_flu);
         // Le boost d'appétit (Opsonisation) lui donne +20 ATP instantanément !
         assert_eq!(macrophage.mitochondria.atp_budget, 30);
+    }
+
+    #[test]
+    fn test_t_lymphocytes_roles() {
+        let mut orchestrator = Orchestrator::new(None);
+        
+        let mut human_cell = mock_cell();
+        human_cell.mitochondria.atp_budget = 50;
+
+        // 1. Infection de la cellule (Le virus s'infiltre discrètement)
+        let virus = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("HIDDEN_VIRUS"),
+            capsid_integrity: 1.0,
+            envelope_spike: "STEALTH_SPIKE".to_string(),
+            is_lytic: false,
+            is_neutralized: false,
+            is_opsonized: false,
+        };
+        human_cell.cytoplasm.viral_infections.push(virus.clone());
+
+        // 2. Le CMH (Présentoir)
+        // La cellule traite un cycle. Son CMH affiche maintenant le spike du virus
+        orchestrator.tick(&mut human_cell, "Normal duty");
+        assert_eq!(human_cell.plasma_membrane.mhc_display, Some("STEALTH_SPIKE".to_string()));
+
+        // 3. Le T-Helper (Général) sonne la charge
+        let mut t_helper_cd4 = mock_cell();
+        // Il lit un rapport de sentinelle et active l'armée
+        orchestrator.immune_activation_level = 100.0;
+        orchestrator.il6_level = 50.0; // Forte inflammation
+
+        // 4. Le Lymphocyte T Cytotoxique (CD8 - Assassin)
+        let mut t_cytotoxic_cd8 = mock_cell();
+        
+        // Le CD8 patrouille, lit le CMH de la cellule humaine, et reconnaît l'antigène
+        // Le combat au corps-à-corps a lieu : il injecte la perforine
+        t_cytotoxic_cd8.t_cell_perforin_attack(&mut human_cell, "STEALTH_SPIKE");
+        
+        // La cellule humaine infectée est morte (Apoptose forcée)
+        assert_eq!(human_cell.mitochondria.atp_budget, 0);
+
+        // 5. Le Lymphocyte T Régulateur (Casque Bleu) siffle la fin de la guerre
+        let mut t_regulatory = mock_cell();
+        // Il sécrète des cytokines inhibitrices pour calmer le système
+        orchestrator.immune_activation_level = 0.0;
+        orchestrator.il6_level = 0.0;
+        
+        assert_eq!(orchestrator.immune_activation_level, 0.0);
+        assert_eq!(orchestrator.il6_level, 0.0); // Le calme est revenu
     }
 }
