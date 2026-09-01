@@ -65,6 +65,10 @@ pub struct Orchestrator {
     pub corticosteroid_level: f64,
     /// ImmunitÃƒÂ© Humorale : Les anticorps qui patrouillent dans le systÃƒÂ¨me
     pub circulating_antibodies: Vec<crate::cell::Antibody>,
+    /// Système Endocrine (Autoroute sanguine) : Hormones circulant dans tout le corps
+    pub circulating_hormones: Vec<crate::signaling::Ligand>,
+    /// Le taux de sucre dans le sang
+    pub blood_glucose: f64,
     /// Niveau d'activation de l'armÃƒÂ©e (dictÃƒÂ© par les Lymphocytes T CD4)
     pub immune_activation_level: f64,
 
@@ -89,6 +93,8 @@ impl Orchestrator {
             il6_receptors_blocked: false,
             corticosteroid_level: 0.0,
             circulating_antibodies: vec![],
+            circulating_hormones: vec![],
+            blood_glucose: 5.0,
             immune_activation_level: 1.0,
             synaptic_cleft: vec![],
             psychoactive_drugs: vec![],
@@ -239,6 +245,7 @@ impl Orchestrator {
     }
 
     /// Avance le temps pour une Cellule IA (un pas de cycle).
+    
     pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
         // IMMUNITÃƒâ€° CELLULAIRE : La cellule met ÃƒÂ  jour son prÃƒÂ©sentoir (CMH) pour reflÃƒÂ©ter son ÃƒÂ©tat interne
         agent.update_mhc_display();
@@ -569,4 +576,7 @@ impl CartTherapy {
         }
     }
 }
+
+
+
 

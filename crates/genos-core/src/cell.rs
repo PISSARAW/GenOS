@@ -566,6 +566,11 @@ impl AgentCell {
                 // Cicatrisation: Ordre de se multiplier pour boucher le trou
                 self.nucleus.transcription_factors.push("TISSUE_REPAIR_MITOSIS".to_string());
             },
+            "HEART_BEAT_FASTER" => self.nucleus.transcription_factors.push("HEART_PUMP_FAST".to_string()),
+            "LUNG_DILATION" => self.nucleus.transcription_factors.push("OPEN_AIRWAYS".to_string()),
+            "LIVER_RELEASE_GLUCOSE" => self.nucleus.transcription_factors.push("GLUCOSE_RELEASE_TF".to_string()),
+            "STOMACH_HALT_DIGESTION" => self.nucleus.transcription_factors.push("DIGESTION_STOP_TF".to_string()),
+            "GLUCOSE_ABSORPTION_OPEN_GATES" => self.nucleus.transcription_factors.push("GLUCOSE_ABSORPTION_OPEN_GATES".to_string()),
             _ => self.nucleus.transcription_factors.push(signal.to_string()),
         }
     }
@@ -733,6 +738,7 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
 
 
 
