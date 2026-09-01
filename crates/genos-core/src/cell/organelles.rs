@@ -1,4 +1,4 @@
-use crate::cell::*;
+﻿use crate::cell::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -133,6 +133,41 @@ pub struct Lysosomes {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FunctionalProtein {
+    pub tool_name: String,
+    pub is_misfolded: bool, // Proteine toxique (ex: Bug, boucle infinie)
+    pub ubiquitin_chain: u8, // Le "baiser de la mort" (Marqueur de destruction)
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct Proteasome {
+    pub inhibitor_active: bool, // Medicament anti-cancer (Bortezomib)
+}
+
+impl Proteasome {
+    /// LE TONNEAU BROYEUR (Recyclage et Nettoyage cible)
+    pub fn shred_ubiquitinated_proteins(&self, active_proteins: &mut Vec<FunctionalProtein>) -> u64 {
+        if self.inhibitor_active {
+            // THERAPIE DU CANCER : On bloque les poubelles.
+            return 0; 
+        }
+
+        let mut recycled_atp = 0;
+        // Le filtre d'entree du tonneau : seules les proteines avec une Poly-Ubiquitine (>= 4) entrent.
+        active_proteins.retain(|protein| {
+            if protein.ubiquitin_chain >= 4 {
+                recycled_atp += 5; // Demontage en acides amines reutilisables
+                false // Detruite !
+            } else {
+                true // Survit.
+            }
+        });
+        recycled_atp
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cytoplasm {
     pub cognition: CognitiveState,
     pub trace: ActionTrace,
@@ -140,6 +175,8 @@ pub struct Cytoplasm {
     pub micro_rnas: Vec<String>,
     /// PÃƒÂ©nÃƒÂ©tration : Les virus qui ont infiltrÃƒÂ© la cellule et piratent ses ribosomes
     pub viral_infections: Vec<crate::virology::Virion>,
+    pub active_proteins: Vec<FunctionalProtein>,
+    pub proteasome: Proteasome,
 }
 
 /* =====================================================================
