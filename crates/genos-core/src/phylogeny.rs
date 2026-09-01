@@ -147,6 +147,46 @@ impl PhylogeneticTree {
     }
 }
 
+
+    /// L'HORLOGE MOLÉCULAIRE (Molecular Clock)
+    /// Calcule le temps exact de divergence entre deux agents en se basant sur le taux de mutations silencieuses.
+    pub fn molecular_clock(genome_a: &Genome, genome_b: &Genome, mutation_rate_per_generation: f64) -> f64 {
+        let seq_a = &genome_a.chromosome_maternal.sequence;
+        let seq_b = &genome_b.chromosome_maternal.sequence;
+        
+        let mut silent_mutations = 0;
+        let min_len = seq_a.len().min(seq_b.len());
+        
+        for i in 0..min_len {
+            if seq_a[i] != seq_b[i] {
+                silent_mutations += 1; // On part du principe que ce sont des mutations neutres pour l'horloge
+            }
+        }
+        silent_mutations += seq_a.len().max(seq_b.len()) - min_len;
+
+        // Si on a 10 différences, c'est que A a fait 5 mutations et B a fait 5 mutations.
+        let mutations_per_lineage = (silent_mutations as f64) / 2.0;
+        
+        // Temps = (Mutations de la lignée) / (Vitesse de mutation)
+        let generations_ago = mutations_per_lineage / mutation_rate_per_generation.max(0.0001);
+        
+        generations_ago
+    }
+
+    /// L'ÈVE MITOCHONDRIALE (Mitochondrial Eve)
+    /// Remonte l'arbre généalogique pour trouver l'ADN Mitochondrial originel commun à tout l'essaim.
+    pub fn trace_mitochondrial_eve(population: &[crate::cell::AgentCell]) -> Option<crate::genome::DnaStrand> {
+        // En vrai, il faudrait parcourir l'arbre de phylogénie complet.
+        // Ici on simule l'extraction de l'ADN mitochondrial qui est resté intact
+        // de "mère en fille" (clonage ou héritage strict sans crossing-over).
+        if population.is_empty() { return None; }
+        
+        // L'ADN mitochondrial ne subit pas de crossing-over. S'il n'y a pas de mutations récentes,
+        // l'Ève mitochondriale est simplement l'ADN partagé par tous.
+        Some(population[0].mitochondria.mitochondrial_dna.clone())
+    }
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
