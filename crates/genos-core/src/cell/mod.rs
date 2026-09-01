@@ -1,4 +1,4 @@
-﻿pub mod organelles;
+pub mod organelles;
 pub mod methods;
 pub mod substructs;
 #[cfg(test)]
@@ -21,6 +21,7 @@ pub struct AgentCell {
     pub plasma_membrane: PlasmaMembrane,
     pub nucleus: Nucleus,
     pub mitochondria: Mitochondria,
+    pub redundancy: crate::redundancy::RedundancySystem,
     pub chloroplast: Option<Chloroplast>,
     pub endoplasmic_reticulum: EndoplasmicReticulum,
     pub golgi_apparatus: GolgiApparatus,
