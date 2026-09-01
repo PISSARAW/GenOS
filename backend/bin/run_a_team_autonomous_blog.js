@@ -18,7 +18,7 @@ ${DIVISIONS.join(', ')}.`;
 // -----------------------------------------------------------------------------
 // SYSTÈME IMMUNITAIRE GLOBAL
 // -----------------------------------------------------------------------------
-const { withImmunity, askLocalLLM } = require('../src/services/immuneSystem.js');
+const { withImmunity, withTextImmunity, askLocalLLM } = require('../src/services/immuneSystem.js');
 
 // -----------------------------------------------------------------------------
 // PHASES BIOMIMÉTIQUES
@@ -71,22 +71,61 @@ async function generateTopicsForAuthor(author, variantIndex) {
     }
 }
 
-// 2. Le duo "Author" et "Critic" rédige l'article (Stigmergie Conceptuelle)
+// 2. Le duo "Author" et "Critic" rédige l'article (Stigmergie Conceptuelle & Canalisation Épigénétique)
 async function phase2DraftAndReview(author, title, variantIndex) {
     console.log(`\n-> Rédaction en cours : "${title}" par ${author.name}...`);
-    const draftPrompt = `Tu es ${author.name} (${author.style}). Écris un article de 800 mots sur : "${title}". 
-    L'article doit être sourcé avec des faits réels, sans clichés d'IA. Renvoie uniquement le Markdown.`;
+    
+    // 1. Gène Architecte (Injection du Template)
+    const draftPrompt = `Tu es ${author.name} (${author.style}). Écris un article approfondi sur : "${title}". 
+    L'article doit être sourcé avec des faits réels, sans clichés d'IA.
+    
+    RÈGLE ABSOLUE - Tu dois IMPÉRATIVEMENT respecter ce gabarit exact (Canalisation) :
+    
+    # ${title}
+    (Introduction accrocheuse)
+    
+    ## 1. Contexte et Enjeux
+    (Texte détaillé)
+    
+    ## 2. Innovations et Solutions
+    (Texte avec au moins une liste à puces)
+    
+    ## 3. Impact et Perspectives
+    (Conclusion)
+    
+    ## Sources
+    - (Liste de 2 ou 3 sources ou liens)
+    
+    Renvoie uniquement le Markdown.`;
     
     let draft = await askLocalLLM(draftPrompt, 'medium', 'ateam_orchestrator', variantIndex);
-    if (!draft) return;
+    if (!draft) return null;
 
     console.log(`-> Peer-Review (Literary Critic) en cours (Divergence Cognitive: Modèle alternatif)...`);
     const reviewPrompt = `Voici un brouillon d'article. Enlève absolument tous les tics de langage des IA (ex: "En conclusion").
-    Garde le style de ${author.name}, rends-le percutant. Vérifie que l'article soit très long et fourni. Brouillon : ${draft}`;
+    Garde le style de ${author.name}, rends-le percutant. Vérifie que l'article soit très long et fourni. 
+    Tu DOIS conserver intacts tous les titres exacts (## 1. Contexte et Enjeux, ## 2. Innovations et Solutions, ## 3. Impact et Perspectives, ## Sources).
+    Brouillon : ${draft}`;
 
-    // Divergence Cognitive : On ajoute +1 au variantIndex pour forcer le Reviewer à utiliser un modèle local différent de l'Auteur
-    let finalArticle = await askLocalLLM(reviewPrompt, 'high', 'ateam_orchestrator', variantIndex + 1);
-    return finalArticle || draft;
+    // 2. Chaperon Markdown (Immunité Structurelle)
+    const textValidator = (text) => {
+        if (!text.includes("## 1. Contexte")) throw new Error("Il manque la section '## 1. Contexte et Enjeux'");
+        if (!text.includes("## 2. Innovations")) throw new Error("Il manque la section '## 2. Innovations et Solutions'");
+        if (!text.includes("## 3. Impact")) throw new Error("Il manque la section '## 3. Impact et Perspectives'");
+        if (!text.includes("## Sources")) throw new Error("Il manque la section finale '## Sources'");
+        if (text.length < 1500) throw new Error("L'article est trop court (moins de 1500 caractères). Développe davantage les arguments.");
+    };
+
+    // Divergence Cognitive : variantIndex + 1
+    // Fallback Stem Cell : si le critic échoue totalement après 3 essais à respecter la structure, on renvoie le draft brut
+    let finalArticle = await withTextImmunity(reviewPrompt, 'high', textValidator, 3, 'ateam_orchestrator', draft, variantIndex + 1);
+    
+    // 3. Consolidation Mécanique (Nettoyage final)
+    if (finalArticle) {
+        finalArticle = finalArticle.replace(/^```markdown/gi, '').replace(/```$/g, '').trim();
+    }
+    
+    return finalArticle;
 }
 
 // 3. Sauvegarde physique

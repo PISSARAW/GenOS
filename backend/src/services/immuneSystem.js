@@ -76,7 +76,51 @@ async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3,
     return stemCellFallback || null;
 }
 
+/**
+ * Exécute un appel LLM avec validation immunitaire pour du TEXTE BRUT (Markdown).
+ * (Chaperon Structurel Épigénétique)
+ */
+async function withTextImmunity(basePrompt, complexity, validatorFn, maxRetries = 3, agentId = 'griot', stemCellFallback = null, variantIndex = undefined) {
+    let currentPrompt = basePrompt;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        const currentVariant = (variantIndex !== undefined ? variantIndex : 0) + (attempt - 1);
+        console.log(`[ImmuneSystem-Text:${agentId}] Phagocytose Structurelle... Essai ${attempt}/${maxRetries} (Pléiotropie: Modèle index ${currentVariant})`);
+        
+        let rawRes = await askLocalLLM(currentPrompt, complexity, agentId, currentVariant);
+        
+        if (!rawRes) {
+            console.log(`[Apoptose-Text:${agentId}] Mort silencieuse.`);
+            continue;
+        }
+
+        try {
+            let cleanText = rawRes.trim();
+            // On enlève les balises markdown globales si le LLM a mis tout l'article dans un bloc de code
+            cleanText = cleanText.replace(/^```markdown/i, '').replace(/^```/i, '').replace(/```$/i, '').trim();
+
+            if (validatorFn) {
+                validatorFn(cleanText);
+            }
+            
+            console.log(`[Homéostasie-Text:${agentId}] Structure Markdown validée.`);
+            return cleanText;
+        } catch (e) {
+            console.warn(`[Inflammation-Text:${agentId}] Mutation structurelle détectée : ${e.message}`);
+            if (attempt === maxRetries) {
+                console.error(`[Apoptose-Text:${agentId}] Échec irrécupérable de la structure.`);
+                if (stemCellFallback) return stemCellFallback;
+                return null;
+            }
+            currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
+            CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée (H2, H3, Sources, etc.).`;
+        }
+    }
+    return stemCellFallback || null;
+}
+
 module.exports = {
     withImmunity,
+    withTextImmunity,
     askLocalLLM
 };
