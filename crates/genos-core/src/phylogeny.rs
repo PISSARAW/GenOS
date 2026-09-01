@@ -1,4 +1,16 @@
-﻿use crate::genome::Genome;
+﻿
+pub enum HybridizationResult {
+    /// 1. Le passage en fraude : Les parents sont assez proches (ex: Sapiens & Neandertal). Hybride fertile.
+    Introgression(Genome),
+    /// 2. Le cul-de-sac évolutif : Naissance d'un hybride très fort, mais incapable de faire la méiose (Mule, Ligre). Stérile.
+    SterileHybrid(Genome),
+    /// 3. La création instantanée : Hybride asymétrique qui double ses chromosomes par endomitose (Blé). Nouvelle espèce fertile.
+    AllopolyploidPlant(Genome),
+    /// Echec total : Barrière génétique trop grande.
+    Incompatible,
+}
+
+use crate::genome::Genome;
 
 /// Représente un des 3 grands Royaumes (Domaines) du vivant.
 #[derive(Clone, Debug, PartialEq)]
@@ -52,6 +64,41 @@ impl PhylogeneticTree {
 
     /// Détermine si deux individus peuvent s'accoupler et avoir une descendance fertile
     /// C'est la définition stricte d'une espèce en biologie (Barrière reproductive).
+    pub fn attempt_hybridization(genome_a: &Genome, genome_b: &Genome, is_plant: bool) -> HybridizationResult {
+        let divergence = Self::estimate_divergence_time(genome_a, genome_b);
+        
+        // 1. Trop éloignés : Pas de fécondation possible (Incompatible)
+        if divergence > 25.0 {
+            return HybridizationResult::Incompatible;
+        }
+
+        // Création du génome hybride (moitié A, moitié B)
+        let mut child_genome = genome_a.clone();
+        child_genome.chromosome_maternal = genome_a.chromosome_maternal.clone();
+        child_genome.chromosome_paternal = genome_b.chromosome_maternal.clone();
+
+        // Si la divergence est faible et la ploïdie identique (Pas d'erreur mathématique pour la méiose)
+        if divergence <= 15.0 && genome_a.extra_chromosomes.len() == genome_b.extra_chromosomes.len() {
+            return HybridizationResult::Introgression(child_genome);
+        }
+
+        // Si l'ADN est asymétrique ou la divergence moyenne, l'hybride a un blocage méiotique (impaire)
+        if is_plant {
+            // Le super-pouvoir des plantes : L'Endomitose (Allopolyploïdie)
+            // La plante double son propre ADN hybride pour retrouver des paires symétriques !
+            // Elle devient instantanément une NOUVELLE espèce fertile, isolée de ses parents.
+            let mut plant_genome = child_genome.clone();
+            // On ajoute les originaux dans extra_chromosomes pour simuler le doublement
+            plant_genome.extra_chromosomes.push(plant_genome.chromosome_maternal.clone());
+            plant_genome.extra_chromosomes.push(plant_genome.chromosome_paternal.clone());
+            HybridizationResult::AllopolyploidPlant(plant_genome)
+        } else {
+            // Chez les animaux (comme le cheval et l'âne), pas de miracle. 
+            // La vigourosité hybride est là, mais le nombre de chromosomes asymétrique bloque la méiose.
+            HybridizationResult::SterileHybrid(child_genome)
+        }
+    }
+
     pub fn can_interbreed(genome_a: &Genome, genome_b: &Genome, geographic_isolation: bool) -> bool {
         // 1. Barrière physique (Spéciation Allopatrique en cours)
         // Ils ne peuvent pas se rencontrer !
@@ -179,6 +226,7 @@ mod tests {
         }
     }
 }
+
 
 
 
