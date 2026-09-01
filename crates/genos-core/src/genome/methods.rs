@@ -1,4 +1,4 @@
-﻿use crate::genome::*;
+use crate::genome::*;
 use serde::{Deserialize, Serialize};
 
 
@@ -148,7 +148,6 @@ pub enum ChromatinState {
     HeterochromatinFacultative,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
 

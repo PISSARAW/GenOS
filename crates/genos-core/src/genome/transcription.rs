@@ -1,7 +1,9 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 use crate::genome::DnaStrand;
 use crate::genome::RnaStrand;
-use crate::epigenetics::ChromatinState;
+use crate::genome::ChromatinState;
+use crate::genome::{RnaPolymerase, Ribosome};
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Gene {
@@ -97,7 +99,7 @@ impl Gene {
 
 
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Plasmid {
     pub id: Uuid,
     pub instruction: String,
