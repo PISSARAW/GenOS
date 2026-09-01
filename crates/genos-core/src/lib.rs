@@ -1,9 +1,10 @@
-﻿pub mod cell;
+pub mod cell;
 pub mod epigenetics;
 pub mod genome;
 pub mod metrics;
 pub mod redundancy;
 pub mod orchestrator;
+pub mod ecology;
 
 pub mod neurobiology;
 pub mod therapy;
