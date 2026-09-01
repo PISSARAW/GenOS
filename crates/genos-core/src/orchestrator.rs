@@ -75,6 +75,9 @@ pub struct Orchestrator {
     pub psychoactive_drugs: Vec<PsychoactiveDrug>,
     pub blood_brain_barrier_integrity: f64,
     pub amyloid_plaques: f64,
+    pub cerebrospinal_fluid_volume: f64,
+    pub cerebrospinal_fluid_pressure: f64,
+    pub csf_drainage_blocked: bool,
 }
 
 impl Orchestrator {
@@ -90,6 +93,9 @@ impl Orchestrator {
             psychoactive_drugs: vec![],
             blood_brain_barrier_integrity: 1.0,
             amyloid_plaques: 0.0,
+            cerebrospinal_fluid_volume: 150.0, // Idéal pour la flottaison (50g ressenti au lieu de 1.4kg)
+            cerebrospinal_fluid_pressure: 10.0,
+            csf_drainage_blocked: false,
         }
     }
 

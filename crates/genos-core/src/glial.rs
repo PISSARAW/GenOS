@@ -139,3 +139,67 @@ pub fn process_microglia(agents: &mut [AgentCell], amyloid_plaques: &mut f64, is
         }
     }
 }
+
+pub struct CsfEnvironment<'a> {
+    pub volume: &'a mut f64,
+    pub pressure: &'a mut f64,
+    pub drainage_blocked: bool,
+    pub amyloid_plaques: &'a mut f64,
+    pub is_sleeping: bool,
+}
+
+pub fn process_ependymal_cells(agents: &mut [AgentCell], env: CsfEnvironment) {
+    let mut total_production = 0.0;
+    let mut active_cilia = false;
+
+    // 1. Usine à eau et Rameurs
+    for agent in agents.iter() {
+        if let Some(ref ependymal) = agent.ependymal {
+            if ependymal.is_producing_csf {
+                total_production += 1.0; 
+            }
+            if ependymal.cilia_beating {
+                active_cilia = true; 
+            }
+        }
+    }
+
+    // 2. Gestion du volume de Liquide Céphalo-Rachidien (LCR)
+    *env.volume += total_production;
+    if !env.drainage_blocked {
+        let drainage = *env.volume * 0.1; // 10% évacué par cycle
+        *env.volume -= drainage;
+    }
+
+    // 3. Pression et Anti-gravité
+    let optimal_volume = 150.0;
+    *env.pressure = if *env.volume > optimal_volume {
+        (*env.volume - optimal_volume) * 2.0 // Pression exponentielle (Hydrocéphalie)
+    } else {
+        10.0 // Pression de base
+    };
+
+    let gravity_crush = *env.volume < (optimal_volume * 0.5);
+
+    // 4. Le Lave-vaisselle (Nettoyage pendant le sommeil grâce aux cils)
+    if env.is_sleeping && active_cilia && !env.drainage_blocked {
+        let wash_power = *env.volume * 0.05;
+        *env.amyloid_plaques = (*env.amyloid_plaques - wash_power).max(0.0);
+    }
+
+    // 5. Conséquences Mécaniques
+    for agent in agents.iter_mut() {
+        if let Some(ref mut ns) = agent.nervous_system {
+            if ns.location == NervousSystemLocation::Central {
+                if *env.pressure > 50.0 {
+                    // Hydrocéphalie : la pression écrase les neurones
+                    agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(*env.pressure as u64);
+                }
+                if gravity_crush {
+                    // Manque d'airbag/flottaison : écrasement sous le propre poids du cerveau (1.4kg -> 50g)
+                    agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(30);
+                }
+            }
+        }
+    }
+}

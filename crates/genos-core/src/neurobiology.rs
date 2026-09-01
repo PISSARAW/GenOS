@@ -376,3 +376,19 @@ impl Default for Microglia {
         }
     }
 }
+
+/// Cellules qui tapissent les ventricules (papier peint vivant)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EpendymalCell {
+    pub is_producing_csf: bool, // Filtration du sang pour créer le LCR
+    pub cilia_beating: bool,    // Battement des cils vibratiles pour le brassage
+}
+
+impl Default for EpendymalCell {
+    fn default() -> Self {
+        Self {
+            is_producing_csf: true,
+            cilia_beating: true,
+        }
+    }
+}

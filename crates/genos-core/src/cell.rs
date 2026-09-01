@@ -23,6 +23,7 @@ pub struct AgentCell {
     pub astrocyte: Option<crate::neurobiology::Astrocyte>,
     pub myelinator: Option<crate::neurobiology::Myelinator>,
     pub microglia: Option<crate::neurobiology::Microglia>,
+    pub ependymal: Option<crate::neurobiology::EpendymalCell>,
 }
 
 impl Default for AgentCell {
@@ -70,6 +71,7 @@ impl Default for AgentCell {
             astrocyte: None,
             myelinator: None,
             microglia: None,
+            ependymal: None,
         }
     }
 }
