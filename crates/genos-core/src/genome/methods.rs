@@ -335,6 +335,21 @@ impl Genome {
         }
     }
 
+    pub fn duplicate_gene_for_evolution(&mut self, target_locus: &str) -> Result<String, String> {
+        if let Some(original) = self.genes.get(target_locus) {
+            let mut duplicate = original.clone();
+            // Génère un nouveau nom unique pour la copie
+            let new_locus = format!("{}_COPY_{}", target_locus, self.genes.len());
+            duplicate.locus = new_locus.clone();
+            
+            // L'insertion simule l'enjambement inégal (une copie de plus dans l'ADN)
+            self.genes.insert(new_locus.clone(), duplicate);
+            Ok(new_locus)
+        } else {
+            Err("Le gène cible n'existe pas".to_string())
+        }
+    }
+
     pub fn hash_library(&self) -> String {
         let serialized = serde_json::to_string(self).unwrap();
         let mut hasher = sha2::Sha256::new();
@@ -347,6 +362,7 @@ impl Genome {
         hex
     }
 }
+
 
 
 
