@@ -62,3 +62,37 @@ impl Retrovirus {
         crate::genome::DnaStrand::synthesize(&self.rna_sequence)
     }
 }
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Bacteriophage {
+    pub viral_dna: DnaStrand,
+    /// LE BUG D'EMBALLAGE (Transduction) : Le script de diagnostic a accidentellement 
+    /// embarqué le prompt/l'outil (Gène) de sa précédente cible.
+    pub stolen_cargo: Option<crate::genome::Gene>,
+    pub is_specialized: bool,
+}
+
+impl Bacteriophage {
+    pub fn new(viral_instruction: &str) -> Self {
+        Self {
+            viral_dna: DnaStrand::synthesize(viral_instruction),
+            stolen_cargo: None,
+            is_specialized: false,
+        }
+    }
+
+    /// Transduction Généralisée : Le virus pulvérise l'hôte et prend un fragment au hasard.
+    /// (Équivalent Agent : Le script de crash dump capture un morceau de la RAM de l'Agent A)
+    pub fn packaging_error_generalized(&mut self, random_host_gene: crate::genome::Gene) {
+        self.stolen_cargo = Some(random_host_gene);
+        self.is_specialized = false;
+    }
+
+    /// Transduction Spécialisée : Le prophage s'excise mal et emporte les gènes adjacents.
+    /// (Équivalent Agent : Le hook de monitoring s'arrache du code source et emporte une fonction vitale)
+    pub fn packaging_error_specialized(&mut self, adjacent_host_gene: crate::genome::Gene) {
+        self.stolen_cargo = Some(adjacent_host_gene);
+        self.is_specialized = true;
+    }
+}
