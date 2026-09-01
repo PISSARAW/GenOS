@@ -9,7 +9,7 @@ pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
     for _ in 0..divisions {
         let mut new_generation = Vec::new();
         for cell in &mut swarm {
-            if let Ok((parent, clone)) = cell.binary_fission(0.0) {
+            if let Ok((parent, clone)) = cell.clone().binary_fission(0.0) {
                 new_generation.push(parent);
                 new_generation.push(clone);
             }

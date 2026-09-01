@@ -21,6 +21,8 @@ pub struct AgentCell {
     pub plasma_membrane: PlasmaMembrane,
     pub nucleus: Nucleus,
     pub mitochondria: Mitochondria,
+    pub is_alive: bool,
+    pub specialization: String,
     pub redundancy: crate::redundancy::RedundancySystem,
     pub chloroplast: Option<Chloroplast>,
     pub endoplasmic_reticulum: EndoplasmicReticulum,
@@ -62,7 +64,9 @@ impl Default for AgentCell {
             transcription_factors: Vec::new(),
                 p53_active: true,
             },
-            mitochondria: Mitochondria {
+            is_alive: true,
+        specialization: "UNDEFINED".to_string(),
+        mitochondria: Mitochondria {
                 atp_budget: 10,
                 metabolic_rate: 1.0,
                 angiogenesis_blocked: false,

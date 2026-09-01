@@ -1,5 +1,11 @@
 ﻿use crate::cell::*;
 impl AgentCell {
+    pub fn trigger_apoptosis(&mut self) {
+        self.is_alive = false;
+        self.plasma_membrane.integrity = 0.0;
+        self.mitochondria.atp_budget = 0;
+    }
+
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
         let mut chrom_m = self.nucleus.genome.chromosome_maternal;
         let mut chrom_p = self.nucleus.genome.chromosome_paternal;
