@@ -1,4 +1,4 @@
-﻿use crate::genome::{Genome, DnaStrand};
+use crate::genome::{Genome, DnaStrand};
 use serde::{Deserialize, Serialize};
 
 /// GÉNOMIQUE COMPARATIVE
@@ -115,7 +115,7 @@ impl BlastAlgorithm {
         }
 
         // Trie les résultats : de la E-Value la plus faible (meilleur) à la plus haute (pire)
-        results.sort_by(|a, b| a.e_value.partial_cmp(&b.e_value).unwrap());
+        results.sort_by(|a, b| a.e_value.partial_cmp(&b.e_value).unwrap_or(std::cmp::Ordering::Equal));
         results
     }
 }
