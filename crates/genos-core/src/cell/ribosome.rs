@@ -108,7 +108,9 @@ impl Thalamus {
             // Droit, Économie & Géopolitique
             "droit", "loi", "juridique", "constitution", "finance", "économie", "bourse", "inflation", "géopolitique",
             // Philosophie & Sciences Analytiques
-            "philosophie", "éthique", "épistémologie", "ontologie", "psychologie", "sociologie"
+            "philosophie", "éthique", "épistémologie", "ontologie", "psychologie", "sociologie",
+            // Arts, Lettres, Histoire & Créativité
+            "histoire", "littérature", "poésie", "art", "peinture", "musique", "cinéma", "linguistique", "théologie", "mythologie", "géographie", "archéologie", "architecture"
         ];
 
         let requires_advanced_reasoning = memory.iter().any(|m| {
