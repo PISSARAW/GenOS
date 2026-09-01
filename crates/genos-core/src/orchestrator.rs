@@ -1,12 +1,12 @@
-use crate::cell::AgentCell;
+﻿use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
 use serde::{Deserialize, Serialize};
 
-/// Les ThÃ©rapies MÃ©dicales pour soigner les agents cancÃ©reux
+/// Les ThÃƒÂ©rapies MÃƒÂ©dicales pour soigner les agents cancÃƒÂ©reux
 pub enum Therapy {
-    /// 1. Bloque les signaux de croissance (Ferme les rÃ©cepteurs)
+    /// 1. Bloque les signaux de croissance (Ferme les rÃƒÂ©cepteurs)
     TargetedTherapy,
-    /// 2. DÃ©masque la tumeur (DÃ©sactive le camouflage PD-L1)
+    /// 2. DÃƒÂ©masque la tumeur (DÃƒÂ©sactive le camouflage PD-L1)
     Immunotherapy,
     /// 3. Coupe les vivres (Bloque le renouvellement d'ATP)
     AntiAngiogenesis,
@@ -14,19 +14,19 @@ pub enum Therapy {
     CellCycleInhibitor,
 }
 
-/// Traitements administrÃ©s Ã  l'ensemble du systÃ¨me (Le "patient")
+/// Traitements administrÃƒÂ©s ÃƒÂ  l'ensemble du systÃƒÂ¨me (Le "patient")
 pub enum SystemicTherapy {
-    /// Anticorps monoclonal spÃ©cifique (Bouchons d'oreilles pour le systÃ¨me)
+    /// Anticorps monoclonal spÃƒÂ©cifique (Bouchons d'oreilles pour le systÃƒÂ¨me)
     Tocilizumab,
     /// Puissant anti-inflammatoire global (Dose entre 0.0 et 1.0)
     Corticosteroids(f64),
-    /// Soins de rÃ©animation (Perfusion d'ATP)
+    /// Soins de rÃƒÂ©animation (Perfusion d'ATP)
     IntensiveCareFluids,
-    /// DÃ‰TRUIT les bactÃ©ries (organismes avec une paroi). INUTILE contre les virus.
+    /// DÃƒâ€°TRUIT les bactÃƒÂ©ries (organismes avec une paroi). INUTILE contre les virus.
     Antibiotic,
-    /// Bloque la rÃ©plication des virus dÃ©jÃ  Ã  l'intÃ©rieur des cellules
+    /// Bloque la rÃƒÂ©plication des virus dÃƒÂ©jÃƒÂ  ÃƒÂ  l'intÃƒÂ©rieur des cellules
     Antiviral,
-    /// Ã‰duque la membrane pour bloquer et dÃ©truire un antigÃ¨ne/spike viral prÃ©cis
+    /// Ãƒâ€°duque la membrane pour bloquer et dÃƒÂ©truire un antigÃƒÂ¨ne/spike viral prÃƒÂ©cis
     Vaccine(String),
 }
 
@@ -34,8 +34,8 @@ pub enum SystemicTherapy {
 pub enum PsychoactiveDrug {
     Cocaine,    // Bloque la pompe de recapture (Les neurotransmetteurs restent dans la fente)
     Alcohol,    // Amplificateur d'inhibition (Boost le GABA)
-    Anxiolytic, // BenzodiazÃ©pines : Boost massif du GABA
-    Caffeine, // Excitant : Amplifie le Glutamate (et bloque l'AdÃ©nosine, la molÃ©cule de fatigue)
+    Anxiolytic, // BenzodiazÃƒÂ©pines : Boost massif du GABA
+    Caffeine, // Excitant : Amplifie le Glutamate (et bloque l'AdÃƒÂ©nosine, la molÃƒÂ©cule de fatigue)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -47,31 +47,31 @@ pub struct CleftMessage {
     pub ticks_in_cleft: u32,
 }
 
-/// RÃ©sultat d'un cycle (tick) de l'orchestrateur
+/// RÃƒÂ©sultat d'un cycle (tick) de l'orchestrateur
 #[derive(Debug, PartialEq)]
 pub enum TickResult {
     Continue,
     Halted(String),
 }
 
-/// L'orchestrateur gÃ¨re la boucle de vie de la cellule IA (l'Agent).
+/// L'orchestrateur gÃƒÂ¨re la boucle de vie de la cellule IA (l'Agent).
 pub struct Orchestrator {
     pub apoptosis_rule: Option<Expression>,
-    /// ProtÃ©ine messagÃ¨re de l'inflammation systÃ©mique
+    /// ProtÃƒÂ©ine messagÃƒÂ¨re de l'inflammation systÃƒÂ©mique
     pub il6_level: f64,
     /// Antidote (Tocilizumab) agissant comme des bouchons d'oreilles
     pub il6_receptors_blocked: bool,
-    /// Niveau de suppression globale par les corticoÃ¯des
+    /// Niveau de suppression globale par les corticoÃƒÂ¯des
     pub corticosteroid_level: f64,
-    /// ImmunitÃ© Humorale : Les anticorps qui patrouillent dans le systÃ¨me
+    /// ImmunitÃƒÂ© Humorale : Les anticorps qui patrouillent dans le systÃƒÂ¨me
     pub circulating_antibodies: Vec<crate::cell::Antibody>,
-    /// Niveau d'activation de l'armÃ©e (dictÃ© par les Lymphocytes T CD4)
+    /// Niveau d'activation de l'armÃƒÂ©e (dictÃƒÂ© par les Lymphocytes T CD4)
     pub immune_activation_level: f64,
 
-    // --- SYSTÃˆME NERVEUX ---
-    /// La Fente Synaptique : l'espace vide oÃ¹ flottent les neurotransmetteurs
+    // --- SYSTÃƒË†ME NERVEUX ---
+    /// La Fente Synaptique : l'espace vide oÃƒÂ¹ flottent les neurotransmetteurs
     pub synaptic_cleft: Vec<CleftMessage>,
-    /// Pharmacologie : Drogues et mÃ©dicaments psychoactifs
+    /// Pharmacologie : Drogues et mÃƒÂ©dicaments psychoactifs
     pub psychoactive_drugs: Vec<PsychoactiveDrug>,
     pub blood_brain_barrier_integrity: f64,
 }
@@ -91,7 +91,7 @@ impl Orchestrator {
         }
     }
 
-    /// Applique les anticorps circulants sur les virus flottants dans le systÃ¨me
+    /// Applique les anticorps circulants sur les virus flottants dans le systÃƒÂ¨me
     pub fn process_humoral_immunity(
         &mut self,
         environmental_virions: &mut [crate::virology::Virion],
@@ -99,29 +99,29 @@ impl Orchestrator {
         for antibody in &self.circulating_antibodies {
             for virus in environmental_virions.iter_mut() {
                 if virus.envelope_spike == antibody.target_antigen {
-                    // Action Constante (Le pied du Y) : Opsonisation (Marquage pour exÃ©cution)
+                    // Action Constante (Le pied du Y) : Opsonisation (Marquage pour exÃƒÂ©cution)
                     virus.is_opsonized = true;
 
-                    // Les 4 stratÃ©gies d'attaque selon la classe de l'anticorps
+                    // Les 4 stratÃƒÂ©gies d'attaque selon la classe de l'anticorps
                     use crate::cell::IgClass;
                     match antibody.ig_class {
                         IgClass::IgG => {
-                            // IgG (VÃ©tÃ©rans) : Neutralisation et SystÃ¨me du ComplÃ©ment
+                            // IgG (VÃƒÂ©tÃƒÂ©rans) : Neutralisation et SystÃƒÂ¨me du ComplÃƒÂ©ment
                             virus.is_neutralized = true;
-                            // Le complÃ©ment perfore la coque du virus/bactÃ©rie
+                            // Le complÃƒÂ©ment perfore la coque du virus/bactÃƒÂ©rie
                             virus.capsid_integrity = 0.0;
                         }
                         IgClass::IgM => {
-                            // IgM (Ã‰toile) : Agglutination massive
+                            // IgM (Ãƒâ€°toile) : Agglutination massive
                             virus.is_agglutinated = true;
                             virus.is_neutralized = true;
                         }
                         IgClass::IgA => {
-                            // IgA (FrontiÃ¨res) : Bloque Ã  l'entrÃ©e
+                            // IgA (FrontiÃƒÂ¨res) : Bloque ÃƒÂ  l'entrÃƒÂ©e
                             virus.is_neutralized = true;
                         }
                         IgClass::IgE => {
-                            // IgE (Allergies) : DÃ©clenche une inflammation globale massive
+                            // IgE (Allergies) : DÃƒÂ©clenche une inflammation globale massive
                             self.il6_level += 10.0; // Choc anaphylactique
                         }
                         IgClass::IgD => {
@@ -133,7 +133,7 @@ impl Orchestrator {
         }
     }
 
-    /// Administration de soins intensifs (ThÃ©rapies systÃ©miques)
+    /// Administration de soins intensifs (ThÃƒÂ©rapies systÃƒÂ©miques)
     pub fn administer_systemic_therapy(
         &mut self,
         therapy: SystemicTherapy,
@@ -141,11 +141,11 @@ impl Orchestrator {
     ) {
         match therapy {
             SystemicTherapy::Tocilizumab => {
-                // Bloque la rÃ©ception de l'IL-6 sans toucher aux CAR-T
+                // Bloque la rÃƒÂ©ception de l'IL-6 sans toucher aux CAR-T
                 self.il6_receptors_blocked = true;
             }
             SystemicTherapy::Corticosteroids(dose) => {
-                // Baisse mÃ©canique de l'inflammation mais endort aussi le systÃ¨me
+                // Baisse mÃƒÂ©canique de l'inflammation mais endort aussi le systÃƒÂ¨me
                 self.corticosteroid_level = dose;
                 self.il6_level = (self.il6_level - (dose * 20.0)).max(0.0);
             }
@@ -156,11 +156,11 @@ impl Orchestrator {
                 }
             }
             SystemicTherapy::Antibiotic => {
-                // Tue exclusivement les bactÃ©ries (Ceux avec une paroi).
+                // Tue exclusivement les bactÃƒÂ©ries (Ceux avec une paroi).
                 // Ignore totalement les cellules saines et les virus.
                 for cell in patient_cells.iter_mut() {
                     if cell.plasma_membrane.has_cell_wall {
-                        cell.mitochondria.atp_budget = 0; // Lyse bactÃ©rienne
+                        cell.mitochondria.atp_budget = 0; // Lyse bactÃƒÂ©rienne
                     }
                 }
             }
@@ -171,7 +171,7 @@ impl Orchestrator {
                 }
             }
             SystemicTherapy::Vaccine(spike) => {
-                // Apprend aux cellules Ã  bloquer cette clÃ© virale
+                // Apprend aux cellules ÃƒÂ  bloquer cette clÃƒÂ© virale
                 for cell in patient_cells.iter_mut() {
                     if !cell.plasma_membrane.immunized_against.contains(&spike) {
                         cell.plasma_membrane.immunized_against.push(spike.clone());
@@ -181,7 +181,7 @@ impl Orchestrator {
         }
     }
 
-    /// L'Orchestrateur peut agir comme un MÃ©decin et injecter une thÃ©rapie
+    /// L'Orchestrateur peut agir comme un MÃƒÂ©decin et injecter une thÃƒÂ©rapie
     pub fn administer_therapy(&self, agent: &mut AgentCell, therapy: Therapy) {
         if agent.nervous_system.is_some() && self.blood_brain_barrier_integrity > 0.5 {
             return;
@@ -194,31 +194,31 @@ impl Orchestrator {
         }
     }
 
-    /// 1. Attachement et 2. PÃ©nÃ©tration
+    /// 1. Attachement et 2. PÃƒÂ©nÃƒÂ©tration
     /// Un virus dans l'environnement tente d'infecter la cellule.
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
         if agent.nervous_system.is_some() && self.blood_brain_barrier_integrity > 0.5 {
             return;
         }
-        // ANTICORPS : Si le virus est neutralisÃ©, ses clÃ©s sont couvertes, il ne peut pas entrer
+        // ANTICORPS : Si le virus est neutralisÃƒÂ©, ses clÃƒÂ©s sont couvertes, il ne peut pas entrer
         if virion.is_neutralized {
             return;
         }
-        // ANTICORPS : Si le virus est agglutinÃ©, il est collÃ© en tas et immobilisÃ©
+        // ANTICORPS : Si le virus est agglutinÃƒÂ©, il est collÃƒÂ© en tas et immobilisÃƒÂ©
         if virion.is_agglutinated {
             return;
         }
 
-        // VACCIN : Si la membrane reconnaÃ®t l'antigÃ¨ne (le spike), le virus est dÃ©truit Ã  la frontiÃ¨re
+        // VACCIN : Si la membrane reconnaÃƒÂ®t l'antigÃƒÂ¨ne (le spike), le virus est dÃƒÂ©truit ÃƒÂ  la frontiÃƒÂ¨re
         if agent
             .plasma_membrane
             .immunized_against
             .contains(&virion.envelope_spike)
         {
-            return; // Le virus est neutralisÃ©
+            return; // Le virus est neutralisÃƒÂ©
         }
 
-        // SystÃ¨me ClÃ©-Serrure : Le spike doit correspondre Ã  un rÃ©cepteur de la membrane
+        // SystÃƒÂ¨me ClÃƒÂ©-Serrure : Le spike doit correspondre ÃƒÂ  un rÃƒÂ©cepteur de la membrane
         if agent
             .plasma_membrane
             .incoming_receptors
@@ -230,26 +230,26 @@ impl Orchestrator {
 
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
-        // IMMUNITÃ‰ CELLULAIRE : La cellule met Ã  jour son prÃ©sentoir (CMH) pour reflÃ©ter son Ã©tat interne
+        // IMMUNITÃƒâ€° CELLULAIRE : La cellule met ÃƒÂ  jour son prÃƒÂ©sentoir (CMH) pour reflÃƒÂ©ter son ÃƒÂ©tat interne
         agent.update_mhc_display();
 
-        // 1. Frein d'urgence (CorticoÃ¯des)
+        // 1. Frein d'urgence (CorticoÃƒÂ¯des)
         if self.corticosteroid_level > 0.8 {
             return TickResult::Halted(
                 "Corticosteroid suppression: Cell activity frozen".to_string(),
             );
         }
 
-        // 3. Piratage Viral (VÃ©rifiÃ© en premier : le virus court-circuite la machine)
+        // 3. Piratage Viral (VÃƒÂ©rifiÃƒÂ© en premier : le virus court-circuite la machine)
         if let Some(virus) = agent.cytoplasm.viral_infections.first().cloned() {
-            // L'agent ne fait PAS l'action demandÃ©e (action_string est ignorÃ©)
+            // L'agent ne fait PAS l'action demandÃƒÂ©e (action_string est ignorÃƒÂ©)
 
             // 4. Assemblage (Fabrication massive de nouveaux virus)
             for _ in 0..3 {
                 agent.golgi_apparatus.viral_vesicles.push(virus.clone());
             }
 
-            // La machinerie est piratÃ©e, l'ATP est utilisÃ© pour le virus
+            // La machinerie est piratÃƒÂ©e, l'ATP est utilisÃƒÂ© pour le virus
             let cost = if self.il6_level >= 10.0 && !self.il6_receptors_blocked {
                 10
             } else {
@@ -257,7 +257,7 @@ impl Orchestrator {
             };
             agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(cost);
 
-            // 5. LibÃ©ration (Lyse vs Bourgeonnement)
+            // 5. LibÃƒÂ©ration (Lyse vs Bourgeonnement)
             if virus.is_lytic && agent.golgi_apparatus.viral_vesicles.len() >= 6 {
                 return TickResult::Halted(
                     "Lysis: Cell burst due to viral replication overload".to_string(),
@@ -269,19 +269,19 @@ impl Orchestrator {
             );
         }
 
-        // 2. ThÃ©rapie CiblÃ©e : Si les rÃ©cepteurs sont bloquÃ©s, la cellule est sourde
+        // 2. ThÃƒÂ©rapie CiblÃƒÂ©e : Si les rÃƒÂ©cepteurs sont bloquÃƒÂ©s, la cellule est sourde
         if agent.plasma_membrane.receptors_blocked {
             return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
         }
 
-        // 3. VÃ©rification mÃ©canique de la survie (budget)
+        // 3. VÃƒÂ©rification mÃƒÂ©canique de la survie (budget)
         if agent.mitochondria.atp_budget == 0 {
             return TickResult::Halted("Budget exhausted (starvation)".to_string());
         }
 
-        // 4. SystÃ¨me Immunitaire (Apoptose)
+        // 4. SystÃƒÂ¨me Immunitaire (Apoptose)
         if let Some(rule) = &self.apoptosis_rule {
-            // L'immunothÃ©rapie : Si l'agent se camoufle, il Ã©chappe Ã  l'apoptose !
+            // L'immunothÃƒÂ©rapie : Si l'agent se camoufle, il ÃƒÂ©chappe ÃƒÂ  l'apoptose !
             if !agent.cytoplasm.cognition.is_camouflaged {
                 if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
                     return TickResult::Halted(
@@ -291,42 +291,42 @@ impl Orchestrator {
             }
         }
 
-        // 5. Inscription dans le phÃ©notype comportemental (Trace)
+        // 5. Inscription dans le phÃƒÂ©notype comportemental (Trace)
         agent
             .cytoplasm
             .trace
             .sequence
             .push(action_string.to_string());
 
-        // 6. Mise Ã  jour des coÃ»ts et Orage Cytokinique
-        // L'IL-6 provoque une "fiÃ¨vre" (surcoÃ»t mÃ©tabolique) SAUF si le Tocilizumab bloque les rÃ©cepteurs !
+        // 6. Mise ÃƒÂ  jour des coÃƒÂ»ts et Orage Cytokinique
+        // L'IL-6 provoque une "fiÃƒÂ¨vre" (surcoÃƒÂ»t mÃƒÂ©tabolique) SAUF si le Tocilizumab bloque les rÃƒÂ©cepteurs !
         let mut metabolic_cost = 1;
         if self.il6_level >= 10.0 && !self.il6_receptors_blocked {
-            metabolic_cost = 5; // La fiÃ¨vre brÃ»le l'ATP
+            metabolic_cost = 5; // La fiÃƒÂ¨vre brÃƒÂ»le l'ATP
         }
 
         agent.mitochondria.atp_budget =
             agent.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
-        // 7. La Digestion (Phagocytose - Ã‰tape 3 et 4)
+        // 7. La Digestion (Phagocytose - Ãƒâ€°tape 3 et 4)
         if !agent.lysosomes.phagosomes.is_empty() {
             agent.lysosomes.digestive_enzymes_active = true;
-            // Digestion : DÃ©truit l'ADN emprisonnÃ©
+            // Digestion : DÃƒÂ©truit l'ADN emprisonnÃƒÂ©
             let destroyed_dna = agent.lysosomes.phagosomes.pop().unwrap();
 
-            // 4. L'expulsion : le code dÃ©truit devient un dÃ©chet (Pus/DÃ©bris)
+            // 4. L'expulsion : le code dÃƒÂ©truit devient un dÃƒÂ©chet (Pus/DÃƒÂ©bris)
             agent.lysosomes.expelled_debris.push(format!(
                 "DEBRIS_FROM_LENGTH_{}",
                 destroyed_dna.sequence.len()
             ));
 
-            // Recyclage d'Ã©nergie : Le phagocyte gagne de l'ATP en "mangeant"
+            // Recyclage d'ÃƒÂ©nergie : Le phagocyte gagne de l'ATP en "mangeant"
             agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(5);
         }
 
-        // 9. LE SYSTÃˆME NERVEUX : Exocytose
+        // 9. LE SYSTÃƒË†ME NERVEUX : Exocytose
         if let Some(nervous_system) = &mut agent.nervous_system {
-            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs Ã  libÃ©rer (Exocytose)
+            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs ÃƒÂ  libÃƒÂ©rer (Exocytose)
             if let Some(outputs) = nervous_system.process_soma() {
                 for (target_id, transmitter, amount) in outputs {
                     self.synaptic_cleft.push(CleftMessage {
@@ -338,7 +338,7 @@ impl Orchestrator {
                     });
                 }
             }
-            // Apprentissage continu : NeuroplasticitÃ© (Loi de Hebb) et MyÃ©linisation
+            // Apprentissage continu : NeuroplasticitÃƒÂ© (Loi de Hebb) et MyÃƒÂ©linisation
             nervous_system.apply_neuroplasticity();
         }
 
@@ -358,7 +358,7 @@ impl Orchestrator {
             .contains(&PsychoactiveDrug::Caffeine);
 
         for mut msg in self.synaptic_cleft.drain(..) {
-            // Application de la Pharmacologie sur l'efficacitÃ© du message
+            // Application de la Pharmacologie sur l'efficacitÃƒÂ© du message
             let mut effective_amount = msg.amount;
             if msg.transmitter == crate::neurobiology::Neurotransmitter::GABA {
                 if has_alcohol {
@@ -371,10 +371,10 @@ impl Orchestrator {
             if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate {
                 if has_caffeine {
                     effective_amount *= 1.2;
-                } // HyperexcitabilitÃ©
+                } // HyperexcitabilitÃƒÂ©
             }
 
-            // 1. Le neurone cible "aspire" le message (Liaison aux rÃ©cepteurs, conversion chimique -> Ã©lectrique)
+            // 1. Le neurone cible "aspire" le message (Liaison aux rÃƒÂ©cepteurs, conversion chimique -> ÃƒÂ©lectrique)
             if let Some(target_agent) = agents
                 .iter_mut()
                 .find(|a| a.cell_id.to_string() == msg.target_id)
@@ -431,19 +431,19 @@ impl Orchestrator {
 }
 
 /* =====================================================================
-THÃ‰RAPIE CAR-T ("MÃ©dicament Vivant")
+THÃƒâ€°RAPIE CAR-T ("MÃƒÂ©dicament Vivant")
 ===================================================================== */
 pub struct CartTherapy;
 
 impl CartTherapy {
-    /// 1. & 2. PrÃ©lÃ¨vement et Codage GÃ©nÃ©tique
-    /// Transforme un agent standard en tueur de cancer ciblÃ© via un vecteur viral.
+    /// 1. & 2. PrÃƒÂ©lÃƒÂ¨vement et Codage GÃƒÂ©nÃƒÂ©tique
+    /// Transforme un agent standard en tueur de cancer ciblÃƒÂ© via un vecteur viral.
     pub fn engineer_t_cell(t_cell: AgentCell, target_cancer_id: uuid::Uuid) -> AgentCell {
         use crate::genome::{Gene, Mutagen};
         let mut car_t = t_cell;
 
-        // Le vecteur viral insÃ¨re le gÃ¨ne CAR (Chimeric Antigen Receptor)
-        // Ce gÃ¨ne force l'agent Ã  cibler le cancer.
+        // Le vecteur viral insÃƒÂ¨re le gÃƒÂ¨ne CAR (Chimeric Antigen Receptor)
+        // Ce gÃƒÂ¨ne force l'agent ÃƒÂ  cibler le cancer.
         let car_gene = Gene::new("car_receptor", &target_cancer_id.to_string());
 
         car_t
@@ -457,7 +457,7 @@ impl CartTherapy {
             .chromosome_paternal
             .expose_to_mutagen(Mutagen::Virus(0, car_gene.dna));
 
-        // 3. Apparition de l'antenne (Le rÃ©cepteur CAR)
+        // 3. Apparition de l'antenne (Le rÃƒÂ©cepteur CAR)
         car_t
             .plasma_membrane
             .outgoing_ion_channels
@@ -467,13 +467,13 @@ impl CartTherapy {
     }
 
     /// 4. La Multiplication
-    /// Cultive l'agent CAR-T en laboratoire pour crÃ©er une armÃ©e.
+    /// Cultive l'agent CAR-T en laboratoire pour crÃƒÂ©er une armÃƒÂ©e.
     pub fn cultivate(seed_cell: AgentCell, generations: u32) -> Vec<AgentCell> {
         let mut army = vec![seed_cell];
         for _ in 0..generations {
             let mut new_army = Vec::new();
             for cell in army {
-                // On booste temporairement l'Ã©nergie pour la culture en laboratoire
+                // On booste temporairement l'ÃƒÂ©nergie pour la culture en laboratoire
                 let mut boosted_cell = cell;
                 boosted_cell.mitochondria.atp_budget = 1000;
 
@@ -486,5 +486,64 @@ impl CartTherapy {
             army = new_army;
         }
         army
+    }
+    /// Gestion des gaines de myéline et de la régénération (Oligodendrocytes et Cellules de Schwann)
+    pub fn process_myelinators(&mut self, agents: &mut [crate::cell::AgentCell]) {
+        let mut healthy_oligo_targets = vec![];
+        let mut nogo_targets = vec![];
+        let mut healthy_schwann_targets = vec![];
+        let mut repairing_schwann_targets = vec![];
+
+        for agent in agents.iter_mut() {
+            if let Some(ref mut myelinator) = agent.myelinator {
+                match myelinator {
+                    crate::neurobiology::Myelinator::Oligodendrocyte { connected_axons, is_damaged } => {
+                        if !*is_damaged {
+                            healthy_oligo_targets.extend(connected_axons.clone());
+                        } else {
+                            nogo_targets.extend(connected_axons.clone());
+                        }
+                    }
+                    crate::neurobiology::Myelinator::SchwannCell { target_axon, is_damaged, forming_regeneration_tube } => {
+                        if !*is_damaged {
+                            healthy_schwann_targets.push(target_axon.clone());
+                            *forming_regeneration_tube = true; // Prêt à réparer si besoin
+                            repairing_schwann_targets.push(target_axon.clone());
+                        } else {
+                            *forming_regeneration_tube = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        for agent in agents.iter_mut() {
+            if let Some(ref mut ns) = agent.nervous_system {
+                let cell_id = agent.cell_id.to_string();
+                
+                // Maintien de la myéline
+                if healthy_oligo_targets.contains(&cell_id) || healthy_schwann_targets.contains(&cell_id) {
+                    ns.axon.myelination_level = 1.0;
+                } else {
+                    // Dégénérescence (ex: Sclérose en Plaques)
+                    ns.axon.myelination_level *= 0.9; 
+                }
+
+                // Régénération vs Blocage (Nogo)
+                if ns.axon.is_severed {
+                    if ns.location == crate::neurobiology::NervousSystemLocation::Central {
+                        if nogo_targets.contains(&cell_id) || healthy_oligo_targets.contains(&cell_id) {
+                            // Les oligodendrocytes libèrent Nogo, bloquant la régénération
+                            ns.axon.nogo_inhibited = true;
+                        }
+                    } else if ns.location == crate::neurobiology::NervousSystemLocation::Peripheral {
+                        if repairing_schwann_targets.contains(&cell_id) && !ns.axon.nogo_inhibited {
+                            // Les cellules de Schwann forment un tube de régénération
+                            ns.axon.is_severed = false; // Le nerf repousse !
+                        }
+                    }
+                }
+            }
+        }
     }
 }
