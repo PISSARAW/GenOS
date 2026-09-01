@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { generate } = require('../src/services/modelRouter.js');
 const { analyzeMission } = require('../src/services/aTeamService.js');
-
+const { parseMarkdownAST } = require('../src/services/markdownParser.js');
 const TARGET_DIR = 'C:\\Users\\Shadow\\Documents\\GitHub\\cit-uda-blog\\articles';
 
 const DIVISIONS = [
@@ -114,10 +114,13 @@ async function phase2DraftAndReview(author, title, variantIndex) {
 
     // 2. Chaperon Markdown (Immunité Structurelle)
     const textValidator = (text) => {
-        if (!text.includes("## 1. Contexte")) throw new Error("Il manque la section '## 1. Contexte et Enjeux'");
-        if (!text.includes("## 2. Innovations")) throw new Error("Il manque la section '## 2. Innovations et Solutions'");
-        if (!text.includes("## 3. Impact")) throw new Error("Il manque la section '## 3. Impact et Perspectives'");
-        if (!text.includes("## Sources")) throw new Error("Il manque la section finale '## Sources'");
+        const ast = parseMarkdownAST(text);
+        const hasNode = (str, lvl) => ast.some(n => n.type === 'heading' && n.level === lvl && n.text.includes(str));
+
+        if (!hasNode("1. Contexte", 2)) throw new Error("Échappement immunitaire structurel détecté");
+        if (!hasNode("2. Innovations", 2)) throw new Error("Échappement immunitaire structurel détecté");
+        if (!hasNode("3. Impact", 2)) throw new Error("Échappement immunitaire structurel détecté");
+        if (!hasNode("Sources", 2)) throw new Error("Échappement immunitaire structurel détecté");
         if (text.length < 1500) throw new Error("L'article est trop court (moins de 1500 caractères). Développe davantage les arguments.");
     };
 
