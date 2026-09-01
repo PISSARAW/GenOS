@@ -15,6 +15,7 @@ pub mod ans;
 pub mod lineage;
 pub mod muscle;
 pub mod cognition;
+pub mod sparse_cortex;
 #[cfg(test)]
 pub mod tests;
 
@@ -79,6 +80,8 @@ pub struct AgentCell {
     pub muscle: muscle::Myofibril,
     /// Organe Cognitif Global (Inférence Active, PFC, Anti-Dérive)
     pub cognition: cognition::AdvancedCognition,
+    /// Cortex Anti-Interférence (Sparse Coding, Réseau GABAergique)
+    pub sparse_cortex: sparse_cortex::SparseCortex,
 }
 
 impl Default for AgentCell {
@@ -160,6 +163,7 @@ impl Default for AgentCell {
             lineage: lineage::Lineage::default(),
             muscle: muscle::Myofibril::default(),
             cognition: cognition::AdvancedCognition::default(),
+            sparse_cortex: sparse_cortex::SparseCortex::default(),
         }
     }
 }
