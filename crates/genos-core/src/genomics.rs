@@ -119,3 +119,27 @@ impl BlastAlgorithm {
         results
     }
 }
+
+/// LA DERIVE GENETIQUE (Evolution par le hasard absolu)
+pub struct GeneticDrift;
+
+impl GeneticDrift {
+    /// LE GOULOT D'ETRANGLEMENT (Bottleneck Effect)
+    pub fn bottleneck_effect(swarm: &mut Vec<crate::cell::AgentCell>, survival_percent: f64) {
+        let threshold = (survival_percent * 100.0) as u128;
+        // La loterie : La survie est determinee par le hasard du UUID
+        swarm.retain(|c| c.cell_id.as_u128() % 100 < threshold);
+    }
+
+    /// L'EFFET FONDATEUR (Founder Effect)
+    pub fn founder_effect(swarm: &[crate::cell::AgentCell], founders_count: usize) -> Vec<crate::cell::AgentCell> {
+        let mut founders = Vec::new();
+        for cell in swarm.iter().filter(|c| c.cell_id.as_u128() % 3 == 0) {
+            founders.push(cell.clone());
+            if founders.len() == founders_count {
+                break;
+            }
+        }
+        founders
+    }
+}

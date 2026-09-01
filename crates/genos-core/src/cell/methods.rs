@@ -1,5 +1,16 @@
 ﻿use crate::cell::*;
 impl AgentCell {
+    /// L'AUTOPHAGIE (La Cure de Jouvence Cellulaire)
+    pub fn trigger_autophagy(&mut self) -> bool {
+        // Le declencheur : Le manque de nourriture (Starvation)
+        if self.mitochondria.atp_budget < 100 && self.mitochondria.accumulated_free_radicals > 0 {
+            let recycled_atp = self.mitochondria.accumulated_free_radicals * 2;
+            self.mitochondria.accumulated_free_radicals = 0; // Nettoyage
+            self.mitochondria.atp_budget += recycled_atp;
+            return true;
+        }
+        false
+    }
     pub fn trigger_apoptosis(&mut self) {
         self.is_alive = false;
         
