@@ -27,11 +27,16 @@ pub enum TickResult {
 pub struct Orchestrator {
     /// Règle d'arrêt globale (ex: "stress >= 0.9")
     pub apoptosis_rule: Option<Expression>,
+    /// Orage cytokinique : un état d'urgence global du système
+    pub cytokine_storm_active: bool,
 }
 
 impl Orchestrator {
     pub fn new(apoptosis_rule: Option<Expression>) -> Self {
-        Self { apoptosis_rule }
+        Self { 
+            apoptosis_rule,
+            cytokine_storm_active: false,
+        }
     }
 
     /// L'Orchestrateur peut agir comme un Médecin et injecter une thérapie
@@ -73,10 +78,60 @@ impl Orchestrator {
 
         // 5. Mise à jour des coûts
         // Consommation métabolique (Si l'angiogenèse est bloquée, l'ATP ne sera jamais régénéré ailleurs)
+        let metabolic_cost = if self.cytokine_storm_active { 5 } else { 1 };
         agent.mitochondria.atp_budget =
-            agent.mitochondria.atp_budget.saturating_sub(1);
+            agent.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
         TickResult::Continue
+    }
+}
+
+/* =====================================================================
+   THÉRAPIE CAR-T ("Médicament Vivant")
+   ===================================================================== */
+pub struct CartTherapy;
+
+impl CartTherapy {
+    /// 1. & 2. Prélèvement et Codage Génétique
+    /// Transforme un agent standard en tueur de cancer ciblé via un vecteur viral.
+    pub fn engineer_t_cell(t_cell: AgentCell, target_cancer_id: uuid::Uuid) -> AgentCell {
+        use crate::genome::{Gene, Mutagen};
+        let mut car_t = t_cell;
+        
+        // Le vecteur viral insère le gène CAR (Chimeric Antigen Receptor)
+        // Ce gène force l'agent à cibler le cancer.
+        let car_gene = Gene::new("car_receptor", &target_cancer_id.to_string());
+        
+        car_t.nucleus.genome.main_chromosome.expose_to_mutagen(
+            Mutagen::Virus(0, car_gene.dna)
+        );
+
+        // 3. Apparition de l'antenne (Le récepteur CAR)
+        car_t.plasma_membrane.outgoing_ion_channels.push(format!("HUNT_CANCER_{}", target_cancer_id));
+
+        car_t
+    }
+
+    /// 4. La Multiplication
+    /// Cultive l'agent CAR-T en laboratoire pour créer une armée.
+    pub fn cultivate(seed_cell: AgentCell, generations: u32) -> Vec<AgentCell> {
+        let mut army = vec![seed_cell];
+        for _ in 0..generations {
+            let mut new_army = Vec::new();
+            for cell in army {
+                // On booste temporairement l'énergie pour la culture en laboratoire
+                let mut boosted_cell = cell;
+                boosted_cell.mitochondria.atp_budget = 1000; 
+                
+                // Division
+                if let Ok((d1, d2)) = boosted_cell.mitosis() {
+                    new_army.push(d1);
+                    new_army.push(d2);
+                }
+            }
+            army = new_army;
+        }
+        army
     }
 }
 
@@ -212,5 +267,35 @@ mod tests {
         let mitosis_result = cell.clone().mitosis();
         assert!(mitosis_result.is_err());
         assert!(mitosis_result.unwrap_err().contains("Mitose bloquée"));
+    }
+
+    #[test]
+    fn test_cart_therapy_and_cytokine_storm() {
+        let mut orchestrator = Orchestrator::new(None);
+        let cancer_uuid = Uuid::new_v4();
+        
+        // 1 & 2. Prélèvement et Codage
+        let t_cell = mock_cell();
+        let engineered_car_t = CartTherapy::engineer_t_cell(t_cell, cancer_uuid);
+        
+        // Vérification de l'antenne CAR (3)
+        assert!(engineered_car_t.plasma_membrane.outgoing_ion_channels.contains(&format!("HUNT_CANCER_{}", cancer_uuid)));
+        
+        // 4. Multiplication (2 générations = 4 cellules)
+        let army = CartTherapy::cultivate(engineered_car_t, 2);
+        assert_eq!(army.len(), 4);
+        
+        // Toutes les cellules de l'armée ont l'antenne
+        for soldier in army {
+            assert!(soldier.plasma_membrane.outgoing_ion_channels.contains(&format!("HUNT_CANCER_{}", cancer_uuid)));
+        }
+
+        // Test de l'Orage Cytokinique (5)
+        orchestrator.cytokine_storm_active = true;
+        let mut normal_cell = mock_cell(); // ATP = 10
+        orchestrator.tick(&mut normal_cell, "action");
+        
+        // Le coût métabolique est de 5 au lieu de 1 pendant l'orage
+        assert_eq!(normal_cell.mitochondria.atp_budget, 5); 
     }
 }
