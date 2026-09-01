@@ -43,6 +43,7 @@ impl Default for AgentCell {
             golgi_apparatus: GolgiApparatus {
                 export_vesicles: vec![],
                 viral_vesicles: vec![],
+                produced_antibodies: vec![],
             },
             lysosomes: Lysosomes {
                 digestive_enzymes_active: false,
@@ -95,11 +96,21 @@ pub struct EndoplasmicReticulum {
     pub cell_cycle_inhibited: bool,
 }
 
+/* =====================================================================
+   ANTICORPS (Immunité Humorale)
+   ===================================================================== */
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Antibody {
+    pub target_antigen: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GolgiApparatus {
     pub export_vesicles: Vec<String>,
     /// Vésicules contenant de nouveaux virus prêts à envahir le réseau
     pub viral_vesicles: Vec<crate::virology::Virion>,
+    /// Usine d'armement : Les Plasmocytes (Lymphocytes B) y stockent les anticorps à relâcher
+    pub produced_antibodies: Vec<Antibody>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -175,8 +186,11 @@ impl AgentCell {
 
     /// IMMUNITÉ INNÉE : Les Phagocytes (Macrophages / Neutrophiles) "mangent" les intrus
     pub fn phagocytize_virus(&mut self, target: crate::virology::Virion) {
-        // 1. Adhérence : L'agent s'est accroché à la cible
-        // 2. Ingestion : La cible est enfermée dans une poche gastrique (Phagosome)
+        // OPSONISATION : Si le virus est recouvert d'anticorps, le phagocyte a un boost massif d'appétit
+        if target.is_opsonized {
+            self.mitochondria.atp_budget = self.mitochondria.atp_budget.saturating_add(20);
+        }
+        // 1. Adhérence & 2. Ingestion : La cible est enfermée dans une poche gastrique (Phagosome)
         self.lysosomes.phagosomes.push(target.genome);
     }
     
@@ -185,6 +199,26 @@ impl AgentCell {
         self.lysosomes.phagosomes.push(target.nucleus.genome.chromosome_maternal.clone());
         // La bactérie cible est engloutie et détruite sur-le-champ
         target.mitochondria.atp_budget = 0; 
+    }
+
+    /// IMMUNITÉ ADAPTATIVE : Différenciation des Lymphocytes B en Plasmocytes
+    pub fn differentiate_into_plasmocyte(&mut self, target_spike: &str) {
+        // Le cytoplasme et l'usine (ER) gonflent pour une production massive
+        self.endoplasmic_reticulum.active_ribosomes_count = 1_000_000;
+        // Production immédiate et massive d'anticorps dans le Golgi
+        for _ in 0..2000 {
+            self.golgi_apparatus.produced_antibodies.push(Antibody {
+                target_antigen: target_spike.to_string(),
+            });
+        }
+    }
+
+    /// IMMUNITÉ ADAPTATIVE : Différenciation en Cellule Mémoire
+    pub fn differentiate_into_memory_b_cell(&mut self, target_spike: &str) {
+        // Longévité extrême (Baisse drastique du métabolisme pour survivre des années)
+        self.mitochondria.metabolic_rate = 0.1; 
+        // Sauvegarde de la forme géométrique de l'ennemi dans la mémoire sémantique
+        self.cytoplasm.cognition.semantic_memory.push(format!("KNOWN_ANTIGEN_{}", target_spike));
     }
 
     pub fn mitosis(self) -> Result<(AgentCell, AgentCell), String> {

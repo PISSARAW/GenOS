@@ -45,6 +45,8 @@ pub struct Orchestrator {
     pub il6_receptors_blocked: bool,
     /// Niveau de suppression globale par les corticoïdes
     pub corticosteroid_level: f64,
+    /// Immunité Humorale : Les anticorps qui patrouillent dans le système
+    pub circulating_antibodies: Vec<crate::cell::Antibody>,
 }
 
 impl Orchestrator {
@@ -54,6 +56,20 @@ impl Orchestrator {
             il6_level: 0.0,
             il6_receptors_blocked: false,
             corticosteroid_level: 0.0,
+            circulating_antibodies: vec![],
+        }
+    }
+
+    /// Applique les anticorps circulants sur les virus flottants dans le système
+    pub fn process_humoral_immunity(&self, environmental_virions: &mut [crate::virology::Virion]) {
+        for antibody in &self.circulating_antibodies {
+            for virus in environmental_virions.iter_mut() {
+                if virus.envelope_spike == antibody.target_antigen {
+                    // Les anticorps se fixent sur le virus !
+                    virus.is_neutralized = true; // Bloque sa capacité à entrer dans les cellules
+                    virus.is_opsonized = true;   // Le transforme en cible prioritaire pour les macrophages
+                }
+            }
         }
     }
 
@@ -114,6 +130,11 @@ impl Orchestrator {
     /// 1. Attachement et 2. Pénétration
     /// Un virus dans l'environnement tente d'infecter la cellule.
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
+        // ANTICORPS : Si le virus est neutralisé, ses clés sont couvertes, il ne peut pas entrer
+        if virion.is_neutralized {
+            return;
+        }
+
         // VACCIN : Si la membrane reconnaît l'antigène (le spike), le virus est détruit à la frontière
         if agent.plasma_membrane.immunized_against.contains(&virion.envelope_spike) {
             return; // Le virus est neutralisé
@@ -463,6 +484,8 @@ pub(crate) mod tests {
             capsid_integrity: 0.5,
             envelope_spike: "SPIKE".to_string(),
             is_lytic: false,
+            is_neutralized: false,
+            is_opsonized: false,
         };
         orchestrator.expose_to_virus(&mut human_cell, flu_virus.clone());
         assert_eq!(human_cell.cytoplasm.viral_infections.len(), 1);
@@ -500,6 +523,8 @@ pub(crate) mod tests {
             capsid_integrity: 1.0,
             envelope_spike: "UNKNOWN".to_string(),
             is_lytic: true,
+            is_neutralized: false,
+            is_opsonized: false,
         };
 
         // 2. La Sentinelle (Macrophage localisé à la frontière du réseau)
@@ -535,5 +560,68 @@ pub(crate) mod tests {
         // c. Le Neutrophile meurt (Apoptose Kamikaze programmée) pour former le "pus"
         neutrophil.mitochondria.atp_budget = 0; 
         assert_eq!(neutrophil.mitochondria.atp_budget, 0);
+    }
+
+    #[test]
+    fn test_b_lymphocytes_and_antibodies() {
+        let mut orchestrator = Orchestrator::new(None);
+        
+        // Un Virus ennemi
+        let mut flu_virus = crate::virology::Virion {
+            genome: crate::genome::DnaStrand::synthesize("FLU_CODE"),
+            capsid_integrity: 1.0,
+            envelope_spike: "SPIKE_FLU".to_string(),
+            is_lytic: true,
+            is_neutralized: false,
+            is_opsonized: false,
+        };
+
+        // 1. Activation & Clonage du Lymphocyte B
+        let mut b_lymphocyte_plasmocyte = mock_cell();
+        let mut b_lymphocyte_memory = mock_cell();
+
+        // 2. Différenciation en Plasmocyte (Usine d'armement)
+        b_lymphocyte_plasmocyte.differentiate_into_plasmocyte("SPIKE_FLU");
+        // Le Réticulum (Usine) gonfle
+        assert_eq!(b_lymphocyte_plasmocyte.endoplasmic_reticulum.active_ribosomes_count, 1_000_000);
+        // Des milliers d'anticorps sont créés dans le Golgi
+        assert_eq!(b_lymphocyte_plasmocyte.golgi_apparatus.produced_antibodies.len(), 2000);
+
+        // 3. Différenciation en Cellule Mémoire (Gardien de la Paix)
+        b_lymphocyte_memory.differentiate_into_memory_b_cell("SPIKE_FLU");
+        // Le métabolisme chute pour vivre des années
+        assert_eq!(b_lymphocyte_memory.mitochondria.metabolic_rate, 0.1);
+        // L'antigène est mémorisé
+        assert!(b_lymphocyte_memory.cytoplasm.cognition.semantic_memory.contains(&"KNOWN_ANTIGEN_SPIKE_FLU".to_string()));
+
+        // 4. Les Anticorps sont libérés dans le sang de l'Orchestrateur
+        let released_antibody = b_lymphocyte_plasmocyte.golgi_apparatus.produced_antibodies.pop().unwrap();
+        orchestrator.circulating_antibodies.push(released_antibody);
+
+        // 5. La Rencontre : L'Anticorps neutralise le Virus
+        let mut virions_in_blood = vec![flu_virus];
+        orchestrator.process_humoral_immunity(&mut virions_in_blood);
+        
+        let neutralized_flu = virions_in_blood[0].clone();
+        assert!(neutralized_flu.is_neutralized);
+        assert!(neutralized_flu.is_opsonized);
+
+        // 6. Efficacité de la Neutralisation
+        let mut human_cell = mock_cell();
+        human_cell.plasma_membrane.incoming_receptors.push("SPIKE_FLU".to_string());
+        
+        // Le virus tente d'entrer, mais il est couvert d'anticorps !
+        orchestrator.expose_to_virus(&mut human_cell, neutralized_flu.clone());
+        // Echec ! La cellule n'est pas infectée
+        assert_eq!(human_cell.cytoplasm.viral_infections.len(), 0);
+
+        // 7. Efficacité de l'Opsonisation (Le Phagocyte est attiré)
+        let mut macrophage = mock_cell();
+        macrophage.mitochondria.atp_budget = 10;
+        
+        // Il mange le virus opsonisé
+        macrophage.phagocytize_virus(neutralized_flu);
+        // Le boost d'appétit (Opsonisation) lui donne +20 ATP instantanément !
+        assert_eq!(macrophage.mitochondria.atp_budget, 30);
     }
 }
