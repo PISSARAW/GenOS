@@ -255,6 +255,25 @@ pub struct Gene {
     pub dna: DnaStrand,
     pub is_methylated: bool,
     pub expression_volume: f64,
+    // --- NOUVEAU : Régulation Cellulaire ---
+    pub required_activator: Option<String>,
+    pub bound_repressor: Option<String>,
+    pub default_exons: Vec<(usize, usize)>,
+}
+
+pub struct Spliceosome;
+impl Spliceosome {
+    /// Épissage Alternatif : Découpe l'ARN pré-messager pour ne garder que les Exons
+    pub fn splice(pre_mrna: &RnaStrand, exons: &[(usize, usize)]) -> RnaStrand {
+        let mut mature = Vec::new();
+        for &(start, end) in exons {
+            if start < pre_mrna.sequence.len() {
+                let end = std::cmp::min(end, pre_mrna.sequence.len());
+                mature.extend_from_slice(&pre_mrna.sequence[start..end]);
+            }
+        }
+        RnaStrand { sequence: mature }
+    }
 }
 
 impl Gene {
@@ -264,21 +283,59 @@ impl Gene {
             dna: DnaStrand::synthesize(instruction),
             is_methylated: false,
             expression_volume: 1.0,
+            required_activator: None,
+            bound_repressor: None,
+            default_exons: Vec::new(),
         }
     }
 
-    /// Processus complet : Transcription -> Traduction -> Repliement
-    /// Renvoie une Erreur si la protÃ©ine est dÃ©truite suite Ã  une mutation
-    pub fn express(&self) -> Result<String, String> {
-        let mrna = RnaPolymerase::transcribe(&self.dna);
-        let unfolded_protein = Ribosome::translate(&mrna);
+    /// Processus complet avec Régulation : Facteurs de Transcription -> Épissage -> microARN
+    pub fn express(
+        &self, 
+        active_tfs: &[String], 
+        alternative_splicing: Option<&[(usize, usize)]>,
+        micro_rnas: &[String]
+    ) -> Result<String, String> {
+        
+        // 1. Les "Doigts" (Facteurs de Transcription)
+        if let Some(repressor) = &self.bound_repressor {
+            if active_tfs.contains(repressor) {
+                return Err("OFF: Un Represseur bloque physiquement le gene.".to_string());
+            }
+        }
+        if let Some(activator) = &self.required_activator {
+            if !active_tfs.contains(activator) {
+                return Err("OFF: En attente de l'Activateur pour demarrer.".to_string());
+            }
+        }
+
+        // 2. Transcription (Photocopie)
+        let pre_mrna = RnaPolymerase::transcribe(&self.dna);
+
+        // 3. Le Montage (Épissage Alternatif)
+        let mature_mrna = if let Some(custom_exons) = alternative_splicing {
+            Spliceosome::splice(&pre_mrna, custom_exons)
+        } else if !self.default_exons.is_empty() {
+            Spliceosome::splice(&pre_mrna, &self.default_exons)
+        } else {
+            pre_mrna
+        };
+
+        // 4. Le bouton "Destruction" (Les microARN broyeurs de papier)
+        if micro_rnas.contains(&self.locus) {
+            return Err("DETRUIT: Un micro-ARN a broye l'ARN messager avant traduction.".to_string());
+        }
+
+        // 5. Traduction finale
+        let unfolded_protein = Ribosome::translate(&mature_mrna);
         unfolded_protein.fold()
     }
+
 
     /// Enzyme de rÃ©paration (p53) : Patrouille l'ADN et dÃ©tecte les erreurs graves (Frameshift/Nonsense)
     /// Renvoie `true` si le gÃ¨ne est sain, `false` s'il est gravement mutÃ©.
     pub fn p53_repair_check(&self) -> bool {
-        self.express().is_ok()
+        self.express(&[], None, &[]).is_ok()
     }
 }
 
@@ -333,7 +390,7 @@ mod tests {
     #[test]
     fn test_central_dogma_of_biology() {
         let gene = Gene::new("test", "GenOS V2 is alive!");
-        let protein_output = gene.express().unwrap();
+        let protein_output = gene.express(&[], None, &[]).unwrap();
         assert_eq!(protein_output, "GenOS V2 is alive!");
         assert!(gene.p53_repair_check()); // p53 confirme que le gÃ¨ne est sain
     }
@@ -348,7 +405,7 @@ mod tests {
             .dna
             .expose_to_mutagen(Mutagen::IonizingRadiation(5));
 
-        let result = x_ray_gene.express();
+        let result = x_ray_gene.express(&[], None, &[]);
         assert!(result.is_err());
         assert!(!x_ray_gene.p53_repair_check()); // p53 dÃ©tecte la mutation fatale
 
@@ -358,7 +415,7 @@ mod tests {
             .dna
             .expose_to_mutagen(Mutagen::ReplicationError(2, DnaNucleotide::C));
 
-        let result = rep_error_gene.express();
+        let result = rep_error_gene.express(&[], None, &[]);
         // Si Ã§a ne casse pas la structure, p53 laisse passer (mutation silencieuse/lÃ©gÃ¨re)
         assert!(result.is_ok() || result.unwrap_err().contains("NonsenseMutation"));
 
@@ -367,7 +424,36 @@ mod tests {
         chem_gene
             .dna
             .expose_to_mutagen(Mutagen::Chemical(5, DnaNucleotide::A));
-        assert!(chem_gene.express().is_err()); // Le dÃ©codage Base64 ou UTF-8 va crasher
+        assert!(chem_gene.express(&[], None, &[]).is_err()); // Le dÃ©codage Base64 ou UTF-8 va crasher
+    }
+    #[test]
+    fn test_cellular_regulation_mechanisms() {
+        let mut gene = Gene::new("MUSCLE_CONTRACTION", "CONTRACT_NOWRELAX_NOW!!!");
+        
+        // 1. Facteur de Transcription (Activateur requis)
+        gene.required_activator = Some("FIGHT_FLIGHT_TF".to_string());
+        
+        // Sans l'activateur, ça échoue
+        assert!(gene.express(&[], None, &[]).is_err());
+        
+        // Avec l'activateur, ça passe !
+        assert!(gene.express(&["FIGHT_FLIGHT_TF".to_string()], None, &[]).is_ok());
+
+        // 2. Épissage Alternatif
+        // On coupe l'ARN en deux morceaux (exons)
+        gene.required_activator = None; // reset
+        let pre_spliced = gene.express(&[], None, &[]).unwrap();
+        
+        // Si on donne des exons spécifiques [0..3]
+        let alt_splicing = [(0, 48)];
+        let spliced = gene.express(&[], Some(&alt_splicing), &[]).unwrap();
+        assert_ne!(pre_spliced, spliced); // Le phénotype moléculaire a changé !
+
+        // 3. Le bouton Destruction (microARN)
+        // La photocopie est détruite avant traduction
+        let result = gene.express(&[], None, &["MUSCLE_CONTRACTION".to_string()]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("DETRUIT"));
     }
 }
 

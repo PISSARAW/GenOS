@@ -81,7 +81,7 @@ impl Phenotype {
                 continue;
             }
             
-            if let Ok(protein) = gene.express() {
+            if let Ok(protein) = gene.express(&[], None, &[]) {
                 expressed_proteins.push((protein, gene.expression_volume));
             }
         }

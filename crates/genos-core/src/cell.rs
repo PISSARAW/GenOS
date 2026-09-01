@@ -44,6 +44,7 @@ impl Default for AgentCell {
             nucleus: Nucleus {
                 genome: Genome::new("Default DNA"),
                 ploidy: 2,
+            transcription_factors: Vec::new(),
             },
             mitochondria: Mitochondria {
                 atp_budget: 10,
@@ -68,6 +69,7 @@ impl Default for AgentCell {
                 cognition: CognitiveState::default(),
                 trace: ActionTrace::default(),
                 active_plasmids: vec![],
+                micro_rnas: vec![],
                 viral_infections: vec![],
             },
             surface_antibodies: vec![],
@@ -105,6 +107,7 @@ pub struct PlasmaMembrane {
 pub struct Nucleus {
     pub genome: Genome,
     pub ploidy: u32,
+    pub transcription_factors: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -164,6 +167,7 @@ pub struct Cytoplasm {
     pub cognition: CognitiveState,
     pub trace: ActionTrace,
     pub active_plasmids: Vec<Plasmid>,
+    pub micro_rnas: Vec<String>,
     /// PÃƒÂ©nÃƒÂ©tration : Les virus qui ont infiltrÃƒÂ© la cellule et piratent ses ribosomes
     pub viral_infections: Vec<crate::virology::Virion>,
 }
@@ -653,5 +657,6 @@ mod tests {
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
 
 
