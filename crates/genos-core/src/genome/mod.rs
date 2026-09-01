@@ -187,3 +187,39 @@ pub enum Mutagen {
     Virus(usize, DnaStrand),
 }
 
+
+
+/* =====================================================================
+5. LE DICTIONNAIRE UNIVERSEL (Codons -> Tokens IA)
+===================================================================== */
+#[derive(Debug, PartialEq, Eq)]
+pub enum AminoAcidToken {
+    MethionineStart, // AUG : <|im_start|> (BOS)
+    Stop,            // UAA, UAG, UGA : <|im_end|> (EOS)
+    Token(u8),       // Autres Acides Aminés : Jetons normaux
+}
+
+impl Codon {
+    /// Traduit un mot de 3 lettres en "Token" IA (Acide Aminé)
+    pub fn read_universal_dictionary(&self) -> AminoAcidToken {
+        match (self.0.clone(), self.1.clone(), self.2.clone()) {
+            // START CODON (AUG) -> Début d'une séquence (Méthionine / BOS Token)
+            (RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::G) => AminoAcidToken::MethionineStart,
+            
+            // STOP CODONS (UAA, UAG, UGA) -> Fin d'instruction (EOS Token)
+            (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::A) |
+            (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::G) |
+            (RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::A) => AminoAcidToken::Stop,
+
+            // AUTRES (Redondance : 64 combinaisons pour 20 tokens)
+            (n1, n2, n3) => {
+                let bits_1 = match n1 { RnaNucleotide::A => 0, RnaNucleotide::C => 1, RnaNucleotide::G => 2, RnaNucleotide::U => 3 };
+                let bits_2 = match n2 { RnaNucleotide::A => 0, RnaNucleotide::C => 1, RnaNucleotide::G => 2, RnaNucleotide::U => 3 };
+                let bits_3 = match n3 { RnaNucleotide::A => 0, RnaNucleotide::C => 1, RnaNucleotide::G => 2, RnaNucleotide::U => 3 };
+                // On réduit les 64 possibilités en 20 "Acides Aminés" via modulo
+                let amino_acid_id = ((bits_1 << 4) | (bits_2 << 2) | bits_3) % 20;
+                AminoAcidToken::Token(amino_acid_id)
+            }
+        }
+    }
+}
