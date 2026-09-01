@@ -10,19 +10,17 @@ use std::env;
 pub struct Thalamus {
     pub default_url: String,
     pub default_key: String,
-    pub routes: HashMap<String, String>, // ex: "logic" -> "llama3", "fast" -> "phi3"
+    pub routes: HashMap<String, String>,
 }
 
 impl Default for Thalamus {
     fn default() -> Self {
         let mut routes = HashMap::new();
-        // Fallback local models 
         routes.insert("logic".to_string(), env::var("GENOS_MODEL_LOGIC").unwrap_or_else(|_| "llama3".to_string()));
         routes.insert("fast".to_string(), env::var("GENOS_MODEL_FAST").unwrap_or_else(|_| "phi3".to_string()));
         routes.insert("heavy".to_string(), env::var("GENOS_MODEL_HEAVY").unwrap_or_else(|_| "gpt-4o".to_string()));
 
         Self {
-            // Vise en priorité un proxy local style Ollama ou LMStudio
             default_url: env::var("GENOS_LLM_API_URL").unwrap_or_else(|_| "http://localhost:11434/v1/chat/completions".to_string()),
             default_key: env::var("GENOS_LLM_API_KEY").unwrap_or_else(|_| "local-no-key".to_string()),
             routes,
@@ -32,8 +30,8 @@ impl Default for Thalamus {
 
 impl Thalamus {
     /// 🔬 Chimiotaxie : Scan l'environnement pour auto-détecter les modèles Ollama installés.
+    /// Utilise la "Masse Moléculaire" (parameter_size) pour trier les modèles.
     pub async fn environmental_scan(&mut self) {
-        // Ne scanne que si nous visons une API locale (Ollama par défaut sur 11434)
         if !self.default_url.contains("localhost") && !self.default_url.contains("127.0.0.1") {
             return;
         }
@@ -49,32 +47,49 @@ impl Thalamus {
                     let mut found_heavy = None;
 
                     for model in models {
-                        if let Some(name) = model.get("name").and_then(|n| n.as_str()) {
-                            let name_lower = name.to_lowercase();
-                            // Détection heuristique
-                            if name_lower.contains("phi") || name_lower.contains("qwen") || name_lower.contains("gemma") {
-                                if found_fast.is_none() { found_fast = Some(name.to_string()); }
-                            } else if name_lower.contains("mixtral") || name_lower.contains("command") || name_lower.contains("70b") {
-                                if found_heavy.is_none() { found_heavy = Some(name.to_string()); }
-                            } else if name_lower.contains("llama") || name_lower.contains("coder") || name_lower.contains("deepseek") || name_lower.contains("mistral") {
-                                if found_logic.is_none() { found_logic = Some(name.to_string()); }
+                        let name = model.get("name").and_then(|n| n.as_str()).unwrap_or_default();
+                        let size_str = model.get("details")
+                                            .and_then(|d| d.get("parameter_size"))
+                                            .and_then(|s| s.as_str())
+                                            .unwrap_or_default()
+                                            .to_uppercase();
+
+                        // Extraction de la masse (en Milliards de paramètres)
+                        let mut size_in_b = 8.0; // Poids moyen par défaut si inconnu
+                        if size_str.ends_with('B') {
+                            if let Ok(val) = size_str[..size_str.len()-1].parse::<f32>() {
+                                size_in_b = val;
                             }
+                        } else if size_str.ends_with('M') {
+                            if let Ok(val) = size_str[..size_str.len()-1].parse::<f32>() {
+                                size_in_b = val / 1000.0;
+                            }
+                        }
+
+                        // Tri par spectrométrie de masse (Taille des paramètres)
+                        if size_in_b < 4.0 {
+                            // Poids plume (< 4B) -> Fast (ex: qwen:0.5b, phi3:3.8b)
+                            if found_fast.is_none() { found_fast = Some(name.to_string()); }
+                        } else if size_in_b >= 4.0 && size_in_b < 30.0 {
+                            // Poids moyen (4B à 30B) -> Logic (ex: llama3:8b, mistral:7b, qwen:14b)
+                            if found_logic.is_none() { found_logic = Some(name.to_string()); }
+                        } else {
+                            // Poids lourd (>= 30B) -> Heavy (ex: command-r:35b, qwen:72b, llama3:70b)
+                            if found_heavy.is_none() { found_heavy = Some(name.to_string()); }
                         }
                     }
 
-                    // Mise à jour de l'ADN de routage avec ce qui a été trouvé dans l'environnement
                     if let Some(fast) = found_fast { self.routes.insert("fast".to_string(), fast); }
                     if let Some(logic) = found_logic { self.routes.insert("logic".to_string(), logic); }
                     if let Some(heavy) = found_heavy { self.routes.insert("heavy".to_string(), heavy); }
                     
-                    println!("📡 [Sensing Environnemental] Modèles détectés et mappés -> Rapide: {:?}, Logique: {:?}, Lourd: {:?}", 
+                    println!("📡 [Spectrométrie de Masse] Modèles classés -> Rapide (<4B): {:?}, Logique (4-30B): {:?}, Lourd (>30B): {:?}", 
                         self.routes.get("fast"), self.routes.get("logic"), self.routes.get("heavy"));
                 }
             }
         }
     }
 
-    /// Analyse la complexité de l'ActionTrace (Mémoire) pour router vers le bon modèle
     pub fn route(&self, memory: &[ChatMessage]) -> String {
         let total_length: usize = memory.iter().map(|m| m.content.len()).sum();
         let requires_logic = memory.iter().any(|m| m.content.contains("code") || m.content.contains("logic") || m.content.contains("fn ") || m.content.contains("bug"));
@@ -109,9 +124,7 @@ impl Ribosome {
         Self::default()
     }
 
-    /// Transcrit l'ARN en protéine via le modèle sélectionné par le Thalamus
     pub async fn translate(&mut self, memory: &[ChatMessage]) -> Result<String, String> {
-        // Auto-détection (Chimiotaxie) lors de la première utilisation
         if !self.env_scanned {
             self.thalamus.environmental_scan().await;
             self.env_scanned = true;
