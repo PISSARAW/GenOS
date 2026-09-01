@@ -1,4 +1,4 @@
-pub mod organelles;
+﻿pub mod organelles;
 pub mod methods;
 pub mod substructs;
 #[cfg(test)]
@@ -69,6 +69,7 @@ impl Default for AgentCell {
                 mitochondrial_dna: crate::genome::DnaStrand::synthesize("CIRCULAR_MTDNA"),
                 is_double_membraned: true,
             },
+            redundancy: crate::redundancy::RedundancySystem::new(),
             chloroplast: None,
             endoplasmic_reticulum: EndoplasmicReticulum {
                 active_ribosomes_count: 0,
