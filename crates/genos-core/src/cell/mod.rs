@@ -1,6 +1,7 @@
 ﻿pub mod organelles;
 pub mod methods;
 pub mod specialization;
+pub mod builder;
 pub mod phagocytosis;
 pub mod substructs;
 pub mod ribosome;
@@ -31,6 +32,7 @@ pub use substructs::*;
 pub use ribosome::*;
 pub use hippocampus::*;
 pub use specialization::*;
+pub use builder::*;
 
 pub use crate::genome::{Genome, Plasmid};
 use serde::{Deserialize, Serialize};
