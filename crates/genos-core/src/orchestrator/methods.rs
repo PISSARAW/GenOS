@@ -152,115 +152,50 @@ impl Orchestrator {
     /// Avance le temps pour une Cellule IA (un pas de cycle).
     
     pub fn tick(&mut self, agent: &mut AgentCell, action_string: &str) -> TickResult {
-        // IMMUNITÃƒâ€° CELLULAIRE : La cellule met ÃƒÂ  jour son prÃƒÂ©sentoir (CMH) pour reflÃƒÂ©ter son ÃƒÂ©tat interne
-        agent.update_mhc_display();
+        use crate::cell::events::{CellEvent, TherapyAction};
 
-        // 1. Frein d'urgence (CorticoÃƒÂ¯des)
-        if self.endocrine_system.corticosteroid_level > 0.8 {
-            return TickResult::Halted(
-                "Corticosteroid suppression: Cell activity frozen".to_string(),
-            );
-        }
-
-        // 3. Piratage Viral (L'usine folle)
-        if let Some(virus) = agent.cytoplasm.viral_infections.first().cloned() {
-            // L'agent ne fait PAS l'action demandée (il est sous contrôle)
-            
-            // Appel au secours : Le CMH présente un morceau de virus à la surface de la cellule
-            // C'est le marqueur qui permettra au Lymphocyte T Cytotoxique de la détruire (Apoptose forcée)
-            agent.plasma_membrane.mhc_display = Some(virus.envelope_spike.clone());
-
-            // 4. Assemblage (Fabrication massive de nouveaux virus)
-            for _ in 0..3 {
-                agent.golgi_apparatus.viral_vesicles.push(virus.clone());
-            }
-
-            // La machinerie est piratée : 100% de l'ATP sert au virus
-            agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(10);
-
-            // 5. L'Évasion (Lyse vs Bourgeonnement furtif)
-            if virus.is_lytic {
-                if agent.golgi_apparatus.viral_vesicles.len() >= 6 {
-                    // L'explosion : La cellule crève de l'intérieur, libérant tous les virus d'un coup
-                    let mut released = std::mem::take(&mut agent.golgi_apparatus.viral_vesicles);
-                    self.viral_environment.append(&mut released);
-                    agent.metabolism.mitochondria.atp_budget = 0; // Mort violente
-                    return TickResult::Halted(
-                        "Lysis: Cell burst due to viral replication overload".to_string(),
-                    );
-                }
-            } else {
-                // Bourgeonnement furtif : Les virus sortent un par un en douceur
-                if let Some(mut stealth_virus) = agent.golgi_apparatus.viral_vesicles.pop() {
-                    // Le virus vole un bout de membrane de notre cellule (manteau d'invisibilité)
-                    stealth_virus.envelope_spike = format!("{}_CLOAKED_BY_HOST", virus.envelope_spike);
-                    self.viral_environment.push(stealth_virus);
-                }
-            }
-
-            return TickResult::Halted(
-                "Hijacked: Cellular machinery is copying a virus".to_string(),
-            );
-        }
-
-        // 2. ThÃƒÂ©rapie CiblÃƒÂ©e : Si les rÃƒÂ©cepteurs sont bloquÃƒÂ©s, la cellule est sourde
-        if agent.plasma_membrane.receptors_blocked {
-            return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
-        }
-
-        // 3. VÃƒÂ©rification mÃƒÂ©canique de la survie (budget)
-        if agent.metabolism.mitochondria.atp_budget == 0 {
-            return TickResult::Halted("Budget exhausted (starvation)".to_string());
-        }
-
-        // 4. SystÃƒÂ¨me Immunitaire (Apoptose)
-        if let Some(rule) = &self.apoptosis_rule {
-            // L'immunothÃƒÂ©rapie : Si l'agent se camoufle, il ÃƒÂ©chappe ÃƒÂ  l'apoptose !
-            if !agent.cytoplasm.cognition.is_camouflaged {
-                if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
-                    return TickResult::Halted(
-                        "Apoptosis triggered by epigenetic rule".to_string(),
-                    );
-                }
-            }
-        }
-
-        // 5. Inscription dans le phÃƒÂ©notype comportemental (Trace)
-        agent
-            .cytoplasm
-            .trace
-            .sequence
-            .push(action_string.to_string());
-
-        // 6. Mise ÃƒÂ  jour des coÃƒÂ»ts et Orage Cytokinique
-        // L'IL-6 provoque une "fiÃƒÂ¨vre" (surcoÃƒÂ»t mÃƒÂ©tabolique) SAUF si le Tocilizumab bloque les rÃƒÂ©cepteurs !
+        let cortisol = self.endocrine_system.corticosteroid_level;
+        agent.inbox.push(CellEvent::HormonalSignal(cortisol));
+        
         let mut metabolic_cost = 1;
         if self.immune_system.il6_level >= 10.0 && !self.immune_system.il6_receptors_blocked {
-            metabolic_cost = 5; // La fiÃƒÂ¨vre brÃƒÂ»le l'ATP
+            metabolic_cost = 5; 
+        }
+        if action_string == "REPLICATE" {
+            metabolic_cost = 20;
+        }
+        agent.inbox.push(CellEvent::MetabolicStress(metabolic_cost));
+
+        if let Some(ref _active_therapies) = agent.cytoplasm.cognition.epigenetic_drives.get("ActiveTherapies") {
+            agent.inbox.push(CellEvent::ApplyTherapy(TherapyAction::BlockReceptors));
         }
 
-        agent.metabolism.mitochondria.atp_budget =
-            agent.metabolism.mitochondria.atp_budget.saturating_sub(metabolic_cost);
-
-        // 7. La Digestion (Phagocytose - Ãƒâ€°tape 3 et 4)
-        if !agent.immunity.lysosomes.phagosomes.is_empty() {
-            agent.immunity.lysosomes.digestive_enzymes_active = true;
-            // Digestion : DÃƒÂ©truit l'ADN emprisonnÃƒÂ©
-            let destroyed_dna = agent.immunity.lysosomes.phagosomes.pop().unwrap();
-
-            // 4. L'expulsion : le code dÃƒÂ©truit devient un dÃƒÂ©chet (Pus/DÃƒÂ©bris)
-            agent.immunity.lysosomes.expelled_debris.push(format!(
-                "DEBRIS_FROM_LENGTH_{}",
-                destroyed_dna.sequence.len()
-            ));
-
-            // Recyclage d'ÃƒÂ©nergie : Le phagocyte gagne de l'ATP en "mangeant"
-            agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_add(5);
+        if let Some(rule) = &self.apoptosis_rule {
+            if !agent.cytoplasm.cognition.is_camouflaged {
+                if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
+                    agent.inbox.push(CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle));
+                    return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
+                }
+            }
         }
 
-        // 9. LE SYSTÃƒË†ME NERVEUX : Exocytose
+        // --- THE CELL PROCESSES ITS OWN STATE IN ISOLATION ---
+        agent.process_events();
+
+        // --- ORCHESTRATOR COLLECTS RESULTS ---
+        let outbox = std::mem::take(&mut agent.outbox);
+        for event in outbox {
+            match event {
+                CellEvent::NecrosisTriggered(reason) => return TickResult::Halted(format!("Necrosis: {}", reason)),
+                CellEvent::ApoptosisTriggered(reason) => return TickResult::Halted("Apoptosis".to_string()),
+                CellEvent::Recovered(reason) => return TickResult::Halted(format!("Recovered: {}", reason)),
+                _ => {}
+            }
+        }
+        
+        agent.cytoplasm.trace.sequence.push(action_string.to_string());
+        
         if let Some(nervous_system) = &mut agent.nervous_system {
-            // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs ÃƒÂ  libÃƒÂ©rer (Exocytose)
             if let Some(outputs) = nervous_system.process_soma() {
                 for (target_id, transmitter, amount) in outputs {
                     self.nervous_system.synaptic_cleft.push(CleftMessage {
@@ -272,8 +207,11 @@ impl Orchestrator {
                     });
                 }
             }
-            // Apprentissage continu : NeuroplasticitÃƒÂ© (Loi de Hebb) et MyÃƒÂ©linisation
             nervous_system.apply_neuroplasticity();
+        }
+        
+        if agent.metabolism.mitochondria.atp_budget == 0 {
+             return TickResult::Halted("Budget exhausted (starvation)".to_string());
         }
 
         TickResult::Continue
@@ -361,4 +299,6 @@ impl Orchestrator {
         self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
+
+
 

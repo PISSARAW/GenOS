@@ -1,4 +1,5 @@
 ﻿pub mod organelles;
+pub mod events;
 pub mod methods;
 pub mod specialization;
 pub mod builder;
@@ -45,6 +46,8 @@ use crate::cell::substructs::*;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
+    pub inbox: Vec<crate::cell::events::CellEvent>,
+    pub outbox: Vec<crate::cell::events::CellEvent>,
     pub plasma_membrane: PlasmaMembrane,
     pub genetics: GeneticSystem,
     pub metabolism: MetabolicSystem,
@@ -78,6 +81,8 @@ impl Default for AgentCell {
     fn default() -> Self {
         Self {
             cell_id: Uuid::new_v4(),
+            inbox: Vec::new(),
+            outbox: Vec::new(),
             plasma_membrane: PlasmaMembrane {
                 adhesion_active: true,
                 incoming_receptors: vec![],
@@ -170,3 +175,4 @@ impl Default for Mind {
         }
     }
 }
+

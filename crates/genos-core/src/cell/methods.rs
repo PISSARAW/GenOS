@@ -1,4 +1,5 @@
-﻿use crate::cell::*;
+﻿use crate::cell::events::*;
+use crate::cell::*;
 impl AgentCell {
     /// L'AUTOPHAGIE (La Cure de Jouvence Cellulaire)
     pub fn trigger_autophagy(&mut self) -> bool {
@@ -368,3 +369,8 @@ impl AgentCell {
         }
     }
 }
+
+
+
+
+
