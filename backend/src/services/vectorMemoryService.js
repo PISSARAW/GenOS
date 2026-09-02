@@ -159,8 +159,23 @@ async function searchMemory(query = '', options = {}, db = null) {
     // Plasticity (synaptic weight)
     const weight = item.synaptic_weight !== undefined ? item.synaptic_weight : 1.0;
     
-    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + lexicalMatch)).toFixed(4));
-    let finalScore = hybridScore * weight;
+    // 1. Vigilance Épistémique (Source Monitoring)
+    let credibilityMultiplier = 1.0;
+    const authorLower = (item.author || '').toLowerCase();
+    if (authorLower === 'memory_seed' || authorLower === 'system') {
+      credibilityMultiplier = 1.2; // Savoir inné (Incontestable)
+    } else if (authorLower === 'user' || authorLower === 'human') {
+      credibilityMultiplier = 0.8; // Déclaratif externe (Gaslighting potentiel)
+    }
+
+    // 2. Instinct de Survie (Priority to Solutions over Traumas)
+    let survivalBonus = 0.0;
+    if (item.status === 'SUCCESS') {
+      survivalBonus = 0.15; // Garantit que la solution remonte face à l'échec
+    }
+
+    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + lexicalMatch + survivalBonus)).toFixed(4));
+    let finalScore = hybridScore * weight * credibilityMultiplier;
 
     // Neuromodulation
     const hormone = options.hormone || 'normal';
