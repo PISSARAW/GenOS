@@ -147,22 +147,25 @@ async function searchMemory(query = '', options = {}, db = null) {
 
   const corpus = recordedExperiences.length > 0 ? recordedExperiences : SEED_EXPERIENCES;
 
-  // 4. Precompute IDF for the query words (Avoid O(N^2) complexity inside the map)
-  const queryLower = query.toLowerCase();
-  const rawWords = query.split(/[\s,.\(\)\[\]"']+/).filter(w => w.length > 1 && !['what', 'that', 'this', 'from', 'with', 'have', 'were', 'which', 'when', 'then', 'your'].includes(w.toLowerCase()));
-  const wordRarity = {};
+  // 4. Fetch FTS5 scores from DB
+  const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+  const ftsScores = {};
   
-  if (rawWords.length > 0) {
-      for (const w of rawWords) {
-          const lowerW = w.toLowerCase();
-          if (wordRarity[lowerW]) continue; // Already computed
-          let docCount = 0;
-          for (const doc of corpus) {
-              if ((doc.summary || '').toLowerCase().includes(lowerW) || (doc.title || '').toLowerCase().includes(lowerW)) {
-                  docCount++;
-              }
+  if (cleanQuery.length > 0) {
+      try {
+          const ftsMatch = cleanQuery.split(/\s+/).join(' OR ');
+          
+          const trajFts = await db.all(`SELECT id, -bm25(trajectories_fts) as score FROM trajectories_fts WHERE trajectories_fts MATCH ?`, [ftsMatch]);
+          for (const row of trajFts) {
+              ftsScores[row.id] = row.score;
           }
-          wordRarity[lowerW] = docCount > 0 ? (1.0 + Math.log(corpus.length / docCount)) : 1.0;
+          
+          const decFts = await db.all(`SELECT id, -bm25(genome_decisions_fts) as score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?`, [ftsMatch]);
+          for (const row of decFts) {
+              ftsScores[row.id] = row.score;
+          }
+      } catch (err) {
+          console.error("FTS5 Search Error:", err.message);
       }
   }
 
@@ -176,24 +179,10 @@ async function searchMemory(query = '', options = {}, db = null) {
     const lowerTitle = item.title.toLowerCase();
     const lowerSummary = item.summary.toLowerCase();
     
-    // 4. Score Hybride (Vecteur + BM25-like avec IDF dynamique)
-    let keywordScore = 0;
-    if (rawWords.length > 0) {
-        let matchWeight = 0;
-        let totalWeight = 0;
-        
-        rawWords.forEach(w => {
-            const lowerW = w.toLowerCase();
-            const rarityWeight = wordRarity[lowerW] || 1.0;
-            totalWeight += rarityWeight;
-            
-            // On vérifie si ce mot exact ou presque est dans CE souvenir
-            if (lowerSummary.includes(lowerW) || lowerTitle.includes(lowerW)) {
-                matchWeight += rarityWeight;
-            }
-        });
-        keywordScore = totalWeight > 0 ? (matchWeight / totalWeight) : 0;
-    }
+    // Application de l'IDF calculé par FTS5
+    // On normalise le score FTS5 (qui dépend de la DB)
+    const rawFtsScore = ftsScores[item.id] || 0;
+    const keywordScore = Math.min(1.0, rawFtsScore / 10.0);
     
     // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)
     const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 3 || /\d/.test(w));
@@ -238,7 +227,7 @@ async function searchMemory(query = '', options = {}, db = null) {
       survivalBonus = 0.15; // Garantit que la solution remonte face à l'échec
     }
 
-    hybridScore = Number((Math.min(1.0, hybridScore + tagMatch + survivalBonus)).toFixed(4));
+    hybridScore = Number((hybridScore + tagMatch + survivalBonus).toFixed(4));
     
     // 7. Neurogenèse Hippocampique (Bonus de jeunesse extrême)
     const ageMs = Date.now() - new Date(item.createdAt || 0).getTime();
