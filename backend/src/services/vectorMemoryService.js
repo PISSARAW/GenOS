@@ -88,26 +88,67 @@ async function searchMemory(query = '', options = {}, db = null) {
   const queryVec = (await embed(query)) || textToVector(query);
 
   if (!db) throw new Error('Database connection is required for memory search.');
-  const trajectories = await db.all('SELECT id, title, status, author_name, semantic_summary, diff_lines, embedding_blob, created_at FROM trajectories ORDER BY created_at DESC');
-  const decisions = await db.all('SELECT id, title, category, content, embedding_blob, created_by, created_at FROM genome_decisions ORDER BY created_at DESC');
   
+  // 1. Reciprocal Rank Fusion (RRF) : VSS + FTS5 100% in SQLite!
+  const queryVecJson = JSON.stringify(Array.from(queryVec));
+  const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
+  const ftsMatch = cleanQuery.length > 0 ? cleanQuery.split(/\s+/).join(' OR ') : 'nothing_will_match_this';
+
+  const trajectories = await db.all(`
+    WITH 
+      vector_raw AS (
+        SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 100
+      ),
+      vector_matches AS (
+        SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
+      ),
+      fts_raw AS (
+        SELECT rowid, -bm25(trajectories_fts) as f_score FROM trajectories_fts WHERE trajectories_fts MATCH ?
+      ),
+      fts_matches AS (
+        SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
+      )
+    SELECT t.id, t.title, t.status, t.author_name, t.semantic_summary, t.diff_lines, t.created_at, 
+           v.distance, f.f_score,
+           (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
+    FROM trajectories t
+    LEFT JOIN vector_matches v ON t.rowid = v.rowid
+    LEFT JOIN fts_matches f ON t.rowid = f.rowid
+    WHERE v.rowid IS NOT NULL OR f.rowid IS NOT NULL
+    ORDER BY rrf_score DESC LIMIT 100
+  `, [queryVecJson, ftsMatch]);
+
+  const decisions = await db.all(`
+    WITH 
+      vector_raw AS (
+        SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 100
+      ),
+      vector_matches AS (
+        SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
+      ),
+      fts_raw AS (
+        SELECT rowid, -bm25(genome_decisions_fts) as f_score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?
+      ),
+      fts_matches AS (
+        SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
+      )
+    SELECT t.id, t.title, t.category, t.content, t.created_by, t.created_at, t.synaptic_weight,
+           v.distance, f.f_score,
+           (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
+    FROM genome_decisions t
+    LEFT JOIN vector_matches v ON t.rowid = v.rowid
+    LEFT JOIN fts_matches f ON t.rowid = f.rowid
+    WHERE v.rowid IS NOT NULL OR f.rowid IS NOT NULL
+    ORDER BY rrf_score DESC LIMIT 100
+  `, [queryVecJson, ftsMatch]);
+
   const recordedExperiences = [];
   
   for (const item of trajectories) {
     let diffLines = [];
     try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
     const summary = item.semantic_summary || diffLines.map((line) => line.content || line.text || line).join(' ');
-    const textToEmbed = `${item.title} ${summary}`;
     
-    let itemVec = [];
-    if (item.embedding_blob) {
-      itemVec = Array.from(new Float32Array(item.embedding_blob.buffer, item.embedding_blob.byteOffset, item.embedding_blob.byteLength / 4));
-    } else {
-      itemVec = (await embed(textToEmbed)) || textToVector(textToEmbed);
-      const buffer = Buffer.from(new Float32Array(itemVec).buffer);
-      await db.run('UPDATE trajectories SET embedding_blob = ? WHERE id = ?', [buffer, item.id]);
-    }
-
     recordedExperiences.push({
       id: item.id,
       title: item.title,
@@ -117,21 +158,12 @@ async function searchMemory(query = '', options = {}, db = null) {
       tags: ['trajectory', item.status],
       author: item.author_name,
       createdAt: item.created_at,
-      vector: itemVec
+      distance: item.distance,
+      f_score: item.f_score
     });
   }
 
   for (const item of decisions) {
-    const textToEmbed = `${item.title} ${item.content} ${item.category}`;
-    let itemVec = [];
-    if (item.embedding_blob) {
-      itemVec = Array.from(new Float32Array(item.embedding_blob.buffer, item.embedding_blob.byteOffset, item.embedding_blob.byteLength / 4));
-    } else {
-      itemVec = (await embed(textToEmbed)) || textToVector(textToEmbed);
-      const buffer = Buffer.from(new Float32Array(itemVec).buffer);
-      await db.run('UPDATE genome_decisions SET embedding_blob = ? WHERE id = ?', [buffer, item.id]);
-    }
-
     recordedExperiences.push({
       id: item.id,
       title: item.title,
@@ -141,38 +173,24 @@ async function searchMemory(query = '', options = {}, db = null) {
       tags: ['genome', item.category],
       author: item.created_by,
       createdAt: item.created_at,
-      vector: itemVec
+      synaptic_weight: item.synaptic_weight,
+      distance: item.distance,
+      f_score: item.f_score
     });
   }
 
   const corpus = recordedExperiences.length > 0 ? recordedExperiences : SEED_EXPERIENCES;
 
-  // 4. Fetch FTS5 scores from DB
-  const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
-  const ftsScores = {};
-  
-  if (cleanQuery.length > 0) {
-      try {
-          const ftsMatch = cleanQuery.split(/\s+/).join(' OR ');
-          
-          const trajFts = await db.all(`SELECT id, -bm25(trajectories_fts) as score FROM trajectories_fts WHERE trajectories_fts MATCH ?`, [ftsMatch]);
-          for (const row of trajFts) {
-              ftsScores[row.id] = row.score;
-          }
-          
-          const decFts = await db.all(`SELECT id, -bm25(genome_decisions_fts) as score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?`, [ftsMatch]);
-          for (const row of decFts) {
-              ftsScores[row.id] = row.score;
-          }
-      } catch (err) {
-          console.error("FTS5 Search Error:", err.message);
-      }
-  }
-
   // Score each memory item
   const scoredItems = corpus.map(item => {
-    const itemVec = item.vector || textToVector(`${item.title} ${item.summary} ${item.tags.join(' ')}`);
-    const cosScore = cosine(queryVec, itemVec);
+    // Si c'est un item SEED, on calcule le vecteur. Sinon on utilise la distance ramenée en Cosinus.
+    let cosScore = 0;
+    if (item.distance !== undefined && item.distance !== null) {
+        cosScore = 1.0 - ((item.distance * item.distance) / 2.0); // Convertit la distance L2 en Cosinus
+    } else {
+        const itemVec = item.vector || textToVector(`${item.title} ${item.summary} ${item.tags.join(' ')}`);
+        cosScore = cosine(queryVec, itemVec);
+    }
 
     // 3. Amorçage Perceptif & Réseau de Saillance (Single-Hop Exact Match)
     const queryLower = query.toLowerCase();
@@ -180,8 +198,7 @@ async function searchMemory(query = '', options = {}, db = null) {
     const lowerSummary = item.summary.toLowerCase();
     
     // Application de l'IDF calculé par FTS5
-    // On normalise le score FTS5 (qui dépend de la DB)
-    const rawFtsScore = ftsScores[item.id] || 0;
+    const rawFtsScore = item.f_score || 0;
     const keywordScore = Math.min(1.0, rawFtsScore / 10.0);
     
     // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)

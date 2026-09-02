@@ -17,6 +17,8 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA busy_timeout = 5000;');
   await db.exec('PRAGMA synchronous = NORMAL;');
   await db.exec('PRAGMA foreign_keys = ON;');
+  await db.exec('PRAGMA mmap_size = 30000000000;'); // Memory-map up to 30GB of the DB file
+  await db.exec('PRAGMA temp_store = MEMORY;'); // Use RAM for temp tables and indices
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
   await applyVersionedMigrations(db);
