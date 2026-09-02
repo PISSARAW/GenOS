@@ -130,15 +130,34 @@ async function generateVesicle(req, res, next) {
     // Retrieve top 12 memories (Working Memory Expansion)
     const results = await vectorMemoryService.searchMemory(query, { limit: 12, hormone }, db);
     
+    // 1. RE-TRI CHRONOLOGIQUE (Hippocampe)
+    // Trier par pertinence détruit le lien de causalité pour le LLM. On réorganise chronologiquement (le plus ancien en haut).
+    const chronoSortedExperiences = [...results.allScoredExperiences].sort((a, b) => {
+        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return timeA - timeB;
+    });
+
     // Use allScoredExperiences (GraphRAG appends associative memories here)
-    const engrams = results.allScoredExperiences.map(r => {
+    const engrams = chronoSortedExperiences.map(r => {
       let text = r.summary || r.content || r.title;
       
       // Injection de l'horodatage biologique (Cellules de Grille Temporelle) et de l'identité (Speaker Attribution)
       const speaker = r.author && r.author.trim() !== '' ? r.author : 'Unknown';
       if (r.createdAt) {
-          const dateStr = new Date(r.createdAt).toISOString();
-          text = `[Timestamp: ${dateStr}] [Speaker: ${speaker}] ${text}`;
+          const date = new Date(r.createdAt);
+          const dateStr = date.toISOString();
+          
+          // Calcul du temps relatif (ancrage temporel pour le LLM)
+          const diffMs = Date.now() - date.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+          const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+          let relativeTime = "";
+          if (diffDays > 0) relativeTime = `Il y a ${diffDays} jours`;
+          else if (diffHours > 0) relativeTime = `Il y a ${diffHours} heures`;
+          else relativeTime = `Très récemment (Session en cours)`;
+          
+          text = `[Timestamp: ${dateStr} (${relativeTime})] [Speaker: ${speaker}] ${text}`;
       } else {
           text = `[Speaker: ${speaker}] ${text}`;
       }
