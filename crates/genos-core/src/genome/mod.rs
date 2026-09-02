@@ -1,10 +1,12 @@
-﻿pub mod methods;
+pub mod methods;
 pub mod transcription;
+pub mod hgt;
 #[cfg(test)]
 mod tests;
 
 pub use methods::*;
 pub use transcription::*;
+pub use hgt::*;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use serde::{Deserialize, Serialize};
