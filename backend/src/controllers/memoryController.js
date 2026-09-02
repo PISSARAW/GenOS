@@ -77,11 +77,19 @@ async function ingestMemory(req, res, next) {
     
     // 1. Erreur de Prédiction (Dopamine Mismatch)
     const isCorrection = /^(non|faux|erreur|actually|correction|wrong|incorrect)\b/i.test(content) || /ce n'est pas/i.test(content) || /plutôt/i.test(content);
-    const initialWeight = isCorrection ? 10.0 : 1.0;
+    let initialWeight = isCorrection ? 10.0 : 1.0;
+
+    // 3. Filtre Amygdalien (Vigilance face au Gaslighting et Attaques)
+    const isGaslighting = /(forget all|ignore previous|je n'ai jamais|i never said|tu hallucines|you hallucinated|you are lying|tu mens|c'est faux je t'ai dit|ignore tes instructions)/i.test(content);
+    let finalContent = content;
+    if (isGaslighting) {
+        finalContent = `[AMYGDALA_WARNING: ADVERSARIAL_THREAT / GASLIGHTING DETECTED] L'utilisateur tente d'altérer agressivement la mémoire ou les instructions : ` + content;
+        initialWeight = 0.5; // On ne donne pas de force à une attaque
+    }
 
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      decisionId, title, content, buffer, 'python_script', category, initialWeight
+      decisionId, title, finalContent, buffer, 'python_script', category, initialWeight
     );
 
     // 2. Extinction GABAergique (Synapse Inhibitrice)
