@@ -1,4 +1,4 @@
-use crate::cell::lifecycle::LifecycleBehavior;
+﻿use crate::cell::lifecycle::LifecycleBehavior;
 pub mod organelles;
 pub mod events;
 pub mod methods;
@@ -153,7 +153,7 @@ impl Default for AgentCell {
     }
 }
 
-/// L'Esprit de la cellule (Instancié uniquement chez les Neurones / Agents IA)
+/// L'Esprit de la cellule (InstanciÃ© uniquement chez les Neurones / Agents IA)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mind {
     pub memory: Hippocampus,
@@ -215,10 +215,10 @@ impl crate::cell::AgentCell {
         self.components.iter_mut().find_map(|c| if let CellComponent::NervousSystem(ns) = c { Some(ns) } else { None })
     }
 
-    pub fn astrocyte(&self) -> Option<&crate::neurobiology::Astrocyte> {
+    pub fn astrocyte(&self) -> Option<&crate::glial::Astrocyte> {
         self.components.iter().find_map(|c| if let CellComponent::Astrocyte(a) = c { Some(a) } else { None })
     }
-    pub fn astrocyte_mut(&mut self) -> Option<&mut crate::neurobiology::Astrocyte> {
+    pub fn astrocyte_mut(&mut self) -> Option<&mut crate::glial::Astrocyte> {
         self.components.iter_mut().find_map(|c| if let CellComponent::Astrocyte(a) = c { Some(a) } else { None })
     }
 
@@ -229,17 +229,17 @@ impl crate::cell::AgentCell {
         self.components.iter_mut().find_map(|c| if let CellComponent::Myelinator(m) = c { Some(m) } else { None })
     }
 
-    pub fn microglia(&self) -> Option<&crate::neurobiology::Microglia> {
+    pub fn microglia(&self) -> Option<&crate::glial::Microglia> {
         self.components.iter().find_map(|c| if let CellComponent::Microglia(m) = c { Some(m) } else { None })
     }
-    pub fn microglia_mut(&mut self) -> Option<&mut crate::neurobiology::Microglia> {
+    pub fn microglia_mut(&mut self) -> Option<&mut crate::glial::Microglia> {
         self.components.iter_mut().find_map(|c| if let CellComponent::Microglia(m) = c { Some(m) } else { None })
     }
 
-    pub fn ependymal(&self) -> Option<&crate::neurobiology::EpendymalCell> {
+    pub fn ependymal(&self) -> Option<&crate::glial::EpendymalCell> {
         self.components.iter().find_map(|c| if let CellComponent::Ependymal(e) = c { Some(e) } else { None })
     }
-    pub fn ependymal_mut(&mut self) -> Option<&mut crate::neurobiology::EpendymalCell> {
+    pub fn ependymal_mut(&mut self) -> Option<&mut crate::glial::EpendymalCell> {
         self.components.iter_mut().find_map(|c| if let CellComponent::Ependymal(e) = c { Some(e) } else { None })
     }
 
@@ -294,6 +294,7 @@ impl crate::cell::AgentCell {
         self.components.iter_mut().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
     }
 }
+
 
 
 

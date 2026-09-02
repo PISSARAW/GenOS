@@ -1,4 +1,4 @@
-﻿use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
 use dotenvy::dotenv;
 
@@ -98,8 +98,21 @@ async fn main() {
             }
         }
         Commands::Replay { agent_id } => {
-            println!("🧠 [Hippocampe] Lancement du Replay Causal pour l'agent {}", agent_id);
-            println!("✅ Replay terminé.");
+            println!("🧠 [Hippocampe] Récupération de l'Engramme causal (ActionTrace) de l'agent {}...", agent_id);
+            
+            // On simule la récupération d'un ActionTrace pré-enregistré (le brin d'ARN messager)
+            let mrna_trace = vec![
+                "Initialisation du repo Git".to_string(),
+                "Création du fichier src/main.rs".to_string(),
+                "Implémentation de la fonction de tri".to_string(),
+                "Lancement des tests (cargo test)".to_string(),
+            ];
+            
+            let mut clone = AgentCell::default();
+            match clone.translate_mrna(mrna_trace) {
+                Ok(_) => println!("✅ Replay fonctionnel déterministe terminé."),
+                Err(e) => println!("❌ Erreur lors du replay : {}", e),
+            }
         }
         Commands::Blame { agent_id } => {
             println!("🔍 [Épigénétique] Traçage des méthylations pour l'agent {}", agent_id);

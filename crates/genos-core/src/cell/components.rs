@@ -1,6 +1,7 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
-use crate::neurobiology::{NervousSystem, Astrocyte, Myelinator, Microglia, EpendymalCell};
+use crate::neurobiology::{NervousSystem, Myelinator};
+use crate::glial::{Astrocyte, Microglia, EpendymalCell};
 use crate::cell::Mind;
 use crate::cell::cilia::Cilia;
 use crate::cell::vacuole::Vacuole;
@@ -26,4 +27,6 @@ pub enum CellComponent {
     BloodBrainBarrier(BloodBrainBarrier),
     SensoryOrgans(SensoryOrgans),
 }
+
+
 

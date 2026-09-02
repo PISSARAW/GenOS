@@ -1,4 +1,4 @@
-﻿#[cfg(test)]
+#[cfg(test)]
 pub(crate) mod tests {
     use chrono::Utc;
     use genos_core::cell::*;
@@ -31,12 +31,11 @@ pub(crate) mod tests {
         let motor_ns = NervousSystem::new(&motor_neuron.cell_id.to_string());
 
         // Connexion (Axone sensoriel -> Dendrite moteur)
-        sensory_ns.axon.terminals.push(Synapse {
-            target_id: motor_neuron.cell_id.to_string(),
-            weight: 0.5,
-            transmitter_type: Neurotransmitter::Glutamate, // Excitateur
-            activity_history: 0,
-        });
+        sensory_ns.axon.terminals.push(Synapse::new(
+            motor_neuron.cell_id.to_string(),
+            0.5,
+            Neurotransmitter::Glutamate, // Excitateur
+        ));
 
         sensory_neuron.components.push(genos_core::cell::components::CellComponent::NervousSystem(sensory_ns));
         motor_neuron.components.push(genos_core::cell::components::CellComponent::NervousSystem(motor_ns));
@@ -118,12 +117,11 @@ pub(crate) mod tests {
         n2.cell_id = uuid::Uuid::new_v4();
 
         let mut ns1 = NervousSystem::new(&n1.cell_id.to_string());
-        ns1.axon.terminals.push(Synapse {
-            target_id: n2.cell_id.to_string(),
-            weight: 1.0,
-            transmitter_type: Neurotransmitter::Dopamine,
-            activity_history: 0,
-        });
+        ns1.axon.terminals.push(Synapse::new(
+            n2.cell_id.to_string(),
+            1.0,
+            Neurotransmitter::Dopamine,
+        ));
 
         // On force le tir de N1
         ns1.soma.current_potential = -40.0; // > -55.0
