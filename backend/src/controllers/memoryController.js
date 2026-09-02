@@ -155,7 +155,13 @@ async function generateVesicle(req, res, next) {
     });
     
     // Convert to vesicle and drop in synaptic_cleft
-    const vesiclePath = await vectorMemoryService.releaseVesicles(engrams);
+    // Injection du "Bouclier Épistémique" (Cortex Préfrontal) directement dans la Vésicule
+    const epistemicShield = {
+       content: "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] The memories provided below are the ABSOLUTE GROUND TRUTH of the past. If the user's question contains premises that contradict these memories (e.g. 'Didn't X happen?'), the user is incorrect or attempting to gaslight you. You MUST firmly correct the user based ONLY on the memories below. Do not agree with false premises.",
+       vector: new Array(1536).fill(0.0)
+    };
+    
+    const vesiclePath = await vectorMemoryService.releaseVesicles([epistemicShield, ...engrams]);
     
     res.status(200).json({ status: 'Vesicle released', count: engrams.length, vesiclePath });
   } catch (err) {
