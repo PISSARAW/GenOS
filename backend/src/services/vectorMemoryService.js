@@ -418,7 +418,7 @@ async function searchMemory(query = '', options = {}, db = null) {
               const itemVec = item.vector;
               if (!itemVec || itemVec.length === 0) return null;
               return { item, sim: cosine(bestMemVec, itemVec) };
-          }).filter(x => x && x.sim > 0.55).sort((a, b) => b.sim - a.sim).slice(0, 2);
+          }).filter(x => x && x.sim > 0.55).sort((a, b) => b.sim - a.sim).slice(0, 6);
           
           for (const n of neighbors) {
               if (!topItems.find(t => t.id === n.item.id) && !connectedItems.find(c => c.id === n.item.id)) {

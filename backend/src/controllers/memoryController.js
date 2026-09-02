@@ -127,8 +127,8 @@ async function generateVesicle(req, res, next) {
     const { query, hormone } = req.body;
     const db = await getDatabase();
     
-    // Retrieve top 5 memories
-    const results = await vectorMemoryService.searchMemory(query, { limit: 5, hormone }, db);
+    // Retrieve top 12 memories (Working Memory Expansion)
+    const results = await vectorMemoryService.searchMemory(query, { limit: 12, hormone }, db);
     
     // Use allScoredExperiences (GraphRAG appends associative memories here)
     const engrams = results.allScoredExperiences.map(r => {
