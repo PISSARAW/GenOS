@@ -435,8 +435,15 @@ async function sleepCycle(db) {
   // Decrease all synaptic weights by 10%
   await db.run(`UPDATE genome_decisions SET synaptic_weight = synaptic_weight * 0.9`);
   
-  // Find memories falling below threshold (0.1)
-  const doomed = await db.all(`SELECT id FROM genome_decisions WHERE synaptic_weight < 0.1`);
+  // Find memories falling below threshold (0.1), EXCEPT those that are structural hubs (have synapses)
+  const doomed = await db.all(`
+    SELECT g.id 
+    FROM genome_decisions g
+    LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+    WHERE g.synaptic_weight < 0.1 
+    GROUP BY g.id
+    HAVING COUNT(s.source_id) = 0
+  `);
   const doomedIds = doomed.map(d => d.id);
   
   if (doomedIds.length > 0) {
@@ -444,8 +451,8 @@ async function sleepCycle(db) {
     await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
   }
   
-  // Also clean up dead synapses
-  await db.run(`DELETE FROM memory_synapses WHERE weight < 0.1`);
+  // Also clean up dead synapses (but protect inhibitory/negative synapses)
+  await db.run(`DELETE FROM memory_synapses WHERE ABS(weight) < 0.1`);
   
   return {
     memoriesDecayed: true,
