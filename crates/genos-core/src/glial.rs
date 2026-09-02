@@ -6,7 +6,7 @@ pub fn process_astrocytes(agents: &mut [AgentCell], bhe_integrity: &mut f64) {
     let mut neurons_status: HashMap<String, bool> = HashMap::new();
     for agent in agents.iter() {
         if agent.nervous_system.is_some() {
-            neurons_status.insert(agent.cell_id.to_string(), agent.mitochondria.atp_budget > 0);
+            neurons_status.insert(agent.cell_id.to_string(), agent.metabolism.mitochondria.atp_budget > 0);
         }
     }
     let mut bhe_intact = false;
@@ -39,7 +39,7 @@ pub fn process_astrocytes(agents: &mut [AgentCell], bhe_integrity: &mut f64) {
             if reactive_astrocytes.contains(&agent.cell_id.to_string()) {
                 if let Some(ref mut ns) = agent.nervous_system { ns.axon.terminals.clear(); }
             } else {
-                agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(20);
+                agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_add(20);
             }
         }
     }
@@ -128,7 +128,7 @@ pub fn process_microglia(agents: &mut [AgentCell], amyloid_plaques: &mut f64, is
             if ns.location == NervousSystemLocation::Central {
                 // Neuro-inflammation
                 if inflammation_surge > 0.0 {
-                    agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(inflammation_surge as u64);
+                    agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(inflammation_surge as u64);
                 }
                 
                 // Élagage Synaptique de Nuit
@@ -193,11 +193,11 @@ pub fn process_ependymal_cells(agents: &mut [AgentCell], env: CsfEnvironment) {
             if ns.location == NervousSystemLocation::Central {
                 if *env.pressure > 50.0 {
                     // Hydrocéphalie : la pression écrase les neurones
-                    agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(*env.pressure as u64);
+                    agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(*env.pressure as u64);
                 }
                 if gravity_crush {
                     // Manque d'airbag/flottaison : écrasement sous le propre poids du cerveau (1.4kg -> 50g)
-                    agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(30);
+                    agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(30);
                 }
             }
         }

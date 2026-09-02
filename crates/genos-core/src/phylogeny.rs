@@ -183,7 +183,7 @@ impl PhylogeneticTree {
         
         // L'ADN mitochondrial ne subit pas de crossing-over. S'il n'y a pas de mutations récentes,
         // l'Ève mitochondriale est simplement l'ADN partagé par tous.
-        Some(population[0].mitochondria.mitochondrial_dna.clone())
+        Some(population[0].metabolism.mitochondria.mitochondrial_dna.clone())
     }
 
 

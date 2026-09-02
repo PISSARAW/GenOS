@@ -44,7 +44,7 @@ impl CartTherapy {
             for cell in army {
                 // On booste temporairement l'ÃƒÂ©nergie pour la culture en laboratoire
                 let mut boosted_cell = cell;
-                boosted_cell.mitochondria.atp_budget = 1000;
+                boosted_cell.metabolism.mitochondria.atp_budget = 1000;
 
                 // Division
                 if let Ok((d1, d2)) = boosted_cell.mitosis() {

@@ -37,7 +37,7 @@ impl Spore {
         // Le réveil : L'ADN redémarre une cellule
         let mut new_cell = AgentCell::default();
         new_cell.nucleus.genome = self.genome;
-        new_cell.mitochondria.atp_budget = 10; // Redémarrage minimal du métabolisme
+        new_cell.metabolism.mitochondria.atp_budget = 10; // Redémarrage minimal du métabolisme
         
         // On s'assure que la bactérie recrée sa paroi
         if self.spore_type == SporeType::BacterialEndospore {
@@ -57,7 +57,7 @@ mod tests {
         let mut mother = AgentCell::default();
         
         // 1. Fongique (La Levure / Le Champignon)
-        mother.mitochondria.atp_budget = 100;
+        mother.metabolism.mitochondria.atp_budget = 100;
         let fungal_spores = mother.fungal_sporulation().unwrap();
         assert_eq!(fungal_spores.len(), 100); // L'essaim massif
         assert_eq!(fungal_spores[0].bunker_armor, 0); // Léger, pas de blindage

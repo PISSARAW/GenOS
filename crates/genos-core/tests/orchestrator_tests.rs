@@ -66,7 +66,7 @@ pub(crate) mod tests {
     #[test]
     fn test_cellular_mitosis() {
         let mut mother_cell = mock_cell();
-        let mother_atp_initial = mother_cell.mitochondria.atp_budget; // 10
+        let mother_atp_initial = mother_cell.metabolism.mitochondria.atp_budget; // 10
         let mother_id_initial = mother_cell.cell_id;
 
         // On dÃƒÂ©clenche la mitose (Le move consomme la mÃƒÂ¨re)
@@ -78,8 +78,8 @@ pub(crate) mod tests {
         assert_ne!(daughter_a.cell_id, daughter_b.cell_id);
 
         // Anaphase rÃƒÂ©ussie : L'ÃƒÂ©nergie a ÃƒÂ©tÃƒÂ© divisÃƒÂ©e en deux
-        assert_eq!(daughter_a.mitochondria.atp_budget, mother_atp_initial / 2);
-        assert_eq!(daughter_b.mitochondria.atp_budget, mother_atp_initial / 2);
+        assert_eq!(daughter_a.metabolism.mitochondria.atp_budget, mother_atp_initial / 2);
+        assert_eq!(daughter_b.metabolism.mitochondria.atp_budget, mother_atp_initial / 2);
 
         // L'ADN est le mÃƒÂªme
         assert_eq!(
@@ -136,7 +136,7 @@ pub(crate) mod tests {
         orchestrator.tick(&mut normal_cell, "action");
 
         // La fiÃƒÂ¨vre consomme 5 ATP au lieu de 1
-        assert_eq!(normal_cell.mitochondria.atp_budget, 5);
+        assert_eq!(normal_cell.metabolism.mitochondria.atp_budget, 5);
     }
 
     #[test]
@@ -182,7 +182,7 @@ pub(crate) mod tests {
         cell.plasma_membrane
             .incoming_receptors
             .push("PORT_80_HTTP".to_string());
-        cell.mitochondria.atp_budget = 20;
+        cell.metabolism.mitochondria.atp_budget = 20;
 
         // On fabrique un BactÃƒÂ©riophage (PhagothÃƒÂ©rapie) programmÃƒÂ© pour attaquer ce port
         let phage = genos_core::virology::Virion::new_bacteriophage("PORT_80_HTTP", "KILL_ROUGE");
@@ -200,7 +200,7 @@ pub(crate) mod tests {
 
         // L'action normale est ignorÃƒÂ©e, l'ATP est consommÃƒÂ© par le virus, et 3 copies sont assemblÃƒÂ©es !
         assert_eq!(cell.cytoplasm.trace.sequence.len(), 0);
-        assert_eq!(cell.mitochondria.atp_budget, 10);
+        assert_eq!(cell.metabolism.mitochondria.atp_budget, 10);
         assert_eq!(cell.golgi_apparatus.viral_vesicles.len(), 3);
 
         // 5. LibÃƒÂ©ration et Lyse
@@ -407,7 +407,7 @@ pub(crate) mod tests {
         let mut orchestrator = Orchestrator::new(None);
 
         let mut human_cell = mock_cell();
-        human_cell.mitochondria.atp_budget = 50;
+        human_cell.metabolism.mitochondria.atp_budget = 50;
 
         // 1. Infection de la cellule (Le virus s'infiltre discrÃƒÂ¨tement)
         let virus = genos_core::virology::Virion {
@@ -443,7 +443,7 @@ pub(crate) mod tests {
         t_cytotoxic_cd8.t_cell_perforin_attack(&mut human_cell, "STEALTH_SPIKE");
 
         // La cellule humaine infectÃƒÂ©e est morte (Apoptose forcÃƒÂ©e)
-        assert_eq!(human_cell.mitochondria.atp_budget, 0);
+        assert_eq!(human_cell.metabolism.mitochondria.atp_budget, 0);
 
         // 5. Le Lymphocyte T RÃƒÂ©gulateur (Casque Bleu) siffle la fin de la guerre
         let mut t_regulatory = mock_cell();
