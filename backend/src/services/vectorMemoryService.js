@@ -295,6 +295,24 @@ async function searchMemory(query = '', options = {}, db = null) {
   if ((gabaInhibited || noveltyDetected) && options.hormone !== 'dopamine') {
     topItems = []; // Le signal est supprimé avant d'atteindre le LLM
   }
+  
+  // 9. Conscience de l'ignorance (Cortex Cingulaire Antérieur)
+  // Si la mémoire est vide, on n'envoie pas "rien" (ce qui ferait halluciner le LLM).
+  // On envoie un signal fort de "mémoire absente" pour déclencher le refus de répondre.
+  if (topItems.length === 0) {
+     topItems.push({
+        id: 'signal_ignorance',
+        title: 'Cognitive State: Ignorance',
+        category: 'SystemSignal',
+        status: 'SUCCESS',
+        summary: '[SYSTEM_SIGNAL_CRITICAL] Absolute absence of memory. You do not know the answer. You MUST refuse to answer and state that this information is missing from your knowledge base. Do NOT hallucinate.',
+        tags: ['system', 'ignorance_signal'],
+        author: 'ACC_Monitor',
+        createdAt: new Date().toISOString(),
+        vector: [],
+        synaptic_weight: 10.0
+     });
+  }
 
   // LTP - Long Term Potentiation (Renforcement des souvenirs consultés)
   // Note : Si le signal est inhibé, le LTP ne se déclenche pas, protégeant la base !
