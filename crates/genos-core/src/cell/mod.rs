@@ -27,6 +27,7 @@ pub mod ood_resilience;
 pub mod recurrence;
 pub mod halting;
 pub mod quorum_sensing;
+pub mod endocrine;
 pub mod components;
 pub mod lifecycle;
 pub mod bus;
@@ -86,6 +87,7 @@ pub struct AgentCell {
     pub immunity: ImmuneSystem,
     pub cytoplasm: Cytoplasm,
     pub quorum_sensor: quorum_sensing::QuorumSensor,
+    pub endocrine: endocrine::EndocrineSystem,
     
     pub components: Vec<CellComponent>,
 }
@@ -136,6 +138,7 @@ impl Default for AgentCell {
                 proteasome: Proteasome::default(),
             },
             quorum_sensor: quorum_sensing::QuorumSensor::default(),
+            endocrine: endocrine::EndocrineSystem::default(),
             components: vec![
                 CellComponent::Mind(Mind::default()), // Default fallback
                 CellComponent::Cilia(cilia::Cilia::default()),
