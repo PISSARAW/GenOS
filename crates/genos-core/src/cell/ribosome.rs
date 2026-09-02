@@ -1,4 +1,4 @@
-use crate::cell::hippocampus::ChatMessage;
+﻿use crate::cell::hippocampus::ChatMessage;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -206,7 +206,7 @@ impl Ribosome {
 
         println!("🧠 [Thalamus] Routage cognitif dynamique activé -> Modèle sélectionné: {} (API: {})", target.model, target.chat_url);
 
-        let client = Client::new();
+        let client = Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap();
         let messages_json: Vec<Value> = memory
             .iter()
             .map(|msg| json!({ "role": msg.role, "content": msg.content }))
@@ -251,3 +251,4 @@ impl Ribosome {
         Ok(reply)
     }
 }
+
