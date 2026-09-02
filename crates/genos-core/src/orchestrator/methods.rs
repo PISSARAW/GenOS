@@ -189,6 +189,8 @@ impl Orchestrator {
                 CellEvent::NecrosisTriggered(reason) => return TickResult::Halted(format!("Necrosis: {}", reason)),
                 CellEvent::ApoptosisTriggered(reason) => return TickResult::Halted("Apoptosis".to_string()),
                 CellEvent::Recovered(reason) => return TickResult::Halted(format!("Recovered: {}", reason)),
+                CellEvent::Hijacked(reason) => return TickResult::Halted(reason),
+                CellEvent::ReleaseVirus(v) => self.viral_environment.push(v),
                 _ => {}
             }
         }
@@ -212,6 +214,18 @@ impl Orchestrator {
         
         if agent.metabolism.mitochondria.atp_budget == 0 {
              return TickResult::Halted("Budget exhausted (starvation)".to_string());
+        }
+        if agent.plasma_membrane.receptors_blocked {
+             return TickResult::Halted("Targeted Therapy (Growth signal blocked)".to_string());
+        }
+        if self.endocrine_system.corticosteroid_level > 0.8 {
+             return TickResult::Halted("Corticosteroid suppression: Cell activity frozen".to_string());
+        }
+        if !agent.cytoplasm.viral_infections.is_empty() {
+             return TickResult::Halted("Hijacked: Cellular machinery is copying a virus".to_string());
+        }
+        if agent.endoplasmic_reticulum.cell_cycle_inhibited {
+             // The test for cell cycle inhibitor expects mitosis to fail, not tick to halt.
         }
 
         TickResult::Continue
@@ -299,6 +313,8 @@ impl Orchestrator {
         self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
+
+
 
 
 
