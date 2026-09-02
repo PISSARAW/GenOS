@@ -21,7 +21,7 @@ for (const filename of files) {
         fs.writeFileSync(path.join(protoDir, `${serviceName}.proto`), protoContent);
         console.log(`Generated ${serviceName}.proto`);
 
-        indexContent += `  services.${serviceName} = protoLoader.loadSync(path.join(__dirname, '${serviceName}.proto'), {keepCase: true});\n`;
+        indexContent += `  services.${serviceName} = grpc.loadPackageDefinition(protoLoader.loadSync(path.join(__dirname, '${serviceName}.proto'), {keepCase: true}));\n`;
     }
 }
 indexContent += `  return services;\n}\n`;

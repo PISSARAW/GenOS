@@ -59,7 +59,8 @@ async function startServer() {
     const grpcServer = new grpc.Server();
     
     // Auto-register all 38 microservices
-    for (const [serviceName, descriptor] of Object.entries(protoDescriptors)) {
+    for (const [serviceName, pkgDef] of Object.entries(protoDescriptors)) {
+        const descriptor = grpc.loadPackageDefinition(pkgDef);
         registerAllServices(grpcServer, descriptor);
     }
     
