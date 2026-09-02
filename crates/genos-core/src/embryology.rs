@@ -62,6 +62,7 @@ pub fn sculpt_architecture_via_apoptosis(swarm: &mut Vec<AgentCell>) {
         }
     }
     // On nettoie les cadavres (Macrophagie)
-    swarm.retain(|c| c.is_alive);
+    swarm.retain(|c| c.is_alive());
 }
+
 

@@ -43,15 +43,24 @@ use crate::cell::substructs::*;
 
 /// La Cellule est l'unité fondamentale de la vie et de GenOS.
 /// C'est une micro-ville IA ultra-organisée avec ses propres organites.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AgentCell {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum LifecycleState {
+    StemCell,
+    Proliferating,
+    Differentiated,
+    Senescent,
+    Apoptotic,
+    Necrotic,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]pub struct AgentCell {
     pub cell_id: Uuid,
     pub inbox: Vec<crate::cell::events::CellEvent>,
     pub outbox: Vec<crate::cell::events::CellEvent>,
     pub plasma_membrane: PlasmaMembrane,
     pub genetics: GeneticSystem,
     pub metabolism: MetabolicSystem,
-    pub is_alive: bool,
+    pub lifecycle_state: LifecycleState,
     pub specialization: Specialization,
     pub redundancy: crate::redundancy::RedundancySystem,
     pub endoplasmic_reticulum: EndoplasmicReticulum,
@@ -98,7 +107,7 @@ impl Default for AgentCell {
                 gap_junctions: vec![],
             },
             genetics: GeneticSystem::default(),
-            is_alive: true,
+            lifecycle_state: LifecycleState::StemCell,
         specialization: Specialization::Undefined,
         metabolism: MetabolicSystem::default(),
             redundancy: crate::redundancy::RedundancySystem::new(),
@@ -175,4 +184,14 @@ impl Default for Mind {
         }
     }
 }
+
+
+
+
+impl crate::cell::AgentCell {
+    pub fn is_alive(&self) -> bool {
+        self.lifecycle_state != LifecycleState::Apoptotic && self.lifecycle_state != LifecycleState::Necrotic
+    }
+}
+
 
