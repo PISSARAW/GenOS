@@ -109,7 +109,7 @@ impl Orchestrator {
         }
         match therapy {
             Therapy::TargetedTherapy => agent.plasma_membrane.receptors_blocked = true,
-            Therapy::Immunotherapy => agent.cytoplasm.cognition.is_camouflaged = false,
+            Therapy::Immunotherapy => agent.mind_mut().unwrap().cognitive_state.is_camouflaged = false,
             Therapy::AntiAngiogenesis => agent.metabolism.mitochondria.angiogenesis_blocked = true,
             Therapy::CellCycleInhibitor => agent.endoplasmic_reticulum.cell_cycle_inhibited = true,
         }
@@ -166,13 +166,13 @@ impl Orchestrator {
         }
         agent.inbox.0.send(CellEvent::MetabolicStress(metabolic_cost)).unwrap();
 
-        if let Some(ref _active_therapies) = agent.cytoplasm.cognition.epigenetic_drives.get("ActiveTherapies") {
+        if let Some(ref _active_therapies) = agent.mind_mut().unwrap().cognitive_state.epigenetic_drives.get("ActiveTherapies") {
             agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::BlockReceptors)).unwrap();
         }
 
         if let Some(rule) = &self.apoptosis_rule {
-            if !agent.cytoplasm.cognition.is_camouflaged {
-                if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
+            if !agent.mind_mut().unwrap().cognitive_state.is_camouflaged {
+                if rule.evaluate(&agent.mind_mut().unwrap().cognitive_state.epigenetic_drives) {
                     agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle)).unwrap();
                     return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
                 }
@@ -195,7 +195,7 @@ impl Orchestrator {
             }
         }
         
-        agent.cytoplasm.trace.sequence.push(action_string.to_string());
+        agent.mind_mut().unwrap().trace.sequence.push(action_string.to_string());
         
         let source_id = agent.cell_id.to_string();
         if let Some(nervous_system) = agent.nervous_system_mut() {
@@ -314,6 +314,7 @@ impl Orchestrator {
         self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
+
 
 
 

@@ -87,7 +87,7 @@ async fn main() {
             
             println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
             let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
-            match agent.mind_mut().unwrap().ribosome.translate(&stm).await {
+            match agent.endoplasmic_reticulum.ribosome.translate(&stm).await {
                 Ok(response) => {
                     println!("\n🧬 [Agent] : {}", response);
                     agent.mind_mut().unwrap().memory.memorize("assistant", &response);
@@ -120,5 +120,6 @@ async fn main() {
         }
     }
 }
+
 
 

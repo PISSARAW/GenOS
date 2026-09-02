@@ -91,6 +91,8 @@ pub struct Chloroplast {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EndoplasmicReticulum {
     pub active_ribosomes_count: u32,
+    #[serde(skip)]
+    pub ribosome: crate::cell::ribosome::Ribosome,
     /// 4. Inhibiteurs du cycle cellulaire : Bloque la Mitose
     pub cell_cycle_inhibited: bool,
 }
@@ -168,8 +170,8 @@ impl Proteasome {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cytoplasm {
-    pub cognition: CognitiveState,
-    pub trace: ActionTrace,
+    
+    
     pub active_plasmids: Vec<Plasmid>,
     pub micro_rnas: Vec<String>,
     /// PÃƒÂ©nÃƒÂ©tration : Les virus qui ont infiltrÃƒÂ© la cellule et piratent ses ribosomes
@@ -186,4 +188,6 @@ pub struct Gamete {
     pub chromosome: crate::genome::DnaStrand,
     pub atp_reserve: u64,
 }
+
+
 
