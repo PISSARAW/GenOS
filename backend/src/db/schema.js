@@ -63,12 +63,43 @@ async function initializeSchema(db) {
     END;
   `);
   
-  // Rebuild the FTS index if it's empty but core tables have data
+  // Initialize vec0 Virtual Tables for Native Vector Search
+  await db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS trajectories_vec USING vec0(
+        embedding float[768]
+    );
+    CREATE TRIGGER IF NOT EXISTS trajectories_vec_ai AFTER INSERT ON trajectories BEGIN
+        INSERT INTO trajectories_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
+    END;
+    CREATE TRIGGER IF NOT EXISTS trajectories_vec_ad AFTER DELETE ON trajectories BEGIN
+        DELETE FROM trajectories_vec WHERE rowid = old.rowid;
+    END;
+    CREATE TRIGGER IF NOT EXISTS trajectories_vec_au AFTER UPDATE ON trajectories BEGIN
+        UPDATE trajectories_vec SET embedding = new.embedding_blob WHERE rowid = old.rowid;
+    END;
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS genome_decisions_vec USING vec0(
+        embedding float[768]
+    );
+    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_ai AFTER INSERT ON genome_decisions BEGIN
+        INSERT INTO genome_decisions_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
+    END;
+    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_ad AFTER DELETE ON genome_decisions BEGIN
+        DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
+    END;
+    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_au AFTER UPDATE ON genome_decisions BEGIN
+        UPDATE genome_decisions_vec SET embedding = new.embedding_blob WHERE rowid = old.rowid;
+    END;
+  `);
+
+  // Rebuild the FTS and VEC indexes if they are empty but core tables have data
   const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
   if (trajectoriesFtsCount.c === 0) {
       await db.exec(`
           INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
           SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
+          INSERT INTO trajectories_vec(rowid, embedding)
+          SELECT rowid, embedding_blob FROM trajectories WHERE embedding_blob IS NOT NULL;
       `);
   }
   const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
@@ -76,6 +107,8 @@ async function initializeSchema(db) {
       await db.exec(`
           INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
           SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
+          INSERT INTO genome_decisions_vec(rowid, embedding)
+          SELECT rowid, embedding_blob FROM genome_decisions WHERE embedding_blob IS NOT NULL;
       `);
   }
 }

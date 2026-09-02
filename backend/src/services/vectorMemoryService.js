@@ -367,20 +367,29 @@ async function searchMemory(query = '', options = {}, db = null) {
   if (topIds.length > 0) {
      const placeholders = topIds.map(() => '?').join(',');
      
-     // 1. Spreading Activation : On cherche dans les DEUX sens (source -> target ET target -> source)
-     // On élargit la bande passante (limite de 3 à 8) pour simuler une vraie mémoire de travail (Loi de Miller)
+     // 1. Spreading Activation : Deep GraphRAG via SQLite Recursive CTE
+     // On navigue dans les synapses (source <-> target) sur 2 niveaux de profondeur (Loi de Miller)
      const synapses = await db.all(`
-         SELECT source_id, target_id, weight 
-         FROM memory_synapses 
-         WHERE (source_id IN (${placeholders}) OR target_id IN (${placeholders})) AND weight > 0
-         ORDER BY weight DESC LIMIT 8
-     `, [...topIds, ...topIds]);
+         WITH RECURSIVE
+           traverse(id, depth, weight) AS (
+             SELECT id, 0, 1.0 FROM genome_decisions WHERE id IN (${placeholders})
+             UNION
+             SELECT
+               CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
+               t.depth + 1,
+               ms.weight
+             FROM traverse t
+             JOIN memory_synapses ms ON ms.source_id = t.id OR ms.target_id = t.id
+             WHERE t.depth < 2 AND ms.weight > 0
+           )
+         SELECT id, depth, weight FROM traverse WHERE depth > 0
+         ORDER BY weight DESC, depth ASC LIMIT 15
+     `, topIds);
      
-     // 2. On collecte les concepts adjacents qui ne sont pas déjà dans notre esprit (topIds)
+     // 2. On collecte les concepts adjacents découverts
      const linkedIds = [];
      for (const s of synapses) {
-         if (!topIds.includes(s.source_id)) linkedIds.push(s.source_id);
-         if (!topIds.includes(s.target_id)) linkedIds.push(s.target_id);
+         if (!topIds.includes(s.id)) linkedIds.push(s.id);
      }
      const uniqueLinkedIds = [...new Set(linkedIds)];
 
