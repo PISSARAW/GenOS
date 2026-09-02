@@ -344,7 +344,7 @@ async function searchMemory(query = '', options = {}, db = null) {
      const synapses = await db.all(`
          SELECT source_id, target_id, weight 
          FROM memory_synapses 
-         WHERE source_id IN (${placeholders}) OR target_id IN (${placeholders}) 
+         WHERE (source_id IN (${placeholders}) OR target_id IN (${placeholders})) AND weight > 0
          ORDER BY weight DESC LIMIT 8
      `, [...topIds, ...topIds]);
      

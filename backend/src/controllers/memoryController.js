@@ -105,8 +105,9 @@ async function ingestMemory(req, res, next) {
           if (isFirst && isCorrection) {
               // Si c'est une correction, le lien le plus fort est la cible à inhiber
               await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, -5.0)`, decisionId, rel.id);
-          } else if (rel.cosineMetric > 0.75) {
+          } else if (rel.cosineMetric > 0.55) {
               // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning)
+              // Le seuil est abaissé (0.55) pour permettre de lier des faits indirects (ex: A->B et B->C)
               await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, 1.0)`, decisionId, rel.id);
           }
           isFirst = false;
