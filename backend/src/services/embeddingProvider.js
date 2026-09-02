@@ -12,7 +12,16 @@ async function embed(text) {
       return null;
     }
     const payload = await response.json();
-    return payload.embedding || null;
+    const vec = payload.embedding || null;
+    if (vec) {
+      let sum = 0;
+      for (let i = 0; i < vec.length; i++) sum += vec[i] * vec[i];
+      const norm = Math.sqrt(sum);
+      if (norm > 0) {
+        for (let i = 0; i < vec.length; i++) vec[i] /= norm;
+      }
+    }
+    return vec;
   } catch (e) {
     console.error("Embedding provider error:", e);
     return null;

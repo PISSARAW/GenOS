@@ -92,7 +92,7 @@ async function searchMemory(query = '', options = {}, db = null) {
   // 1. Reciprocal Rank Fusion (RRF) : VSS + FTS5 100% in SQLite!
   const queryVecJson = JSON.stringify(Array.from(queryVec));
   const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
-  const ftsMatch = cleanQuery.length > 0 ? cleanQuery.split(/\s+/).join(' OR ') : 'nothing_will_match_this';
+  const ftsMatch = cleanQuery.length > 0 ? cleanQuery.split(/\s+/).map(w => '"' + w + '"').join(' OR ') : '"nothing_will_match_this"';
 
   const trajectories = await db.all(`
     WITH 
@@ -159,7 +159,8 @@ async function searchMemory(query = '', options = {}, db = null) {
       author: item.author_name,
       createdAt: item.created_at,
       distance: item.distance,
-      f_score: item.f_score
+      f_score: item.f_score,
+      rrf_score: item.rrf_score
     });
   }
 
@@ -175,7 +176,8 @@ async function searchMemory(query = '', options = {}, db = null) {
       createdAt: item.created_at,
       synaptic_weight: item.synaptic_weight,
       distance: item.distance,
-      f_score: item.f_score
+      f_score: item.f_score,
+      rrf_score: item.rrf_score
     });
   }
 
@@ -183,36 +185,17 @@ async function searchMemory(query = '', options = {}, db = null) {
 
   // Score each memory item
   const scoredItems = corpus.map(item => {
-    // Si c'est un item SEED, on calcule le vecteur. Sinon on utilise la distance ramenée en Cosinus.
+    // 3. Score hybride 100% natif SQL (Reciprocal Rank Fusion FTS5 + Vec0)
+    // Le score RRF varie entre 0 et ~0.033. On le multiplie par 30 pour le ramener entre 0 et 1.
+    let hybridScore = (item.rrf_score || 0) * 30.0;
+    
+    // On conserve le calcul du cosScore juste pour le tag `cosineMetric` et le filtre d'Adrénaline
     let cosScore = 0;
     if (item.distance !== undefined && item.distance !== null) {
-        cosScore = 1.0 - ((item.distance * item.distance) / 2.0); // Convertit la distance L2 en Cosinus
+        cosScore = 1.0 - ((item.distance * item.distance) / 2.0);
     } else {
-        const itemVec = item.vector || textToVector(`${item.title} ${item.summary} ${item.tags.join(' ')}`);
-        cosScore = cosine(queryVec, itemVec);
+        cosScore = hybridScore; // Fallback mathématique si c'est un match purement textuel (FTS5)
     }
-
-    // 3. Amorçage Perceptif & Réseau de Saillance (Single-Hop Exact Match)
-    const queryLower = query.toLowerCase();
-    const lowerTitle = item.title.toLowerCase();
-    const lowerSummary = item.summary.toLowerCase();
-    
-    // Application de l'IDF calculé par FTS5
-    const rawFtsScore = item.f_score || 0;
-    const keywordScore = Math.min(1.0, rawFtsScore / 10.0);
-    
-    // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)
-    const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 3 || /\d/.test(w));
-    let exactMatchBonus = 0.0;
-    for (const term of salientTerms) {
-        if (lowerSummary.includes(term)) {
-            exactMatchBonus += 0.15;
-        }
-    }
-    exactMatchBonus = Math.min(0.4, exactMatchBonus);
-
-    // On donne plus de poids aux mots-clés si le texte est très long (dilution vectorielle)
-    let hybridScore = (cosScore * 0.65) + (keywordScore * 0.35) + exactMatchBonus;
     
     // Bonus historique sur la reconnaissance des tags
     const tagMatch = item.tags.some(t => queryLower.includes(t)) ? 0.15 : 0.0;
