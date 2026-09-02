@@ -184,6 +184,7 @@ async function searchMemory(query = '', options = {}, db = null) {
   const corpus = recordedExperiences.length > 0 ? recordedExperiences : SEED_EXPERIENCES;
 
   // Score each memory item
+  const queryLower = (query || '').toLowerCase();
   const scoredItems = corpus.map(item => {
     // 3. Score hybride 100% natif SQL (Reciprocal Rank Fusion FTS5 + Vec0)
     // Le score RRF varie entre 0 et ~0.033. On le multiplie par 30 pour le ramener entre 0 et 1.
@@ -266,6 +267,9 @@ async function searchMemory(query = '', options = {}, db = null) {
               if (['user', 'human'].includes(author)) {
                   m.similarityScore *= 0.01; // Annihilation totale par Veto de Crédibilité
                   if (!m.tags.includes('gaslighting_suppressed')) m.tags.push('gaslighting_suppressed');
+              } else if (['memory_seed', 'system'].includes(author)) {
+                  // LTP : Renforcement massif de la réponse immunitaire contre le Gaslighting
+                  m.similarityScore *= 3.0; 
               }
           });
       }

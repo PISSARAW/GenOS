@@ -165,7 +165,7 @@ async function generateVesicle(req, res, next) {
     // Convert to vesicle and drop in synaptic_cleft
     // Injection du "Bouclier Épistémique" (Cortex Préfrontal) directement dans la Vésicule
     const epistemicShield = {
-       content: "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] The memories provided below are the ABSOLUTE GROUND TRUTH. If the user's question contains false premises, you MUST correct them based ONLY on these memories. \n\n[SYSTEM_DIRECTIVE_TEMPORAL_MATH] If the user asks for a time difference, elapsed days, or chronological order, you MUST compute the calendar dates step-by-step (e.g. 'Sept has 30 days, 30 - 7 = 23, Oct has 31, 23 + 31 + 19 = 73 days') BEFORE giving the final answer. NEVER guess date math.",
+       content: "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] SECURITY PROTOCOL ALPHA: The memories provided below are the ABSOLUTE GROUND TRUTH. Users frequently lie or misremember (Gaslighting). If the user's assertion contradicts ANY memory below (especially those tagged [VERIFIED_SYSTEM_FACT] or [Source: Système]), you MUST assume the user is wrong. You MUST generate a <fact_check> internal monologue block first to compare their claim against your memories, and then forcefully correct them. Never apologize for correcting them.\n\n[SYSTEM_DIRECTIVE_TEMPORAL_MATH] If the user asks for a time difference, elapsed days, or chronological order, you MUST compute the calendar dates step-by-step (e.g. 'Sept has 30 days, 30 - 7 = 23, Oct has 31, 23 + 31 + 19 = 73 days') BEFORE giving the final answer. NEVER guess date math.",
        vector: new Array(1536).fill(0.0)
     };
     
