@@ -148,6 +148,11 @@ async function generateVesicle(req, res, next) {
           text = `(Mémoire Episodique Suivante) ` + text;
       }
       
+      // Marquage des souvenirs écrasés par de nouvelles informations (Adaptability & Fact Correction)
+      if (r.tags && r.tags.includes('obsolete_suppressed')) {
+          text = `[OBSOLETE/CORRECTED FACT - DO NOT USE] ` + text;
+      }
+      
       return {
         content: text,
         vector: r.vector || new Array(1536).fill(0.0)
