@@ -306,3 +306,5 @@ mod tests {
         assert!(cognition.clock.circadian_misalignment > 0.0); // Les dommages doivent augmenter
     }
 }
+
+
