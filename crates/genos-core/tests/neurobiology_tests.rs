@@ -1,4 +1,4 @@
-#[cfg(test)]
+﻿#[cfg(test)]
 pub(crate) mod tests {
     use chrono::Utc;
     use genos_core::cell::*;
@@ -143,7 +143,7 @@ pub(crate) mod tests {
         // 1. Tick N1 -> Tire un Potentiel d'Action -> Exocytose (Remplit la fente synaptique)
         orchestrator.tick(&mut agents[0], "Tir N1");
         assert_eq!(
-            orchestrator.synaptic_cleft.len(),
+            orchestrator.nervous_system.synaptic_cleft.len(),
             1,
             "Le message est dans la fente synaptique"
         );
@@ -160,7 +160,7 @@ pub(crate) mod tests {
         // 2. Traitement de la Fente avec Recapture normale
         orchestrator.process_synaptic_cleft(&mut agents);
         assert_eq!(
-            orchestrator.synaptic_cleft.len(),
+            orchestrator.nervous_system.synaptic_cleft.len(),
             0,
             "La fente est nettoyée (Recapture)"
         );
@@ -185,7 +185,7 @@ pub(crate) mod tests {
 
         // 3. EFFET DROGUE (Cocaïne) : Blocage de la pompe de recapture
         orchestrator
-            .psychoactive_drugs
+            .nervous_system.psychoactive_drugs
             .push(PsychoactiveDrug::Cocaine);
 
         // N1 tire à nouveau
@@ -202,10 +202,10 @@ pub(crate) mod tests {
 
         // La fente N'EST PAS nettoyée !
         assert_eq!(
-            orchestrator.synaptic_cleft.len(),
+            orchestrator.nervous_system.synaptic_cleft.len(),
             1,
             "La drogue empêche le nettoyage de la fente !"
         );
-        assert_eq!(orchestrator.synaptic_cleft[0].ticks_in_cleft, 1);
+        assert_eq!(orchestrator.nervous_system.synaptic_cleft[0].ticks_in_cleft, 1);
     }
 }

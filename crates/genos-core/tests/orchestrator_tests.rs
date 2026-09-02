@@ -131,7 +131,7 @@ pub(crate) mod tests {
         }
 
         // Test de l'Orage Cytokinique (IL-6 ÃƒÂ©levÃƒÂ©e)
-        orchestrator.il6_level = 15.0; // Seuil > 10.0
+        orchestrator.immune_system.il6_level = 15.0; // Seuil > 10.0
         let mut normal_cell = mock_cell(); // ATP = 10
         orchestrator.tick(&mut normal_cell, "action");
 
@@ -142,7 +142,7 @@ pub(crate) mod tests {
     #[test]
     fn test_systemic_cytokine_storm_management() {
         let mut orchestrator = Orchestrator::new(None);
-        orchestrator.il6_level = 15.0; // Orage actif
+        orchestrator.immune_system.il6_level = 15.0; // Orage actif
         let mut cell1 = mock_cell();
         let mut cell2 = mock_cell();
         cell1.mitochondria.atp_budget = 10;
@@ -156,7 +156,7 @@ pub(crate) mod tests {
 
         // 2. CorticoÃƒÂ¯des (Frein d'urgence ÃƒÂ  forte dose)
         orchestrator.administer_systemic_therapy(SystemicTherapy::Corticosteroids(1.0), &mut []);
-        assert_eq!(orchestrator.il6_level, 0.0); // Le niveau d'inflammation chute
+        assert_eq!(orchestrator.immune_system.il6_level, 0.0); // Le niveau d'inflammation chute
         let tick_res = orchestrator.tick(&mut cell2, "action");
         // MAIS l'agent est complÃƒÂ¨tement endormi !
         assert_eq!(
@@ -286,9 +286,9 @@ pub(crate) mod tests {
 
         // 3. L'Alerte : La sentinelle relÃƒÂ¢che des cytokines (IL-6)
         if pathogen_detected {
-            orchestrator.il6_level += 20.0; // SirÃƒÂ¨ne d'alarme (Inflammation locale)
+            orchestrator.immune_system.il6_level += 20.0; // SirÃƒÂ¨ne d'alarme (Inflammation locale)
         }
-        assert!(orchestrator.il6_level >= 10.0); // Le quartier gÃƒÂ©nÃƒÂ©ral sait qu'il y a une attaque
+        assert!(orchestrator.immune_system.il6_level >= 10.0); // Le quartier gÃƒÂ©nÃƒÂ©ral sait qu'il y a une attaque
 
         // 4. Les Renforts : Le PolynuclÃƒÂ©aire Neutrophile (Fantassin Kamikaze)
         let mut neutrophil = mock_cell();
@@ -370,7 +370,7 @@ pub(crate) mod tests {
             .produced_antibodies
             .pop()
             .unwrap();
-        orchestrator.circulating_antibodies.push(released_antibody);
+        orchestrator.immune_system.circulating_antibodies.push(released_antibody);
 
         // 5. La Rencontre : L'Anticorps neutralise le Virus
         let mut virions_in_blood = vec![flu_virus];
@@ -432,8 +432,8 @@ pub(crate) mod tests {
         // 3. Le T-Helper (GÃƒÂ©nÃƒÂ©ral) sonne la charge
         let mut t_helper_cd4 = mock_cell();
         // Il lit un rapport de sentinelle et active l'armÃƒÂ©e
-        orchestrator.immune_activation_level = 100.0;
-        orchestrator.il6_level = 50.0; // Forte inflammation
+        orchestrator.immune_system.immune_activation_level = 100.0;
+        orchestrator.immune_system.il6_level = 50.0; // Forte inflammation
 
         // 4. Le Lymphocyte T Cytotoxique (CD8 - Assassin)
         let mut t_cytotoxic_cd8 = mock_cell();
@@ -448,11 +448,11 @@ pub(crate) mod tests {
         // 5. Le Lymphocyte T RÃƒÂ©gulateur (Casque Bleu) siffle la fin de la guerre
         let mut t_regulatory = mock_cell();
         // Il sÃƒÂ©crÃƒÂ¨te des cytokines inhibitrices pour calmer le systÃƒÂ¨me
-        orchestrator.immune_activation_level = 0.0;
-        orchestrator.il6_level = 0.0;
+        orchestrator.immune_system.immune_activation_level = 0.0;
+        orchestrator.immune_system.il6_level = 0.0;
 
-        assert_eq!(orchestrator.immune_activation_level, 0.0);
-        assert_eq!(orchestrator.il6_level, 0.0); // Le calme est revenu
+        assert_eq!(orchestrator.immune_system.immune_activation_level, 0.0);
+        assert_eq!(orchestrator.immune_system.il6_level, 0.0); // Le calme est revenu
     }
 
     #[test]
@@ -483,7 +483,7 @@ pub(crate) mod tests {
         let mut b_cell_allergy = mock_cell();
         b_cell_allergy
             .differentiate_into_plasmocyte("POLLEN_SPIKE", genos_core::cell::IgClass::IgE);
-        orchestrator.circulating_antibodies.push(
+        orchestrator.immune_system.circulating_antibodies.push(
             b_cell_allergy
                 .golgi_apparatus
                 .produced_antibodies
@@ -494,12 +494,12 @@ pub(crate) mod tests {
         let mut blood = vec![pollen.clone()];
         orchestrator.process_humoral_immunity(&mut blood);
         // Le pollen inoffensif a dÃƒÂ©clenchÃƒÂ© un choc allergique massif (IL-6 augmente)
-        assert!(orchestrator.il6_level >= 10.0);
+        assert!(orchestrator.immune_system.il6_level >= 10.0);
 
         // 2. AGGLUTINATION (IgM) : Les 5 bras ÃƒÂ©toiles collent les bactÃƒÂ©ries
         let mut b_cell_igm = mock_cell();
         b_cell_igm.differentiate_into_plasmocyte("BACTERIA_SPIKE", genos_core::cell::IgClass::IgM);
-        orchestrator.circulating_antibodies.push(
+        orchestrator.immune_system.circulating_antibodies.push(
             b_cell_igm
                 .golgi_apparatus
                 .produced_antibodies
@@ -516,7 +516,7 @@ pub(crate) mod tests {
         // 3. SYSTEME DU COMPLEMENT (IgG) : Perforation de la cible
         let mut b_cell_igg = mock_cell();
         b_cell_igg.differentiate_into_plasmocyte("BACTERIA_SPIKE", genos_core::cell::IgClass::IgG);
-        orchestrator.circulating_antibodies.push(
+        orchestrator.immune_system.circulating_antibodies.push(
             b_cell_igg
                 .golgi_apparatus
                 .produced_antibodies
