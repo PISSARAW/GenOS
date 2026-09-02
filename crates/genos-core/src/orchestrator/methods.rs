@@ -243,13 +243,13 @@ impl Orchestrator {
             agent.metabolism.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
         // 7. La Digestion (Phagocytose - Ãƒâ€°tape 3 et 4)
-        if !agent.lysosomes.phagosomes.is_empty() {
-            agent.lysosomes.digestive_enzymes_active = true;
+        if !agent.immunity.lysosomes.phagosomes.is_empty() {
+            agent.immunity.lysosomes.digestive_enzymes_active = true;
             // Digestion : DÃƒÂ©truit l'ADN emprisonnÃƒÂ©
-            let destroyed_dna = agent.lysosomes.phagosomes.pop().unwrap();
+            let destroyed_dna = agent.immunity.lysosomes.phagosomes.pop().unwrap();
 
             // 4. L'expulsion : le code dÃƒÂ©truit devient un dÃƒÂ©chet (Pus/DÃƒÂ©bris)
-            agent.lysosomes.expelled_debris.push(format!(
+            agent.immunity.lysosomes.expelled_debris.push(format!(
                 "DEBRIS_FROM_LENGTH_{}",
                 destroyed_dna.sequence.len()
             ));
