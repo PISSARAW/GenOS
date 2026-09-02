@@ -270,7 +270,7 @@ async function searchMemory(query = '', options = {}, db = null) {
     const topCosine = scoredItems[0].cosineMetric;
     
     // 1. Pattern Separation (Gyrus Denté) : Stimulus trop éloigné du réseau
-    if (topCosine < 0.60) {
+    if (topCosine < 0.50) { // Baissé de 0.60 à 0.50 (les embeddings OpenAI peuvent avoir des scores bas sur du meta-texte)
       noveltyDetected = true;
     }
     
@@ -278,8 +278,8 @@ async function searchMemory(query = '', options = {}, db = null) {
     if (scoredItems.length >= 3) {
       const top1 = scoredItems[0].cosineMetric;
       const top3 = scoredItems[2].cosineMetric;
-      // Si le meilleur n'est pas exceptionnel (< 0.70) et qu'il y a très peu d'écart avec le 3ème (< 0.02)
-      if (top1 < 0.70 && (top1 - top3) < 0.02) {
+      // Si le meilleur n'est vraiment pas ouf (< 0.60) et qu'il n'y a aucun écart avec le 3ème (< 0.01)
+      if (top1 < 0.60 && (top1 - top3) < 0.01) {
         gabaInhibited = true;
       }
     }
