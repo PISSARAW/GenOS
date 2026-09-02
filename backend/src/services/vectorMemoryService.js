@@ -209,6 +209,28 @@ async function searchMemory(query = '', options = {}, db = null) {
     };
   });
 
+  // 6. LTD (Long-Term Depression) & Biais de Récence : Résolution des Overwrites
+  // L'agent souffrait de nostalgie tenace (les vieux souvenirs très utilisés écrasaient les nouveaux).
+  // On repère les conflits sémantiques directs (plusieurs souvenirs avec un très haut score cosinus sur un même sujet).
+  const highMatches = scoredItems.filter(i => i.cosineMetric > 0.80);
+  if (highMatches.length > 1) {
+      // On trie ces matchs par récence (du plus récent au plus ancien)
+      highMatches.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      const newestMatch = highMatches[0];
+      
+      // L'information la plus fraîche applique une Dépression à Long Terme (LTD) aux informations obsolètes
+      for (let i = 1; i < highMatches.length; i++) {
+          const olderMatch = highMatches[i];
+          // On vérifie que le vieux souvenir est bel et bien plus vieux (ex: au moins 1h d'écart) 
+          // pour éviter de s'auto-écraser dans une même session de pensée.
+          const ageDiff = new Date(newestMatch.createdAt || 0).getTime() - new Date(olderMatch.createdAt || 0).getTime();
+          if (ageDiff > 3600000) { 
+              olderMatch.similarityScore *= 0.1; // Écrasement cognitif (Fact Overwrite forcé)
+              if (!olderMatch.tags.includes('obsolete')) olderMatch.tags.push('obsolete_suppressed');
+          }
+      }
+  }
+
   scoredItems.sort((a, b) => b.similarityScore - a.similarityScore);
   
   // --- METACOGNITION BIOLOGIQUE ---
