@@ -208,7 +208,7 @@ async function searchMemory(query = '', options = {}, db = null) {
        neurogenesisBonus = 1.5;
     }
     
-    let finalScore = hybridScore * weight * credibilityMultiplier * neurogenesisBonus;
+    let finalScore = hybridScore * (0.8 + 0.2 * weight) * credibilityMultiplier * neurogenesisBonus;
 
     // Neuromodulation
     const hormone = options.hormone || 'normal';
