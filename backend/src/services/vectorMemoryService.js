@@ -152,14 +152,30 @@ async function searchMemory(query = '', options = {}, db = null) {
     const itemVec = item.vector || textToVector(`${item.title} ${item.summary} ${item.tags.join(' ')}`);
     const cosScore = cosine(queryVec, itemVec);
 
-    // Lexical match bonus
+    // 3. Amorçage Perceptif & Réseau de Saillance (Single-Hop Exact Match)
     const queryLower = query.toLowerCase();
-    const lexicalMatch = item.tags.some(t => queryLower.includes(t)) ? 0.3 : 0.0;
+    const contentLower = `${item.title} ${item.summary}`.toLowerCase();
+    
+    // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)
+    const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 4 || /\d/.test(w));
+    
+    let exactMatchBonus = 0.0;
+    for (const term of salientTerms) {
+        // Boost massif si le mot exact ou l'ID est retrouvé
+        if (contentLower.includes(term)) {
+            exactMatchBonus += 0.15;
+        }
+    }
+    // Plafond de l'amorçage pour ne pas saturer le score
+    exactMatchBonus = Math.min(0.4, exactMatchBonus); 
+    
+    // Bonus historique sur la reconnaissance des tags
+    const tagMatch = item.tags.some(t => queryLower.includes(t)) ? 0.15 : 0.0;
     
     // Plasticity (synaptic weight)
     const weight = item.synaptic_weight !== undefined ? item.synaptic_weight : 1.0;
     
-    // 1. Vigilance Épistémique (Source Monitoring)
+    // 4. Vigilance Épistémique (Source Monitoring)
     let credibilityMultiplier = 1.0;
     const authorLower = (item.author || '').toLowerCase();
     if (authorLower === 'memory_seed' || authorLower === 'system') {
@@ -168,13 +184,13 @@ async function searchMemory(query = '', options = {}, db = null) {
       credibilityMultiplier = 0.8; // Déclaratif externe (Gaslighting potentiel)
     }
 
-    // 2. Instinct de Survie (Priority to Solutions over Traumas)
+    // 5. Instinct de Survie (Priority to Solutions over Traumas)
     let survivalBonus = 0.0;
     if (item.status === 'SUCCESS') {
       survivalBonus = 0.15; // Garantit que la solution remonte face à l'échec
     }
 
-    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + lexicalMatch + survivalBonus)).toFixed(4));
+    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + tagMatch + exactMatchBonus + survivalBonus)).toFixed(4));
     let finalScore = hybridScore * weight * credibilityMultiplier;
 
     // Neuromodulation
