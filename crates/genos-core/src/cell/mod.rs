@@ -28,6 +28,7 @@ pub mod recurrence;
 pub mod halting;
 pub mod quorum_sensing;
 pub mod endocrine;
+pub mod morphogenesis;
 pub mod components;
 pub mod lifecycle;
 pub mod bus;
@@ -88,6 +89,7 @@ pub struct AgentCell {
     pub cytoplasm: Cytoplasm,
     pub quorum_sensor: quorum_sensing::QuorumSensor,
     pub endocrine: endocrine::EndocrineSystem,
+    pub morphogenesis: morphogenesis::MorphogenesisSystem,
     
     pub components: Vec<CellComponent>,
 }
@@ -139,6 +141,7 @@ impl Default for AgentCell {
             },
             quorum_sensor: quorum_sensing::QuorumSensor::default(),
             endocrine: endocrine::EndocrineSystem::default(),
+            morphogenesis: morphogenesis::MorphogenesisSystem::default(),
             components: vec![
                 CellComponent::Mind(Mind::default()), // Default fallback
                 CellComponent::Cilia(cilia::Cilia::default()),
