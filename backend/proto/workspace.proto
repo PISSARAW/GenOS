@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package genos.workspace;
+
+service WorkspaceService {
+  rpc Ping (Empty) returns (PingResponse);
+}
+
+message Empty {}
+
+message PingResponse {
+  string status = 1;
+}
