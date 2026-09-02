@@ -82,15 +82,15 @@ async fn main() {
         Commands::Chat { prompt } => {
             println!("🗣️ [Stimulus] Envoi du signal à la membrane cellulaire...");
             let mut agent = AgentCell::default();
-            agent.mind.as_mut().unwrap().memory.memorize("system", "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.");
-            agent.mind.as_mut().unwrap().memory.memorize("user", prompt);
+            agent.mind_mut().unwrap().memory.memorize("system", "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.");
+            agent.mind_mut().unwrap().memory.memorize("user", prompt);
             
             println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
-            let stm = agent.mind.as_ref().unwrap().memory.short_term_memory.clone();
-            match agent.mind.as_mut().unwrap().ribosome.translate(&stm).await {
+            let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
+            match agent.mind_mut().unwrap().ribosome.translate(&stm).await {
                 Ok(response) => {
                     println!("\n🧬 [Agent] : {}", response);
-                    agent.mind.as_mut().unwrap().memory.memorize("assistant", &response);
+                    agent.mind_mut().unwrap().memory.memorize("assistant", &response);
                 }
                 Err(e) => {
                     println!("\n❌ [Erreur Biologique] : {}", e);
@@ -120,3 +120,5 @@ async fn main() {
         }
     }
 }
+
+

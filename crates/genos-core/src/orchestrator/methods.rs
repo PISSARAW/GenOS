@@ -104,7 +104,7 @@ impl Orchestrator {
 
     /// L'Orchestrateur peut agir comme un MÃƒÂ©decin et injecter une thÃƒÂ©rapie
     pub fn administer_therapy(&self, agent: &mut AgentCell, therapy: Therapy) {
-        if agent.nervous_system.is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
+        if agent.nervous_system().is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
             return;
         }
         match therapy {
@@ -118,7 +118,7 @@ impl Orchestrator {
     /// 1. Attachement et 2. PÃƒÂ©nÃƒÂ©tration
     /// Un virus dans l'environnement tente d'infecter la cellule.
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
-        if agent.nervous_system.is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
+        if agent.nervous_system().is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
             return;
         }
         // ANTICORPS : Si le virus est neutralisÃƒÂ©, ses clÃƒÂ©s sont couvertes, il ne peut pas entrer
@@ -197,11 +197,12 @@ impl Orchestrator {
         
         agent.cytoplasm.trace.sequence.push(action_string.to_string());
         
-        if let Some(nervous_system) = &mut agent.nervous_system {
+        let source_id = agent.cell_id.to_string();
+        if let Some(nervous_system) = agent.nervous_system_mut() {
             if let Some(outputs) = nervous_system.process_soma() {
                 for (target_id, transmitter, amount) in outputs {
                     self.nervous_system.synaptic_cleft.push(CleftMessage {
-                        source_id: agent.cell_id.to_string(),
+                        source_id: source_id.clone(),
                         target_id,
                         transmitter,
                         amount,
@@ -263,7 +264,7 @@ impl Orchestrator {
                 .iter_mut()
                 .find(|a| a.cell_id.to_string() == msg.target_id)
             {
-                if let Some(ns) = &mut target_agent.nervous_system {
+                if let Some(ns) = target_agent.nervous_system_mut() {
                     // Les canaux ioniques (Sodium, Potassium, Chlore) s'ouvrent !
                     ns.receive_neurotransmitter(
                         &msg.source_id,
@@ -275,7 +276,7 @@ impl Orchestrator {
             let mut is_cleared_by_astrocyte = false;
             if msg.transmitter == crate::neurobiology::Neurotransmitter::Glutamate {
                 for agent in agents.iter() {
-                    if let Some(astro) = &agent.astrocyte {
+                    if let Some(astro) = agent.astrocyte() {
                         if astro.protected_neurons.contains(&msg.target_id) && !astro.is_reactive {
                             is_cleared_by_astrocyte = true;
                             break;
@@ -288,7 +289,7 @@ impl Orchestrator {
                     .iter_mut()
                     .find(|a| a.cell_id.to_string() == msg.source_id)
                 {
-                    if let Some(ns) = &mut source_agent.nervous_system {
+                    if let Some(ns) = source_agent.nervous_system_mut() {
                         ns.axon.vesicles_at_terminals += msg.amount * 0.8;
                     }
                 }
@@ -313,6 +314,14 @@ impl Orchestrator {
         self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
+
+
+
+
+
+
+
+
 
 
 

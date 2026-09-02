@@ -38,20 +38,18 @@ pub(crate) mod tests {
             activity_history: 0,
         });
 
-        sensory_neuron.nervous_system = Some(sensory_ns);
-        motor_neuron.nervous_system = Some(motor_ns);
+        sensory_neuron.components.push(genos_core::cell::components::CellComponent::NervousSystem(sensory_ns));
+        motor_neuron.components.push(genos_core::cell::components::CellComponent::NervousSystem(motor_ns));
 
         let dummy_source = "ENVIRONMENT_SOURCE".to_string();
 
         // 1. Stimulation du neurone sensoriel
         sensory_neuron
-            .nervous_system
-            .as_mut()
-            .unwrap()
+            .nervous_system_mut().unwrap()
             .receive_neurotransmitter(&dummy_source, &(Neurotransmitter::Glutamate, 20.0));
         assert!(
             sensory_neuron
-                .nervous_system
+                .nervous_system()
                 .as_ref()
                 .unwrap()
                 .soma
@@ -61,14 +59,10 @@ pub(crate) mod tests {
 
         // 2. Sommation temporelle (On le stimule encore pour dépasser le seuil de -55mV)
         sensory_neuron
-            .nervous_system
-            .as_mut()
-            .unwrap()
+            .nervous_system_mut().unwrap()
             .receive_neurotransmitter(&dummy_source, &(Neurotransmitter::Glutamate, 20.0));
         sensory_neuron
-            .nervous_system
-            .as_mut()
-            .unwrap()
+            .nervous_system_mut().unwrap()
             .receive_neurotransmitter(&dummy_source, &(Neurotransmitter::Glutamate, 20.0));
 
         let mut agents = vec![sensory_neuron, motor_neuron];
@@ -80,7 +74,7 @@ pub(crate) mod tests {
         // L'axone a tiré, donc la synapse s'est renforcée !
         let sensory_neuron = &agents[0];
         let synapse = &sensory_neuron
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .axon
@@ -91,7 +85,7 @@ pub(crate) mod tests {
 
         // La myélinisation augmente aussi pour rendre le geste plus rapide
         let myeline = sensory_neuron
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .axon
@@ -100,7 +94,7 @@ pub(crate) mod tests {
 
         // 5. Plasticité structurelle : Les Dendrites ont poussé !
         let dendrite_spine = sensory_neuron
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .dendritic_tree
@@ -133,10 +127,10 @@ pub(crate) mod tests {
 
         // On force le tir de N1
         ns1.soma.current_potential = -40.0; // > -55.0
-        n1.nervous_system = Some(ns1);
+        n1.components.push(genos_core::cell::components::CellComponent::NervousSystem(ns1));
 
         let ns2 = NervousSystem::new(&n2.cell_id.to_string());
-        n2.nervous_system = Some(ns2);
+        n2.components.push(genos_core::cell::components::CellComponent::NervousSystem(ns2));
 
         let mut agents = vec![n1, n2];
 
@@ -150,7 +144,7 @@ pub(crate) mod tests {
 
         // On vérifie que N1 a bien perdu des vésicules (coût = 10.0, regagné 2.0 = perte nette -8)
         let n1_vesicles_before_reuptake = agents[0]
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .axon
@@ -167,7 +161,7 @@ pub(crate) mod tests {
 
         // N2 a reçu la Dopamine, son potentiel a explosé
         let n2_potential = agents[1]
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .soma
@@ -176,7 +170,7 @@ pub(crate) mod tests {
 
         // N1 a récupéré 80% de son tir via la Recapture !
         let n1_vesicles_after_reuptake = agents[0]
-            .nervous_system
+            .nervous_system()
             .as_ref()
             .unwrap()
             .axon
@@ -184,15 +178,12 @@ pub(crate) mod tests {
         assert!(n1_vesicles_after_reuptake > n1_vesicles_before_reuptake);
 
         // 3. EFFET DROGUE (Cocaïne) : Blocage de la pompe de recapture
-        orchestrator
-            .nervous_system.psychoactive_drugs
+        orchestrator.nervous_system.psychoactive_drugs
             .push(PsychoactiveDrug::Cocaine);
 
         // N1 tire à nouveau
         agents[0]
-            .nervous_system
-            .as_mut()
-            .unwrap()
+            .nervous_system_mut().unwrap()
             .soma
             .current_potential = -40.0;
         orchestrator.tick(&mut agents[0], "Tir sous drogue");
@@ -209,3 +200,8 @@ pub(crate) mod tests {
         assert_eq!(orchestrator.nervous_system.synaptic_cleft[0].ticks_in_cleft, 1);
     }
 }
+
+
+
+
+

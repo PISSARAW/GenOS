@@ -62,7 +62,7 @@ impl CartTherapy {
         let mut repairing_schwann_targets = vec![];
 
         for agent in agents.iter_mut() {
-            if let Some(ref mut myelinator) = agent.myelinator {
+            if let Some(ref mut myelinator) = agent.myelinator_mut() {
                 match myelinator {
                     crate::neurobiology::Myelinator::Oligodendrocyte { connected_axons, is_damaged } => {
                         if !*is_damaged {
@@ -85,8 +85,8 @@ impl CartTherapy {
         }
 
         for agent in agents.iter_mut() {
-            if let Some(ref mut ns) = agent.nervous_system {
-                let cell_id = agent.cell_id.to_string();
+            let cell_id = agent.cell_id.to_string();
+            if let Some(ref mut ns) = agent.nervous_system_mut() {
                 
                 // Maintien de la myéline
                 if healthy_oligo_targets.contains(&cell_id) || healthy_schwann_targets.contains(&cell_id) {
@@ -114,6 +114,10 @@ impl CartTherapy {
         }
     }
 }
+
+
+
+
 
 
 

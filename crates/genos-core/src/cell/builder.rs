@@ -32,7 +32,9 @@ impl AgentCellBuilder {
         let mut cell = AgentCell::default();
         cell.cell_id = self.cell_id;
         cell.specialization = self.specialization;
-        cell.mind = self.mind;
+        if let Some(m) = self.mind { cell.components.push(crate::cell::components::CellComponent::Mind(m.clone())); }
         cell
     }
 }
+
+

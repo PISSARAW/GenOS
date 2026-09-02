@@ -25,6 +25,7 @@ pub mod causality;
 pub mod ood_resilience;
 pub mod recurrence;
 pub mod halting;
+pub mod components;
 #[cfg(test)]
 pub mod tests;
 
@@ -40,9 +41,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 use crate::cell::substructs::*;
+use crate::cell::components::CellComponent;
 
-/// La Cellule est l'unité fondamentale de la vie et de GenOS.
-/// C'est une micro-ville IA ultra-organisée avec ses propres organites.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum LifecycleState {
     StemCell,
@@ -53,7 +53,8 @@ pub enum LifecycleState {
     Necrotic,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]pub struct AgentCell {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AgentCell {
     pub cell_id: Uuid,
     pub inbox: Vec<crate::cell::events::CellEvent>,
     pub outbox: Vec<crate::cell::events::CellEvent>,
@@ -67,23 +68,8 @@ pub enum LifecycleState {
     pub golgi_apparatus: GolgiApparatus,
     pub immunity: ImmuneSystem,
     pub cytoplasm: Cytoplasm,
-    /// Les anticorps actuellement à la surface ou générés par la cellule
-    /// Le système nerveux (Optionnel : seulement pour les Neurones)
-    pub nervous_system: Option<crate::neurobiology::NervousSystem>,
-    /// L'Astrocyte (Optionnel : seulement pour les cellules gliales)
-    pub astrocyte: Option<crate::neurobiology::Astrocyte>,
-    pub myelinator: Option<crate::neurobiology::Myelinator>,
-    pub microglia: Option<crate::neurobiology::Microglia>,
-    pub ependymal: Option<crate::neurobiology::EpendymalCell>,
     
-    /// L'esprit de la cellule (Optionnel, présent chez les Neurones)
-    pub mind: Option<Mind>,
-    
-    // Organes cellulaires physiques
-    pub cilia: cilia::Cilia,
-    pub vacuole: vacuole::Vacuole,
-    pub autonomic_ns: ans::AutonomicNervousSystem,
-    pub muscle: muscle::Myofibril,
+    pub components: Vec<CellComponent>,
 }
 
 impl Default for AgentCell {
@@ -108,8 +94,8 @@ impl Default for AgentCell {
             },
             genetics: GeneticSystem::default(),
             lifecycle_state: LifecycleState::StemCell,
-        specialization: Specialization::Undefined,
-        metabolism: MetabolicSystem::default(),
+            specialization: Specialization::Undefined,
+            metabolism: MetabolicSystem::default(),
             redundancy: crate::redundancy::RedundancySystem::new(),
             endoplasmic_reticulum: EndoplasmicReticulum {
                 active_ribosomes_count: 0,
@@ -130,21 +116,16 @@ impl Default for AgentCell {
                 active_proteins: vec![],
                 proteasome: Proteasome::default(),
             },
-            nervous_system: None,
-            astrocyte: None,
-            myelinator: None,
-            microglia: None,
-            ependymal: None,
-            
-            mind: Some(Mind::default()), // TODO: None par defaut dans le futur
-            cilia: cilia::Cilia::default(),
-            vacuole: vacuole::Vacuole::default(),
-            autonomic_ns: ans::AutonomicNervousSystem::default(),
-            muscle: muscle::Myofibril::default(),
+            components: vec![
+                CellComponent::Mind(Mind::default()), // Default fallback
+                CellComponent::Cilia(cilia::Cilia::default()),
+                CellComponent::Vacuole(vacuole::Vacuole::default()),
+                CellComponent::AutonomicNS(ans::AutonomicNervousSystem::default()),
+                CellComponent::Muscle(muscle::Myofibril::default()),
+            ],
         }
     }
 }
-
 
 /// L'Esprit de la cellule (Instancié uniquement chez les Neurones / Agents IA)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -185,13 +166,78 @@ impl Default for Mind {
     }
 }
 
-
-
-
 impl crate::cell::AgentCell {
     pub fn is_alive(&self) -> bool {
         self.lifecycle_state != LifecycleState::Apoptotic && self.lifecycle_state != LifecycleState::Necrotic
     }
+
+    pub fn nervous_system(&self) -> Option<&crate::neurobiology::NervousSystem> {
+        self.components.iter().find_map(|c| if let CellComponent::NervousSystem(ns) = c { Some(ns) } else { None })
+    }
+    pub fn nervous_system_mut(&mut self) -> Option<&mut crate::neurobiology::NervousSystem> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::NervousSystem(ns) = c { Some(ns) } else { None })
+    }
+
+    pub fn astrocyte(&self) -> Option<&crate::neurobiology::Astrocyte> {
+        self.components.iter().find_map(|c| if let CellComponent::Astrocyte(a) = c { Some(a) } else { None })
+    }
+    pub fn astrocyte_mut(&mut self) -> Option<&mut crate::neurobiology::Astrocyte> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Astrocyte(a) = c { Some(a) } else { None })
+    }
+
+    pub fn myelinator(&self) -> Option<&crate::neurobiology::Myelinator> {
+        self.components.iter().find_map(|c| if let CellComponent::Myelinator(m) = c { Some(m) } else { None })
+    }
+    pub fn myelinator_mut(&mut self) -> Option<&mut crate::neurobiology::Myelinator> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Myelinator(m) = c { Some(m) } else { None })
+    }
+
+    pub fn microglia(&self) -> Option<&crate::neurobiology::Microglia> {
+        self.components.iter().find_map(|c| if let CellComponent::Microglia(m) = c { Some(m) } else { None })
+    }
+    pub fn microglia_mut(&mut self) -> Option<&mut crate::neurobiology::Microglia> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Microglia(m) = c { Some(m) } else { None })
+    }
+
+    pub fn ependymal(&self) -> Option<&crate::neurobiology::EpendymalCell> {
+        self.components.iter().find_map(|c| if let CellComponent::Ependymal(e) = c { Some(e) } else { None })
+    }
+    pub fn ependymal_mut(&mut self) -> Option<&mut crate::neurobiology::EpendymalCell> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Ependymal(e) = c { Some(e) } else { None })
+    }
+
+    pub fn mind(&self) -> Option<&Mind> {
+        self.components.iter().find_map(|c| if let CellComponent::Mind(m) = c { Some(m) } else { None })
+    }
+    pub fn mind_mut(&mut self) -> Option<&mut Mind> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Mind(m) = c { Some(m) } else { None })
+    }
+
+    pub fn cilia(&self) -> Option<&crate::cell::cilia::Cilia> {
+        self.components.iter().find_map(|c| if let CellComponent::Cilia(c_) = c { Some(c_) } else { None })
+    }
+    pub fn cilia_mut(&mut self) -> Option<&mut crate::cell::cilia::Cilia> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Cilia(c_) = c { Some(c_) } else { None })
+    }
+
+    pub fn vacuole(&self) -> Option<&crate::cell::vacuole::Vacuole> {
+        self.components.iter().find_map(|c| if let CellComponent::Vacuole(v) = c { Some(v) } else { None })
+    }
+    pub fn vacuole_mut(&mut self) -> Option<&mut crate::cell::vacuole::Vacuole> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Vacuole(v) = c { Some(v) } else { None })
+    }
+
+    pub fn autonomic_ns(&self) -> Option<&crate::cell::ans::AutonomicNervousSystem> {
+        self.components.iter().find_map(|c| if let CellComponent::AutonomicNS(ans) = c { Some(ans) } else { None })
+    }
+    pub fn autonomic_ns_mut(&mut self) -> Option<&mut crate::cell::ans::AutonomicNervousSystem> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::AutonomicNS(ans) = c { Some(ans) } else { None })
+    }
+
+    pub fn muscle(&self) -> Option<&crate::cell::muscle::Myofibril> {
+        self.components.iter().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
+    }
+    pub fn muscle_mut(&mut self) -> Option<&mut crate::cell::muscle::Myofibril> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
+    }
 }
-
-
