@@ -432,8 +432,10 @@ async function searchMemory(query = '', options = {}, db = null) {
 async function sleepCycle(db) {
   if (!db) throw new Error('Database connection is required for sleep cycle.');
   
-  // Decrease all synaptic weights by 10%
-  await db.run(`UPDATE genome_decisions SET synaptic_weight = synaptic_weight * 0.9`);
+  // Decrease all synaptic weights by 10% (LTD), but maintain a basal neocortical survival threshold (0.15)
+  // This prevents harmless isolated trivia (Single-Hop Facts) from being forgotten, 
+  // while still allowing suppressed/overwritten facts (which get multiplied by 0.1 or 0.01 elsewhere) to fall below 0.1 and die.
+  await db.run(`UPDATE genome_decisions SET synaptic_weight = MAX(0.15, synaptic_weight * 0.9)`);
   
   // Find memories falling below threshold (0.1), EXCEPT those that are structural hubs (have synapses)
   const doomed = await db.all(`
