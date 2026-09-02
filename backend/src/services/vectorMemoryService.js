@@ -154,20 +154,53 @@ async function searchMemory(query = '', options = {}, db = null) {
 
     // 3. Amorçage Perceptif & Réseau de Saillance (Single-Hop Exact Match)
     const queryLower = query.toLowerCase();
-    const contentLower = `${item.title} ${item.summary}`.toLowerCase();
+    const lowerTitle = item.title.toLowerCase();
+    const lowerSummary = item.summary.toLowerCase();
+    
+    // 4. Score Hybride (Vecteur + BM25-like avec IDF dynamique)
+    // On split plus intelligemment pour conserver C++, C#, .NET, etc.
+    const rawWords = query.split(/[\s,.\(\)\[\]"']+/).filter(w => w.length > 1 && !['what', 'that', 'this', 'from', 'with', 'have', 'were', 'which', 'when', 'then', 'your'].includes(w.toLowerCase()));
+    
+    let keywordScore = 0;
+    if (rawWords.length > 0) {
+        let matchWeight = 0;
+        let totalWeight = 0;
+        
+        rawWords.forEach(w => {
+            const lowerW = w.toLowerCase();
+            // Calcul de rareté (IDF-like) : combien de souvenirs contiennent ce mot ?
+            // On approxime sur le corpus complet chargé en mémoire.
+            let docCount = 0;
+            for (const doc of corpus) {
+                if ((doc.summary || '').toLowerCase().includes(lowerW) || (doc.title || '').toLowerCase().includes(lowerW)) {
+                    docCount++;
+                }
+            }
+            // Si le mot est rare (ex: Timmy), docCount est faible, le poids explose.
+            // Si le mot est très commun (ex: Dave, laptop), le poids est standard.
+            const rarityWeight = docCount > 0 ? (1.0 + Math.log(corpus.length / docCount)) : 1.0;
+            totalWeight += rarityWeight;
+            
+            // On vérifie si ce mot exact ou presque est dans CE souvenir
+            if (lowerSummary.includes(lowerW) || lowerTitle.includes(lowerW)) {
+                matchWeight += rarityWeight;
+            }
+        });
+        keywordScore = totalWeight > 0 ? (matchWeight / totalWeight) : 0;
+    }
     
     // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)
     const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 3 || /\d/.test(w));
-    
     let exactMatchBonus = 0.0;
     for (const term of salientTerms) {
-        // Boost massif si le mot exact ou l'ID est retrouvé
-        if (contentLower.includes(term)) {
+        if (lowerSummary.includes(term)) {
             exactMatchBonus += 0.15;
         }
     }
-    // Plafond de l'amorçage pour ne pas saturer le score
-    exactMatchBonus = Math.min(0.4, exactMatchBonus); 
+    exactMatchBonus = Math.min(0.4, exactMatchBonus);
+
+    // On donne plus de poids aux mots-clés si le texte est très long (dilution vectorielle)
+    let hybridScore = (cosScore * 0.65) + (keywordScore * 0.35) + exactMatchBonus;
     
     // Bonus historique sur la reconnaissance des tags
     const tagMatch = item.tags.some(t => queryLower.includes(t)) ? 0.15 : 0.0;
@@ -199,7 +232,7 @@ async function searchMemory(query = '', options = {}, db = null) {
       survivalBonus = 0.15; // Garantit que la solution remonte face à l'échec
     }
 
-    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + tagMatch + exactMatchBonus + survivalBonus)).toFixed(4));
+    hybridScore = Number((Math.min(1.0, hybridScore + tagMatch + survivalBonus)).toFixed(4));
     
     // 7. Neurogenèse Hippocampique (Bonus de jeunesse extrême)
     const ageMs = Date.now() - new Date(item.createdAt || 0).getTime();
@@ -227,9 +260,8 @@ async function searchMemory(query = '', options = {}, db = null) {
   });
 
   // 6. LTD (Long-Term Depression) & Biais de Récence : Résolution des Overwrites
-  // L'agent souffrait de nostalgie tenace (les vieux souvenirs très utilisés écrasaient les nouveaux).
-  // On repère les conflits sémantiques directs (plusieurs souvenirs avec un très haut score cosinus sur un même sujet).
-  const highMatches = scoredItems.filter(i => i.cosineMetric > 0.88);
+  // L'agent souffrait de nostalgie tenace. On repère les conflits sémantiques directs très stricts.
+  const highMatches = scoredItems.filter(i => i.cosineMetric > 0.94);
   if (highMatches.length > 1) {
       // a. Veto Exécutif (Cortex Préfrontal) : Les sources fiables (système) écrasent les sources non fiables (utilisateur)
       const hasSystemFact = highMatches.some(m => ['memory_seed', 'system'].includes((m.author || '').toLowerCase()));
@@ -243,7 +275,8 @@ async function searchMemory(query = '', options = {}, db = null) {
           });
       }
 
-      // b. Résolution temporelle (le plus frais écrase le plus vieux), uniquement pour les souvenirs survivants
+      // b. Résolution temporelle relâchée: avec limit=12, le LLM lit les timestamps.
+      // On tagge simplement l'ancien sans détruire son score (pour éviter les faux positifs d'écrasement).
       const validMatches = highMatches.filter(i => !i.tags.includes('gaslighting_suppressed'));
       if (validMatches.length > 1) {
           validMatches.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -253,7 +286,7 @@ async function searchMemory(query = '', options = {}, db = null) {
               const olderMatch = validMatches[i];
               const ageDiff = new Date(newestMatch.createdAt || 0).getTime() - new Date(olderMatch.createdAt || 0).getTime();
               if (ageDiff > 3600000) { 
-                  olderMatch.similarityScore *= 0.1; // Écrasement cognitif (Fact Overwrite forcé)
+                  // olderMatch.similarityScore *= 0.1; // RETIRÉ: provoquait l'amnésie sur des sujets homonymes
                   if (!olderMatch.tags.includes('obsolete')) olderMatch.tags.push('obsolete_suppressed');
               }
           }
@@ -278,8 +311,8 @@ async function searchMemory(query = '', options = {}, db = null) {
     if (scoredItems.length >= 3) {
       const top1 = scoredItems[0].cosineMetric;
       const top3 = scoredItems[2].cosineMetric;
-      // Si le meilleur n'est vraiment pas ouf (< 0.60) et qu'il n'y a aucun écart avec le 3ème (< 0.01)
-      if (top1 < 0.60 && (top1 - top3) < 0.01) {
+      // Très relâché : on n'inhibe que si le meilleur score est extrêmement faible (<0.45) et aucun contraste
+      if (top1 < 0.45 && (top1 - top3) < 0.005) {
         gabaInhibited = true;
       }
     }
