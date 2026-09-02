@@ -115,10 +115,28 @@ async function generateVesicle(req, res, next) {
     const results = await vectorMemoryService.searchMemory(query, { limit: 5, hormone }, db);
     
     // Use allScoredExperiences (GraphRAG appends associative memories here)
-    const engrams = results.allScoredExperiences.map(r => ({
-      content: r.summary || r.content || r.title,
-      vector: r.vector || new Array(1536).fill(0.0)
-    }));
+    const engrams = results.allScoredExperiences.map(r => {
+      let text = r.summary || r.content || r.title;
+      
+      // Injection de l'horodatage biologique (Cellules de Grille Temporelle)
+      if (r.createdAt) {
+          const dateStr = new Date(r.createdAt).toISOString();
+          text = `[Timestamp: ${dateStr}] ${text}`;
+      }
+      
+      // Indication explicite de la relation temporelle (passé/futur) issue des Time Cells
+      if (r.tags && r.tags.includes('temporal_context_past')) {
+          text = `(Mémoire Episodique Précédente) ` + text;
+      }
+      if (r.tags && r.tags.includes('temporal_context_future')) {
+          text = `(Mémoire Episodique Suivante) ` + text;
+      }
+      
+      return {
+        content: text,
+        vector: r.vector || new Array(1536).fill(0.0)
+      };
+    });
     
     // Convert to vesicle and drop in synaptic_cleft
     const vesiclePath = await vectorMemoryService.releaseVesicles(engrams);
