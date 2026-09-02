@@ -329,6 +329,34 @@ async function searchMemory(query = '', options = {}, db = null) {
        }
      }
   }
+
+  // Cellules de Temps (Temporal Reasoning)
+  // L'hippocampe encode le temps. Autour des 2 souvenirs les plus pertinents (Ancres Temporelles),
+  // on charge l'événement immédiatement précédent et suivant chronologiquement.
+  if (topItems.length > 0) {
+      const timeAnchors = topItems.slice(0, 2);
+      for (const anchor of timeAnchors) {
+          if (!anchor.createdAt) continue;
+          
+          // Événement précédent (Mémoire épisodique passée)
+          const prev = await db.get(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at < ? AND id != ? ORDER BY created_at DESC LIMIT 1`, [anchor.createdAt, anchor.id]);
+          if (prev && !topItems.find(t => t.id === prev.id) && !connectedItems.find(c => c.id === prev.id)) {
+              connectedItems.push({
+                  id: prev.id, title: prev.title, category: prev.category, status: 'SUCCESS', summary: prev.content,
+                  tags: ['genome', 'temporal_context_past'], author: prev.created_by, createdAt: prev.created_at, vector: [], synaptic_weight: prev.synaptic_weight
+              });
+          }
+          
+          // Événement suivant (Mémoire épisodique future)
+          const next = await db.get(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at > ? AND id != ? ORDER BY created_at ASC LIMIT 1`, [anchor.createdAt, anchor.id]);
+          if (next && !topItems.find(t => t.id === next.id) && !connectedItems.find(c => c.id === next.id)) {
+              connectedItems.push({
+                  id: next.id, title: next.title, category: next.category, status: 'SUCCESS', summary: next.content,
+                  tags: ['genome', 'temporal_context_future'], author: next.created_by, createdAt: next.created_at, vector: [], synaptic_weight: next.synaptic_weight
+              });
+          }
+      }
+  }
   
   const allScored = [...topItems, ...connectedItems];
 
