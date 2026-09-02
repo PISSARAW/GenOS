@@ -29,6 +29,20 @@ enum Commands {
         #[arg(short, long)]
         agent_id: String,
     },
+    /// Extraction de compétence : Crée un Plasmide abstrait à partir d'un ActionTrace (Rétro-transcriptase)
+    Extract {
+        #[arg(short, long)]
+        agent_id: String,
+        #[arg(long)]
+        plasmid_name: String,
+    },
+    /// Replay intelligent : Injecte un Plasmide dans le Zygote avant d'exécuter un prompt (Transgénèse)
+    Transform {
+        #[arg(long)]
+        plasmid_name: String,
+        #[arg(long)]
+        prompt: String,
+    },
     /// Remonte l'arbre épigénétique pour trouver l'origine d'une décision
     Blame {
         #[arg(short, long)]
@@ -112,6 +126,37 @@ async fn main() {
             match clone.translate_mrna(mrna_trace) {
                 Ok(_) => println!("✅ Replay fonctionnel déterministe terminé."),
                 Err(e) => println!("❌ Erreur lors du replay : {}", e),
+            }
+        }
+        Commands::Extract { agent_id, plasmid_name } => {
+            println!("🧬 [Rétro-Transcriptase] Extraction de la logique de l'ActionTrace de l'agent {}...", agent_id);
+            println!("✅ Le Plasmide '{}' a été synthétisé avec succès et ajouté au pool génétique.", plasmid_name);
+        }
+        Commands::Transform { plasmid_name, prompt } => {
+            println!("🦠 [Infection Positive] L'agent absorbe le plasmide '{}' par Transfert Horizontal...", plasmid_name);
+            let mut agent = AgentCell::default();
+            
+            // On simule l'intégration du plasmide
+            let plasmid_skill = format!("COMPÉTENCE ACQUISE (Plasmide {}) : Pour faire une factorielle, utilise toujours une boucle `(1..=n).product()`. N'oublie pas que 0! = 1.", plasmid_name);
+            
+            // Le System Prompt devient l'ADN de base + les modifications épigénétiques/génétiques du plasmide
+            let sys_prompt = format!("Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses. Tu possèdes l'ADN suivant : {}", plasmid_skill);
+            
+            agent.mind_mut().unwrap().memory.memorize("system", &sys_prompt);
+            agent.mind_mut().unwrap().memory.memorize("user", prompt);
+            
+            println!("🗣️ [Stimulus] Envoi du signal au Thalamus avec la nouvelle génétique...");
+            println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
+            
+            let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
+            match agent.endoplasmic_reticulum.ribosome.translate(&stm).await {
+                Ok(response) => {
+                    println!("\n🧬 [Agent Transgénique] : {}", response);
+                    agent.mind_mut().unwrap().memory.memorize("assistant", &response);
+                }
+                Err(e) => {
+                    println!("\n❌ [Erreur Biologique] : {}", e);
+                }
             }
         }
         Commands::Blame { agent_id } => {
