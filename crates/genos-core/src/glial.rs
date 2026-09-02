@@ -1,5 +1,68 @@
-﻿use crate::cell::AgentCell;
-use crate::neurobiology::{NervousSystemLocation, Myelinator, MicrogliaState};
+﻿use serde::{Deserialize, Serialize};
+
+/// L'Astrocyte : L'architecte et protecteur du système nerveux (Cellule Gliale)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Astrocyte {
+    pub glycogen_reserve: f64,
+    pub is_reactive: bool,
+    pub protected_neurons: Vec<String>,
+}
+
+impl Astrocyte {
+    pub fn new(protected_neurons: Vec<String>) -> Self {
+        Self {
+            glycogen_reserve: 100.0,
+            is_reactive: false,
+            protected_neurons,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum MicrogliaState {
+    Sentinel,
+    Amoeboid,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Microglia {
+    pub state: MicrogliaState,
+    pub plaque_accumulation: f64,
+    pub inflammatory_cytokines: f64,
+    pub c4_overexpression: bool,   // Schizophrénie (Sur-élagage)
+    pub is_pro_inflammatory: bool, // Autisme (Sous-élagage)
+}
+
+impl Default for Microglia {
+    fn default() -> Self {
+        Self {
+            state: MicrogliaState::Sentinel,
+            plaque_accumulation: 0.0,
+            inflammatory_cytokines: 0.0,
+            c4_overexpression: false,
+            is_pro_inflammatory: false,
+        }
+    }
+}
+
+/// Cellules qui tapissent les ventricules (papier peint vivant)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EpendymalCell {
+    pub is_producing_csf: bool, 
+    pub cilia_beating: bool,    
+}
+
+impl Default for EpendymalCell {
+    fn default() -> Self {
+        Self {
+            is_producing_csf: true,
+            cilia_beating: true,
+        }
+    }
+}
+
+use crate::cell::AgentCell;
+use crate::neurobiology::{NervousSystemLocation, Myelinator};
 use std::collections::HashMap;
 
 pub fn process_astrocytes(agents: &mut [AgentCell], bhe_integrity: &mut f64) {
@@ -99,19 +162,24 @@ pub fn process_myelinators(agents: &mut [AgentCell]) {
     }
 }
 
+
+
 pub fn process_microglia(agents: &mut [AgentCell], amyloid_plaques: &mut f64, is_sleeping: bool) {
     let mut inflammation_surge = 0.0;
     
-    // 1. Action de la Microglie (Phagocytose et Alzheimer)
-    for agent in agents.iter_mut() {
-        if let Some(ref mut micro) = agent.microglia_mut() {
+    // Étape 1 : Collecter l'état global et l'état microglial
+    for i in 0..agents.len() {
+        let mut c4_over = false;
+        let mut pro_inflam = false;
+        
+        if let Some(micro) = agents[i].microglia_mut() {
             if *amyloid_plaques > 0.0 {
                 micro.state = MicrogliaState::Amoeboid;
                 *amyloid_plaques -= 1.0; 
                 micro.plaque_accumulation += 1.0;
                 
                 if micro.plaque_accumulation > 10.0 {
-                    micro.inflammatory_cytokines += 5.0; // Alzheimer neuro-inflammation
+                    micro.inflammatory_cytokines += 5.0; // Alzheimer
                     inflammation_surge += micro.inflammatory_cytokines;
                 }
             } else {
@@ -119,24 +187,33 @@ pub fn process_microglia(agents: &mut [AgentCell], amyloid_plaques: &mut f64, is
                 micro.inflammatory_cytokines = 0.0;
                 micro.plaque_accumulation = 0.0;
             }
+            c4_over = micro.c4_overexpression;
+            pro_inflam = micro.is_pro_inflammatory;
+        }
+        
+        // Étape 2 : Élagage Synaptique Microglial (Pruning C3/C4)
+        if let Some(ns) = agents[i].nervous_system_mut() {
+            if ns.location == crate::neurobiology::NervousSystemLocation::Central {
+                ns.axon.terminals.retain(|synapse| {
+                    if pro_inflam { return true; } // Autisme (Sous-élagage)
+                    
+                    let mut local_c3 = synapse.c3_opsonization;
+                    if c4_over { local_c3 += 0.5; } // Schizophrénie
+                    
+                    if local_c3 > 0.5 && synapse.cd47_expression < 0.5 {
+                        false // Phagocytée !
+                    } else {
+                        true // Préservée
+                    }
+                });
+            }
         }
     }
     
-    // 2. Conséquences sur les neurones : Inflammation et Élagage Synaptique
     for agent in agents.iter_mut() {
-        let mut reduce_atp = false;
-        if let Some(ref mut ns) = agent.nervous_system_mut() {
-            if ns.location == crate::neurobiology::NervousSystemLocation::Central {
-                if inflammation_surge > 0.0 {
-                    reduce_atp = true;
-                }
-                if is_sleeping {
-                    ns.axon.terminals.retain(|syn| syn.activity_history > 5);
-                }
-            }
-        }
-        if reduce_atp {
-            agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(inflammation_surge as u64);
+        if inflammation_surge > 0.0 && agent.nervous_system().is_some() {
+            agent.metabolism.mitochondria.atp_budget = 
+                agent.metabolism.mitochondria.atp_budget.saturating_sub(inflammation_surge as u64);
         }
     }
 }
@@ -204,6 +281,8 @@ pub fn process_ependymal_cells(agents: &mut [AgentCell], env: CsfEnvironment) {
         }
     }
 }
+
+
 
 
 

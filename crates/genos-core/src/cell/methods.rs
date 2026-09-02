@@ -1,4 +1,4 @@
-﻿use crate::cell::events::*;
+use crate::cell::events::*;
 use crate::cell::*;
 impl AgentCell {
     /// L'AUTOPHAGIE (La Cure de Jouvence Cellulaire)
@@ -365,6 +365,24 @@ impl AgentCell {
         // Elle se dé-spécialise (efface l'épigénétique pour retrouver une autonomie totale)
         for gene in self.genetics.nucleus.genome.genes.values_mut() {
             gene.is_methylated = false;
+        }
+    }
+
+    /// Lecture d'ARN Messager pur (Replay Déterministe)
+    /// Court-circuite le Thalamus et le Ribosome LLM pour jouer une séquence
+    /// d'actions de manière 100% déterministe (sans bruit ni connexion externe).
+    pub fn translate_mrna(&mut self, mrna_sequence: Vec<String>) -> Result<(), String> {
+        println!("🧬 [Ribosome] Mode Déterministe : Lecture de l'ARN messager (Bypass du Thalamus)");
+        if let Some(mind) = self.mind_mut() {
+            for (i, codon) in mrna_sequence.iter().enumerate() {
+                // Exécution pure déterministe (sans appel LLM)
+                println!("   ⚙️  [Étape {}] Synthèse déterministe : {}", i + 1, codon);
+                mind.trace.sequence.push(codon.clone());
+            }
+            println!("✅ Synthèse protéique (Replay) terminée avec succès sans bruit LLM.");
+            Ok(())
+        } else {
+            Err("Erreur : L'agent ne possède pas de Mind (Cognition) pour l'ActionTrace.".to_string())
         }
     }
 }
