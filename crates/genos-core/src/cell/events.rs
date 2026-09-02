@@ -41,7 +41,7 @@ impl AgentCell {
         }
         
         // 2. Apoptosis / Necrosis state (Terminal GC)
-        if self.lifecycle_state == LifecycleState::Apoptotic || self.lifecycle_state == LifecycleState::Necrotic {
+        if matches!(self.lifecycle_state, LifecycleState::Apoptotic(_) | LifecycleState::Necrotic(_)) {
             let reclaimed_atp = (self.cytoplasm.viral_infections.len() * 2) as u64;
             self.cytoplasm.viral_infections.clear();
             self.golgi_apparatus.viral_vesicles.clear();
@@ -58,8 +58,10 @@ impl AgentCell {
     }
 
     pub fn process_events(&mut self) {
+        self.step_lifecycle();
+
         // If dead, do nothing but GC
-        if self.lifecycle_state == LifecycleState::Apoptotic || self.lifecycle_state == LifecycleState::Necrotic {
+        if matches!(self.lifecycle_state, LifecycleState::Apoptotic(_) | LifecycleState::Necrotic(_)) {
             self.garbage_collect();
             return;
         }
@@ -75,7 +77,7 @@ impl AgentCell {
             if virus.is_lytic {
                 if self.golgi_apparatus.viral_vesicles.len() >= 6 {
                     self.metabolism.mitochondria.atp_budget = 0;
-                    self.lifecycle_state = LifecycleState::Necrotic;
+                    self.lifecycle_state = LifecycleState::Necrotic(crate::cell::lifecycle::NecroticState::default());
                     
                     // Wait, tests expect "Lysis: Cell burst due to viral replication overload" for necrosis!
                     self.outbox.push(CellEvent::Hijacked("Lysis: Cell burst due to viral replication overload".to_string()));
@@ -105,7 +107,7 @@ impl AgentCell {
                         if self.golgi_apparatus.viral_vesicles.len() >= 6 {
                             self.golgi_apparatus.viral_vesicles.clear();
                             self.metabolism.mitochondria.atp_budget = 0;
-                            self.lifecycle_state = LifecycleState::Necrotic;
+                            self.lifecycle_state = LifecycleState::Necrotic(crate::cell::lifecycle::NecroticState::default());
                             
                         }
                     } else if virion.envelope_spike == "PHAGE_SPIKE" {
@@ -121,14 +123,14 @@ impl AgentCell {
                         TherapyAction::BlockAngiogenesis => self.metabolism.mitochondria.angiogenesis_blocked = true,
                         TherapyAction::InhibitCellCycle => {
                             self.endoplasmic_reticulum.cell_cycle_inhibited = true;
-                            self.lifecycle_state = LifecycleState::Senescent;
+                            self.lifecycle_state = LifecycleState::Senescent(crate::cell::lifecycle::SenescentState::default());
                         }
                     }
                 }
                 CellEvent::MetabolicStress(cost) => {
                     self.metabolism.mitochondria.atp_budget = self.metabolism.mitochondria.atp_budget.saturating_sub(cost);
                     if self.metabolism.mitochondria.atp_budget == 0 {
-                        self.lifecycle_state = LifecycleState::Apoptotic;
+                        self.lifecycle_state = LifecycleState::Apoptotic(crate::cell::lifecycle::ApoptoticState::default());
                         self.outbox.push(CellEvent::ApoptosisTriggered("Stress métabolique fatal".to_string()));
                     }
                 }
@@ -151,6 +153,8 @@ impl AgentCell {
         self.garbage_collect();
     }
 }
+
+
 
 
 
