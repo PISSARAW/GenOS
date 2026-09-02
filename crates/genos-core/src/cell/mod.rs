@@ -116,6 +116,7 @@ impl Default for AgentCell {
             endoplasmic_reticulum: EndoplasmicReticulum {
                 active_ribosomes_count: 0,
                 cell_cycle_inhibited: false,
+                ribosome: crate::cell::ribosome::Ribosome::default(),
             },
             golgi_apparatus: GolgiApparatus {
                 export_vesicles: vec![],
@@ -124,8 +125,8 @@ impl Default for AgentCell {
             },
             immunity: ImmuneSystem::default(),
             cytoplasm: Cytoplasm {
-                cognition: CognitiveState::default(),
-                trace: ActionTrace::default(),
+                
+                
                 active_plasmids: vec![],
                 micro_rnas: vec![],
                 viral_infections: vec![],
@@ -147,10 +148,10 @@ impl Default for AgentCell {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Mind {
     pub memory: Hippocampus,
-    #[serde(skip)]
-    pub ribosome: Ribosome,
-    pub bbb: bbb::BloodBrainBarrier,
-    pub sensory_organs: sensory::SensoryOrgans,
+    pub cognitive_state: crate::cell::substructs::CognitiveState,
+    pub trace: crate::cell::substructs::ActionTrace,
+    
+    
     pub cognition: cognition::AdvancedCognition,
     pub sparse_cortex: sparse_cortex::SparseCortex,
     pub neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge,
@@ -166,9 +167,11 @@ impl Default for Mind {
     fn default() -> Self {
         Self {
             memory: Hippocampus::new(),
-            ribosome: Ribosome::new(),
-            bbb: bbb::BloodBrainBarrier::default(),
-            sensory_organs: sensory::SensoryOrgans::default(),
+            cognitive_state: crate::cell::substructs::CognitiveState::default(),
+            trace: crate::cell::substructs::ActionTrace::default(),
+            
+            
+            
             cognition: cognition::AdvancedCognition::default(),
             sparse_cortex: sparse_cortex::SparseCortex::default(),
             neuro_symbolic: neuro_symbolic::NeuroSymbolicBridge::default(),
@@ -262,10 +265,32 @@ impl crate::cell::AgentCell {
     pub fn muscle(&self) -> Option<&crate::cell::muscle::Myofibril> {
         self.components.iter().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
     }
+    pub fn bbb(&self) -> Option<&bbb::BloodBrainBarrier> {
+        self.components.iter().find_map(|c| if let CellComponent::BloodBrainBarrier(b) = c { Some(b) } else { None })
+    }
+
+    pub fn bbb_mut(&mut self) -> Option<&mut bbb::BloodBrainBarrier> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::BloodBrainBarrier(b) = c { Some(b) } else { None })
+    }
+
+    pub fn sensory_organs(&self) -> Option<&sensory::SensoryOrgans> {
+        self.components.iter().find_map(|c| if let CellComponent::SensoryOrgans(s) = c { Some(s) } else { None })
+    }
+
+    pub fn sensory_organs_mut(&mut self) -> Option<&mut sensory::SensoryOrgans> {
+        self.components.iter_mut().find_map(|c| if let CellComponent::SensoryOrgans(s) = c { Some(s) } else { None })
+    }
+
     pub fn muscle_mut(&mut self) -> Option<&mut crate::cell::muscle::Myofibril> {
         self.components.iter_mut().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
     }
 }
+
+
+
+
+
+
 
 
 

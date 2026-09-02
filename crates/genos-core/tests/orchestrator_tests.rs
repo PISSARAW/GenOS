@@ -31,8 +31,8 @@ pub(crate) mod tests {
         assert!(matches!(r2, TickResult::Continue));
         assert!(matches!(r3, TickResult::Continue));
 
-        assert_eq!(cell.cytoplasm.trace.sequence.len(), 3);
-        assert_eq!(cell.cytoplasm.trace.sequence[0], "read");
+        assert_eq!(cell.mind_mut().unwrap().trace.sequence.len(), 3);
+        assert_eq!(cell.mind_mut().unwrap().trace.sequence[0], "read");
     }
 
     #[test]
@@ -49,8 +49,7 @@ pub(crate) mod tests {
         let mut cell = mock_cell();
 
         // Ajout d'un stress ÃƒÂ©levÃƒÂ© via l'ÃƒÂ©pigÃƒÂ©nÃƒÂ©tique
-        cell.cytoplasm
-            .cognition
+        cell.mind_mut().unwrap().cognitive_state
             .epigenetic_drives
             .insert("stress".to_string(), 1.5);
 
@@ -60,7 +59,7 @@ pub(crate) mod tests {
             result,
             TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string())
         );
-        assert_eq!(cell.cytoplasm.trace.sequence.len(), 0);
+        assert_eq!(cell.mind_mut().unwrap().trace.sequence.len(), 0);
     }
 
     #[test]
@@ -199,7 +198,7 @@ pub(crate) mod tests {
         );
 
         // L'action normale est ignorÃƒÂ©e, l'ATP est consommÃƒÂ© par le virus, et 3 copies sont assemblÃƒÂ©es !
-        assert_eq!(cell.cytoplasm.trace.sequence.len(), 0);
+        assert_eq!(cell.mind_mut().unwrap().trace.sequence.len(), 0);
         assert_eq!(cell.metabolism.mitochondria.atp_budget, 10);
         assert_eq!(cell.golgi_apparatus.viral_vesicles.len(), 3);
 
@@ -359,8 +358,7 @@ pub(crate) mod tests {
         assert_eq!(b_lymphocyte_memory.metabolism.mitochondria.metabolic_rate, 0.1);
         // L'antigÃƒÂ¨ne est mÃƒÂ©morisÃƒÂ©
         assert!(b_lymphocyte_memory
-            .cytoplasm
-            .cognition
+            .mind_mut().unwrap().cognitive_state
             .semantic_memory
             .contains(&"KNOWN_ANTIGEN_SPIKE_FLU".to_string()));
 
@@ -530,5 +528,6 @@ pub(crate) mod tests {
         assert_eq!(blood_bacteria_igg[0].capsid_integrity, 0.0);
     }
 }
+
 
 

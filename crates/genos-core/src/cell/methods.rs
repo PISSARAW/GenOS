@@ -89,8 +89,7 @@ impl AgentCell {
         // LongÃƒÆ’Ã‚Â©vitÃƒÆ’Ã‚Â© extrÃƒÆ’Ã‚Âªme (Baisse drastique du mÃƒÆ’Ã‚Â©tabolisme pour survivre des annÃƒÆ’Ã‚Â©es)
         self.metabolism.mitochondria.metabolic_rate = 0.1;
         // Sauvegarde de la forme gÃƒÆ’Ã‚Â©omÃƒÆ’Ã‚Â©trique de l'ennemi dans la mÃƒÆ’Ã‚Â©moire sÃƒÆ’Ã‚Â©mantique
-        self.cytoplasm
-            .cognition
+        self.mind_mut().unwrap().cognitive_state
             .semantic_memory
             .push(format!("KNOWN_ANTIGEN_{}", target_spike));
     }
@@ -369,6 +368,8 @@ impl AgentCell {
         }
     }
 }
+
+
 
 
 

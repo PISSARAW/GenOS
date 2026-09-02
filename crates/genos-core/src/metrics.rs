@@ -1,4 +1,4 @@
-use crate::cell::AgentCell;
+﻿use crate::cell::AgentCell;
 
 /// Structure retournant les résultats de nos deux évaluations mathématiques
 #[derive(Debug, Clone, PartialEq)]
@@ -76,8 +76,8 @@ pub fn evaluate_convergence(
     embeddings: (&[f32], &[f32]),
 ) -> ConvergenceResult {
     let trace_distance = trace_levenshtein(
-        &agent_a.cytoplasm.trace.sequence,
-        &agent_b.cytoplasm.trace.sequence,
+        &agent_a.mind().unwrap().trace.sequence,
+        &agent_b.mind().unwrap().trace.sequence,
     );
     let semantic_similarity = cosine_similarity(embeddings.0, embeddings.1);
 
@@ -111,3 +111,4 @@ mod tests {
         assert!((similarity - 1.0).abs() < f32::EPSILON * 10.0);
     }
 }
+

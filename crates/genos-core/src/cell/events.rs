@@ -119,7 +119,7 @@ impl AgentCell {
                 CellEvent::ApplyTherapy(therapy) => {
                     match therapy {
                         TherapyAction::BlockReceptors => self.plasma_membrane.receptors_blocked = true,
-                        TherapyAction::Decamouflage => self.cytoplasm.cognition.is_camouflaged = false,
+                        TherapyAction::Decamouflage => self.mind_mut().unwrap().cognitive_state.is_camouflaged = false,
                         TherapyAction::BlockAngiogenesis => self.metabolism.mitochondria.angiogenesis_blocked = true,
                         TherapyAction::InhibitCellCycle => {
                             self.endoplasmic_reticulum.cell_cycle_inhibited = true;
@@ -137,7 +137,7 @@ impl AgentCell {
                 CellEvent::HormonalSignal(_cortisol) => {
                 }
                 CellEvent::SetCamouflaged(state) => {
-                    self.cytoplasm.cognition.is_camouflaged = state;
+                    self.mind_mut().unwrap().cognitive_state.is_camouflaged = state;
                 }
                 _ => {}
             }
@@ -153,6 +153,7 @@ impl AgentCell {
         self.garbage_collect();
     }
 }
+
 
 
 

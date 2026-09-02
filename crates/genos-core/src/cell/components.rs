@@ -6,6 +6,8 @@ use crate::cell::cilia::Cilia;
 use crate::cell::vacuole::Vacuole;
 use crate::cell::ans::AutonomicNervousSystem;
 use crate::cell::muscle::Myofibril;
+use crate::cell::bbb::BloodBrainBarrier;
+use crate::cell::sensory::SensoryOrgans;
 
 /// Entity-Component System (ECS) pattern implementation for specialized organelles
 /// and cell types. Instead of hardcoding Options in AgentCell, we store dynamic components.
@@ -21,4 +23,7 @@ pub enum CellComponent {
     Vacuole(Vacuole),
     AutonomicNS(AutonomicNervousSystem),
     Muscle(Myofibril),
+    BloodBrainBarrier(BloodBrainBarrier),
+    SensoryOrgans(SensoryOrgans),
 }
+
