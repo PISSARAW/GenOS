@@ -1,4 +1,4 @@
-﻿use crate::cell::*;
+use crate::cell::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -109,6 +109,7 @@ impl Default for MetabolicSystem {
 pub struct GeneticSystem {
     pub nucleus: crate::cell::Nucleus,
     pub lineage: crate::cell::lineage::Lineage,
+    pub horizontal_transfer: crate::genome::HorizontalTransferEngine,
 }
 
 impl Default for GeneticSystem {
@@ -121,6 +122,7 @@ impl Default for GeneticSystem {
                 p53_active: true,
             },
             lineage: crate::cell::lineage::Lineage::default(),
+            horizontal_transfer: crate::genome::HorizontalTransferEngine::default(),
         }
     }
 }
