@@ -200,7 +200,15 @@ async function searchMemory(query = '', options = {}, db = null) {
     }
 
     let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + tagMatch + exactMatchBonus + survivalBonus)).toFixed(4));
-    let finalScore = hybridScore * weight * credibilityMultiplier;
+    
+    // 7. Neurogenèse Hippocampique (Bonus de jeunesse extrême)
+    const ageMs = Date.now() - new Date(item.createdAt || 0).getTime();
+    let neurogenesisBonus = 1.0;
+    if (ageMs < 24 * 3600 * 1000) { // Moins de 24h
+       neurogenesisBonus = 1.5;
+    }
+    
+    let finalScore = hybridScore * weight * credibilityMultiplier * neurogenesisBonus;
 
     // Neuromodulation
     const hormone = options.hormone || 'normal';
@@ -272,7 +280,18 @@ async function searchMemory(query = '', options = {}, db = null) {
   
   let topItems = scoredItems.slice(0, limitToUse);
 
-  // Application de l'inhibition (sauf si dopé à la dopamine qui favorise l'hallucination créative)
+  // 8. Extinction GABAergique (Filtrage des synapses inhibitrices / corrections)
+  const allTopIds = topItems.map(i => i.id);
+  if (allTopIds.length > 0) {
+     const placeholders = allTopIds.map(() => '?').join(',');
+     const inhibitions = await db.all(`SELECT target_id FROM memory_synapses WHERE target_id IN (${placeholders}) AND weight < 0`, allTopIds);
+     const inhibitedIds = inhibitions.map(i => i.target_id);
+     if (inhibitedIds.length > 0) {
+        topItems = topItems.filter(item => !inhibitedIds.includes(item.id));
+     }
+  }
+
+  // Application de l'inhibition de bruit (sauf si dopé à la dopamine)
   if ((gabaInhibited || noveltyDetected) && options.hormone !== 'dopamine') {
     topItems = []; // Le signal est supprimé avant d'atteindre le LLM
   }

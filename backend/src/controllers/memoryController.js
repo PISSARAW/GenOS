@@ -74,12 +74,33 @@ async function ingestMemory(req, res, next) {
     const buffer = Buffer.from(float32Array.buffer);
 
     const decisionId = `dec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
-    await db.run(
-      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
-      decisionId, title, content, buffer, 'python_script', category
-    );
     
-    res.status(200).json({ status: 'Ingested', id: decisionId });
+    // 1. Erreur de Prédiction (Dopamine Mismatch)
+    const isCorrection = /^(non|faux|erreur|actually|correction|wrong|incorrect)\b/i.test(content) || /ce n'est pas/i.test(content) || /plutôt/i.test(content);
+    const initialWeight = isCorrection ? 10.0 : 1.0;
+
+    await db.run(
+      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      decisionId, title, content, buffer, 'python_script', category, initialWeight
+    );
+
+    // 2. Extinction GABAergique (Synapse Inhibitrice)
+    if (isCorrection) {
+      try {
+        const searchRes = await vectorMemoryService.searchMemory(content, { limit: 1 }, db);
+        if (searchRes.allScoredExperiences.length > 0) {
+          const targetId = searchRes.allScoredExperiences[0].id;
+          if (targetId !== decisionId) {
+            // Création d'une synapse inhibitrice forte vers l'ancien souvenir
+            await db.run(`INSERT INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, -5.0)`, decisionId, targetId);
+          }
+        }
+      } catch (e) {
+        console.error("Erreur lors de la création de la synapse inhibitrice:", e);
+      }
+    }
+    
+    res.status(200).json({ status: 'Ingested', id: decisionId, isCorrection, initialWeight });
   } catch (err) {
     next(err);
   }
