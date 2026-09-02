@@ -36,7 +36,7 @@ impl AgentCell {
             if let Some(_dna) = self.immunity.lysosomes.phagosomes.pop() {
                 self.immunity.lysosomes.expelled_debris.push("DEBRIS_VIRAL_DIGERE".to_string());
                 self.metabolism.mitochondria.atp_budget = self.metabolism.mitochondria.atp_budget.saturating_add(5);
-                self.outbox.push(CellEvent::ExpelDebris("DEBRIS_VIRAL_DIGERE".to_string()));
+                self.outbox.0.send(CellEvent::ExpelDebris("DEBRIS_VIRAL_DIGERE".to_string())).unwrap();
             }
         }
         
@@ -53,7 +53,7 @@ impl AgentCell {
             self.immunity.lysosomes.expelled_debris.push("CELL_DEBRIS".to_string());
             
             // Output the resources to the environment
-            self.outbox.push(CellEvent::ExpelDebris("CELL_DEBRIS".to_string()));
+            self.outbox.0.send(CellEvent::ExpelDebris("CELL_DEBRIS".to_string())).unwrap();
         }
     }
 
@@ -80,23 +80,23 @@ impl AgentCell {
                     self.lifecycle_state = LifecycleState::Necrotic(crate::cell::lifecycle::NecroticState::default());
                     
                     // Wait, tests expect "Lysis: Cell burst due to viral replication overload" for necrosis!
-                    self.outbox.push(CellEvent::Hijacked("Lysis: Cell burst due to viral replication overload".to_string()));
+                    self.outbox.0.send(CellEvent::Hijacked("Lysis: Cell burst due to viral replication overload".to_string())).unwrap();
                     return;
                 }
             } else {
                 if let Some(mut stealth_virus) = self.golgi_apparatus.viral_vesicles.pop() {
                     stealth_virus.envelope_spike = format!("{}_CLOAKED_BY_HOST", virus.envelope_spike);
-                    self.outbox.push(CellEvent::ReleaseVirus(stealth_virus));
+                    self.outbox.0.send(CellEvent::ReleaseVirus(stealth_virus)).unwrap();
                 }
             }
             
-            self.outbox.push(CellEvent::Hijacked("Hijacked: Cellular machinery is copying a virus".to_string()));
+            self.outbox.0.send(CellEvent::Hijacked("Hijacked: Cellular machinery is copying a virus".to_string())).unwrap();
             // We still process the rest of events ? No, cell is hijacked, it doesn't process events!
             // Wait, we need to consume the inbox so it doesn't accumulate, or we just drop them.
-            self.inbox.clear();
+            while let Ok(_) = self.inbox.1.try_recv() {}
             return;
         }
-        let events = std::mem::take(&mut self.inbox);
+        let events: Vec<_> = self.inbox.1.try_iter().collect();
         for event in events {
             match event {
                 CellEvent::Infect(virion) => {
@@ -112,7 +112,7 @@ impl AgentCell {
                         }
                     } else if virion.envelope_spike == "PHAGE_SPIKE" {
                         if self.golgi_apparatus.viral_vesicles.pop().is_some() {
-                            self.outbox.push(CellEvent::Recovered("Un phage a détruit un virus furtif".to_string()));
+                            self.outbox.0.send(CellEvent::Recovered("Un phage a détruit un virus furtif".to_string())).unwrap();
                         }
                     }
                 }
@@ -131,7 +131,7 @@ impl AgentCell {
                     self.metabolism.mitochondria.atp_budget = self.metabolism.mitochondria.atp_budget.saturating_sub(cost);
                     if self.metabolism.mitochondria.atp_budget == 0 {
                         self.lifecycle_state = LifecycleState::Apoptotic(crate::cell::lifecycle::ApoptoticState::default());
-                        self.outbox.push(CellEvent::ApoptosisTriggered("Stress métabolique fatal".to_string()));
+                        self.outbox.0.send(CellEvent::ApoptosisTriggered("Stress métabolique fatal".to_string())).unwrap();
                     }
                 }
                 CellEvent::HormonalSignal(_cortisol) => {
@@ -147,12 +147,14 @@ impl AgentCell {
         
         if let Some(virus) = self.cytoplasm.viral_infections.first() {
             self.plasma_membrane.mhc_display = Some(virus.envelope_spike.clone());
-            self.outbox.push(CellEvent::MhcDisplayUpdated(Some(virus.envelope_spike.clone())));
+            self.outbox.0.send(CellEvent::MhcDisplayUpdated(Some(virus.envelope_spike.clone()))).unwrap();
         }
         
         self.garbage_collect();
     }
 }
+
+
 
 
 

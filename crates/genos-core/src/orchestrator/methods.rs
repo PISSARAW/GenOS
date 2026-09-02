@@ -155,7 +155,7 @@ impl Orchestrator {
         use crate::cell::events::{CellEvent, TherapyAction};
 
         let cortisol = self.endocrine_system.corticosteroid_level;
-        agent.inbox.push(CellEvent::HormonalSignal(cortisol));
+        agent.inbox.0.send(CellEvent::HormonalSignal(cortisol)).unwrap();
         
         let mut metabolic_cost = 1;
         if self.immune_system.il6_level >= 10.0 && !self.immune_system.il6_receptors_blocked {
@@ -164,16 +164,16 @@ impl Orchestrator {
         if action_string == "REPLICATE" {
             metabolic_cost = 20;
         }
-        agent.inbox.push(CellEvent::MetabolicStress(metabolic_cost));
+        agent.inbox.0.send(CellEvent::MetabolicStress(metabolic_cost)).unwrap();
 
         if let Some(ref _active_therapies) = agent.cytoplasm.cognition.epigenetic_drives.get("ActiveTherapies") {
-            agent.inbox.push(CellEvent::ApplyTherapy(TherapyAction::BlockReceptors));
+            agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::BlockReceptors)).unwrap();
         }
 
         if let Some(rule) = &self.apoptosis_rule {
             if !agent.cytoplasm.cognition.is_camouflaged {
                 if rule.evaluate(&agent.cytoplasm.cognition.epigenetic_drives) {
-                    agent.inbox.push(CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle));
+                    agent.inbox.0.send(CellEvent::ApplyTherapy(TherapyAction::InhibitCellCycle)).unwrap();
                     return TickResult::Halted("Apoptosis triggered by epigenetic rule".to_string());
                 }
             }
@@ -183,7 +183,7 @@ impl Orchestrator {
         agent.process_events();
 
         // --- ORCHESTRATOR COLLECTS RESULTS ---
-        let outbox = std::mem::take(&mut agent.outbox);
+        let outbox: Vec<_> = agent.outbox.1.try_iter().collect();
         for event in outbox {
             match event {
                 CellEvent::NecrosisTriggered(reason) => return TickResult::Halted(format!("Necrosis: {}", reason)),
@@ -314,6 +314,7 @@ impl Orchestrator {
         self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
+
 
 
 
