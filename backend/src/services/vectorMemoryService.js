@@ -157,7 +157,7 @@ async function searchMemory(query = '', options = {}, db = null) {
     const contentLower = `${item.title} ${item.summary}`.toLowerCase();
     
     // On extrait les stimuli "saillants" (mots contenant des chiffres comme des ID/erreurs, ou mots longs spécifiques)
-    const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 4 || /\d/.test(w));
+    const salientTerms = queryLower.split(/[\s,._\-\(\)]+/).filter(w => w.length > 3 || /\d/.test(w));
     
     let exactMatchBonus = 0.0;
     for (const term of salientTerms) {
@@ -186,10 +186,10 @@ async function searchMemory(query = '', options = {}, db = null) {
           item.summary = `[VERIFIED_SYSTEM_FACT] ${item.summary}`;
       }
     } else if (authorLower === 'user' || authorLower === 'human') {
-      credibilityMultiplier = 0.8; // Déclaratif externe (Gaslighting potentiel)
-      // On marque visuellement la donnée comme non-fiable pour forcer le LLM à s'en méfier
-      if (!item.summary.startsWith('[UNVERIFIED_USER_CLAIM]')) {
-          item.summary = `[UNVERIFIED_USER_CLAIM] Attention: ${item.summary}`;
+      credibilityMultiplier = 0.95; // Déclaratif externe (Léger malus)
+      // On marque visuellement la source sans pour autant ordonner au LLM de s'en méfier de manière paranoïaque
+      if (!item.summary.startsWith('[Source: Utilisateur]')) {
+          item.summary = `[Source: Utilisateur] ${item.summary}`;
       }
     }
 
@@ -221,7 +221,7 @@ async function searchMemory(query = '', options = {}, db = null) {
   // 6. LTD (Long-Term Depression) & Biais de Récence : Résolution des Overwrites
   // L'agent souffrait de nostalgie tenace (les vieux souvenirs très utilisés écrasaient les nouveaux).
   // On repère les conflits sémantiques directs (plusieurs souvenirs avec un très haut score cosinus sur un même sujet).
-  const highMatches = scoredItems.filter(i => i.cosineMetric > 0.80);
+  const highMatches = scoredItems.filter(i => i.cosineMetric > 0.88);
   if (highMatches.length > 1) {
       // On trie ces matchs par récence (du plus récent au plus ancien)
       highMatches.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -258,8 +258,8 @@ async function searchMemory(query = '', options = {}, db = null) {
     if (scoredItems.length >= 3) {
       const top1 = scoredItems[0].cosineMetric;
       const top3 = scoredItems[2].cosineMetric;
-      // Si le meilleur n'est pas exceptionnel (< 0.85) et qu'il y a peu d'écart avec le 3ème
-      if (top1 < 0.85 && (top1 - top3) < 0.04) {
+      // Si le meilleur n'est pas exceptionnel (< 0.70) et qu'il y a très peu d'écart avec le 3ème (< 0.02)
+      if (top1 < 0.70 && (top1 - top3) < 0.02) {
         gabaInhibited = true;
       }
     }
