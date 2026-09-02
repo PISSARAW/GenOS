@@ -147,6 +147,25 @@ async function searchMemory(query = '', options = {}, db = null) {
 
   const corpus = recordedExperiences.length > 0 ? recordedExperiences : SEED_EXPERIENCES;
 
+  // 4. Precompute IDF for the query words (Avoid O(N^2) complexity inside the map)
+  const queryLower = query.toLowerCase();
+  const rawWords = query.split(/[\s,.\(\)\[\]"']+/).filter(w => w.length > 1 && !['what', 'that', 'this', 'from', 'with', 'have', 'were', 'which', 'when', 'then', 'your'].includes(w.toLowerCase()));
+  const wordRarity = {};
+  
+  if (rawWords.length > 0) {
+      for (const w of rawWords) {
+          const lowerW = w.toLowerCase();
+          if (wordRarity[lowerW]) continue; // Already computed
+          let docCount = 0;
+          for (const doc of corpus) {
+              if ((doc.summary || '').toLowerCase().includes(lowerW) || (doc.title || '').toLowerCase().includes(lowerW)) {
+                  docCount++;
+              }
+          }
+          wordRarity[lowerW] = docCount > 0 ? (1.0 + Math.log(corpus.length / docCount)) : 1.0;
+      }
+  }
+
   // Score each memory item
   const scoredItems = corpus.map(item => {
     const itemVec = item.vector || textToVector(`${item.title} ${item.summary} ${item.tags.join(' ')}`);
@@ -158,9 +177,6 @@ async function searchMemory(query = '', options = {}, db = null) {
     const lowerSummary = item.summary.toLowerCase();
     
     // 4. Score Hybride (Vecteur + BM25-like avec IDF dynamique)
-    // On split plus intelligemment pour conserver C++, C#, .NET, etc.
-    const rawWords = query.split(/[\s,.\(\)\[\]"']+/).filter(w => w.length > 1 && !['what', 'that', 'this', 'from', 'with', 'have', 'were', 'which', 'when', 'then', 'your'].includes(w.toLowerCase()));
-    
     let keywordScore = 0;
     if (rawWords.length > 0) {
         let matchWeight = 0;
@@ -168,17 +184,7 @@ async function searchMemory(query = '', options = {}, db = null) {
         
         rawWords.forEach(w => {
             const lowerW = w.toLowerCase();
-            // Calcul de rareté (IDF-like) : combien de souvenirs contiennent ce mot ?
-            // On approxime sur le corpus complet chargé en mémoire.
-            let docCount = 0;
-            for (const doc of corpus) {
-                if ((doc.summary || '').toLowerCase().includes(lowerW) || (doc.title || '').toLowerCase().includes(lowerW)) {
-                    docCount++;
-                }
-            }
-            // Si le mot est rare (ex: Timmy), docCount est faible, le poids explose.
-            // Si le mot est très commun (ex: Dave, laptop), le poids est standard.
-            const rarityWeight = docCount > 0 ? (1.0 + Math.log(corpus.length / docCount)) : 1.0;
+            const rarityWeight = wordRarity[lowerW] || 1.0;
             totalWeight += rarityWeight;
             
             // On vérifie si ce mot exact ou presque est dans CE souvenir
