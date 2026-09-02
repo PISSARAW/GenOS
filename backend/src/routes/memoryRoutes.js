@@ -10,5 +10,6 @@ router.get('/search', memoryController.search);
 router.post('/search', memoryController.search);
 router.post('/cherry-pick', memoryController.cherryPick);
 router.post('/counterfactual', memoryController.counterfactual);
+router.post('/vesicle', memoryController.generateVesicle);
 
 module.exports = router;

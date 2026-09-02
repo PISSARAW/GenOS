@@ -62,8 +62,27 @@ async function counterfactual(req, res, next) {
   }
 }
 
+async function generateVesicle(req, res, next) {
+  try {
+    const { context } = req.body;
+    // We just create an engram and drop a vesicle for the rust CLI
+    const engram = {
+      content: context || 'No context',
+      vector: new Array(1536).fill(0.0) // Mock vector if missing
+    };
+    
+    // Convert to vesicle and drop in synaptic_cleft
+    const vesiclePath = await vectorMemoryService.releaseVesicles([engram]);
+    
+    res.status(200).json({ status: 'Vesicle released', vesiclePath });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   search,
   cherryPick,
-  counterfactual
+  counterfactual,
+  generateVesicle
 };

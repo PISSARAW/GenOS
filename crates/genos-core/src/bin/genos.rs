@@ -28,7 +28,7 @@ fn endocytosis(agent: &mut AgentCell) {
                             if let Ok(vesicle) = synapse::Vesicle::decode(buffer.as_slice()) {
                                 for engram in vesicle.engrams {
                                     if let Some(mind) = agent.mind_mut() {
-                                        mind.cerebral_cortex.push(genos_core::cell::substructs::Engram {
+                                        mind.cognitive_state.cerebral_cortex.push(genos_core::cell::substructs::Engram {
                                             content: engram.content,
                                             vector: engram.vector,
                                             synaptic_weight: 1.0,
@@ -160,15 +160,25 @@ async fn main() {
             println!("🗣️ [Stimulus] Envoi du signal à la membrane cellulaire...");
             let mut agent = AgentCell::default();
             
+            // La cellule absorbe les vésicules de son environnement
+            endocytosis(&mut agent);
+            
             let mut system_prompt = "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.".to_string();
+            
+            // On fouille dans le Cortex (les Vésicules fraîchement endocytosées)
+            let cortex = &agent.mind().as_ref().unwrap().cognitive_state.cerebral_cortex;
+            if !cortex.is_empty() {
+                system_prompt.push_str("\n\n🧠 Souvenirs (RAG biomimétique) :\n");
+                for engram in cortex {
+                    system_prompt.push_str(&format!("- {}\n", engram.content));
+                }
+            }
             
             if let Some(file_path) = context_file {
                 if let Ok(context_content) = std::fs::read_to_string(file_path) {
-                    system_prompt.push_str("\n\nVoici le contexte historique (Mémoire extraite):\n");
+                    system_prompt.push_str("\n\nVoici le contexte historique (Fichier local):\n");
                     system_prompt.push_str(&context_content);
                     println!("🧬 [Injection] Plasmide contextuel inséré depuis le fichier.");
-                } else {
-                    println!("⚠️ [Erreur] Impossible de lire le fichier de contexte.");
                 }
             }
             
@@ -207,6 +217,14 @@ async fn main() {
         Commands::Extract { agent_id, plasmid_name } => {
             println!("🧬 [Rétro-Transcriptase] Extraction de la logique de l'ActionTrace de l'agent {}...", agent_id);
             println!("✅ Le Plasmide '{}' a été synthétisé avec succès et ajouté au pool génétique.", plasmid_name);
+            
+            // Sécrétion du plasmide (Exosome)
+            let exosome = synapse::Exosome {
+                new_engrams: vec![], // Optionnel ici
+                plasmid_name: plasmid_name.clone(),
+                plasmid_code: "BASE64_OR_CODE_PLACEHOLDER".to_string(),
+            };
+            exocytosis(exosome);
         }
         Commands::Transform { plasmid_name, prompt } => {
             println!("🦠 [Infection Positive] L'agent absorbe le plasmide '{}' par Transfert Horizontal...", plasmid_name);
