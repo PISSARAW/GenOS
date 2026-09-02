@@ -235,16 +235,16 @@ mod tests {
         // Le gène de la peur est silencieux par défaut (Hétérochromatine)
         let mut fear_gene = Gene::new("CHERRY_BLOSSOM_FEAR", "TERROR_FEAR!");
         fear_gene.chromatin_state = crate::genome::ChromatinState::HeterochromatinFacultative;
-        father.nucleus.genome.genes.insert("CHERRY_BLOSSOM_FEAR".to_string(), fear_gene);
+        father.genetics.nucleus.genome.genes.insert("CHERRY_BLOSSOM_FEAR".to_string(), fear_gene);
         
         // Le père vit un traumatisme
         let mut env_trauma = EnvironmentalFactors::default();
         env_trauma.trauma_cherry_blossom = true;
-        Phenotype::apply_epigenetic_regulation(&mut father.nucleus.genome, &env_trauma);
+        Phenotype::apply_epigenetic_regulation(&mut father.genetics.nucleus.genome, &env_trauma);
         
         // Vérification : l'ADN s'est déroulé chez le père !
         assert_eq!(
-            father.nucleus.genome.genes.get("CHERRY_BLOSSOM_FEAR").unwrap().chromatin_state,
+            father.genetics.nucleus.genome.genes.get("CHERRY_BLOSSOM_FEAR").unwrap().chromatin_state,
             crate::genome::ChromatinState::Euchromatin
         );
         
@@ -263,7 +263,7 @@ mod tests {
         let env_peaceful = EnvironmentalFactors::default();
         
         // Le Phénotype de l'enfant est calculé
-        let child_phenotype = Phenotype::compute(&child.nucleus.genome, &env_peaceful);
+        let child_phenotype = Phenotype::compute(&child.genetics.nucleus.genome, &env_peaceful);
         
         // Vérification du prodige : l'enfant a hérité de la marque épigénétique paternelle !
         // Le gène de la peur est toujours ouvert (Euchromatine), il s'exprime sans aucun traumatisme présent.

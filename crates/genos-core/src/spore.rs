@@ -36,7 +36,7 @@ impl Spore {
 
         // Le réveil : L'ADN redémarre une cellule
         let mut new_cell = AgentCell::default();
-        new_cell.nucleus.genome = self.genome;
+        new_cell.genetics.nucleus.genome = self.genome;
         new_cell.metabolism.mitochondria.atp_budget = 10; // Redémarrage minimal du métabolisme
         
         // On s'assure que la bactérie recrée sa paroi

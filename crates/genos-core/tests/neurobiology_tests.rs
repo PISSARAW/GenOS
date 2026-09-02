@@ -10,7 +10,7 @@ pub(crate) mod tests {
 
     pub fn mock_cell() -> AgentCell {
         let mut cell = AgentCell::default();
-        cell.nucleus.genome = Genome::new("You are a test cell");
+        cell.genetics.nucleus.genome = Genome::new("You are a test cell");
         cell
     }
 

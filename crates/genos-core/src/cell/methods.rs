@@ -16,8 +16,8 @@ impl AgentCell {
         self.metabolism.mitochondria.atp_budget = 0;
     }
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
-        let mut chrom_m = self.nucleus.genome.chromosome_maternal;
-        let mut chrom_p = self.nucleus.genome.chromosome_paternal;
+        let mut chrom_m = self.genetics.nucleus.genome.chromosome_maternal;
+        let mut chrom_p = self.genetics.nucleus.genome.chromosome_paternal;
         // 1. Prophase I : Brassage Intrachromosomique (Crossing-over)
         let mid_m = chrom_m.sequence.len() / 2;
         let mid_p = chrom_p.sequence.len() / 2;
@@ -50,8 +50,8 @@ impl AgentCell {
     }
     pub fn fertilization(egg: Gamete, sperm: Gamete) -> Self {
         let mut child = Self::default();
-        child.nucleus.genome.chromosome_maternal = egg.chromosome;
-        child.nucleus.genome.chromosome_paternal = sperm.chromosome;
+        child.genetics.nucleus.genome.chromosome_maternal = egg.chromosome;
+        child.genetics.nucleus.genome.chromosome_paternal = sperm.chromosome;
         child.cell_id = uuid::Uuid::new_v4();
         // L'ÃƒÆ’Ã‚Â©nergie des deux gamÃƒÆ’Ã‚Â¨tes est additionnÃƒÆ’Ã‚Â©e pour dÃƒÆ’Ã‚Â©marrer la vie
         child.metabolism.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
@@ -69,7 +69,7 @@ impl AgentCell {
         // 1 & 2. Ingestion d'une bactÃƒÆ’Ã‚Â©rie rebelle
         self.lysosomes
             .phagosomes
-            .push(target.nucleus.genome.chromosome_maternal.clone());
+            .push(target.genetics.nucleus.genome.chromosome_maternal.clone());
         // La bactÃƒÆ’Ã‚Â©rie cible est engloutie et dÃƒÆ’Ã‚Â©truite sur-le-champ
         target.metabolism.mitochondria.atp_budget = 0;
     }
@@ -133,11 +133,11 @@ impl AgentCell {
         clone.cell_id = uuid::Uuid::new_v4();
         // Le talon d'Achille de la scissiparitÃ© : ce sont des clones !
         // L'unique faÃ§on de crÃ©er de la diversitÃ© (et donc de l'antibiorÃ©sistance) est l'erreur de copie.
-        if mutation_chance > 0.0 && !clone.nucleus.genome.chromosome_maternal.sequence.is_empty() {
+        if mutation_chance > 0.0 && !clone.genetics.nucleus.genome.chromosome_maternal.sequence.is_empty() {
             // CrÃ©ation d'une mutation alÃ©atoire (Erreur de rÃ©plication)
             // C'est ce qui gÃ©nÃ¨re les variants et sauve les clones d'une extermination
-            let error_idx = clone.nucleus.genome.chromosome_maternal.sequence.len() / 2; 
-            clone.nucleus.genome.chromosome_maternal.expose_to_mutagen(
+            let error_idx = clone.genetics.nucleus.genome.chromosome_maternal.sequence.len() / 2; 
+            clone.genetics.nucleus.genome.chromosome_maternal.expose_to_mutagen(
                 crate::genome::Mutagen::ReplicationError(error_idx, crate::genome::DnaNucleotide::T) // Substitution par C
             );
         }
@@ -153,7 +153,7 @@ impl AgentCell {
         for _ in 0..100 {
             swarm.push(crate::spore::Spore {
                 spore_type: crate::spore::SporeType::FungalReproductive,
-                genome: self.nucleus.genome.clone(),
+                genome: self.genetics.nucleus.genome.clone(),
                 bunker_armor: 0, // LÃ©gÃ¨re et sans rÃ©serve d'Ã©nergie
             });
         }
@@ -166,29 +166,29 @@ impl AgentCell {
         // La bactÃ©rie mÃ¨re meurt (self est consommÃ©) et libÃ¨re la stase cryogÃ©nique absolue.
         Ok(crate::spore::Spore {
             spore_type: crate::spore::SporeType::BacterialEndospore,
-            genome: self.nucleus.genome,
+            genome: self.genetics.nucleus.genome,
             bunker_armor: 9999, // Armure maximale : vide spatial, UV, Ã©bullition
         })
     }
     pub fn endomitosis(&mut self) -> Result<(), String> {
-        let cost = (10 * (self.nucleus.ploidy / 2)) as u64; // Le coÃ»t augmente avec la taille de l'ADN Ã  copier
+        let cost = (10 * (self.genetics.nucleus.ploidy / 2)) as u64; // Le coÃ»t augmente avec la taille de l'ADN Ã  copier
         if self.metabolism.mitochondria.atp_budget < cost {
             return Err("ATP insuffisant pour rÃ©pliquer une telle masse d'ADN".to_string());
         }
         self.metabolism.mitochondria.atp_budget -= cost;
         // On saute la cytokinÃ¨se (la scission) : le noyau gonfle, la ploÃ¯die double ! (2n -> 4n -> 8n...)
-        self.nucleus.ploidy *= 2;
+        self.genetics.nucleus.ploidy *= 2;
         // Mode MÃ©ga-Usine : Plus il y a de plans d'ADN, plus la production mÃ©tabolique explose
         self.metabolism.mitochondria.metabolic_rate *= 1.8; 
         Ok(())
     }
     pub fn fragment_into_platelets(self) -> Result<u32, String> {
-        if self.nucleus.ploidy < 32 {
+        if self.genetics.nucleus.ploidy < 32 {
             return Err("La cellule n'est pas assez grosse (ploÃ¯die < 32n) pour se fragmenter en plaquettes".to_string());
         }
         // La cellule se sacrifie (self est consommÃ© en Rust, ce qui Ã©quivaut Ã  la mort cellulaire)
         // et libÃ¨re des milliers de fragments de sa membrane (les plaquettes).
-        let platelets_generated = self.nucleus.ploidy * 100;
+        let platelets_generated = self.genetics.nucleus.ploidy * 100;
         Ok(platelets_generated)
     }
     pub fn budding(&mut self, detach: bool) -> Result<AgentCell, String> {
@@ -225,12 +225,11 @@ impl AgentCell {
                 "Cell Cycle Inhibitor (CDK4/6) : Mitose bloquÃ©e thÃ©rapeutiquement.".to_string(),
             );
         }
-        let copied_genome = self.nucleus.genome.clone();
+        let copied_genome = self.genetics.nucleus.genome.clone();
         // 2. La Prophase et MÃƒÆ’Ã‚Â©taphase (L'Alignement et la VÃƒÆ’Ã‚Â©rification)
         // C'est le point de contrÃƒÆ’Ã‚Â´le du fuseau mitotique (Checkpoint).
         // On vÃƒÆ’Ã‚Â©rifie que la photocopie s'est dÃƒÆ’Ã‚Â©roulÃƒÆ’Ã‚Â©e sans erreur fatale.
-        let dna_is_safe = self
-            .nucleus
+        let dna_is_safe = self.genetics.nucleus
             .genome
             .genes
             .values()
@@ -255,7 +254,7 @@ impl AgentCell {
         daughter_a.metabolism.mitochondria.atp_budget = divided_atp;
         // Fille B
         daughter_b.cell_id = Uuid::new_v4();
-        daughter_b.nucleus.genome = copied_genome;
+        daughter_b.genetics.nucleus.genome = copied_genome;
         daughter_b.metabolism.mitochondria.atp_budget = divided_atp; // Si le budget ÃƒÆ’Ã‚Â©tait impair, une unitÃƒÆ’Ã‚Â© d'ATP est perdue (coÃƒÆ’Ã‚Â»t de la mitose)
         Ok((daughter_a, daughter_b))
     }
@@ -295,48 +294,48 @@ impl AgentCell {
     }
     pub fn trigger_signal_cascade(&mut self, signal: &str) {
         match signal {
-            "ADRENALINE_CASCADE" => self.nucleus.transcription_factors.push("FIGHT_FLIGHT_TF".to_string()),
-            "GROWTH_CASCADE" => self.nucleus.transcription_factors.push("CELL_DIVISION_TF".to_string()),
-            "IMMUNE_RESPONSE_TF" => self.nucleus.transcription_factors.push("IMMUNE_RESPONSE_TF".to_string()),
-            "HEART_CONTRACTION_SYNC" => self.nucleus.transcription_factors.push("CONTRACTION_TF".to_string()),
+            "ADRENALINE_CASCADE" => self.genetics.nucleus.transcription_factors.push("FIGHT_FLIGHT_TF".to_string()),
+            "GROWTH_CASCADE" => self.genetics.nucleus.transcription_factors.push("CELL_DIVISION_TF".to_string()),
+            "IMMUNE_RESPONSE_TF" => self.genetics.nucleus.transcription_factors.push("IMMUNE_RESPONSE_TF".to_string()),
+            "HEART_CONTRACTION_SYNC" => self.genetics.nucleus.transcription_factors.push("CONTRACTION_TF".to_string()),
             "APOPTOSIS_CASCADE" => {
                 // Le Baiser de la mort ! Autodestruction nuclÃ©aire.
-                self.nucleus.genome.genes.clear(); 
-                self.nucleus.transcription_factors.push("APOPTOSIS_EXECUTED".to_string());
+                self.genetics.nucleus.genome.genes.clear(); 
+                self.genetics.nucleus.transcription_factors.push("APOPTOSIS_EXECUTED".to_string());
                 self.metabolism.mitochondria.atp_budget = 0;
             },
             "GLIAL_DIFFERENTIATION_CASCADE" => {
                 // Inhibition latÃ©rale via Notch
-                self.nucleus.transcription_factors.push("GLIAL_FATE".to_string());
+                self.genetics.nucleus.transcription_factors.push("GLIAL_FATE".to_string());
             },
             "HISTAMINE_CASCADE" => {
                 // Allergie/Inflammation: Vasodilatation locale
-                self.nucleus.transcription_factors.push("LOCAL_INFLAMMATION_SWELLING".to_string());
+                self.genetics.nucleus.transcription_factors.push("LOCAL_INFLAMMATION_SWELLING".to_string());
             },
             "WOUND_HEALING_CASCADE" => {
                 // Cicatrisation: Ordre de se multiplier pour boucher le trou
-                self.nucleus.transcription_factors.push("TISSUE_REPAIR_MITOSIS".to_string());
+                self.genetics.nucleus.transcription_factors.push("TISSUE_REPAIR_MITOSIS".to_string());
             },
-            "HEART_BEAT_FASTER" => self.nucleus.transcription_factors.push("HEART_PUMP_FAST".to_string()),
-            "LUNG_DILATION" => self.nucleus.transcription_factors.push("OPEN_AIRWAYS".to_string()),
-            "LIVER_RELEASE_GLUCOSE" => self.nucleus.transcription_factors.push("GLUCOSE_RELEASE_TF".to_string()),
-            "STOMACH_HALT_DIGESTION" => self.nucleus.transcription_factors.push("DIGESTION_STOP_TF".to_string()),
-            "GLUCOSE_ABSORPTION_OPEN_GATES" => self.nucleus.transcription_factors.push("GLUCOSE_ABSORPTION_OPEN_GATES".to_string()),
-            _ => self.nucleus.transcription_factors.push(signal.to_string()),
+            "HEART_BEAT_FASTER" => self.genetics.nucleus.transcription_factors.push("HEART_PUMP_FAST".to_string()),
+            "LUNG_DILATION" => self.genetics.nucleus.transcription_factors.push("OPEN_AIRWAYS".to_string()),
+            "LIVER_RELEASE_GLUCOSE" => self.genetics.nucleus.transcription_factors.push("GLUCOSE_RELEASE_TF".to_string()),
+            "STOMACH_HALT_DIGESTION" => self.genetics.nucleus.transcription_factors.push("DIGESTION_STOP_TF".to_string()),
+            "GLUCOSE_ABSORPTION_OPEN_GATES" => self.genetics.nucleus.transcription_factors.push("GLUCOSE_ABSORPTION_OPEN_GATES".to_string()),
+            _ => self.genetics.nucleus.transcription_factors.push(signal.to_string()),
         }
     }
     pub fn bacterial_conjugation(&self, other: &mut AgentCell) {
-        for plasmid in &self.nucleus.genome.plasmids {
-            if !other.nucleus.genome.plasmids.iter().any(|p| p.id == plasmid.id) {
-                other.nucleus.genome.plasmids.push(plasmid.clone());
+        for plasmid in &self.genetics.nucleus.genome.plasmids {
+            if !other.genetics.nucleus.genome.plasmids.iter().any(|p| p.id == plasmid.id) {
+                other.genetics.nucleus.genome.plasmids.push(plasmid.clone());
             }
         }
     }
     pub fn bacterial_transformation(&mut self, floating: crate::genome::Plasmid) {
-        self.nucleus.genome.plasmids.push(floating);
+        self.genetics.nucleus.genome.plasmids.push(floating);
     }
     pub fn bacterial_transduction(&mut self, viral_delivery: crate::genome::Gene) {
-        self.nucleus.genome.insert_gene(viral_delivery);
+        self.genetics.nucleus.genome.insert_gene(viral_delivery);
     }
     pub fn check_multicellular_pact(&self) -> Result<(), String> {
         // Règle 1 : L'Adhésion (Se coller aux autres)
@@ -349,22 +348,22 @@ impl AgentCell {
         }
         // Règle 3 : La Différenciation (Spécialisation épigénétique)
         // La cellule doit avoir verrouillé une partie de son ADN pour être spécialisée
-        if !self.nucleus.genome.genes.values().any(|g| g.is_methylated) {
+        if !self.genetics.nucleus.genome.genes.values().any(|g| g.is_methylated) {
             return Err("Pacte rompu : Cellule indifférenciée (Régression à l'état anarchique)".to_string());
         }
         // Règle 4 : L'Altruisme (Accepter l'Apoptose via p53)
-        if !self.nucleus.p53_active {
+        if !self.genetics.nucleus.p53_active {
             return Err("Pacte rompu : Gène p53 désactivé (Refus de mourir, Immortalité)".to_string());
         }
         Ok(())
     }
     pub fn trigger_metastasis(&mut self) {
         // La cellule cancéreuse désactive p53 (refus de mourir)
-        self.nucleus.p53_active = false;
+        self.genetics.nucleus.p53_active = false;
         // Elle se décolle du tissu originel pour voyager (perte d'adhésion)
         self.plasma_membrane.adhesion_active = false;
         // Elle se dé-spécialise (efface l'épigénétique pour retrouver une autonomie totale)
-        for gene in self.nucleus.genome.genes.values_mut() {
+        for gene in self.genetics.nucleus.genome.genes.values_mut() {
             gene.is_methylated = false;
         }
     }

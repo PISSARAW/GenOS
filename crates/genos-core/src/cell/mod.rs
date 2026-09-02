@@ -46,7 +46,7 @@ use crate::cell::substructs::*;
 pub struct AgentCell {
     pub cell_id: Uuid,
     pub plasma_membrane: PlasmaMembrane,
-    pub nucleus: Nucleus,
+    pub genetics: GeneticSystem,
     pub metabolism: MetabolicSystem,
     pub is_alive: bool,
     pub specialization: Specialization,
@@ -73,7 +73,6 @@ pub struct AgentCell {
     pub vacuole: vacuole::Vacuole,
     pub phagosome: phagosome::Phagosome,
     pub autonomic_ns: ans::AutonomicNervousSystem,
-    pub lineage: lineage::Lineage,
     pub muscle: muscle::Myofibril,
 }
 
@@ -95,12 +94,7 @@ impl Default for AgentCell {
                 receptors: vec![],
                 gap_junctions: vec![],
             },
-            nucleus: Nucleus {
-                genome: Genome::new("Default DNA"),
-                ploidy: 2,
-            transcription_factors: Vec::new(),
-                p53_active: true,
-            },
+            genetics: GeneticSystem::default(),
             is_alive: true,
         specialization: Specialization::Undefined,
         metabolism: MetabolicSystem::default(),
@@ -140,7 +134,6 @@ impl Default for AgentCell {
             vacuole: vacuole::Vacuole::default(),
             phagosome: phagosome::Phagosome::default(),
             autonomic_ns: ans::AutonomicNervousSystem::default(),
-            lineage: lineage::Lineage::default(),
             muscle: muscle::Myofibril::default(),
         }
     }

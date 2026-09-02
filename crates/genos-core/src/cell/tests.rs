@@ -10,12 +10,12 @@ use crate::cell::AgentCell;
         let mut father = AgentCell::default();
 
         // On donne des sÃƒÆ’Ã‚Â©quences d'ADN identifiables
-        mother.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("MAMAN");
-        mother.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("MAMAN");
+        mother.genetics.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("MAMAN");
+        mother.genetics.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("MAMAN");
         mother.metabolism.mitochondria.atp_budget = 40;
 
-        father.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("PAPA!");
-        father.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("PAPA!");
+        father.genetics.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("PAPA!");
+        father.genetics.nucleus.genome.chromosome_paternal = crate::genome::DnaStrand::synthesize("PAPA!");
         father.metabolism.mitochondria.atp_budget = 40;
 
         // 1. Production des gamÃƒÆ’Ã‚Â¨tes
@@ -34,7 +34,7 @@ use crate::cell::AgentCell;
         assert_eq!(child.metabolism.mitochondria.atp_budget, 20);
 
         let m_seq: String = child
-            .nucleus
+            .genetics.nucleus
             .genome
             .chromosome_maternal
             .sequence
@@ -42,7 +42,7 @@ use crate::cell::AgentCell;
             .map(|n| format!("{:?}", n))
             .collect();
         let p_seq: String = child
-            .nucleus
+            .genetics.nucleus
             .genome
             .chromosome_paternal
             .sequence
@@ -57,12 +57,12 @@ use crate::cell::AgentCell;
     fn test_binary_fission_and_antibiotic_resistance() {
         let mut bacteria = AgentCell::default();
         bacteria.plasma_membrane.has_cell_wall = true;
-        bacteria.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("BACTERIE");
+        bacteria.genetics.nucleus.genome.chromosome_maternal = crate::genome::DnaStrand::synthesize("BACTERIE");
         bacteria.metabolism.mitochondria.atp_budget = 10;
 
         // 1. Scission rÃ©ussie sans mutation
         let (mut parent, mut clone1) = bacteria.clone().binary_fission(0.0).unwrap();
-        assert_eq!(clone1.nucleus.genome.chromosome_maternal.sequence, parent.nucleus.genome.chromosome_maternal.sequence);
+        assert_eq!(clone1.genetics.nucleus.genome.chromosome_maternal.sequence, parent.genetics.nucleus.genome.chromosome_maternal.sequence);
         assert_eq!(parent.metabolism.mitochondria.atp_budget, 5); // Consommation d'ATP
 
         // 2. Blocage par un antibiotique ciblant le septum
@@ -76,7 +76,7 @@ use crate::cell::AgentCell;
         parent.plasma_membrane.septum_inhibited = false;
         let (_, clone_mutant) = parent.binary_fission(1.0).unwrap(); // 1.0 = chance max de mutation
         // Le clone a mutÃ©, son gÃ©nome n'est plus identique au parent !
-        assert_ne!(clone_mutant.nucleus.genome.chromosome_maternal.sequence, clone1.nucleus.genome.chromosome_maternal.sequence);
+        assert_ne!(clone_mutant.genetics.nucleus.genome.chromosome_maternal.sequence, clone1.genetics.nucleus.genome.chromosome_maternal.sequence);
     }
     #[test]
     fn test_budding_and_aging() {
@@ -87,7 +87,7 @@ use crate::cell::AgentCell;
         let bud1 = yeast.budding(true).unwrap();
         assert_eq!(yeast.plasma_membrane.budding_scars, 1);
         assert_eq!(bud1.plasma_membrane.budding_scars, 0); // Le bÃ©bÃ© naÃ®t sans cicatrices
-        assert_eq!(bud1.mitochondria.atp_budget, 5); // AsymÃ©trie
+        assert_eq!(bud1.metabolism.mitochondria.atp_budget, 5); // AsymÃ©trie
 
         // 2. Bourgeonnement Colonial (Coraux)
         let coral_bud = yeast.budding(false).unwrap();
@@ -116,13 +116,13 @@ use crate::cell::AgentCell;
     fn test_endomitosis_and_megakaryocytes() {
         let mut hepatocyte = AgentCell::default();
         hepatocyte.metabolism.mitochondria.atp_budget = 1000;
-        assert_eq!(hepatocyte.nucleus.ploidy, 2); // 2n normal
+        assert_eq!(hepatocyte.genetics.nucleus.ploidy, 2); // 2n normal
         
         let initial_metabolism = hepatocyte.metabolism.mitochondria.metabolic_rate;
 
         // 1. Endomitose : Le foie (HÃ©patocyte) passe Ã  4n (Mega-usine)
         hepatocyte.endomitosis().unwrap();
-        assert_eq!(hepatocyte.nucleus.ploidy, 4);
+        assert_eq!(hepatocyte.genetics.nucleus.ploidy, 4);
         assert!(hepatocyte.metabolism.mitochondria.metabolic_rate > initial_metabolism); // La production explose
 
         // 2. MÃ©gacaryocyte : On gonfle la cellule jusqu'Ã  32n ou 64n
@@ -141,6 +141,8 @@ use crate::cell::AgentCell;
         let platelets = megakaryocyte.fragment_into_platelets().unwrap();
         assert_eq!(platelets, 3200);
     }
+
+
 
 
 
