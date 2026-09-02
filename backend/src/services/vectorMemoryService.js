@@ -407,6 +407,30 @@ async function searchMemory(query = '', options = {}, db = null) {
       }
   }
   
+  // 10. Multi-Hop Vectoriel Dynamique (Vector Spreading Activation)
+  // Résilience: si la base n'a pas été re-générée et n'a pas de synapses physiques,
+  // on saute dynamiquement vers les 2 souvenirs les plus proches sémantiquement du meilleur résultat.
+  if (topItems.length > 0 && options.hormone !== 'adrenaline') {
+      const bestMemVec = topItems[0].vector;
+      if (bestMemVec && bestMemVec.length > 0) {
+          const neighbors = corpus.map(item => {
+              if (item.id === topItems[0].id) return null;
+              const itemVec = item.vector;
+              if (!itemVec || itemVec.length === 0) return null;
+              return { item, sim: cosine(bestMemVec, itemVec) };
+          }).filter(x => x && x.sim > 0.55).sort((a, b) => b.sim - a.sim).slice(0, 2);
+          
+          for (const n of neighbors) {
+              if (!topItems.find(t => t.id === n.item.id) && !connectedItems.find(c => c.id === n.item.id)) {
+                  connectedItems.push({
+                      id: n.item.id, title: n.item.title, category: n.item.category, status: 'SUCCESS', summary: n.item.summary,
+                      tags: [...(n.item.tags || []), 'vector_hop'], author: n.item.author, createdAt: n.item.createdAt, vector: [], synaptic_weight: n.item.synaptic_weight || 1.0
+                  });
+              }
+          }
+      }
+  }
+
   const allScored = [...topItems, ...connectedItems];
 
   // Correction: topSuccessful et topPitfalls doivent se baser sur topItems filtrés/inhibés, pas sur tout scoredItems
