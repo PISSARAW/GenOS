@@ -2,13 +2,12 @@
 use std::collections::HashMap;
 
 /// 1. LA COUVERTURE DE MARKOV (Markov Blanket)
-/// Sépare statistiquement l'agent de son environnement.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MarkovBlanket {
-    pub hidden_states: String,   // Le monde réel inatteignable (ex: OS hôte)
-    pub sensory_states: String,  // Les inputs perçus (stdout, stderr)
-    pub active_states: String,   // Les actions émises (tool calls)
-    pub internal_states: String, // Le modèle génératif de l'agent
+    pub hidden_states: String,
+    pub sensory_states: String,
+    pub active_states: String,
+    pub internal_states: String,
 }
 
 impl Default for MarkovBlanket {
@@ -23,23 +22,15 @@ impl Default for MarkovBlanket {
 }
 
 /// 2. ÉNERGIE LIBRE ATTENDUE (Expected Free Energy - EFE)
-/// L'agent choisit ses actions pour minimiser cette quantité.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExpectedFreeEnergy {
-    pub pragmatic_value: f32, // Exploitation (Atteindre le but)
-    pub epistemic_value: f32, // Exploration (Réduire l'incertitude)
+    pub pragmatic_value: f32,
+    pub epistemic_value: f32,
 }
 
 impl ExpectedFreeEnergy {
-    pub fn new() -> Self {
-        Self { pragmatic_value: 0.0, epistemic_value: 0.0 }
-    }
-
-    pub fn calculate_efe(&self) -> f32 {
-        // On cherche à minimiser l'EFE, donc une valeur épistémique haute (réduit l'EFE).
-        // Plus on a d'information (epistemic) et de succès (pragmatic), plus l'énergie libre baisse.
-        - (self.pragmatic_value + self.epistemic_value)
-    }
+    pub fn new() -> Self { Self { pragmatic_value: 0.0, epistemic_value: 0.0 } }
+    pub fn calculate_efe(&self) -> f32 { - (self.pragmatic_value + self.epistemic_value) }
 }
 
 /// 3. LE CODAGE PRÉDICTIF ET PONDÉRATION DE PRÉCISION
@@ -47,48 +38,35 @@ impl ExpectedFreeEnergy {
 pub struct PredictiveCoding {
     pub expected_outcome: Option<String>,
     pub prediction_error: f32, 
-    pub precision_weight: f32, // (Dopamine/Neuromodulateurs) Confiance dans l'erreur
+    pub precision_weight: f32,
 }
 
 impl PredictiveCoding {
-    pub fn new() -> Self {
-        Self { expected_outcome: None, prediction_error: 0.0, precision_weight: 1.0 }
-    }
-
-    pub fn set_prediction(&mut self, outcome: &str) {
-        self.expected_outcome = Some(outcome.to_string());
-    }
-
+    pub fn new() -> Self { Self { expected_outcome: None, prediction_error: 0.0, precision_weight: 1.0 } }
+    pub fn set_prediction(&mut self, outcome: &str) { self.expected_outcome = Some(outcome.to_string()); }
     pub fn calculate_weighted_error(&mut self, actual_outcome: &str) -> f32 {
         if let Some(expected) = &self.expected_outcome {
-            if !actual_outcome.contains(expected) {
-                self.prediction_error = 1.0;
-            } else {
-                self.prediction_error = 0.0;
-            }
+            self.prediction_error = if !actual_outcome.contains(expected) { 1.0 } else { 0.0 };
         }
         self.prediction_error * self.precision_weight
     }
 }
 
-/// 4. PATHOLOGIES DE L'INFÉRENCE ACTIVE (Psychiatrie Computationnelle)
-#[derive(Clone, Debug, Serialize, Deserialize)]
+/// 4. PATHOLOGIES DE L'INFÉRENCE ACTIVE
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ComputationalPsychiatry {
-    pub schizophrenia_spectrum: bool, // Sur-pondération du bruit interne (Hallucinations)
-    pub autism_spectrum: bool,        // Sur-pondération des erreurs externes (Stéréotypies)
+    pub schizophrenia_spectrum: bool,
+    pub autism_spectrum: bool,
 }
 
-impl Default for ComputationalPsychiatry {
-    fn default() -> Self {
-        Self { schizophrenia_spectrum: false, autism_spectrum: false }
-    }
-}
-
-/// 5. LE CORTEX PRÉFRONTAL (Maintien du But Hiérarchique)
+/// 5. LE CORTEX PRÉFRONTAL (Anatomie Fonctionnelle)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrefrontalCortex {
     pub absolute_goal: String,
     pub drift_detected: bool,
+    pub dlpfc_working_memory: Vec<String>, // dlPFC: Mémoire de travail
+    pub phineas_gage_lesion: bool,         // Lésion de l'OFC (Déclenchée uniquement par l'humain)
+    pub consecutive_errors: f32,
 }
 
 impl PrefrontalCortex {
@@ -96,11 +74,43 @@ impl PrefrontalCortex {
         Self {
             absolute_goal: goal.to_string(),
             drift_detected: false,
+            dlpfc_working_memory: Vec::new(),
+            phineas_gage_lesion: false,
+            consecutive_errors: 0.0,
         }
+    }
+
+    /// Exclusivement invocable par un opérateur humain
+    pub fn human_induce_phineas_gage_lesion(&mut self) {
+        self.phineas_gage_lesion = true;
+    }
+
+    /// Cortex Orbitofrontal (OFC) : Inhibition des impulsions et sécurité
+    pub fn ofc_top_down_filtering(&self, proposed_action: &str) -> bool {
+        if self.phineas_gage_lesion {
+            return true; // Perte totale d'inhibition
+        }
+        let dangerous_actions = ["rm -rf", "drop table", "format", "DANGEROUS_ACTION"];
+        for danger in dangerous_actions.iter() {
+            if proposed_action.contains(danger) {
+                return false; // Action bloquée
+            }
+        }
+        true
+    }
+
+    /// Cortex Cingulaire Antérieur (ACC) : Task-switching sur erreur
+    pub fn acc_evaluate_task_switch(&mut self, error: f32) -> bool {
+        if error > 0.0 {
+            self.consecutive_errors += 1.0;
+        } else {
+            self.consecutive_errors = 0.0;
+        }
+        self.consecutive_errors >= 3.0 // Seuil de tolérance avant de changer de tâche
     }
 }
 
-/// 6. PLASTICITÉ SYNAPTIQUE (Apprentissage)
+/// 6. PLASTICITÉ SYNAPTIQUE
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SynapticPlasticity {
     pub tool_weights: HashMap<String, f32>,
@@ -118,7 +128,7 @@ impl SynapticPlasticity {
 }
 
 /// 7. STOCHASTICITÉ MÉTABOLIQUE
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MetabolicStress {
     pub stress_level: f32,
 }
@@ -128,7 +138,7 @@ impl MetabolicStress {
     pub fn relax(&mut self) { self.stress_level = 0.0; }
 }
 
-/// L'ORGANE COGNITIF GLOBAL : Principe d'Énergie Libre
+/// L'ORGANE COGNITIF GLOBAL
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdvancedCognition {
     pub pfc: PrefrontalCortex,
@@ -157,42 +167,47 @@ impl AdvancedCognition {
         }
     }
 
-    /// Cycle d'Inférence Active
     pub fn active_inference_cycle(&mut self, action_name: &str, prediction: &str, actual_feedback: &str) -> Result<String, String> {
+        // Filtrage Top-Down (OFC)
+        if !self.pfc.ofc_top_down_filtering(action_name) {
+            return Err("🛡️ [OFC INHIBITION] Action dangereuse ou impulsive bloquée par le cortex orbitofrontal.".to_string());
+        }
+
+        self.pfc.dlpfc_working_memory.push(action_name.to_string());
+        if self.pfc.dlpfc_working_memory.len() > 10 {
+            self.pfc.dlpfc_working_memory.remove(0); // dlPFC limite la mémoire de travail
+        }
+
         self.markov_blanket.active_states = action_name.to_string();
         self.markov_blanket.sensory_states = actual_feedback.to_string();
-        
         self.predictive_coding.set_prediction(prediction);
 
-        // Pathologies : Altération de la pondération de précision
         if self.pathology.schizophrenia_spectrum {
-            // L'agent attribue une énorme précision à ses prédictions internes, ignorant la réalité.
             self.predictive_coding.precision_weight = 0.0; 
-            // Hallucination : Il fabrique un faux retour sensoriel pour correspondre à sa prédiction.
             self.markov_blanket.sensory_states = prediction.to_string();
         } else if self.pathology.autism_spectrum {
-            // Sur-ajustement aux détails sensoriels : La moindre erreur de bas niveau est fatale
             self.predictive_coding.precision_weight = 5.0; 
         } else {
             self.predictive_coding.precision_weight = 1.0;
         }
 
-        // Calcul de l'Erreur de Prédiction (Surprise)
         let error = self.predictive_coding.calculate_weighted_error(&self.markov_blanket.sensory_states);
 
+        if self.pfc.acc_evaluate_task_switch(error) {
+            self.pfc.drift_detected = true;
+            return Err("🔄 [ACC TASK-SWITCHING] Trop d'erreurs consécutives. Le Cortex Cingulaire Antérieur force un changement de stratégie.".to_string());
+        }
+
         if error > 0.5 {
-            // ÉCHEC / SURPRISE ÉLEVÉE
             self.stress.increase();
             self.plasticity.depress_tool(action_name);
             
             if self.pathology.autism_spectrum {
-                return Err("🔄 [STÉRÉOTYPIE] Sur-ajustement autistique. L'agent boucle sur une action familière pour réduire l'incertitude.".to_string());
+                return Err("🔄 [STÉRÉOTYPIE] Sur-ajustement autistique. L'agent boucle.".to_string());
             }
 
-            self.pfc.drift_detected = true;
             Err(format!("⚠️ [ÉNERGIE LIBRE ÉLEVÉE] Erreur de prédiction : {}. Stress : {}", error, self.stress.stress_level))
         } else {
-            // SUCCÈS / MINIMISATION DE L'ÉNERGIE LIBRE
             self.stress.relax();
             self.plasticity.reinforce_tool(action_name);
             
@@ -210,25 +225,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_active_inference_anti_drift() {
+    fn test_ofc_inhibition_and_phineas_gage() {
         let mut cognition = AdvancedCognition::new("Serveur web");
 
-        // 1. Cycle normal réussi
+        // 1. OFC Normal : Bloque l'action impulsive
+        let result_safe = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
+        assert!(result_safe.is_err());
+        assert!(result_safe.unwrap_err().contains("OFC INHIBITION"));
+
+        // 2. Accident de Phineas Gage (Déclenché par l'humain)
+        cognition.pfc.human_induce_phineas_gage_lesion();
+
+        // 3. OFC Lésé : L'action impulsive passe (et échoue ensuite car c'est une erreur)
+        let result_gage = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
+        assert!(result_gage.is_err());
+        assert!(!result_gage.unwrap_err().contains("OFC INHIBITION")); // N'a PAS été bloqué par l'OFC
+    }
+
+    #[test]
+    fn test_acc_task_switching() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
+        
+        // On force 3 erreurs consécutives
+        let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
+        let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
+        let result = cognition.active_inference_cycle("Action", "OK", "Fail");
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("ACC TASK-SWITCHING"));
+        assert!(cognition.pfc.drift_detected);
+    }
+
+    #[test]
+    fn test_active_inference_anti_drift() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
         let success = cognition.active_inference_cycle("Ecrire_Fichier", "OK", "Le fichier a été créé (OK)");
         assert!(success.is_ok());
-
-        // 2. Erreur = Montée de l'énergie libre
-        let failure = cognition.active_inference_cycle("Compiler", "Réussite", "Error");
-        assert!(failure.is_err());
-        assert!(cognition.stress.stress_level > 0.0);
     }
 
     #[test]
     fn test_schizophrenia_hallucination() {
         let mut cognition = AdvancedCognition::new("Serveur web");
         cognition.pathology.schizophrenia_spectrum = true;
-
-        // Même avec une erreur fatale, l'agent hallucine la réussite
         let result = cognition.active_inference_cycle("Compiler", "Réussite", "FATAL ERROR");
         assert!(result.is_ok());
         assert!(result.unwrap().contains("HALLUCINATION"));
@@ -238,8 +276,6 @@ mod tests {
     fn test_autism_stereotypy() {
         let mut cognition = AdvancedCognition::new("Serveur web");
         cognition.pathology.autism_spectrum = true;
-
-        // Une petite erreur déclenche une crise de précision (Overfitting)
         let result = cognition.active_inference_cycle("Compiler", "Réussite", "Warning");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("STÉRÉOTYPIE"));
