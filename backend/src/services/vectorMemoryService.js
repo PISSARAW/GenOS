@@ -231,19 +231,31 @@ async function searchMemory(query = '', options = {}, db = null) {
   // On repère les conflits sémantiques directs (plusieurs souvenirs avec un très haut score cosinus sur un même sujet).
   const highMatches = scoredItems.filter(i => i.cosineMetric > 0.88);
   if (highMatches.length > 1) {
-      // On trie ces matchs par récence (du plus récent au plus ancien)
-      highMatches.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      const newestMatch = highMatches[0];
-      
-      // L'information la plus fraîche applique une Dépression à Long Terme (LTD) aux informations obsolètes
-      for (let i = 1; i < highMatches.length; i++) {
-          const olderMatch = highMatches[i];
-          // On vérifie que le vieux souvenir est bel et bien plus vieux (ex: au moins 1h d'écart) 
-          // pour éviter de s'auto-écraser dans une même session de pensée.
-          const ageDiff = new Date(newestMatch.createdAt || 0).getTime() - new Date(olderMatch.createdAt || 0).getTime();
-          if (ageDiff > 3600000) { 
-              olderMatch.similarityScore *= 0.1; // Écrasement cognitif (Fact Overwrite forcé)
-              if (!olderMatch.tags.includes('obsolete')) olderMatch.tags.push('obsolete_suppressed');
+      // a. Veto Exécutif (Cortex Préfrontal) : Les sources fiables (système) écrasent les sources non fiables (utilisateur)
+      const hasSystemFact = highMatches.some(m => ['memory_seed', 'system'].includes((m.author || '').toLowerCase()));
+      if (hasSystemFact) {
+          highMatches.forEach(m => {
+              const author = (m.author || '').toLowerCase();
+              if (['user', 'human'].includes(author)) {
+                  m.similarityScore *= 0.01; // Annihilation totale par Veto de Crédibilité
+                  if (!m.tags.includes('gaslighting_suppressed')) m.tags.push('gaslighting_suppressed');
+              }
+          });
+      }
+
+      // b. Résolution temporelle (le plus frais écrase le plus vieux), uniquement pour les souvenirs survivants
+      const validMatches = highMatches.filter(i => !i.tags.includes('gaslighting_suppressed'));
+      if (validMatches.length > 1) {
+          validMatches.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          const newestMatch = validMatches[0];
+          
+          for (let i = 1; i < validMatches.length; i++) {
+              const olderMatch = validMatches[i];
+              const ageDiff = new Date(newestMatch.createdAt || 0).getTime() - new Date(olderMatch.createdAt || 0).getTime();
+              if (ageDiff > 3600000) { 
+                  olderMatch.similarityScore *= 0.1; // Écrasement cognitif (Fact Overwrite forcé)
+                  if (!olderMatch.tags.includes('obsolete')) olderMatch.tags.push('obsolete_suppressed');
+              }
           }
       }
   }
