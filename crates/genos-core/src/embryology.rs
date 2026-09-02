@@ -31,19 +31,19 @@ pub fn differentiate_swarm(swarm: &mut Vec<AgentCell>, topology_gradient: f64) {
         // Gènes HOX : Le GPS définit le métier (Front-End, Back-End, Database)
         if position_ratio < topology_gradient / 3.0 {
             // TÊTE de l'embryon : Gène HOX-1 -> Interface Utilisateur (UI)
-            cell.specialization = "HOX-1_UI_FRONTEND".to_string();
+            cell.specialization = crate::cell::Specialization::Custom("HOX-1_UI_FRONTEND".to_string());
         } else if position_ratio < (topology_gradient / 3.0) * 2.0 {
             // TRONC de l'embryon : Gène HOX-2 -> Logique Métier (BACKEND)
-            cell.specialization = "HOX-2_LOGIC_BACKEND".to_string();
+            cell.specialization = crate::cell::Specialization::Custom("HOX-2_LOGIC_BACKEND".to_string());
         } else {
             // QUEUE de l'embryon : Gène HOX-3 -> Persistance (DATABASE)
-            cell.specialization = "HOX-3_DATA_STORAGE".to_string();
+            cell.specialization = crate::cell::Specialization::Custom("HOX-3_DATA_STORAGE".to_string());
         }
 
         // L'ACTE 3 : Verrouillage Épigénétique
         // La cellule perd son statut de "Page Blanche" et verrouille les outils inutiles.
         for (locus, gene) in cell.nucleus.genome.genes.iter_mut() {
-            if locus.contains("HOX") && !locus.contains(&cell.specialization) {
+            if locus.contains("HOX") && !locus.contains(cell.specialization.as_str()) {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative; // Cadenassé
                 gene.developmentally_locked = true; // Définitif
             }
