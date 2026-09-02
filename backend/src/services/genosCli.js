@@ -98,6 +98,7 @@ function resolveInRoot(reference) {
 }
 
 const protobuf = require('protobufjs');
+const zlib = require('zlib');
 
 async function phagocytizeExosomes() {
   const exosomeDir = path.join(studioBridgeRoot(), 'extracellular_matrix');
@@ -108,10 +109,11 @@ async function phagocytizeExosomes() {
   const Exosome = root.lookupType("synapse.Exosome");
 
   for (const file of files) {
-    if (file.startsWith('exosome_') && file.endsWith('.bin')) {
+    if (file.startsWith('exosome_') && file.endsWith('.exosome')) {
       try {
         const fullPath = path.join(exosomeDir, file);
-        const buffer = fs.readFileSync(fullPath);
+        const compressed = fs.readFileSync(fullPath);
+        const buffer = zlib.gunzipSync(compressed);
         const message = Exosome.decode(buffer);
         exosomes.push(Exosome.toObject(message, { arrays: true }));
         fs.unlinkSync(fullPath); // digest the exosome

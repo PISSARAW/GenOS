@@ -4,6 +4,10 @@ use dotenvy::dotenv;
 use std::fs;
 use std::path::Path;
 use prost::Message;
+use std::io::{Read, Write};
+use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 
 pub mod synapse {
     include!(concat!(env!("OUT_DIR"), "/synapse.rs"));
@@ -16,16 +20,20 @@ fn endocytosis(agent: &mut AgentCell) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() && path.extension().map_or(false, |ext| ext == "vesicle") {
-                    println!("🦠 [Endocytose] Absorption de la vésicule {:?}", path.file_name().unwrap());
-                    if let Ok(content) = fs::read(&path) {
-                        if let Ok(vesicle) = synapse::Vesicle::decode(content.as_slice()) {
-                            for engram in vesicle.engrams {
-                                if let Some(mind) = agent.mind_mut() {
-                                    mind.cerebral_cortex.push(genos_core::cell::substructs::Engram {
-                                        content: engram.content,
-                                        vector: engram.vector,
-                                        synaptic_weight: 1.0,
-                                    });
+                    println!("🦠 [Endocytose] Absorption de la vésicule compressée {:?}", path.file_name().unwrap());
+                    if let Ok(compressed) = fs::read(&path) {
+                        let mut decoder = GzDecoder::new(&compressed[..]);
+                        let mut buffer = Vec::new();
+                        if decoder.read_to_end(&mut buffer).is_ok() {
+                            if let Ok(vesicle) = synapse::Vesicle::decode(buffer.as_slice()) {
+                                for engram in vesicle.engrams {
+                                    if let Some(mind) = agent.mind_mut() {
+                                        mind.cerebral_cortex.push(genos_core::cell::substructs::Engram {
+                                            content: engram.content,
+                                            vector: engram.vector,
+                                            synaptic_weight: 1.0,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -43,11 +51,16 @@ fn exocytosis(exosome: synapse::Exosome) {
         let _ = fs::create_dir_all(matrix_path);
     }
     let id = uuid::Uuid::new_v4();
-    let file_path = matrix_path.join(format!("exosome_{}.bin", id));
+    let file_path = matrix_path.join(format!("exosome_{}.exosome", id));
     let mut buf = Vec::new();
     exosome.encode(&mut buf).unwrap();
-    let _ = fs::write(&file_path, buf);
-    println!("💧 [Exocytose] Sécrétion de l'exosome {:?}", file_path.file_name().unwrap());
+    
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(&buf).unwrap();
+    let compressed_bytes = encoder.finish().unwrap();
+    
+    let _ = fs::write(&file_path, compressed_bytes);
+    println!("💧 [Exocytose] Sécrétion de l'exosome compressé {:?}", file_path.file_name().unwrap());
 }
 
 #[derive(Parser)]

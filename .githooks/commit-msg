@@ -1,0 +1,16 @@
+#!/bin/bash
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
+
+if [[ ! "$COMMIT_MSG" =~ ^\[[A-Z]+\] ]]; then
+  echo "❌ [Système Immunitaire] Rejet du commit !"
+  echo "Le message doit commencer par un tag en majuscules entre crochets."
+  echo "Exemples valides :"
+  echo "  [EVOLUTION] Ajoute le RAG"
+  echo "  [FIX] Répare la mitose"
+  echo "  [CHORE] Met à jour les dépendances"
+  echo ""
+  echo "Votre message était :"
+  echo "$COMMIT_MSG"
+  exit 1
+fi

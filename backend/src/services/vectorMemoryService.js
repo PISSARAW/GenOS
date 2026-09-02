@@ -252,6 +252,7 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
 }
 
 const protobuf = require('protobufjs');
+const zlib = require('zlib');
 
 async function releaseVesicles(engrams) {
   const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
@@ -266,10 +267,11 @@ async function releaseVesicles(engrams) {
   
   const message = Vesicle.create(payload);
   const buffer = Vesicle.encode(message).finish();
+  const compressed = zlib.gzipSync(buffer);
   
   const id = crypto.randomUUID();
   const filePath = path.join(cleftDir, `vesicle_${id}.vesicle`);
-  fs.writeFileSync(filePath, buffer);
+  fs.writeFileSync(filePath, compressed);
   return filePath;
 }
 
