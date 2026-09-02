@@ -92,20 +92,27 @@ async function ingestMemory(req, res, next) {
       decisionId, title, finalContent, buffer, 'python_script', category, initialWeight
     );
 
-    // 2. Extinction GABAergique (Synapse Inhibitrice)
-    if (isCorrection) {
-      try {
-        const searchRes = await vectorMemoryService.searchMemory(content, { limit: 1 }, db);
-        if (searchRes.allScoredExperiences.length > 0) {
-          const targetId = searchRes.allScoredExperiences[0].id;
-          if (targetId !== decisionId) {
-            // Création d'une synapse inhibitrice forte vers l'ancien souvenir
-            await db.run(`INSERT INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, -5.0)`, decisionId, targetId);
+    // 2. Loi de Hebb (Création du Connectome GraphRAG) & Extinction GABAergique
+    try {
+      // On cherche les souvenirs liés (limite 3 pour le multi-hop)
+      const searchRes = await vectorMemoryService.searchMemory(content, { limit: 3 }, db);
+      const related = searchRes.allScoredExperiences || [];
+      
+      let isFirst = true;
+      for (const rel of related) {
+          if (rel.id === decisionId) continue; // Pas d'auto-lien
+          
+          if (isFirst && isCorrection) {
+              // Si c'est une correction, le lien le plus fort est la cible à inhiber
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, -5.0)`, decisionId, rel.id);
+          } else if (rel.cosineMetric > 0.75) {
+              // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning)
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, 1.0)`, decisionId, rel.id);
           }
-        }
-      } catch (e) {
-        console.error("Erreur lors de la création de la synapse inhibitrice:", e);
+          isFirst = false;
       }
+    } catch (e) {
+      console.error("Erreur Hebbian Learning:", e);
     }
     
     res.status(200).json({ status: 'Ingested', id: decisionId, isCorrection, initialWeight });
