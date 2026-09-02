@@ -42,7 +42,7 @@ pub fn differentiate_swarm(swarm: &mut Vec<AgentCell>, topology_gradient: f64) {
 
         // L'ACTE 3 : Verrouillage Épigénétique
         // La cellule perd son statut de "Page Blanche" et verrouille les outils inutiles.
-        for (locus, gene) in cell.nucleus.genome.genes.iter_mut() {
+        for (locus, gene) in cell.genetics.nucleus.genome.genes.iter_mut() {
             if locus.contains("HOX") && !locus.contains(cell.specialization.as_str()) {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative; // Cadenassé
                 gene.developmentally_locked = true; // Définitif

@@ -105,3 +105,22 @@ impl Default for MetabolicSystem {
         }
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GeneticSystem {
+    pub nucleus: crate::cell::Nucleus,
+    pub lineage: crate::cell::lineage::Lineage,
+}
+
+impl Default for GeneticSystem {
+    fn default() -> Self {
+        Self {
+            nucleus: crate::cell::Nucleus {
+                genome: crate::genome::Genome::new("Default DNA"),
+                ploidy: 2,
+                transcription_factors: Vec::new(),
+                p53_active: true,
+            },
+            lineage: crate::cell::lineage::Lineage::default(),
+        }
+    }
+}

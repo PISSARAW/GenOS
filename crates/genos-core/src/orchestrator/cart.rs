@@ -1,4 +1,4 @@
-use crate::cell::AgentCell;
+﻿use crate::cell::AgentCell;
 use crate::orchestrator::*;
 
 
@@ -15,13 +15,11 @@ impl CartTherapy {
         // Ce gÃƒÂ¨ne force l'agent ÃƒÂ  cibler le cancer.
         let car_gene = Gene::new("car_receptor", &target_cancer_id.to_string());
 
-        car_t
-            .nucleus
+        car_t.genetics.nucleus
             .genome
             .chromosome_maternal
             .expose_to_mutagen(Mutagen::Virus(0, car_gene.dna.clone()));
-        car_t
-            .nucleus
+        car_t.genetics.nucleus
             .genome
             .chromosome_paternal
             .expose_to_mutagen(Mutagen::Virus(0, car_gene.dna));

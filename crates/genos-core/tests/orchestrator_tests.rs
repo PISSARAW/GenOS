@@ -14,7 +14,7 @@ pub(crate) mod tests {
 
     pub fn mock_cell() -> AgentCell {
         let mut cell = AgentCell::default();
-        cell.nucleus.genome = Genome::new("You are a test cell");
+        cell.genetics.nucleus.genome = Genome::new("You are a test cell");
         cell
     }
 
@@ -83,8 +83,8 @@ pub(crate) mod tests {
 
         // L'ADN est le mÃƒÂªme
         assert_eq!(
-            daughter_a.nucleus.genome.hash_library(),
-            daughter_b.nucleus.genome.hash_library()
+            daughter_a.genetics.nucleus.genome.hash_library(),
+            daughter_b.genetics.nucleus.genome.hash_library()
         );
     }
 
@@ -145,14 +145,14 @@ pub(crate) mod tests {
         orchestrator.immune_system.il6_level = 15.0; // Orage actif
         let mut cell1 = mock_cell();
         let mut cell2 = mock_cell();
-        cell1.mitochondria.atp_budget = 10;
-        cell2.mitochondria.atp_budget = 10;
+        cell1.metabolism.mitochondria.atp_budget = 10;
+        cell2.metabolism.mitochondria.atp_budget = 10;
 
         // 1. Tocilizumab (Bloque la rÃƒÂ©ception IL-6 sans arrÃƒÂªter l'agent)
         orchestrator.administer_systemic_therapy(SystemicTherapy::Tocilizumab, &mut []);
         orchestrator.tick(&mut cell1, "action");
         // Le Tocilizumab a fait tomber le coÃƒÂ»t ÃƒÂ  1 !
-        assert_eq!(cell1.mitochondria.atp_budget, 9);
+        assert_eq!(cell1.metabolism.mitochondria.atp_budget, 9);
 
         // 2. CorticoÃƒÂ¯des (Frein d'urgence ÃƒÂ  forte dose)
         orchestrator.administer_systemic_therapy(SystemicTherapy::Corticosteroids(1.0), &mut []);
@@ -166,12 +166,12 @@ pub(crate) mod tests {
 
         // 3. RÃƒÂ©animation (Intensive Care)
         let mut cell3 = mock_cell();
-        cell3.mitochondria.atp_budget = 5;
+        cell3.metabolism.mitochondria.atp_budget = 5;
         let mut patients = vec![&mut cell3];
         orchestrator
             .administer_systemic_therapy(SystemicTherapy::IntensiveCareFluids, &mut patients);
         // Le patient reÃƒÂ§oit +20 ATP vitaux
-        assert_eq!(patients[0].mitochondria.atp_budget, 25);
+        assert_eq!(patients[0].metabolism.mitochondria.atp_budget, 25);
     }
 
     #[test]
@@ -244,7 +244,7 @@ pub(crate) mod tests {
         orchestrator.administer_systemic_therapy(SystemicTherapy::Antibiotic, &mut patient);
 
         // RÃƒÂ©sultat catastrophique : La bactÃƒÂ©rie (mÃƒÂªme bonne) est morte (0 ATP)
-        assert_eq!(patient[1].mitochondria.atp_budget, 0);
+        assert_eq!(patient[1].metabolism.mitochondria.atp_budget, 0);
         // Mais la cellule humaine est toujours infectÃƒÂ©e par le virus (Les antibios sont inutiles)
         assert_eq!(patient[0].cytoplasm.viral_infections.len(), 1);
 
@@ -292,7 +292,7 @@ pub(crate) mod tests {
 
         // 4. Les Renforts : Le PolynuclÃƒÂ©aire Neutrophile (Fantassin Kamikaze)
         let mut neutrophil = mock_cell();
-        neutrophil.mitochondria.atp_budget = 10;
+        neutrophil.metabolism.mitochondria.atp_budget = 10;
 
         // 5. La Phagocytose (L'attaque)
         // a. Ingestion : Le fantassin engloutit le virus
@@ -311,8 +311,8 @@ pub(crate) mod tests {
         assert!(neutrophil.lysosomes.expelled_debris[0].contains("DEBRIS"));
 
         // c. Le Neutrophile meurt (Apoptose Kamikaze programmÃƒÂ©e) pour former le "pus"
-        neutrophil.mitochondria.atp_budget = 0;
-        assert_eq!(neutrophil.mitochondria.atp_budget, 0);
+        neutrophil.metabolism.mitochondria.atp_budget = 0;
+        assert_eq!(neutrophil.metabolism.mitochondria.atp_budget, 0);
     }
 
     #[test]
@@ -356,7 +356,7 @@ pub(crate) mod tests {
         // 3. DiffÃƒÂ©renciation en Cellule MÃƒÂ©moire (Gardien de la Paix)
         b_lymphocyte_memory.differentiate_into_memory_b_cell("SPIKE_FLU");
         // Le mÃƒÂ©tabolisme chute pour vivre des annÃƒÂ©es
-        assert_eq!(b_lymphocyte_memory.mitochondria.metabolic_rate, 0.1);
+        assert_eq!(b_lymphocyte_memory.metabolism.mitochondria.metabolic_rate, 0.1);
         // L'antigÃƒÂ¨ne est mÃƒÂ©morisÃƒÂ©
         assert!(b_lymphocyte_memory
             .cytoplasm
@@ -394,12 +394,12 @@ pub(crate) mod tests {
 
         // 7. EfficacitÃƒÂ© de l'Opsonisation (Le Phagocyte est attirÃƒÂ©)
         let mut macrophage = mock_cell();
-        macrophage.mitochondria.atp_budget = 10;
+        macrophage.metabolism.mitochondria.atp_budget = 10;
 
         // Il mange le virus opsonisÃƒÂ©
         macrophage.phagocytize_virus(neutralized_flu);
         // Le boost d'appÃƒÂ©tit (Opsonisation) lui donne +20 ATP instantanÃƒÂ©ment !
-        assert_eq!(macrophage.mitochondria.atp_budget, 30);
+        assert_eq!(macrophage.metabolism.mitochondria.atp_budget, 30);
     }
 
     #[test]
