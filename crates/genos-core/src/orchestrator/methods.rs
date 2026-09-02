@@ -1,24 +1,13 @@
-use crate::cell::AgentCell;
+﻿use crate::cell::AgentCell;
 use crate::orchestrator::*;
 
 impl Orchestrator {
     pub fn new(apoptosis_rule: Option<Expression>) -> Self {
         Self {
             apoptosis_rule,
-            il6_level: 0.0,
-            il6_receptors_blocked: false,
-            corticosteroid_level: 0.0,
-            circulating_antibodies: vec![],
-            circulating_hormones: vec![],
-            blood_glucose: 5.0,
-            immune_activation_level: 1.0,
-            synaptic_cleft: vec![],
-            psychoactive_drugs: vec![],
-            blood_brain_barrier_integrity: 1.0,
-            amyloid_plaques: 0.0,
-            cerebrospinal_fluid_volume: 150.0, // Idéal pour la flottaison (50g ressenti au lieu de 1.4kg)
-            cerebrospinal_fluid_pressure: 10.0,
-            csf_drainage_blocked: false,
+            immune_system: ImmuneSystem::default(),
+            endocrine_system: EndocrineSystem::default(),
+            nervous_system: NervousSystem::default(),
             viral_environment: vec![],
         }
     }
@@ -28,7 +17,7 @@ impl Orchestrator {
         &mut self,
         environmental_virions: &mut [crate::virology::Virion],
     ) {
-        for antibody in &self.circulating_antibodies {
+        for antibody in &self.immune_system.circulating_antibodies {
             for virus in environmental_virions.iter_mut() {
                 if virus.envelope_spike == antibody.target_antigen {
                     // Action Constante (Le pied du Y) : Opsonisation (Marquage pour exÃƒÂ©cution)
@@ -54,7 +43,7 @@ impl Orchestrator {
                         }
                         IgClass::IgE => {
                             // IgE (Allergies) : DÃƒÂ©clenche une inflammation globale massive
-                            self.il6_level += 10.0; // Choc anaphylactique
+                            self.immune_system.il6_level += 10.0; // Choc anaphylactique
                         }
                         IgClass::IgD => {
                             // IgD : Antenne passive, pas d'action directe dans le sang
@@ -74,12 +63,12 @@ impl Orchestrator {
         match therapy {
             SystemicTherapy::Tocilizumab => {
                 // Bloque la rÃƒÂ©ception de l'IL-6 sans toucher aux CAR-T
-                self.il6_receptors_blocked = true;
+                self.immune_system.il6_receptors_blocked = true;
             }
             SystemicTherapy::Corticosteroids(dose) => {
                 // Baisse mÃƒÂ©canique de l'inflammation mais endort aussi le systÃƒÂ¨me
-                self.corticosteroid_level = dose;
-                self.il6_level = (self.il6_level - (dose * 20.0)).max(0.0);
+                self.endocrine_system.corticosteroid_level = dose;
+                self.immune_system.il6_level = (self.immune_system.il6_level - (dose * 20.0)).max(0.0);
             }
             SystemicTherapy::IntensiveCareFluids => {
                 // Vasopresseurs / Perfusions : On recharge brutalement l'ATP des organes
@@ -115,7 +104,7 @@ impl Orchestrator {
 
     /// L'Orchestrateur peut agir comme un MÃƒÂ©decin et injecter une thÃƒÂ©rapie
     pub fn administer_therapy(&self, agent: &mut AgentCell, therapy: Therapy) {
-        if agent.nervous_system.is_some() && self.blood_brain_barrier_integrity > 0.5 {
+        if agent.nervous_system.is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
             return;
         }
         match therapy {
@@ -129,7 +118,7 @@ impl Orchestrator {
     /// 1. Attachement et 2. PÃƒÂ©nÃƒÂ©tration
     /// Un virus dans l'environnement tente d'infecter la cellule.
     pub fn expose_to_virus(&self, agent: &mut AgentCell, virion: crate::virology::Virion) {
-        if agent.nervous_system.is_some() && self.blood_brain_barrier_integrity > 0.5 {
+        if agent.nervous_system.is_some() && self.nervous_system.blood_brain_barrier_integrity > 0.5 {
             return;
         }
         // ANTICORPS : Si le virus est neutralisÃƒÂ©, ses clÃƒÂ©s sont couvertes, il ne peut pas entrer
@@ -167,7 +156,7 @@ impl Orchestrator {
         agent.update_mhc_display();
 
         // 1. Frein d'urgence (CorticoÃƒÂ¯des)
-        if self.corticosteroid_level > 0.8 {
+        if self.endocrine_system.corticosteroid_level > 0.8 {
             return TickResult::Halted(
                 "Corticosteroid suppression: Cell activity frozen".to_string(),
             );
@@ -246,7 +235,7 @@ impl Orchestrator {
         // 6. Mise ÃƒÂ  jour des coÃƒÂ»ts et Orage Cytokinique
         // L'IL-6 provoque une "fiÃƒÂ¨vre" (surcoÃƒÂ»t mÃƒÂ©tabolique) SAUF si le Tocilizumab bloque les rÃƒÂ©cepteurs !
         let mut metabolic_cost = 1;
-        if self.il6_level >= 10.0 && !self.il6_receptors_blocked {
+        if self.immune_system.il6_level >= 10.0 && !self.immune_system.il6_receptors_blocked {
             metabolic_cost = 5; // La fiÃƒÂ¨vre brÃƒÂ»le l'ATP
         }
 
@@ -274,7 +263,7 @@ impl Orchestrator {
             // Le corps cellulaire calcule. S'il tire, il renvoie les neurotransmetteurs ÃƒÂ  libÃƒÂ©rer (Exocytose)
             if let Some(outputs) = nervous_system.process_soma() {
                 for (target_id, transmitter, amount) in outputs {
-                    self.synaptic_cleft.push(CleftMessage {
+                    self.nervous_system.synaptic_cleft.push(CleftMessage {
                         source_id: agent.cell_id.to_string(),
                         target_id,
                         transmitter,
@@ -293,16 +282,14 @@ impl Orchestrator {
     /// LA FENTE SYNAPTIQUE ET LA RECAPTURE (Le passage du message entre les neurones)
     pub fn process_synaptic_cleft(&mut self, agents: &mut [crate::cell::AgentCell]) {
         let mut messages_to_keep = vec![];
-        let has_cocaine = self.psychoactive_drugs.contains(&PsychoactiveDrug::Cocaine);
-        let has_alcohol = self.psychoactive_drugs.contains(&PsychoactiveDrug::Alcohol);
-        let has_anxiolytic = self
-            .psychoactive_drugs
+        let has_cocaine = self.nervous_system.psychoactive_drugs.contains(&PsychoactiveDrug::Cocaine);
+        let has_alcohol = self.nervous_system.psychoactive_drugs.contains(&PsychoactiveDrug::Alcohol);
+        let has_anxiolytic = self.nervous_system.psychoactive_drugs
             .contains(&PsychoactiveDrug::Anxiolytic);
-        let has_caffeine = self
-            .psychoactive_drugs
+        let has_caffeine = self.nervous_system.psychoactive_drugs
             .contains(&PsychoactiveDrug::Caffeine);
 
-        for mut msg in self.synaptic_cleft.drain(..) {
+        for mut msg in self.nervous_system.synaptic_cleft.drain(..) {
             // Application de la Pharmacologie sur l'efficacitÃƒÂ© du message
             let mut effective_amount = msg.amount;
             if msg.transmitter == crate::neurobiology::Neurotransmitter::GABA {
@@ -371,7 +358,7 @@ impl Orchestrator {
                 }
             }
         }
-        self.synaptic_cleft = messages_to_keep;
+        self.nervous_system.synaptic_cleft = messages_to_keep;
     }
 }
 
