@@ -1,4 +1,5 @@
-﻿pub mod organelles;
+﻿use crate::cell::lifecycle::LifecycleBehavior;
+pub mod organelles;
 pub mod events;
 pub mod methods;
 pub mod specialization;
@@ -26,6 +27,7 @@ pub mod ood_resilience;
 pub mod recurrence;
 pub mod halting;
 pub mod components;
+pub mod lifecycle;
 #[cfg(test)]
 pub mod tests;
 
@@ -45,12 +47,25 @@ use crate::cell::components::CellComponent;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum LifecycleState {
-    StemCell,
-    Proliferating,
-    Differentiated,
-    Senescent,
-    Apoptotic,
-    Necrotic,
+    StemCell(lifecycle::StemCellState),
+    Proliferating(lifecycle::ProliferatingState),
+    Differentiated(lifecycle::DifferentiatedState),
+    Senescent(lifecycle::SenescentState),
+    Apoptotic(lifecycle::ApoptoticState),
+    Necrotic(lifecycle::NecroticState),
+}
+
+impl lifecycle::LifecycleBehavior for LifecycleState {
+    fn process(&mut self, cell: &mut AgentCell) -> Option<LifecycleState> {
+        match self {
+            LifecycleState::StemCell(s) => s.process(cell),
+            LifecycleState::Proliferating(s) => s.process(cell),
+            LifecycleState::Differentiated(s) => s.process(cell),
+            LifecycleState::Senescent(s) => s.process(cell),
+            LifecycleState::Apoptotic(s) => s.process(cell),
+            LifecycleState::Necrotic(s) => s.process(cell),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -93,7 +108,7 @@ impl Default for AgentCell {
                 gap_junctions: vec![],
             },
             genetics: GeneticSystem::default(),
-            lifecycle_state: LifecycleState::StemCell,
+            lifecycle_state: LifecycleState::StemCell(lifecycle::StemCellState::default()),
             specialization: Specialization::Undefined,
             metabolism: MetabolicSystem::default(),
             redundancy: crate::redundancy::RedundancySystem::new(),
@@ -167,8 +182,17 @@ impl Default for Mind {
 }
 
 impl crate::cell::AgentCell {
+    pub fn step_lifecycle(&mut self) {
+        let mut current_state = self.lifecycle_state.clone();
+        if let Some(new_state) = current_state.process(self) {
+            self.lifecycle_state = new_state;
+        } else {
+            self.lifecycle_state = current_state;
+        }
+    }
+
     pub fn is_alive(&self) -> bool {
-        self.lifecycle_state != LifecycleState::Apoptotic && self.lifecycle_state != LifecycleState::Necrotic
+        !matches!(self.lifecycle_state, LifecycleState::Apoptotic(_) | LifecycleState::Necrotic(_))
     }
 
     pub fn nervous_system(&self) -> Option<&crate::neurobiology::NervousSystem> {
@@ -241,3 +265,5 @@ impl crate::cell::AgentCell {
         self.components.iter_mut().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
     }
 }
+
+

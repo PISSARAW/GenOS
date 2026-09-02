@@ -13,7 +13,7 @@ impl AgentCell {
         false
     }
     pub fn trigger_apoptosis(&mut self) {
-        self.lifecycle_state = crate::cell::LifecycleState::Apoptotic;
+        self.lifecycle_state = crate::cell::LifecycleState::Apoptotic(crate::cell::lifecycle::ApoptoticState::default());
         self.metabolism.mitochondria.atp_budget = 0;
     }
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
@@ -369,6 +369,7 @@ impl AgentCell {
         }
     }
 }
+
 
 
 
