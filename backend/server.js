@@ -50,7 +50,40 @@ async function startServer() {
     const app = createApp();
     const server = http.createServer(app);
 
-    // 3. Start Listening
+    // 2.5 Create gRPC Server
+    const grpc = require('@grpc/grpc-js');
+    const protoLoader = require('@grpc/proto-loader');
+    const path = require('path');
+    const vectorMemoryService = require('./src/services/vectorMemoryService');
+
+    const PROTO_PATH = path.resolve(__dirname, 'proto/genos.proto');
+    const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
+      keepCase: true, longs: String, enums: String, defaults: true, oneofs: true
+    });
+    const protoDescriptor = grpc.loadPackageDefinition(packageDefinition);
+    
+    const grpcServer = new grpc.Server();
+    grpcServer.addService(protoDescriptor.genos.MemoryService.service, {
+      SearchMemory: async (call, callback) => {
+        try {
+          const results = await vectorMemoryService.searchMemory(call.request.query, { limit: call.request.limit }, db);
+          const mapped = (results.allScoredExperiences || []).map(r => ({
+            id: r.id, title: r.title, summary: r.summary, score: r.similarityScore || 0
+          }));
+          callback(null, { results: mapped });
+        } catch (err) {
+          callback(err, null);
+        }
+      }
+    });
+
+    const GRPC_PORT = 50051;
+    grpcServer.bindAsync(`0.0.0.0:${GRPC_PORT}`, grpc.ServerCredentials.createInsecure(), () => {
+       grpcServer.start();
+       console.log(`[GenOS gRPC] MemoryService listening on port ${GRPC_PORT}`);
+    });
+
+    // 3. Start Listening (Express)
     server.listen(PORT, () => {
       console.log(`[GenOS Full-Stack] Server running on port ${PORT}`);
       telemetry.emitEvent({
