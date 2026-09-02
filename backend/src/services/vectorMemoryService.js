@@ -180,6 +180,29 @@ async function searchMemory(query = '', options = {}, db = null) {
 
   scoredItems.sort((a, b) => b.similarityScore - a.similarityScore);
   
+  // --- METACOGNITION BIOLOGIQUE ---
+  let gabaInhibited = false;
+  let noveltyDetected = false;
+  
+  if (scoredItems.length > 0) {
+    const topCosine = scoredItems[0].cosineMetric;
+    
+    // 1. Pattern Separation (Gyrus Denté) : Stimulus trop éloigné du réseau
+    if (topCosine < 0.60) {
+      noveltyDetected = true;
+    }
+    
+    // 2. GABAergic Inhibition : Absence de contraste (bruit de fond sans souvenir saillant)
+    if (scoredItems.length >= 3) {
+      const top1 = scoredItems[0].cosineMetric;
+      const top3 = scoredItems[2].cosineMetric;
+      // Si le meilleur n'est pas exceptionnel (< 0.85) et qu'il y a peu d'écart avec le 3ème
+      if (top1 < 0.85 && (top1 - top3) < 0.04) {
+        gabaInhibited = true;
+      }
+    }
+  }
+  
   // Cut according to hormone
   let limitToUse = limit;
   if (options.hormone === 'adrenaline') limitToUse = Math.max(1, Math.floor(limit / 2));
@@ -187,7 +210,13 @@ async function searchMemory(query = '', options = {}, db = null) {
   
   let topItems = scoredItems.slice(0, limitToUse);
 
+  // Application de l'inhibition (sauf si dopé à la dopamine qui favorise l'hallucination créative)
+  if ((gabaInhibited || noveltyDetected) && options.hormone !== 'dopamine') {
+    topItems = []; // Le signal est supprimé avant d'atteindre le LLM
+  }
+
   // LTP - Long Term Potentiation (Renforcement des souvenirs consultés)
+  // Note : Si le signal est inhibé, le LTP ne se déclenche pas, protégeant la base !
   const topIds = topItems.filter(i => i.category !== 'Trajectory' && i.category !== undefined && !i.id.startsWith('seed-')).map(i => i.id);
   if (topIds.length > 0) {
     const placeholders = topIds.map(() => '?').join(',');
@@ -224,12 +253,17 @@ async function searchMemory(query = '', options = {}, db = null) {
   
   const allScored = [...topItems, ...connectedItems];
 
-  const topSuccessful = scoredItems.filter(i => i.status === 'SUCCESS').slice(0, 3);
-  const topPitfalls = scoredItems.filter(i => i.status === 'FAILURE').slice(0, 2);
+  // Correction: topSuccessful et topPitfalls doivent se baser sur topItems filtrés/inhibés, pas sur tout scoredItems
+  const topSuccessful = topItems.filter(i => i.status === 'SUCCESS').slice(0, 3);
+  const topPitfalls = topItems.filter(i => i.status === 'FAILURE').slice(0, 2);
 
   return {
     query,
     resultsCount: allScored.length,
+    metacognition: {
+      gabaInhibited,
+      noveltyDetected
+    },
     topSuccessfulGoldenPaths: topSuccessful,
     pitfallsToAvoid: topPitfalls,
     allScoredExperiences: allScored
@@ -367,6 +401,5 @@ module.exports = {
   sleepCycle,
   cherryPickGoldenPath,
   counterfactualReplay,
-  releaseVesicles,
-  buildEvolutionTree
+  releaseVesicles
 };
