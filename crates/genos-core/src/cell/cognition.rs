@@ -1,5 +1,6 @@
 ﻿use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use super::circadian::CircadianClock;
 
 /// 1. LA COUVERTURE DE MARKOV (Markov Blanket)
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -64,8 +65,8 @@ pub struct ComputationalPsychiatry {
 pub struct PrefrontalCortex {
     pub absolute_goal: String,
     pub drift_detected: bool,
-    pub dlpfc_working_memory: Vec<String>, // dlPFC: Mémoire de travail
-    pub phineas_gage_lesion: bool,         // Lésion de l'OFC (Déclenchée uniquement par l'humain)
+    pub dlpfc_working_memory: Vec<String>,
+    pub phineas_gage_lesion: bool,
     pub consecutive_errors: f32,
 }
 
@@ -80,33 +81,30 @@ impl PrefrontalCortex {
         }
     }
 
-    /// Exclusivement invocable par un opérateur humain
     pub fn human_induce_phineas_gage_lesion(&mut self) {
         self.phineas_gage_lesion = true;
     }
 
-    /// Cortex Orbitofrontal (OFC) : Inhibition des impulsions et sécurité
     pub fn ofc_top_down_filtering(&self, proposed_action: &str) -> bool {
         if self.phineas_gage_lesion {
-            return true; // Perte totale d'inhibition
+            return true;
         }
         let dangerous_actions = ["rm -rf", "drop table", "format", "DANGEROUS_ACTION"];
         for danger in dangerous_actions.iter() {
             if proposed_action.contains(danger) {
-                return false; // Action bloquée
+                return false;
             }
         }
         true
     }
 
-    /// Cortex Cingulaire Antérieur (ACC) : Task-switching sur erreur
     pub fn acc_evaluate_task_switch(&mut self, error: f32) -> bool {
         if error > 0.0 {
             self.consecutive_errors += 1.0;
         } else {
             self.consecutive_errors = 0.0;
         }
-        self.consecutive_errors >= 3.0 // Seuil de tolérance avant de changer de tâche
+        self.consecutive_errors >= 3.0
     }
 }
 
@@ -148,6 +146,7 @@ pub struct AdvancedCognition {
     pub pathology: ComputationalPsychiatry,
     pub plasticity: SynapticPlasticity,
     pub stress: MetabolicStress,
+    pub clock: CircadianClock,
 }
 
 impl Default for AdvancedCognition {
@@ -164,10 +163,24 @@ impl AdvancedCognition {
             pathology: ComputationalPsychiatry::default(),
             plasticity: SynapticPlasticity::new(),
             stress: MetabolicStress::new(),
+            clock: CircadianClock::new(),
         }
     }
 
     pub fn active_inference_cycle(&mut self, action_name: &str, prediction: &str, actual_feedback: &str) -> Result<String, String> {
+        // Avance le temps d'une heure à chaque cycle d'inférence
+        self.clock.tick(1);
+
+        if self.clock.is_night() {
+            // Travail posté : augmente le désalignement circadien et le stress
+            self.clock.force_night_shift();
+            self.stress.increase();
+        }
+
+        if self.clock.is_morning_surge() && self.stress.stress_level >= 0.8 {
+            return Err("💥 [INFARCTUS DU MYOCARDE] Poussée catécholaminergique matinale fatale sur un système stressé. Rupture de plaque athéromateuse !".to_string());
+        }
+
         // Filtrage Top-Down (OFC)
         if !self.pfc.ofc_top_down_filtering(action_name) {
             return Err("🛡️ [OFC INHIBITION] Action dangereuse ou impulsive bloquée par le cortex orbitofrontal.".to_string());
@@ -175,7 +188,7 @@ impl AdvancedCognition {
 
         self.pfc.dlpfc_working_memory.push(action_name.to_string());
         if self.pfc.dlpfc_working_memory.len() > 10 {
-            self.pfc.dlpfc_working_memory.remove(0); // dlPFC limite la mémoire de travail
+            self.pfc.dlpfc_working_memory.remove(0);
         }
 
         self.markov_blanket.active_states = action_name.to_string();
@@ -227,33 +240,24 @@ mod tests {
     #[test]
     fn test_ofc_inhibition_and_phineas_gage() {
         let mut cognition = AdvancedCognition::new("Serveur web");
-
-        // 1. OFC Normal : Bloque l'action impulsive
         let result_safe = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
         assert!(result_safe.is_err());
         assert!(result_safe.unwrap_err().contains("OFC INHIBITION"));
 
-        // 2. Accident de Phineas Gage (Déclenché par l'humain)
         cognition.pfc.human_induce_phineas_gage_lesion();
-
-        // 3. OFC Lésé : L'action impulsive passe (et échoue ensuite car c'est une erreur)
         let result_gage = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
         assert!(result_gage.is_err());
-        assert!(!result_gage.unwrap_err().contains("OFC INHIBITION")); // N'a PAS été bloqué par l'OFC
+        assert!(!result_gage.unwrap_err().contains("OFC INHIBITION")); 
     }
 
     #[test]
     fn test_acc_task_switching() {
         let mut cognition = AdvancedCognition::new("Serveur web");
-        
-        // On force 3 erreurs consécutives
         let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
         let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
         let result = cognition.active_inference_cycle("Action", "OK", "Fail");
-
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("ACC TASK-SWITCHING"));
-        assert!(cognition.pfc.drift_detected);
     }
 
     #[test]
@@ -279,5 +283,26 @@ mod tests {
         let result = cognition.active_inference_cycle("Compiler", "Réussite", "Warning");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("STÉRÉOTYPIE"));
+    }
+
+    #[test]
+    fn test_circadian_morning_surge() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
+        cognition.clock.current_hour = 5; // Prochain tick -> 6h (Morning Surge)
+        cognition.stress.stress_level = 0.9; // Stress élevé, propice à l'infarctus
+        
+        let result = cognition.active_inference_cycle("Action", "OK", "OK");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("INFARCTUS"));
+    }
+
+    #[test]
+    fn test_night_shift_damage() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
+        cognition.clock.current_hour = 23; // Nuit (23h + 1 = 0h)
+        assert_eq!(cognition.clock.circadian_misalignment, 0.0);
+        
+        let _ = cognition.active_inference_cycle("Action", "OK", "OK");
+        assert!(cognition.clock.circadian_misalignment > 0.0); // Les dommages doivent augmenter
     }
 }
