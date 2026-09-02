@@ -1,4 +1,4 @@
-use crate::cell::*;
+﻿use crate::cell::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -80,3 +80,28 @@ mod tests {
     }
 }
 
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MetabolicSystem {
+    pub mitochondria: crate::cell::Mitochondria,
+    pub adipocyte: crate::cell::adipocyte::Adipocyte,
+    pub chloroplast: Option<Chloroplast>,
+}
+
+impl Default for MetabolicSystem {
+    fn default() -> Self {
+        Self {
+            mitochondria: crate::cell::Mitochondria {
+                atp_budget: 10,
+                metabolic_rate: 1.0,
+                angiogenesis_blocked: false,
+                mitochondrial_dna: crate::genome::DnaStrand::synthesize("CIRCULAR_MTDNA"),
+                cyanide_poisoned: false,
+                accumulated_free_radicals: 0,
+                is_double_membraned: true,
+            },
+            adipocyte: crate::cell::adipocyte::Adipocyte::default(),
+            chloroplast: None,
+        }
+    }
+}

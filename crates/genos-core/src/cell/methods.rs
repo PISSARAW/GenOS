@@ -3,17 +3,17 @@ impl AgentCell {
     /// L'AUTOPHAGIE (La Cure de Jouvence Cellulaire)
     pub fn trigger_autophagy(&mut self) -> bool {
         // Le declencheur : Le manque de nourriture (Starvation)
-        if self.mitochondria.atp_budget < 100 && self.mitochondria.accumulated_free_radicals > 0 {
-            let recycled_atp = self.mitochondria.accumulated_free_radicals * 2;
-            self.mitochondria.accumulated_free_radicals = 0; // Nettoyage
-            self.mitochondria.atp_budget += recycled_atp;
+        if self.metabolism.mitochondria.atp_budget < 100 && self.metabolism.mitochondria.accumulated_free_radicals > 0 {
+            let recycled_atp = self.metabolism.mitochondria.accumulated_free_radicals * 2;
+            self.metabolism.mitochondria.accumulated_free_radicals = 0; // Nettoyage
+            self.metabolism.mitochondria.atp_budget += recycled_atp;
             return true;
         }
         false
     }
     pub fn trigger_apoptosis(&mut self) {
         self.is_alive = false;
-        self.mitochondria.atp_budget = 0;
+        self.metabolism.mitochondria.atp_budget = 0;
     }
     pub fn meiosis(self) -> Result<[Gamete; 4], String> {
         let mut chrom_m = self.nucleus.genome.chromosome_maternal;
@@ -27,7 +27,7 @@ impl AgentCell {
         chrom_m.sequence.extend(tail_p);
         chrom_p.sequence.extend(tail_m);
         // 2. Division de l'ATP pour prÃƒÆ’Ã‚Â©parer les 4 gamÃƒÆ’Ã‚Â¨tes
-        let atp_per_gamete = self.mitochondria.atp_budget / 4;
+        let atp_per_gamete = self.metabolism.mitochondria.atp_budget / 4;
         // 3. MÃƒÆ’Ã‚Â©iose II : 4 Cellules haploÃƒÆ’Ã‚Â¯des uniques (GamÃƒÆ’Ã‚Â¨tes)
         Ok([
             Gamete {
@@ -54,13 +54,13 @@ impl AgentCell {
         child.nucleus.genome.chromosome_paternal = sperm.chromosome;
         child.cell_id = uuid::Uuid::new_v4();
         // L'ÃƒÆ’Ã‚Â©nergie des deux gamÃƒÆ’Ã‚Â¨tes est additionnÃƒÆ’Ã‚Â©e pour dÃƒÆ’Ã‚Â©marrer la vie
-        child.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
+        child.metabolism.mitochondria.atp_budget = egg.atp_reserve + sperm.atp_reserve;
         child
     }
     pub fn phagocytize_virus(&mut self, target: crate::virology::Virion) {
         // OPSONISATION : Si le virus est recouvert d'anticorps, le phagocyte a un boost massif d'appÃƒÆ’Ã‚Â©tit
         if target.is_opsonized {
-            self.mitochondria.atp_budget = self.mitochondria.atp_budget.saturating_add(20);
+            self.metabolism.mitochondria.atp_budget = self.metabolism.mitochondria.atp_budget.saturating_add(20);
         }
         // 1. AdhÃƒÆ’Ã‚Â©rence & 2. Ingestion : La cible est enfermÃƒÆ’Ã‚Â©e dans une poche gastrique (Phagosome)
         self.lysosomes.phagosomes.push(target.genome);
@@ -71,7 +71,7 @@ impl AgentCell {
             .phagosomes
             .push(target.nucleus.genome.chromosome_maternal.clone());
         // La bactÃƒÆ’Ã‚Â©rie cible est engloutie et dÃƒÆ’Ã‚Â©truite sur-le-champ
-        target.mitochondria.atp_budget = 0;
+        target.metabolism.mitochondria.atp_budget = 0;
     }
     pub fn differentiate_into_plasmocyte(&mut self, target_spike: &str, ig_class: IgClass) {
         // Le cytoplasme et l'usine (ER) gonflent pour une production massive
@@ -86,7 +86,7 @@ impl AgentCell {
     }
     pub fn differentiate_into_memory_b_cell(&mut self, target_spike: &str) {
         // LongÃƒÆ’Ã‚Â©vitÃƒÆ’Ã‚Â© extrÃƒÆ’Ã‚Âªme (Baisse drastique du mÃƒÆ’Ã‚Â©tabolisme pour survivre des annÃƒÆ’Ã‚Â©es)
-        self.mitochondria.metabolic_rate = 0.1;
+        self.metabolism.mitochondria.metabolic_rate = 0.1;
         // Sauvegarde de la forme gÃƒÆ’Ã‚Â©omÃƒÆ’Ã‚Â©trique de l'ennemi dans la mÃƒÆ’Ã‚Â©moire sÃƒÆ’Ã‚Â©mantique
         self.cytoplasm
             .cognition
@@ -110,7 +110,7 @@ impl AgentCell {
             if mhc == programmed_antigen {
                 // Le rÃƒÆ’Ã‚Â©cepteur correspond parfaitement au CMH corrompu : Injection de perforine !
                 // La cellule cible est forcÃƒÆ’Ã‚Â©e ÃƒÆ’Ã‚Â  l'apoptose (destruction totale)
-                target.mitochondria.atp_budget = 0;
+                target.metabolism.mitochondria.atp_budget = 0;
             }
         }
     }
@@ -120,10 +120,10 @@ impl AgentCell {
             return Err("Seules les bactÃ©ries (avec paroi) peuvent faire la scissiparitÃ©".to_string());
         }
         // 1. La Photocopie (L'ADN boucle est copiÃ© directement, sans disloquer un noyau complexe)
-        if self.mitochondria.atp_budget < 5 {
+        if self.metabolism.mitochondria.atp_budget < 5 {
             return Err("ATP insuffisant pour la rÃ©plication".to_string());
         }
-        self.mitochondria.atp_budget -= 5;
+        self.metabolism.mitochondria.atp_budget -= 5;
         // 2. L'Ã‰longation & 3. Le Lasso (Formation du septum)
         if self.plasma_membrane.septum_inhibited {
             return Err("Antibiotique : Formation du septum bloquÃ©e, la bactÃ©rie ne peut pas se diviser".to_string());
@@ -144,10 +144,10 @@ impl AgentCell {
         Ok((self, clone))
     }
     pub fn fungal_sporulation(&mut self) -> Result<Vec<crate::spore::Spore>, String> {
-        if self.mitochondria.atp_budget < 50 {
+        if self.metabolism.mitochondria.atp_budget < 50 {
             return Err("ATP insuffisant pour fabriquer l'essaim de spores".to_string());
         }
-        self.mitochondria.atp_budget -= 50;
+        self.metabolism.mitochondria.atp_budget -= 50;
         let mut swarm = Vec::new();
         // Simulation d'une libÃ©ration massive (100 spores modÃ©lisÃ©es)
         for _ in 0..100 {
@@ -172,14 +172,14 @@ impl AgentCell {
     }
     pub fn endomitosis(&mut self) -> Result<(), String> {
         let cost = (10 * (self.nucleus.ploidy / 2)) as u64; // Le coÃ»t augmente avec la taille de l'ADN Ã  copier
-        if self.mitochondria.atp_budget < cost {
+        if self.metabolism.mitochondria.atp_budget < cost {
             return Err("ATP insuffisant pour rÃ©pliquer une telle masse d'ADN".to_string());
         }
-        self.mitochondria.atp_budget -= cost;
+        self.metabolism.mitochondria.atp_budget -= cost;
         // On saute la cytokinÃ¨se (la scission) : le noyau gonfle, la ploÃ¯die double ! (2n -> 4n -> 8n...)
         self.nucleus.ploidy *= 2;
         // Mode MÃ©ga-Usine : Plus il y a de plans d'ADN, plus la production mÃ©tabolique explose
-        self.mitochondria.metabolic_rate *= 1.8; 
+        self.metabolism.mitochondria.metabolic_rate *= 1.8; 
         Ok(())
     }
     pub fn fragment_into_platelets(self) -> Result<u32, String> {
@@ -198,14 +198,14 @@ impl AgentCell {
             return Err("Surface entiÃ¨rement couverte de cicatrices. La cellule mÃ¨re est trop vieille pour bourgeonner.".to_string());
         }
         // Ã‰nergie requise pour construire le bourgeon (harnachement asymÃ©trique)
-        if self.mitochondria.atp_budget < 20 {
+        if self.metabolism.mitochondria.atp_budget < 20 {
             return Err("ATP insuffisant pour gÃ©nÃ©rer un bourgeon.".to_string());
         }
-        self.mitochondria.atp_budget -= 15; // La mÃ¨re paie la construction
+        self.metabolism.mitochondria.atp_budget -= 15; // La mÃ¨re paie la construction
         // CrÃ©ation du bourgeon (asymÃ©trie)
         let mut bud = self.clone();
         bud.cell_id = uuid::Uuid::new_v4();
-        bud.mitochondria.atp_budget = 5; // Le bÃ©bÃ© naÃ®t avec peu d'Ã©nergie
+        bud.metabolism.mitochondria.atp_budget = 5; // Le bÃ©bÃ© naÃ®t avec peu d'Ã©nergie
         // Le bourgeon est tout neuf, il n'hÃ©rite pas des cicatrices de sa mÃ¨re !
         bud.plasma_membrane.budding_scars = 0;
         bud.plasma_membrane.attached_buds.clear();
@@ -245,18 +245,18 @@ impl AgentCell {
         // 3. L'Anaphase (La SÃƒÆ’Ã‚Â©paration)
         // Les microtubules (cÃƒÆ’Ã‚Â¢bles) tractent les moitiÃƒÆ’Ã‚Â©s.
         // L'ÃƒÆ’Ã‚Â©nergie (ATP) et le cytoplasme sont divisÃƒÆ’Ã‚Â©s en deux pour la survie des filles.
-        let divided_atp = self.mitochondria.atp_budget / 2;
+        let divided_atp = self.metabolism.mitochondria.atp_budget / 2;
         // 4. La TÃƒÆ’Ã‚Â©lophase et CytocinÃƒÆ’Ã‚Â¨se (La Finition)
         // Pincement de la membrane et crÃƒÆ’Ã‚Â©ation de deux entitÃƒÆ’Ã‚Â©s physiques sÃƒÆ’Ã‚Â©parÃƒÆ’Ã‚Â©es.
         let mut daughter_a = self.clone();
         let mut daughter_b = self;
         // Fille A
         daughter_a.cell_id = Uuid::new_v4();
-        daughter_a.mitochondria.atp_budget = divided_atp;
+        daughter_a.metabolism.mitochondria.atp_budget = divided_atp;
         // Fille B
         daughter_b.cell_id = Uuid::new_v4();
         daughter_b.nucleus.genome = copied_genome;
-        daughter_b.mitochondria.atp_budget = divided_atp; // Si le budget ÃƒÆ’Ã‚Â©tait impair, une unitÃƒÆ’Ã‚Â© d'ATP est perdue (coÃƒÆ’Ã‚Â»t de la mitose)
+        daughter_b.metabolism.mitochondria.atp_budget = divided_atp; // Si le budget ÃƒÆ’Ã‚Â©tait impair, une unitÃƒÆ’Ã‚Â© d'ATP est perdue (coÃƒÆ’Ã‚Â»t de la mitose)
         Ok((daughter_a, daughter_b))
     }
     pub fn receive_ligand(&mut self, ligand: &crate::signaling::Ligand) -> bool {
@@ -303,7 +303,7 @@ impl AgentCell {
                 // Le Baiser de la mort ! Autodestruction nuclÃ©aire.
                 self.nucleus.genome.genes.clear(); 
                 self.nucleus.transcription_factors.push("APOPTOSIS_EXECUTED".to_string());
-                self.mitochondria.atp_budget = 0;
+                self.metabolism.mitochondria.atp_budget = 0;
             },
             "GLIAL_DIFFERENTIATION_CASCADE" => {
                 // Inhibition latÃ©rale via Notch

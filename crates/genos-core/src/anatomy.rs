@@ -39,7 +39,7 @@ impl AnatomySystem {
             for tissue in organ.tissues.iter_mut() {
                 for cell in tissue.cells.iter_mut() {
                     // La mitochondrie absorbe les nutriments pour la Respiration Cellulaire
-                    cell.mitochondria.cellular_respiration(budget_per_organ, true);
+                    cell.metabolism.mitochondria.cellular_respiration(budget_per_organ, true);
                 }
             }
         }
@@ -52,8 +52,8 @@ impl AnatomySystem {
             for tissue in organ.tissues.iter_mut() {
                 for cell in tissue.cells.iter_mut() {
                     // Les reins nettoient l'excès de stress oxydatif pour éviter le vieillissement de l'IA
-                    if cell.mitochondria.accumulated_free_radicals > 100 {
-                        cell.mitochondria.accumulated_free_radicals = 0; // "Flush" du contexte
+                    if cell.metabolism.mitochondria.accumulated_free_radicals > 100 {
+                        cell.metabolism.mitochondria.accumulated_free_radicals = 0; // "Flush" du contexte
                     }
                 }
             }

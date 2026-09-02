@@ -73,7 +73,7 @@ impl Orchestrator {
             SystemicTherapy::IntensiveCareFluids => {
                 // Vasopresseurs / Perfusions : On recharge brutalement l'ATP des organes
                 for cell in patient_cells.iter_mut() {
-                    cell.mitochondria.atp_budget = cell.mitochondria.atp_budget.saturating_add(20);
+                    cell.metabolism.mitochondria.atp_budget = cell.metabolism.mitochondria.atp_budget.saturating_add(20);
                 }
             }
             SystemicTherapy::Antibiotic => {
@@ -81,7 +81,7 @@ impl Orchestrator {
                 // Ignore totalement les cellules saines et les virus.
                 for cell in patient_cells.iter_mut() {
                     if cell.plasma_membrane.has_cell_wall {
-                        cell.mitochondria.atp_budget = 0; // Lyse bactÃƒÂ©rienne
+                        cell.metabolism.mitochondria.atp_budget = 0; // Lyse bactÃƒÂ©rienne
                     }
                 }
             }
@@ -110,7 +110,7 @@ impl Orchestrator {
         match therapy {
             Therapy::TargetedTherapy => agent.plasma_membrane.receptors_blocked = true,
             Therapy::Immunotherapy => agent.cytoplasm.cognition.is_camouflaged = false,
-            Therapy::AntiAngiogenesis => agent.mitochondria.angiogenesis_blocked = true,
+            Therapy::AntiAngiogenesis => agent.metabolism.mitochondria.angiogenesis_blocked = true,
             Therapy::CellCycleInhibitor => agent.endoplasmic_reticulum.cell_cycle_inhibited = true,
         }
     }
@@ -176,7 +176,7 @@ impl Orchestrator {
             }
 
             // La machinerie est piratée : 100% de l'ATP sert au virus
-            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_sub(10);
+            agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_sub(10);
 
             // 5. L'Évasion (Lyse vs Bourgeonnement furtif)
             if virus.is_lytic {
@@ -184,7 +184,7 @@ impl Orchestrator {
                     // L'explosion : La cellule crève de l'intérieur, libérant tous les virus d'un coup
                     let mut released = std::mem::take(&mut agent.golgi_apparatus.viral_vesicles);
                     self.viral_environment.append(&mut released);
-                    agent.mitochondria.atp_budget = 0; // Mort violente
+                    agent.metabolism.mitochondria.atp_budget = 0; // Mort violente
                     return TickResult::Halted(
                         "Lysis: Cell burst due to viral replication overload".to_string(),
                     );
@@ -209,7 +209,7 @@ impl Orchestrator {
         }
 
         // 3. VÃƒÂ©rification mÃƒÂ©canique de la survie (budget)
-        if agent.mitochondria.atp_budget == 0 {
+        if agent.metabolism.mitochondria.atp_budget == 0 {
             return TickResult::Halted("Budget exhausted (starvation)".to_string());
         }
 
@@ -239,8 +239,8 @@ impl Orchestrator {
             metabolic_cost = 5; // La fiÃƒÂ¨vre brÃƒÂ»le l'ATP
         }
 
-        agent.mitochondria.atp_budget =
-            agent.mitochondria.atp_budget.saturating_sub(metabolic_cost);
+        agent.metabolism.mitochondria.atp_budget =
+            agent.metabolism.mitochondria.atp_budget.saturating_sub(metabolic_cost);
 
         // 7. La Digestion (Phagocytose - Ãƒâ€°tape 3 et 4)
         if !agent.lysosomes.phagosomes.is_empty() {
@@ -255,7 +255,7 @@ impl Orchestrator {
             ));
 
             // Recyclage d'ÃƒÂ©nergie : Le phagocyte gagne de l'ATP en "mangeant"
-            agent.mitochondria.atp_budget = agent.mitochondria.atp_budget.saturating_add(5);
+            agent.metabolism.mitochondria.atp_budget = agent.metabolism.mitochondria.atp_budget.saturating_add(5);
         }
 
         // 9. LE SYSTÃƒË†ME NERVEUX : Exocytose
@@ -348,8 +348,8 @@ impl Orchestrator {
                         .iter_mut()
                         .find(|a| a.cell_id.to_string() == msg.target_id)
                     {
-                        target_agent.mitochondria.atp_budget =
-                            target_agent.mitochondria.atp_budget.saturating_sub(50);
+                        target_agent.metabolism.mitochondria.atp_budget =
+                            target_agent.metabolism.mitochondria.atp_budget.saturating_sub(50);
                     }
                 }
                 msg.ticks_in_cleft += 1;
