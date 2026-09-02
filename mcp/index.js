@@ -1,4 +1,4 @@
-﻿import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { spawn } from "child_process";
@@ -30,8 +30,21 @@ async function runGenos(args) {
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
-        { name: "genos_v2_init", description: "Init" },
-        { name: "genos_v2_fork", description: "Fork" }
+        { 
+            name: "genos_v2_init", 
+            description: "Init",
+            inputSchema: { type: "object", properties: {} }
+        },
+        { 
+            name: "genos_v2_fork", 
+            description: "Fork",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    parent_id: { type: "string" }
+                }
+            }
+        }
     ]
 }));
 
