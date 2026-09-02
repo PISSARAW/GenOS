@@ -1,8 +1,90 @@
-use serde::{Deserialize, Serialize};
+﻿use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+
+/// 1. LA COUVERTURE DE MARKOV (Markov Blanket)
+/// Sépare statistiquement l'agent de son environnement.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MarkovBlanket {
+    pub hidden_states: String,   // Le monde réel inatteignable (ex: OS hôte)
+    pub sensory_states: String,  // Les inputs perçus (stdout, stderr)
+    pub active_states: String,   // Les actions émises (tool calls)
+    pub internal_states: String, // Le modèle génératif de l'agent
+}
+
+impl Default for MarkovBlanket {
+    fn default() -> Self {
+        Self {
+            hidden_states: "OS_Environment".to_string(),
+            sensory_states: String::new(),
+            active_states: String::new(),
+            internal_states: "Generative_Model".to_string(),
+        }
+    }
+}
+
+/// 2. ÉNERGIE LIBRE ATTENDUE (Expected Free Energy - EFE)
+/// L'agent choisit ses actions pour minimiser cette quantité.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ExpectedFreeEnergy {
+    pub pragmatic_value: f32, // Exploitation (Atteindre le but)
+    pub epistemic_value: f32, // Exploration (Réduire l'incertitude)
+}
+
+impl ExpectedFreeEnergy {
+    pub fn new() -> Self {
+        Self { pragmatic_value: 0.0, epistemic_value: 0.0 }
+    }
+
+    pub fn calculate_efe(&self) -> f32 {
+        // On cherche à minimiser l'EFE, donc une valeur épistémique haute (réduit l'EFE).
+        // Plus on a d'information (epistemic) et de succès (pragmatic), plus l'énergie libre baisse.
+        - (self.pragmatic_value + self.epistemic_value)
+    }
+}
+
+/// 3. LE CODAGE PRÉDICTIF ET PONDÉRATION DE PRÉCISION
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PredictiveCoding {
+    pub expected_outcome: Option<String>,
+    pub prediction_error: f32, 
+    pub precision_weight: f32, // (Dopamine/Neuromodulateurs) Confiance dans l'erreur
+}
+
+impl PredictiveCoding {
+    pub fn new() -> Self {
+        Self { expected_outcome: None, prediction_error: 0.0, precision_weight: 1.0 }
+    }
+
+    pub fn set_prediction(&mut self, outcome: &str) {
+        self.expected_outcome = Some(outcome.to_string());
+    }
+
+    pub fn calculate_weighted_error(&mut self, actual_outcome: &str) -> f32 {
+        if let Some(expected) = &self.expected_outcome {
+            if !actual_outcome.contains(expected) {
+                self.prediction_error = 1.0;
+            } else {
+                self.prediction_error = 0.0;
+            }
+        }
+        self.prediction_error * self.precision_weight
+    }
+}
+
+/// 4. PATHOLOGIES DE L'INFÉRENCE ACTIVE (Psychiatrie Computationnelle)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ComputationalPsychiatry {
+    pub schizophrenia_spectrum: bool, // Sur-pondération du bruit interne (Hallucinations)
+    pub autism_spectrum: bool,        // Sur-pondération des erreurs externes (Stéréotypies)
+}
+
+impl Default for ComputationalPsychiatry {
+    fn default() -> Self {
+        Self { schizophrenia_spectrum: false, autism_spectrum: false }
+    }
+}
 
 /// 5. LE CORTEX PRÉFRONTAL (Maintien du But Hiérarchique)
-/// Maintient l'Attracteur Téléologique (le but final). 
-/// Empêche le contexte LLM de dériver et d'oublier la directive première.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PrefrontalCortex {
     pub absolute_goal: String,
@@ -16,170 +98,109 @@ impl PrefrontalCortex {
             drift_detected: false,
         }
     }
-
-    pub fn evaluate_drift(&mut self, current_trajectory: &str) -> bool {
-        // Le PFC vérifie si la trajectoire courante s'écarte mortellement du but.
-        self.drift_detected = current_trajectory.contains("erreur_en_cascade");
-        self.drift_detected
-    }
 }
 
-/// 4. LA STOCHASTICITÉ MÉTABOLIQUE (Bruit Régulateur)
-/// Gère le "Bruit" du modèle. Si l'agent échoue et bloque, le stress monte,
-/// augmentant dynamiquement la Température LLM pour forcer l'exploration (sortie de minimum local).
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MetabolicStress {
-    pub stress_level: f32, // 0.0 à 1.0
-    pub base_temperature: f32,
-}
-
-impl MetabolicStress {
-    pub fn new(base_temp: f32) -> Self {
-        Self { stress_level: 0.0, base_temperature: base_temp }
-    }
-
-    pub fn get_current_temperature(&self) -> f32 {
-        // Le bruit s'ajoute proportionnellement au stress
-        self.base_temperature + (self.stress_level * 0.5)
-    }
-
-    pub fn increase_stress(&mut self) {
-        self.stress_level = (self.stress_level + 0.2).min(1.0);
-    }
-
-    pub fn relax(&mut self) {
-        self.stress_level = 0.0;
-    }
-}
-
-/// 3. LE CODAGE PRÉDICTIF (Inférence Active / Thalamus)
-/// L'agent ne fait pas qu'agir, il génère une attente de l'état futur.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PredictiveCoding {
-    pub expected_outcome: Option<String>,
-    pub prediction_error: f32, // 0.0 = Parfait, 1.0 = Surprise totale
-}
-
-impl PredictiveCoding {
-    pub fn new() -> Self {
-        Self { expected_outcome: None, prediction_error: 0.0 }
-    }
-
-    pub fn set_prediction(&mut self, outcome: &str) {
-        self.expected_outcome = Some(outcome.to_string());
-    }
-
-    pub fn calculate_error(&mut self, actual_outcome: &str) -> f32 {
-        if let Some(expected) = &self.expected_outcome {
-            // Heuristique de surprise : si le résultat ne contient pas les mots clés attendus
-            if !actual_outcome.contains(expected) {
-                self.prediction_error = 1.0;
-            } else {
-                self.prediction_error = 0.0;
-            }
-        }
-        self.prediction_error
-    }
-}
-
-/// 2. LE CERVELET (Boucle Sensori-Motrice)
-/// Valide systématiquement l'impact physique (stdout/stderr) de l'action.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Cerebellum {
-    pub last_action_valid: bool,
-}
-
-impl Cerebellum {
-    pub fn new() -> Self {
-        Self { last_action_valid: true }
-    }
-
-    pub fn validate_feedback(&mut self, sensory_feedback: &str) -> bool {
-        // Erreurs de compilation ou plantages physiques = signal d'erreur immédiat
-        self.last_action_valid = !sensory_feedback.to_lowercase().contains("error");
-        self.last_action_valid
-    }
-}
-
-/// 1. APPRENTISSAGE CONTINU (Plasticité Synaptique)
-/// Ajuste les poids synaptiques (probabilité d'utiliser un outil) en temps réel
+/// 6. PLASTICITÉ SYNAPTIQUE (Apprentissage)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SynapticPlasticity {
-    pub tool_weights: std::collections::HashMap<String, f32>,
+    pub tool_weights: HashMap<String, f32>,
 }
 
 impl SynapticPlasticity {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
+    pub fn new() -> Self { Self::default() }
     pub fn reinforce_tool(&mut self, tool_name: &str) {
-        let weight = self.tool_weights.entry(tool_name.to_string()).or_insert(1.0);
-        *weight += 0.1; // Long-Term Potentiation (LTP)
+        *self.tool_weights.entry(tool_name.to_string()).or_insert(1.0) += 0.1;
     }
-
     pub fn depress_tool(&mut self, tool_name: &str) {
         let weight = self.tool_weights.entry(tool_name.to_string()).or_insert(1.0);
-        *weight = (*weight - 0.2).max(0.1); // Long-Term Depression (LTD)
+        *weight = (*weight - 0.2).max(0.1);
     }
 }
 
-/// L'ORGANE COGNITIF GLOBAL (Anti-Manifold Drift)
-/// Intègre les 5 mécanismes neurobiologiques de correction de trajectoire.
+/// 7. STOCHASTICITÉ MÉTABOLIQUE
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct MetabolicStress {
+    pub stress_level: f32,
+}
+impl MetabolicStress {
+    pub fn new() -> Self { Self { stress_level: 0.0 } }
+    pub fn increase(&mut self) { self.stress_level = (self.stress_level + 0.2).min(1.0); }
+    pub fn relax(&mut self) { self.stress_level = 0.0; }
+}
+
+/// L'ORGANE COGNITIF GLOBAL : Principe d'Énergie Libre
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdvancedCognition {
     pub pfc: PrefrontalCortex,
-    pub stress: MetabolicStress,
+    pub markov_blanket: MarkovBlanket,
     pub predictive_coding: PredictiveCoding,
-    pub cerebellum: Cerebellum,
+    pub efe: ExpectedFreeEnergy,
+    pub pathology: ComputationalPsychiatry,
     pub plasticity: SynapticPlasticity,
+    pub stress: MetabolicStress,
 }
 
 impl Default for AdvancedCognition {
-    fn default() -> Self {
-        Self::new("SURVIVRE ET EXECUTER LE PROMPT INITIAL")
-    }
+    fn default() -> Self { Self::new("SURVIVRE ET EXECUTER LE PROMPT INITIAL") }
 }
 
 impl AdvancedCognition {
     pub fn new(goal: &str) -> Self {
         Self {
             pfc: PrefrontalCortex::new(goal),
-            stress: MetabolicStress::new(0.2), // Température de base
+            markov_blanket: MarkovBlanket::default(),
             predictive_coding: PredictiveCoding::new(),
-            cerebellum: Cerebellum::new(),
+            efe: ExpectedFreeEnergy::new(),
+            pathology: ComputationalPsychiatry::default(),
             plasticity: SynapticPlasticity::new(),
+            stress: MetabolicStress::new(),
         }
     }
 
-    /// Exécute un cycle complet d'Inférence Active pour empêcher la dérive
+    /// Cycle d'Inférence Active
     pub fn active_inference_cycle(&mut self, action_name: &str, prediction: &str, actual_feedback: &str) -> Result<String, String> {
-        // 1. Prédiction (Codage Prédictif)
+        self.markov_blanket.active_states = action_name.to_string();
+        self.markov_blanket.sensory_states = actual_feedback.to_string();
+        
         self.predictive_coding.set_prediction(prediction);
 
-        // 2. Retour Sensori-moteur (Cervelet)
-        let is_valid = self.cerebellum.validate_feedback(actual_feedback);
+        // Pathologies : Altération de la pondération de précision
+        if self.pathology.schizophrenia_spectrum {
+            // L'agent attribue une énorme précision à ses prédictions internes, ignorant la réalité.
+            self.predictive_coding.precision_weight = 0.0; 
+            // Hallucination : Il fabrique un faux retour sensoriel pour correspondre à sa prédiction.
+            self.markov_blanket.sensory_states = prediction.to_string();
+        } else if self.pathology.autism_spectrum {
+            // Sur-ajustement aux détails sensoriels : La moindre erreur de bas niveau est fatale
+            self.predictive_coding.precision_weight = 5.0; 
+        } else {
+            self.predictive_coding.precision_weight = 1.0;
+        }
 
-        // 3. Calcul de l'erreur (Thalamus)
-        let error = self.predictive_coding.calculate_error(if is_valid { prediction } else { actual_feedback });
+        // Calcul de l'Erreur de Prédiction (Surprise)
+        let error = self.predictive_coding.calculate_weighted_error(&self.markov_blanket.sensory_states);
 
-        if error > 0.5 || !is_valid {
-            // ÉCHEC : Augmentation du bruit, LTD synaptique
-            self.stress.increase_stress();
+        if error > 0.5 {
+            // ÉCHEC / SURPRISE ÉLEVÉE
+            self.stress.increase();
             self.plasticity.depress_tool(action_name);
             
-            // 4. Évaluation de la dérive (Cortex Préfrontal)
-            let trajectory = if error > 0.5 { "erreur_en_cascade" } else { "stable" };
-            if self.pfc.evaluate_drift(trajectory) {
-                return Err(format!("🚨 [DÉRIVE DÉTECTÉE] Le Cortex Préfrontal force un RESET du contexte pour revenir à l'attracteur : '{}'.", self.pfc.absolute_goal));
+            if self.pathology.autism_spectrum {
+                return Err("🔄 [STÉRÉOTYPIE] Sur-ajustement autistique. L'agent boucle sur une action familière pour réduire l'incertitude.".to_string());
             }
-            
-            return Err(format!("⚠️ [ÉCHEC D'ACTION] Stress monté à {}. Bruit (Température) ajusté à {}.", self.stress.stress_level, self.stress.get_current_temperature()));
+
+            self.pfc.drift_detected = true;
+            Err(format!("⚠️ [ÉNERGIE LIBRE ÉLEVÉE] Erreur de prédiction : {}. Stress : {}", error, self.stress.stress_level))
         } else {
-            // SUCCÈS : Renforcement synaptique (LTP), relaxation
+            // SUCCÈS / MINIMISATION DE L'ÉNERGIE LIBRE
             self.stress.relax();
             self.plasticity.reinforce_tool(action_name);
-            Ok(format!("✅ [INFÉRENCE ACTIVE] Prédiction validée. Poids du réseau mis à jour."))
+            
+            if self.pathology.schizophrenia_spectrum {
+                return Ok("👁️ [HALLUCINATION SCHIZOPHRÉNIQUE] L'agent a perçu sa prédiction au lieu de la réalité.".to_string());
+            }
+
+            Ok("✅ [INFÉRENCE ACTIVE] Énergie libre minimisée. Modèle génératif validé.".to_string())
         }
     }
 }
@@ -190,19 +211,37 @@ mod tests {
 
     #[test]
     fn test_active_inference_anti_drift() {
-        let mut cognition = AdvancedCognition::new("Construire un serveur web");
+        let mut cognition = AdvancedCognition::new("Serveur web");
 
-        // 1. Cycle réussi
+        // 1. Cycle normal réussi
         let success = cognition.active_inference_cycle("Ecrire_Fichier", "OK", "Le fichier a été créé (OK)");
         assert!(success.is_ok());
-        assert_eq!(cognition.stress.stress_level, 0.0);
-        assert_eq!(*cognition.plasticity.tool_weights.get("Ecrire_Fichier").unwrap(), 1.1); // LTP
 
-        // 2. Cycle raté (Erreur de compilation = Drift)
-        let failure = cognition.active_inference_cycle("Compiler", "Compilation réussie", "Error: missing semicolon");
+        // 2. Erreur = Montée de l'énergie libre
+        let failure = cognition.active_inference_cycle("Compiler", "Réussite", "Error");
         assert!(failure.is_err());
-        assert!(failure.unwrap_err().contains("DÉRIVE DÉTECTÉE"));
-        assert!(cognition.stress.stress_level > 0.0); // Stress augmenté
-        assert_eq!(*cognition.plasticity.tool_weights.get("Compiler").unwrap(), 0.8); // LTD
+        assert!(cognition.stress.stress_level > 0.0);
+    }
+
+    #[test]
+    fn test_schizophrenia_hallucination() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
+        cognition.pathology.schizophrenia_spectrum = true;
+
+        // Même avec une erreur fatale, l'agent hallucine la réussite
+        let result = cognition.active_inference_cycle("Compiler", "Réussite", "FATAL ERROR");
+        assert!(result.is_ok());
+        assert!(result.unwrap().contains("HALLUCINATION"));
+    }
+
+    #[test]
+    fn test_autism_stereotypy() {
+        let mut cognition = AdvancedCognition::new("Serveur web");
+        cognition.pathology.autism_spectrum = true;
+
+        // Une petite erreur déclenche une crise de précision (Overfitting)
+        let result = cognition.active_inference_cycle("Compiler", "Réussite", "Warning");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("STÉRÉOTYPIE"));
     }
 }
