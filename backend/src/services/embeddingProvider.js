@@ -1,24 +1,20 @@
-const { pipeline } = require('@xenova/transformers');
-
 function cosine(a = [], b = []) { const n = Math.min(a.length, b.length); let dot = 0, aa = 0, bb = 0; for (let i = 0; i < n; i++) { dot += a[i] * b[i]; aa += a[i] * a[i]; bb += b[i] * b[i]; } return aa && bb ? dot / (Math.sqrt(aa) * Math.sqrt(bb)) : 0; }
-
-let embedderPipeline = null;
-
-async function getEmbedder() {
-  if (!embedderPipeline) {
-    // Lazy-load to avoid blocking server boot. Downloads quantized ONNX model automatically if not cached.
-    embedderPipeline = await pipeline('feature-extraction', 'Xenova/nomic-embed-text-v1.5.quantized');
-  }
-  return embedderPipeline;
-}
 
 async function embed(text) {
   try {
-    const embedder = await getEmbedder();
-    const output = await embedder(text, { pooling: 'mean', normalize: true });
-    return Array.from(output.data);
+    const response = await fetch('http://127.0.0.1:11434/api/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'nomic-embed-text', prompt: text })
+    });
+    if (!response.ok) {
+      console.error(`Ollama error: HTTP ${response.status}`, await response.text());
+      return null;
+    }
+    const payload = await response.json();
+    return payload.embedding || null;
   } catch (e) {
-    console.error("ONNX Embedding provider error:", e);
+    console.error("Embedding provider error:", e);
     return null;
   }
 }

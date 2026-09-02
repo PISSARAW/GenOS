@@ -350,7 +350,8 @@ async function searchMemory(query = '', options = {}, db = null) {
 
   // Application de l'inhibition de bruit (sauf si dopé à la dopamine)
   if ((gabaInhibited || noveltyDetected) && options.hormone !== 'dopamine') {
-    topItems = []; // Le signal est supprimé avant d'atteindre le LLM
+    // topItems = []; // [REMOVED] Le signal était supprimé avant d'atteindre le LLM (Censure massive)
+    // On garde les topItems, le RRF/Cos a déjà fait le tri, on ne censure plus.
   }
   
   // 9. Conscience de l'ignorance (Cortex Cingulaire Antérieur)
