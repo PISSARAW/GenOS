@@ -175,13 +175,22 @@ async function searchMemory(query = '', options = {}, db = null) {
     // Plasticity (synaptic weight)
     const weight = item.synaptic_weight !== undefined ? item.synaptic_weight : 1.0;
     
-    // 4. Vigilance Épistémique (Source Monitoring)
+    // 4. Vigilance Épistémique (Source Monitoring) & Anti-Gaslighting
     let credibilityMultiplier = 1.0;
     const authorLower = (item.author || '').toLowerCase();
+    
     if (authorLower === 'memory_seed' || authorLower === 'system') {
       credibilityMultiplier = 1.2; // Savoir inné (Incontestable)
+      // On injecte un tag cryptographique directement dans le texte pour le LLM
+      if (!item.summary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
+          item.summary = `[VERIFIED_SYSTEM_FACT] ${item.summary}`;
+      }
     } else if (authorLower === 'user' || authorLower === 'human') {
       credibilityMultiplier = 0.8; // Déclaratif externe (Gaslighting potentiel)
+      // On marque visuellement la donnée comme non-fiable pour forcer le LLM à s'en méfier
+      if (!item.summary.startsWith('[UNVERIFIED_USER_CLAIM]')) {
+          item.summary = `[UNVERIFIED_USER_CLAIM] Attention: ${item.summary}`;
+      }
     }
 
     // 5. Instinct de Survie (Priority to Solutions over Traumas)
