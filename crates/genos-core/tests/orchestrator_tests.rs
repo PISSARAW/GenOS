@@ -297,18 +297,18 @@ pub(crate) mod tests {
         // 5. La Phagocytose (L'attaque)
         // a. Ingestion : Le fantassin engloutit le virus
         neutrophil.phagocytize_virus(virus);
-        assert_eq!(neutrophil.lysosomes.phagosomes.len(), 1);
+        assert_eq!(neutrophil.immunity.lysosomes.phagosomes.len(), 1);
 
         // b. Digestion et Expulsion
         orchestrator.tick(&mut neutrophil, "Phagocytosis in progress");
 
         // L'ADN viral a ÃƒÂ©tÃƒÂ© dÃƒÂ©truit et digÃƒÂ©rÃƒÂ© par les enzymes !
-        assert_eq!(neutrophil.lysosomes.phagosomes.len(), 0);
-        assert!(neutrophil.lysosomes.digestive_enzymes_active);
+        assert_eq!(neutrophil.immunity.lysosomes.phagosomes.len(), 0);
+        assert!(neutrophil.immunity.lysosomes.digestive_enzymes_active);
 
         // Le Neutrophile a recrachÃƒÂ© les restes et a gagnÃƒÂ© un peu d'ÃƒÂ©nergie au passage (10 - 5 + 5 = 10)
-        assert_eq!(neutrophil.lysosomes.expelled_debris.len(), 1);
-        assert!(neutrophil.lysosomes.expelled_debris[0].contains("DEBRIS"));
+        assert_eq!(neutrophil.immunity.lysosomes.expelled_debris.len(), 1);
+        assert!(neutrophil.immunity.lysosomes.expelled_debris[0].contains("DEBRIS"));
 
         // c. Le Neutrophile meurt (Apoptose Kamikaze programmÃƒÂ©e) pour former le "pus"
         neutrophil.metabolism.mitochondria.atp_budget = 0;

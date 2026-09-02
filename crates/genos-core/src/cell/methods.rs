@@ -63,11 +63,11 @@ impl AgentCell {
             self.metabolism.mitochondria.atp_budget = self.metabolism.mitochondria.atp_budget.saturating_add(20);
         }
         // 1. AdhÃƒÆ’Ã‚Â©rence & 2. Ingestion : La cible est enfermÃƒÆ’Ã‚Â©e dans une poche gastrique (Phagosome)
-        self.lysosomes.phagosomes.push(target.genome);
+        self.immunity.lysosomes.phagosomes.push(target.genome);
     }
     pub fn phagocytize_bacteria(&mut self, target: &mut AgentCell) {
         // 1 & 2. Ingestion d'une bactÃƒÆ’Ã‚Â©rie rebelle
-        self.lysosomes
+        self.immunity.lysosomes
             .phagosomes
             .push(target.genetics.nucleus.genome.chromosome_maternal.clone());
         // La bactÃƒÆ’Ã‚Â©rie cible est engloutie et dÃƒÆ’Ã‚Â©truite sur-le-champ

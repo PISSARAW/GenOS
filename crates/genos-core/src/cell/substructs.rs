@@ -124,3 +124,23 @@ impl Default for GeneticSystem {
         }
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ImmuneSystem {
+    pub surface_antibodies: Vec<crate::cell::Antibody>,
+    pub lysosomes: crate::cell::Lysosomes,
+    pub phagosome: crate::cell::phagosome::Phagosome,
+}
+
+impl Default for ImmuneSystem {
+    fn default() -> Self {
+        Self {
+            surface_antibodies: vec![],
+            lysosomes: crate::cell::Lysosomes {
+                digestive_enzymes_active: false,
+                phagosomes: vec![],
+                expelled_debris: vec![],
+            },
+            phagosome: crate::cell::phagosome::Phagosome::default(),
+        }
+    }
+}

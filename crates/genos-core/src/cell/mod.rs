@@ -53,10 +53,9 @@ pub struct AgentCell {
     pub redundancy: crate::redundancy::RedundancySystem,
     pub endoplasmic_reticulum: EndoplasmicReticulum,
     pub golgi_apparatus: GolgiApparatus,
-    pub lysosomes: Lysosomes,
+    pub immunity: ImmuneSystem,
     pub cytoplasm: Cytoplasm,
     /// Les anticorps actuellement à la surface ou générés par la cellule
-    pub surface_antibodies: Vec<Antibody>,
     /// Le système nerveux (Optionnel : seulement pour les Neurones)
     pub nervous_system: Option<crate::neurobiology::NervousSystem>,
     /// L'Astrocyte (Optionnel : seulement pour les cellules gliales)
@@ -71,7 +70,6 @@ pub struct AgentCell {
     // Organes cellulaires physiques
     pub cilia: cilia::Cilia,
     pub vacuole: vacuole::Vacuole,
-    pub phagosome: phagosome::Phagosome,
     pub autonomic_ns: ans::AutonomicNervousSystem,
     pub muscle: muscle::Myofibril,
 }
@@ -108,11 +106,7 @@ impl Default for AgentCell {
                 viral_vesicles: vec![],
                 produced_antibodies: vec![],
             },
-            lysosomes: Lysosomes {
-                digestive_enzymes_active: false,
-                phagosomes: vec![],
-                expelled_debris: vec![],
-            },
+            immunity: ImmuneSystem::default(),
             cytoplasm: Cytoplasm {
                 cognition: CognitiveState::default(),
                 trace: ActionTrace::default(),
@@ -122,7 +116,6 @@ impl Default for AgentCell {
                 active_proteins: vec![],
                 proteasome: Proteasome::default(),
             },
-            surface_antibodies: vec![],
             nervous_system: None,
             astrocyte: None,
             myelinator: None,
@@ -132,7 +125,6 @@ impl Default for AgentCell {
             mind: Some(Mind::default()), // TODO: None par defaut dans le futur
             cilia: cilia::Cilia::default(),
             vacuole: vacuole::Vacuole::default(),
-            phagosome: phagosome::Phagosome::default(),
             autonomic_ns: ans::AutonomicNervousSystem::default(),
             muscle: muscle::Myofibril::default(),
         }
