@@ -11,5 +11,6 @@ router.post('/search', memoryController.search);
 router.post('/cherry-pick', memoryController.cherryPick);
 router.post('/counterfactual', memoryController.counterfactual);
 router.post('/vesicle', memoryController.generateVesicle);
+router.post('/ingest', memoryController.ingestMemory);
 
 module.exports = router;

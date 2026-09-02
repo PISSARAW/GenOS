@@ -62,27 +62,57 @@ async function counterfactual(req, res, next) {
   }
 }
 
-async function generateVesicle(req, res, next) {
+async function ingestMemory(req, res, next) {
   try {
-    const { context } = req.body;
-    // We just create an engram and drop a vesicle for the rust CLI
-    const engram = {
-      content: context || 'No context',
-      vector: new Array(1536).fill(0.0) // Mock vector if missing
-    };
+    const { content, title = 'Turn Context', category = 'Conversation' } = req.body;
+    const db = await getDatabase();
     
-    // Convert to vesicle and drop in synaptic_cleft
-    const vesiclePath = await vectorMemoryService.releaseVesicles([engram]);
+    // Convert to Float32Array
+    const { embed } = require('../services/embeddingProvider');
+    const vec = await embed(content);
+    const float32Array = new Float32Array(vec || new Array(1536).fill(0.0));
+    const buffer = Buffer.from(float32Array.buffer);
+
+    const decisionId = `dec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    await db.run(
+      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
+      decisionId, title, content, buffer, 'python_script', category
+    );
     
-    res.status(200).json({ status: 'Vesicle released', vesiclePath });
+    res.status(200).json({ status: 'Ingested', id: decisionId });
   } catch (err) {
     next(err);
   }
 }
 
+async function generateVesicle(req, res, next) {
+  try {
+    const { query } = req.body;
+    const db = await getDatabase();
+    
+    // Retrieve top 5 memories
+    const results = await vectorMemoryService.searchMemory(query, { limit: 5 }, db);
+    
+    const engrams = results.map(r => ({
+      content: r.summary || r.content || r.title,
+      vector: r.vector || new Array(1536).fill(0.0)
+    }));
+    
+    // Convert to vesicle and drop in synaptic_cleft
+    const vesiclePath = await vectorMemoryService.releaseVesicles(engrams);
+    
+    res.status(200).json({ status: 'Vesicle released with top 5 engrams', count: engrams.length, vesiclePath });
+  } catch (err) {
+    next(err);
+  }
+}
+
+const crypto = require('crypto');
+
 module.exports = {
   search,
   cherryPick,
   counterfactual,
+  ingestMemory,
   generateVesicle
 };
