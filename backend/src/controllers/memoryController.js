@@ -87,13 +87,14 @@ async function ingestMemory(req, res, next) {
 
 async function generateVesicle(req, res, next) {
   try {
-    const { query } = req.body;
+    const { query, hormone } = req.body;
     const db = await getDatabase();
     
     // Retrieve top 5 memories
-    const results = await vectorMemoryService.searchMemory(query, { limit: 5 }, db);
+    const results = await vectorMemoryService.searchMemory(query, { limit: 5, hormone }, db);
     
-    const engrams = results.map(r => ({
+    // Use allScoredExperiences (GraphRAG appends associative memories here)
+    const engrams = results.allScoredExperiences.map(r => ({
       content: r.summary || r.content || r.title,
       vector: r.vector || new Array(1536).fill(0.0)
     }));
@@ -101,7 +102,17 @@ async function generateVesicle(req, res, next) {
     // Convert to vesicle and drop in synaptic_cleft
     const vesiclePath = await vectorMemoryService.releaseVesicles(engrams);
     
-    res.status(200).json({ status: 'Vesicle released with top 5 engrams', count: engrams.length, vesiclePath });
+    res.status(200).json({ status: 'Vesicle released', count: engrams.length, vesiclePath });
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function sleepCycle(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const stats = await vectorMemoryService.sleepCycle(db);
+    res.status(200).json({ status: 'Sleep cycle completed', stats });
   } catch (err) {
     next(err);
   }
@@ -114,5 +125,6 @@ module.exports = {
   cherryPick,
   counterfactual,
   ingestMemory,
-  generateVesicle
+  generateVesicle,
+  sleepCycle
 };

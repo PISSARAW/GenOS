@@ -155,26 +155,111 @@ async function searchMemory(query = '', options = {}, db = null) {
     // Lexical match bonus
     const queryLower = query.toLowerCase();
     const lexicalMatch = item.tags.some(t => queryLower.includes(t)) ? 0.3 : 0.0;
-    const hybridScore = Number((Math.min(1.0, cosScore * 0.7 + lexicalMatch)).toFixed(4));
+    
+    // Plasticity (synaptic weight)
+    const weight = item.synaptic_weight !== undefined ? item.synaptic_weight : 1.0;
+    
+    let hybridScore = Number((Math.min(1.0, cosScore * 0.7 + lexicalMatch)).toFixed(4));
+    let finalScore = hybridScore * weight;
+
+    // Neuromodulation
+    const hormone = options.hormone || 'normal';
+    if (hormone === 'dopamine') {
+      finalScore += Math.random() * 0.3; // Adds creativity noise, allows distant memories to surface
+    } else if (hormone === 'adrenaline') {
+      if (cosScore < 0.75) finalScore = 0; // Strict tunnel vision
+    }
 
     return {
       ...item,
-      similarityScore: hybridScore,
-      cosineMetric: cosScore
+      similarityScore: finalScore,
+      cosineMetric: cosScore,
+      weight
     };
   });
 
   scoredItems.sort((a, b) => b.similarityScore - a.similarityScore);
+  
+  // Cut according to hormone
+  let limitToUse = limit;
+  if (options.hormone === 'adrenaline') limitToUse = Math.max(1, Math.floor(limit / 2));
+  if (options.hormone === 'dopamine') limitToUse = limit * 2;
+  
+  let topItems = scoredItems.slice(0, limitToUse);
+
+  // LTP - Long Term Potentiation (Renforcement des souvenirs consultés)
+  const topIds = topItems.filter(i => i.category !== 'Trajectory' && i.category !== undefined && !i.id.startsWith('seed-')).map(i => i.id);
+  if (topIds.length > 0) {
+    const placeholders = topIds.map(() => '?').join(',');
+    await db.run(`UPDATE genome_decisions SET synaptic_weight = MIN(synaptic_weight + 0.1, 5.0), last_accessed_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`, topIds);
+  }
+
+  // GraphRAG: Fetch connected synapses (Association d'idées)
+  const connectedItems = [];
+  if (topIds.length > 0) {
+     const placeholders = topIds.map(() => '?').join(',');
+     const synapses = await db.all(`SELECT target_id, weight FROM memory_synapses WHERE source_id IN (${placeholders}) ORDER BY weight DESC LIMIT 3`, topIds);
+     const targetIds = synapses.map(s => s.target_id);
+     if (targetIds.length > 0) {
+       const connectedDecisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${targetIds.map(() => '?').join(',')})`, targetIds);
+       
+       for (const item of connectedDecisions) {
+         if (!topItems.find(t => t.id === item.id)) {
+           connectedItems.push({
+              id: item.id,
+              title: item.title,
+              category: item.category,
+              status: 'SUCCESS',
+              summary: item.content,
+              tags: ['genome', item.category, 'graph_association'],
+              author: item.created_by,
+              createdAt: item.created_at,
+              vector: [], // Will be hydrated if needed
+              synaptic_weight: item.synaptic_weight
+           });
+         }
+       }
+     }
+  }
+  
+  const allScored = [...topItems, ...connectedItems];
 
   const topSuccessful = scoredItems.filter(i => i.status === 'SUCCESS').slice(0, 3);
   const topPitfalls = scoredItems.filter(i => i.status === 'FAILURE').slice(0, 2);
 
   return {
     query,
-    resultsCount: scoredItems.length,
+    resultsCount: allScored.length,
     topSuccessfulGoldenPaths: topSuccessful,
     pitfallsToAvoid: topPitfalls,
-    allScoredExperiences: scoredItems.slice(0, limit)
+    allScoredExperiences: allScored
+  };
+}
+
+/**
+ * Simulate Sleep Cycle (LTD and Apoptosis)
+ */
+async function sleepCycle(db) {
+  if (!db) throw new Error('Database connection is required for sleep cycle.');
+  
+  // Decrease all synaptic weights by 10%
+  await db.run(`UPDATE genome_decisions SET synaptic_weight = synaptic_weight * 0.9`);
+  
+  // Find memories falling below threshold (0.1)
+  const doomed = await db.all(`SELECT id FROM genome_decisions WHERE synaptic_weight < 0.1`);
+  const doomedIds = doomed.map(d => d.id);
+  
+  if (doomedIds.length > 0) {
+    const placeholders = doomedIds.map(() => '?').join(',');
+    await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
+  }
+  
+  // Also clean up dead synapses
+  await db.run(`DELETE FROM memory_synapses WHERE weight < 0.1`);
+  
+  return {
+    memoriesDecayed: true,
+    apoptosisCount: doomedIds.length
   };
 }
 
@@ -279,7 +364,9 @@ module.exports = {
   textToVector,
   cosineSimilarity,
   searchMemory,
+  sleepCycle,
   cherryPickGoldenPath,
   counterfactualReplay,
-  releaseVesicles
+  releaseVesicles,
+  buildEvolutionTree
 };
