@@ -1,6 +1,54 @@
 use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
 use dotenvy::dotenv;
+use std::fs;
+use std::path::Path;
+use prost::Message;
+
+pub mod synapse {
+    include!(concat!(env!("OUT_DIR"), "/synapse.rs"));
+}
+
+fn endocytosis(agent: &mut AgentCell) {
+    let cleft_path = Path::new("synaptic_cleft");
+    if cleft_path.exists() && cleft_path.is_dir() {
+        if let Ok(entries) = fs::read_dir(cleft_path) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.is_file() && path.extension().map_or(false, |ext| ext == "vesicle") {
+                    println!("🦠 [Endocytose] Absorption de la vésicule {:?}", path.file_name().unwrap());
+                    if let Ok(content) = fs::read(&path) {
+                        if let Ok(vesicle) = synapse::Vesicle::decode(content.as_slice()) {
+                            for engram in vesicle.engrams {
+                                if let Some(mind) = agent.mind_mut() {
+                                    mind.cerebral_cortex.push(genos_core::cell::substructs::Engram {
+                                        content: engram.content,
+                                        vector: engram.vector,
+                                        synaptic_weight: 1.0,
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        }
+    }
+}
+
+fn exocytosis(exosome: synapse::Exosome) {
+    let matrix_path = Path::new("extracellular_matrix");
+    if !matrix_path.exists() {
+        let _ = fs::create_dir_all(matrix_path);
+    }
+    let id = uuid::Uuid::new_v4();
+    let file_path = matrix_path.join(format!("exosome_{}.bin", id));
+    let mut buf = Vec::new();
+    exosome.encode(&mut buf).unwrap();
+    let _ = fs::write(&file_path, buf);
+    println!("💧 [Exocytose] Sécrétion de l'exosome {:?}", file_path.file_name().unwrap());
+}
 
 #[derive(Parser)]
 #[command(name = "genos")]
@@ -23,6 +71,8 @@ enum Commands {
     Chat {
         #[arg(short, long)]
         prompt: String,
+        #[arg(short, long)]
+        context_file: Option<String>,
     },
     /// Rejoue l'historique cognitif d'un agent (Consolidation Hippocampique)
     Replay {
@@ -93,10 +143,23 @@ async fn main() {
             });
             println!("✅ Clone réussi. Nouvel ID: {}", clones.1.cell_id);
         }
-        Commands::Chat { prompt } => {
+        Commands::Chat { prompt, context_file } => {
             println!("🗣️ [Stimulus] Envoi du signal à la membrane cellulaire...");
             let mut agent = AgentCell::default();
-            agent.mind_mut().unwrap().memory.memorize("system", "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.");
+            
+            let mut system_prompt = "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes réponses.".to_string();
+            
+            if let Some(file_path) = context_file {
+                if let Ok(context_content) = std::fs::read_to_string(file_path) {
+                    system_prompt.push_str("\n\nVoici le contexte historique (Mémoire extraite):\n");
+                    system_prompt.push_str(&context_content);
+                    println!("🧬 [Injection] Plasmide contextuel inséré depuis le fichier.");
+                } else {
+                    println!("⚠️ [Erreur] Impossible de lire le fichier de contexte.");
+                }
+            }
+            
+            agent.mind_mut().unwrap().memory.memorize("system", &system_prompt);
             agent.mind_mut().unwrap().memory.memorize("user", prompt);
             
             println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
