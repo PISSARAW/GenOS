@@ -134,10 +134,13 @@ async function generateVesicle(req, res, next) {
     const engrams = results.allScoredExperiences.map(r => {
       let text = r.summary || r.content || r.title;
       
-      // Injection de l'horodatage biologique (Cellules de Grille Temporelle)
+      // Injection de l'horodatage biologique (Cellules de Grille Temporelle) et de l'identité (Speaker Attribution)
+      const speaker = r.author && r.author.trim() !== '' ? r.author : 'Unknown';
       if (r.createdAt) {
           const dateStr = new Date(r.createdAt).toISOString();
-          text = `[Timestamp: ${dateStr}] ${text}`;
+          text = `[Timestamp: ${dateStr}] [Speaker: ${speaker}] ${text}`;
+      } else {
+          text = `[Speaker: ${speaker}] ${text}`;
       }
       
       // Indication explicite de la relation temporelle (passé/futur) issue des Time Cells
