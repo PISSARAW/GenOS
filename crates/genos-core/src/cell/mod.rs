@@ -28,6 +28,7 @@ pub mod recurrence;
 pub mod halting;
 pub mod components;
 pub mod lifecycle;
+pub mod bus;
 #[cfg(test)]
 pub mod tests;
 
@@ -71,8 +72,8 @@ impl lifecycle::LifecycleBehavior for LifecycleState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
-    pub inbox: Vec<crate::cell::events::CellEvent>,
-    pub outbox: Vec<crate::cell::events::CellEvent>,
+    #[serde(skip)] pub inbox: crate::cell::bus::CellChannel,
+    #[serde(skip)] pub outbox: crate::cell::bus::CellChannel,
     pub plasma_membrane: PlasmaMembrane,
     pub genetics: GeneticSystem,
     pub metabolism: MetabolicSystem,
@@ -91,8 +92,8 @@ impl Default for AgentCell {
     fn default() -> Self {
         Self {
             cell_id: Uuid::new_v4(),
-            inbox: Vec::new(),
-            outbox: Vec::new(),
+            inbox: crate::cell::bus::CellChannel::default(),
+            outbox: crate::cell::bus::CellChannel::default(),
             plasma_membrane: PlasmaMembrane {
                 adhesion_active: true,
                 incoming_receptors: vec![],
@@ -265,5 +266,7 @@ impl crate::cell::AgentCell {
         self.components.iter_mut().find_map(|c| if let CellComponent::Muscle(m) = c { Some(m) } else { None })
     }
 }
+
+
 
 
