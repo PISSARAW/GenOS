@@ -254,14 +254,31 @@ async function searchMemory(query = '', options = {}, db = null) {
     await db.run(`UPDATE genome_decisions SET synaptic_weight = MIN(synaptic_weight + 0.1, 5.0), last_accessed_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`, topIds);
   }
 
-  // GraphRAG: Fetch connected synapses (Association d'idées)
+  // GraphRAG: Activation Diffusante Bidirectionnelle (Multi-Hop Reasoning)
   const connectedItems = [];
   if (topIds.length > 0) {
      const placeholders = topIds.map(() => '?').join(',');
-     const synapses = await db.all(`SELECT target_id, weight FROM memory_synapses WHERE source_id IN (${placeholders}) ORDER BY weight DESC LIMIT 3`, topIds);
-     const targetIds = synapses.map(s => s.target_id);
-     if (targetIds.length > 0) {
-       const connectedDecisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${targetIds.map(() => '?').join(',')})`, targetIds);
+     
+     // 1. Spreading Activation : On cherche dans les DEUX sens (source -> target ET target -> source)
+     // On élargit la bande passante (limite de 3 à 8) pour simuler une vraie mémoire de travail (Loi de Miller)
+     const synapses = await db.all(`
+         SELECT source_id, target_id, weight 
+         FROM memory_synapses 
+         WHERE source_id IN (${placeholders}) OR target_id IN (${placeholders}) 
+         ORDER BY weight DESC LIMIT 8
+     `, [...topIds, ...topIds]);
+     
+     // 2. On collecte les concepts adjacents qui ne sont pas déjà dans notre esprit (topIds)
+     const linkedIds = [];
+     for (const s of synapses) {
+         if (!topIds.includes(s.source_id)) linkedIds.push(s.source_id);
+         if (!topIds.includes(s.target_id)) linkedIds.push(s.target_id);
+     }
+     const uniqueLinkedIds = [...new Set(linkedIds)];
+
+     if (uniqueLinkedIds.length > 0) {
+       const linkedPlaceholders = uniqueLinkedIds.map(() => '?').join(',');
+       const connectedDecisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${linkedPlaceholders})`, uniqueLinkedIds);
        
        for (const item of connectedDecisions) {
          if (!topItems.find(t => t.id === item.id)) {
@@ -274,7 +291,7 @@ async function searchMemory(query = '', options = {}, db = null) {
               tags: ['genome', item.category, 'graph_association'],
               author: item.created_by,
               createdAt: item.created_at,
-              vector: [], // Will be hydrated if needed
+              vector: [], // Hydraté si besoin
               synaptic_weight: item.synaptic_weight
            });
          }
