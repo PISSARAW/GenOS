@@ -1,5 +1,6 @@
 ﻿pub mod organelles;
 pub mod methods;
+pub mod specialization;
 pub mod phagocytosis;
 pub mod substructs;
 pub mod ribosome;
@@ -29,6 +30,7 @@ pub use organelles::*;
 pub use substructs::*;
 pub use ribosome::*;
 pub use hippocampus::*;
+pub use specialization::*;
 
 pub use crate::genome::{Genome, Plasmid};
 use serde::{Deserialize, Serialize};
@@ -45,7 +47,7 @@ pub struct AgentCell {
     pub nucleus: Nucleus,
     pub mitochondria: Mitochondria,
     pub is_alive: bool,
-    pub specialization: String,
+    pub specialization: Specialization,
     pub redundancy: crate::redundancy::RedundancySystem,
     pub chloroplast: Option<Chloroplast>,
     pub endoplasmic_reticulum: EndoplasmicReticulum,
@@ -100,7 +102,7 @@ impl Default for AgentCell {
                 p53_active: true,
             },
             is_alive: true,
-        specialization: "UNDEFINED".to_string(),
+        specialization: Specialization::Undefined,
         mitochondria: Mitochondria {
                 atp_budget: 10,
                 metabolic_rate: 1.0,
