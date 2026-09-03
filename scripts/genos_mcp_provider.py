@@ -20,35 +20,35 @@ def get_embedding(text):
         print("❌ Erreur Ollama :", e)
         return [0.0]*768
 
-def ingest_to_genos(context_text):
-    """Calcule l'embedding localement et appelle genos.exe pour insertion dans LadybugDB."""
+def ingest_to_genos(context_text, port=3030):
+    """Calcule l'embedding localement et l'envoie au daemon genos.exe."""
     concept = context_text[:30].replace('"', '').replace("'", "").strip() + "..."
     emb = get_embedding(context_text)
     
-    # Trouver le binaire genos.exe
-    genos_path = os.path.join(os.path.dirname(__file__), "..", "target", "release", "genos.exe")
-    if not os.path.exists(genos_path):
-        genos_path = "genos" # Fallback to PATH
-        
-    cmd = [genos_path, "ingest", "--concept", concept, "--details", context_text, "--vector", json.dumps(emb)]
-    
-    try:
-        subprocess.run(cmd, check=True)
-        print("✅ Contexte ingere de facon permanente dans LadybugDB (via genos.exe)")
-    except Exception as e:
-        print("❌ Erreur d'ingestion genos.exe :", e)
-        sys.exit(1)
-
-def retrieve_from_node(query_text, hormone="normal", api_url="http://localhost:3000/api/memory/vesicle"):
-    """Demande a Node.js de faire un RAG et de creer une petite Vesicule avec le top 5."""
-    payload = json.dumps({"query": query_text, "hormone": hormone}).encode('utf-8')
-    req = urllib.request.Request(api_url, data=payload, headers={'Content-Type': 'application/json'})
+    payload = json.dumps({
+        "concept": concept,
+        "details": context_text,
+        "vector": emb
+    }).encode('utf-8')
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/ingest", data=payload, headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
-            print(f"✅ Evocation reussie (Hormone: {hormone}), Vesicule concentree generee :", result)
+            print("✅ Contexte ingéré dans LadybugDB via le daemon :", result)
     except Exception as e:
-        print("❌ Erreur d'evocation Node.js :", e)
+        print("❌ Erreur d'ingestion daemon :", e)
+        sys.exit(1)
+
+def chat_with_daemon(query_text, port=3030):
+    """Demande au démon GenOS (Rust) d'effectuer un RAG hybride et de répondre à la question."""
+    payload = json.dumps({"prompt": query_text}).encode('utf-8')
+    req = urllib.request.Request(f"http://127.0.0.1:{port}/api/chat", data=payload, headers={'Content-Type': 'application/json'})
+    try:
+        with urllib.request.urlopen(req) as response:
+            result = json.loads(response.read().decode('utf-8'))
+            print(f"✅ [Agent GenOS] :\n{result.get('response', '')}")
+    except Exception as e:
+        print("❌ Erreur d'API avec le démon GenOS :", e)
         sys.exit(1)
 
 def trigger_sleep(api_url="http://localhost:3000/api/memory/sleep"):
@@ -86,8 +86,8 @@ if __name__ == "__main__":
         if not args.query:
             print("❌ L'action retrieve necessite --query")
             sys.exit(1)
-        print(f"🧠 Recherche des souvenirs pertinents pour : '{args.query}' (Hormone: {args.hormone})...")
-        retrieve_from_node(args.query, args.hormone, args.api_retrieve)
+        print(f"🧠 Interrogation du démon pour : '{args.query}' ...")
+        chat_with_daemon(args.query)
     elif args.action == "sleep":
         print(f"💤 Déclenchement de la phase de sommeil paradoxal (Consolidation et Apoptose)...")
         trigger_sleep(args.api_sleep)
