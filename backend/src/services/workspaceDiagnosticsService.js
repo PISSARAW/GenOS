@@ -29,7 +29,8 @@ async function exists(filePath) {
 
 async function packageScripts(packagePath) {
   try {
-    const manifest = JSON.parse(await fs.readFile(packagePath, 'utf8'));
+    const { readFileCached } = require('./vfsCache');
+    const manifest = JSON.parse(await readFileCached(packagePath, 'utf8'));
     return manifest.scripts || {};
   } catch {
     return {};

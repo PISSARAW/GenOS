@@ -20,7 +20,7 @@ function resolveGenosBin() {
 }
 
 function studioBridgeRoot() {
-  return process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-studio');
+  return process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-matrix');
 }
 
 function ensureRoot() {
@@ -97,4 +97,32 @@ function resolveInRoot(reference) {
   return resolved;
 }
 
-module.exports = { runGenos, resolveGenosBin, studioBridgeRoot, ensureRoot, resolveInRoot, repositoryRoot };
+const protobuf = require('protobufjs');
+const zlib = require('zlib');
+
+async function phagocytizeExosomes() {
+  const exosomeDir = path.join(studioBridgeRoot(), 'extracellular_matrix');
+  if (!fs.existsSync(exosomeDir)) return [];
+  const exosomes = [];
+  const files = fs.readdirSync(exosomeDir);
+  const root = await protobuf.load(path.join(__dirname, '../proto/synapse.proto'));
+  const Exosome = root.lookupType("synapse.Exosome");
+
+  for (const file of files) {
+    if (file.startsWith('exosome_') && file.endsWith('.exosome')) {
+      try {
+        const fullPath = path.join(exosomeDir, file);
+        const compressed = fs.readFileSync(fullPath);
+        const buffer = zlib.gunzipSync(compressed);
+        const message = Exosome.decode(buffer);
+        exosomes.push(Exosome.toObject(message, { arrays: true }));
+        fs.unlinkSync(fullPath); // digest the exosome
+      } catch (e) {
+        console.error('Failed to phagocytize exosome:', file, e);
+      }
+    }
+  }
+  return exosomes;
+}
+
+module.exports = { runGenos, resolveGenosBin, studioBridgeRoot, ensureRoot, resolveInRoot, repositoryRoot, phagocytizeExosomes };

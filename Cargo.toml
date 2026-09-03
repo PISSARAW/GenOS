@@ -1,57 +1,5 @@
 [workspace]
 members = [
-  "crates/genos-core",
-  "crates/genos-observability",
-  "crates/genos-rag",
-  "crates/genos-integrations",
-  "crates/genos-runtime",
-  "crates/genos-world",
-  "crates/genos-store",
-  "crates/genos-model",
-  "crates/genos-tools",
-  "crates/genos-eval",
-  "crates/genos-api",
-  "crates/genos-cli",
-  "crates/genos-protocol",
-  "crates/genos-platform",
-  "crates/epsilon_sa", "crates/epsilon_wgpu",
-  "crates/genos-synaptic",
-  "crates/genos-mycelium",
-  "integrations/mcp/genos-mcp",
-  "test/concept",
+    "crates/genos-core"
 ]
 resolver = "2"
-
-[workspace.package]
-version = "0.0.1"
-edition = "2021"
-rust-version = "1.88"
-license = "Apache-2.0"
-repository = "https://github.com/PISSARAW/GenOS"
-homepage = "https://github.com/PISSARAW/GenOS"
-documentation = "https://github.com/PISSARAW/GenOS/tree/main/docs"
-readme = "README.md"
-keywords = ["agents", "ai", "runtime", "reproducibility", "event-sourcing"]
-categories = ["development-tools", "simulation"]
-
-[workspace.dependencies]
-anyhow = "1"
-async-trait = "0.1"
-axum = "0.8"
-chrono = { version = "0.4", features = ["serde"] }
-clap = { version = "4.5", features = ["derive"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-reqwest = { version = "0.12", features = ["json"] }
-redis = { version = "0.27", features = ["tokio-comp"] }
-serde_yaml = "0.9"
-sha2 = "0.10"
-thiserror = "2"
-tokio = { version = "1", features = ["full"] }
-tracing = "0.1"
-tower = "0.5"
-uuid = { version = "1", features = ["v4", "v7", "serde"] }
-
-[workspace.lints.clippy]
-too_many_arguments = "deny"
-cognitive_complexity = "deny"

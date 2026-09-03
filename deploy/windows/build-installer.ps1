@@ -34,6 +34,6 @@ if ($ISCC -eq "") {
 
 Write-Host "Using compiler: $ISCC" -ForegroundColor Green
 Write-Host "3. Compiling GenOS-Setup.exe installer..." -ForegroundColor Cyan
-& $ISCC deploy\windows\genos-installer.iss
+& $ISCC "$RepoRoot\deploy\windows\genos-installer.iss"
 
 Write-Host "`n✅ Succès ! L'installeur est disponible dans deploy\windows\Output\GenOS-Setup.exe" -ForegroundColor Green

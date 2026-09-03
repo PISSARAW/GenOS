@@ -1,9 +1,0 @@
-[package]
-name = "epsilon_gen18"
-version = "0.1.0"
-edition = "2021"
-
-[workspace]
-
-[dependencies]
-rand = "0.8.5"

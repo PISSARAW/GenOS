@@ -34,6 +34,10 @@ const TECHNICAL_DOMAIN_RULES = [
     signals: [/\b(?:product|produit|business|metier|métier)\b/i, /\baccessibilit\w*\b/i, /\b(?:research utilisateur|user research)\b/i]
   },
   {
+    domain: 'science', role: 'research_scientist', modelTier: 'frontier',
+    signals: [/\b(?:science|scientifique|discovery|découverte|research|recherche|experiment|expérience)\b/i, /\b(?:hypothesis|falsifi|falsification|academic|paper|arxiv)\b/i]
+  },
+  {
     domain: 'integration', role: 'integration_observer', modelTier: 'standard',
     signals: [/\b(?:integration|intégration|integrate|intégrer|interop)\w*\b/i, /\b(?:fusionner|merge)\b/i]
   }

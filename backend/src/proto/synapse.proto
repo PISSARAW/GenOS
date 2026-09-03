@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package synapse;
+
+message Engram {
+  string content = 1;
+  repeated float vector = 2;
+}
+
+message Vesicle {
+  repeated Engram engrams = 1;
+}
+
+message Exosome {
+  repeated Engram new_engrams = 1;
+  string plasmid_name = 2;
+  string plasmid_code = 3;
+}

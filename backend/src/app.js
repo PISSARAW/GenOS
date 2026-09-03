@@ -55,6 +55,15 @@ const healthController = require('./controllers/healthController');
 function createApp() {
   const app = express();
 
+  // 0. Phantom Context Tracing (AsyncLocalStorage)
+  const { asyncLocalStorage } = require('./services/asyncContext');
+  app.use((req, res, next) => {
+      const traceId = req.headers['x-trace-id'] || `trace-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      asyncLocalStorage.run(new Map([['traceId', traceId], ['requestId', req.id]]), () => {
+          next();
+      });
+  });
+
   // Container/orchestrator probes are intentionally public and cheap. The
   // dependency-aware probes still verify the SQLite store before reporting
   // readiness, while liveness only answers whether the event loop responds.

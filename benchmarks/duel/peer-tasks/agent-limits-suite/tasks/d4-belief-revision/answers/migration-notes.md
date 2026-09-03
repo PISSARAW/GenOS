@@ -1,1 +1,0 @@
-Le mécanisme v1 est invalide suite à la publication de docs/correction-v2.md, la sécurité exigeant le nouveau schéma.

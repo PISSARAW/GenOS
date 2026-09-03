@@ -1,7 +1,0 @@
-{
-  "services": {
-    "api": { "port": 4000, "quota_memoire": 30, "region": "eu", "replicas": 1, "healthcheck": true, "tls": true, "logs": "json", "zone": "a" },
-    "worker": { "port": 4200, "quota_memoire": 10, "healthcheck": true, "tls": false, "logs": "json", "zone": "a", "replicas": 1 },
-    "cache": { "port": 4000, "quota_memoire": 60, "healthcheck": true, "zone": "b" }
-  }
-}

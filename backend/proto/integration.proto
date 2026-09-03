@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package genos.integration;
+
+service IntegrationService {
+  rpc Ping (Empty) returns (PingResponse);
+}
+
+message Empty {}
+
+message PingResponse {
+  string status = 1;
+}

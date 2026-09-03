@@ -1,0 +1,10 @@
+﻿const fs = require('fs');
+const { spawn } = require('child_process');
+const log = fs.createWriteStream('c:\\Users\\Shadow\\mcp-trace.log');
+const child = spawn('node', ['c:\\Users\\Shadow\\Documents\\GitHub\\GenOS\\mcp\\index.js']);
+process.stdin.pipe(child.stdin);
+child.stdout.pipe(process.stdout);
+process.stdin.on('data', d => log.write('IN: ' + d));
+child.stdout.on('data', d => log.write('OUT: ' + d));
+child.stderr.on('data', d => log.write('ERR: ' + d));
+child.on('exit', c => log.write('EXIT: ' + c));

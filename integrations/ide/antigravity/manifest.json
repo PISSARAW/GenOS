@@ -1,8 +1,0 @@
-{
-  "name": "genos-studio-antigravity",
-  "version": "1.0.0",
-  "runtime": "antigravity",
-  "contract": "../genos-extension-contract.json",
-  "commands": ["workspace.open", "compliance.generate", "schema.status"],
-  "entrypoint": "../../backend/src/controllers/ideController.js"
-}

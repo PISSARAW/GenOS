@@ -1,6 +1,0 @@
-**
-!backend/
-!backend/**
-!integrations/
-!integrations/ide/
-!integrations/ide/genos-extension-contract.json

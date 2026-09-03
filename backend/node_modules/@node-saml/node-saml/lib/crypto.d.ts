@@ -1,0 +1,7 @@
+import { PemLabel } from "./types";
+/**
+ * This function currently expects to get data in PEM format or in base64 format.
+ */
+export declare const keyInfoToPem: (keyInfo: string | Buffer, pemLabel: PemLabel, optionName?: string) => string;
+export declare const generateUniqueId: () => string;
+export declare const stripPemHeaderAndFooter: (certificate: string) => string;

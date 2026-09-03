@@ -1,0 +1,6 @@
+[
+  {"test": "## 1. Contexte", "expected": "PASS"},
+  {"test": "### 1. Contexte", "expected": "FAIL"},
+  {"test": "#### 1. Contexte", "expected": "FAIL"},
+  {"test": "## 1. Contexte foo", "expected": "FAIL"}
+]
