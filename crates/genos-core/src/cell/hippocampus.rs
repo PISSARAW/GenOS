@@ -30,79 +30,115 @@ impl Hippocampus {
     }
 }
 
-use std::sync::Arc;
-// Note: Graph cannot be serialized directly, so we use it as a runtime component.
-#[derive(Clone)]
+use lbug::{Database, Connection, SystemConfig};
+
+#[derive(Clone, Debug)]
 pub struct GraphMemory {
-    // We use Arc to share the connection pool safely across cells if needed
-    pub client: Arc<neo4rs::Graph>,
+    pub db_path: String,
 }
 
 impl GraphMemory {
-    /// Initialise la connexion à l'Hippocampe (Neo4J)
-    pub async fn connect(uri: &str, user: &str, pass: &str) -> Result<Self, neo4rs::Error> {
-        let graph = neo4rs::Graph::new(uri, user, pass).await?;
+    /// Initialise la connexion à l'Hippocampe (LadybugDB - Hybride)
+    pub async fn connect(path: &str, _user: &str, _pass: &str) -> Result<Self, String> {
+        let db = Database::new(path, SystemConfig::default()).map_err(|e| e.to_string())?;
+        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+        
+        // Setup schema with embedding for Hybrid RAG
+        let _ = conn.query("CREATE NODE TABLE Concept (name STRING, embedding FLOAT[768], PRIMARY KEY (name))");
+        let _ = conn.query("CREATE REL TABLE SYNAPSE (FROM Concept TO Concept, type STRING)");
+
         Ok(Self {
-            client: Arc::new(graph),
+            db_path: path.to_string(),
         })
     }
 
-    /// Ingestion Biomimétique (Consolidation) : Crée des synapses entre deux concepts
-    pub async fn consolidate_synapse(&self, entity_a: &str, relationship: &str, entity_b: &str) -> Result<(), neo4rs::Error> {
-        // Dans une cellule, la création d'une synapse nécessite de l'énergie (transaction)
-        let mut txn = self.client.start_txn().await?;
+    /// Ingestion Biomimétique (Consolidation)
+    pub async fn consolidate_synapse(&self, entity_a: &str, relationship: &str, entity_b: &str, vector_a: &[f32], vector_b: &[f32]) -> Result<(), String> {
+        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
+        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
         
-        let q = neo4rs::query("MERGE (a:Concept {name: $name_a}) MERGE (b:Concept {name: $name_b}) MERGE (a)-[r:SYNAPSE {type: $rel}]->(b)")
-            .param("name_a", entity_a.to_string())
-            .param("name_b", entity_b.to_string())
-            .param("rel", relationship.to_string());
-            
-        txn.run(q).await?;
-        txn.commit().await?;
+        // Convert f32 slice to string array for Cypher injection
+        let vec_a_str = format!("{:?}", vector_a);
+        let vec_b_str = format!("{:?}", vector_b);
         
-        println!("🧠 [Hippocampe] Synapse consolidée : {} --[{}]--> {}", entity_a, relationship, entity_b);
+        let query = format!(
+            "MERGE (a:Concept {{name: '{}'}}) ON CREATE SET a.embedding = {} \
+             MERGE (b:Concept {{name: '{}'}}) ON CREATE SET b.embedding = {} \
+             MERGE (a)-[r:SYNAPSE {{type: '{}'}}]->(b)", 
+            entity_a, vec_a_str, entity_b, vec_b_str, relationship
+        );
+        conn.query(&query).map_err(|e| e.to_string())?;
+        
+        println!("🧠 [Hippocampe] Synapse vectorisée : {} --[{}]--> {}", entity_a, relationship, entity_b);
         Ok(())
     }
 
     /// Rappel Biomimétique (Spreading Activation / Multi-Hop) : 
     /// Récupère le sous-graphe sémantique autour d'un concept jusqu'à 'depth' degrés de séparation.
-    pub async fn recall_spreading_activation(&self, concept: &str, depth: u8) -> Result<String, neo4rs::Error> {
-        let mut txn = self.client.start_txn().await?;
-        
+    pub async fn recall_spreading_activation(&self, concept: &str, depth: u8) -> Result<String, String> {
+        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
+        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+
         // Requête Cypher : Trouve tous les chemins autour du concept,
         // puis extrait toutes les synapses (relations) uniques de ce sous-graphe pour l'Agent.
         let query_str = format!(
-            "MATCH p=(start:Concept {{name: $concept}})-[*1..{}]-(related) \
-             UNWIND relationships(p) AS rel \
-             WITH DISTINCT rel \
-             MATCH (a)-[rel]->(b) \
-             RETURN a.name AS source, type(rel) AS relation, b.name AS target \
+            "MATCH (start:Concept {{name: '{}'}})-[rel:SYNAPSE*1..{}]-(related:Concept) \
+             RETURN start.name AS source, rel.type AS relation, related.name AS target \
              LIMIT 100",
-            depth
+            concept, depth
         );
         
-        let q = neo4rs::query(&query_str).param("concept", concept.to_string());
-            
-        let mut result = txn.execute(q).await?;
+        let mut result = conn.query(&query_str).map_err(|e| e.to_string())?;
         let mut context_builder = String::new();
         context_builder.push_str(&format!("Réseau neuronal activé pour le concept '{}':\n", concept));
         
         let mut nodes_found = 0;
-        while let Ok(Some(row)) = result.next().await {
-            let source: String = row.get("source").unwrap_or_default();
-            let relation: String = row.get("relation").unwrap_or_default();
-            let target: String = row.get("target").unwrap_or_default();
+        while let Some(row) = result.next() {
+            let source: String = row[0].to_string();
+            let relation: String = row[1].to_string();
+            let target: String = row[2].to_string();
             
             context_builder.push_str(&format!("- {} --[{}]--> {}\n", source, relation, target));
             nodes_found += 1;
         }
-        
-        txn.commit().await?;
 
         if nodes_found == 0 {
             context_builder.push_str("(Aucun souvenir direct ou indirect trouvé dans le réseau)");
         }
         
+        Ok(context_builder)
+    }
+
+    /// Recherche Sémantique Vectorielle (Vector Cortex) :
+    /// Retrouve les concepts sémantiquement les plus proches d'un vecteur d'intention.
+    pub async fn recall_semantic_vector(&self, query_vector: &[f32], k: u8) -> Result<String, String> {
+        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
+        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+        
+        let vec_str = format!("{:?}", query_vector);
+        
+        let query_str = format!(
+            "MATCH (c:Concept) \
+             WITH c, array_cosine_similarity(c.embedding, {}) AS sim \
+             ORDER BY sim DESC \
+             LIMIT {} \
+             MATCH (c)-[r:SYNAPSE]->(d:Concept) \
+             RETURN c.name AS concept, d.name AS details, sim \
+             LIMIT {}",
+            vec_str, k, k * 3 // Allow returning multiple details for the top k concepts
+        );
+        
+        let mut result = conn.query(&query_str).map_err(|e| e.to_string())?;
+        let mut context_builder = String::new();
+        context_builder.push_str("Cortex Vectoriel (Concepts proches par intuition avec contexte):\n");
+        
+        while let Some(row) = result.next() {
+            let concept: String = row[0].to_string();
+            let details: String = row[1].to_string();
+            let sim: f32 = row[2].to_string().parse().unwrap_or(0.0);
+            context_builder.push_str(&format!("- {} (Pertinence: {:.2}): {}\n", concept, sim, details));
+        }
+
         Ok(context_builder)
     }
 }

@@ -28,25 +28,24 @@ impl Astrocyte {
         match event {
             crate::cell::events::CellEvent::KnowledgeAcquired { concept, details } => {
                 // 1. Projection Vectorielle (Cortex)
-                cortex.push(crate::cell::substructs::Engram {
-                    id: uuid::Uuid::new_v4().to_string(),
-                    data: format!("{}: {}", concept, details),
-                    embedding: vec![], // Sera calculé en tâche de fond réelle
-                    importance: 1.0,
-                });
+                let engram = crate::cell::substructs::Engram {
+                    content: format!("{}: {}", concept, details),
+                    vector: vec![], // Sera calculé en tâche de fond réelle
+                    synaptic_weight: 1.0,
+                };
+                cortex.push(engram.clone());
                 
-                // 2. Projection Graphe (Hippocampe Neo4J)
+                // 2. Consolidation de la Mémoire (Hippocampe)
                 if let Some(graph) = hippocampus {
-                    // On consolide la synapse sans bloquer l'agent (Fire-and-forget simulé)
-                    let _ = graph.consolidate_synapse(concept, "CONTAINS_DETAILS", details).await;
+                    let _ = graph.consolidate_synapse(concept, "CONTAINS_DETAILS", details, &engram.vector, &vec![]).await;
                 }
                 
                 println!("🌟 [Astrocyte CQRS] Événement KnowledgeAcquired projeté dans le Cortex et l'Hippocampe.");
             }
             crate::cell::events::CellEvent::TaskExecuted { task_name, result } => {
-                // Enregistrement des tâches dans la base graphe pour traçabilité causale
+                // Dans le cas d'une exécution de tâche, on peut lier la tâche à son résultat dans le graphe
                 if let Some(graph) = hippocampus {
-                    let _ = graph.consolidate_synapse(task_name, "PRODUCED_RESULT", result).await;
+                    let _ = graph.consolidate_synapse(task_name, "PRODUCED_RESULT", result, &vec![], &vec![]).await;
                 }
                 println!("🌟 [Astrocyte CQRS] Événement TaskExecuted consolidé dans l'Hippocampe.");
             }

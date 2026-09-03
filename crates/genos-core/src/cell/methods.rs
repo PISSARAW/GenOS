@@ -377,7 +377,7 @@ impl AgentCell {
             for (i, codon) in mrna_sequence.iter().enumerate() {
                 // Exécution pure déterministe (sans appel LLM)
                 println!("   ⚙️  [Étape {}] Synthèse déterministe : {}", i + 1, codon);
-                mind.trace.sequence.push(codon.clone());
+                mind.trace.sequence.push(crate::cell::events::CellEvent::TaskExecuted { task_name: codon.clone(), result: String::new() });
             }
             println!("✅ Synthèse protéique (Replay) terminée avec succès sans bruit LLM.");
             Ok(())

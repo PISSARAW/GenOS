@@ -1,18 +1,42 @@
-﻿import sys
+import sys
 import json
 import urllib.request
 import argparse
 
-def ingest_to_node(context_text, api_url="http://localhost:3000/api/memory/ingest"):
-    """Envoie un bloc de texte pour l'ancrer definitivement dans la memoire SQLite avec son Embedding."""
-    payload = json.dumps({"content": context_text, "category": "Conversation"}).encode('utf-8')
-    req = urllib.request.Request(api_url, data=payload, headers={'Content-Type': 'application/json'})
+import subprocess
+import os
+
+def get_embedding(text):
+    payload = json.dumps({
+        "model": "nomic-embed-text",
+        "prompt": text
+    }).encode('utf-8')
+    req = urllib.request.Request("http://localhost:11434/api/embeddings", data=payload, headers={'Content-Type': 'application/json'})
     try:
         with urllib.request.urlopen(req) as response:
             result = json.loads(response.read().decode('utf-8'))
-            print("✅ Contexte ingere de facon permanente :", result)
+            return result.get("embedding", [0.0]*768)
     except Exception as e:
-        print("❌ Erreur d'ingestion Node.js :", e)
+        print("❌ Erreur Ollama :", e)
+        return [0.0]*768
+
+def ingest_to_genos(context_text):
+    """Calcule l'embedding localement et appelle genos.exe pour insertion dans LadybugDB."""
+    concept = context_text[:30].replace('"', '').replace("'", "").strip() + "..."
+    emb = get_embedding(context_text)
+    
+    # Trouver le binaire genos.exe
+    genos_path = os.path.join(os.path.dirname(__file__), "..", "target", "release", "genos.exe")
+    if not os.path.exists(genos_path):
+        genos_path = "genos" # Fallback to PATH
+        
+    cmd = [genos_path, "ingest", "--concept", concept, "--details", context_text, "--vector", json.dumps(emb)]
+    
+    try:
+        subprocess.run(cmd, check=True)
+        print("✅ Contexte ingere de facon permanente dans LadybugDB (via genos.exe)")
+    except Exception as e:
+        print("❌ Erreur d'ingestion genos.exe :", e)
         sys.exit(1)
 
 def retrieve_from_node(query_text, hormone="normal", api_url="http://localhost:3000/api/memory/vesicle"):
@@ -57,7 +81,7 @@ if __name__ == "__main__":
         with open(args.file, 'r', encoding='utf-8') as f:
             content = f.read()
         print(f"🧠 Ingestion de {len(content)} caracteres...")
-        ingest_to_node(content, args.api_ingest)
+        ingest_to_genos(content)
     elif args.action == "retrieve":
         if not args.query:
             print("❌ L'action retrieve necessite --query")

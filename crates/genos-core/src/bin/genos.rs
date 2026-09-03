@@ -128,6 +128,15 @@ enum Commands {
         #[arg(short, long)]
         agent_id: String,
     },
+    /// Ingestion d'une memoire directement dans LadybugDB
+    Ingest {
+        #[arg(short, long)]
+        concept: String,
+        #[arg(short, long)]
+        details: String,
+        #[arg(short, long)]
+        vector: String,
+    },
 }
 
 #[tokio::main]
@@ -179,6 +188,32 @@ async fn main() {
                     system_prompt.push_str("\n\nVoici le contexte historique (Fichier local):\n");
                     system_prompt.push_str(&context_content);
                     println!("🧬 [Injection] Plasmide contextuel inséré depuis le fichier.");
+                }
+            }
+            
+            // On fouille LadybugDB (RAG Hybride) !
+            if let Ok(db) = genos_core::cell::hippocampus::GraphMemory::connect("hippocampus.db", "", "").await {
+                // Fetch embedding from Ollama
+                let mut prompt_vec = vec![0.0f32; 768];
+                let client = reqwest::Client::new();
+                let payload = serde_json::json!({
+                    "model": "nomic-embed-text",
+                    "prompt": prompt
+                });
+                
+                println!("🧠 [Hippocampe] Requête d'embedding pour le stimulus...");
+                if let Ok(res) = client.post("http://localhost:11434/api/embeddings").json(&payload).send().await {
+                    if let Ok(json) = res.json::<serde_json::Value>().await {
+                        if let Some(emb) = json["embedding"].as_array() {
+                            prompt_vec = emb.iter().map(|v| v.as_f64().unwrap_or(0.0) as f32).collect();
+                        }
+                    }
+                }
+                
+                if let Ok(graph_ctx) = db.recall_semantic_vector(&prompt_vec, 5).await {
+                    system_prompt.push_str("\n\n🧠 Contexte LadybugDB (Graphe Vectoriel) :\n");
+                    system_prompt.push_str(&graph_ctx);
+                    println!("✅ Contexte Hybride injecté dans le prompt !");
                 }
             }
             
@@ -270,8 +305,19 @@ async fn main() {
         Commands::Gc { agent_id } => {
             println!("🗑️  [Détoxification] Déclenchement du Protéasome et de l'Autophagie sur {}", agent_id);
         }
+        Commands::Ingest { concept, details, vector } => {
+            println!("🧠 [Ingestion] Ajout du concept '{}' dans LadybugDB...", concept);
+            let vec_f32: Vec<f32> = serde_json::from_str(vector).unwrap_or_else(|_| vec![0.0; 768]);
+            
+            // On se connecte ou crée la DB
+            if let Ok(db) = genos_core::cell::hippocampus::GraphMemory::connect("hippocampus.db", "", "").await {
+                match db.consolidate_synapse(concept, "CONTAINS_DETAILS", details, &vec_f32, &vec![]).await {
+                    Ok(_) => println!("✅ Ingestion into LadybugDB completed."),
+                    Err(e) => println!("❌ Erreur d'ingestion : {}", e),
+                }
+            } else {
+                println!("❌ Impossible de se connecter à LadybugDB.");
+            }
+        }
     }
 }
-
-
-
