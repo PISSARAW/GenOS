@@ -31,31 +31,47 @@ impl Hippocampus {
 }
 
 use lbug::{Database, Connection, SystemConfig};
+use std::sync::{Arc, OnceLock};
 
-#[derive(Clone, Debug)]
+static SHARED_DB: OnceLock<Arc<Database>> = OnceLock::new();
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphMemory {
     pub db_path: String,
 }
 
 impl GraphMemory {
+    fn get_db(&self) -> Result<Arc<Database>, String> {
+        if let Some(db) = SHARED_DB.get() {
+            Ok(db.clone())
+        } else {
+            // Lazy initialization fallback
+            let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
+            let db_arc = Arc::new(db);
+            let _ = SHARED_DB.set(db_arc.clone());
+            
+            // Setup schema
+            if let Some(db_ref) = SHARED_DB.get() {
+                if let Ok(conn) = Connection::new(db_ref.as_ref()) {
+                    let _ = conn.query("CREATE NODE TABLE Concept (name STRING, embedding FLOAT[768], PRIMARY KEY (name))");
+                    let _ = conn.query("CREATE REL TABLE SYNAPSE (FROM Concept TO Concept, type STRING)");
+                }
+            }
+            Ok(db_arc)
+        }
+    }
+
     /// Initialise la connexion à l'Hippocampe (LadybugDB - Hybride)
     pub async fn connect(path: &str, _user: &str, _pass: &str) -> Result<Self, String> {
-        let db = Database::new(path, SystemConfig::default()).map_err(|e| e.to_string())?;
-        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
-        
-        // Setup schema with embedding for Hybrid RAG
-        let _ = conn.query("CREATE NODE TABLE Concept (name STRING, embedding FLOAT[768], PRIMARY KEY (name))");
-        let _ = conn.query("CREATE REL TABLE SYNAPSE (FROM Concept TO Concept, type STRING)");
-
-        Ok(Self {
-            db_path: path.to_string(),
-        })
+        let mem = Self { db_path: path.to_string() };
+        let _ = mem.get_db()?; // Ensure DB is initialized and schema is created
+        Ok(mem)
     }
 
     /// Ingestion Biomimétique (Consolidation)
     pub async fn consolidate_synapse(&self, entity_a: &str, relationship: &str, entity_b: &str, vector_a: &[f32], vector_b: &[f32]) -> Result<(), String> {
-        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
-        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+        let db = self.get_db()?;
+        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
         
         // Convert f32 slice to string array for Cypher injection
         let vec_a_str = format!("{:?}", vector_a);
@@ -81,8 +97,8 @@ impl GraphMemory {
     /// Rappel Biomimétique (Spreading Activation / Multi-Hop) : 
     /// Récupère le sous-graphe sémantique autour d'un concept jusqu'à 'depth' degrés de séparation.
     pub async fn recall_spreading_activation(&self, concept: &str, depth: u8) -> Result<String, String> {
-        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
-        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+        let db = self.get_db()?;
+        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
 
         // Requête Cypher : Trouve tous les chemins autour du concept,
         // puis extrait toutes les synapses (relations) uniques de ce sous-graphe pour l'Agent.
@@ -117,8 +133,8 @@ impl GraphMemory {
     /// Recherche Sémantique Vectorielle (Vector Cortex) :
     /// Retrouve les concepts sémantiquement les plus proches d'un vecteur d'intention.
     pub async fn recall_semantic_vector(&self, query_vector: &[f32], k: u8) -> Result<String, String> {
-        let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
-        let conn = Connection::new(&db).map_err(|e| e.to_string())?;
+        let db = self.get_db()?;
+        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
         
         let vec_str = format!("{:?}", query_vector);
         
