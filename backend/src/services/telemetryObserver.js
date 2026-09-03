@@ -61,6 +61,15 @@ class TelemetryObserver extends EventEmitter {
   }
 
   emitEvent(eventData) {
+    const { asyncLocalStorage } = require('./asyncContext');
+    const store = asyncLocalStorage.getStore();
+    const traceId = store ? store.get('traceId') : null;
+    const reqId = store ? store.get('requestId') : null;
+
+    const payload = eventData.payload || {};
+    if (traceId && !payload.traceId) payload.traceId = traceId;
+    if (reqId && !payload.requestId) payload.requestId = reqId;
+
     const event = {
       id: eventData.id || `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       timestamp: eventData.timestamp || new Date().toISOString(),
@@ -70,7 +79,7 @@ class TelemetryObserver extends EventEmitter {
       detail: eventData.detail || eventData.message || '',
       severity: eventData.severity || 'info',
       status: eventData.status || 'SUCCESS',
-      payload: eventData.payload || {}
+      payload
     };
 
     this.pushToBuffer(event);

@@ -1,30 +1,16 @@
-#!/usr/bin/env bash
-
+#!/bin/bash
 COMMIT_MSG_FILE=$1
-COMMIT_MSG=$(head -n1 "$COMMIT_MSG_FILE")
+COMMIT_MSG=$(head -n 1 "$COMMIT_MSG_FILE")
 
-# Autoriser les commits de Merge automatiques
-if [[ "$COMMIT_MSG" == Merge* ]]; then
-    exit 0
+if [[ ! "$COMMIT_MSG" =~ ^\[[A-Z]+\] ]]; then
+  echo "❌ [Système Immunitaire] Rejet du commit !"
+  echo "Le message doit commencer par un tag en majuscules entre crochets."
+  echo "Exemples valides :"
+  echo "  [EVOLUTION] Ajoute le RAG"
+  echo "  [FIX] Répare la mitose"
+  echo "  [CHORE] Met à jour les dépendances"
+  echo ""
+  echo "Votre message était :"
+  echo "$COMMIT_MSG"
+  exit 1
 fi
-
-# Expressions régulières pour forcer l'impératif et interdire Conventional Commits
-IMPERATIVE_PATTERN="^(Add|Fix|Update|Remove|Change|Refactor|Implement|Use|Bump|Make|Create|Delete|Rename|Move|Improve|Clean) "
-
-if [[ ! $COMMIT_MSG =~ $IMPERATIVE_PATTERN ]]; then
-    echo "================================================================"
-    echo "❌ ERREUR DE COMMIT : Le message ne respecte pas les règles."
-    echo "Message actuel : $COMMIT_MSG"
-    echo ""
-    echo "Règle : Le message de commit doit être court et commencer par un verbe à l'impératif avec une majuscule."
-    echo "Exemples valides :"
-    echo "  - Add branch budget validation"
-    echo "  - Fix memory leak in capsule"
-    echo "  - Update documentation"
-    echo ""
-    echo "Les formats type 'feat:', 'fix:' ou les verbes conjugués (Added, Fixes, Updating) sont bloqués."
-    echo "================================================================"
-    exit 1
-fi
-
-exit 0

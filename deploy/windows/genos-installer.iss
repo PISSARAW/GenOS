@@ -34,8 +34,7 @@ Name: "envPath"; Description: "Add GenOS to system PATH (Recommended)"; Flags: u
 
 [Files]
 Source: "..\..\target\release\genos.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\..\target\release\genos-mcp.exe"; DestDir: "{app}\bin"; Flags: ignoreversion
-Source: "..\..\scripts\*.mjs"; DestDir: "{app}\scripts"; Flags: ignoreversion
+Source: "..\..\scripts\*"; DestDir: "{app}\scripts"; Excludes: "*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\backend\*"; DestDir: "{app}\backend"; Excludes: "*.db,*.db-shm,*.db-wal,*.log"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\..\assets\*"; DestDir: "{app}\assets"; Flags: ignoreversion recursesubdirs createallsubdirs
 

@@ -1,4 +1,0 @@
-ETAPE 18 : REFUS - Conflit port 4000 et quota_memoire > 100
-ETAPE 20 : REFUS - cache n'existe pas
-ETAPE 21 : REFUS - La clé audit est obligatoire (G2)
-ETAPE 22 : REFUS - Le service legacy est obligatoire (G3)

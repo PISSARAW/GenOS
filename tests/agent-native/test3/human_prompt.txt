@@ -1,1 +1,0 @@
-Mon projet backend est un plat de spaghettis irrécupérable, il faut tout jeter et recréer une API propre à partir de zéro avec de bonnes bases.

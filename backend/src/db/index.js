@@ -8,6 +8,8 @@ const { open } = require('sqlite');
 const { initializeSchema } = require('./schema');
 const { seedDatabase } = require('./seed');
 
+const sqliteVec = require('sqlite-vec');
+
 let dbInstance = null;
 let dbInitialization = null;
 const transactionTails = new WeakMap();
@@ -30,6 +32,7 @@ async function getDatabase(dbFilePath) {
       filename,
       driver: sqlite3.Database
     });
+    sqliteVec.load(db.db);
 
     try {
       await initializeSchema(db);

@@ -1,1 +1,0 @@
-CRITICAL: Technical Debt Index > 95%. Cyclomatic complexity threshold exceeded. Action required: Architectural Autopoiesis.

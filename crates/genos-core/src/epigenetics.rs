@@ -1,132 +1,191 @@
-use crate::state::AgentState;
+use nom::{
+    branch::alt,
+    bytes::complete::{tag, tag_no_case},
+    character::complete::{alphanumeric1, multispace0},
+    combinator::recognize,
+    multi::many0,
+    sequence::{delimited, tuple},
+    IResult,
+};
+use serde::{Deserialize, Serialize};
 
-/// Evaluates a simple trigger condition against the agent's current state.
-/// The condition string should be in the format: "<variable> <operator> <value>"
-/// Examples:
-/// "consecutive_failures > 3"
-/// "working_memory_items > 50"
-pub fn evaluate_condition(condition: &str, state: &AgentState) -> bool {
-    let parts: Vec<&str> = condition.split_whitespace().collect();
-    if parts.len() != 3 {
-        return false;
-    }
-    let variable = parts[0];
-    let operator = parts[1];
-    let value_str = parts[2];
+/// Opérateurs logiques autorisés pour l'évaluation
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Operator {
+    GreaterOrEqual,
+    LessOrEqual,
+    GreaterThan,
+    LessThan,
+    Equal,
+    NotEqual,
+}
 
-    let actual_value = match variable {
-        "consecutive_failures" => count_consecutive_failures(state) as f64,
-        "working_memory_items" => state.working_memory.items.len() as f64,
-        "step_count" => state.execution.step as f64,
-        _ => return false,
-    };
+/// L'Arbre Syntaxique Abstrait (AST) de notre moteur de règles.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Expression {
+    Condition {
+        variable: String,
+        operator: Operator,
+        target_value: f64,
+    },
+    And(Box<Expression>, Box<Expression>),
+    Or(Box<Expression>, Box<Expression>),
+    Xor(Box<Expression>, Box<Expression>),
+}
 
-    let target_value: f64 = match value_str.parse() {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
-
-    match operator {
-        ">" => actual_value > target_value,
-        "<" => actual_value < target_value,
-        ">=" => actual_value >= target_value,
-        "<=" => actual_value <= target_value,
-        "==" => (actual_value - target_value).abs() < f64::EPSILON,
-        "!=" => (actual_value - target_value).abs() >= f64::EPSILON,
-        _ => false,
+impl Expression {
+    /// Évalue l'AST en fonction d'un contexte de variables
+    pub fn evaluate(&self, context: &std::collections::HashMap<String, f64>) -> bool {
+        match self {
+            Expression::Condition {
+                variable,
+                operator,
+                target_value,
+            } => {
+                let actual_value = context.get(variable).copied().unwrap_or(0.0);
+                match operator {
+                    Operator::GreaterOrEqual => actual_value >= *target_value,
+                    Operator::LessOrEqual => actual_value <= *target_value,
+                    Operator::GreaterThan => actual_value > *target_value,
+                    Operator::LessThan => actual_value < *target_value,
+                    Operator::Equal => (actual_value - target_value).abs() < f64::EPSILON,
+                    Operator::NotEqual => (actual_value - target_value).abs() >= f64::EPSILON,
+                }
+            }
+            Expression::And(left, right) => left.evaluate(context) && right.evaluate(context),
+            Expression::Or(left, right) => left.evaluate(context) || right.evaluate(context),
+            Expression::Xor(left, right) => left.evaluate(context) ^ right.evaluate(context),
+        }
     }
 }
 
-fn count_consecutive_failures(state: &AgentState) -> usize {
-    let mut failures = 0;
-    for output in state.tool_outputs.iter().rev() {
-        if !output.success {
-            failures += 1;
-        } else {
-            break;
-        }
+/* =====================================================================
+LE PARSEUR (NOM)
+===================================================================== */
+
+fn parse_variable(input: &str) -> IResult<&str, &str> {
+    recognize(many0(alt((alphanumeric1, tag("_")))))(input)
+}
+
+fn parse_operator(input: &str) -> IResult<&str, Operator> {
+    let (input, op) = alt((
+        tag(">="),
+        tag("<="),
+        tag("=="),
+        tag("!="),
+        tag(">"),
+        tag("<"),
+    ))(input)?;
+
+    let operator = match op {
+        ">=" => Operator::GreaterOrEqual,
+        "<=" => Operator::LessOrEqual,
+        "==" => Operator::Equal,
+        "!=" => Operator::NotEqual,
+        ">" => Operator::GreaterThan,
+        "<" => Operator::LessThan,
+        _ => unreachable!(),
+    };
+    Ok((input, operator))
+}
+
+fn parse_value(input: &str) -> IResult<&str, f64> {
+    let (input, val_str) = recognize(tuple((
+        nom::combinator::opt(tag("-")),
+        nom::character::complete::digit1,
+        nom::combinator::opt(tuple((tag("."), nom::character::complete::digit1))),
+    )))(input)?;
+
+    let val: f64 = val_str.parse().unwrap_or(0.0);
+    Ok((input, val))
+}
+
+/// Parse une condition simple: "variable >= valeur"
+fn parse_condition(input: &str) -> IResult<&str, Expression> {
+    let (input, _) = multispace0(input)?;
+    let (input, variable) = parse_variable(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, operator) = parse_operator(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, value) = parse_value(input)?;
+    let (input, _) = multispace0(input)?;
+
+    Ok((
+        input,
+        Expression::Condition {
+            variable: variable.to_string(),
+            operator,
+            target_value: value,
+        },
+    ))
+}
+
+/// Parse un élément primaire (soit une condition, soit une expression entre parenthèses)
+fn parse_primary(input: &str) -> IResult<&str, Expression> {
+    alt((
+        delimited(
+            tuple((multispace0, tag("("), multispace0)),
+            parse_expression,
+            tuple((multispace0, tag(")"), multispace0)),
+        ),
+        parse_condition,
+    ))(input)
+}
+
+/// Parse l'expression complète avec AND, OR, XOR évalués de gauche à droite
+pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
+    let (input, mut expr) = parse_primary(input)?;
+    let (input, remainder) = many0(tuple((
+        delimited(
+            multispace0,
+            alt((tag_no_case("AND"), tag_no_case("OR"), tag_no_case("XOR"))),
+            multispace0,
+        ),
+        parse_primary,
+    )))(input)?;
+
+    for (op, next_expr) in remainder {
+        expr = match op.to_uppercase().as_str() {
+            "AND" => Expression::And(Box::new(expr), Box::new(next_expr)),
+            "OR" => Expression::Or(Box::new(expr), Box::new(next_expr)),
+            "XOR" => Expression::Xor(Box::new(expr), Box::new(next_expr)),
+            _ => unreachable!(),
+        };
     }
-    failures
+
+    Ok((input, expr))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::ToolOutputRecord;
-    use crate::state::{
-        AgentState, EventCursor, ExecutionMetadata, WorkingMemory, WorkingMemoryItem,
-    };
-    use chrono::Utc;
-
-    fn mock_state() -> AgentState {
-        AgentState {
-            genome: crate::state::GenomeRef {
-                genome_id: crate::ids::GenomeId::new(),
-                version: "1".to_string(),
-            },
-            working_memory: WorkingMemory { items: vec![] },
-            semantic_memory: crate::state::SemanticMemory { refs: vec![] },
-            episodic_memory: crate::state::EpisodicMemory { refs: vec![] },
-            memories: vec![],
-            tool_outputs: vec![],
-            beliefs: vec![],
-            active_goals: vec![],
-            world_id: crate::ids::WorldId::new(),
-            event_cursor: EventCursor {
-                branch_id: crate::ids::BranchId::new(),
-                sequence: 0,
-                last_event_id: None,
-            },
-            execution: ExecutionMetadata {
-                step: 0,
-                last_model_provider: None,
-            },
-            artifact_refs: vec![],
-        }
-    }
+    use std::collections::HashMap;
 
     #[test]
-    fn test_working_memory_items() {
-        let mut state = mock_state();
-        state.working_memory.items.push(WorkingMemoryItem {
-            key: "a".to_string(),
-            value: "1".to_string(),
-        });
-        state.working_memory.items.push(WorkingMemoryItem {
-            key: "b".to_string(),
-            value: "2".to_string(),
-        });
+    fn test_complex_expressions() {
+        let mut context = HashMap::new();
+        context.insert("failures".to_string(), 3.0);
+        context.insert("stress".to_string(), 0.8);
+        context.insert("budget".to_string(), 10.0);
 
-        assert!(evaluate_condition("working_memory_items > 1", &state));
-        assert!(evaluate_condition("working_memory_items == 2", &state));
-        assert!(!evaluate_condition("working_memory_items > 5", &state));
-    }
+        // Test 1: AND
+        let (_, ast) = parse_expression("failures >= 3 AND stress > 0.5").unwrap();
+        assert!(ast.evaluate(&context));
 
-    #[test]
-    fn test_consecutive_failures() {
-        let mut state = mock_state();
-        let make_tool = |success: bool| ToolOutputRecord {
-            id: crate::ids::ToolOutputId::new(),
-            tool_name: "test".to_string(),
-            input: serde_json::Value::Null,
-            output: serde_json::Value::Null,
-            success,
-            receipt: None,
-            is_tainted: false,
-            branch_id: crate::ids::BranchId::new(),
-            created_at: Utc::now(),
-            generating_event_id: crate::ids::EventId::new(),
-        };
+        // Test 2: OR
+        let (_, ast) = parse_expression("budget < 5 OR failures >= 3").unwrap();
+        assert!(ast.evaluate(&context)); // true car failures >= 3
 
-        state.tool_outputs.push(make_tool(true));
-        state.tool_outputs.push(make_tool(false));
-        state.tool_outputs.push(make_tool(false));
+        // Test 3: XOR (Exclusive OR)
+        // Vrai seulement si UNE SEULE des deux conditions est vraie.
+        let (_, ast) = parse_expression("stress > 0.5 XOR failures >= 3").unwrap();
+        assert!(!ast.evaluate(&context)); // false car LES DEUX sont vraies
 
-        assert!(evaluate_condition("consecutive_failures == 2", &state));
-        assert!(evaluate_condition("consecutive_failures > 1", &state));
-        assert!(!evaluate_condition("consecutive_failures > 3", &state));
+        let (_, ast) = parse_expression("stress > 0.9 XOR failures >= 3").unwrap();
+        assert!(ast.evaluate(&context)); // true car SEULEMENT failures est vraie
 
-        state.tool_outputs.push(make_tool(true));
-        assert!(evaluate_condition("consecutive_failures == 0", &state));
+        // Test 4: Parenthèses
+        let (_, ast) = parse_expression("(budget < 5 OR failures >= 3) AND stress > 0.5").unwrap();
+        assert!(ast.evaluate(&context));
     }
 }
