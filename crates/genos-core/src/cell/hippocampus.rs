@@ -61,11 +61,16 @@ impl GraphMemory {
         let vec_a_str = format!("{:?}", vector_a);
         let vec_b_str = format!("{:?}", vector_b);
         
+        // Anti-Cypher Injection (Escape single quotes for Kuzu)
+        let safe_a = entity_a.replace("'", "\\'");
+        let safe_b = entity_b.replace("'", "\\'");
+        let safe_rel = relationship.replace("'", "\\'");
+        
         let query = format!(
             "MERGE (a:Concept {{name: '{}'}}) ON CREATE SET a.embedding = {} \
              MERGE (b:Concept {{name: '{}'}}) ON CREATE SET b.embedding = {} \
              MERGE (a)-[r:SYNAPSE {{type: '{}'}}]->(b)", 
-            entity_a, vec_a_str, entity_b, vec_b_str, relationship
+            safe_a, vec_a_str, safe_b, vec_b_str, safe_rel
         );
         conn.query(&query).map_err(|e| e.to_string())?;
         

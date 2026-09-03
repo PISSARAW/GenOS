@@ -311,12 +311,16 @@ async fn main() {
             
             // On se connecte ou crée la DB
             if let Ok(db) = genos_core::cell::hippocampus::GraphMemory::connect("hippocampus.db", "", "").await {
-                match db.consolidate_synapse(concept, "CONTAINS_DETAILS", details, &vec_f32, &vec![]).await {
+                match db.consolidate_synapse(concept, "CONTAINS_DETAILS", details, &vec_f32, &vec![0.0; 768]).await {
                     Ok(_) => println!("✅ Ingestion into LadybugDB completed."),
-                    Err(e) => println!("❌ Erreur d'ingestion : {}", e),
+                    Err(e) => {
+                        eprintln!("❌ Erreur d'ingestion : {}", e);
+                        std::process::exit(1);
+                    }
                 }
             } else {
-                println!("❌ Impossible de se connecter à LadybugDB.");
+                eprintln!("❌ Impossible de se connecter à LadybugDB.");
+                std::process::exit(1);
             }
         }
     }
