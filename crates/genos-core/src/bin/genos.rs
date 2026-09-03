@@ -20,7 +20,7 @@ fn endocytosis(agent: &mut AgentCell) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() && path.extension().map_or(false, |ext| ext == "vesicle") {
-                    println!("ðŸ¦  [Endocytose] Absorption de la vÃ©sicule compressÃ©e {:?}", path.file_name().unwrap());
+                    println!("Ã°Å¸Â¦Â  [Endocytose] Absorption de la vÃƒÂ©sicule compressÃƒÂ©e {:?}", path.file_name().unwrap());
                     if let Ok(compressed) = fs::read(&path) {
                         let mut decoder = GzDecoder::new(&compressed[..]);
                         let mut buffer = Vec::new();
@@ -60,7 +60,7 @@ fn exocytosis(exosome: synapse::Exosome) {
     let compressed_bytes = encoder.finish().unwrap();
     
     let _ = fs::write(&file_path, compressed_bytes);
-    println!("ðŸ’§ [Exocytose] SÃ©crÃ©tion de l'exosome compressÃ© {:?}", file_path.file_name().unwrap());
+    println!("Ã°Å¸â€™Â§ [Exocytose] SÃƒÂ©crÃƒÂ©tion de l'exosome compressÃƒÂ© {:?}", file_path.file_name().unwrap());
 }
 
 #[derive(Parser)]
@@ -73,14 +73,14 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// DÃ©marre GenOS en tant que dÃ©mon HTTP (accÃ¨s mÃ©moire permanent)
+    /// DÃƒÂ©marre GenOS en tant que dÃƒÂ©mon HTTP (accÃƒÂ¨s mÃƒÂ©moire permanent)
     Serve {
         #[arg(short, long, default_value_t = 3030)]
         port: u16,
     },
-    /// Initialise un nouvel essaim (CrÃ©ation du Zygote originel)
+    /// Initialise un nouvel essaim (CrÃƒÂ©ation du Zygote originel)
     Init,
-    /// DÃ©clenche la division cellulaire (Fork) d'un agent existant
+    /// DÃƒÂ©clenche la division cellulaire (Fork) d'un agent existant
     Fork {
         #[arg(short, long)]
         parent_id: Option<String>,
@@ -97,38 +97,38 @@ enum Commands {
         #[arg(short, long)]
         agent_id: String,
     },
-    /// Extraction de compÃ©tence : CrÃ©e un Plasmide abstrait Ã  partir d'un ActionTrace (RÃ©tro-transcriptase)
+    /// Extraction de compÃƒÂ©tence : CrÃƒÂ©e un Plasmide abstrait ÃƒÂ  partir d'un ActionTrace (RÃƒÂ©tro-transcriptase)
     Extract {
         #[arg(short, long)]
         agent_id: String,
         #[arg(long)]
         plasmid_name: String,
     },
-    /// Replay intelligent : Injecte un Plasmide dans le Zygote avant d'exÃ©cuter un prompt (TransgÃ©nÃ¨se)
+    /// Replay intelligent : Injecte un Plasmide dans le Zygote avant d'exÃƒÂ©cuter un prompt (TransgÃƒÂ©nÃƒÂ¨se)
     Transform {
         #[arg(long)]
         plasmid_name: String,
         #[arg(long)]
         prompt: String,
     },
-    /// Remonte l'arbre Ã©pigÃ©nÃ©tique pour trouver l'origine d'une dÃ©cision
+    /// Remonte l'arbre ÃƒÂ©pigÃƒÂ©nÃƒÂ©tique pour trouver l'origine d'une dÃƒÂ©cision
     Blame {
         #[arg(short, long)]
         agent_id: String,
     },
-    /// IngÃ¨re et analyse un fichier source (Phagocytose)
+    /// IngÃƒÂ¨re et analyse un fichier source (Phagocytose)
     Digest {
         #[arg(short, long)]
         filepath: String,
     },
-    /// ExÃ©cute une recherche dichotomique dans l'ActionTrace pour isoler une hallucination
+    /// ExÃƒÂ©cute une recherche dichotomique dans l'ActionTrace pour isoler une hallucination
     Bisect {
         #[arg(short, long)]
         agent_id: String,
         #[arg(short, long)]
         error_token: String,
     },
-    /// Force le ramasse-miettes (Autophagie & ProtÃ©asome) sur un agent
+    /// Force le ramasse-miettes (Autophagie & ProtÃƒÂ©asome) sur un agent
     Gc {
         #[arg(short, long)]
         agent_id: String,
@@ -151,17 +151,17 @@ async fn main() {
 
     let cli = Cli::parse();
 
-    println!("ðŸ§¬ [GenOS Kernel V2] - DÃ©marrage du systÃ¨me biologique...");
+    println!("Ã°Å¸Â§Â¬ [GenOS Kernel V2] - DÃƒÂ©marrage du systÃƒÂ¨me biologique...");
 
     match &cli.command {
         Commands::Serve { port } => {
-            println!("ðŸ§¬ [DÃ©mon] DÃ©marrage du serveur cognitif GenOS sur le port {}...", port);
+            println!("Ã°Å¸Â§Â¬ [DÃƒÂ©mon] DÃƒÂ©marrage du serveur cognitif GenOS sur le port {}...", port);
             
             // Connect to DB once
             let db = match genos_core::cell::hippocampus::GraphMemory::connect("hippocampus.db", "", "").await {
                 Ok(db) => db,
                 Err(e) => {
-                    eprintln!("âŒ Impossible de dÃ©marrer le dÃ©mon : {}", e);
+                    eprintln!("Ã¢ÂÅ’ Impossible de dÃƒÂ©marrer le dÃƒÂ©mon : {}", e);
                     std::process::exit(1);
                 }
             };
@@ -173,34 +173,35 @@ async fn main() {
                 
             let addr = format!("127.0.0.1:{}", port);
             let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-            println!("âœ… DÃ©mon GenOS opÃ©rationnel sur http://{}", addr);
+            println!("Ã¢Å“â€¦ DÃƒÂ©mon GenOS opÃƒÂ©rationnel sur http://{}", addr);
             
             axum::serve(listener, app).await.unwrap();
         }
         Commands::Init => {
-            println!("ðŸŒ± Initialisation du Zygote originel...");
+            println!("Ã°Å¸Å’Â± Initialisation du Zygote originel...");
             let zygote = AgentCell::default();
-            println!("âœ… Zygote crÃ©Ã© avec succÃ¨s. ID: {}", zygote.cell_id);
-            println!("ðŸ’¡ Le systÃ¨me est prÃªt pour l'embryologie.");
+            println!("Ã¢Å“â€¦ Zygote crÃƒÂ©ÃƒÂ© avec succÃƒÂ¨s. ID: {}", zygote.cell_id);
+            println!("Ã°Å¸â€™Â¡ Le systÃƒÂ¨me est prÃƒÂªt pour l'embryologie.");
         }
         Commands::Fork { parent_id } => {
             let pid = parent_id.clone().unwrap_or_else(|| "ROOT".to_string());
-            println!("âœ‚ï¸  Mitose dÃ©clenchÃ©e pour l'agent: {}", pid);
+            println!("Ã¢Å“â€šÃ¯Â¸Â  Mitose dÃƒÂ©clenchÃƒÂ©e pour l'agent: {}", pid);
             let parent = AgentCell::default();
             let clones = parent.mitosis().unwrap_or_else(|e| {
-                println!("âŒ Ã‰chec de la mitose: {}", e);
+                println!("Ã¢ÂÅ’ Ãƒâ€°chec de la mitose: {}", e);
                 std::process::exit(1);
             });
-            println!("âœ… Clone rÃ©ussi. Nouvel ID: {}", clones.1.cell_id);
+            println!("Ã¢Å“â€¦ Clone rÃƒÂ©ussi. Nouvel ID: {}", clones.1.cell_id);
         }
         Commands::Chat { prompt, context_file } => {
-            println!("ðŸ—£ï¸ [Stimulus] Envoi du signal Ã  la membrane cellulaire...");
+            println!("Ã°Å¸â€”Â£Ã¯Â¸Â [Stimulus] Envoi du signal ÃƒÂ  la membrane cellulaire...");
+            println!("ðŸ—£ï¸  [Stimulus] Envoi du signal Ã  la membrane cellulaire...");
             let mut agent = AgentCell::default();
             
             // La cellule absorbe les vÃ©sicules de son environnement
             endocytosis(&mut agent);
             
-            let mut system_prompt = "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes rÃ©ponses.".to_string();
+            let mut system_prompt = "You are a GenOS V2 Assistant. Answer accurately without relying on metaphors unless asked.".to_string();
             
             // On fouille dans le Cortex (les VÃ©sicules fraÃ®chement endocytosÃ©es)
             let cortex = &agent.mind().as_ref().unwrap().cognitive_state.cerebral_cortex;
@@ -215,7 +216,7 @@ async fn main() {
                 if let Ok(context_content) = std::fs::read_to_string(file_path) {
                     system_prompt.push_str("\n\nVoici le contexte historique (Fichier local):\n");
                     system_prompt.push_str(&context_content);
-                    println!("ðŸ§¬ [Injection] Plasmide contextuel insÃ©rÃ© depuis le fichier.");
+                    println!("Ã°Å¸Â§Â¬ [Injection] Plasmide contextuel insÃƒÂ©rÃƒÂ© depuis le fichier.");
                 }
             }
             
@@ -229,7 +230,7 @@ async fn main() {
                     "prompt": prompt
                 });
                 
-                println!("ðŸ§  [Hippocampe] RequÃªte d'embedding pour le stimulus...");
+                println!("Ã°Å¸Â§Â  [Hippocampe] RequÃƒÂªte d'embedding pour le stimulus...");
                 if let Ok(res) = client.post("http://localhost:11434/api/embeddings").json(&payload).send().await {
                     if let Ok(json) = res.json::<serde_json::Value>().await {
                         if let Some(emb) = json["embedding"].as_array() {
@@ -239,9 +240,9 @@ async fn main() {
                 }
                 
                 if let Ok(graph_ctx) = db.recall_semantic_vector(&prompt_vec, 5).await {
-                    system_prompt.push_str("\n\nðŸ§  Contexte LadybugDB (Graphe Vectoriel) :\n");
+                    system_prompt.push_str("\n\nÃ°Å¸Â§Â  Contexte LadybugDB (Graphe Vectoriel) :\n");
                     system_prompt.push_str(&graph_ctx);
-                    println!("âœ… Contexte Hybride injectÃ© dans le prompt !");
+                    println!("Ã¢Å“â€¦ Contexte Hybride injectÃƒÂ© dans le prompt !");
                 }
             }
             
@@ -249,39 +250,39 @@ async fn main() {
             agent.mind_mut().unwrap().memory.memorize("user", prompt);
             
             println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
-            let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
-            match agent.endoplasmic_reticulum.ribosome.translate(&stm).await {
+            let mut stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
+            match agent.endoplasmic_reticulum.ribosome.agentic_translate(&mut stm, None).await {
                 Ok(response) => {
-                    println!("\nðŸ§¬ [Agent] : {}", response);
+                    println!("\nÃ°Å¸Â§Â¬ [Agent] : {}", response);
                     agent.mind_mut().unwrap().memory.memorize("assistant", &response);
                 }
                 Err(e) => {
-                    println!("\nâŒ [Erreur Biologique] : {}", e);
+                    println!("\nÃ¢ÂÅ’ [Erreur Biologique] : {}", e);
                 }
             }
         }
         Commands::Replay { agent_id } => {
-            println!("ðŸ§  [Hippocampe] RÃ©cupÃ©ration de l'Engramme causal (ActionTrace) de l'agent {}...", agent_id);
+            println!("Ã°Å¸Â§Â  [Hippocampe] RÃƒÂ©cupÃƒÂ©ration de l'Engramme causal (ActionTrace) de l'agent {}...", agent_id);
             
-            // On simule la rÃ©cupÃ©ration d'un ActionTrace prÃ©-enregistrÃ© (le brin d'ARN messager)
+            // On simule la rÃƒÂ©cupÃƒÂ©ration d'un ActionTrace prÃƒÂ©-enregistrÃƒÂ© (le brin d'ARN messager)
             let mrna_trace = vec![
                 "Initialisation du repo Git".to_string(),
-                "CrÃ©ation du fichier src/main.rs".to_string(),
-                "ImplÃ©mentation de la fonction de tri".to_string(),
+                "CrÃƒÂ©ation du fichier src/main.rs".to_string(),
+                "ImplÃƒÂ©mentation de la fonction de tri".to_string(),
                 "Lancement des tests (cargo test)".to_string(),
             ];
             
             let mut clone = AgentCell::default();
             match clone.translate_mrna(mrna_trace) {
-                Ok(_) => println!("âœ… Replay fonctionnel dÃ©terministe terminÃ©."),
-                Err(e) => println!("âŒ Erreur lors du replay : {}", e),
+                Ok(_) => println!("Ã¢Å“â€¦ Replay fonctionnel dÃƒÂ©terministe terminÃƒÂ©."),
+                Err(e) => println!("Ã¢ÂÅ’ Erreur lors du replay : {}", e),
             }
         }
         Commands::Extract { agent_id, plasmid_name } => {
-            println!("ðŸ§¬ [RÃ©tro-Transcriptase] Extraction de la logique de l'ActionTrace de l'agent {}...", agent_id);
-            println!("âœ… Le Plasmide '{}' a Ã©tÃ© synthÃ©tisÃ© avec succÃ¨s et ajoutÃ© au pool gÃ©nÃ©tique.", plasmid_name);
+            println!("Ã°Å¸Â§Â¬ [RÃƒÂ©tro-Transcriptase] Extraction de la logique de l'ActionTrace de l'agent {}...", agent_id);
+            println!("Ã¢Å“â€¦ Le Plasmide '{}' a ÃƒÂ©tÃƒÂ© synthÃƒÂ©tisÃƒÂ© avec succÃƒÂ¨s et ajoutÃƒÂ© au pool gÃƒÂ©nÃƒÂ©tique.", plasmid_name);
             
-            // SÃ©crÃ©tion du plasmide (Exosome)
+            // SÃƒÂ©crÃƒÂ©tion du plasmide (Exosome)
             let exosome = synapse::Exosome {
                 new_engrams: vec![], // Optionnel ici
                 plasmid_name: plasmid_name.clone(),
@@ -290,64 +291,64 @@ async fn main() {
             exocytosis(exosome);
         }
         Commands::Transform { plasmid_name, prompt } => {
-            println!("ðŸ¦  [Infection Positive] L'agent absorbe le plasmide '{}' par Transfert Horizontal...", plasmid_name);
+            println!("Ã°Å¸Â¦Â  [Infection Positive] L'agent absorbe le plasmide '{}' par Transfert Horizontal...", plasmid_name);
             let mut agent = AgentCell::default();
             
-            // On simule l'intÃ©gration du plasmide
-            let plasmid_skill = format!("COMPÃ‰TENCE ACQUISE (Plasmide {}) : Pour faire une factorielle, utilise toujours une boucle `(1..=n).product()`. N'oublie pas que 0! = 1.", plasmid_name);
+            // On simule l'intÃƒÂ©gration du plasmide
+            let plasmid_skill = format!("COMPÃƒâ€°TENCE ACQUISE (Plasmide {}) : Pour faire une factorielle, utilise toujours une boucle `(1..=n).product()`. N'oublie pas que 0! = 1.", plasmid_name);
             
-            // Le System Prompt devient l'ADN de base + les modifications Ã©pigÃ©nÃ©tiques/gÃ©nÃ©tiques du plasmide
-            let sys_prompt = format!("Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes rÃ©ponses. Tu possÃ¨des l'ADN suivant : {}", plasmid_skill);
+            // Le System Prompt devient l'ADN de base + les modifications ÃƒÂ©pigÃƒÂ©nÃƒÂ©tiques/gÃƒÂ©nÃƒÂ©tiques du plasmide
+            let sys_prompt = format!("Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes rÃƒÂ©ponses. Tu possÃƒÂ¨des l'ADN suivant : {}", plasmid_skill);
             
             agent.mind_mut().unwrap().memory.memorize("system", &sys_prompt);
             agent.mind_mut().unwrap().memory.memorize("user", prompt);
             
-            println!("ðŸ—£ï¸ [Stimulus] Envoi du signal au Thalamus avec la nouvelle gÃ©nÃ©tique...");
+            println!("Ã°Å¸â€”Â£Ã¯Â¸Â [Stimulus] Envoi du signal au Thalamus avec la nouvelle gÃƒÂ©nÃƒÂ©tique...");
             println!("... Transcription par le Ribosome en cours (Appel API LLM)...");
             
-            let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
-            match agent.endoplasmic_reticulum.ribosome.translate(&stm).await {
+            let mut stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
+            match agent.endoplasmic_reticulum.ribosome.agentic_translate(&mut stm, None).await {
                 Ok(response) => {
-                    println!("\nðŸ§¬ [Agent TransgÃ©nique] : {}", response);
+                    println!("\nÃ°Å¸Â§Â¬ [Agent TransgÃƒÂ©nique] : {}", response);
                     agent.mind_mut().unwrap().memory.memorize("assistant", &response);
                 }
                 Err(e) => {
-                    println!("\nâŒ [Erreur Biologique] : {}", e);
+                    println!("\nÃ¢ÂÅ’ [Erreur Biologique] : {}", e);
                 }
             }
         }
         Commands::Blame { agent_id } => {
-            println!("ðŸ” [Ã‰pigÃ©nÃ©tique] TraÃ§age des mÃ©thylations pour l'agent {}", agent_id);
+            println!("Ã°Å¸â€Â [Ãƒâ€°pigÃƒÂ©nÃƒÂ©tique] TraÃƒÂ§age des mÃƒÂ©thylations pour l'agent {}", agent_id);
         }
         Commands::Digest { filepath } => {
-            println!("ðŸ¦  L'agent Macrophage s'approche de l'antigÃ¨ne : {}", filepath);
+            println!("Ã°Å¸Â¦Â  L'agent Macrophage s'approche de l'antigÃƒÂ¨ne : {}", filepath);
             let mut macrophage = AgentCell::default();
             match macrophage.phagocytize_file(filepath) {
                 Ok(report) => println!("{}", report),
-                Err(e) => println!("âŒ Erreur immunologique : {}", e),
+                Err(e) => println!("Ã¢ÂÅ’ Erreur immunologique : {}", e),
             }
         }
         Commands::Bisect { agent_id, error_token } => {
-            println!("ðŸ”ª [Dichotomie] Recherche du token toxique '{}' dans l'ActionTrace de {}", error_token, agent_id);
+            println!("Ã°Å¸â€Âª [Dichotomie] Recherche du token toxique '{}' dans l'ActionTrace de {}", error_token, agent_id);
         }
         Commands::Gc { agent_id } => {
-            println!("ðŸ—‘ï¸  [DÃ©toxification] DÃ©clenchement du ProtÃ©asome et de l'Autophagie sur {}", agent_id);
+            println!("Ã°Å¸â€”â€˜Ã¯Â¸Â  [DÃƒÂ©toxification] DÃƒÂ©clenchement du ProtÃƒÂ©asome et de l'Autophagie sur {}", agent_id);
         }
         Commands::Ingest { concept, details, vector } => {
-            println!("ðŸ§  [Ingestion] Ajout du concept '{}' dans LadybugDB...", concept);
+            println!("Ã°Å¸Â§Â  [Ingestion] Ajout du concept '{}' dans LadybugDB...", concept);
             let vec_f32: Vec<f32> = serde_json::from_str(vector).unwrap_or_else(|_| vec![0.0; 768]);
             
-            // On se connecte ou crÃ©e la DB
+            // On se connecte ou crÃƒÂ©e la DB
             if let Ok(db) = genos_core::cell::hippocampus::GraphMemory::connect("hippocampus.db", "", "").await {
                 match db.consolidate_synapse(concept, "CONTAINS_DETAILS", details, &vec_f32, &vec![0.0; 768]).await {
-                    Ok(_) => println!("âœ… Ingestion into LadybugDB completed."),
+                    Ok(_) => println!("Ã¢Å“â€¦ Ingestion into LadybugDB completed."),
                     Err(e) => {
-                        eprintln!("âŒ Erreur d'ingestion : {}", e);
+                        eprintln!("Ã¢ÂÅ’ Erreur d'ingestion : {}", e);
                         std::process::exit(1);
                     }
                 }
             } else {
-                eprintln!("âŒ Impossible de se connecter Ã  LadybugDB.");
+                eprintln!("Ã¢ÂÅ’ Impossible de se connecter ÃƒÂ  LadybugDB.");
                 std::process::exit(1);
             }
         }
@@ -396,7 +397,7 @@ async fn handle_chat(
     let mut agent = AgentCell::default();
     endocytosis(&mut agent);
     
-    let mut system_prompt = "Tu es un agent Zygote GenOS V2. Utilise la biologie dans tes reponses.".to_string();
+    let mut system_prompt = "You are a GenOS V2 Assistant. Answer accurately without relying on metaphors unless asked.".to_string();
     
     // Fetch embedding from Ollama
     let mut prompt_vec = vec![0.0f32; 768];
@@ -430,5 +431,10 @@ async fn handle_chat(
     
     Json(ChatResponse { response })
 }
+
+
+
+
+
 
 
