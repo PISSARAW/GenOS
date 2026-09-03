@@ -130,6 +130,31 @@ impl GraphMemory {
         Ok(context_builder)
     }
 
+    /// Exécution directe d'une requête Cypher par le LLM (Tool Calling)
+    pub async fn execute_raw_cypher(&self, query: &str) -> Result<String, String> {
+        let db = self.get_db()?;
+        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
+        
+        let mut result = conn.query(query).map_err(|e| format!("Erreur Cypher: {}", e))?;
+        let mut output = String::new();
+        output.push_str("Résultats de la requête Cypher :\n");
+        
+        let mut count = 0;
+        while let Some(row) = result.next() {
+            let cols: Vec<String> = row.iter().map(|v| v.to_string()).collect();
+            output.push_str(&format!("- {}\n", cols.join(" | ")));
+            count += 1;
+            if count >= 50 {
+                output.push_str("... (résultats tronqués à 50)\n");
+                break;
+            }
+        }
+        if count == 0 {
+            output.push_str("(Aucun résultat)");
+        }
+        Ok(output)
+    }
+
     /// Recherche Sémantique Vectorielle (Vector Cortex) :
     /// Retrouve les concepts sémantiquement les plus proches d'un vecteur d'intention.
     pub async fn recall_semantic_vector(&self, query_vector: &[f32], k: u8) -> Result<String, String> {
