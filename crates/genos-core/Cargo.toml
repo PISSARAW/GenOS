@@ -22,7 +22,7 @@ clap = { version = "4.5", features = ["derive"] }
 prost = "0.13"
 bytes = "1.9.0"
 flate2 = "1.1.10"
-neo4rs = "0.8.0"
+lbug = "=0.20.0"
 
 [build-dependencies]
 prost-build = "0.13"
