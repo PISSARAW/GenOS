@@ -1,4 +1,4 @@
-﻿use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
 use dotenvy::dotenv;
 use std::fs;
@@ -423,8 +423,8 @@ async fn handle_chat(
     agent.mind_mut().unwrap().memory.memorize("system", &system_prompt);
     agent.mind_mut().unwrap().memory.memorize("user", &payload.prompt);
     
-    let stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
-    let response = match agent.endoplasmic_reticulum.ribosome.translate(&stm).await {
+    let mut stm = agent.mind().as_ref().unwrap().memory.short_term_memory.clone();
+    let response = match agent.endoplasmic_reticulum.ribosome.agentic_translate(&mut stm, Some(&db)).await {
         Ok(res) => res,
         Err(e) => format!("Erreur biologique: {}", e),
     };
