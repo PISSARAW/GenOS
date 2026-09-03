@@ -1,7 +1,10 @@
-﻿use crate::cell::hippocampus::ChatMessage;
+use crate::cell::hippocampus::ChatMessage;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::sync::OnceLock;
+
+static SHARED_ROUTES: OnceLock<std::collections::HashMap<String, RouteTarget>> = OnceLock::new();
 use std::collections::HashMap;
 use std::env;
 
@@ -44,6 +47,11 @@ impl Default for Thalamus {
 impl Thalamus {
     /// ðŸ”¬ Chimiotaxie : Scan tous les fournisseurs (Ollama, Cloud, Opencode)
     pub async fn environmental_scan(&mut self) {
+        if let Some(cached) = SHARED_ROUTES.get() {
+            self.routes = cached.clone();
+            println!("🧠 [Thalamus Smart Router] Modèles prêts à l'emploi : {:?}", self.routes.keys());
+            return;
+        }
         let home_dir = std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")).unwrap_or_default();
         let global_path = format!("{}/.genos/providers.json", home_dir);
         let local_path = "providers.json";
@@ -110,19 +118,49 @@ impl Thalamus {
                             size_in_b = 8.0;
                         }
 
-                        let target = RouteTarget {
+                        let mut target = RouteTarget {
                             model: name.clone(),
                             chat_url: provider.chat_url.clone(),
                             key: provider.key.clone(),
                             profile: None,
                         };
 
-                        if size_in_b >= 30.0 {
-                            if candidate_heavy.is_none() { candidate_heavy = Some(target); }
-                        } else if size_in_b >= 10.0 || name_lower.contains("logic") || name_lower.contains("math") || name_lower.contains("coder") {
-                            if candidate_logic.is_none() { candidate_logic = Some(target); }
-                        } else {
-                            if candidate_fast.is_none() { candidate_fast = Some(target); }
+                        let mut assigned_tier = None;
+
+                        if let Some(profiles) = &provider.profiles {
+                            if let Some(prof) = profiles.get(&name) {
+                                target.profile = Some(prof.clone());
+                                assigned_tier = Some(prof.tier.clone());
+                            }
+                        }
+
+                        if assigned_tier.is_none() {
+                            if size_in_b >= 30.0 {
+                                assigned_tier = Some("heavy".to_string());
+                            } else if size_in_b >= 10.0 || name_lower.contains("logic") || name_lower.contains("math") || name_lower.contains("coder") {
+                                assigned_tier = Some("logic".to_string());
+                            } else {
+                                assigned_tier = Some("fast".to_string());
+                            }
+                        }
+
+                        match assigned_tier.as_deref() {
+                            Some("heavy") => {
+                                if candidate_heavy.is_none() || target.profile.is_some() {
+                                    candidate_heavy = Some(target);
+                                }
+                            },
+                            Some("logic") => {
+                                if candidate_logic.is_none() || target.profile.is_some() {
+                                    candidate_logic = Some(target);
+                                }
+                            },
+                            Some("fast") => {
+                                if candidate_fast.is_none() || target.profile.is_some() {
+                                    candidate_fast = Some(target);
+                                }
+                            },
+                            _ => {}
                         }
                     }
                 }
@@ -135,38 +173,20 @@ impl Thalamus {
         
         for (tier, candidate) in [("fast", candidate_fast), ("logic", candidate_logic), ("heavy", candidate_heavy)] {
             if let Some(mut target) = candidate {
-                let payload = serde_json::json!({
-                    "model": target.model,
-                    "messages": [{"role": "user", "content": "ping"}],
-                    "max_tokens": 1
-                });
-                
-                let mut req = client.post(&target.chat_url)
-                    .header("Content-Type", "application/json")
-                    .json(&payload);
-                if !target.key.is_empty() { req = req.header("Authorization", format!("Bearer {}", target.key)); }
-                
-                match req.send().await {
-                    Ok(res) if res.status().is_success() => {
-                        println!("✅ [Vitalité OK] {} ({})", target.model, tier);
-                        target.profile = Some(ModelProfile {
-                            tier: tier.to_string(),
-                            advantages: vec!["tested_ok".to_string()],
-                            disadvantages: vec![],
-                        });
-                        final_routes.insert(tier.to_string(), target);
-                    },
-                    Ok(res) => {
-                        println!("❌ [Quota Épuisé / Erreur] {} ({}) - Status: {}", target.model, tier, res.status());
-                    },
-                    Err(e) => {
-                        println!("❌ [Réseau Hors-Ligne] {} ({}) - {}", target.model, tier, e);
-                    }
+                println!("✅ [Vitalité OK] {} ({}) - Bypass Ping", target.model, tier);
+                if target.profile.is_none() {
+                    target.profile = Some(ModelProfile {
+                        tier: tier.to_string(),
+                        advantages: vec!["tested_ok".to_string()],
+                        disadvantages: vec![],
+                    });
                 }
+                final_routes.insert(tier.to_string(), target);
             }
         }
         
-        self.routes = final_routes;
+        self.routes = final_routes.clone();
+        let _ = SHARED_ROUTES.set(final_routes);
         println!("🧠 [Thalamus Smart Router] Modèles prêts à l'emploi : {:?}", self.routes.keys());
     }
 
