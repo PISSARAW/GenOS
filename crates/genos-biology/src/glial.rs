@@ -207,6 +207,80 @@ impl GlialProcessor for MicrogliaProcessor {
     }
 }
 
+pub struct EpendymalProcessor;
+impl GlialProcessor for EpendymalProcessor {
+    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {
+        if let Some(ependymal) = &agent.ependymal {
+            if ependymal.is_producing_csf {
+                state.csf_production += 1.0;
+            }
+            if ependymal.cilia_beating {
+                state.active_cilia = true;
+            }
+        }
+    }
+
+    fn aggregate(&self, state: &mut GlialAggregateState, env: &mut GlialEnvironment) {
+        if env.is_sleeping && state.active_cilia && !env.drainage_blocked {
+            *env.amyloid_plaques = (*env.amyloid_plaques - 2.0).max(0.0);
+        }
+        *env.csf_volume += state.csf_production;
+        if !state.active_cilia || env.drainage_blocked {
+            *env.csf_pressure += state.csf_production * 0.5;
+        }
+    }
+
+    fn apply(&self, _agent: &mut AgentCell, _state: &GlialAggregateState, _env: &GlialEnvironment) {
+        // Effet global déjà appliqué lors de l'agrégation (CSF & Plaques)
+    }
+}
+
+pub struct MyelinatorProcessor;
+impl GlialProcessor for MyelinatorProcessor {
+    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {
+        if let Some(myelinator) = &agent.myelinator {
+            match myelinator {
+                Myelinator::Oligodendrocyte { connected_axons, is_damaged } => {
+                    if *is_damaged {
+                        state.nogo_targets.extend(connected_axons.clone());
+                    } else {
+                        state.healthy_oligo_targets.extend(connected_axons.clone());
+                    }
+                },
+                Myelinator::SchwannCell { target_axon, is_damaged, forming_regeneration_tube } => {
+                    if *is_damaged {
+                        // PNS ne produit pas de Nogo-A
+                    } else {
+                        state.healthy_schwann_targets.push(target_axon.clone());
+                        if *forming_regeneration_tube {
+                            state.repairing_schwann_targets.push(target_axon.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn apply(&self, agent: &mut AgentCell, state: &GlialAggregateState, _env: &GlialEnvironment) {
+        if let Some(ns) = &mut agent.nervous_system {
+            let id = &agent.cell_id;
+            
+            if state.healthy_oligo_targets.contains(id) || state.healthy_schwann_targets.contains(id) {
+                ns.axon.myelination_level = (ns.axon.myelination_level + 0.1).min(1.0);
+            }
+            
+            if state.nogo_targets.contains(id) && ns.location == NervousSystemLocation::Central {
+                ns.axon.nogo_inhibited = true;
+            }
+            
+            if state.repairing_schwann_targets.contains(id) && ns.location == NervousSystemLocation::Peripheral {
+                ns.axon.is_severed = false;
+                ns.axon.nogo_inhibited = false;
+            }
+        }
+    }
+}
+
 // ----------------------------------------------------------------
 // EXÉCUTION DU PIPELINE (Map -> Reduce -> Apply)
 // ----------------------------------------------------------------
@@ -221,7 +295,8 @@ impl GlialPipeline {
             processors: vec![
                 Box::new(AstrocyteProcessor),
                 Box::new(MicrogliaProcessor),
-                // (On rajouterait EpendymalProcessor et MyelinatorProcessor ici)
+                Box::new(EpendymalProcessor),
+                Box::new(MyelinatorProcessor),
             ],
         }
     }
