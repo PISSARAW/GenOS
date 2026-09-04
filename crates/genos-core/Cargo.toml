@@ -24,6 +24,7 @@ bytes = "1.9.0"
 flate2 = "1.1.10"
 # lbug = "=0.20.0"
 axum = "0.8.9"
+syn = { version = "3.0.4", features = ["full", "visit"] }
 
 [build-dependencies]
 prost-build = "0.13"

@@ -492,13 +492,39 @@ async fn run_auto_loop(prompt: &str) {
         let capsule_manager = genos_core::orchestrator::capsule::CapsuleManager::default();
         let reality_passed = capsule_manager.arbitrate_reality(agent, "powershell", &["-Command", validation_script]);
 
-        if !reality_passed {
+        let mut ast_passed = true;
+        let mut ast_error_msg = String::new();
+
+        // Ajout de la validation AST stricte
+        if let Some(mind) = agent.mind() {
+            for (file, _content) in &mind.cognitive_state.quantum_vfs.deltas {
+                if file.ends_with(".rs") {
+                    let temp_path = std::env::temp_dir().join(file);
+                    let _ = std::fs::write(&temp_path, _content);
+                    
+                    if let Err(e) = genos_core::orchestrator::ast_validator::validate_rust_file(&temp_path) {
+                        ast_passed = false;
+                        ast_error_msg = e;
+                    }
+                }
+            }
+        }
+
+        if !reality_passed || !ast_passed {
             println!("💥 Échec du test. Injection du feedback dans l'agent clone...");
             // L'agent meurt, mais on sauve l'historique et on ajoute l'erreur
+            let mut reject_msg = String::new();
+            if !reality_passed {
+                reject_msg.push_str("L'Arbitre de Réalité a rejeté ton code. Il manque des balises obligatoires (DOCTYPE, charset, ou viewport). ");
+            }
+            if !ast_passed {
+                reject_msg.push_str(&format!("L'Analyseur AST (Structure) a bloqué le code : {}\nCorrige tes fonctions pour respecter la limite de 3 paramètres max !", ast_error_msg));
+            }
+
             conversation_history.push(
                 genos_core::cell::hippocampus::ChatMessage {
                     role: "user".to_string(),
-                    content: "L'Arbitre de Réalité a rejeté ton code. Il manque des balises obligatoires (DOCTYPE, charset, ou viewport). Corrige-le et renvoie l'intégralité du code avec le bon format.".to_string(),
+                    content: reject_msg,
                 }
             );
             swarm.clear();
