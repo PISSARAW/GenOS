@@ -389,7 +389,7 @@ impl Ribosome {
         let max_loops = 5;
         for loop_idx in 0..max_loops {
             if loop_idx == 0 {
-                let instructions = "\n\n[TOOL USE] You have access to the following tools via JSON inside XML tags:\n<tool_call>{\"name\": \"execute_raw_cypher\", \"args\": {\"query\": \"MATCH (n) RETURN n LIMIT 5\"}}</tool_call>\n\nGRAPH SCHEMA:\n- Nodes: MemoryChunk(id, text, speaker, timestamp, session_id), Entity(name, type)\n- Edges: MENTIONS (MemoryChunk->Entity), RELATED_TO (Entity->Entity, type)\n\nIf you need to search memories, query entities, or do temporal reasoning (e.g. ORDER BY m.timestamp), emit the tool tag and STOP generating. You will receive an observation.";
+                let instructions = "\n\n[TOOL USE] You have access to the following tool via JSON inside XML tags:\n<tool_call>{\"name\": \"execute_raw_cypher\", \"args\": {\"query\": \"MATCH (n) RETURN n LIMIT 5\"}}</tool_call>\n\nGRAPH SCHEMA:\n- Nodes: MemoryChunk(id, text, speaker, timestamp, session_id), Entity(name, type)\n- Edges: MENTIONS (MemoryChunk->Entity), RELATED_TO (Entity->Entity, type)\n\nCRITICAL RULE: The Vector Context above is INCOMPLETE. If the user asks about temporal relationships ('elapsed', 'before', 'after'), cross-session data, or lists of items that might span multiple sessions, YOU MUST EXECUTE A CYPHER QUERY to find the missing information! Do NOT guess. Emit the <tool_call> tag and STOP generating.";
                 if let Some(sys_msg) = memory.iter_mut().find(|m| m.role == "system") {
                     if !sys_msg.content.contains("[TOOL USE]") {
                         sys_msg.content.push_str(instructions);
