@@ -93,4 +93,45 @@ impl CapsuleManager {
         }
         Ok(())
     }
+
+    /// L'ARBITRAGE DE LA RÉALITÉ (Thermodynamique Infalsifiable)
+    /// Exécute un test physique (ex: `cargo check`) via le JIT Sandboxing.
+    /// Écrase toute illusion ou consensus des LLMs : si ça casse dans le monde réel, 
+    /// la branche subit une dissonance fatale (Apoptose).
+    pub fn arbitrate_reality(&self, cell: &mut crate::cell::AgentCell, command: &str, args: &[&str]) -> bool {
+        let vfs = cell.mind().unwrap().cognitive_state.quantum_vfs.clone();
+        
+        let reality_result = self.execute_jit(&vfs, |jit_dir| {
+            let status = std::process::Command::new(command)
+                .args(args)
+                .current_dir(jit_dir)
+                .output()
+                .map_err(|e| e.to_string())?;
+                
+            if status.status.success() {
+                Ok(())
+            } else {
+                let stderr = String::from_utf8_lossy(&status.stderr);
+                Err(format!("Code de sortie non-zéro.\nErreur: {}", stderr))
+            }
+        });
+
+        match reality_result {
+            Ok(_) => {
+                println!("🌍 [Arbitre de Réalité] Validation Thermodynamique : Le code de la branche {} compile et fonctionne.", cell.cell_id);
+                // La réalité valide l'intuition de l'agent. Boost massif.
+                cell.conscience.eureka_moments += 1;
+                cell.conscience.current_budget += 30.0;
+                true
+            }
+            Err(err) => {
+                println!("💥 [Arbitre de Réalité] COLLISION AVEC LA RÉALITÉ (Branche {}) : {}", cell.cell_id, err);
+                // Peu importe à quel point l'agent (ou les autres LLMs) était convaincu de son code,
+                // la réalité physique s'impose. La dissonance explose et la cellule meurt.
+                cell.conscience.dissonance_level += 500.0; 
+                cell.conscience.is_apoptotic = true;       // Apoptose forcée immédiate
+                false
+            }
+        }
+    }
 }
