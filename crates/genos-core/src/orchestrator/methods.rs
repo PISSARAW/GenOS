@@ -29,7 +29,7 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
         if !reality_passed {
             // L'agent (ou son Critique) a validé un code défectueux.
             // On le punit socialement dans l'Écologie (La Punition Altruiste).
-            self.ecology.reputation.penalize_collusion(&agent.cell_id, 0.4);
+            self.ecology.reputation.penalize_collusion(&agent.cell_id.to_string(), 0.4);
             println!("⚖️ [Écologie] La confiance en l'Agent {} chute drastiquement. Il a échoué face à la thermodynamique.", agent.cell_id);
         } else {
             println!("⚖️ [Écologie] L'Agent {} a prouvé sa compétence. Sa réputation est préservée.", agent.cell_id);
