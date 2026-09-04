@@ -10,8 +10,9 @@ impl SleepConsolidation {
     /// Effectue un Rejeu Déterministe sur la trace d'un Agent gagnant (Mitose Inversée).
     /// Analyse la séquence des actions pour extraire des règles ou ajuster le génome.
     pub fn replay_experience(agent: &mut AgentCell) {
+        let cell_id = agent.cell_id.to_string();
         if let Some(mind) = agent.mind_mut() {
-            println!("💤 [Sommeil Paradoxal] Rejeu déterministe de la trace de l'Agent {}...", agent.cell_id);
+            println!("💤 [Sommeil Paradoxal] Rejeu déterministe de la trace de l'Agent {}...", cell_id);
             
             let mut failures = 0;
             let mut successes = 0;
@@ -50,7 +51,7 @@ impl SleepConsolidation {
             // L'agent se réveille "frais", son historique de brouillon est vidé 
             // mais les règles extraites sont désormais dans sa mémoire à long terme.
             mind.trace.sequence.clear();
-            println!("☀️ [Éveil] L'Agent {} est prêt pour un nouveau cycle de pensée.", agent.cell_id);
+            println!("☀️ [Éveil] L'Agent {} est prêt pour un nouveau cycle de pensée.", cell_id);
         }
     }
 }
