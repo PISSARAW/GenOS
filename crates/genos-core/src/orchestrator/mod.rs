@@ -25,6 +25,7 @@ pub struct Orchestrator<
     pub endocrine_system: E,
     pub nervous_system: N,
     pub viral_environment: Vec<crate::virology::Virion>,
+    pub conscience: crate::orchestrator::conscience::Conscience,
 }
 
 

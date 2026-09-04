@@ -112,3 +112,36 @@ impl NervousBehavior for StandardNervousSystem {
     fn get_psychoactive_drugs(&self) -> &[PsychoactiveDrug] { &self.psychoactive_drugs }
 }
 
+
+
+use crate::cell::AgentCell;
+use crate::orchestrator::conscience::Conscience;
+
+/// Parcours tous les clones / cellules agents et applique l'évaluation de la Conscience.
+/// Coupe les branches (cellules) qui sont entrées en apoptose.
+pub fn process_conscience(conscience_model: &Conscience, cells: &mut Vec<AgentCell>) {
+    cells.retain_mut(|cell| {
+        // TODO: Extraire ces métriques depuis les logs ou le mind de l'agent
+        // Pour l'instant, heuristique basique.
+        let mut errors = 0;
+        let mut progress = 1.0; // Progression naturelle
+
+        // Si l'agent est en boucle (trop de traces sans rÃ©sultat) on le pÃ©nalise
+        if let Some(mind) = cell.mind() {
+            if mind.trace.sequence.len() > 50 {
+                errors += 1;
+            }
+        }
+
+        conscience_model.evaluate_branch(&mut cell.conscience, errors, progress);
+
+        if cell.conscience.is_apoptotic {
+            // La conscience a décidée que cette branche devait mourir
+            println!("💀 [Apoptose Cognitive] La branche {} a Ã©tÃ© supprimÃ©e suite Ã  une dissonance cognitive dÃ©passant le seuil.", cell.cell_id);
+            false // On la retire du vecteur (Death)
+        } else {
+            true // On la garde en vie
+        }
+    });
+}
+
