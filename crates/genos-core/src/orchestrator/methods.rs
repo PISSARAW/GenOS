@@ -321,6 +321,34 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
         }
         self.nervous_system.set_synaptic_cleft(messages_to_keep);
     }
+
+    /// HYPER-FORK : Clonage asynchrone (Copy-on-Write) d'une cellule pour explorer plusieurs hypothèses.
+    /// Retourne les clones générés.
+    pub fn hyper_fork(&self, parent_cell: &AgentCell, nb_branches: usize) -> Vec<AgentCell> {
+        let mut branches = Vec::with_capacity(nb_branches);
+        let split_budget = parent_cell.conscience.current_budget / (nb_branches as f64);
+
+        for _i in 0..nb_branches {
+            let mut clone = parent_cell.clone();
+            
+            // 1. Identité persistante et indépendante
+            clone.cell_id = uuid::Uuid::new_v4();
+            
+            // 2. Héritage budgétaire (division du budget pour éviter l'explosion combinatoire)
+            clone.conscience.current_budget = split_budget;
+            
+            // 3. Reset de la dissonance (une nouvelle branche part avec une ardoise vierge)
+            clone.conscience.dissonance_level = 0.0;
+            clone.conscience.is_apoptotic = false;
+
+            // TODO: Deep clone de l'Hippocampus (KuzuDB) et virtualisation des I/O
+            // pour garantir l'isolation parfaite des effets de bord.
+
+            println!("🌱 [Hyper-Fork] Branche {} générée avec un budget de {:.2}", clone.cell_id, split_budget);
+            branches.push(clone);
+        }
+        branches
+    }
 }
 
 
