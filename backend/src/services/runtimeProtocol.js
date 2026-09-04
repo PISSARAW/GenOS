@@ -1,9 +1,11 @@
 const path = require('path');
 const protobuf = require('protobufjs');
 
-const root = protobuf.loadSync(path.resolve(__dirname, '../../proto/genos_runtime.proto'));
-const Mission = root.lookupType('genos.runtime.v1.AgentMission');
-const Event = root.lookupType('genos.runtime.v1.AgentEvent');
+const root = new protobuf.Root();
+root.loadSync(path.resolve(__dirname, '../../proto/agent.proto'));
+root.loadSync(path.resolve(__dirname, '../../proto/telemetry.proto'));
+const Mission = root.lookupType('genos.agent.v1.AgentMission');
+const Event = root.lookupType('genos.telemetry.v1.AgentEvent');
 
 function frame(buffer) {
   const header = Buffer.alloc(4);
