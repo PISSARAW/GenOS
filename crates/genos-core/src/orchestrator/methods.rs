@@ -341,8 +341,14 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
             clone.conscience.dissonance_level = 0.0;
             clone.conscience.is_apoptotic = false;
 
-            // TODO: Deep clone de l'Hippocampus (KuzuDB) et virtualisation des I/O
-            // pour garantir l'isolation parfaite des effets de bord.
+            // 4. Deep clone de l'Hippocampus (KuzuDB/LadybugDB)
+            // Copie physique du fichier de base de données pour garantir l'isolation parfaite.
+            if let Some(mind) = clone.mind_mut() {
+                if let Some(graph_mem) = &mut mind.hippocampus {
+                    let new_graph_mem = graph_mem.fork(&clone.cell_id.to_string());
+                    mind.hippocampus = Some(new_graph_mem);
+                }
+            }
 
             println!("🌱 [Hyper-Fork] Branche {} générée avec un budget de {:.2}", clone.cell_id, split_budget);
             branches.push(clone);

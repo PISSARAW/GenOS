@@ -63,6 +63,25 @@ impl GraphMemory {
         }
     }
 
+    /// Crée une copie physique de la base de données (Snapshot / Fork) pour une branche isolée
+    pub fn fork(&self, new_branch_id: &str) -> Self {
+        let new_db_path = format!("{}_branch_{}.db", self.db_path.trim_end_matches(".db"), new_branch_id);
+        
+        // Copie du fichier principal
+        let _ = std::fs::copy(&self.db_path, &new_db_path);
+        
+        // Copie des fichiers Write-Ahead-Log (WAL) si existants
+        let wal_path = format!("{}.wal", self.db_path);
+        let new_wal_path = format!("{}.wal", new_db_path);
+        if std::path::Path::new(&wal_path).exists() {
+            let _ = std::fs::copy(&wal_path, &new_wal_path);
+        }
+
+        Self {
+            db_path: new_db_path,
+        }
+    }
+
     /// Initialise la connexion à l'Hippocampe (LadybugDB - Hybride)
     pub async fn connect(path: &str, _user: &str, _pass: &str) -> Result<Self, String> {
         let mem = Self { db_path: path.to_string() };
