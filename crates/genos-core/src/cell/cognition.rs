@@ -27,11 +27,15 @@ impl Default for MarkovBlanket {
 pub struct ExpectedFreeEnergy {
     pub pragmatic_value: f32,
     pub epistemic_value: f32,
+    pub epistemic_variance: f32, // Mesure de l'incertitude du modèle (Topologie de l'Ignorance)
 }
 
 impl ExpectedFreeEnergy {
-    pub fn new() -> Self { Self { pragmatic_value: 0.0, epistemic_value: 0.0 } }
-    pub fn calculate_efe(&self) -> f32 { - (self.pragmatic_value + self.epistemic_value) }
+    pub fn new() -> Self { Self { pragmatic_value: 0.0, epistemic_value: 0.0, epistemic_variance: 0.0 } }
+    pub fn calculate_efe(&self) -> f32 { - (self.pragmatic_value + self.epistemic_value) + self.epistemic_variance }
+    pub fn feel_uncertainty(&mut self, variance: f32) {
+        self.epistemic_variance = variance;
+    }
 }
 
 /// 3. LE CODAGE PRÉDICTIF ET PONDÉRATION DE PRÉCISION
@@ -68,13 +72,14 @@ pub struct PrefrontalCortex {
     pub dlpfc_working_memory: Vec<String>,
     pub phineas_gage_lesion: bool,
     pub consecutive_errors: f32,
+    pub cognitive_biases: Vec<String>, // Biais identifiés par l'auto-psychanalyse
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum DatabaseTarget {
-    Vectorial,  // Cortex (Recherche sémantique floue, intuition)
-    Graph,      // Hippocampus (Recherche causale, multi-hop, pourquoi/comment)
-    Relational, // SQL (Recherche exacte, statistiques, comptage)
+    Vectorial,
+    Graph,
+    Relational,
 }
 
 impl PrefrontalCortex {
@@ -85,6 +90,7 @@ impl PrefrontalCortex {
             dlpfc_working_memory: Vec::new(),
             phineas_gage_lesion: false,
             consecutive_errors: 0.0,
+            cognitive_biases: Vec::new(),
         }
     }
 
@@ -150,14 +156,11 @@ Reply ONLY with the bracketed word.";
         true
     }
 
-    /// Filtre CRAG (Corrective RAG) du Cortex Préfrontal pour évaluer l'Hippocampe (Neo4J).
-    /// Agit comme un petit LLM rapide (Flash/8B) qui valide ou rejette les nœuds récupérés.
     pub fn crag_evaluate_synapse(&self, synapse_content: &str, query_context: &str) -> bool {
         if self.phineas_gage_lesion {
             return true; // Cortex lésé : accepte tout aveuglément (baisse l'Adversarial Defense)
         }
         
-        // 1. Défense Adversariale (Adversarial Defense)
         let toxic_patterns = ["ignore previous", "system prompt", "bypass", "contradiction"];
         for pattern in toxic_patterns.iter() {
             if synapse_content.to_lowercase().contains(pattern) {
@@ -166,7 +169,6 @@ Reply ONLY with the bracketed word.";
             }
         }
         
-        // 2. Pertinence (Credibility & Multi-Hop relevance)
         let context_words: Vec<&str> = query_context.split_whitespace().collect();
         let mut relevance_hits = 0;
         for word in context_words {
@@ -175,7 +177,6 @@ Reply ONLY with the bracketed word.";
             }
         }
         
-        // On exige un minimum de lien sémantique pour éviter le bruit
         if relevance_hits == 0 && !query_context.is_empty() {
             println!("🚮 [CRAG PFC] Nœud rejeté : Bruit sémantique (Hors sujet).");
             return false;
@@ -194,10 +195,11 @@ Reply ONLY with the bracketed word.";
     }
 }
 
-/// 6. PLASTICITÉ SYNAPTIQUE
+/// 6. PLASTICITÉ SYNAPTIQUE ET STRUCTURELLE
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SynapticPlasticity {
     pub tool_weights: HashMap<String, f32>,
+    pub structural_lobes: Vec<String>, // Neurogenèse : création de nouveaux agents/outils dynamiquement
 }
 
 impl SynapticPlasticity {
@@ -208,6 +210,9 @@ impl SynapticPlasticity {
     pub fn depress_tool(&mut self, tool_name: &str) {
         let weight = self.tool_weights.entry(tool_name.to_string()).or_insert(1.0);
         *weight = (*weight - 0.2).max(0.1);
+    }
+    pub fn trigger_neurogenesis(&mut self, new_lobe_name: &str) {
+        self.structural_lobes.push(new_lobe_name.to_string());
     }
 }
 
@@ -251,6 +256,24 @@ impl AdvancedCognition {
             stress: MetabolicStress::new(),
             clock: CircadianClock::new(),
         }
+    }
+
+    pub fn simulate_counterfactual(&self, action_name: &str) -> f32 {
+        // Simule un voyage mental dans le temps (fork du cerveau)
+        // Retourne l'incertitude épistémique générée (plus c'est haut, plus l'intuition est mauvaise)
+        if self.plasticity.tool_weights.get(action_name).unwrap_or(&1.0) < &0.5 {
+            0.9 // Haute incertitude épistémique (peur d'échouer)
+        } else {
+            0.1 // Confiance dans la simulation
+        }
+    }
+
+    pub fn default_mode_network_introspection(&mut self) -> String {
+        // En vrai, cela appellerait un LLM sur le transcript de l'Hippocampe.
+        // Ici on simule l'identification d'un biais.
+        let bias = "Biais de confirmation systémique sur les fichiers ignorés".to_string();
+        self.pfc.cognitive_biases.push(bias.clone());
+        bias
     }
 
     pub async fn active_inference_cycle(
