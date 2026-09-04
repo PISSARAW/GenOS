@@ -34,6 +34,12 @@ async function getDatabase(dbFilePath) {
     });
     sqliteVec.load(db.db);
 
+    // Optimisations d'architecture (Single-writer, WAL, Timeout)
+    await db.exec('PRAGMA journal_mode = WAL');
+    await db.exec('PRAGMA busy_timeout = 5000');
+    await db.exec('PRAGMA mmap_size = 268435456');
+    await db.exec('PRAGMA synchronous = NORMAL');
+
     try {
       await initializeSchema(db);
       await seedDatabase(db);
@@ -61,11 +67,7 @@ async function closeDatabase() {
 }
 
 async function withTransaction(db, callback) {
-  const previous = transactionTails.get(db) || Promise.resolve();
-  let release;
-  const current = new Promise((resolve) => { release = resolve; });
-  transactionTails.set(db, previous.then(() => current));
-  await previous;
+  // Laisse SQLite gérer la concurrence via WAL et busy_timeout
   await db.exec('BEGIN TRANSACTION;');
   try {
     const result = await callback(db);
@@ -74,8 +76,6 @@ async function withTransaction(db, callback) {
   } catch (err) {
     await db.exec('ROLLBACK;');
     throw err;
-  } finally {
-    release();
   }
 }
 

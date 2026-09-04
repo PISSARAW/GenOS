@@ -1,5 +1,15 @@
 [workspace]
-members = [
-    "crates/genos-core"
-]
 resolver = "2"
+members = [
+    "crates/genos-common",
+    "crates/genos-store",
+    "crates/genos-signal",
+    "crates/genos-genome",
+    "crates/genos-cell",
+    "crates/genos-biology",
+    "crates/genos-immune",
+    "crates/genos-reproduction",
+    "crates/genos-orchestrator",
+    "crates/genos-api",
+    "crates/genos-cli",
+]
