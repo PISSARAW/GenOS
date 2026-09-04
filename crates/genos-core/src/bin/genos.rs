@@ -469,7 +469,7 @@ GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\
         }
 
         // Appel Réel à l'API via le Ribosome
-        let code_response = match agent.endoplasmic_reticulum.ribosome.translate(&conversation_history).await {
+        let (code_response, llm_error_flag) = match agent.endoplasmic_reticulum.ribosome.translate(&conversation_history).await {
             Ok(code) => {
                 println!("✅ Le LLM a répondu ({} octets).", code.len());
                 conversation_history.push(
@@ -478,13 +478,53 @@ GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\
                         content: code.clone(),
                     }
                 );
-                code
+                (code, false)
             },
             Err(e) => {
                 println!("⚠️ Échec du LLM ({}). Utilisation d'un code de secours.", e);
-                "FILE: index.html\n<!DOCTYPE html>\n<html><body><h1>Fallback IRL</h1></body></html>\n[READY]".to_string()
+                ("FILE: index.html\n<!DOCTYPE html>\n<html><body><h1>Fallback IRL</h1></body></html>\n[READY]".to_string(), true)
             }
         };
+
+        // --- INJECTION DE L'INFÉRENCE ACTIVE ET DES QUALIA ---
+        let mut prediction_error = 0.0;
+        let mut feedback_str = "Tâche exécutée sans heurts.".to_string();
+        if llm_error_flag || code_response.len() < 10 {
+            prediction_error = 1.0; // Panne critique
+            feedback_str = "Échec total de la complétion du modèle.".to_string();
+        } else if code_response.contains("Error") || code_response.contains("Exception") {
+            prediction_error = 0.6; // Bug détecté
+            feedback_str = "Le code généré ou la commande contient une erreur flagrante.".to_string();
+        } else if conversation_history.len() > 10 {
+            prediction_error = 0.4; // Fatigue / Contexte trop long sans succès
+            feedback_str = "Le contexte s'allonge, incertitude croissante.".to_string();
+        }
+
+        let mut ans_reaction = None;
+        if let Some(mind) = agent.mind_mut() {
+            // L'agent réfléchit à ce qu'il vient de faire
+            let res = mind.cognition.active_inference_cycle("Générer_Code_Projet", &feedback_str, "Code généré", &mind.memory.graph_memory).await;
+            if let Err(msg) = res {
+                ans_reaction = Some(msg);
+            }
+        }
+
+        if let Some(reaction) = ans_reaction {
+            if reaction.contains("FREEZE") {
+                println!("\n🚨 [SYSTEM_HALT] L'agent a déclenché un FREEZE métacognitif. Arrêt prématuré de la boucle de génération.");
+                break;
+            } else if reaction.contains("FLIGHT") {
+                println!("\n🔄 [RESET_CONTEXT] L'agent fuit l'impasse. Purge de l'historique (Flight) !");
+                // On garde seulement le system prompt et le tout premier user prompt
+                let sys = conversation_history[0].clone();
+                let usr = conversation_history[1].clone();
+                conversation_history.clear();
+                conversation_history.push(sys);
+                conversation_history.push(usr);
+                continue;
+            }
+        }
+        // -----------------------------------------------------
 
         let is_ready = code_response.contains("[READY]");
         if is_ready {
