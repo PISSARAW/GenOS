@@ -391,12 +391,43 @@ async fn handle_ingest(
     if let Err(e) = db.ingest_memory_chunk(&payload.id, &payload.text, &payload.speaker, payload.timestamp, &payload.session_id, &payload.vector).await {
         return Json(IngestResponse { status: format!("error: {}", e) });
     }
-    for rel in payload.relations {
-        if let Err(e) = db.ingest_entity_relation(&payload.id, &rel.entity_a, &rel.type_a, &rel.relation, &rel.entity_b, &rel.type_b).await {
-            return Json(IngestResponse { status: format!("error: {}", e) });
+    
+    if payload.relations.is_empty() {
+        // Asynchronisme: File d'attente (background task) + GLiNER
+        let text_to_extract = payload.text.clone();
+        let chunk_id = payload.id.clone();
+        let db_clone = db.clone();
+        
+        tokio::spawn(async move {
+            let client = reqwest::Client::new();
+            if let Ok(res) = client.post("http://127.0.0.1:8000/extract")
+                .json(&serde_json::json!({"text": text_to_extract}))
+                .send().await 
+            {
+                if let Ok(json) = res.json::<serde_json::Value>().await {
+                    if let Some(relations) = json["relations"].as_array() {
+                        for rel_val in relations {
+                            let ea = rel_val["entity_a"].as_str().unwrap_or("");
+                            let ta = rel_val["type_a"].as_str().unwrap_or("");
+                            let r = rel_val["relation"].as_str().unwrap_or("");
+                            let eb = rel_val["entity_b"].as_str().unwrap_or("");
+                            let tb = rel_val["type_b"].as_str().unwrap_or("");
+                            
+                            let _ = db_clone.ingest_entity_relation(&chunk_id, ea, ta, r, eb, tb).await;
+                        }
+                    }
+                }
+            }
+        });
+    } else {
+        for rel in payload.relations {
+            if let Err(e) = db.ingest_entity_relation(&payload.id, &rel.entity_a, &rel.type_a, &rel.relation, &rel.entity_b, &rel.type_b).await {
+                return Json(IngestResponse { status: format!("error: {}", e) });
+            }
         }
     }
-    Json(IngestResponse { status: "success".to_string() })
+    
+    Json(IngestResponse { status: "ok".to_string() })
 }
 
 #[derive(Deserialize)]
