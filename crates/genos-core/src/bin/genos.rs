@@ -401,11 +401,14 @@ async fn run_auto_loop(prompt: &str) {
     }
 
     // Phase 1 : Planification & Stack Technique (Cortex Préfrontal)
-    println!("🧠 [Cortex Préfrontal] Phase de Planification et Choix de la Stack Technique...");
+    let strategy_registry = genos_core::orchestrator::strategies::StrategyRegistry::new();
+    let strategies_list = strategy_registry.get_catalogue();
+    
+    println!("🧠 [Cortex Préfrontal] Choix parmi les 77 Stratégies de GenOS...");
     let mut plan_history = vec![
         genos_core::cell::hippocampus::ChatMessage {
             role: "system".to_string(),
-            content: "Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. Tu dois appliquer le principe des stratégies multiples : imagine plusieurs stratégies (architectures, stacks, angles d'attaque) pour aborder le problème. Évalue-les, puis choisis la meilleure. Ensuite, définis l'arborescence des fichiers, la stack technique optimale (frameworks, CDN, outils), et le design system (couleurs, UX, sections clés). Sois précis et concis dans ta décision finale.".to_string(),
+            content: format!("Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\nSélectionne la stratégie la plus adaptée (ex: 'plan_execute_verify' ou 'falsifiable_hypothesis_tree') et justifie ton choix. Ensuite, définis l'arborescence des fichiers, la stack technique optimale, et le design system.", strategies_list),
         },
         genos_core::cell::hippocampus::ChatMessage {
             role: "user".to_string(),
