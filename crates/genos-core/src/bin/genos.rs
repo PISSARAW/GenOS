@@ -399,6 +399,16 @@ async fn run_auto_loop(prompt: &str) {
         Toute violation de ces règles entrainera un rejet par l'Arbitre de Réalité.".to_string();
         let _ = std::fs::write(cwd.join(".genos.md"), &rules_content);
     }
+    // Phase 0 : Recherche de Références & Benchmarking
+    println!("🌍 [Système Sensoriel] Recherche de références design et de standards de l'industrie (Benchmarking via Puppeteer)...");
+    let script_path = std::env::current_dir().unwrap().join("crates/genos-core/src/orchestrator/benchmark_scraper.js");
+    let benchmark_output = std::process::Command::new("node")
+        .arg(&script_path)
+        .arg(&prompt)
+        .output()
+        .expect("Failed to run benchmark_scraper.js");
+    let benchmark_json = String::from_utf8_lossy(&benchmark_output.stdout).trim().to_string();
+    println!("✅ [Benchmarking] Standards trouvés : {}", benchmark_json);
 
     // Phase 1 : Planification & Stack Technique (Cortex Préfrontal)
     let strategy_registry = genos_core::orchestrator::strategies::StrategyRegistry::new();
@@ -408,7 +418,11 @@ async fn run_auto_loop(prompt: &str) {
     let mut plan_history = vec![
         genos_core::cell::hippocampus::ChatMessage {
             role: "system".to_string(),
-            content: format!("Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\nSélectionne la stratégie la plus adaptée (ex: 'plan_execute_verify' ou 'falsifiable_hypothesis_tree') et justifie ton choix. Ensuite, définis l'arborescence des fichiers, la stack technique optimale, et le design system.", strategies_list),
+            content: format!("Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande de l'utilisateur. 
+Voici les standards mondiaux du luxe et du design actuels trouvés en temps réel sur internet pour ce domaine :
+{}
+
+GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\nSélectionne la stratégie la plus adaptée (ex: 'plan_execute_verify' ou 'falsifiable_hypothesis_tree') et justifie ton choix. Ensuite, en te basant STRICTEMENT sur le benchmark design ci-dessus, définis l'arborescence des fichiers, la stack technique optimale, et le design system complet (les couleurs et les polices devront obligatoirement s'inspirer du benchmark).", benchmark_json, strategies_list),
         },
         genos_core::cell::hippocampus::ChatMessage {
             role: "user".to_string(),
