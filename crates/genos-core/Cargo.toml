@@ -7,7 +7,7 @@ description = "Core biological and deterministic structures for GenOS"
 [dependencies]
 crossbeam-channel = "0.5"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 dotenvy = "0.15"
 async-trait = "0.1"
 serde = { version = "1.0", features = ["derive"] }
@@ -22,7 +22,7 @@ clap = { version = "4.5", features = ["derive"] }
 prost = "0.13"
 bytes = "1.9.0"
 flate2 = "1.1.10"
-lbug = "=0.20.0"
+# lbug = "=0.20.0"
 axum = "0.8.9"
 
 [build-dependencies]
