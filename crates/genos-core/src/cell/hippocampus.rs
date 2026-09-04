@@ -67,6 +67,34 @@ impl GraphMemory {
         Ok("Mock Cypher Result".to_string())
     }
 
+    pub async fn awaken_self(&self) -> Result<(), String> {
+        let cypher = "
+            MERGE (a:Agent {id: 'self'}) 
+            ON CREATE SET a.name = 'GenOS', a.is_self = true
+        ";
+        self.execute_raw_cypher(cypher).await?;
+        Ok(())
+    }
+
+    pub async fn ingest_autobiographical_event(
+        &self, 
+        event_id: &str, 
+        action_name: &str, 
+        outcome: &str, 
+        prediction_error: f32
+    ) -> Result<(), String> {
+        let cypher = format!("
+            MATCH (me:Agent {{id: 'self'}})
+            CREATE (act:Action {{id: '{event_id}_act', tool_name: '{action_name}'}})
+            CREATE (evt:Event {{id: '{event_id}', content: '{outcome}', prediction_error: {prediction_error}}})
+            CREATE (me)-[:PERFORMED]->(act)
+            CREATE (act)-[:RESULTED_IN]->(evt)
+            CREATE (me)-[:EXPERIENCED]->(evt)
+        ");
+        self.execute_raw_cypher(&cypher).await?;
+        Ok(())
+    }
+
     pub async fn recall_semantic_vector(&self, _query_vector: &[f32], _k: u8) -> Result<String, String> {
         Ok("Mock Vector Result".to_string())
     }

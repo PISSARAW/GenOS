@@ -405,7 +405,7 @@ async fn run_auto_loop(prompt: &str) {
     let mut plan_history = vec![
         genos_core::cell::hippocampus::ChatMessage {
             role: "system".to_string(),
-            content: "Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. Définis l'arborescence des fichiers, la stack technique optimale (frameworks, CDN, outils), et le design system (couleurs, UX, sections clés) adaptés au métier visé (ex: cabinet d'avocats, e-commerce, etc.). Sois précis et concis.".to_string(),
+            content: "Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. Tu dois appliquer le principe des stratégies multiples : imagine plusieurs stratégies (architectures, stacks, angles d'attaque) pour aborder le problème. Évalue-les, puis choisis la meilleure. Ensuite, définis l'arborescence des fichiers, la stack technique optimale (frameworks, CDN, outils), et le design system (couleurs, UX, sections clés). Sois précis et concis dans ta décision finale.".to_string(),
         },
         genos_core::cell::hippocampus::ChatMessage {
             role: "user".to_string(),
