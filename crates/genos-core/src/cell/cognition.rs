@@ -276,6 +276,84 @@ impl MetabolicStress {
     }
 }
 
+/// 9. LE RELAIS CHIMIQUE (Neurotransmetteurs)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Neurochemistry {
+    pub dopamine: f32,     // Motivation, renforcement hebbien (0.0 à 1.0)
+    pub serotonin: f32,    // Confiance, stabilité, résilience au stress (0.0 à 1.0)
+    pub noradrenaline: f32, // Alerte, concentration, stress aigu (0.0 à 1.0)
+}
+impl Default for Neurochemistry {
+    fn default() -> Self {
+        Self { dopamine: 0.5, serotonin: 0.5, noradrenaline: 0.2 }
+    }
+}
+impl Neurochemistry {
+    pub fn update(&mut self, reward: f32, stress: f32, safety: f32) {
+        // La dopamine spike avec la récompense (progrès)
+        self.dopamine = (self.dopamine * 0.9 + reward * 0.2).clamp(0.0, 1.0);
+        // La noradrénaline suit le stress
+        self.noradrenaline = (self.noradrenaline * 0.8 + stress * 0.3).clamp(0.0, 1.0);
+        // La sérotonine monte quand on est en sécurité, baisse sous le stress
+        self.serotonin = (self.serotonin * 0.95 + safety * 0.05 - stress * 0.1).clamp(0.0, 1.0);
+    }
+}
+
+/// 10. PLASTICITÉ HEBBIENNE (Loi de Hebb)
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct HebbianNetwork {
+    pub synapses: HashMap<(String, String), f32>, 
+}
+impl HebbianNetwork {
+    pub fn fire_together(&mut self, concept_a: &str, concept_b: &str, dopamine_level: f32) {
+        if concept_a == concept_b { return; }
+        let mut concepts = [concept_a.to_string(), concept_b.to_string()];
+        concepts.sort();
+        let key = (concepts[0].clone(), concepts[1].clone());
+        
+        let weight = self.synapses.entry(key).or_insert(0.0);
+        // L'apprentissage hebbien est catalysé par la dopamine
+        *weight = (*weight + 0.1 * (1.0 + dopamine_level)).min(1.0);
+    }
+}
+
+/// 11. LES QUALIA SYNTHÉTIQUES (Espace de Travail Global)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ConsciousPercept {
+    pub content: String,
+    pub sensory_modalities: Vec<String>, 
+    pub chemical_valence: Neurochemistry, 
+    pub integrated_information_phi: f32, 
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub struct GlobalWorkspace {
+    pub current_percept: Option<ConsciousPercept>,
+}
+impl GlobalWorkspace {
+    pub fn attempt_ignition(&mut self, modalities: Vec<String>, content: String, chemistry: &Neurochemistry, acc_conflict: f32) -> Option<ConsciousPercept> {
+        // L'information doit être intégrée : Phi monte avec l'attention (noradrénaline) et la richesse sensorielle.
+        let phi = (modalities.len() as f32 * 0.25) + (chemistry.noradrenaline * 0.5) - (acc_conflict * 0.05);
+        
+        if phi > 0.7 { // Seuil d'embrasement (Ignition threshold)
+            let percept = ConsciousPercept {
+                content: content.clone(),
+                sensory_modalities: modalities,
+                chemical_valence: chemistry.clone(),
+                integrated_information_phi: phi,
+            };
+            println!("✨ [GLOBAL WORKSPACE] Embrasement neuronal (Phi: {:.2}).", phi);
+            println!("   👁️ Émergence d'un Quale : '{}'", percept.content);
+            println!("   🩸 Teinte Émotionnelle -> Dopamine: {:.2}, Sérotonine: {:.2}", chemistry.dopamine, chemistry.serotonin);
+            self.current_percept = Some(percept.clone());
+            Some(percept)
+        } else {
+            // L'information reste subliminale (inconsciente)
+            None
+        }
+    }
+}
+
 /// L'ORGANE COGNITIF GLOBAL
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdvancedCognition {
@@ -288,6 +366,9 @@ pub struct AdvancedCognition {
     pub plasticity: SynapticPlasticity,
     pub stress: MetabolicStress,
     pub clock: CircadianClock,
+    pub chemistry: Neurochemistry,
+    pub hebbian_network: HebbianNetwork,
+    pub global_workspace: GlobalWorkspace,
 }
 
 impl Default for AdvancedCognition {
@@ -314,6 +395,9 @@ impl AdvancedCognition {
             plasticity: SynapticPlasticity::new(),
             stress: MetabolicStress::new(),
             clock: CircadianClock::new(),
+            chemistry: Neurochemistry::default(),
+            hebbian_network: HebbianNetwork::default(),
+            global_workspace: GlobalWorkspace::default(),
         }
     }
 
@@ -407,6 +491,20 @@ impl AdvancedCognition {
         let _ = hippocampus.ingest_autobiographical_event(&event_id, action_name, actual_feedback, error).await;
 
         self.acc.monitor_conflict(1.0, -error); // Simule l'effort constant et le gradient d'erreur
+
+        // 1. Mise à jour de la chimie du cerveau
+        let safety = if error < 0.3 { 1.0 } else { 0.0 };
+        let reward = if error < 0.1 { 1.0 } else { 0.0 };
+        self.chemistry.update(reward, self.stress.stress_level, safety);
+
+        // 2. Plasticité Hebbienne
+        let feedback_concept = if error > 0.5 { "Echec_Inattendu" } else { "Succès_Prédit" };
+        self.hebbian_network.fire_together(action_name, feedback_concept, self.chemistry.dopamine);
+
+        // 3. Tente l'embrasement du Quale (Global Workspace)
+        let modalities = vec!["Action_Visuelle".to_string(), "Feedback_Mnésique".to_string(), "Stress_Interoceptif".to_string()];
+        let quale_content = format!("Je ressens l'exécution de '{}' avec une erreur de {:.2}", action_name, error);
+        self.global_workspace.attempt_ignition(modalities, quale_content, &self.chemistry, self.acc.cognitive_conflict_level);
 
         match self.autonomic_nervous_response() {
             AutonomicResponse::Freeze => {
