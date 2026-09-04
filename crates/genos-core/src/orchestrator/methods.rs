@@ -357,6 +357,49 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
         }
         branches
     }
+
+    /// MITOSE INVERSÉE (MERGE) : Promeut une branche gagnante comme nouvelle réalité principale.
+    /// Les connaissances et l'état de la branche écrasent ceux du parent.
+    pub fn merge_winning_branch(&mut self, parent_cell: &mut AgentCell, winning_branch: AgentCell, other_branches: &mut Vec<AgentCell>) {
+        // 1. Apoptose des autres branches (Elles ont échoué ou été plus lentes)
+        for mut branch in other_branches.drain(..) {
+            branch.conscience.is_apoptotic = true;
+            println!("🗑️ [Pruning] La branche perdante {} est détruite.", branch.cell_id);
+            // TODO: Nettoyer physiquement les bases KuzuDB orphelines de ces branches
+        }
+
+        // 2. Fusion de la Mémoire (Hippocampus)
+        if let Some(winner_mind) = winning_branch.mind() {
+            if let Some(winner_graph) = &winner_mind.cognitive_state.hippocampus {
+                if let Some(parent_mind) = parent_cell.mind_mut() {
+                    if let Some(parent_graph) = &mut parent_mind.cognitive_state.hippocampus {
+                        // Le parent adopte la base de données du gagnant (Overwrite)
+                        let parent_db_path = parent_graph.db_path.clone();
+                        
+                        let _ = std::fs::copy(&winner_graph.db_path, &parent_db_path);
+                        if std::path::Path::new(&format!("{}.wal", winner_graph.db_path)).exists() {
+                            let _ = std::fs::copy(&format!("{}.wal", winner_graph.db_path), &format!("{}.wal", parent_db_path));
+                        }
+
+                        // Nettoyage de la base de données temporaire de la branche gagnante
+                        let _ = std::fs::remove_file(&winner_graph.db_path);
+                        let _ = std::fs::remove_file(&format!("{}.wal", winner_graph.db_path));
+                    }
+                }
+            }
+        }
+
+        // 3. Fusion de l'état cognitif
+        let parent_uuid = parent_cell.cell_id;
+        *parent_cell = winning_branch;
+        parent_cell.cell_id = parent_uuid; // Restauration de l'identité racine
+        
+        // 4. Boost de l'Énergie
+        parent_cell.conscience.eureka_moments += 1;
+        parent_cell.conscience.current_budget += 50.0;
+        
+        println!("🧬 [Mitose / Merge] La branche a été fusionnée. Le parent {} hérite de la nouvelle réalité.", parent_cell.cell_id);
+    }
 }
 
 
