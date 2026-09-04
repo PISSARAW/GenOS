@@ -47,7 +47,7 @@ function missionTokens(value) {
     .split(/[^a-z0-9]+/)
     .map((token) => token.length > 4 && token.endsWith('ies')
       ? `${token.slice(0, -3)}y`
-      : token.length > 4 && token.endsWith('s') ? token.slice(0, -1) : token)
+      : token.length > 4 && token.endsWith('s') && !token.endsWith('ss') && !token.endsWith('us') && !token.endsWith('is') && !['always', 'analysis', 'status', 'process'].includes(token) ? token.slice(0, -1) : token)
     .filter((token) => token.length >= 3 && !MISSION_STOP_WORDS.has(token));
 }
 
@@ -110,7 +110,8 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
 }
 
 async function state(db, orchestratorId) {
-  const activeWorkers = await db.all(
+  const { activeProcesses } = require('./agentOrchestrationState');
+  const dbWorkers = await db.all(
     `SELECT id, name, role, current_task as currentTask, status, created_at as createdAt
      FROM agents
      WHERE parent_agent_id = ? AND execution_mode = 'worker'
@@ -118,6 +119,15 @@ async function state(db, orchestratorId) {
      ORDER BY created_at, id`,
     orchestratorId
   );
+  // Empêche les "zombies" (agents running en DB mais processus mort au redémarrage)
+  const activeWorkers = dbWorkers.filter(w => activeProcesses.has(w.id));
+  
+  // Clean up des zombies en arrière-plan
+  const zombies = dbWorkers.filter(w => !activeProcesses.has(w.id));
+  for (const z of zombies) {
+    db.run("UPDATE agents SET status = 'error', current_task = 'Orphaned by server restart' WHERE id = ?", z.id).catch(() => {});
+  }
+
   return {
     capacity: MAX_ACTIVE_WORKERS,
     occupied: activeWorkers.length,
