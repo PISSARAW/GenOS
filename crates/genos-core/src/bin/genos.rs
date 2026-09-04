@@ -457,7 +457,7 @@ GenOS dispose de 77 stratégies d'approche. Voici un extrait du catalogue :\n{}\
             conversation_history.push(
                 genos_core::cell::hippocampus::ChatMessage {
                     role: "system".to_string(),
-                    content: format!("You are an autonomous expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks around the file.\n\nYou operate in a multi-cycle loop. You must build the complete project. When you consciously decide that the project is 100% complete, fully functional, and ready for human end-users, you MUST output exactly the token [READY] at the very end of your response.\n\nRULES:\n{}\n\n=== ARCHITECTURE & CONTEXTE MÉTIER DÉFINIS PAR L'ARCHITECTE ===\n{}\n===================================", rules_content, architecture_plan),
+                    content: format!("You are an autonomous expert developer. You can output necessary files OR run terminal commands. Format strictly as:\nFILE: filename.ext\n<content>\nOR\nCMD: npm install something\nNO markdown blocks around the file. If you need to scaffold a project, run the CMD first.\n\nYou operate in a multi-cycle loop. You must build the complete project. When you consciously decide that the project is 100% complete, fully functional, and ready for human end-users, you MUST output exactly the token [READY] at the very end of your response.\n\nRULES:\n{}\n\n=== ARCHITECTURE & CONTEXTE MÉTIER DÉFINIS PAR L'ARCHITECTE ===\n{}\n===================================", rules_content, architecture_plan),
                 }
             );
             conversation_history.push(
