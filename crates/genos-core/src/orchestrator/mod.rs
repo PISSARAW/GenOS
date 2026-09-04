@@ -1,11 +1,13 @@
-﻿pub mod therapies;
+pub mod therapies;
 pub mod methods;
 pub mod cart;
 pub mod systems;
+pub mod conscience;
 
 pub use therapies::*;
 pub use cart::*;
 pub use systems::*;
+pub use conscience::*;
 
 use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
