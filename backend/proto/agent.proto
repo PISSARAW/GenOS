@@ -1,0 +1,23 @@
+syntax = "proto3";
+package genos.agent.v1;
+
+service AgentService {
+  rpc StartMission (AgentMission) returns (MissionResponse);
+  rpc StopMission (AgentId) returns (StatusResponse);
+}
+
+message AgentMission {
+  string agent_id = 1;
+  string name = 2;
+  string role = 3;
+  string prompt = 4;
+  string model_tier = 5;
+  string workspace_root = 6;
+  string workspace_isolation = 7;
+  string agent_type = 8;
+  string execution_mode = 9;
+}
+
+message AgentId { string id = 1; }
+message MissionResponse { bool success = 1; string message = 2; }
+message StatusResponse { bool stopped = 1; string status = 2; }

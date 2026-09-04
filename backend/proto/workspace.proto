@@ -1,13 +1,15 @@
 syntax = "proto3";
-
-package genos.workspace;
+package genos.workspace.v1;
 
 service WorkspaceService {
-  rpc Ping (Empty) returns (PingResponse);
+  rpc ProvisionWorkspace (ProvisionRequest) returns (ProvisionResponse);
+  rpc CleanWorkspace (CleanRequest) returns (CleanResponse);
 }
 
-message Empty {}
-
-message PingResponse {
-  string status = 1;
+message ProvisionRequest {
+  string workspace_id = 1;
+  string isolation_mode = 2; // e.g. "Branch", "Share"
 }
+message ProvisionResponse { string workspace_root = 1; }
+message CleanRequest { string workspace_id = 1; }
+message CleanResponse { bool success = 1; }

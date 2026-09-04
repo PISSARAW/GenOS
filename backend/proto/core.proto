@@ -1,0 +1,11 @@
+syntax = "proto3";
+package genos.core.v1;
+
+service CoreService {
+  rpc Ping (Empty) returns (StatusResponse);
+  rpc GetSystemHealth (Empty) returns (HealthResponse);
+}
+
+message Empty {}
+message StatusResponse { string status = 1; }
+message HealthResponse { bool healthy = 1; string uptime = 2; }
