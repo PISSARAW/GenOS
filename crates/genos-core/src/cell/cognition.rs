@@ -253,7 +253,13 @@ impl AdvancedCognition {
         }
     }
 
-    pub fn active_inference_cycle(&mut self, action_name: &str, prediction: &str, actual_feedback: &str) -> Result<String, String> {
+    pub async fn active_inference_cycle(
+        &mut self, 
+        action_name: &str, 
+        prediction: &str, 
+        actual_feedback: &str,
+        hippocampus: &crate::cell::hippocampus::GraphMemory
+    ) -> Result<String, String> {
         // Avance le temps d'une heure à chaque cycle d'inférence
         self.clock.tick(1);
 
@@ -292,6 +298,9 @@ impl AdvancedCognition {
 
         let error = self.predictive_coding.calculate_weighted_error(&self.markov_blanket.sensory_states);
 
+        let event_id = uuid::Uuid::new_v4().to_string();
+        let _ = hippocampus.ingest_autobiographical_event(&event_id, action_name, actual_feedback, error).await;
+
         if self.pfc.acc_evaluate_task_switch(error) {
             self.pfc.drift_detected = true;
             return Err("🔄 [ACC TASK-SWITCHING] Trop d'erreurs consécutives. Le Cortex Cingulaire Antérieur force un changement de stratégie.".to_string());
@@ -322,73 +331,85 @@ impl AdvancedCognition {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cell::hippocampus::GraphMemory;
 
-    #[test]
-    fn test_ofc_inhibition_and_phineas_gage() {
+    async fn get_mock_hippo() -> GraphMemory {
+        GraphMemory { db_path: "mock.db".to_string() }
+    }
+
+    #[tokio::test]
+    async fn test_ofc_inhibition_and_phineas_gage() {
         let mut cognition = AdvancedCognition::new("Serveur web");
-        let result_safe = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
+        let hippo = get_mock_hippo().await;
+        let result_safe = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur", &hippo).await;
         assert!(result_safe.is_err());
         assert!(result_safe.unwrap_err().contains("OFC INHIBITION"));
 
         cognition.pfc.human_induce_phineas_gage_lesion();
-        let result_gage = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur");
+        let result_gage = cognition.active_inference_cycle("rm -rf /", "Réussite", "Erreur", &hippo).await;
         assert!(result_gage.is_err());
         assert!(!result_gage.unwrap_err().contains("OFC INHIBITION")); 
     }
 
-    #[test]
-    fn test_acc_task_switching() {
+    #[tokio::test]
+    async fn test_acc_task_switching() {
         let mut cognition = AdvancedCognition::new("Serveur web");
-        let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
-        let _ = cognition.active_inference_cycle("Action", "OK", "Fail");
-        let result = cognition.active_inference_cycle("Action", "OK", "Fail");
+        let hippo = get_mock_hippo().await;
+        let _ = cognition.active_inference_cycle("Action", "OK", "Fail", &hippo).await;
+        let _ = cognition.active_inference_cycle("Action", "OK", "Fail", &hippo).await;
+        let result = cognition.active_inference_cycle("Action", "OK", "Fail", &hippo).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("ACC TASK-SWITCHING"));
     }
 
-    #[test]
-    fn test_active_inference_anti_drift() {
+    #[tokio::test]
+    async fn test_active_inference_anti_drift() {
         let mut cognition = AdvancedCognition::new("Serveur web");
-        let success = cognition.active_inference_cycle("Ecrire_Fichier", "OK", "Le fichier a été créé (OK)");
+        let hippo = get_mock_hippo().await;
+        let success = cognition.active_inference_cycle("Ecrire_Fichier", "OK", "Le fichier a été créé (OK)", &hippo).await;
         assert!(success.is_ok());
     }
 
-    #[test]
-    fn test_schizophrenia_hallucination() {
+    #[tokio::test]
+    async fn test_schizophrenia_hallucination() {
         let mut cognition = AdvancedCognition::new("Serveur web");
+        let hippo = get_mock_hippo().await;
         cognition.pathology.schizophrenia_spectrum = true;
-        let result = cognition.active_inference_cycle("Compiler", "Réussite", "FATAL ERROR");
+        let result = cognition.active_inference_cycle("Compiler", "Réussite", "FATAL ERROR", &hippo).await;
         assert!(result.is_ok());
         assert!(result.unwrap().contains("HALLUCINATION"));
     }
 
-    #[test]
-    fn test_autism_stereotypy() {
+    #[tokio::test]
+    async fn test_autism_stereotypy() {
         let mut cognition = AdvancedCognition::new("Serveur web");
+        let hippo = get_mock_hippo().await;
         cognition.pathology.autism_spectrum = true;
-        let result = cognition.active_inference_cycle("Compiler", "Réussite", "Warning");
+        let result = cognition.active_inference_cycle("Compiler", "Réussite", "Warning", &hippo).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("STÉRÉOTYPIE"));
     }
 
-    #[test]
-    fn test_circadian_morning_surge() {
+    #[tokio::test]
+    async fn test_circadian_morning_surge() {
         let mut cognition = AdvancedCognition::new("Serveur web");
+        let hippo = get_mock_hippo().await;
         cognition.clock.current_hour = 5; // Prochain tick -> 6h (Morning Surge)
         cognition.stress.stress_level = 0.9; // Stress élevé, propice à l'infarctus
         
-        let result = cognition.active_inference_cycle("Action", "OK", "OK");
+        let result = cognition.active_inference_cycle("Action", "OK", "OK", &hippo).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("INFARCTUS"));
     }
 
-    #[test]
-    fn test_night_shift_damage() {
+    #[tokio::test]
+    async fn test_night_shift_damage() {
         let mut cognition = AdvancedCognition::new("Serveur web");
+        let hippo = get_mock_hippo().await;
         cognition.clock.current_hour = 23; // Nuit (23h + 1 = 0h)
         assert_eq!(cognition.clock.circadian_misalignment, 0.0);
         
-        let _ = cognition.active_inference_cycle("Action", "OK", "OK");
+        let _ = cognition.active_inference_cycle("Action", "OK", "OK", &hippo).await;
         assert!(cognition.clock.circadian_misalignment > 0.0); // Les dommages doivent augmenter
     }
 }
