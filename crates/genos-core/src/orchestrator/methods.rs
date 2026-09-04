@@ -344,9 +344,9 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
             // 4. Deep clone de l'Hippocampus (KuzuDB/LadybugDB)
             // Copie physique du fichier de base de données pour garantir l'isolation parfaite.
             if let Some(mind) = clone.mind_mut() {
-                if let Some(graph_mem) = &mut mind.hippocampus {
+                if let Some(graph_mem) = &mut mind.cognitive_state.hippocampus {
                     let new_graph_mem = graph_mem.fork(&clone.cell_id.to_string());
-                    mind.hippocampus = Some(new_graph_mem);
+                    mind.cognitive_state.hippocampus = Some(new_graph_mem);
                 }
             }
 
