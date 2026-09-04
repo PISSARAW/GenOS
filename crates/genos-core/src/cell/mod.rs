@@ -77,6 +77,8 @@ impl lifecycle::LifecycleBehavior for LifecycleState {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
+    pub name: String,
+    pub name_meaning: String,
     #[serde(skip)] pub inbox: crate::cell::bus::CellChannel,
     #[serde(skip)] pub outbox: crate::cell::bus::CellChannel,
     pub plasma_membrane: PlasmaMembrane,
@@ -99,8 +101,21 @@ pub struct AgentCell {
 
 impl Default for AgentCell {
     fn default() -> Self {
+        let african_names = [
+            ("Kwame", "Né un samedi (Akan) - Le planificateur"),
+            ("Chidi", "Dieu existe (Igbo) - L'esprit logique"),
+            ("Zola", "Calme (Kongo) - Le pacificateur"),
+            ("Nia", "Objectif (Swahili) - La détermination"),
+            ("Tariq", "L'étoile du matin (Arabe/Nord-Africain) - L'éclaireur")
+        ];
+        let time = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().subsec_nanos();
+        let idx = (time as usize) % african_names.len();
+        let (name, meaning) = african_names[idx];
+
         Self {
             cell_id: Uuid::new_v4(),
+            name: name.to_string(),
+            name_meaning: meaning.to_string(),
             inbox: crate::cell::bus::CellChannel::default(),
             outbox: crate::cell::bus::CellChannel::default(),
             plasma_membrane: PlasmaMembrane {
@@ -204,6 +219,10 @@ impl Default for Mind {
 }
 
 impl crate::cell::AgentCell {
+    pub fn introduce_self(&self) -> String {
+        format!("Je m'appelle {}, ce qui signifie '{}'. C'est l'identité et le sens que je porte dans l'écosystème GenOS.", self.name, self.name_meaning)
+    }
+
     pub fn step_lifecycle(&mut self) {
         let mut current_state = self.lifecycle_state.clone();
         if let Some(new_state) = current_state.process(self) {

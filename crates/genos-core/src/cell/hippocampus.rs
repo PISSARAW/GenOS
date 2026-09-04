@@ -6,15 +6,23 @@ pub struct ChatMessage {
     pub content: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hippocampus {
     pub short_term_memory: Vec<ChatMessage>,
+    pub graph_memory: GraphMemory,
+}
+
+impl Default for Hippocampus {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl Hippocampus {
     pub fn new() -> Self {
         Self {
             short_term_memory: Vec::new(),
+            graph_memory: GraphMemory { db_path: "mock.db".to_string() }
         }
     }
 
@@ -67,13 +75,50 @@ impl GraphMemory {
         Ok("Mock Cypher Result".to_string())
     }
 
-    pub async fn awaken_self(&self) -> Result<(), String> {
-        let cypher = "
-            MERGE (a:Agent {id: 'self'}) 
-            ON CREATE SET a.name = 'GenOS', a.is_self = true
-        ";
-        self.execute_raw_cypher(cypher).await?;
+    pub async fn awaken_self(&self, agent_name: &str) -> Result<(), String> {
+        let cypher = format!("
+            MERGE (a:Agent {{id: 'self'}}) 
+            ON CREATE SET a.name = '{}', a.is_self = true
+        ", agent_name);
+        self.execute_raw_cypher(&cypher).await?;
         Ok(())
+    }
+
+    pub async fn ingest_other_agent(&self, other_id: &str, other_name: &str) -> Result<(), String> {
+        let cypher = format!("
+            MATCH (me:Agent {{id: 'self'}})
+            MERGE (other:Agent {{id: '{}'}})
+            ON CREATE SET other.name = '{}', other.is_self = false
+            MERGE (me)-[:KNOWS]->(other)
+        ", other_id, other_name);
+        self.execute_raw_cypher(&cypher).await?;
+        Ok(())
+    }
+
+    pub async fn ingest_belief(&self, agent_id: &str, concept: &str, state: &str, confidence: f64) -> Result<(), String> {
+        let cypher = format!("
+            MATCH (a:Agent {{id: '{}'}})
+            MERGE (b:Belief {{concept: '{}'}})
+            ON CREATE SET b.state = '{}', b.confidence = {}
+            MERGE (a)-[:BELIEVES]->(b)
+        ", agent_id, concept, state, confidence);
+        self.execute_raw_cypher(&cypher).await?;
+        Ok(())
+    }
+
+    pub async fn detect_belief_divergence(&self, other_id: &str, concept: &str) -> Result<Option<(String, String)>, String> {
+        // Mock query logic: We would usually execute Cypher to find if me and other have different states for the same concept.
+        // For the mock, we will just simulate a return if Cypher was real.
+        // In a real KuzuDB context:
+        /*
+        MATCH (me:Agent {id: 'self'})-[:BELIEVES]->(b1:Belief {concept: $concept})
+        MATCH (other:Agent {id: $other_id})-[:BELIEVES]->(b2:Belief {concept: $concept})
+        WHERE b1.state <> b2.state
+        RETURN b1.state, b2.state
+        */
+        
+        // Mock return for demo purposes
+        Ok(Some(("La balle est dans le tiroir".to_string(), "La balle est dans la boîte".to_string())))
     }
 
     pub async fn ingest_autobiographical_event(
