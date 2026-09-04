@@ -90,6 +90,7 @@ pub struct AgentCell {
     pub quorum_sensor: quorum_sensing::QuorumSensor,
     pub endocrine: endocrine::EndocrineSystem,
     pub morphogenesis: morphogenesis::MorphogenesisSystem,
+    pub conscience: crate::orchestrator::conscience::ConscienceState,
     
     pub components: Vec<CellComponent>,
 }
@@ -142,6 +143,7 @@ impl Default for AgentCell {
             quorum_sensor: quorum_sensing::QuorumSensor::default(),
             endocrine: endocrine::EndocrineSystem::default(),
             morphogenesis: morphogenesis::MorphogenesisSystem::default(),
+            conscience: crate::orchestrator::conscience::ConscienceState::default(),
             components: vec![
                 CellComponent::Mind(Mind::default()), // Default fallback
                 CellComponent::Cilia(cilia::Cilia::default()),
