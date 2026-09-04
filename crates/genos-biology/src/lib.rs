@@ -12,3 +12,12 @@ mod tests {
         assert_eq!(result, 4);
     }
 }
+pub mod neurobiology;
+pub mod ecology;
+pub mod signaling;
+pub mod spore;
+pub mod embryology;
+pub mod tissue;
+pub mod redundancy;
+pub mod therapy;
+pub mod bioluminescence;

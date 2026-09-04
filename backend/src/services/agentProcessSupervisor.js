@@ -116,36 +116,44 @@ async function superviseMission({ db, agentId, normalizedMission, dispatchedAgen
         actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: agentId, decision, event, workspaceRoot }).catch(() => {});
       }).catch(() => {});
     }
-    executionQueue = executionQueue
-      .then(() => strategyExecution.recordExecutionEvent(db, agentId, event))
-      .then(async (decision) => {
-        // Codex reports aggregate usage on `turn.completed` (mapped to VERIFY).
-        // At that point the model has already produced its final report; record
-        // a budget breach on the execution run, but do not SIGTERM a completed
-        // turn and overwrite its result with AGENT_HALTED.
-        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || event.action === 'VERIFY';
-        const observation = await hallucinationMonitor.recordObservation(db, event);
+    eventQueue.push(event);
+    processEventQueue();
+    return event;
+  };
+
+  const eventQueue = [];
+  let isProcessingEvents = false;
+  const processEventQueue = async () => {
+    if (isProcessingEvents) return;
+    isProcessingEvents = true;
+    while (eventQueue.length > 0) {
+      const currentEvent = eventQueue.shift();
+      try {
+        const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
+        const eventType = currentEvent.eventType;
+        const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || currentEvent.action === 'VERIFY';
+        const observation = await hallucinationMonitor.recordObservation(db, currentEvent);
         if (observation.monitored && observation.detected) {
           emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
-            sourceEventId: event.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
+            sourceEventId: currentEvent.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
           }, 'warning');
           const autopsy = await resilienceService.evaluateApoptosis(agentId, { hallucinations: observation.total }, db);
           if (autopsy.apoptosisExecuted && !termination && !finalEvent) {
             emit(agentId, 'APOPTOSIS_TRIGGERED', 'HALLUCINATION_LIMIT', autopsy.triggerReason, { autopsy }, 'critical', 'apoptosis');
             haltRuntime('apoptosis', autopsy.triggerReason, 'Runtime halted after the hallucination limit was reached.', { autopsy });
-            return;
+            continue;
           }
         }
-      // A final runtime event may report that the mission exceeded its budget
-      // only after the child has already completed. Record the guardrail on
-      // the execution run, but never turn that completed child into a SIGTERM
-      // failure and overwrite the agent's terminal state.
-      if (decision?.halt && !termination && !finalEvent) {
-        emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
-        haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
+        if (decision?.halt && !termination && !finalEvent) {
+          emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
+          haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
+        }
+        await advanceAutonomousRound(normalizedMission, currentEvent);
+      } catch (err) {
+        console.error('Error processing event', err);
       }
-      await advanceAutonomousRound(normalizedMission, event);
-      }).catch(() => {});
+    }
+    isProcessingEvents = false;
     return event;
   };
 
