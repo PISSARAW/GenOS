@@ -28,14 +28,23 @@ impl VentralTegmentalArea {
     pub fn evaluate_event(&self, event: &CellEvent) -> (Neurotransmitter, f64) {
         match event {
             // Heuristiques de succès (Eureka / Progress)
-            CellEvent::TaskExecuted { result, .. } if result.contains("SUCCESS") || result.contains("OK") => {
-                (Neurotransmitter::Dopamine, 10.0) // Gros pic de dopamine
+            CellEvent::TaskExecuted { task_name: _, result } if result.contains("SUCCESS") || result.contains("OK") => {
+                // LA SIGNALISATION COÛTEUSE (Handicap de Zahavi)
+                // Si l'agent prétend avoir réussi ou validé une tâche, mais que son explication
+                // (proxy pour la consommation de tokens/énergie) est trop brève (ex: "LGTM", "OK"),
+                // c'est un signal trompeur/faible. La VTA le punit au lieu de le récompenser.
+                if result.len() < 50 {
+                    println!("📉 [VTA - Zahavi] Signal trompeur ou collusion détectée (trop court). Dopamine refusée, GABA sécrété.");
+                    (Neurotransmitter::GABA, 10.0)
+                } else {
+                    (Neurotransmitter::Dopamine, 10.0) // Gros pic de dopamine pour un vrai travail
+                }
             }
             CellEvent::Recovered(_) => {
                 (Neurotransmitter::Dopamine, 5.0)
             }
             // Heuristiques d'erreur (Prediction Error / Dissonance)
-            CellEvent::TaskExecuted { result, .. } if result.contains("ERROR") || result.contains("FAIL") => {
+            CellEvent::TaskExecuted { task_name: _, result } if result.contains("ERROR") || result.contains("FAIL") => {
                 // Chute de la dopamine, libération de signaux inhibiteurs
                 (Neurotransmitter::GABA, 5.0) 
             }
