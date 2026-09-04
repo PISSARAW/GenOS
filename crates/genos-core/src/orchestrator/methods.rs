@@ -36,6 +36,32 @@ impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I
         }
     }
 
+    /// DÉCLENCHE LA DYNAMIQUE DE LA REINE ROUGE (Course aux Armements)
+    /// Lie deux agents (un développeur et un testeur/attaquant) dans un jeu à somme nulle.
+    pub fn spawn_red_queen_competition(&mut self, prey_id: &str, predator_id: &str) {
+        self.ecology.red_queen = Some(crate::ecology::RedQueenDynamics {
+            prey_id: prey_id.to_string(),
+            predator_id: predator_id.to_string(),
+        });
+        println!("👑 [REINE ROUGE] Course aux armements engagée : La Proie (Dev) {} doit survivre aux tests du Prédateur (QA) {}.", prey_id, predator_id);
+    }
+
+    /// RÉSOUT LA DYNAMIQUE DE LA REINE ROUGE
+    /// Si le testeur trouve une faille, le développeur meurt. Si le code résiste, le testeur meurt de faim.
+    pub fn resolve_red_queen(&mut self, predator_wins: bool) -> Option<String> {
+        if let Some(rq) = &self.ecology.red_queen {
+            let resolution_msg = rq.resolve_competition(predator_wins);
+            println!("{}", resolution_msg);
+            
+            // TODO: Dans une implémentation complète, on chercherait l'agent perdant
+            // dans un registre (Vec<AgentCell>) pour forcer `agent.conscience.is_apoptotic = true`.
+            
+            self.ecology.red_queen = None; // Fin du duel
+            return Some(resolution_msg);
+        }
+        None
+    }
+
     /// Applique les anticorps circulants sur les virus flottants dans le systÃ¨me
     pub fn process_humoral_immunity(
         &mut self,
