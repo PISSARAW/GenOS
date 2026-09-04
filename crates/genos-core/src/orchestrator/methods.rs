@@ -10,6 +10,7 @@ impl Orchestrator<StandardImmuneSystem, StandardEndocrineSystem, StandardNervous
             nervous_system: StandardNervousSystem::default(),
             viral_environment: vec![],
             conscience: crate::orchestrator::conscience::Conscience::new(50.0, 100.0),
+            vta: crate::orchestrator::vta::VentralTegmentalArea::new(0.5),
         }
     }
 }

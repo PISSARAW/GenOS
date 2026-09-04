@@ -1,4 +1,4 @@
-﻿
+
 use crate::cell::Antibody;
 use crate::signaling::Ligand;
 use crate::orchestrator::{CleftMessage, PsychoactiveDrug};
@@ -116,31 +116,31 @@ impl NervousBehavior for StandardNervousSystem {
 
 use crate::cell::AgentCell;
 use crate::orchestrator::conscience::Conscience;
+use crate::orchestrator::vta::VentralTegmentalArea;
 
 /// Parcours tous les clones / cellules agents et applique l'évaluation de la Conscience.
 /// Coupe les branches (cellules) qui sont entrées en apoptose.
-pub fn process_conscience(conscience_model: &Conscience, cells: &mut Vec<AgentCell>) {
+pub fn process_conscience(conscience_model: &Conscience, vta_model: &VentralTegmentalArea, cells: &mut Vec<AgentCell>) {
     cells.retain_mut(|cell| {
-        // TODO: Extraire ces métriques depuis les logs ou le mind de l'agent
-        // Pour l'instant, heuristique basique.
         let mut errors = 0;
         let mut progress = 1.0; // Progression naturelle
 
-        // Si l'agent est en boucle (trop de traces sans rÃ©sultat) on le pÃ©nalise
+        // Injection de la Dopamine/GABA via la VTA basée sur les traces
         if let Some(mind) = cell.mind() {
             if mind.trace.sequence.len() > 50 {
                 errors += 1;
             }
+            // La VTA "regarde" les événements de l'agent et modifie son état de conscience (Dopamine flush)
+            vta_model.process_trace_and_infuse(&mind.trace.sequence, &mut cell.conscience);
         }
 
         conscience_model.evaluate_branch(&mut cell.conscience, errors, progress);
 
         if cell.conscience.is_apoptotic {
-            // La conscience a décidée que cette branche devait mourir
-            println!("💀 [Apoptose Cognitive] La branche {} a Ã©tÃ© supprimÃ©e suite Ã  une dissonance cognitive dÃ©passant le seuil.", cell.cell_id);
-            false // On la retire du vecteur (Death)
+            println!("💀 [Apoptose Cognitive] La branche {} a été supprimée suite à une dissonance cognitive dépassant le seuil.", cell.cell_id);
+            false 
         } else {
-            true // On la garde en vie
+            true 
         }
     });
 }
