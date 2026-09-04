@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Ollama Cloud Only",
+    "chat_url": "http://127.0.0.1:11434/v1/chat/completions",
+    "models_url": "http://127.0.0.1:11434/api/tags",
+    "key": "",
+    "format": "ollama",
+    "profiles": {
+      "deepseek-v4-flash:cloud": {
+        "tier": "fast",
+        "advantages": ["json_formatting", "speed"],
+        "disadvantages": []
+      },
+      "deepseek-v4-pro:cloud": {
+        "tier": "logic",
+        "advantages": ["code", "tested_ok", "step_by_step"],
+        "disadvantages": ["slow"]
+      },
+      "glm-5.3:cloud": {
+        "tier": "heavy",
+        "advantages": ["code", "nuance", "tool_calling", "tested_ok"],
+        "disadvantages": []
+      }
+    }
+  }
+]
