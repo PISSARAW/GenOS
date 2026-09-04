@@ -126,12 +126,33 @@ pub fn process_conscience(conscience_model: &Conscience, vta_model: &VentralTegm
         let mut progress = 1.0; // Progression naturelle
 
         // Injection de la Dopamine/GABA via la VTA basée sur les traces
+        let (mut vta_dopamine, mut vta_gaba, mut is_looping) = (0.0, 0.0, false);
+        
         if let Some(mind) = cell.mind() {
             if mind.trace.sequence.len() > 50 {
-                errors += 1;
+                is_looping = true;
             }
-            // La VTA "regarde" les événements de l'agent et modifie son état de conscience (Dopamine flush)
-            vta_model.process_trace_and_infuse(&mind.trace.sequence, &mut cell.conscience);
+            // Analyse de la trace sans emprunt mutable multiple
+            for event in &mind.trace.sequence {
+                let (transmitter, amount) = vta_model.evaluate_event(event);
+                match transmitter {
+                    crate::neurobiology::Neurotransmitter::Dopamine => vta_dopamine += amount,
+                    crate::neurobiology::Neurotransmitter::GABA => vta_gaba += amount,
+                    _ => {}
+                }
+            }
+        }
+
+        if is_looping {
+            errors += 1;
+        }
+
+        // Application de l'effet VTA sur la Conscience
+        cell.conscience.dissonance_level = (cell.conscience.dissonance_level - vta_dopamine).max(0.0);
+        cell.conscience.dissonance_level += vta_gaba;
+        if vta_dopamine > 50.0 {
+            cell.conscience.eureka_moments += 1;
+            cell.conscience.dissonance_level /= 2.0;
         }
 
         conscience_model.evaluate_branch(&mut cell.conscience, errors, progress);
