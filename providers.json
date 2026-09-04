@@ -1,1 +1,26 @@
-[{"name": "Ollama Local", "chat_url": "http://127.0.0.1:11434/v1/chat/completions", "models_url": "http://127.0.0.1:11434/api/tags", "key": "", "format": "ollama", "profiles": {"llama3.1:8b": {"tier": "fast", "advantages": ["json_formatting", "fast"], "disadvantages": []}, "qwen2.5:14b": {"tier": "logic", "advantages": ["tool_calling"], "disadvantages": []}, "qwen2.5:32b": {"tier": "heavy", "advantages": ["tool_calling", "nuance"], "disadvantages": ["slow"]}}}]
+[
+  {
+    "name": "Ollama Local",
+    "chat_url": "http://127.0.0.1:11434/v1/chat/completions",
+    "models_url": "http://127.0.0.1:11434/api/tags",
+    "key": "",
+    "format": "ollama",
+    "profiles": {
+      "llama3.1:8b": {
+        "tier": "fast",
+        "advantages": ["json_formatting"],
+        "disadvantages": []
+      },
+      "qwen2.5:14b": {
+        "tier": "logic",
+        "advantages": ["code", "tested_ok"],
+        "disadvantages": ["ignores_commands"]
+      },
+      "glm-5.3:cloud": {
+        "tier": "heavy",
+        "advantages": ["code", "nuance", "tool_calling", "tested_ok"],
+        "disadvantages": []
+      }
+    }
+  }
+]

@@ -242,7 +242,9 @@ USER INPUT TO ANALYZE:
         if let Ok(res) = req.send().await {
             if let Ok(body) = res.json::<serde_json::Value>().await {
                 if let Some(content) = body["choices"].get(0).and_then(|c| c["message"]["content"].as_str()) {
-                    let clean = content.trim().trim_start_matches("```json").trim_start_matches("```").trim_end_matches("```").trim();
+                    let start = content.find('{').unwrap_or(0);
+                    let end = content.rfind('}').map(|i| i + 1).unwrap_or(content.len());
+                    let clean = &content[start..end];
                     if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(clean) {
                         if let Some(d) = parsed["difficulty"].as_str() { diff = d.to_string(); }
                         if let Some(arr) = parsed["required_advantages"].as_array() {
@@ -253,7 +255,8 @@ USER INPUT TO ANALYZE:
                         }
                         println!("🧠 [Cortex] Décision -> Tier: {}, Requis: {:?}, Bannis: {:?}", diff, req_adv, ban_dis);
                     } else {
-                        println!("❌ [Cortex] Échec définitif du parseur JSON natif. Repli sur 'logic'.");
+                        println!("❌ [Cortex] Échec définitif du parseur JSON natif. Contenu reçu : {}", clean);
+                        println!("❌ [Cortex] Repli sur 'logic'.");
                     }
                 }
             }
