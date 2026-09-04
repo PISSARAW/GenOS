@@ -32,6 +32,7 @@ pub mod morphogenesis;
 pub mod components;
 pub mod lifecycle;
 pub mod bus;
+pub mod vfs;
 #[cfg(test)]
 pub mod tests;
 
@@ -41,6 +42,7 @@ pub use ribosome::*;
 pub use hippocampus::*;
 pub use specialization::*;
 pub use builder::*;
+pub use vfs::*;
 
 pub use crate::genome::{Genome, Plasmid};
 use serde::{Deserialize, Serialize};

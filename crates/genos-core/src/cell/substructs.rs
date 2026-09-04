@@ -32,6 +32,8 @@ pub struct CognitiveState {
     pub hippocampus: Option<crate::cell::hippocampus::GraphMemory>,
     /// 2. Immunothérapie : Les cellules cancéreuses activent ceci pour se cacher
     pub is_camouflaged: bool,
+    /// L'État Quantique du Filesystem (Cache L1 en RAM)
+    pub quantum_vfs: crate::cell::vfs::QuantumVFS,
 }
 
 impl CognitiveState {
