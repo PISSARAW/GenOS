@@ -53,8 +53,10 @@ impl GraphMemory {
             // Setup schema
             if let Some(db_ref) = SHARED_DB.get() {
                 if let Ok(conn) = Connection::new(db_ref.as_ref()) {
-                    let _ = conn.query("CREATE NODE TABLE Concept (name STRING, embedding FLOAT[768], PRIMARY KEY (name))");
-                    let _ = conn.query("CREATE REL TABLE SYNAPSE (FROM Concept TO Concept, type STRING)");
+                    let _ = conn.query("CREATE NODE TABLE MemoryChunk (id STRING, text STRING, speaker STRING, timestamp INT64, session_id STRING, embedding FLOAT[768], PRIMARY KEY(id))");
+                    let _ = conn.query("CREATE NODE TABLE Entity (name STRING, type STRING, PRIMARY KEY(name))");
+                    let _ = conn.query("CREATE REL TABLE MENTIONS (FROM MemoryChunk TO Entity)");
+                    let _ = conn.query("CREATE REL TABLE RELATED_TO (FROM Entity TO Entity, type STRING)");
                 }
             }
             Ok(db_arc)
@@ -69,28 +71,47 @@ impl GraphMemory {
     }
 
     /// Ingestion Biomimétique (Consolidation)
-    pub async fn consolidate_synapse(&self, entity_a: &str, relationship: &str, entity_b: &str, vector_a: &[f32], vector_b: &[f32]) -> Result<(), String> {
+    pub async fn ingest_memory_chunk(&self, id: &str, text: &str, speaker: &str, timestamp: i64, session_id: &str, vector: &[f32]) -> Result<(), String> {
         let db = self.get_db()?;
         let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
         
-        // Convert f32 slice to string array for Cypher injection
-        let vec_a_str = format!("{:?}", vector_a);
-        let vec_b_str = format!("{:?}", vector_b);
-        
-        // Anti-Cypher Injection (Escape single quotes for Kuzu)
-        let safe_a = entity_a.replace("'", "\\'");
-        let safe_b = entity_b.replace("'", "\\'");
-        let safe_rel = relationship.replace("'", "\\'");
+        let vec_str = format!("{:?}", vector);
+        let safe_text = text.replace("'", "\\'");
         
         let query = format!(
-            "MERGE (a:Concept {{name: '{}'}}) ON CREATE SET a.embedding = {} \
-             MERGE (b:Concept {{name: '{}'}}) ON CREATE SET b.embedding = {} \
-             MERGE (a)-[r:SYNAPSE {{type: '{}'}}]->(b)", 
-            safe_a, vec_a_str, safe_b, vec_b_str, safe_rel
+            "MERGE (m:MemoryChunk {{id: '{}'}}) ON CREATE SET m.text = '{}', m.speaker = '{}', m.timestamp = {}, m.session_id = '{}', m.embedding = {}", 
+            id, safe_text, speaker, timestamp, session_id, vec_str
         );
         conn.query(&query).map_err(|e| e.to_string())?;
         
-        println!("🧠 [Hippocampe] Synapse vectorisée : {} --[{}]--> {}", entity_a, relationship, entity_b);
+        println!("🧠 [Hippocampe] Chunk mémoire ingéré : {}...", &safe_text.chars().take(30).collect::<String>());
+        Ok(())
+    }
+
+    pub async fn consolidate_synapse(&self, _entity_a: &str, _relationship: &str, _entity_b: &str, _vector_a: &[f32], _vector_b: &[f32]) -> Result<(), String> {
+        Ok(())
+    }
+
+    pub async fn ingest_entity_relation(&self, chunk_id: &str, entity_a: &str, type_a: &str, rel: &str, entity_b: &str, type_b: &str) -> Result<(), String> {
+        let db = self.get_db()?;
+        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
+        
+        let safe_a = entity_a.replace("'", "\\'");
+        let safe_b = entity_b.replace("'", "\\'");
+        let safe_rel = rel.replace("'", "\\'");
+        
+        let query = format!(
+            "MATCH (m:MemoryChunk {{id: '{}'}}) \
+             MERGE (a:Entity {{name: '{}'}}) ON CREATE SET a.type = '{}' \
+             MERGE (b:Entity {{name: '{}'}}) ON CREATE SET b.type = '{}' \
+             MERGE (m)-[:MENTIONS]->(a) \
+             MERGE (m)-[:MENTIONS]->(b) \
+             MERGE (a)-[:RELATED_TO {{type: '{}'}}]->(b)", 
+            chunk_id, safe_a, type_a, safe_b, type_b, safe_rel
+        );
+        conn.query(&query).map_err(|e| e.to_string())?;
+        
+        println!("🕸️ [Hippocampe] Relation extraite : {} --[{}]--> {}", safe_a, safe_rel, safe_b);
         Ok(())
     }
 
