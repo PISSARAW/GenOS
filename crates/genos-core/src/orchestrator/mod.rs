@@ -4,12 +4,14 @@ pub mod cart;
 pub mod systems;
 pub mod conscience;
 pub mod vta;
+pub mod capsule;
 
 pub use therapies::*;
 pub use cart::*;
 pub use systems::*;
 pub use conscience::*;
 pub use vta::*;
+pub use capsule::*;
 
 use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
