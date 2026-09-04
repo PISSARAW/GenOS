@@ -400,7 +400,31 @@ async fn run_auto_loop(prompt: &str) {
         let _ = std::fs::write(cwd.join(".genos.md"), &rules_content);
     }
 
-    // Boucle de simulation d'Évolution
+    // Phase 1 : Planification & Stack Technique (Cortex Préfrontal)
+    println!("🧠 [Cortex Préfrontal] Phase de Planification et Choix de la Stack Technique...");
+    let mut plan_history = vec![
+        genos_core::cell::hippocampus::ChatMessage {
+            role: "system".to_string(),
+            content: "Tu es un Architecte Logiciel Senior. Avant que le codeur ne commence, analyse la demande. Définis l'arborescence des fichiers, la stack technique optimale (frameworks, CDN, outils), et le design system (couleurs, UX, sections clés) adaptés au métier visé (ex: cabinet d'avocats, e-commerce, etc.). Sois précis et concis.".to_string(),
+        },
+        genos_core::cell::hippocampus::ChatMessage {
+            role: "user".to_string(),
+            content: format!("Mission: {}", prompt),
+        }
+    ];
+
+    let architecture_plan = match swarm[0].endoplasmic_reticulum.ribosome.translate(&plan_history).await {
+        Ok(plan) => {
+            println!("✅ L'Architecte a défini la Stack et le Design ({} octets).", plan.len());
+            plan
+        },
+        Err(e) => {
+            println!("⚠️ Échec de l'Architecte ({}). Utilisation d'un plan par défaut.", e);
+            "Utilise React via CDN dans un fichier unique index.html.".to_string()
+        }
+    };
+
+    // Boucle de simulation d'Évolution (Codage)
     let mut conversation_history = Vec::new();
     
     for cycle in 1..=20 {
@@ -416,7 +440,7 @@ async fn run_auto_loop(prompt: &str) {
             conversation_history.push(
                 genos_core::cell::hippocampus::ChatMessage {
                     role: "system".to_string(),
-                    content: format!("You are an autonomous expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks around the file.\n\nYou operate in a multi-cycle loop. You must build the complete project. When you consciously decide that the project is 100% complete, fully functional, and ready for human end-users, you MUST output exactly the token [READY] at the very end of your response.\n\nRULES:\n{}", rules_content),
+                    content: format!("You are an autonomous expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks around the file.\n\nYou operate in a multi-cycle loop. You must build the complete project. When you consciously decide that the project is 100% complete, fully functional, and ready for human end-users, you MUST output exactly the token [READY] at the very end of your response.\n\nRULES:\n{}\n\n=== ARCHITECTURE & CONTEXTE MÉTIER DÉFINIS PAR L'ARCHITECTE ===\n{}\n===================================", rules_content, architecture_plan),
                 }
             );
             conversation_history.push(
