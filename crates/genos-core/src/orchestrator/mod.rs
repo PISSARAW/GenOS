@@ -31,6 +31,7 @@ pub struct Orchestrator<
     pub viral_environment: Vec<crate::virology::Virion>,
     pub conscience: crate::orchestrator::conscience::Conscience,
     pub vta: crate::orchestrator::vta::VentralTegmentalArea,
+    pub ecology: crate::ecology::EvolutionaryEcology,
 }
 
 

@@ -11,11 +11,30 @@ impl Orchestrator<StandardImmuneSystem, StandardEndocrineSystem, StandardNervous
             viral_environment: vec![],
             conscience: crate::orchestrator::conscience::Conscience::new(50.0, 100.0),
             vta: crate::orchestrator::vta::VentralTegmentalArea::new(0.5),
+            ecology: crate::ecology::EvolutionaryEcology::new(),
         }
     }
 }
 
 impl<I: ImmuneBehavior, E: EndocrineBehavior, N: NervousBehavior> Orchestrator<I, E, N> {
+
+    /// Fait appel à l'Arbitre de la Réalité via le CapsuleManager pour tester physiquement le VFS d'un agent.
+    /// Applique la Punition Altruiste sur le Grand Registre de Réputation (ReputationLedger)
+    /// si l'agent a soumis un code cassé ou trompeur.
+    pub fn evaluate_branch_with_reality(&mut self, agent: &mut AgentCell, command: &str, args: &[&str]) {
+        let capsule_manager = crate::orchestrator::capsule::CapsuleManager::default();
+        
+        let reality_passed = capsule_manager.arbitrate_reality(agent, command, args);
+
+        if !reality_passed {
+            // L'agent (ou son Critique) a validé un code défectueux.
+            // On le punit socialement dans l'Écologie (La Punition Altruiste).
+            self.ecology.reputation.penalize_collusion(&agent.cell_id, 0.4);
+            println!("⚖️ [Écologie] La confiance en l'Agent {} chute drastiquement. Il a échoué face à la thermodynamique.", agent.cell_id);
+        } else {
+            println!("⚖️ [Écologie] L'Agent {} a prouvé sa compétence. Sa réputation est préservée.", agent.cell_id);
+        }
+    }
 
     /// Applique les anticorps circulants sur les virus flottants dans le systÃ¨me
     pub fn process_humoral_immunity(
