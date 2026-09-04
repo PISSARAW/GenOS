@@ -185,27 +185,23 @@ impl GraphMemory {
         let vec_str = format!("{:?}", query_vector);
         
         let query_str = format!(
-            "MATCH (c:Concept) \
+            "MATCH (c:MemoryChunk) \
              WITH c, array_cosine_similarity(c.embedding, {}) AS sim \
              ORDER BY sim DESC \
              LIMIT {} \
-             MATCH (c)-[r:SYNAPSE]->(d:Concept) \
-             RETURN c.name AS concept, d.name AS details, sim \
-             LIMIT {}",
-            vec_str, k, k * 3 // Allow returning multiple details for the top k concepts
+             RETURN c.text AS details, sim",
+            vec_str, k
         );
         
         let mut result = conn.query(&query_str).map_err(|e| e.to_string())?;
         let mut context_builder = String::new();
-        context_builder.push_str("Cortex Vectoriel (Concepts proches par intuition avec contexte):\n");
+        context_builder.push_str("Cortex Vectoriel (Souvenirs proches) :\n");
         
         while let Some(row) = result.next() {
-            let concept: String = row[0].to_string();
-            let details: String = row[1].to_string();
-            let sim: f32 = row[2].to_string().parse().unwrap_or(0.0);
-            context_builder.push_str(&format!("- {} (Pertinence: {:.2}): {}\n", concept, sim, details));
+            let details: String = row[0].to_string();
+            context_builder.push_str(&format!("- {}\n", details));
         }
-
+        
         Ok(context_builder)
     }
 }

@@ -1,4 +1,4 @@
-﻿use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand};
 use genos_core::cell::AgentCell;
 use dotenvy::dotenv;
 use std::fs;
@@ -360,10 +360,23 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize)]
 
+struct RelationPayload {
+    entity_a: String,
+    type_a: String,
+    relation: String,
+    entity_b: String,
+    type_b: String,
+}
+
+#[derive(Deserialize)]
 struct IngestRequest {
-    concept: String,
-    details: String,
+    id: String,
+    text: String,
+    speaker: String,
+    timestamp: i64,
+    session_id: String,
     vector: Vec<f32>,
+    relations: Vec<RelationPayload>,
 }
 
 #[derive(Serialize)]
@@ -375,10 +388,15 @@ async fn handle_ingest(
     State(db): State<genos_core::cell::hippocampus::GraphMemory>,
     Json(payload): Json<IngestRequest>,
 ) -> Json<IngestResponse> {
-    match db.consolidate_synapse(&payload.concept, "CONTAINS_DETAILS", &payload.details, &payload.vector, &vec![0.0; 768]).await {
-        Ok(_) => Json(IngestResponse { status: "success".to_string() }),
-        Err(e) => Json(IngestResponse { status: format!("error: {}", e) }),
+    if let Err(e) = db.ingest_memory_chunk(&payload.id, &payload.text, &payload.speaker, payload.timestamp, &payload.session_id, &payload.vector).await {
+        return Json(IngestResponse { status: format!("error: {}", e) });
     }
+    for rel in payload.relations {
+        if let Err(e) = db.ingest_entity_relation(&payload.id, &rel.entity_a, &rel.type_a, &rel.relation, &rel.entity_b, &rel.type_b).await {
+            return Json(IngestResponse { status: format!("error: {}", e) });
+        }
+    }
+    Json(IngestResponse { status: "success".to_string() })
 }
 
 #[derive(Deserialize)]
@@ -416,7 +434,7 @@ async fn handle_chat(
         }
     }
     
-    if let Ok(graph_ctx) = db.recall_semantic_vector(&prompt_vec, 5).await {
+    if let Ok(graph_ctx) = db.recall_semantic_vector(&prompt_vec, 15).await {
         system_prompt.push_str("\n\n?? Contexte LadybugDB (Graphe Vectoriel) :\n");
         system_prompt.push_str(&graph_ctx);
     }
