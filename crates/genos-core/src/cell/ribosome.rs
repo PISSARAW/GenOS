@@ -389,7 +389,7 @@ impl Ribosome {
         let max_loops = 5;
         for loop_idx in 0..max_loops {
             if loop_idx == 0 {
-                let instructions = "\n\n[TOOL USE] You have access to the following tools via JSON inside XML tags:\n<tool_call>{\"name\": \"execute_raw_cypher\", \"args\": {\"query\": \"MATCH (n) RETURN n LIMIT 5\"}}</tool_call>\nIf you need to query the database, emit this tag and STOP generating. You will receive an observation.";
+                let instructions = "\n\n[TOOL USE] You have access to the following tools via JSON inside XML tags:\n<tool_call>{\"name\": \"execute_raw_cypher\", \"args\": {\"query\": \"MATCH (n) RETURN n LIMIT 5\"}}</tool_call>\n\nGRAPH SCHEMA:\n- Nodes: MemoryChunk(id, text, speaker, timestamp, session_id), Entity(name, type)\n- Edges: MENTIONS (MemoryChunk->Entity), RELATED_TO (Entity->Entity, type)\n\nIf you need to search memories, query entities, or do temporal reasoning (e.g. ORDER BY m.timestamp), emit the tool tag and STOP generating. You will receive an observation.";
                 if let Some(sys_msg) = memory.iter_mut().find(|m| m.role == "system") {
                     if !sys_msg.content.contains("[TOOL USE]") {
                         sys_msg.content.push_str(instructions);
