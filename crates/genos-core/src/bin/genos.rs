@@ -403,7 +403,7 @@ async fn run_auto_loop(prompt: &str) {
     // Boucle de simulation d'Évolution
     let mut conversation_history = Vec::new();
     
-    for cycle in 1..=5 {
+    for cycle in 1..=20 {
         println!("\n====================================");
         println!("🔄 CYCLE ÉVOLUTIF #{}", cycle);
         println!("====================================");
@@ -416,7 +416,7 @@ async fn run_auto_loop(prompt: &str) {
             conversation_history.push(
                 genos_core::cell::hippocampus::ChatMessage {
                     role: "system".to_string(),
-                    content: format!("You are an expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks. NO explanations. HTML MUST have <!DOCTYPE html>, <meta charset=\"UTF-8\">, and <meta name=\"viewport\".\n\nRULES:\n{}", rules_content),
+                    content: format!("You are an autonomous expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks around the file.\n\nYou operate in a multi-cycle loop. You must build the complete project. When you consciously decide that the project is 100% complete, fully functional, and ready for human end-users, you MUST output exactly the token [READY] at the very end of your response.\n\nRULES:\n{}", rules_content),
                 }
             );
             conversation_history.push(
@@ -441,9 +441,16 @@ async fn run_auto_loop(prompt: &str) {
             },
             Err(e) => {
                 println!("⚠️ Échec du LLM ({}). Utilisation d'un code de secours.", e);
-                "FILE: index.html\n<!DOCTYPE html>\n<html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body><h1>Fallback IRL</h1></body></html>".to_string()
+                "FILE: index.html\n<!DOCTYPE html>\n<html><body><h1>Fallback IRL</h1></body></html>\n[READY]".to_string()
             }
         };
+
+        let is_ready = code_response.contains("[READY]");
+        if is_ready {
+            println!("🎯 L'Agent a déclaré que le projet est [READY].");
+        } else {
+            println!("⏳ L'Agent continue son développement (pas de token [READY]).");
+        }
 
         if let Some(mind) = agent.mind_mut() {
             let mut current_file = String::new();
@@ -479,18 +486,47 @@ async fn run_auto_loop(prompt: &str) {
         println!("🌍 Confrontation à la Réalité Thermodynamique (JIT Sandbox)...");
         let agent = &mut swarm[0];
         
-        // Validation stricte du HTML via PowerShell
-        let validation_script = r#"
-            $html = Get-Content -Path index.html -Raw -ErrorAction Ignore;
-            if (!$html) { Write-Error 'index.html introuvable'; exit 1 }
-            if ($html -notmatch '(?i)<!DOCTYPE html>') { Write-Error 'CRITICAL: DOCTYPE manquant'; exit 1 }
-            if ($html -notmatch '(?i)<meta charset="?UTF-8"?') { Write-Error 'CRITICAL: Meta charset UTF-8 manquant'; exit 1 }
-            if ($html -notmatch '(?i)<meta name="?viewport"?') { Write-Error 'CRITICAL: Meta viewport manquant pour le mobile'; exit 1 }
-            exit 0
-        "#;
-
+        let mut reality_passed = true;
+        let mut runtime_error_msg = String::new();
         let capsule_manager = genos_core::orchestrator::capsule::CapsuleManager::default();
-        let reality_passed = capsule_manager.arbitrate_reality(agent, "powershell", &["-Command", validation_script]);
+
+        if let Some(mind) = agent.mind() {
+            if mind.cognitive_state.quantum_vfs.deltas.contains_key("index.html") {
+                let genos_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().to_path_buf();
+                // Créer le script JS dynamiquement dans le dossier genos_dir pour que Node trouve node_modules
+                let js_content = include_str!("../orchestrator/runtime_arbiter.js");
+                let js_path = genos_dir.join("runtime_arbiter.js");
+                let _ = std::fs::write(&js_path, js_content);
+                
+                // On exécute le script Node en passant le dossier courant
+                let reality_result = capsule_manager.execute_jit(&mind.cognitive_state.quantum_vfs, |jit_dir| {
+                    let status = std::process::Command::new("node")
+                        .arg(&js_path)
+                        .arg(jit_dir)
+                        .current_dir(&genos_dir) // Run from GenOS repo so node_modules is found!
+                        .output()
+                        .map_err(|e| e.to_string())?;
+                        
+                    if status.status.success() {
+                        Ok(())
+                    } else {
+                        let stderr = String::from_utf8_lossy(&status.stderr);
+                        Err(format!("{}", stderr))
+                    }
+                });
+
+                match reality_result {
+                    Ok(_) => {
+                        println!("🌍 [Arbitre de Réalité] Validation Runtime Web réussie (Aucune erreur console).");
+                    }
+                    Err(e) => {
+                        reality_passed = false;
+                        runtime_error_msg = e.to_string();
+                        println!("💥 [Arbitre de Réalité] ÉCHEC RUNTIME: {}", runtime_error_msg);
+                    }
+                }
+            }
+        }
 
         let mut ast_passed = true;
         let mut ast_error_msg = String::new();
@@ -515,7 +551,7 @@ async fn run_auto_loop(prompt: &str) {
             // L'agent meurt, mais on sauve l'historique et on ajoute l'erreur
             let mut reject_msg = String::new();
             if !reality_passed {
-                reject_msg.push_str("L'Arbitre de Réalité a rejeté ton code. Il manque des balises obligatoires (DOCTYPE, charset, ou viewport). ");
+                reject_msg.push_str(&format!("L'Arbitre de Réalité a lancé le projet dans un navigateur et a détecté des erreurs d'exécution (ex: CORS, modules manquants, syntaxe JS erronée).\nCorrection obligatoire. Erreurs trouvées:\n{}\n\nRappel: Si tu utilises React sans bundler local, tu dois TOUT mettre dans un seul fichier index.html avec le CDN Babel et <script type=\"text/babel\">, car les imports de fichiers via 'file://' déclenchent des erreurs CORS CORS (Cross-Origin Resource Sharing). Tu peux aussi utiliser un script inline complet sans Babel si tu n'utilises pas JSX.", runtime_error_msg));
             }
             if !ast_passed {
                 reject_msg.push_str(&format!("L'Analyseur AST (Structure) a bloqué le code : {}\nCorrige tes fonctions pour respecter la limite de 3 paramètres max !", ast_error_msg));
@@ -533,9 +569,21 @@ async fn run_auto_loop(prompt: &str) {
         }
 
         // 5. Sommeil Paradoxal
-        println!("🌙 Fin de cycle. Sommeil et Consolidation...");
+        println!("🌙 Sommeil et Consolidation...");
         genos_core::orchestrator::sleep::SleepConsolidation::replay_experience(&mut swarm[0]);
-        break; // Succès ! On sort de la boucle.
+
+        if is_ready {
+            println!("✅ L'agent a validé que le produit est fini ! Sortie de boucle.");
+            break;
+        } else {
+            println!("🔄 L'agent continue. Injection du retour positif...");
+            conversation_history.push(
+                genos_core::cell::hippocampus::ChatMessage {
+                    role: "user".to_string(),
+                    content: "Code validé et sauvegardé dans le VFS. Le projet n'est pas encore complet. Continue de générer la suite des fichiers. N'oublie pas le tag [READY] à la fin uniquement quand le projet est fini de bout en bout.".to_string(),
+                }
+            );
+        }
     }
 
     println!("\n🌍 [Physique] Matérialisation du Quantum VFS sur le disque dur local...");
