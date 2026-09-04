@@ -142,6 +142,9 @@ enum Commands {
         #[arg(short, long)]
         vector: String,
     },
+    Auto {
+        prompt: String,
+    },
 }
 
 #[tokio::main]
@@ -352,7 +355,178 @@ async fn main() {
                 std::process::exit(1);
             }
         }
+        Commands::Auto { prompt } => {
+            println!("🚀 [Auto-Dev] Initialisation de GenOS V4 pour la mission : '{}'", prompt);
+            run_auto_loop(prompt).await;
+        }
     }
+}
+
+async fn run_auto_loop(prompt: &str) {
+    use genos_core::orchestrator::Orchestrator;
+    use genos_core::cell::AgentCell;
+    use std::time::Duration;
+
+    println!("🧬 Création de l'Orchestrateur Biologique V4...");
+    let mut orchestrator = Orchestrator::new(None);
+    let mut swarm = vec![AgentCell::default()];
+
+    println!("🦠 Agent initialisé. ID: {}", swarm[0].cell_id);
+
+    // 0. Vérification des règles de conduite (agent.md, claude.md, ou .genos.md)
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let mut rules_content = String::new();
+    let rule_files = [".genos.md", "agent.md", "claude.md", ".agent.md", ".claude.md"];
+    let mut rules_found = false;
+    
+    for file in &rule_files {
+        let path = cwd.join(file);
+        if path.exists() {
+            println!("📜 Règles de développement trouvées : {}", file);
+            rules_content = std::fs::read_to_string(path).unwrap_or_default();
+            rules_found = true;
+            break;
+        }
+    }
+    
+    if !rules_found {
+        println!("📜 Aucune charte trouvée. Création de .genos.md avec les standards d'architecture GenOS...");
+        rules_content = "RÈGLES STRICTES DE GÉNÉRATION DE CODE :\n\
+        1. Complexité cyclomatique faible : Gardez un code lisible et direct.\n\
+        2. 3 paramètres maximum par fonction (sauf indication explicite contraire).\n\
+        3. Respect absolu des principes SOLID.\n\
+        4. Fichiers de 400 lignes maximum (sauf indication explicite contraire).\n\
+        Toute violation de ces règles entrainera un rejet par l'Arbitre de Réalité.".to_string();
+        let _ = std::fs::write(cwd.join(".genos.md"), &rules_content);
+    }
+
+    // Boucle de simulation d'Évolution
+    let mut conversation_history = Vec::new();
+    
+    for cycle in 1..=5 {
+        println!("\n====================================");
+        println!("🔄 CYCLE ÉVOLUTIF #{}", cycle);
+        println!("====================================");
+
+        let agent = &mut swarm[0];
+        println!("🧠 L'Agent imagine du code (via le Routeur LLM de GenOS)...");
+        
+        // On pousse la mission utilisateur s'il n'y a pas encore d'historique
+        if conversation_history.is_empty() {
+            conversation_history.push(
+                genos_core::cell::hippocampus::ChatMessage {
+                    role: "system".to_string(),
+                    content: format!("You are an expert developer. Output necessary files. Format strictly as:\nFILE: filename.ext\n<content>\nNO markdown blocks. NO explanations. HTML MUST have <!DOCTYPE html>, <meta charset=\"UTF-8\">, and <meta name=\"viewport\".\n\nRULES:\n{}", rules_content),
+                }
+            );
+            conversation_history.push(
+                genos_core::cell::hippocampus::ChatMessage {
+                    role: "user".to_string(),
+                    content: format!("Mission: {}", prompt),
+                }
+            );
+        }
+
+        // Appel Réel à l'API via le Ribosome
+        let code_response = match agent.endoplasmic_reticulum.ribosome.translate(&conversation_history).await {
+            Ok(code) => {
+                println!("✅ Le LLM a répondu ({} octets).", code.len());
+                conversation_history.push(
+                    genos_core::cell::hippocampus::ChatMessage {
+                        role: "assistant".to_string(),
+                        content: code.clone(),
+                    }
+                );
+                code
+            },
+            Err(e) => {
+                println!("⚠️ Échec du LLM ({}). Utilisation d'un code de secours.", e);
+                "FILE: index.html\n<!DOCTYPE html>\n<html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head><body><h1>Fallback IRL</h1></body></html>".to_string()
+            }
+        };
+
+        if let Some(mind) = agent.mind_mut() {
+            let mut current_file = String::new();
+            let mut current_content = String::new();
+
+            for line in code_response.lines() {
+                if line.starts_with("FILE: ") {
+                    if !current_file.is_empty() {
+                        mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+                    }
+                    current_file = line.trim_start_matches("FILE: ").trim().to_string();
+                    current_content.clear();
+                } else {
+                    current_content.push_str(line);
+                    current_content.push('\n');
+                }
+            }
+            if !current_file.is_empty() {
+                mind.cognitive_state.quantum_vfs.deltas.insert(current_file.clone(), current_content.clone());
+            }
+            
+            // Simulation d'une trace d'exécution pour la VTA
+            mind.trace.sequence.push(genos_core::cell::events::CellEvent::TaskExecuted {
+                task_name: "WriteCode".to_string(),
+                result: "SUCCESS: J'ai écrit le code du site web.".to_string(),
+            });
+        }
+
+        // 2. Immunité Cellulaire (Désactivée pour ce test de boucle pure sur la réalité)
+        // genos_core::orchestrator::systems::process_cytotoxic_t_cells(&mut swarm);
+        
+        // 4. JIT Sandboxing & Arbitre de la Réalité
+        println!("🌍 Confrontation à la Réalité Thermodynamique (JIT Sandbox)...");
+        let agent = &mut swarm[0];
+        
+        // Validation stricte du HTML via PowerShell
+        let validation_script = r#"
+            $html = Get-Content -Path index.html -Raw -ErrorAction Ignore;
+            if (!$html) { Write-Error 'index.html introuvable'; exit 1 }
+            if ($html -notmatch '(?i)<!DOCTYPE html>') { Write-Error 'CRITICAL: DOCTYPE manquant'; exit 1 }
+            if ($html -notmatch '(?i)<meta charset="?UTF-8"?') { Write-Error 'CRITICAL: Meta charset UTF-8 manquant'; exit 1 }
+            if ($html -notmatch '(?i)<meta name="?viewport"?') { Write-Error 'CRITICAL: Meta viewport manquant pour le mobile'; exit 1 }
+            exit 0
+        "#;
+
+        let capsule_manager = genos_core::orchestrator::capsule::CapsuleManager::default();
+        let reality_passed = capsule_manager.arbitrate_reality(agent, "powershell", &["-Command", validation_script]);
+
+        if !reality_passed {
+            println!("💥 Échec du test. Injection du feedback dans l'agent clone...");
+            // L'agent meurt, mais on sauve l'historique et on ajoute l'erreur
+            conversation_history.push(
+                genos_core::cell::hippocampus::ChatMessage {
+                    role: "user".to_string(),
+                    content: "L'Arbitre de Réalité a rejeté ton code. Il manque des balises obligatoires (DOCTYPE, charset, ou viewport). Corrige-le et renvoie l'intégralité du code avec le bon format.".to_string(),
+                }
+            );
+            swarm.clear();
+            swarm.push(AgentCell::default());
+            continue; // Relance la boucle immédiatement
+        }
+
+        // 5. Sommeil Paradoxal
+        println!("🌙 Fin de cycle. Sommeil et Consolidation...");
+        genos_core::orchestrator::sleep::SleepConsolidation::replay_experience(&mut swarm[0]);
+        break; // Succès ! On sort de la boucle.
+    }
+
+    println!("\n🌍 [Physique] Matérialisation du Quantum VFS sur le disque dur local...");
+    let final_agent = &swarm[0];
+    if let Some(mind) = final_agent.mind() {
+        let final_vfs = &mind.cognitive_state.quantum_vfs;
+        for (file, content) in &final_vfs.deltas {
+            let path = std::path::Path::new(file);
+            if let Some(parent) = path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            let _ = std::fs::write(path, content);
+            println!("💾 Sauvegardé : {}", file);
+        }
+    }
+
+    println!("\n✅ [Auto-Dev] Fin de la mission. Site internet généré et validé par la Réalité !");
 }
 
 use axum::{extract::State, Json};

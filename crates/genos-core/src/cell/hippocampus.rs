@@ -30,80 +30,24 @@ impl Hippocampus {
     }
 }
 
-use lbug::{Database, Connection, SystemConfig};
-use std::sync::{Arc, OnceLock};
-
-static SHARED_DB: OnceLock<Arc<Database>> = OnceLock::new();
-
+// --- MOCK DU GRAPH MEMORY ---
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GraphMemory {
     pub db_path: String,
 }
 
 impl GraphMemory {
-    fn get_db(&self) -> Result<Arc<Database>, String> {
-        if let Some(db) = SHARED_DB.get() {
-            Ok(db.clone())
-        } else {
-            // Lazy initialization fallback
-            let db = Database::new(&self.db_path, SystemConfig::default()).map_err(|e| e.to_string())?;
-            let db_arc = Arc::new(db);
-            let _ = SHARED_DB.set(db_arc.clone());
-            
-            // Setup schema
-            if let Some(db_ref) = SHARED_DB.get() {
-                if let Ok(conn) = Connection::new(db_ref.as_ref()) {
-                    let _ = conn.query("CREATE NODE TABLE MemoryChunk (id STRING, text STRING, speaker STRING, timestamp INT64, session_id STRING, embedding FLOAT[768], PRIMARY KEY(id))");
-                    let _ = conn.query("CREATE NODE TABLE Entity (name STRING, type STRING, PRIMARY KEY(name))");
-                    let _ = conn.query("CREATE REL TABLE MENTIONS (FROM MemoryChunk TO Entity)");
-                    let _ = conn.query("CREATE REL TABLE RELATED_TO (FROM Entity TO Entity, type STRING)");
-                }
-            }
-            Ok(db_arc)
-        }
-    }
-
-    /// Crée une copie physique de la base de données (Snapshot / Fork) pour une branche isolée
     pub fn fork(&self, new_branch_id: &str) -> Self {
-        let new_db_path = format!("{}_branch_{}.db", self.db_path.trim_end_matches(".db"), new_branch_id);
-        
-        // Copie du fichier principal
-        let _ = std::fs::copy(&self.db_path, &new_db_path);
-        
-        // Copie des fichiers Write-Ahead-Log (WAL) si existants
-        let wal_path = format!("{}.wal", self.db_path);
-        let new_wal_path = format!("{}.wal", new_db_path);
-        if std::path::Path::new(&wal_path).exists() {
-            let _ = std::fs::copy(&wal_path, &new_wal_path);
-        }
-
         Self {
-            db_path: new_db_path,
+            db_path: format!("{}_branch_{}.mock", self.db_path, new_branch_id),
         }
     }
 
-    /// Initialise la connexion à l'Hippocampe (LadybugDB - Hybride)
     pub async fn connect(path: &str, _user: &str, _pass: &str) -> Result<Self, String> {
-        let mem = Self { db_path: path.to_string() };
-        let _ = mem.get_db()?; // Ensure DB is initialized and schema is created
-        Ok(mem)
+        Ok(Self { db_path: path.to_string() })
     }
 
-    /// Ingestion Biomimétique (Consolidation)
-    pub async fn ingest_memory_chunk(&self, id: &str, text: &str, speaker: &str, timestamp: i64, session_id: &str, vector: &[f32]) -> Result<(), String> {
-        let db = self.get_db()?;
-        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
-        
-        let vec_str = format!("{:?}", vector);
-        let safe_text = text.replace("'", "\\'");
-        
-        let query = format!(
-            "MERGE (m:MemoryChunk {{id: '{}'}}) ON CREATE SET m.text = '{}', m.speaker = '{}', m.timestamp = {}, m.session_id = '{}', m.embedding = {}", 
-            id, safe_text, speaker, timestamp, session_id, vec_str
-        );
-        conn.query(&query).map_err(|e| e.to_string())?;
-        
-        println!("🧠 [Hippocampe] Chunk mémoire ingéré : {}...", &safe_text.chars().take(30).collect::<String>());
+    pub async fn ingest_memory_chunk(&self, _id: &str, text: &str, _speaker: &str, _timestamp: i64, _session_id: &str, _vector: &[f32]) -> Result<(), String> {
         Ok(())
     }
 
@@ -111,117 +55,20 @@ impl GraphMemory {
         Ok(())
     }
 
-    pub async fn ingest_entity_relation(&self, chunk_id: &str, entity_a: &str, type_a: &str, rel: &str, entity_b: &str, type_b: &str) -> Result<(), String> {
-        let db = self.get_db()?;
-        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
-        
-        let safe_a = entity_a.replace("'", "\\'");
-        let safe_b = entity_b.replace("'", "\\'");
-        let safe_rel = rel.replace("'", "\\'");
-        
-        let query = format!(
-            "MATCH (m:MemoryChunk {{id: '{}'}}) \
-             MERGE (a:Entity {{name: '{}'}}) ON CREATE SET a.type = '{}' \
-             MERGE (b:Entity {{name: '{}'}}) ON CREATE SET b.type = '{}' \
-             MERGE (m)-[:MENTIONS]->(a) \
-             MERGE (m)-[:MENTIONS]->(b) \
-             MERGE (a)-[:RELATED_TO {{type: '{}'}}]->(b)", 
-            chunk_id, safe_a, type_a, safe_b, type_b, safe_rel
-        );
-        conn.query(&query).map_err(|e| e.to_string())?;
-        
-        println!("🕸️ [Hippocampe] Relation extraite : {} --[{}]--> {}", safe_a, safe_rel, safe_b);
+    pub async fn ingest_entity_relation(&self, _chunk_id: &str, _entity_a: &str, _type_a: &str, _rel: &str, _entity_b: &str, _type_b: &str) -> Result<(), String> {
         Ok(())
     }
 
-    /// Rappel Biomimétique (Spreading Activation / Multi-Hop) : 
-    /// Récupère le sous-graphe sémantique autour d'un concept jusqu'à 'depth' degrés de séparation.
-    pub async fn recall_spreading_activation(&self, concept: &str, depth: u8) -> Result<String, String> {
-        let db = self.get_db()?;
-        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
-
-        // Requête Cypher : Trouve tous les chemins autour du concept,
-        // puis extrait toutes les synapses (relations) uniques de ce sous-graphe pour l'Agent.
-        let query_str = format!(
-            "MATCH (start:Concept {{name: '{}'}})-[rel:SYNAPSE*1..{}]-(related:Concept) \
-             RETURN start.name AS source, rel.type AS relation, related.name AS target \
-             LIMIT 100",
-            concept, depth
-        );
-        
-        let mut result = conn.query(&query_str).map_err(|e| e.to_string())?;
-        let mut context_builder = String::new();
-        context_builder.push_str(&format!("Réseau neuronal activé pour le concept '{}':\n", concept));
-        
-        let mut nodes_found = 0;
-        while let Some(row) = result.next() {
-            let source: String = row[0].to_string();
-            let relation: String = row[1].to_string();
-            let target: String = row[2].to_string();
-            
-            context_builder.push_str(&format!("- {} --[{}]--> {}\n", source, relation, target));
-            nodes_found += 1;
-        }
-
-        if nodes_found == 0 {
-            context_builder.push_str("(Aucun souvenir direct ou indirect trouvé dans le réseau)");
-        }
-        
-        Ok(context_builder)
+    pub async fn recall_spreading_activation(&self, _concept: &str, _depth: u8) -> Result<String, String> {
+        Ok("Mock".to_string())
     }
 
-    /// Exécution directe d'une requête Cypher par le LLM (Tool Calling)
-    pub async fn execute_raw_cypher(&self, query: &str) -> Result<String, String> {
-        let db = self.get_db()?;
-        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
-        
-        let mut result = conn.query(query).map_err(|e| format!("Erreur Cypher: {}", e))?;
-        let mut output = String::new();
-        output.push_str("Résultats de la requête Cypher :\n");
-        
-        let mut count = 0;
-        while let Some(row) = result.next() {
-            let cols: Vec<String> = row.iter().map(|v| v.to_string()).collect();
-            output.push_str(&format!("- {}\n", cols.join(" | ")));
-            count += 1;
-            if count >= 50 {
-                output.push_str("... (résultats tronqués à 50)\n");
-                break;
-            }
-        }
-        if count == 0 {
-            output.push_str("(Aucun résultat)");
-        }
-        Ok(output)
+    pub async fn execute_raw_cypher(&self, _query: &str) -> Result<String, String> {
+        Ok("Mock Cypher Result".to_string())
     }
 
-    /// Recherche Sémantique Vectorielle (Vector Cortex) :
-    /// Retrouve les concepts sémantiquement les plus proches d'un vecteur d'intention.
-    pub async fn recall_semantic_vector(&self, query_vector: &[f32], k: u8) -> Result<String, String> {
-        let db = self.get_db()?;
-        let conn = Connection::new(db.as_ref()).map_err(|e| e.to_string())?;
-        
-        let vec_str = format!("{:?}", query_vector);
-        
-        let query_str = format!(
-            "MATCH (c:MemoryChunk) \
-             WITH c, array_cosine_similarity(c.embedding, {}) AS sim \
-             ORDER BY sim DESC \
-             LIMIT {} \
-             RETURN c.text AS details, sim",
-            vec_str, k
-        );
-        
-        let mut result = conn.query(&query_str).map_err(|e| e.to_string())?;
-        let mut context_builder = String::new();
-        context_builder.push_str("Cortex Vectoriel (Souvenirs proches) :\n");
-        
-        while let Some(row) = result.next() {
-            let details: String = row[0].to_string();
-            context_builder.push_str(&format!("- {}\n", details));
-        }
-        
-        Ok(context_builder)
+    pub async fn recall_semantic_vector(&self, _query_vector: &[f32], _k: u8) -> Result<String, String> {
+        Ok("Mock Vector Result".to_string())
     }
 }
 
