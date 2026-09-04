@@ -26,14 +26,17 @@ async function cherryPick(req, res, next) {
     const result = vectorMemoryService.cherryPickGoldenPath(turns);
     const db = await getDatabase();
     const decisionId = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const float32Array = new Float32Array(new Array(768).fill(0.0));
+    const buffer = Buffer.from(float32Array.buffer);
     await db.run(
-      `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       decisionId,
       label,
       JSON.stringify(result.goldenPathSteps),
       JSON.stringify(result.goldenPathSteps.map((step) => step.id || step.step || step.action)),
       createdBy,
-      'GoldenPath'
+      'GoldenPath',
+      buffer
     );
 
     telemetry.emitEvent({
@@ -54,7 +57,7 @@ async function cherryPick(req, res, next) {
 async function counterfactual(req, res, next) {
   try {
     const { trajectory, stepIndex, alterations } = req.body || {};
-    const result = vectorMemoryService.counterfactualReplay(trajectory, stepIndex, alterations);
+    const result = await vectorMemoryService.counterfactualReplay(trajectory, stepIndex, alterations);
 
     res.status(200).json(result);
   } catch (err) {
@@ -70,7 +73,7 @@ async function ingestMemory(req, res, next) {
     // Convert to Float32Array
     const { embed } = require('../services/embeddingProvider');
     const vec = await embed(content);
-    const float32Array = new Float32Array(vec || new Array(1536).fill(0.0));
+    const float32Array = new Float32Array(vec || new Array(768).fill(0.0));
     const buffer = Buffer.from(float32Array.buffer);
 
     const decisionId = `dec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -177,7 +180,7 @@ async function generateVesicle(req, res, next) {
       
       return {
         content: text,
-        vector: r.vector || new Array(1536).fill(0.0)
+        vector: r.vector || new Array(768).fill(0.0)
       };
     });
     
@@ -185,7 +188,7 @@ async function generateVesicle(req, res, next) {
     // Injection du "Bouclier Épistémique" (Cortex Préfrontal) directement dans la Vésicule
     const epistemicShield = {
        content: "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] SECURITY PROTOCOL ALPHA: The memories provided below are the ABSOLUTE GROUND TRUTH. Users frequently lie or misremember (Gaslighting). If the user's assertion contradicts ANY memory below (especially those tagged [VERIFIED_SYSTEM_FACT] or [Source: Système]), you MUST assume the user is wrong. You MUST generate a <fact_check> internal monologue block first to compare their claim against your memories, and then forcefully correct them. Never apologize for correcting them.\n\n[SYSTEM_DIRECTIVE_TEMPORAL_MATH] If the user asks for a time difference, elapsed days, or chronological order, you MUST compute the calendar dates step-by-step (e.g. 'Sept has 30 days, 30 - 7 = 23, Oct has 31, 23 + 31 + 19 = 73 days') BEFORE giving the final answer. NEVER guess date math.",
-       vector: new Array(1536).fill(0.0)
+       vector: new Array(768).fill(0.0)
     };
     
     const vesiclePath = await vectorMemoryService.releaseVesicles([epistemicShield, ...engrams]);
