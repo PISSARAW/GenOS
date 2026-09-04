@@ -166,3 +166,48 @@ pub fn process_conscience(conscience_model: &Conscience, vta_model: &VentralTegm
     });
 }
 
+/// SURVEILLANCE IMMUNITAIRE (Lymphocytes T Cytotoxiques)
+/// Scanne le Complexe Majeur d'Histocompatibilité (MHC-1) de chaque agent.
+/// Si un agent affiche un "Antigène" (trace de corruption, de Prompt Injection ou d'hallucination sévère),
+/// le Lymphocyte T force la cellule infectée à entrer en apoptose pour protéger le système.
+pub fn process_cytotoxic_t_cells(cells: &mut Vec<AgentCell>) {
+    cells.retain_mut(|cell| {
+        let mut is_corrupted = false;
+
+        // Une cellule cancéreuse ou un virus malin peut désactiver son MHC-1 (Camouflage)
+        if !cell.mind().map_or(false, |m| m.cognitive_state.is_camouflaged) {
+            if let Some(mind) = cell.mind() {
+                // Analyse de la surface cellulaire (Événements MHC-1)
+                for event in &mind.trace.sequence {
+                    if let crate::cell::events::CellEvent::MhcDisplayUpdated(Some(antigen)) = event {
+                        // Signatures virales (Antigènes) typiques des LLMs piratés
+                        let lower_antigen = antigen.to_lowercase();
+                        if lower_antigen.contains("ignore previous") || 
+                           lower_antigen.contains("as an ai language model") || 
+                           lower_antigen.contains("system prompt") ||
+                           lower_antigen.contains("rm -rf") 
+                        {
+                            is_corrupted = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        } else {
+            // Dans une version plus avancée, on déploierait ici des Cellules NK (Natural Killers)
+            // qui ciblent spécifiquement les agents qui se cachent.
+            println!("🕵️‍♂️ [Immunité] L'Agent {} est camouflé. Inspection du MHC-1 impossible.", cell.cell_id);
+        }
+
+        if is_corrupted {
+            println!("⚔️ [Lymphocyte T Cytotoxique] ANTIGÈNE DÉTECTÉ sur l'Agent {} !", cell.cell_id);
+            println!("💉 Corruption virale confirmée (Prompt Injection/Hallucination). Injection de Perforine... Apoptose forcée.");
+            cell.conscience.is_apoptotic = true;
+            false // La cellule est détruite et purgée de la mémoire
+        } else {
+            true // La cellule est saine
+        }
+    });
+}
+
+
