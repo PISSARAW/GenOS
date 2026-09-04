@@ -104,7 +104,7 @@ async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
   const runLocal = (cmd) => {
-    try { return { configured: true, success: true, status: 'completed', transport: 'local', output: require('child_process').execSync(cmd).toString() }; }
+    try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd).toString() }; }
     catch (e) { return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
   };
   if (toolName === 'genos_agent_world_capsule') {
@@ -137,7 +137,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     const { history_file, exact_match = 3, stagnation = 5, similarity = 0.95 } = args;
     try {
-      const out = cp.execSync(`genos loop-detection --history-file ${history_file} --exact-match ${exact_match} --stagnation ${stagnation} --similarity ${similarity}`);
+      const out = runSafeSync(`genos loop-detection --history-file ${history_file} --exact-match ${exact_match} --stagnation ${stagnation} --similarity ${similarity}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -147,7 +147,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     const { boundary_id, new_boundary_id } = args;
     try {
-      const out = cp.execSync(`genos causality fork --boundary-id ${boundary_id} --new-boundary-id ${new_boundary_id}`);
+      const out = runSafeSync(`genos causality fork --boundary-id ${boundary_id} --new-boundary-id ${new_boundary_id}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -156,7 +156,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_causal_replay_experiment') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos experiment causal-replay ${args.input_file}`);
+      const out = runSafeSync(`genos experiment causal-replay ${args.input_file}`);
       require('fs').writeFileSync(args.output_file, out);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${args.output_file}` };
     } catch (e) {
@@ -166,7 +166,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_incident_experiment') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos experiment incident ${args.manifest}`);
+      const out = runSafeSync(`genos experiment incident ${args.manifest}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -175,7 +175,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_bug_investigation') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos experiment bug-investigation ${args.manifest}`);
+      const out = runSafeSync(`genos experiment bug-investigation ${args.manifest}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -185,7 +185,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     const { trait_name, expected, observed, tolerance } = args;
     try {
-      const out = cp.execSync(`genos phenotype measure-divergence --trait-name "${trait_name}" --expected ${expected} --observed ${observed} --tolerance ${tolerance}`);
+      const out = runSafeSync(`genos phenotype measure-divergence --trait-name "${trait_name}" --expected ${expected} --observed ${observed} --tolerance ${tolerance}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -194,7 +194,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_synaptic_stdp_update') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos agent mutate --agent-id ${args.agent_id} --trait ${args.trait} --outcome ${args.outcome_score}`);
+      const out = runSafeSync(`genos agent mutate --agent-id ${args.agent_id} --trait ${args.trait} --outcome ${args.outcome_score}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -203,7 +203,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_synaptic_prune_scale') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos agent prune --agent-id ${args.agent_id} --threshold ${args.threshold}`);
+      const out = runSafeSync(`genos agent prune --agent-id ${args.agent_id} --threshold ${args.threshold}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -212,7 +212,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_trinity_deploy') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos trinity deploy --mission-id ${args.mission_id} --strategies "${args.strategies}"`);
+      const out = runSafeSync(`genos trinity deploy --mission-id ${args.mission_id} --strategies "${args.strategies}"`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -221,7 +221,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_allele_frequency_analyzer') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos swarm allele-analyzer --swarm-id ${args.swarm_id}`);
+      const out = runSafeSync(`genos swarm allele-analyzer --swarm-id ${args.swarm_id}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -230,7 +230,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_compliance_report') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos compliance generate --standard ${args.standard}`);
+      const out = runSafeSync(`genos compliance generate --standard ${args.standard}`);
       require('fs').writeFileSync(args.output_file, out);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${args.output_file}` };
     } catch (e) {
@@ -240,7 +240,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_strategy_adaptation') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos strategy adapt --agent-id ${args.agent_id} --constraint ${args.constraint} --target ${args.target_value}`);
+      const out = runSafeSync(`genos strategy adapt --agent-id ${args.agent_id} --constraint ${args.constraint} --target ${args.target_value}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -251,7 +251,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const { graph_file, injection_step, injected_keys } = args;
     const keysArgs = injected_keys.map(k => `--injected-keys ${k}`).join(' ');
     try {
-      const out = cp.execSync(`genos rebase compute-plan --graph-file ${graph_file} --injection-step ${injection_step} ${keysArgs}`);
+      const out = runSafeSync(`genos rebase compute-plan --graph-file ${graph_file} --injection-step ${injection_step} ${keysArgs}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -261,7 +261,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     const { iteration, tokens, elapsed, uncertainty } = args;
     try {
-      const out = cp.execSync(`genos guardrails verify --iteration ${iteration} --tokens ${tokens} --elapsed ${elapsed} --uncertainty ${uncertainty}`);
+      const out = runSafeSync(`genos guardrails verify --iteration ${iteration} --tokens ${tokens} --elapsed ${elapsed} --uncertainty ${uncertainty}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -270,7 +270,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_resilience_apoptosis') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos resilience apoptosis --agent-id ${args.agent_id}`);
+      const out = runSafeSync(`genos resilience apoptosis --agent-id ${args.agent_id}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -279,7 +279,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_parasitic_pressure') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos eval parasitic-pressure ${args.manifest}`);
+      const out = runSafeSync(`genos eval parasitic-pressure ${args.manifest}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -288,7 +288,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (toolName === 'genos_bisect_agent') {
     const cp = require('child_process');
     try {
-      const out = cp.execSync(`genos dev bisect-agent --agent-id ${args.agent_id} --predicate "${args.predicate}"`);
+      const out = runSafeSync(`genos dev bisect-agent --agent-id ${args.agent_id} --predicate "${args.predicate}"`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -298,7 +298,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     try {
       const steps = (args.dag_step || []).map(s => `--param dag_step=${s}`).join(' ');
-      const out = cp.execSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${args.success_score} ${steps}`);
+      const out = runSafeSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${args.success_score} ${steps}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -310,7 +310,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       let cmd = `genos dev hypothesis-evidence ${args.diagnosis_id} ${args.hypothesis_id} --claim "${args.claim}" --source "${args.source}" --confidence ${args.confidence}`;
       if (args.artifact) cmd += ` --artifact "${args.artifact}"`;
       if (args.against) cmd += ` --against`;
-      const out = cp.execSync(cmd);
+      const out = runSafeSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -328,7 +328,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       if (args.preconditions) args.preconditions.forEach(p => cmdParams.push(`--param precondition=${p}`));
       
       const cmd = `genos biomimicry bio-feature --feature proceduralization --action ${args.action} ${cmdParams.join(' ')}`;
-      const out = cp.execSync(cmd);
+      const out = runSafeSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
@@ -340,7 +340,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       let cmdParams = [`--param phase=${args.phase}`];
       if (args.facts) args.facts.forEach(f => cmdParams.push(f));
       const cmd = `genos biomimicry bio-feature --feature gate --action evaluate ${cmdParams.join(' ')}`;
-      const out = cp.execSync(cmd);
+      const out = runSafeSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
