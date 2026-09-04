@@ -46,7 +46,8 @@ function runtimeExitOutcome(termination, code, signal, stderr = '') {
   };
 }
 
-async function superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable }) {
+async function superviseMission(options) {
+  const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.

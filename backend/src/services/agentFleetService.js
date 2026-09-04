@@ -130,6 +130,12 @@ async function runLocalWorker(db, mission, executionRun) {
 }
 
 async function createAutonomousWorkers(db, orchestrator, plan, mission) {
+  const circuitBreaker = require('./circuitBreaker');
+  const circuit = circuitBreaker.canExecute('worker_deployment', orchestrator.agent_type);
+  if (!circuit.allowed) {
+    throw new Error(`Worker deployment rejected: ${circuit.message}`);
+  }
+  
   const assignments = plan.dispatchWorkers || [];
   if (!assignments.length) return [];
   const parent = await db.get(

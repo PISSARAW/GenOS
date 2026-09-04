@@ -59,7 +59,7 @@ async function startGrpcServer() {
   const port = process.env.GRPC_PORT || '50051';
   
   server.bindAsync(
-    `0.0.0.0:${port}`,
+    `127.0.0.1:${port}`,
     grpc.ServerCredentials.createInsecure(),
     (err, boundPort) => {
       if (err) {
