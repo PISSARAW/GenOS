@@ -1,13 +1,18 @@
 syntax = "proto3";
-
-package genos.telemetry;
+package genos.telemetry.v1;
 
 service TelemetryService {
-  rpc Ping (Empty) returns (PingResponse);
+  rpc EmitEvent (AgentEvent) returns (EmitResponse);
 }
 
-message Empty {}
-
-message PingResponse {
-  string status = 1;
+message AgentEvent {
+  string agent_id = 1;
+  string event_type = 2;
+  string action = 3;
+  string detail = 4;
+  string severity = 5;
+  string status = 6;
+  string payload_json = 7;
 }
+
+message EmitResponse { bool success = 1; }

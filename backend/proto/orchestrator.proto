@@ -1,0 +1,18 @@
+syntax = "proto3";
+package genos.orchestrator.v1;
+
+service OrchestratorService {
+  rpc DispatchWorker (WorkerRequest) returns (WorkerResponse);
+}
+
+message WorkerRequest {
+  string orchestrator_id = 1;
+  string worker_id = 2;
+  string prompt = 3;
+}
+
+message WorkerResponse {
+  bool success = 1;
+  string status = 2;
+  int32 garage_slot = 3;
+}
