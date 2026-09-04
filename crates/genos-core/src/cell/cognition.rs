@@ -185,17 +185,46 @@ Reply ONLY with the bracketed word.";
         true
     }
 
-    pub fn acc_evaluate_task_switch(&mut self, error: f32) -> bool {
-        if error > 0.0 {
-            self.consecutive_errors += 1.0;
+    // Supprimé: acc_evaluate_task_switch car remplacé par le vrai organe ACC.
+}
+
+/// 6. CORTEX CINGULAIRE ANTÉRIEUR (ACC) - Moniteur de Conflit et d'Effort
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AnteriorCingulateCortex {
+    pub accumulated_effort: f32,       // Représente le coût métabolique/tokens
+    pub progress_gradient: f32,        // Réduction de l'incertitude/erreur
+    pub cognitive_conflict_level: f32, // Niveau d'alerte
+}
+
+impl AnteriorCingulateCortex {
+    pub fn new() -> Self {
+        Self { accumulated_effort: 0.0, progress_gradient: 0.0, cognitive_conflict_level: 0.0 }
+    }
+
+    /// Évalue en temps réel si l'énergie investie produit des résultats.
+    pub fn monitor_conflict(&mut self, effort_spent: f32, error_reduction: f32) -> f32 {
+        self.accumulated_effort += effort_spent;
+        self.progress_gradient = error_reduction;
+        
+        if self.progress_gradient <= 0.0 {
+            // On dépense de l'énergie mais l'erreur stagne ou empire -> Le conflit monte en flèche.
+            self.cognitive_conflict_level += effort_spent * 1.5;
+            println!("⚠️ [ACC] Conflit Cognitif en hausse : Aucun progrès malgré l'effort ! (Niveau: {:.1})", self.cognitive_conflict_level);
         } else {
-            self.consecutive_errors = 0.0;
+            // Le progrès soulage le conflit
+            self.cognitive_conflict_level = (self.cognitive_conflict_level - (error_reduction * 2.0)).max(0.0);
+            println!("✅ [ACC] Progrès détecté. Le conflit cognitif redescend à {:.1}", self.cognitive_conflict_level);
         }
-        self.consecutive_errors >= 3.0
+        
+        self.cognitive_conflict_level
+    }
+
+    pub fn is_deadlocked(&self) -> bool {
+        self.cognitive_conflict_level > 5.0 // Seuil critique de blocage
     }
 }
 
-/// 6. PLASTICITÉ SYNAPTIQUE ET STRUCTURELLE
+/// 7. PLASTICITÉ SYNAPTIQUE ET STRUCTURELLE
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SynapticPlasticity {
     pub tool_weights: HashMap<String, f32>,
@@ -216,21 +245,42 @@ impl SynapticPlasticity {
     }
 }
 
-/// 7. STOCHASTICITÉ MÉTABOLIQUE
+/// 8. STOCHASTICITÉ MÉTABOLIQUE ET ÉPUISEMENT (Pression Token/CPU)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct MetabolicStress {
-    pub stress_level: f32,
+    pub stress_level: f32, // De 0.0 à 1.0
+    pub total_tokens_consumed: u32,
+    pub total_compute_time_ms: u64,
 }
 impl MetabolicStress {
-    pub fn new() -> Self { Self { stress_level: 0.0 } }
-    pub fn increase(&mut self) { self.stress_level = (self.stress_level + 0.2).min(1.0); }
-    pub fn relax(&mut self) { self.stress_level = 0.0; }
+    pub fn new() -> Self { Self { stress_level: 0.0, total_tokens_consumed: 0, total_compute_time_ms: 0 } }
+    
+    // Le stress augmente selon l'effort brut (Tokens et CPU)
+    pub fn consume_energy(&mut self, tokens: u32, time_ms: u64) { 
+        self.total_tokens_consumed += tokens;
+        self.total_compute_time_ms += time_ms;
+        
+        let token_pressure = (tokens as f32) / 128_000.0; // Basé sur une fenêtre de 128k
+        let time_pressure = (time_ms as f32) / 60_000.0; // 60 sec = stress total
+        
+        self.stress_level = (self.stress_level + token_pressure + time_pressure).min(1.0); 
+    }
+    
+    pub fn relax(&mut self) { 
+        self.stress_level = (self.stress_level - 0.3).max(0.0); 
+        self.total_tokens_consumed = self.total_tokens_consumed.saturating_sub(10_000); // Purge de contexte
+    }
+    
+    pub fn is_critical(&self) -> bool {
+        self.stress_level >= 0.9
+    }
 }
 
 /// L'ORGANE COGNITIF GLOBAL
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AdvancedCognition {
     pub pfc: PrefrontalCortex,
+    pub acc: AnteriorCingulateCortex,
     pub markov_blanket: MarkovBlanket,
     pub predictive_coding: PredictiveCoding,
     pub efe: ExpectedFreeEnergy,
@@ -244,10 +294,19 @@ impl Default for AdvancedCognition {
     fn default() -> Self { Self::new("SURVIVRE ET EXECUTER LE PROMPT INITIAL") }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum AutonomicResponse {
+    Fight,
+    Flight,
+    Freeze,
+    Calm,
+}
+
 impl AdvancedCognition {
     pub fn new(goal: &str) -> Self {
         Self {
             pfc: PrefrontalCortex::new(goal),
+            acc: AnteriorCingulateCortex::new(),
             markov_blanket: MarkovBlanket::default(),
             predictive_coding: PredictiveCoding::new(),
             efe: ExpectedFreeEnergy::new(),
@@ -255,6 +314,29 @@ impl AdvancedCognition {
             plasticity: SynapticPlasticity::new(),
             stress: MetabolicStress::new(),
             clock: CircadianClock::new(),
+        }
+    }
+
+    pub fn autonomic_nervous_response(&mut self) -> AutonomicResponse {
+        let deadlock = self.acc.is_deadlocked();
+        let exhaustion = self.stress.is_critical();
+        
+        if deadlock && exhaustion {
+            println!("🚨 [ANS] FREEZE : Impasse et épuisement.");
+            AutonomicResponse::Freeze
+        } else if deadlock {
+            println!("🔥 [ANS] FIGHT : Conflit cognitif. Augmentation de la créativité et neurogenèse.");
+            self.plasticity.trigger_neurogenesis("Stochastic_Resonance_Module");
+            // La "Fight" force l'exploration au détriment de l'exploitation
+            self.predictive_coding.precision_weight = 0.5; // Baisse la rigidité
+            AutonomicResponse::Fight
+        } else if exhaustion {
+            println!("💤 [ANS] FLIGHT : Épuisement. Purge de la mémoire de travail.");
+            self.pfc.dlpfc_working_memory.clear();
+            self.stress.relax();
+            AutonomicResponse::Flight
+        } else {
+            AutonomicResponse::Calm
         }
     }
 
@@ -289,7 +371,7 @@ impl AdvancedCognition {
         if self.clock.is_night() {
             // Travail posté : augmente le désalignement circadien et le stress
             self.clock.force_night_shift();
-            self.stress.increase();
+            self.stress.consume_energy(5000, 1000); // 5k tokens virtuels, 1s
         }
 
         if self.clock.is_morning_surge() && self.stress.stress_level >= 0.8 {
@@ -324,13 +406,24 @@ impl AdvancedCognition {
         let event_id = uuid::Uuid::new_v4().to_string();
         let _ = hippocampus.ingest_autobiographical_event(&event_id, action_name, actual_feedback, error).await;
 
-        if self.pfc.acc_evaluate_task_switch(error) {
-            self.pfc.drift_detected = true;
-            return Err("🔄 [ACC TASK-SWITCHING] Trop d'erreurs consécutives. Le Cortex Cingulaire Antérieur force un changement de stratégie.".to_string());
+        self.acc.monitor_conflict(1.0, -error); // Simule l'effort constant et le gradient d'erreur
+
+        match self.autonomic_nervous_response() {
+            AutonomicResponse::Freeze => {
+                return Err("🚨 [ANS] FREEZE : Agent paralysé. Requiert intervention.".to_string());
+            }
+            AutonomicResponse::Flight => {
+                self.pfc.drift_detected = true;
+                return Err("🔄 [ANS] FLIGHT : Fuite de la stratégie actuelle.".to_string());
+            }
+            AutonomicResponse::Fight => {
+                println!("🔥 [ANS] FIGHT : L'agent force le passage avec de nouvelles heuristiques !");
+            }
+            AutonomicResponse::Calm => {}
         }
 
         if error > 0.5 {
-            self.stress.increase();
+            self.stress.consume_energy(2000, 500); // Erreur = tokens perdus
             self.plasticity.depress_tool(action_name);
             
             if self.pathology.autism_spectrum {
