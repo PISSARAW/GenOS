@@ -112,7 +112,7 @@ impl Thalamus {
                         let name_lower = name.to_lowercase();
                         let mut size_in_b = 8.0;
 
-                        if name_lower.contains("gpt-4") || name_lower.contains("opus") || name_lower.contains("large") || name_lower.contains("pro") || name_lower.contains("70b") {
+                        if name_lower.contains("gpt-4") || name_lower.contains("opus") || name_lower.contains("large") || name_lower.contains("pro") || name_lower.contains("70b") || name_lower.contains("cloud") || name_lower.contains("glm") {
                             size_in_b = 50.0;
                         } else if name_lower.contains("mini") || name_lower.contains("haiku") || name_lower.contains("flash") || name_lower.contains("8b") || name_lower.contains("0.5b") {
                             size_in_b = 8.0;
