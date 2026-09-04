@@ -3,11 +3,13 @@ pub mod methods;
 pub mod cart;
 pub mod systems;
 pub mod conscience;
+pub mod vta;
 
 pub use therapies::*;
 pub use cart::*;
 pub use systems::*;
 pub use conscience::*;
+pub use vta::*;
 
 use crate::cell::AgentCell;
 use crate::epigenetics::Expression;
@@ -26,6 +28,7 @@ pub struct Orchestrator<
     pub nervous_system: N,
     pub viral_environment: Vec<crate::virology::Virion>,
     pub conscience: crate::orchestrator::conscience::Conscience,
+    pub vta: crate::orchestrator::vta::VentralTegmentalArea,
 }
 
 
