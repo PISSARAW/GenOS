@@ -9,6 +9,7 @@ impl Orchestrator<StandardImmuneSystem, StandardEndocrineSystem, StandardNervous
             endocrine_system: StandardEndocrineSystem::default(),
             nervous_system: StandardNervousSystem::default(),
             viral_environment: vec![],
+            conscience: crate::orchestrator::conscience::Conscience::new(50.0, 100.0),
         }
     }
 }
