@@ -280,6 +280,7 @@ dependencies = [
  "genos-cell",
  "genos-genome",
  "genos-orchestrator",
+ "genos-reproduction",
  "genos-signal",
  "serde",
  "serde_json",

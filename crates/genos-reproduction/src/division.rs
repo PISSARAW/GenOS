@@ -1,6 +1,7 @@
 use genos_genome::Genome;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DivisionMode {
     Mitosis,
     BinaryFission,

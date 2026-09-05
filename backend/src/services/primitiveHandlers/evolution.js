@@ -3,6 +3,8 @@
  */
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
+const geneticsService = require('../geneticsService');
+const genosCli = require('../genosCli');
 
 async function mutate(context) {
   const db = await getDatabase();
@@ -39,30 +41,66 @@ async function breed(context) {
   if (!parentA || !parentB) {
     return { success: false, error: 'parentA and parentB required for breeding.' };
   }
-  const rowA = await db.get('SELECT current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
-  const rowB = await db.get('SELECT current_task FROM agents WHERE id = ?', parentB);
+  const rowA = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
+  const rowB = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentB);
   if (!rowA || !rowB) {
     return { success: false, error: 'One or both parents not found.' };
   }
-  const taskA = rowA.current_task || '';
-  const taskB = rowB.current_task || '';
-  const midA = Math.floor(taskA.length / 2);
-  const midB = Math.floor(taskB.length / 2);
-  const crossoverTask = taskA.slice(0, midA) + ' [CROSSOVER] ' + taskB.slice(midB);
-  const childId = 'child_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+
+  // 1. Recombinaison méiotique des gènes cognitifs (stratégie, outils, hyperparamètres)
+  const childRecomb = geneticsService.crossoverGenome(rowA, rowB, {
+    strategy: context.strategy || 'uniform',
+    mutationRate: context.mutationRate || 0.05
+  });
+
+  // 2. Recombinaison native méiotique Rust via crates/genos-reproduction
+  let nativeRecomb = null;
+  try {
+    const cliRun = await genosCli.runCrossover({
+      parentA: rowA.id,
+      parentB: rowB.id,
+      swapProb: context.swapProb || 0.5,
+      crossoverPoint: context.crossoverPoint
+    });
+    if (cliRun.ok && cliRun.json) {
+      nativeRecomb = cliRun.json;
+    }
+  } catch (_) {}
+
+  const strategy = childRecomb.childGenes?.strategy || 'adaptive-hybrid';
+  const tools = childRecomb.childGenes?.tools || ['genos_inspect'];
+  const crossoverTask = `${rowA.name || parentA} (${rowA.role || 'worker'}) x ${rowB.name || parentB} (${rowB.role || 'worker'}) -> Strategy: ${strategy}. Tools: [${tools.join(', ')}]. Mission: ${rowA.current_task || 'collaborative mission'}`;
+
+  const childId = childRecomb.childId || ('child_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
   await db.run(
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
-    childId, 'Offspring of ' + parentA + ' x ' + parentB, rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
+    childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
   );
+
   telemetry.emitEvent({
     eventType: 'EVOLUTION_BREED',
     agentId: parentA,
     action: 'BREED',
-    detail: 'Bred child ' + childId + ' from ' + parentA + ' x ' + parentB,
+    detail: 'Bred child ' + childId + ' via Meiotic Crossover: predicted fitness ' + childRecomb.predictedFitnessScore,
     severity: 'info',
-    payload: { childId, parentA, parentB }
+    payload: {
+      childId, parentA, parentB,
+      childGenes: childRecomb.childGenes,
+      fitnessScore: childRecomb.predictedFitnessScore,
+      nativeRecombination: nativeRecomb
+    }
   });
-  return { success: true, childId, parentA, parentB, crossoverTask };
+
+  return {
+    success: true,
+    childId,
+    parentA,
+    parentB,
+    crossoverTask,
+    childGenes: childRecomb.childGenes,
+    fitnessScore: childRecomb.predictedFitnessScore,
+    nativeRecombination: nativeRecomb
+  };
 }
 
 async function select(context) {
@@ -136,15 +174,37 @@ async function speciation(context) {
     if (!niches[niche]) niches[niche] = [];
     niches[niche].push(w.id);
   }
+
+  // Calcul de divergence phylogénétique entre niches via genosCli
+  const nicheKeys = Object.keys(niches);
+  let phylogeneticDivergence = null;
+  if (nicheKeys.length >= 2) {
+    try {
+      const phyloRun = await genosCli.runPhylogeny({
+        action: 'divergence',
+        genomeA: nicheKeys[0],
+        genomeB: nicheKeys[1]
+      });
+      if (phyloRun.ok && phyloRun.json) {
+        phylogeneticDivergence = phyloRun.json;
+      }
+    } catch (_) {}
+  }
+
   telemetry.emitEvent({
     eventType: 'EVOLUTION_SPECIATION',
     agentId: orchestratorId,
     action: 'SPECIATION',
-    detail: 'Identified ' + Object.keys(niches).length + ' niches from ' + workers.length + ' workers.',
+    detail: 'Identified ' + nicheKeys.length + ' niches from ' + workers.length + ' workers.',
     severity: 'info',
-    payload: { niches, workerCount: workers.length }
+    payload: { niches, workerCount: workers.length, phylogeneticDivergence }
   });
-  return { success: workers.length > 0, nicheCount: Object.keys(niches).length, niches };
+  return {
+    success: workers.length > 0,
+    nicheCount: nicheKeys.length,
+    niches,
+    phylogeneticDivergence
+  };
 }
 
 module.exports = { mutate, breed, select, paretoSelect, speciation };

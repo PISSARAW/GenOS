@@ -7,5 +7,6 @@ pub mod compliance;
 pub mod hallucination;
 pub mod platform;
 pub mod replay;
+pub mod reproduction;
 pub mod snapshot;
 pub mod swarm_alleles;

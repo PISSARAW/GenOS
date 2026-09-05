@@ -10,7 +10,7 @@ use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
 use genos_biology::spore::Spore;
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
-use genos_genome::{Genome, Plasmid};
+use genos_genome::Genome;
 
 use crate::args::{BiomimicrySubcommands, EvolutionSubcommands};
 use crate::commands::biomimicry_ops::*;
@@ -337,19 +337,5 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
 }
 
 pub fn execute_evolution(cmd: EvolutionSubcommands) -> Result<(), String> {
-    match cmd {
-        EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name } => {
-            let target = agent_id.unwrap_or_else(|| "recipient".to_string());
-            let source = source_agent_id.unwrap_or_else(|| "donor".to_string());
-            let name = plasmid_name.unwrap_or_else(|| "plasmid_core".to_string());
-            let plasmid = Plasmid::new(&name);
-            print_json(json!({
-                "success": true, "operation": "assimilate_plasmid",
-                "agent_id": target, "source_agent_id": source,
-                "plasmid_name": plasmid.instruction, "plasmid_id": plasmid.id.to_string(),
-                "status": "assimilated"
-            }));
-        }
-    }
-    Ok(())
+    crate::commands::reproduction::execute(cmd)
 }

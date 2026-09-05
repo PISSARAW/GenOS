@@ -20,3 +20,4 @@ genos-orchestrator = { path = "../genos-orchestrator" }
 genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
 genos-signal = { path = "../genos-signal" }
+genos-reproduction = { path = "../genos-reproduction" }

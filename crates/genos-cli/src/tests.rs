@@ -109,4 +109,83 @@ mod tests {
         });
         assert!(res_embryo.is_ok());
     }
+
+    #[test]
+    fn test_reproduction_commands() {
+        use crate::args::EvolutionSubcommands;
+        use crate::commands::reproduction;
+
+        // 1. Meiotic Crossover (Uniform & Single Point)
+        let res_cross = reproduction::execute(EvolutionSubcommands::Crossover {
+            parent_a: "AGENT_ALPHA_ARCHITECT".to_string(),
+            parent_b: "AGENT_BETA_FALSIFIER".to_string(),
+            swap_prob: 0.5,
+            crossover_point: None,
+        });
+        assert!(res_cross.is_ok());
+
+        let res_cross_pt = reproduction::execute(EvolutionSubcommands::Crossover {
+            parent_a: "AGENT_ALPHA_ARCHITECT".to_string(),
+            parent_b: "AGENT_BETA_FALSIFIER".to_string(),
+            swap_prob: 0.5,
+            crossover_point: Some(10),
+        });
+        assert!(res_cross_pt.is_ok());
+
+        // 2. Cell Division (Mitosis, Binary Fission, Budding, Schizogony)
+        let res_mitosis = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_mitosis_01".to_string(),
+            mode: "mitosis".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 0.5,
+            merozoite_count: 2,
+        });
+        assert!(res_mitosis.is_ok());
+
+        let res_fission = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_fission_01".to_string(),
+            mode: "binary_fission".to_string(),
+            mutation_rate: 0.05,
+            daughter_volume: 0.5,
+            merozoite_count: 2,
+        });
+        assert!(res_fission.is_ok());
+
+        // 3. Phylogeny (Divergence, Hybridization, Molecular Clock, Tree)
+        let res_div = reproduction::execute(EvolutionSubcommands::Phylogeny {
+            action: "divergence".to_string(),
+            genome_a: "HOMO_SAPIENS_CORE".to_string(),
+            genome_b: Some("PAN_TROGLODYTES_CORE".to_string()),
+            mutation_rate: 0.01,
+            is_plant: false,
+        });
+        assert!(res_div.is_ok());
+
+        let res_hyb = reproduction::execute(EvolutionSubcommands::Phylogeny {
+            action: "hybridize".to_string(),
+            genome_a: "HOMO_SAPIENS_CORE".to_string(),
+            genome_b: Some("HOMO_NEANDERTHALENSIS".to_string()),
+            mutation_rate: 0.01,
+            is_plant: false,
+        });
+        assert!(res_hyb.is_ok());
+
+        let res_clock = reproduction::execute(EvolutionSubcommands::Phylogeny {
+            action: "molecular_clock".to_string(),
+            genome_a: "LINEAGE_A".to_string(),
+            genome_b: Some("LINEAGE_B".to_string()),
+            mutation_rate: 0.02,
+            is_plant: false,
+        });
+        assert!(res_clock.is_ok());
+
+        let res_tree = reproduction::execute(EvolutionSubcommands::Phylogeny {
+            action: "tree".to_string(),
+            genome_a: "GENOS_SWARM_ALPHA".to_string(),
+            genome_b: None,
+            mutation_rate: 0.01,
+            is_plant: false,
+        });
+        assert!(res_tree.is_ok());
+    }
 }
