@@ -991,46 +991,87 @@ async fn main() {
             }
             let target_dir = format!("../{}", args[0]);
             let prompt = args[1..].join(" ");
-            println!("Création du projet dans '{}'...", target_dir);
             
-            let full_prompt = format!(
-                "Generate the files for this request: '{}'. 
-                Output exactly in this JSON format and nothing else:
-                [{{\"filename\": \"index.html\", \"content\": \"...\"}}]", prompt
-            );
-
+            println!("🧬 [GenOS] Éveil de l'Agent de Génération (World: {})...", args[0]);
+            let _ = std::fs::create_dir_all(&target_dir);
+            let genos_dir = format!("{}/.genos", target_dir);
+            let _ = std::fs::create_dir_all(&genos_dir);
+            
             let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
-            let body = serde_json::json!({
+
+            // STEP 1: CAHIER DES CHARGES (Blueprint)
+            println!("🧠 [Thalamus] Phase 1/3: Réflexion et création du cahier des charges...");
+            let blueprint_prompt = format!(
+                "Agis comme un architecte logiciel (GenOS Agent). L'utilisateur demande : '{}'. 
+                Rédige un cahier des charges détaillé (objectifs, structure des fichiers, design system, étapes de développement).", prompt
+            );
+            let body1 = serde_json::json!({
+                "model": "genos-core-v3",
+                "messages": [{ "role": "user", "content": blueprint_prompt }]
+            });
+            let mut blueprint_text = String::new();
+            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body1).send().await {
+                if let Ok(json_resp) = res.json::<serde_json::Value>().await {
+                    if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                        blueprint_text = text.to_string();
+                        let _ = std::fs::write(format!("{}/blueprint.md", genos_dir), &blueprint_text);
+                        println!("✔️ Cahier des charges enregistré dans .genos/blueprint.md");
+                    }
+                }
+            }
+
+            // STEP 2: CODE GENERATION (Execution)
+            println!("⚡ [Cortex] Phase 2/3: Génération du code source...");
+            let full_prompt = format!(
+                "Voici le cahier des charges :\n{}\n\nGénère le code source complet.
+                IMPORTANT : Tu DOIS répondre EXACTEMENT avec ce format JSON et RIEN D'AUTRE, pas de markdown, juste le tableau JSON brut :
+                [{{\"filename\": \"index.html\", \"content\": \"...\"}}, {{\"filename\": \"style.css\", \"content\": \"...\"}}]", blueprint_text
+            );
+            let body2 = serde_json::json!({
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": full_prompt }]
             });
-
-            match client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body).send().await {
-                Ok(res) => {
-                    if let Ok(json_resp) = res.json::<serde_json::Value>().await {
-                        if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
-                            let clean_text = text.trim().strip_prefix("```json").unwrap_or(text.trim()).strip_suffix("```").unwrap_or(text.trim());
-                            if let Ok(files) = serde_json::from_str::<serde_json::Value>(clean_text) {
-                                if let Some(file_array) = files.as_array() {
-                                    let _ = std::fs::create_dir_all(&target_dir);
-                                    for file in file_array {
-                                        if let (Some(name), Some(content)) = (file["filename"].as_str(), file["content"].as_str()) {
-                                            let file_path = std::path::Path::new(&target_dir).join(name);
-                                            if let Ok(_) = std::fs::write(&file_path, content) {
-                                                println!("✔️ Créé : {}", file_path.display());
-                                            }
+            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body2).send().await {
+                if let Ok(json_resp) = res.json::<serde_json::Value>().await {
+                    if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                        let clean_text = text.trim().strip_prefix("```json").unwrap_or(text.trim()).strip_suffix("```").unwrap_or(text.trim());
+                        if let Ok(files) = serde_json::from_str::<serde_json::Value>(clean_text) {
+                            if let Some(file_array) = files.as_array() {
+                                for file in file_array {
+                                    if let (Some(name), Some(content)) = (file["filename"].as_str(), file["content"].as_str()) {
+                                        let file_path = std::path::Path::new(&target_dir).join(name);
+                                        if let Ok(_) = std::fs::write(&file_path, content) {
+                                            println!("✔️ Créé : {}", file_path.display());
                                         }
                                     }
-                                    println!("Projet généré avec succès !");
-                                    return;
                                 }
                             }
-                            println!("Erreur: Le modèle n'a pas renvoyé le format JSON attendu.\nRéponse brute :\n{}", text);
+                        } else {
+                            println!("⚠️ Le modèle n'a pas respecté le format JSON strict.");
                         }
                     }
-                },
-                Err(e) => println!("API Error: {}", e),
+                }
             }
+
+            // STEP 3: AUDIT & SELF-REFLECTION
+            println!("👁️ [Synapse] Phase 3/3: Auto-évaluation du résultat...");
+            let audit_prompt = format!(
+                "Tu viens de générer le projet pour : '{}'. Fais un court audit de ton propre travail, identifie les points forts et les limites de ta génération, et propose les prochaines étapes.", prompt
+            );
+            let body3 = serde_json::json!({
+                "model": "genos-core-v3",
+                "messages": [{ "role": "user", "content": audit_prompt }]
+            });
+            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body3).send().await {
+                if let Ok(json_resp) = res.json::<serde_json::Value>().await {
+                    if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                        let _ = std::fs::write(format!("{}/audit.md", genos_dir), text);
+                        println!("✔️ Audit enregistré dans .genos/audit.md");
+                    }
+                }
+            }
+            
+            println!("✅ Opération GenOS terminée. L'agent retourne en veille.");
         }
     }
 }
