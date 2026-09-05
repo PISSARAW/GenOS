@@ -192,7 +192,6 @@ async function superviseMission(options) {
       }
     }
     isProcessingEvents = false;
-    return event;
   };
 
   let stdoutBuffer = Buffer.alloc(0);
