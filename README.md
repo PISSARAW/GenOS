@@ -49,7 +49,7 @@ Traditional AI agent frameworks force workflows along a single, mutable timeline
 |                                                                                                                         |
 |  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
 |  |     Strategy Dispatcher      |  |    Swarm & Dynamic Org        |  |          Cognitive Immune System             |  |
-|  |  77 Strategies / 96 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
+|  |  78 Strategies / 97 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
 |  |  - Fundamentals   - Safety   |  |  - Digital Pheromones (Stigm) |  |  - Phagocytosis (Exosome digestion)         |  |
 |  |  - Memory (STDP)  - Swarm    |  |  - Quorum & Brier Consensus   |  |  - Apoptosis (Caspase cascade)               |  |
 |  |  - Evolution      - Causal   |  |  - Contact Inhibition Locks   |  |  - Stem Cell Fallback                        |  |
@@ -115,11 +115,11 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 - **Stem Cell Fallback:** If an essential worker is destroyed by an unrecoverable mutation, a pristine stem cell checkpoint is immediately mobilized to restore mission continuity.
 - **Cryptobiosis:** Puts agents into deep stasis under severe resource constraints, preserving state until resources return.
 
-### 6. 77 Biomimetic Strategies & 96 Execution Primitives
-GenOS ships with a full execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) wiring 77 formal strategies (documented in [`strategies.md`](strategies.md)) across 7 core lots:
+### 6. 78 Biomimetic Strategies & 97 Execution Primitives
+GenOS ships with a full execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) wiring 78 formal strategies (documented in [`strategies.md`](strategies.md)) across 7 core lots:
 1. **Fundamentals:** `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
 2. **Memory:** `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
-3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`.
+3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`, `plasmid_divergent_fork`.
 4. **Safety & Resilience:** `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
 5. **Collective Swarm:** `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
 6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`.
@@ -151,14 +151,14 @@ GenOS/
 │   │   ├── db/                # SQLite database interface & migrations
 │   │   ├── services/          # Core services (genetics, swarm metrics, immune, fleet)
 │   │   │   ├── primitiveHandlers/  # 7 Lots of real executable primitives
-│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 77 strategies
+│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 78 strategies
 │   │   │   └── mcpBioTools.js      # Biomimicry MCP tools executor
 │   │   └── strategies/        # Strategy registry and classification
 │   └── tests/                 # Comprehensive test suite (unit, integration, adversarial)
 ├── mcp/                       # Model Context Protocol server bridge for IDEs & agents
 ├── integrations/              # IDE extension contracts and integration schemas
 ├── scripts/                   # Orchestration, code analysis, and maintenance scripts
-├── strategies.md              # Detailed catalog of all 77 implemented & experimental strategies
+├── strategies.md              # Detailed catalog of all 78 implemented & experimental strategies
 ├── runtime_arbiter.js         # The Thermodynamic Reality Arbiter
 └── .genos.md                  # Strict code generation & complexity governance rules
 ```

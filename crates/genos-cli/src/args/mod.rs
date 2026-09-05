@@ -1,10 +1,12 @@
 pub mod biomimicry;
 pub mod biology_extra;
+pub mod store_extra;
 pub mod subcommands;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
 pub use biology_extra::*;
+pub use store_extra::*;
 pub use subcommands::*;
 
 #[derive(Parser, Debug)]
@@ -69,4 +71,8 @@ pub enum Commands {
     Ais(AisCmd),
     /// Synaptic operations
     Synaptic(SynapticCmd),
+    /// Stratigraphic paleontological fossil registry
+    Fossil(FossilCmd),
+    /// OpenAI-compatible REST API server
+    Serve(ServeCmd),
 }

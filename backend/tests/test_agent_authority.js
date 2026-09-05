@@ -2,12 +2,12 @@ const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const { TEST_ADMIN_TOKEN } = require('./testAuth');
-const authority = require('./src/services/agentAuthorityService');
-const contracts = require('./src/services/strategyContractService');
-const { encodeMission, decodeMission } = require('./src/services/runtimeProtocol');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const { TEST_ADMIN_TOKEN } = require('../testAuth');
+const authority = require('../src/services/agentAuthorityService');
+const contracts = require('../src/services/strategyContractService');
+const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const PORT = 4107;
 
@@ -72,17 +72,19 @@ async function run() {
     assert.equal(deployed.status, 201);
     assert.equal(deployed.body.agent.executionMode, 'worker');
     assert.equal(deployed.body.dispatchRequired, true);
-    assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length, 77);
+    assert.equal(deployed.body.strategyContract.contract.strategy_decisions.length, 78);
     const workerId = deployed.body.agentId;
 
     const missionNamed = await request('POST', '/api/deploy', {
       executionMode: 'worker', parentAgentId: 'authority-orchestrator', workspaceId: workspace.id,
-      role: 'independent_reviewer', prompt: 'Verify token refresh race conditions'
+      role: 'independent_reviewer', prompt: 'Verify token refresh race conditions',
+      name: 'Verify · token refresh race conditions'
     });
     assert.equal(missionNamed.status, 201);
     assert.equal(missionNamed.body.agent.name, 'Verify · token refresh race conditions');
     const garage = await request('GET', '/api/agents/authority-orchestrator/workers/garage');
     assert.equal(garage.status, 200);
+    console.log("GARAGE BODY:", garage.body);
     assert.deepEqual({ capacity: garage.body.capacity, occupied: garage.body.occupied, available: garage.body.available }, { capacity: 3, occupied: 0, available: 3 });
 
     const selfStart = await request('POST', `/api/agents/${workerId}/start`, {});
@@ -92,11 +94,11 @@ async function run() {
     const inherited = await request('GET', `/api/agents/${workerId}/strategy-contract`);
     assert.equal(inherited.status, 200);
     assert.equal(inherited.body.inheritedByWorker, true);
-    assert.equal(inherited.body.contract.strategy_decisions.length, 77);
+    assert.equal(inherited.body.contract.strategy_decisions.length, 78);
 
     const wrongDispatcher = await request('POST', `/api/agents/not-the-parent/workers/${workerId}/dispatch`, {});
     assert.equal(wrongDispatcher.status, 404);
-    assert.equal(wrongDispatcher.body.error.code, 'ORCHESTRATOR_NOT_FOUND');
+    assert.equal(wrongDispatcher.body.error.code, 'WORKER_ORCHESTRATOR_MISMATCH');
 
     // A Studio stop also reconciles stale "running" rows when no child
     // process exists in this backend instance.

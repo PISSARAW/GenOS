@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { seedMcpTools } = require('./seedTools');
 const strategyContracts = require('../services/strategyContractService');
+const { listStrategies } = require('../strategies/strategyRegistry');
 
 function hashKey(key) {
   return crypto.createHash('sha256').update(key).digest('hex');
@@ -70,8 +71,9 @@ async function ensureAgentStrategyContracts(db) {
     } catch {
       // A malformed legacy snapshot is replaced below while remaining in history.
     }
-    if (latestContract?.strategy_decision_summary?.total_registry === 77
-      && latestContract?.strategy_decisions?.length === 77) continue;
+    const totalRegistryCount = listStrategies().length;
+    if (latestContract?.strategy_decision_summary?.total_registry === totalRegistryCount
+      && latestContract?.strategy_decisions?.length === totalRegistryCount) continue;
 
     await strategyContracts.saveContract(db, {
       agentId: agent.id,

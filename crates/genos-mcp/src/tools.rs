@@ -22,7 +22,7 @@ pub fn public_tool_specs() -> Vec<Value> {
                 "type": "object",
                 "properties": {
                     "mission": { "type": "string", "description": "Goal or user request to achieve." },
-                    "strategy": { "type": "string", "description": "Optional strategy hint from the 77 available." },
+                    "strategy": { "type": "string", "description": "Optional strategy hint from the 78 available." },
                     "background": { "type": "boolean", "description": "True to run detached in the background." }
                 },
                 "required": ["mission"]

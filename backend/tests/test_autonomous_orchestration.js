@@ -1,7 +1,7 @@
 const assert = require('assert');
-const { buildStrategyContract } = require('./src/services/strategyContractService');
-const { buildAutonomyPlan } = require('./src/services/autonomousOrchestrationService');
-const { encodeMission, decodeMission } = require('./src/services/runtimeProtocol');
+const { buildStrategyContract } = require('../src/services/strategyContractService');
+const { buildAutonomyPlan } = require('../src/services/autonomousOrchestrationService');
+const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
 
 const securityContract = buildStrategyContract({
   problem: 'Investigate a high-risk security incident with uncertain exploitability and complex cross-service impact.',
@@ -9,7 +9,7 @@ const securityContract = buildStrategyContract({
 });
 const plan = buildAutonomyPlan(securityContract, { tokens: 48000, minimumWorkerTokens: 8000 });
 
-assert.strictEqual(plan.registry.total, 77, 'the whole registry must be evaluated');
+assert.strictEqual(plan.registry.total, 78, 'the whole registry must be evaluated');
 assert.strictEqual(plan.registry.selected.length > 0, true);
 assert.strictEqual(plan.organization, 'red_blue_coevolution');
 assert.strictEqual(plan.organizationPolicy.transitions.length, 4);

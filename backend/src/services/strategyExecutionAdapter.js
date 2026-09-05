@@ -24,7 +24,10 @@ const search = require('./primitiveHandlers/search');
 const HANDLERS = {
   // Lot 1 — Fondamentales
   snapshot: fundamentals.snapshot,
-  cryptobiosis_freeze: fundamentals.snapshot,
+  cryptobiosis_freeze: fundamentals.cryptobiosisFreeze,
+  cryptobiosis_thaw: fundamentals.cryptobiosisThaw,
+  cryptobiosis: fundamentals.cryptobiosisFreeze,
+  vitrify: fundamentals.cryptobiosisFreeze,
   fork: fundamentals.fork,
   slm_route: fundamentals.slmRoute,
   provider_route: fundamentals.slmRoute,
@@ -63,6 +66,10 @@ const HANDLERS = {
   utopia_distance: evolution.paretoSelect,
   speciation: evolution.speciation,
   niche_preservation: evolution.speciation,
+  plasmid_divergent_fork: evolution.plasmidDivergence,
+  plasmid_divergence: evolution.plasmidDivergence,
+  plasmid_optimization: evolution.plasmidDivergence,
+  assimilate_plasmid: evolution.plasmidDivergence,
 
   // Lot 4 — Sécurité & Résilience
   open: safety.circuitBreakerOpen,
@@ -71,6 +78,9 @@ const HANDLERS = {
   half_open: safety.circuitBreakerHalfOpen,
   terminate: safety.apoptosis,
   apoptosis: safety.apoptosis,
+  fossilize: safety.fossilize,
+  fossil_record: safety.fossilize,
+  fossil_list: safety.listFossils,
   quarantine: safety.quarantine,
   negative_selection: safety.quarantine,
   threat_memory: safety.quarantine,

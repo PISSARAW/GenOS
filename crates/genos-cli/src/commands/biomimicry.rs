@@ -7,7 +7,6 @@ use genos_biology::neurobiology::{DendriticTree, Neurotransmitter};
 use genos_biology::phenotype::EnvironmentalFactors;
 use genos_biology::redundancy::RedundancySystem;
 use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
-use genos_biology::spore::Spore;
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
 use genos_genome::Genome;
@@ -232,14 +231,8 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "is_alive": cell.is_alive(), "status": "TERMINATED"
             }));
         }
-        BiomimicrySubcommands::Cryptobiosis { agent_id } => {
-            let genome = Genome::new(&agent_id);
-            let bunker = Spore::create_bacterial_endospore(&genome);
-            print_json(json!({
-                "success": true, "operation": "cryptobiosis",
-                "agent_id": agent_id, "bunker_armor": bunker.bunker_armor,
-                "spore_type": format!("{:?}", bunker.spore_type), "status": "FROZEN"
-            }));
+        BiomimicrySubcommands::Cryptobiosis { agent_id, action, state } => {
+            return super::store_ops::handle_cryptobiosis(&agent_id, action.as_deref(), state.as_deref());
         }
         BiomimicrySubcommands::Hypermutation { agent_id } => {
             let redundancy = RedundancySystem::new();

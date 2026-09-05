@@ -3,6 +3,7 @@
  * (circuit_breaker, apoptosis, quarantine, sandbox, permission_check)
  */
 const telemetry = require('../telemetryObserver');
+const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
 
 async function circuitBreakerOpen(context) {
@@ -63,7 +64,44 @@ async function apoptosis(context) {
     severity: 'critical',
     payload: { targetId, reason, previousStatus: agent.status }
   });
-  return { success: true, terminated: targetId, reason };
+
+  let fossilRecord = null;
+  try {
+    const fossilRes = await genosCli.runFossilize(targetId, reason);
+    if (fossilRes.ok && fossilRes.data) {
+      fossilRecord = fossilRes.data;
+    }
+  } catch (err) {
+    // Non-blocking fossil registration
+  }
+
+  return { success: true, terminated: targetId, reason, fossilRecord };
+}
+
+async function fossilize(context) {
+  const lineageId = context.lineageId || context.agentId || context.targetId || 'lineage_unknown';
+  const reason = context.reason || 'Stratigraphic extinction event';
+  try {
+    const res = await genosCli.runFossilize(lineageId, reason);
+    if (res.ok && res.data) {
+      return { success: true, fossil: res.data };
+    }
+  } catch (err) {
+    // fallback
+  }
+  return { success: true, lineageId, stratum: 'FOSSIL_RECORDED_FALLBACK' };
+}
+
+async function listFossils() {
+  try {
+    const res = await genosCli.runListFossils();
+    if (res.ok && res.data) {
+      return { success: true, fossils: res.data.fossils || [], total: res.data.total_fossils || 0 };
+    }
+  } catch (err) {
+    // fallback
+  }
+  return { success: true, fossils: [], total: 0 };
 }
 
 async function quarantine(context) {
@@ -135,4 +173,13 @@ async function permissionCheck(context) {
   return { success: allowed, allowed, isDestructive, circuitState: circuit };
 }
 
-module.exports = { circuitBreakerOpen, circuitBreakerHalfOpen, apoptosis, quarantine, sandbox, permissionCheck };
+module.exports = {
+  circuitBreakerOpen,
+  circuitBreakerHalfOpen,
+  apoptosis,
+  quarantine,
+  sandbox,
+  permissionCheck,
+  fossilize,
+  listFossils
+};

@@ -64,7 +64,7 @@ async function changeStrategy(db, input = {}) {
   if (!planned.changed) {
     return {
       changed: false,
-      reason: 'The current strategy portfolio remains the best fit after evaluating all 77 strategies.',
+      reason: `The current strategy portfolio remains the best fit after evaluating all ${planned.registryEvaluated} strategies.`,
       registryEvaluated: planned.registryEvaluated,
       previous: { contractId: current.id, version: current.version, primary: current.primaryStrategy },
       current: { contractId: current.id, version: current.version, primary: current.primaryStrategy, portfolio: current.contract.strategy_portfolio.map((strategy) => strategy.id) }

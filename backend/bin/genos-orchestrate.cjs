@@ -149,7 +149,7 @@ async function main() {
         agentId: orchestratorId,
         action: transition.changed ? 'RESELECT_STRATEGY' : 'KEEP_STRATEGY',
         detail: transition.changed
-          ? `Changed primary strategy from '${transition.previous.primary}' to '${transition.current.primary}' after evaluating all 77 strategies.`
+          ? `Changed primary strategy from '${transition.previous.primary}' to '${transition.current.primary}' after evaluating all ${transition.registryEvaluated || 78} strategies.`
           : transition.reason,
         payload: transition,
         severity: 'info'

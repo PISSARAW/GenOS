@@ -40,17 +40,17 @@ async function run() {
   const db = await getDatabase(dbPath);
 
   const incident = buildStrategyContract({ problem: 'Reproduce an intermittent production incident' });
-  assert.equal(listStrategies().length, 77);
+  assert.equal(listStrategies().length, 78);
   assert.equal(incident.problem_profile.type, 'incident');
   assert.equal(incident.selected_strategy.primary, 'mutated_incident_universes');
   assert.equal(incident.promotion.require_human_approval, true);
-  assert.equal(incident.strategy_decisions.length, 77);
-  assert.equal(incident.strategy_decision_summary.total_registry, 77);
+  assert.equal(incident.strategy_decisions.length, 78);
+  assert.equal(incident.strategy_decision_summary.total_registry, 78);
   assert(incident.strategy_portfolio.length >= 6);
   assert(incident.strategy_decisions.some((decision) => decision.id === 'mcts_prm' && decision.status === 'ineligible'));
   const research = selectStrategyPortfolio({ problem: 'Run a scientific hypothesis experiment' });
   assert.equal(research.primary.id, 'factorial_experiment');
-  assert.equal(research.decisions.length, 77);
+  assert.equal(research.decisions.length, 78);
   const framedMission = encodeMission({
     agentId: 'agent-strategy-test',
     strategyContractJson: JSON.stringify(incident)
@@ -62,13 +62,13 @@ async function run() {
   try {
     const registry = await request('GET', '/api/strategies');
     assert.equal(registry.status, 200);
-    assert.equal(registry.body.total, 77);
-    assert.equal(registry.body.registryTotal, 77);
+    assert.equal(registry.body.total, 78);
+    assert.equal(registry.body.registryTotal, 78);
 
     const preview = await request('POST', '/api/strategies/select', { problem: 'Choose an architecture trade-off' });
     assert.equal(preview.status, 200);
     assert.equal(preview.body.selected_strategy.primary, 'causal_replay_intervention');
-    assert.equal(preview.body.strategy_decisions.length, 77);
+    assert.equal(preview.body.strategy_decisions.length, 78);
 
     await db.run("INSERT INTO workspaces (id, name, path) VALUES ('strategy-workspace', 'Strategy workspace', ?)", __dirname);
     await db.run(`INSERT INTO agents (id, name, role, status, workspace_id, current_task)
@@ -164,7 +164,7 @@ async function run() {
     assert.equal(upgraded.status, 200);
     assert.equal(upgraded.body.version, 2);
     assert.equal(upgraded.body.createdBy, 'strategy_registry_upgrade');
-    assert.equal(upgraded.body.contract.strategy_decisions.length, 77);
+    assert.equal(upgraded.body.contract.strategy_decisions.length, 78);
 
     const invalid = await request('POST', '/api/agents/agent-strategy-test/strategy-contracts', {
       contract: { schema: 'invalid' }

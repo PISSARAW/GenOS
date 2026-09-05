@@ -111,6 +111,10 @@ pub enum BiomimicrySubcommands {
     Cryptobiosis {
         #[arg(long)]
         agent_id: String,
+        #[arg(long)]
+        action: Option<String>,
+        #[arg(long)]
+        state: Option<String>,
     },
     Hypermutation {
         #[arg(long)]
