@@ -6,9 +6,10 @@ const path = require('path');
 const workerRecovery = require('./workerFailureRecoveryService');
 const dynamicOrganization = require('./dynamicOrganizationService');
 const workerGarage = require('./workerGarageService');
+const bisectionService = require('./bisectionService');
 const {
   pendingWorkerRecoveries, activeWorkerRecoveryDispatches, pendingContinuations,
-  activeWorkerBarriers, emit, updateAgent
+  activeWorkerBarriers, emit, updateAgent, workerToolLease
 } = require('./agentOrchestrationState');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
 const { getDatabase } = require('../db');
@@ -42,7 +43,8 @@ function queueWorkerRecovery(mission, event) {
   const recoveryOrganization = decision.action === 'mutate_worker'
     ? 'isolated_recovery'
     : decision.action === 'fork_worker' ? 'competitive_arena'
-      : decision.action === 'replace_worker' ? 'specialist_expert_committee' : null;
+      : decision.action === 'bisect_and_rollback' ? 'isolated_recovery'
+        : decision.action === 'replace_worker' ? 'specialist_expert_committee' : null;
   if (recoveryOrganization) applyOrganizationDecision(orchestratorId, recoveryOrganization, decision.reason).catch(() => {});
   if (decision.retry && !pendingWorkerRecoveries.has(report.workerId)) {
     pendingWorkerRecoveries.set(report.workerId, { mission, report, decision });
@@ -90,6 +92,32 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
+
+  // Automatic Causal Bisection when a test regression or invariant was broken
+  let bisectionResult = null;
+  const isRegressionFailure = decision.action === 'bisect_and_rollback' || ['test_failure', 'regression'].includes(report.category);
+  if (isRegressionFailure || (mission.snapshots && mission.snapshots.length >= 2)) {
+    try {
+      bisectionResult = await bisectionService.autoBisectWorkspaceAnomaly(db, {
+        workspaceId: source.workspace_id || mission.workspaceId,
+        workspaceRoot: mission.workspaceRoot,
+        testCommand: mission.testCommand || 'npm test',
+        snapshotHistory: mission.snapshots
+      });
+      if (bisectionResult?.anomalyFound && bisectionResult.culpritReport) {
+        report.bisection = bisectionResult;
+        report.culpritReport = bisectionResult.culpritReport;
+        emit(orchestratorId, 'WORKER_CAUSAL_BISECTION_COMPLETED', 'BISECTION',
+          `Bisection causale O(log N) réussie : pas fautif #${bisectionResult.culpritReport.stepNumber} isolé en ${bisectionResult.bisectionIterationsRequired} itérations.`,
+          { sourceWorkerId: sourceAgentId, culpritReport: bisectionResult.culpritReport, bisectionResult }, 'info');
+      }
+    } catch (bisectionError) {
+      emit(orchestratorId, 'WORKER_CAUSAL_BISECTION_FAILED', 'BISECTION_ERROR',
+        `Échec de la bisection causale : ${bisectionError.message}`,
+        { sourceWorkerId: sourceAgentId, error: bisectionError.message }, 'warning');
+    }
+  }
+
   const sameIdentity = decision.identity === 'same';
   const targetId = sameIdentity
     ? sourceAgentId
@@ -145,6 +173,8 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       recoveryAttempt: report.attempt + 1,
       recoveryMaxAttempts: report.maxAttempts,
       recoveryHistory: [...(mission.recoveryHistory || []), { workerId: sourceAgentId, report, decision }],
+      bisection: bisectionResult || report.bisection || null,
+      culpritReport: report.culpritReport || null,
       workspaceRoot,
       workspaceProvisioned: true,
       orchestratorAgentId: orchestratorId,

@@ -12,6 +12,7 @@ function classifyFailure(event = {}) {
   const text = `${event.detail || ''} ${payload.failure?.reason || ''} ${payload.stderr || ''}`.toLowerCase();
   if (/permission|forbidden|policy|not allowed|unauthori/.test(text)) return 'capability_mismatch';
   if (/mutat|malform|apoptos|syntax|chaperon/.test(text)) return 'mutated_output';
+  if (/test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/.test(text)) return 'test_failure';
   if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text)) return 'falsified_hypothesis';
   if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text)) return 'transient_runtime';
   if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text)) return 'capability_mismatch';
@@ -58,6 +59,8 @@ function failureReport(event = {}, mission = {}) {
       ? payload.evidenceReport.uncertainties.map(String).filter(Boolean)
       : [],
     noAnswerProof: proofOfNoAnswer(payload),
+    bisection: payload.bisection || mission.bisection || null,
+    culpritReport: payload.culpritReport || payload.bisection?.culpritReport || mission.culpritReport || null,
     attempt: Math.max(0, Number(mission.recoveryAttempt || 0)),
     maxAttempts: Math.max(1, Number(mission.recoveryMaxAttempts || MAX_RECOVERY_ATTEMPTS)),
     sourceEvent: event.eventType,
@@ -88,6 +91,12 @@ function decideRecovery(report) {
     return {
       action: 'mutate_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
       reason: 'The previous worker output mutated or suffered structural apoptosis; triggering cognitive molting with structural chaperone guidance.'
+    };
+  }
+  if (['test_failure', 'regression', 'invariant_violation'].includes(report.category)) {
+    return {
+      action: 'bisect_and_rollback', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
+      reason: 'A test regression or invariant violation was detected; triggering causal bisection to isolate culprit step and restore pre-regression state.'
     };
   }
   if (['falsified_hypothesis', 'contradictory_evidence'].includes(report.category)) {
@@ -125,6 +134,14 @@ function recoveryPrompt(report, decision) {
   if (report.reason && report.reason.includes('[SIGNAL IMMUNITAIRE : DOULEUR COGNITIVE]')) {
     parts.push('INSTRUCTION DE RÉPARATION IMMUNITAIRE (CANALISATION ÉPIGÉNÉTIQUE) :');
     parts.push(report.reason);
+  }
+  const culprit = report.culpritReport || report.bisection?.culpritReport;
+  if (culprit) {
+    parts.push('DIAGNOSTIC BISECTION CAUSALE (O(log N)) :');
+    parts.push(`- Pas fautif isolé : Étape ${culprit.stepNumber} (Snapshot: ${culprit.snapshotHash || 'n/a'}, Agent: ${culprit.culpritAgentId || 'worker'})`);
+    parts.push(`- Cause racine : ${culprit.rootCauseSummary || culprit.actionDescription || 'Violation d’invariant'}`);
+    if (culprit.targetFile) parts.push(`- Fichier impacté : ${culprit.targetFile}`);
+    parts.push('- Remédiation : Ce pas fautif a été annulé par rollback chirurgical. Ne pas répéter la même mutation.');
   }
   parts.push(report.evidence.length ? `Evidence already obtained: ${JSON.stringify(report.evidence)}` : 'No conclusive evidence was obtained.');
   parts.push(`Orchestrator decision: ${decision.action}. ${decision.reason}`);

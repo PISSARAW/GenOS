@@ -96,13 +96,13 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null)
     culpritReport: {
       stepNumber: culpritSnap.step ?? culpritSnap.step_number,
       snapshotHash: culpritSnap.hash ?? culpritSnap.snapshot_hash,
-      culpritAgentId: culpritSnap.agent || 'worker_fast_coder',
+      culpritAgentId: culpritSnap.agent || culpritSnap.author || 'worker_fast_coder',
       actionDescription: culpritSnap._execution
         ? `Invariant command exited with ${culpritSnap._execution.exitCode}.\n${culpritSnap._execution.stderr || culpritSnap._execution.stdout || ''}`.trim()
         : culpritSnap.reason || culpritSnap.label,
       toolCall: 'isolated_test_runner',
       targetFile: null,
-      rootCauseSummary: culpritSnap._execution?.stderr || `First snapshot failing the supplied invariant: ${culpritSnap.label}`
+      rootCauseSummary: culpritSnap._execution?.stderr || culpritSnap.reason || culpritSnap.label || `First snapshot failing the supplied invariant: ${culpritSnap.label}`
     }
   };
 }
@@ -153,9 +153,111 @@ function remediateRollback(workspaceId = 'ws-genos-core', culpritReport = {}, cu
   };
 }
 
+/**
+ * Automatically bisects a regression or invariant failure in a workspace.
+ * Queries snapshots from SQLite or uses provided snapshot history, applies
+ * O(log N) binary search, and triggers surgical remediation and rollback.
+ *
+ * @param {object} db SQLite database instance (optional if snapshotHistory provided)
+ * @param {object} options Configuration object (workspaceId, workspaceRoot, testCommand, snapshotHistory, predicate, timeoutMs, autoRollback)
+ */
+async function autoBisectWorkspaceAnomaly(db, options = {}) {
+  const {
+    workspaceId,
+    workspaceRoot,
+    testCommand = 'npm test',
+    snapshotHistory = null,
+    predicate = null,
+    timeoutMs = 30000,
+    autoRollback = true
+  } = options;
+
+  let history = Array.isArray(snapshotHistory) ? [...snapshotHistory] : null;
+  let workspace = null;
+
+  if (!history && db && workspaceId) {
+    try {
+      history = await db.all(
+        'SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC',
+        workspaceId
+      );
+      workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', workspaceId);
+    } catch (_) {
+      history = [];
+    }
+  }
+
+  if (!history || history.length < 2) {
+    return {
+      bisectionComplete: false,
+      anomalyFound: false,
+      totalSnapshotsSearched: history ? history.length : 0,
+      reason: 'Insufficient snapshots for bisection (at least 2 required).'
+    };
+  }
+
+  let failurePredicate = predicate;
+  if (!failurePredicate) {
+    const isDurable = history.some(s => {
+      try {
+        const meta = typeof s.metadata === 'string' ? JSON.parse(s.metadata || '{}') : (s.metadata || {});
+        return meta.storage === 'durable-filesystem';
+      } catch (_) { return false; }
+    });
+
+    if (isDurable) {
+      try {
+        const snapshotStore = require('./workspaceSnapshotStore');
+        const wsPath = workspaceRoot || workspace?.path || process.cwd();
+        failurePredicate = async (snap) => {
+          const execution = await snapshotStore.runInSnapshot({
+            snapshot: snap,
+            command: testCommand,
+            timeoutMs,
+            workspacePath: wsPath
+          });
+          snap._execution = execution;
+          return execution.exitCode === 0;
+        };
+      } catch (_) {
+        failurePredicate = null;
+      }
+    }
+  }
+
+  if (!failurePredicate) {
+    failurePredicate = (snap) => {
+      if (snap._execution) return snap._execution.exitCode === 0;
+      if (typeof snap.healthy === 'boolean') return snap.healthy;
+      if (snap.metadata) {
+        try {
+          const meta = typeof snap.metadata === 'string' ? JSON.parse(snap.metadata || '{}') : snap.metadata;
+          if (typeof meta.healthy === 'boolean') return meta.healthy;
+        } catch (_) {}
+      }
+      if (snap.status === 'failed' || snap.status === 'error') return false;
+      return true;
+    };
+  }
+
+  const bisectionResult = await bisectAnomalyAsync(history, failurePredicate);
+
+  let remediation = null;
+  if (bisectionResult.anomalyFound && autoRollback) {
+    remediation = remediateRollback(workspaceId || 'workspace_recovery', bisectionResult.culpritReport);
+  }
+
+  return {
+    ...bisectionResult,
+    remediation
+  };
+}
+
 module.exports = {
   diffWorkspaces,
   bisectAnomaly,
   bisectAnomalyAsync,
-  remediateRollback
+  remediateRollback,
+  autoBisectWorkspaceAnomaly
 };
+
