@@ -26,17 +26,33 @@ function includesAny(text, terms) {
 
 function classifyProblem(problem = '') {
   const text = String(problem).toLowerCase();
-  if (includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage'])) return 'incident';
-  if (includesAny(text, ['unknown cause', 'root cause', 'cause inconnue', 'diagnose', 'debug'])) return 'unknown_cause_bug';
-  if (includesAny(text, ['security', 'vulnerability', 'threat', 'attack', 'sécurité', 'cve'])) return 'security';
-  if (includesAny(text, ['research', 'hypothesis', 'scientific', 'experiment', 'recherche'])) return 'scientific_research';
-  if (includesAny(text, ['refactor', 'migration', 'monolith', 'rewrite', 'architecture critique'])) return 'critical_refactor';
-  if (includesAny(text, ['architecture', 'decision', 'trade-off', 'compare options', 'choisir'])) return 'architecture_decision';
+  
+  // Mapping direct si le texte correspond exactement ou est pré-typé
+  if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
+  
+  if (includesAny(text, ['unknown cause', 'root cause', 'cause inconnue', 'diagnose', 'debug', 'investigate', 'why does it', 'bug', 'fix'])) return 'unknown_cause_bug';
+  
+  if (includesAny(text, ['security', 'vulnerability', 'threat', 'attack', 'sécurité', 'cve', 'exploit', 'injection'])) return 'security';
+  
+  if (includesAny(text, ['research', 'hypothesis', 'scientific', 'experiment', 'recherche', 'poc', 'proof of concept', 'benchmark'])) return 'scientific_research';
+  
+  if (includesAny(text, ['refactor', 'migration', 'monolith', 'rewrite', 'architecture critique', 'legacy', 'technical debt'])) return 'critical_refactor';
+  
+  if (includesAny(text, ['architecture', 'decision', 'trade-off', 'compare options', 'choisir', 'design doc', 'system design'])) return 'architecture_decision';
+  
+  // Par défaut, si c'est une feature request ou une tâche simple
   return 'implementation';
 }
 
 function profileProblem(problem = '', overrides = {}) {
-  const type = overrides.type || classifyProblem(problem);
+  let type = overrides.type || classifyProblem(problem);
+  
+  // Normalize known external typologies (e.g., from JIRA/GitHub or direct injection)
+  if (!PROBLEM_PROFILES[type]) {
+    // If it's an unrecognized explicit type, fall back to classification
+    type = classifyProblem(String(type) + ' ' + problem);
+  }
+
   const text = String(problem).toLowerCase();
   const highRisk = ['incident', 'critical_refactor', 'security'].includes(type) || includesAny(text, ['deploy', 'delete', 'payment', 'production']);
   const uncertaintyDefaults = { unknown_cause_bug: 0.82, scientific_research: 0.74, incident: 0.78, architecture_decision: 0.62 };
