@@ -89,8 +89,35 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Lineage, Squeaze, Think, Trio,
-    Multi, Broad, Swarm, Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
+    Lineage {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Squeaze {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Think {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Trio {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Multi {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Broad {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Swarm {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
     Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
     Ruins, Id, Mind,
@@ -285,6 +312,55 @@ async fn main() {
             println!("Analyse de la généalogie (Swarm Allele)...");
             let mut cmd = std::process::Command::new("cargo");
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Lineage { args } => {
+            println!("Historique des fossiles (Lineage)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Squeaze { args } => {
+            println!("Condensation de l'agent (Prune)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Think { args } => {
+            println!("Évaluation du chemin neuronal (Think)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Trio { args } => {
+            println!("Déploiement en trio (Trinity)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Multi { args } => {
+            println!("Exécution multi-agents (World Run)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Broad { args } => {
+            println!("Expansion des connaissances (Platform Ingest)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "ingest"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Swarm { args } => {
+            println!("Gestion de l'essaim (Swarm)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm"]);
             if !args.is_empty() { cmd.args(args); }
             let _ = cmd.status();
         }
