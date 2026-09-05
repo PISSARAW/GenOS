@@ -78,7 +78,14 @@ pub fn handle_rebase(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-pub fn handle_world_create(provider: &str, root: &str, world_id: &str, seed: Option<&str>) -> Result<(), String> {
+pub struct WorldParams<'a> {
+    pub world_id: &'a str,
+    pub seed: Option<&'a str>,
+}
+
+pub fn handle_world_create(provider: &str, root: &str, params: WorldParams) -> Result<(), String> {
+    let world_id = params.world_id;
+    let seed = params.seed;
     println!("{}", json!({
         "operation": "world_create", "provider": provider, "root": root, "world_id": world_id, "seed": seed.unwrap_or("none"), "created": true
     }));

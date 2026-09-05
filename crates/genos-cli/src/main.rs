@@ -31,7 +31,7 @@ fn main() {
         Some(Commands::Merge(cmd)) => capsule::handle_merge(&cmd.branch_id, cmd.conditions.as_deref()),
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
         Some(Commands::LoopDetection(cmd)) => {
-            capsule::handle_loop_detection(&cmd.history_file, cmd.exact_match, cmd.stagnation, cmd.similarity)
+            capsule::handle_loop_detection(&cmd)
         }
         Some(Commands::Causality(cmd)) => match cmd.subcommand {
             CausalitySubcommands::Fork { boundary_id, new_boundary_id } => {
@@ -45,7 +45,7 @@ fn main() {
         },
         Some(Commands::Phenotype(cmd)) => match cmd.subcommand {
             PhenotypeSubcommands::MeasureDivergence { trait_name, expected, observed, tolerance } => {
-                capsule::handle_phenotype_measure(&trait_name, expected, observed, tolerance)
+                capsule::handle_phenotype_measure(&trait_name, capsule::PhenotypeValues { expected, observed, tolerance })
             }
         },
         Some(Commands::Trinity(cmd)) => match cmd.subcommand {
@@ -69,7 +69,7 @@ fn main() {
         },
         Some(Commands::World(cmd)) => match cmd.subcommand {
             WorldSubcommands::Create { provider, root, world_id, seed } => {
-                platform::handle_world_create(&provider, &root, &world_id, seed.as_deref())
+                platform::handle_world_create(&provider, &root, platform::WorldParams { world_id: &world_id, seed: seed.as_deref() })
             }
             WorldSubcommands::Run { world_id, command, sandbox_backend, .. } => {
                 platform::handle_world_run(&world_id, &command, &sandbox_backend)
