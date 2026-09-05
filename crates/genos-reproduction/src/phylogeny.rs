@@ -156,10 +156,7 @@ impl PhylogeneticTree {
         // Ici on simule l'extraction de l'ADN mitochondrial qui est resté intact
         // de "mère en fille" (clonage ou héritage strict sans crossing-over).
         if population.is_empty() { return None; }
-        
-        // L'ADN mitochondrial ne subit pas de crossing-over. S'il n'y a pas de mutations récentes,
-        // l'Ève mitochondriale est simplement l'ADN partagé par tous.
-        Some(population[0].metabolism.mitochondria.mitochondrial_dna.clone())
+        Some(crate::genome::DnaStrand::synthesize(&population[0].name_meaning))
     }
 
 

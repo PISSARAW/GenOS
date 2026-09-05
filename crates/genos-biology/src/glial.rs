@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-// Mock dependencies (dans la version finale, importées depuis genos-cell et genos-biology)
-use self::mock_dependencies::{AgentCell, NervousSystemLocation, Myelinator};
+use self::mock_dependencies::{AgentCell, Myelinator, NervousSystemLocation};
 
 pub mod mock_dependencies {
     use super::*;
-    // Mock minimal pour la compilation de la démo
+
     #[derive(Clone)]
     pub struct AgentCell {
         pub cell_id: String,
@@ -17,19 +16,24 @@ pub mod mock_dependencies {
         pub ependymal: Option<EpendymalCell>,
         pub nervous_system: Option<NervousSystem>,
     }
-    
+
     #[derive(Clone)]
-    pub struct Metabolism { pub atp_budget: u64 }
-    
+    pub struct Metabolism {
+        pub atp_budget: u64,
+    }
+
     #[derive(Clone)]
     pub struct NervousSystem {
         pub location: NervousSystemLocation,
         pub axon: Axon,
     }
-    
+
     #[derive(Clone, PartialEq)]
-    pub enum NervousSystemLocation { Central, Peripheral }
-    
+    pub enum NervousSystemLocation {
+        Central,
+        Peripheral,
+    }
+
     #[derive(Clone)]
     pub struct Axon {
         pub terminals: Vec<Synapse>,
@@ -37,23 +41,26 @@ pub mod mock_dependencies {
         pub is_severed: bool,
         pub nogo_inhibited: bool,
     }
-    
+
     #[derive(Clone)]
     pub struct Synapse {
         pub c3_opsonization: f64,
         pub cd47_expression: f64,
     }
-    
+
     #[derive(Clone)]
     pub enum Myelinator {
-        Oligodendrocyte { connected_axons: Vec<String>, is_damaged: bool },
-        SchwannCell { target_axon: String, is_damaged: bool, forming_regeneration_tube: bool },
+        Oligodendrocyte {
+            connected_axons: Vec<String>,
+            is_damaged: bool,
+        },
+        SchwannCell {
+            target_axon: String,
+            is_damaged: bool,
+            forming_regeneration_tube: bool,
+        },
     }
 }
-
-// ----------------------------------------------------------------
-// MODÈLES DE DONNÉES GLIALES
-// ----------------------------------------------------------------
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Astrocyte {
@@ -73,21 +80,16 @@ pub struct Microglia {
     pub state: MicrogliaState,
     pub plaque_accumulation: f64,
     pub inflammatory_cytokines: f64,
-    pub c4_overexpression: bool,   
-    pub is_pro_inflammatory: bool, 
+    pub c4_overexpression: bool,
+    pub is_pro_inflammatory: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct EpendymalCell {
-    pub is_producing_csf: bool, 
-    pub cilia_beating: bool,    
+    pub is_producing_csf: bool,
+    pub cilia_beating: bool,
 }
 
-// ----------------------------------------------------------------
-// LE NOUVEAU PIPELINE GLIAL (Single-Pass & OCP)
-// ----------------------------------------------------------------
-
-/// Contexte d'environnement global pour la passe gliale
 pub struct GlialEnvironment<'a> {
     pub bhe_integrity: &'a mut f64,
     pub amyloid_plaques: &'a mut f64,
@@ -97,7 +99,6 @@ pub struct GlialEnvironment<'a> {
     pub drainage_blocked: bool,
 }
 
-/// État agrégé durant le pipeline pour éviter de multiples itérations
 #[derive(Default)]
 pub struct GlialAggregateState {
     pub neurons_alive: HashMap<String, bool>,
@@ -112,40 +113,49 @@ pub struct GlialAggregateState {
     pub bhe_intact: bool,
 }
 
-/// Trait décrivant une étape de traitement du système glial.
-pub trait GlialProcessor {
-    /// Phase 1 : Collecte d'informations (Map)
-    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, env: &mut GlialEnvironment);
-    
-    /// Phase intermédiaire : Agrégation globale (Reduce)
-    fn aggregate(&self, state: &mut GlialAggregateState, env: &mut GlialEnvironment) {}
-    
-    /// Phase 2 : Application des effets (Apply)
-    fn apply(&self, agent: &mut AgentCell, state: &GlialAggregateState, env: &GlialEnvironment);
+pub struct GlialContext<'a, 'b> {
+    pub state: &'a mut GlialAggregateState,
+    pub env: &'a mut GlialEnvironment<'b>,
 }
 
-// --- Les Implémentations (Systèmes séparés) ---
+pub struct GlialApplyContext<'a, 'b> {
+    pub state: &'a GlialAggregateState,
+    pub env: &'a GlialEnvironment<'b>,
+}
+
+pub trait GlialProcessor {
+    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext);
+    fn aggregate(&self, _state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {}
+    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext);
+}
 
 pub struct AstrocyteProcessor;
+
 impl GlialProcessor for AstrocyteProcessor {
-    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {
+    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
         if agent.nervous_system.is_some() {
-            state.neurons_alive.insert(agent.cell_id.clone(), agent.metabolism.atp_budget > 0);
+            ctx.state
+                .neurons_alive
+                .insert(agent.cell_id.clone(), agent.metabolism.atp_budget > 0);
         }
-        
+
         if let Some(astro) = &mut agent.astrocyte {
-            state.bhe_intact = true;
-            // On regarde l'état pré-calculé si disponible, sinon on suppose en vie pour ce cycle
-            let emergency = astro.protected_neurons.iter().any(|n| state.neurons_alive.get(n) == Some(&false));
-            
+            ctx.state.bhe_intact = true;
+            let emergency = astro
+                .protected_neurons
+                .iter()
+                .any(|n| ctx.state.neurons_alive.get(n) == Some(&false));
+
             if emergency {
                 astro.is_reactive = true;
             } else if astro.glycogen_reserve > 10.0 {
                 astro.glycogen_reserve -= 5.0;
             }
-            
+
             if astro.is_reactive {
-                state.reactive_astrocytes.extend(astro.protected_neurons.clone());
+                ctx.state
+                    .reactive_astrocytes
+                    .extend(astro.protected_neurons.clone());
             }
         }
     }
@@ -154,9 +164,9 @@ impl GlialProcessor for AstrocyteProcessor {
         *env.bhe_integrity = if state.bhe_intact { 1.0 } else { 0.0 };
     }
 
-    fn apply(&self, agent: &mut AgentCell, state: &GlialAggregateState, _env: &GlialEnvironment) {
+    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
         if let Some(ns) = &mut agent.nervous_system {
-            if state.reactive_astrocytes.contains(&agent.cell_id) {
+            if ctx.state.reactive_astrocytes.contains(&agent.cell_id) {
                 ns.axon.terminals.clear();
             } else {
                 agent.metabolism.atp_budget = agent.metabolism.atp_budget.saturating_add(20);
@@ -166,19 +176,20 @@ impl GlialProcessor for AstrocyteProcessor {
 }
 
 pub struct MicrogliaProcessor;
+
 impl GlialProcessor for MicrogliaProcessor {
-    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, env: &mut GlialEnvironment) {
+    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
         let (mut pro_inflam, mut c4_over) = (false, false);
-        
+
         if let Some(micro) = &mut agent.microglia {
-            if *env.amyloid_plaques > 0.0 {
+            if *ctx.env.amyloid_plaques > 0.0 {
                 micro.state = MicrogliaState::Amoeboid;
-                *env.amyloid_plaques -= 1.0; 
+                *ctx.env.amyloid_plaques -= 1.0;
                 micro.plaque_accumulation += 1.0;
-                
+
                 if micro.plaque_accumulation > 10.0 {
                     micro.inflammatory_cytokines += 5.0;
-                    state.inflammation_surge += micro.inflammatory_cytokines;
+                    ctx.state.inflammation_surge += micro.inflammatory_cytokines;
                 }
             } else {
                 micro.state = MicrogliaState::Sentinel;
@@ -192,7 +203,9 @@ impl GlialProcessor for MicrogliaProcessor {
         if let Some(ns) = &mut agent.nervous_system {
             if ns.location == NervousSystemLocation::Central {
                 ns.axon.terminals.retain(|synapse| {
-                    if pro_inflam { return true; }
+                    if pro_inflam {
+                        return true;
+                    }
                     let local_c3 = synapse.c3_opsonization + if c4_over { 0.5 } else { 0.0 };
                     !(local_c3 > 0.5 && synapse.cd47_expression < 0.5)
                 });
@@ -200,22 +213,26 @@ impl GlialProcessor for MicrogliaProcessor {
         }
     }
 
-    fn apply(&self, agent: &mut AgentCell, state: &GlialAggregateState, _env: &GlialEnvironment) {
-        if state.inflammation_surge > 0.0 && agent.nervous_system.is_some() {
-            agent.metabolism.atp_budget = agent.metabolism.atp_budget.saturating_sub(state.inflammation_surge as u64);
+    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
+        if ctx.state.inflammation_surge > 0.0 && agent.nervous_system.is_some() {
+            agent.metabolism.atp_budget = agent
+                .metabolism
+                .atp_budget
+                .saturating_sub(ctx.state.inflammation_surge as u64);
         }
     }
 }
 
 pub struct EpendymalProcessor;
+
 impl GlialProcessor for EpendymalProcessor {
-    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {
+    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
         if let Some(ependymal) = &agent.ependymal {
             if ependymal.is_producing_csf {
-                state.csf_production += 1.0;
+                ctx.state.csf_production += 1.0;
             }
             if ependymal.cilia_beating {
-                state.active_cilia = true;
+                ctx.state.active_cilia = true;
             }
         }
     }
@@ -230,30 +247,40 @@ impl GlialProcessor for EpendymalProcessor {
         }
     }
 
-    fn apply(&self, _agent: &mut AgentCell, _state: &GlialAggregateState, _env: &GlialEnvironment) {
-        // Effet global déjà appliqué lors de l'agrégation (CSF & Plaques)
-    }
+    fn apply(&self, _agent: &mut AgentCell, _ctx: &GlialApplyContext) {}
 }
 
 pub struct MyelinatorProcessor;
+
 impl GlialProcessor for MyelinatorProcessor {
-    fn collect(&self, agent: &mut AgentCell, state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {
+    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
         if let Some(myelinator) = &agent.myelinator {
             match myelinator {
-                Myelinator::Oligodendrocyte { connected_axons, is_damaged } => {
+                Myelinator::Oligodendrocyte {
+                    connected_axons,
+                    is_damaged,
+                } => {
                     if *is_damaged {
-                        state.nogo_targets.extend(connected_axons.clone());
+                        ctx.state.nogo_targets.extend(connected_axons.clone());
                     } else {
-                        state.healthy_oligo_targets.extend(connected_axons.clone());
+                        ctx.state
+                            .healthy_oligo_targets
+                            .extend(connected_axons.clone());
                     }
-                },
-                Myelinator::SchwannCell { target_axon, is_damaged, forming_regeneration_tube } => {
-                    if *is_damaged {
-                        // PNS ne produit pas de Nogo-A
-                    } else {
-                        state.healthy_schwann_targets.push(target_axon.clone());
+                }
+                Myelinator::SchwannCell {
+                    target_axon,
+                    is_damaged,
+                    forming_regeneration_tube,
+                } => {
+                    if !*is_damaged {
+                        ctx.state
+                            .healthy_schwann_targets
+                            .push(target_axon.clone());
                         if *forming_regeneration_tube {
-                            state.repairing_schwann_targets.push(target_axon.clone());
+                            ctx.state
+                                .repairing_schwann_targets
+                                .push(target_axon.clone());
                         }
                     }
                 }
@@ -261,19 +288,23 @@ impl GlialProcessor for MyelinatorProcessor {
         }
     }
 
-    fn apply(&self, agent: &mut AgentCell, state: &GlialAggregateState, _env: &GlialEnvironment) {
+    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
         if let Some(ns) = &mut agent.nervous_system {
             let id = &agent.cell_id;
-            
-            if state.healthy_oligo_targets.contains(id) || state.healthy_schwann_targets.contains(id) {
+
+            if ctx.state.healthy_oligo_targets.contains(id)
+                || ctx.state.healthy_schwann_targets.contains(id)
+            {
                 ns.axon.myelination_level = (ns.axon.myelination_level + 0.1).min(1.0);
             }
-            
-            if state.nogo_targets.contains(id) && ns.location == NervousSystemLocation::Central {
+
+            if ctx.state.nogo_targets.contains(id) && ns.location == NervousSystemLocation::Central {
                 ns.axon.nogo_inhibited = true;
             }
-            
-            if state.repairing_schwann_targets.contains(id) && ns.location == NervousSystemLocation::Peripheral {
+
+            if ctx.state.repairing_schwann_targets.contains(id)
+                && ns.location == NervousSystemLocation::Peripheral
+            {
                 ns.axon.is_severed = false;
                 ns.axon.nogo_inhibited = false;
             }
@@ -281,12 +312,14 @@ impl GlialProcessor for MyelinatorProcessor {
     }
 }
 
-// ----------------------------------------------------------------
-// EXÉCUTION DU PIPELINE (Map -> Reduce -> Apply)
-// ----------------------------------------------------------------
-
 pub struct GlialPipeline {
     processors: Vec<Box<dyn GlialProcessor>>,
+}
+
+impl Default for GlialPipeline {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GlialPipeline {
@@ -301,26 +334,30 @@ impl GlialPipeline {
         }
     }
 
-    /// Exécute le pipeline en parcourant le tableau O(N) fois maximum au lieu de O(N * 4 * M).
     pub fn process_all(&self, agents: &mut [AgentCell], mut env: GlialEnvironment) {
         let mut aggregate_state = GlialAggregateState::default();
 
-        // Phase 1 : Map (Une seule itération sur toutes les cellules pour tous les processeurs)
+        let mut ctx = GlialContext {
+            state: &mut aggregate_state,
+            env: &mut env,
+        };
         for agent in agents.iter_mut() {
             for processor in &self.processors {
-                processor.collect(agent, &mut aggregate_state, &mut env);
+                processor.collect(agent, &mut ctx);
             }
         }
 
-        // Phase intermédiaire : Reduce
         for processor in &self.processors {
             processor.aggregate(&mut aggregate_state, &mut env);
         }
 
-        // Phase 2 : Apply (Une seconde itération pour appliquer les effets consolidés)
+        let apply_ctx = GlialApplyContext {
+            state: &aggregate_state,
+            env: &env,
+        };
         for agent in agents.iter_mut() {
             for processor in &self.processors {
-                processor.apply(agent, &aggregate_state, &env);
+                processor.apply(agent, &apply_ctx);
             }
         }
     }
