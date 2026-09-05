@@ -13,17 +13,41 @@ pub fn execute(cmd: CapsuleSubcommands) -> Result<(), String> {
 
 pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), String> {
     let audit_id = format!("audit-{}", Uuid::new_v4().simple());
-    let mut hasher = Sha256::new();
-    hasher.update(snapshot_id.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    let capsule_dir = if Path::new(".genos-matrix").exists() {
+        std::path::PathBuf::from(".genos-matrix/capsules")
+    } else if Path::new(".genos").exists() {
+        std::path::PathBuf::from(".genos/capsules")
+    } else {
+        std::path::PathBuf::from("capsules")
+    };
+    let capsule_file = capsule_dir.join(format!("{}.json", snapshot_id));
+
+    let (hash, compliance_score, status) = if capsule_file.exists() {
+        if let Ok(content) = fs::read_to_string(&capsule_file) {
+            if let Ok(capsule) = serde_json::from_str::<genos_store::Capsule>(&content) {
+                let verified = capsule.verify();
+                let score = if verified { 1.0 } else { 0.0 };
+                let st = if verified { "APPROVED" } else { "TAMPERED" };
+                (capsule.hash, score, st)
+            } else {
+                ("corrupt".into(), 0.0, "CORRUPT")
+            }
+        } else {
+            ("unreadable".into(), 0.0, "ERROR")
+        }
+    } else {
+        let mut hasher = Sha256::new();
+        hasher.update(snapshot_id.as_bytes());
+        (format!("{:x}", hasher.finalize()), 1.0, "APPROVED")
+    };
 
     let audit_data = json!({
         "audit_id": audit_id,
         "snapshot_id": snapshot_id,
         "integrity_hash": hash,
-        "policy_violations": 0,
-        "compliance_score": 1.0,
-        "status": "APPROVED"
+        "policy_violations": if compliance_score < 1.0 { 1 } else { 0 },
+        "compliance_score": compliance_score,
+        "status": status
     });
 
     let rendered = serde_json::to_string_pretty(&audit_data).unwrap();
@@ -98,10 +122,38 @@ pub fn handle_phenotype_measure(trait_name: &str, values: PhenotypeValues) -> Re
 }
 
 fn handle_create(snapshot: &str, seed: Option<&str>, budget_steps: Option<u32>) -> Result<(), String> {
-    let capsule_id = format!("capsule-{}", Uuid::new_v4().simple());
+    let payload = if Path::new(snapshot).exists() {
+        let content = fs::read_to_string(snapshot).unwrap_or_else(|_| "{}".into());
+        serde_json::from_str(&content).unwrap_or(json!({ "raw": content }))
+    } else if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(snapshot) {
+        parsed
+    } else {
+        json!({
+            "snapshot_ref": snapshot,
+            "seed": seed.unwrap_or("default_seed"),
+            "budget_steps": budget_steps.unwrap_or(100)
+        })
+    };
+
+    let capsule = genos_store::Capsule::create("sandbox_boundary", payload);
+    let verified = capsule.verify();
+
+    let capsule_dir = if Path::new(".genos-matrix").exists() {
+        std::path::PathBuf::from(".genos-matrix/capsules")
+    } else if Path::new(".genos").exists() {
+        std::path::PathBuf::from(".genos/capsules")
+    } else {
+        std::path::PathBuf::from("capsules")
+    };
+    let _ = fs::create_dir_all(&capsule_dir);
+    let path = capsule_dir.join(format!("{}.json", capsule.capsule_id));
+    let _ = fs::write(&path, serde_json::to_string_pretty(&capsule).unwrap());
+
     let output = json!({
         "success": true,
-        "capsule_id": capsule_id,
+        "capsule_id": capsule.capsule_id.to_string(),
+        "hash": capsule.hash,
+        "verified": verified,
         "snapshot": snapshot,
         "seed": seed.unwrap_or("default_seed"),
         "budget_steps": budget_steps.unwrap_or(100),

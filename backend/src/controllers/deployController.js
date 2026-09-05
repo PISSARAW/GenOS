@@ -120,20 +120,71 @@ async function listAgents(req, res) {
 
 // Stubs for remaining routes to keep file size small
 async function listTrinityWorlds(req, res) { res.json([]); }
-async function deleteAgent(req, res, next) { res.json({ success: true }); }
-async function stopAgent(req, res, next) { res.json({ success: true }); }
+async function deleteAgent(req, res, next) {
+  const db = await getDatabase();
+  await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
+  res.json({ success: true });
+}
+async function stopAgent(req, res, next) {
+  const db = await getDatabase();
+  await db.run("UPDATE agents SET status = 'idle' WHERE id = ?", req.params.id);
+  res.json({ stopped: false, status: 'idle' });
+}
 async function stopAgents(req, res, next) { res.json({ success: true }); }
 async function deleteAgents(req, res, next) { res.json({ success: true }); }
 async function subscribeAgent(req, res) { res.json({ success: true }); }
 async function getAgentHistory(req, res) { res.json([]); }
 async function pingAgent(req, res, next) { res.json({ status: 'acknowledged' }); }
 async function ingestAgentEvent(req, res) { res.json({ success: true }); }
-async function startAgent(req, res) { res.json({ success: true }); }
-async function getWorkerGarage(req, res) { res.json({}); }
-async function dispatchWorker(req, res) { res.json({ success: true }); }
+async function startAgent(req, res) {
+  const db = await getDatabase();
+  try {
+    await agentAuthority.authorizeMission(db, req.params.id, req.body.orchestratorAgentId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(409).json({ error: { code: err.code || 'AUTHORITY_ERROR', message: err.message } });
+  }
+}
+async function getWorkerGarage(req, res) {
+  const db = await getDatabase();
+  const garage = await workerGarage.state(db, req.params.id);
+  res.json(garage);
+}
+async function dispatchWorker(req, res) {
+  const db = await getDatabase();
+  try {
+    const orchestratorId = req.params.id;
+    const workerId = req.params.workerId || req.body.workerId;
+    
+    await agentAuthority.authorizeMission(db, workerId, orchestratorId);
+    
+    const slot = await workerGarage.reserveSlot(db, {
+      orchestratorId,
+      workerId,
+      name: req.body.name || workerGarage.workerName(req.body),
+      role: req.body.role || 'implementer',
+      mission: req.body.mission || 'Assigned mission'
+    });
+    
+    res.json(slot);
+  } catch (err) {
+    if (err.code === 'AGENT_NOT_FOUND' || err.code === 'WORKER_ORCHESTRATOR_MISMATCH' || err.code === 'ORCHESTRATOR_NOT_FOUND') {
+      res.status(404).json({ error: { code: err.code, message: err.message } });
+    } else {
+      res.status(409).json({ error: { code: err.code || 'DISPATCH_ERROR', message: err.message, garage: err.garage } });
+    }
+  }
+}
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
-  const contract = await strategyContracts.getLatestContract(db, req.params.id);
+  let contract = await strategyContracts.getLatestContract(db, req.params.id);
+  if (!contract) {
+    const agent = await db.get('SELECT parent_agent_id, execution_mode FROM agents WHERE id = ?', req.params.id);
+    if (agent?.execution_mode === 'worker' && agent.parent_agent_id) {
+      contract = await strategyContracts.getLatestContract(db, agent.parent_agent_id);
+      if (contract) return res.json({ ...contract, inheritedByWorker: true });
+    }
+  }
   if (!contract) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No strategy contract found' } });
   res.json(contract);
 }

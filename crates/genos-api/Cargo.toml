@@ -9,3 +9,7 @@ serde_json = "1.0"
 uuid = { version = "1.10", features = ["v4", "serde"] }
 chrono = { version = "0.4", features = ["serde"] }
 
+[[bin]]
+name = "genos-api"
+path = "src/main.rs"
+

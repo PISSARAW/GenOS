@@ -26,7 +26,7 @@ function buildStrategyContract(input = {}) {
       evaluation: selection.policies.evaluation,
       merge: selection.policies.merge,
       maturity: selected.maturity,
-      rationale: `Selected ${selected.id} from 77 strategies for a ${problemProfile.type} problem with uncertainty ${problemProfile.uncertainty.toFixed(2)} and ${problemProfile.risk} risk.`
+      rationale: `Selected ${selected.id} from ${selection.decisions.length} strategies for a ${problemProfile.type} problem with uncertainty ${problemProfile.uncertainty.toFixed(2)} and ${problemProfile.risk} risk.`
     },
     strategy_portfolio: selection.portfolio.map((strategy) => ({
       id: strategy.id, name: strategy.name, family: strategy.family, role: strategy.role,
@@ -36,7 +36,7 @@ function buildStrategyContract(input = {}) {
     strategy_decision_summary: selection.summary,
     strategy_registry: {
       total: selection.decisions.length,
-      selection_complete: selection.decisions.length === 77,
+      selection_complete: selection.decisions.length === listStrategies().length,
       endpoint: '/api/strategies'
     },
     strategy_decisions: selection.decisions.map((decision) => ({
@@ -72,7 +72,7 @@ function validateContract(contract) {
   const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
   const decisionIds = new Set((contract.strategy_decisions || []).map((decision) => decision.id));
   if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
-    throw new Error('strategy_decisions must contain the complete 77-strategy registry');
+    throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
   }
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');

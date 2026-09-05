@@ -87,7 +87,7 @@ function buildAutonomyPlan(contract, budget = {}) {
         id: 'reselect_strategy', scope: 'orchestrator',
         when: 'the mission scope, risk, uncertainty, evaluability, or observed failure mode materially differs from the active problem profile',
         actions: ['genos_change_strategy'],
-        decide: 'state the changed need and evidence; keep the current contract when the complete 77-strategy evaluation finds no better portfolio'
+        decide: 'state the changed need and evidence; keep the current contract when the complete 78-strategy evaluation finds no better portfolio'
       },
       {
         id: 'retrieve_relevant_memory', scope: 'orchestrator_and_workers',

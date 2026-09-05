@@ -93,7 +93,7 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
         try {
           json = JSON.parse(stdout);
         } catch {}
-        resolvePromise({ ok: exitCode === 0, exitCode, stdout, stderr, json });
+        resolvePromise({ ok: exitCode === 0, exitCode, stdout, stderr, json, data: json });
       }
     });
   });
@@ -170,6 +170,30 @@ async function runPhylogeny(options = {}) {
   return runGenos(args);
 }
 
+async function runCryptobiosisFreeze(agentId, options = {}) {
+  const args = ['biomimicry', 'cryptobiosis', '--agent-id', String(agentId), '--action', 'freeze'];
+  if (options.state) {
+    const stateStr = typeof options.state === 'string' ? options.state : JSON.stringify(options.state);
+    args.push('--state', stateStr);
+  }
+  return runGenos(args);
+}
+
+async function runCryptobiosisThaw(agentId) {
+  const args = ['biomimicry', 'cryptobiosis', '--agent-id', String(agentId), '--action', 'thaw'];
+  return runGenos(args);
+}
+
+async function runFossilize(lineageId, reason) {
+  const args = ['fossil', 'record', '--lineage-id', String(lineageId), '--reason', String(reason || 'Apoptosis / natural pruning')];
+  return runGenos(args);
+}
+
+async function runListFossils() {
+  const args = ['fossil', 'list'];
+  return runGenos(args);
+}
+
 module.exports = {
   runGenos,
   resolveGenosBin,
@@ -180,5 +204,9 @@ module.exports = {
   phagocytizeExosomes,
   runCrossover,
   runCellDivision,
-  runPhylogeny
+  runPhylogeny,
+  runCryptobiosisFreeze,
+  runCryptobiosisThaw,
+  runFossilize,
+  runListFossils
 };

@@ -13,7 +13,7 @@ async function run() {
     reason: 'The implementation is complete but production evidence shows an intermittent outage.'
   });
   assert.equal(transition.changed, true);
-  assert.equal(transition.registryEvaluated, 77);
+  assert.equal(transition.registryEvaluated, 78);
   assert.equal(transition.candidate.strategy_registry.selection_complete, true);
   assert.notEqual(transition.candidate.selected_strategy.primary, current.selected_strategy.primary);
 
@@ -44,7 +44,7 @@ async function run() {
       reason: 'Repeated runtime failures invalidate the implementation profile.'
     });
     assert.equal(changed.changed, true);
-    assert.equal(changed.registryEvaluated, 77);
+    assert.equal(changed.registryEvaluated, 78);
     assert.equal(changed.current.version, 2);
     assert.notEqual(changed.current.primary, changed.previous.primary);
     assert.equal((await execution.getRun(db, firstRun.id)).status, 'cancelled');

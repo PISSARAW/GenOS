@@ -11,7 +11,7 @@ function list(req, res) {
     if (maturity && strategy.maturity !== maturity) return false;
     return true;
   });
-  res.json({ total: strategies.length, registryTotal: 77, strategies });
+  res.json({ total: strategies.length, registryTotal: listStrategies().length, strategies });
 }
 
 function preview(req, res) {

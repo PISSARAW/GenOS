@@ -11,7 +11,8 @@ const memory = defineFamily('memory', [
   ['stdp_plasticity', 'Plasticité STDP', ['all'], ['memory', 'adaptive'], 'experimental', ['stdp_update', 'causal_weighting']],
   ['memory_sleep_cycle', 'Cycle de sommeil mémoire', ['all'], ['memory', 'low_cost', 'budget'], 'experimental', ['prune_and_scale', 'context_compaction']],
   ['controlled_lamarckian_learning', 'Apprentissage lamarckien contrôlé', ['all'], ['memory', 'mutation', 'reproducible'], 'implemented', ['infer_traits', 'replicate', 'promote_trait']],
-  ['evidence_based_breeding', 'Breeding fondé sur les preuves', ['critical_refactor', 'security'], ['mutation', 'high_compute', 'reproducible'], 'implemented', ['phenotype_evidence', 'breed', 'validate_child']]
+  ['evidence_based_breeding', 'Breeding fondé sur les preuves', ['critical_refactor', 'security'], ['mutation', 'high_compute', 'reproducible'], 'implemented', ['phenotype_evidence', 'breed', 'validate_child']],
+  ['plasmid_divergent_optimization', 'Optimisation divergente sur plasmide', ['all'], ['memory', 'mutation', 'parallel', 'verification'], 'implemented', ['plasmid_divergent_fork', 'pareto_select', 'assimilate_plasmid']]
 ]);
 
 const resilience = defineFamily('resilience', [

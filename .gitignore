@@ -8,3 +8,8 @@ node_modules/
 .genos-matrix/
 __pycache__/
 *.pyc
+capsules/
+fossils/
+vault/
+*.db-shm
+*.db-wal

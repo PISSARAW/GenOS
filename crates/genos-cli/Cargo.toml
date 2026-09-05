@@ -21,3 +21,5 @@ genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
 genos-signal = { path = "../genos-signal" }
 genos-reproduction = { path = "../genos-reproduction" }
+genos-store = { path = "../genos-store" }
+genos-api = { path = "../genos-api" }

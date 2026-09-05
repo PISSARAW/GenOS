@@ -5,11 +5,13 @@ mod tests;
 
 use clap::Parser;
 use args::{
-    CausalitySubcommands, Cli, Commands, ExperimentSubcommands, PhenotypeSubcommands,
-    TrinitySubcommands, SwarmSubcommands, ComplianceSubcommands, StrategySubcommands,
-    RebaseSubcommands, WorldSubcommands
+    CausalitySubcommands, Cli, Commands, ExperimentSubcommands, FossilSubcommands,
+    PhenotypeSubcommands, TrinitySubcommands, SwarmSubcommands, ComplianceSubcommands,
+    StrategySubcommands, RebaseSubcommands, WorldSubcommands
 };
-use commands::{agent, biomimicry, capsule, hallucination, platform, replay, snapshot};
+use commands::{
+    agent, api_server, biomimicry, capsule, hallucination, platform, replay, snapshot, store_ops,
+};
 
 fn main() {
     let cli = Cli::parse();
@@ -77,7 +79,7 @@ fn main() {
         },
         Some(Commands::Platform(cmd)) => platform::execute(cmd.subcommand),
         Some(Commands::Resilience(cmd)) => match cmd.subcommand {
-            args::ResilienceSubcommands::Cryptobiosis { agent_id, .. } => biomimicry::execute(args::BiomimicrySubcommands::Cryptobiosis { agent_id }),
+            args::ResilienceSubcommands::Cryptobiosis { agent_id, .. } => store_ops::handle_cryptobiosis(&agent_id, None, None),
         },
         Some(Commands::Ais(cmd)) => match cmd.subcommand {
             args::AisSubcommands::DangerTelemetry { agent_id, severity, threat_context } => {
@@ -103,6 +105,17 @@ fn main() {
                 Ok(())
             }
         },
+        Some(Commands::Fossil(cmd)) => match cmd.subcommand {
+            FossilSubcommands::Record { lineage_id, reason } => {
+                store_ops::handle_fossil_record(&lineage_id, &reason)
+            }
+            FossilSubcommands::List => {
+                store_ops::handle_fossil_list()
+            }
+        },
+        Some(Commands::Serve(cmd)) => {
+            api_server::handle_serve(&cmd.host, cmd.port, cmd.api_key.as_deref())
+        }
     };
 
     if let Err(err) = result {

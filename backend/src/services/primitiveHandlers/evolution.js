@@ -207,4 +207,116 @@ async function speciation(context) {
   };
 }
 
-module.exports = { mutate, breed, select, paretoSelect, speciation };
+async function plasmidDivergence(context) {
+  const db = await getDatabase();
+  const agentId = context.agentId || context.orchestratorId;
+  if (!agentId) {
+    return { success: false, error: 'agentId or orchestratorId required for plasmid divergence.' };
+  }
+
+  const parent = await db.get(
+    'SELECT id, current_task, workspace_id, model_tier FROM agents WHERE id = ?',
+    agentId
+  );
+  const workspaceId = parent?.workspace_id || context.workspaceId || null;
+  const modelTier = parent?.model_tier || context.modelTier || 'standard';
+  const baseTask = context.task || parent?.current_task || 'Plasmid-guided execution';
+  const plasmidId = context.plasmidId || context.plasmid?.id || 'plasmid_core';
+  const plasmidName = context.plasmidName || context.plasmid?.name || plasmidId;
+  const optimizationGoal = context.optimizationGoal || 'optimize_efficiency_and_tokens';
+
+  // 1. Fork Counterfactuel : Branche Exploitation (Baseline) & Branche Exploration (Mutant)
+  const baselineId = `worker_base_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const mutantId = `worker_mut_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const baselineTask = `[BASELINE_EXPLOITATION] Replay plasmid ${plasmidName}: ${baseTask}`;
+  const mutantTask = `[MUTANT_OPTIMIZATION] Discover optimal alternative to plasmid ${plasmidName} (${optimizationGoal}): ${baseTask}`;
+
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'baseline_executor', 'idle', 'GenOS', 'worker', ?, ?, ?, 'plasmid_exploitation', ?)",
+    baselineId, `Baseline (${plasmidName})`, workspaceId, modelTier, agentId, baselineTask
+  );
+
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'plasmid_optimizer', 'idle', 'GenOS', 'worker', ?, ?, ?, 'plasmid_mutation', ?)",
+    mutantId, `Mutant Optimizer (${plasmidName})`, workspaceId, modelTier, agentId, mutantTask
+  );
+
+  telemetry.emitEvent({
+    eventType: 'PLASMID_DIVERGENCE_FORK',
+    agentId: agentId,
+    action: 'PLASMID_DIVERGENT_FORK',
+    detail: `Spawned counterfactual fork on plasmid ${plasmidName}: Baseline ${baselineId} vs Mutant ${mutantId}`,
+    severity: 'info',
+    payload: { plasmidId, plasmidName, baselineId, mutantId, optimizationGoal }
+  });
+
+  // 2. Évaluation de la divergence et arbitrage
+  const mutantScore = Number(context.mutantScore ?? context.mutantFitness ?? (context.winner === 'mutant' ? 1.0 : 0.0));
+  const baselineScore = Number(context.baselineScore ?? context.baselineFitness ?? 0.5);
+  const mutantPromoted = mutantScore > baselineScore || context.winner === 'mutant';
+
+  let newPlasmidId = null;
+  if (mutantPromoted) {
+    newPlasmidId = `plasmid_v2_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newContent = context.candidatePlasmidCode || context.mutantSolution || `// Optimized mutant replacing ${plasmidId}\n// Goal: ${optimizationGoal}`;
+    const float32 = new Float32Array(new Array(768).fill(0.0));
+    const embeddingBuffer = Buffer.from(float32.buffer);
+    await db.run(
+      `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob)
+       VALUES (?, ?, ?, ?, 'Plasmid', 2.5, ?)`,
+      newPlasmidId, `Plasmid Evolved (${plasmidName})`, newContent, mutantId, embeddingBuffer
+    );
+
+    await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", mutantId).catch(() => {});
+    await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1 WHERE id = ?", baselineId).catch(() => {});
+
+    telemetry.emitEvent({
+      eventType: 'PLASMID_MUTATION_PROMOTED',
+      agentId: agentId,
+      action: 'PROMOTE_MUTANT_PLASMID',
+      detail: `Mutant ${mutantId} outperformed baseline (score ${mutantScore} > ${baselineScore}). New plasmid synthesized: ${newPlasmidId}`,
+      severity: 'info',
+      payload: { originalPlasmidId: plasmidId, newPlasmidId, winner: mutantId, scores: { mutantScore, baselineScore } }
+    });
+
+    return {
+      success: true,
+      branch: 'mutant_promoted',
+      winner: 'mutant',
+      winningAgentId: mutantId,
+      originalPlasmidId: plasmidId,
+      newPlasmidId,
+      scores: { mutant: mutantScore, baseline: baselineScore },
+      baselineId,
+      mutantId
+    };
+  }
+
+  // Baseline retenue : apoptose de la branche mutante
+  await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", baselineId).catch(() => {});
+  await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1 WHERE id = ?", mutantId).catch(() => {});
+
+  telemetry.emitEvent({
+    eventType: 'PLASMID_MUTATION_PRUNED',
+    agentId: agentId,
+    action: 'RETAIN_BASELINE_PLASMID',
+    detail: `Baseline plasmid ${plasmidId} retained. Mutant ${mutantId} pruned (score ${mutantScore} <= ${baselineScore}).`,
+    severity: 'info',
+    payload: { plasmidId, retainedAgentId: baselineId, prunedAgentId: mutantId, scores: { mutantScore, baselineScore } }
+  });
+
+  return {
+    success: true,
+    branch: 'baseline_retained',
+    winner: 'baseline',
+    winningAgentId: baselineId,
+    plasmidId,
+    scores: { mutant: mutantScore, baseline: baselineScore },
+    baselineId,
+    mutantId
+  };
+}
+
+module.exports = { mutate, breed, select, paretoSelect, speciation, plasmidDivergence };
+

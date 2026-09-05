@@ -188,4 +188,38 @@ mod tests {
         });
         assert!(res_tree.is_ok());
     }
+
+    #[test]
+    fn test_store_commands() {
+        use crate::commands::{capsule, store_ops};
+        use crate::args::CapsuleSubcommands;
+
+        // 1. Cryptobiosis freeze, status, thaw
+        let freeze_res = store_ops::handle_cryptobiosis("test_tardigrade", Some("freeze"), Some(r#"{"health": 100}"#));
+        assert!(freeze_res.is_ok());
+
+        let status_res = store_ops::handle_cryptobiosis("test_tardigrade", Some("status"), None);
+        assert!(status_res.is_ok());
+
+        let thaw_res = store_ops::handle_cryptobiosis("test_tardigrade", Some("thaw"), None);
+        assert!(thaw_res.is_ok());
+
+        // 2. Stratigraphic Fossils record and list
+        let fossil_res = store_ops::handle_fossil_record("lineage_ammonite", "Permian-Triassic extinction event");
+        assert!(fossil_res.is_ok());
+
+        let list_res = store_ops::handle_fossil_list();
+        assert!(list_res.is_ok());
+
+        // 3. Capsule creation with SHA-256 integrity and audit
+        let cap_res = capsule::execute(CapsuleSubcommands::Create {
+            snapshot: r#"{"state":"immutable","epoch":1}"#.to_string(),
+            seed: Some("seed_alpha".to_string()),
+            budget_steps: Some(50),
+        });
+        assert!(cap_res.is_ok());
+
+        let audit_res = capsule::handle_audit("snap_test_101", None);
+        assert!(audit_res.is_ok());
+    }
 }

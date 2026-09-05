@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod api_server;
 pub mod biomimicry;
 pub mod biomimicry_features;
 pub mod biomimicry_ops;
@@ -9,4 +10,5 @@ pub mod platform;
 pub mod replay;
 pub mod reproduction;
 pub mod snapshot;
+pub mod store_ops;
 pub mod swarm_alleles;

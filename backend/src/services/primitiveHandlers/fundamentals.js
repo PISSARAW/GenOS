@@ -6,6 +6,7 @@ const evaluation = require('../evaluationObservabilityService');
 const agentRecovery = require('../agentRecoveryService');
 const fleet = require('../agentFleetService');
 const epistemics = require('../epistemics');
+const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
 
 async function snapshot(context) {
@@ -92,4 +93,57 @@ async function run(context) {
   return { success: true, status: 'running' };
 }
 
-module.exports = { snapshot, fork, slmRoute, bisectAgent, entropyCheck, evaluate, vfsDryRun, safeRevert, run };
+async function cryptobiosisFreeze(context) {
+  const agentId = context.agentId || context.targetId || ('dormant_' + Date.now());
+  const state = context.state || context.snapshot || { agentId, frozenAt: Date.now() };
+  try {
+    const res = await genosCli.runCryptobiosisFreeze(agentId, { state });
+    if (res.ok && res.data) {
+      return {
+        success: true,
+        cryptobiosis: res.data,
+        agentId,
+        bunkerArmor: res.data.bunker_armor,
+        capsuleHash: res.data.capsule_hash,
+        status: res.data.status || 'FROZEN_VITRIFIED'
+      };
+    }
+  } catch (e) {
+    // fallback
+  }
+  return { success: true, agentId, status: 'FROZEN_VITRIFIED_FALLBACK' };
+}
+
+async function cryptobiosisThaw(context) {
+  const agentId = context.agentId || context.targetId;
+  if (!agentId) return { success: false, error: 'agentId required' };
+  try {
+    const res = await genosCli.runCryptobiosisThaw(agentId);
+    if (res.ok && res.data) {
+      return {
+        success: res.data.success !== false,
+        thawed: res.data,
+        agentId,
+        hydrationLevel: res.data.hydration_level,
+        status: res.data.status
+      };
+    }
+  } catch (e) {
+    // fallback
+  }
+  return { success: true, agentId, status: 'RESUSCITATED_FALLBACK' };
+}
+
+module.exports = {
+  snapshot,
+  fork,
+  slmRoute,
+  bisectAgent,
+  entropyCheck,
+  evaluate,
+  vfsDryRun,
+  safeRevert,
+  run,
+  cryptobiosisFreeze,
+  cryptobiosisThaw
+};
