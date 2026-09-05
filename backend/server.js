@@ -51,27 +51,29 @@ async function startServer() {
     const server = http.createServer(app);
 
     // 2.5 Create gRPC Server (Microservices Architecture)
-    const grpc = require('@grpc/grpc-js');
-    const loadAllProtos = require('./proto/index.js');
-    const registerAllServices = require('./src/grpc_services/index.js');
-    
-    const protoDescriptors = loadAllProtos();
-    const grpcServer = new grpc.Server();
-    
-    // Auto-register all 38 microservices
-    for (const [serviceName, pkgDef] of Object.entries(protoDescriptors)) {
-        const descriptor = grpc.loadPackageDefinition(pkgDef);
+    if (cluster.worker.id === 1) {
+      const grpc = require('@grpc/grpc-js');
+      const loadAllProtos = require('./proto/index.js');
+      const registerAllServices = require('./src/grpc_services/index.js');
+      
+      const protoDescriptors = loadAllProtos();
+      const grpcServer = new grpc.Server();
+      
+      // Auto-register all microservices and core services
+      for (const [serviceName, descriptor] of Object.entries(protoDescriptors)) {
         registerAllServices(grpcServer, descriptor);
+      }
+      
+      const GRPC_PORT = process.env.GRPC_PORT || 50051;
+      grpcServer.bindAsync(`0.0.0.0:${GRPC_PORT}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {
+        if (err) {
+          console.warn(`[GenOS gRPC] Warning: could not bind port ${GRPC_PORT}:`, err.message);
+        } else {
+          grpcServer.start();
+          console.log(`[GenOS gRPC] Microservices & Core services listening on port ${boundPort}`);
+        }
+      });
     }
-    
-    // Legacy mapping for MemoryService (to preserve the previous commit's logic)
-    // You will need to migrate this logic inside src/grpc_services/memoryService.js
-    
-    const GRPC_PORT = 50051;
-    grpcServer.bindAsync(`0.0.0.0:${GRPC_PORT}`, grpc.ServerCredentials.createInsecure(), () => {
-       grpcServer.start();
-       console.log(`[GenOS gRPC] 38 Microservices listening on port ${GRPC_PORT}`);
-    });
 
     // 3. Start Listening (Express)
     server.listen(PORT, () => {

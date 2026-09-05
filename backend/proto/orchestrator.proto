@@ -2,17 +2,11 @@ syntax = "proto3";
 package genos.orchestrator.v1;
 
 service OrchestratorService {
+  rpc Ping (Empty) returns (PingResponse);
   rpc DispatchWorker (WorkerRequest) returns (WorkerResponse);
 }
 
-message WorkerRequest {
-  string orchestrator_id = 1;
-  string worker_id = 2;
-  string prompt = 3;
-}
-
-message WorkerResponse {
-  bool success = 1;
-  string status = 2;
-  int32 garage_slot = 3;
-}
+message Empty {}
+message PingResponse { string status = 1; }
+message WorkerRequest { string orchestrator_id = 1; string worker_id = 2; string prompt = 3; }
+message WorkerResponse { bool success = 1; string status = 2; int32 garage_slot = 3; }

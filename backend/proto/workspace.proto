@@ -2,14 +2,17 @@ syntax = "proto3";
 package genos.workspace.v1;
 
 service WorkspaceService {
+  rpc Ping (Empty) returns (PingResponse);
   rpc ProvisionWorkspace (ProvisionRequest) returns (ProvisionResponse);
   rpc CleanWorkspace (CleanRequest) returns (CleanResponse);
+  rpc GetDiff (WorkspaceDiffRequest) returns (WorkspaceDiffResponse);
 }
 
-message ProvisionRequest {
-  string workspace_id = 1;
-  string isolation_mode = 2; // e.g. "Branch", "Share"
-}
+message Empty {}
+message PingResponse { string status = 1; }
+message ProvisionRequest { string workspace_id = 1; string isolation_mode = 2; }
 message ProvisionResponse { string workspace_root = 1; }
 message CleanRequest { string workspace_id = 1; }
 message CleanResponse { bool success = 1; }
+message WorkspaceDiffRequest { string workspace_id = 1; string base_ref = 2; string target_ref = 3; }
+message WorkspaceDiffResponse { string diff_text = 1; int32 files_changed = 2; }

@@ -2,9 +2,13 @@ syntax = "proto3";
 package genos.telemetry.v1;
 
 service TelemetryService {
+  rpc Ping (Empty) returns (PingResponse);
   rpc EmitEvent (AgentEvent) returns (EmitResponse);
+  rpc GetSwarmMetrics (Empty) returns (TelemetryMetricsResponse);
 }
 
+message Empty {}
+message PingResponse { string status = 1; }
 message AgentEvent {
   string agent_id = 1;
   string event_type = 2;
@@ -14,5 +18,5 @@ message AgentEvent {
   string status = 6;
   string payload_json = 7;
 }
-
 message EmitResponse { bool success = 1; }
+message TelemetryMetricsResponse { float entropy = 1; string state = 2; }

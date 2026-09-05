@@ -38,10 +38,13 @@ class VectorMemoryService {
 
   async storeMemory(agentId, content, embedding = null) {
     const db = await this.initDb();
+    await db.exec('CREATE TABLE IF NOT EXISTS memory_entries (id TEXT PRIMARY KEY, agent_id TEXT, content TEXT)');
     const id = `mem_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     await db.run('INSERT INTO memory_entries (id, agent_id, content) VALUES (?, ?, ?)', id, agentId, content);
 
-    const vec = embedding || (await embed(content)) || textToVector(content);
+    const vec = (embedding && embedding.length === 768)
+      ? embedding
+      : ((await embed(content)) || textToVector(content));
     const float32 = new Float32Array(vec);
     const buffer = Buffer.from(float32.buffer);
     await db.run(
