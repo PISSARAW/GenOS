@@ -24,10 +24,10 @@ async function provision(context = {}) {
   const genomePath = path.join(bootstrap, 'genome.json');
   const snapshotPath = path.join(bootstrap, 'snapshot.json');
   await fs.mkdir(bootstrap, { recursive: true });
-  await run(context.executable, ['agent', 'create', '--name', context.name, '--role', context.role, '--out', genomePath, '--format', 'json']);
-  await run(context.executable, ['snapshot', 'create', '--agent', genomePath, '--out', snapshotPath, '--format', 'json']);
+  await run(context.executable, ['agent', 'create', '--name', context.name || 'worker', '--role', context.role || 'worker', '--out', genomePath]);
+  await run(context.executable, ['snapshot', 'create', '--agent', genomePath, '--out', snapshotPath]);
   const output = await run(context.executable, [
-    'capsule', 'create', '--snapshot', snapshotPath, '--root', root,
+    'capsule', 'create', '--snapshot', snapshotPath,
     '--seed', context.workspaceRoot,
     '--budget-steps', String(context.budgetSteps || 100)
   ]);
