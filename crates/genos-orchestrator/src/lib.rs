@@ -1,3 +1,6 @@
+pub mod conscience;
+pub use conscience::{Conscience, ConscienceState};
+
 pub fn add(left: u64, right: u64) -> u64 {
     left + right
 }

@@ -5,148 +5,233 @@
 <h1 align="center">GenOS V3</h1>
 
 <p align="center">
-  <strong>Git-like branching and deterministic replay for AI-agent state.</strong>
+  <strong>Biomimetic Counterfactual Operating System & Runtime for Multi-Agent AI</strong>
 </p>
 
 <p align="center">
-  Snapshot agent state, fork competing hypotheses, run them in isolation,
-  compare outcomes, replay the evidence, and merge only what passes.
+  Cellular embryogenesis, epistemic stigmergy, deterministic state branching, and cognitive immunity for resilient AI agent fleets.
 </p>
 
 <p align="center">
-  <a href="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml"><img src="https://github.com/PISSARAW/GenOS/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
   <img src="https://img.shields.io/badge/Rust-1.88%2B-orange.svg" alt="Rust 1.88 or newer">
+  <img src="https://img.shields.io/badge/Node.js-20%2B-green.svg" alt="Node.js 20 or newer">
   <a href="https://github.com/PISSARAW/GenOS/releases/tag/v3.0.0-alpha.1"><img src="https://img.shields.io/badge/release-v3.0.0--alpha.1-blue.svg" alt="GenOS v3.0.0 alpha 1"></a>
 </p>
 
-<p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="https://github.com/PISSARAW/GenOS/releases/tag/v3.0.0-alpha.1">Download V3 alpha</a> ·
-  <a href="#genos-studio">Studio</a> ·
-  <a href="examples/">Examples</a> ·
-  <a href="docs/README.md">Documentation</a> ·
-  <a href="docs/0-context-and-vision/product-roadmap.md">Roadmap</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a>
-</p>
+---
 
-> [!IMPORTANT]
-> GenOS V3 brings major architectural changes including KuzuDB and LadybugDB.
+## What is GenOS V3?
 
-## See GenOS choose a safer future
+Traditional AI agent frameworks force workflows along a single, mutable timeline. When a tool call, belief update, or prompt hallucination occurs, the failure propagates downstream, state becomes difficult to reconstruct, and multi-agent coordination quickly devolves into token-saturating message storms.
 
-<p align="center">
-  <a href="examples/safe-debugging-demo/"><img src="assets/demo/safe-debugging.gif" alt="GenOS snapshots a failing program, tests three isolated fixes, replays the winner, and approves the merge" width="100%"></a>
-</p>
+**GenOS V3** re-architects agentic computation as a **biomimetic, counterfactual operating system**:
+- **Agents as Biological Cells:** Agents are not just prompt loops; they are cellular units (`AgentCell`) with an immutable genome, epigenetic chromatin states, metabolic budgets (ATP/tokens), synaptic dendritic trees, and cognitive conscience monitors.
+- **Git-like State Branching & Replay:** Snapshot workspace and agent state, fork competing hypotheses across isolated counterfactual worlds, execute in sandboxes, evaluate outcomes, and merge only verified winners.
+- **Epistemic Stigmergy:** Agents collaborate like social insects via digital pheromone trails deposited on shared graphs, eliminating expensive inter-agent natural language chatter.
+- **Cellular Division & Evolution:** Controlled replication through 5 biological modes (Mitosis, Binary Fission, Budding, Schizogony, Meiosis) while strictly rejecting non-deterministic amitosis.
+- **The Reality Arbiter:** Self-evaluation is checked by unforgeable thermodynamics: unit tests, compiler feedback, and physical sandbox validation decide survival—not LLM self-collusion.
 
-One boundary bug becomes three isolated futures. Two fail the test gate; the
-winner is restored from the original snapshot, replayed, compared byte for
-byte, and promoted only after verification.
+---
 
-```bash
-./examples/safe-debugging-demo/run-demo.sh
+## Core Pillars of the V3 Architecture
+
+```
+                                  +--------------------------------------------------+
+                                  |                THE REALITY ARBITER               |
+                                  |    (Compiler, Unit Tests, Thermodynamic Gate)    |
+                                  +--------------------------------------------------+
+                                                           ^
+                                                           | Verifies survival
+                                                           v
++-------------------------------------------------------------------------------------------------------------------------+
+|                                              GENOS RUNTIME & STRATEGY ENGINE                                            |
+|                                                                                                                         |
+|  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
+|  |     Strategy Dispatcher      |  |    Swarm & Dynamic Org        |  |          Cognitive Immune System             |  |
+|  |  77 Strategies / 96 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
+|  |  - Fundamentals   - Safety   |  |  - Digital Pheromones (Stigm) |  |  - Phagocytosis (Exosome digestion)         |  |
+|  |  - Memory (STDP)  - Swarm    |  |  - Quorum & Brier Consensus   |  |  - Apoptosis (Caspase cascade)               |  |
+|  |  - Evolution      - Causal   |  |  - Contact Inhibition Locks   |  |  - Stem Cell Fallback                        |  |
+|  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
++-------------------------------------------------------------------------------------------------------------------------+
+                                                           ^
+                                                           | Powered by
+                                                           v
++-------------------------------------------------------------------------------------------------------------------------+
+|                                              NATIVE RUST BIOLOGICAL CRATES                                              |
+|                                                                                                                         |
+|  [genos-biology]          [genos-reproduction]         [genos-orchestrator]       [genos-genome]         [genos-cell]   |
+|  - Embryology (Zygote)    - Mitosis (Attested Fork)    - Conscience State         - Chromatin Locking    - AgentCell    |
+|  - HOX Differentiation    - Binary Fission (Scale-Out) - Dissonance Monitoring    - Loci & Alleles       - Organelles   |
+|  - Synaptic Plasticity    - Budding (Hayflick Limit)   - Eureka Illumination      - Epigenetics                         |
+|  - Glial Pipeline         - Schizogony (MCTS Burst)    - Apoptotic Triggers                                             |
+|  - Tissues & Desmosomes   - Meiosis (Crossover)                                                                         |
++-------------------------------------------------------------------------------------------------------------------------+
 ```
 
-## Why GenOS V3?
+---
 
-Most agent workflows advance along one mutable timeline. When a tool call,
-belief update, or code change goes wrong, the surrounding state is difficult to
-reconstruct and alternative strategies are expensive to compare.
+## Detailed Capabilities
 
-GenOS V3 treats an agent workflow as versioned computation with advanced memory systems:
+### 1. Embryogenesis & HOX Gene Differentiation
+Agents do not remain in an undifferentiated "zygote" state. They undergo structured developmental biology:
+- **Acte 1 : Cleavage & Mitosis (`cleave_zygote`)**: Starts from a single totipotent zygote root and divides into stem-cell clones with full euchromatin (all tools accessible).
+- **Acte 2 : HOX Coordinate System (`differentiate_swarm`)**: A spatial morphogenetic gradient assigns architectural responsibilities:
+  - `HOX-1 (Head)`: UI / Frontend interfaces.
+  - `HOX-2 (Thorax)`: Business logic, backend APIs, and services.
+  - `HOX-3 (Tail)`: Persistence, database schema, and storage.
+- **Acte 3 : Epigenetic Locking**: Specialization locks non-essential genes into facultative heterochromatin (`developmentally_locked = true`), stripping unused tools to minimize attack surfaces and token waste.
+- **Acte 4 : Sculptural Apoptose (`sculpt_architecture_via_apoptosis`)**: Prunes intermediate and redundant cells to carve the final clean software architecture.
 
-- **Persistent Workspaces & History:** Full conversation history and workspace state are now persistent across sessions.
-- **Fork state, not just prompts.** Snapshots carry agent identity, genome, working state, world references, event cursors, and runtime metadata.
-- **Keep branches isolated.** Sibling agents receive distinct identities and event streams.
-- **Compare evidence before promotion.** Structural diffs, evaluation scores, multi-objective selection, and explicit winner promotion.
-- **Preserve provenance.** Append-only events, lineage inspection, and replay make it possible to study where two trajectories diverged.
+### 2. The 5 Biological Division Modes
+GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reproduction`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-reproduction)):
 
-## V3 Architecture Highlights
+| Division Mode | Biological Mechanism | GenOS Technical Function |
+| :--- | :--- | :--- |
+| **Mitosis** | Symmetric duplication with chromosomal spindle alignment | Attested counterfactual fork. Creates twin clones with identical state and budget to explore parallel hypotheses and neutralize LLM stochasticity. |
+| **Binary Fission** | Fast prokaryotic division without heavy nucleus | Lightweight scale-out for Map-Reduce tasks. Divides the remaining parent budget equally among workers without heavy metadata. |
+| **Budding** | Asymmetric division leaving a scar on the mother cell | Safe delegation to ephemeral workers. Strictly constrained by the **Hayflick Limit** (max buds per agent) to prevent recursive spawn storms. |
+| **Schizogonie** | Multiple internal nuclear divisions before synchronous burst release | Atomic speculative fan-out for Monte Carlo Tree Search (MCTS). Multiple hypothesis branches evaluate in memory and commit in a single atomic transaction. |
+| **Meiosis** | Diploid genome recombination with crossing-over and segregation | Sexual genetic breeding (`breed_genomes`) between two successful agent parents, filtered by speciation barriers (`speciation_threshold`). |
 
-GenOS V3 introduces advanced biomimetic capabilities and new database integrations:
+> **Anti-Pattern Banned:** **Amitosis** (uncontrolled, non-attested splitting) is rejected by design because it lacks cryptographic replayability and provenance.
 
-- **Hippocampus Migration**: The internal memory structure (Hippocampus) is now powered by **KuzuDB**, an embedded Cypher graph database.
-- **Hybrid RAG**: Integrated **LadybugDB** for Hybrid RAG (Vector FLOAT[768] + Graph) with complete textual context hydration in vector search.
-- **Cellular Immunity**: Deploy virophages, trigger computational fever, or force apoptosis (Caspase cascade) to isolate and destroy corrupted agent states.
-- **Evolution & Ecology**: Agents reproduce via mitosis, budding, or schizogony, exchanging token budgets through trophic networks.
-- **Virtualization**: Encapsulate environments in "Agent-World Capsules" with zero-byte copy (HardlinkWorld) and strict sandbox isolation.
+### 3. Neurobiology & Synaptic Growth
+- **Structural Plasticity:** Axonal terminals and dendritic spines (`DendriticTree`) physically grow (`spine.receptor_density += 0.05`) when repeatedly exercised by successful problem-solving paths.
+- **Synaptic Pruning:** Inactive connections are marked by C3 opsonization ("eat-me" signals) and engulfed by microglia processors, freeing working memory.
+- **Spike-Timing-Dependent Plasticity (STDP):** Causal pathways that precede positive test resolutions are reinforced; retrograde errors weaken connections.
 
-For a complete index of all biological and computational features, see the [GenOS Ultimate Architecture Map](docs/genos_ultimate_architecture_map.md).
+### 4. Epistemic Stigmergy & Swarm Intelligence
+- **Digital Pheromones (`pheromoneDeposit`, `trailSelection`):** Agents mark code artifacts with digital scents (recruitment, alert, verified). Pheromones experience temporal evaporation, letting the swarm self-organize on hot paths without conversational overhead.
+- **Quorum Sensing & Brier-Weighted Consensus:** Collective decision-making supports 1-agent-1-vote quorums or weighted voting calibrated against each agent's historical predictive reliability (**Brier Score**).
+- **Contact Inhibition:** Juxtacrine signaling via extracellular matrix locks files being modified, preventing race conditions and concurrent write collisions without heavy distributed locking.
+- **Cognitive Drift Sentinel:** Real-time computation of **Shannon Entropy** $H(A)$ across action distributions to detect confusion spikes (erratic tool thrashing) and low-entropy collapse (infinite repetition deadlocks).
 
-## What works today
+### 5. Cellular Immunity & Resilience
+- **Molecular Chaperones:** Intercept malformed LLM outputs and repair JSON structures before parsing.
+- **Phagocytosis of Exosomes:** Digest and assimilate compressed binary packages across extracellular boundaries.
+- **Caspase Apoptosis Cascade:** Controlled destruction of corrupted or runaway agents, logging terminal post-mortem dossiers.
+- **Stem Cell Fallback:** If an essential worker is destroyed by an unrecoverable mutation, a pristine stem cell checkpoint is immediately mobilized to restore mission continuity.
+- **Cryptobiosis:** Puts agents into deep stasis under severe resource constraints, preserving state until resources return.
 
-| Capability | Proof in this repository | Maturity |
-| --- | --- | --- |
-| Safe parallel debugging | [One-command debugging demo](examples/safe-debugging-demo/) | Runnable product proof |
-| Snapshot, fork, diff, and replay | [Counterfactual demo](examples/counterfactual-demo/) | Runnable CLI demo |
-| Independent sibling state | [Divergent writes](examples/divergent-writes-demo/) | Runnable CLI demo |
-| Isolated filesystem worlds | [Divergent worlds](examples/divergent-worlds-demo/) | Runnable CLI demo |
-| Hybrid RAG with LadybugDB | Internal APIs | V3 Alpha |
-| Embedded Graph Memory (KuzuDB)| Internal APIs | V3 Alpha |
-| Local visual control plane | [GenOS Studio](#genos-studio) | Pre-alpha |
+### 6. 77 Biomimetic Strategies & 96 Execution Primitives
+GenOS ships with a full execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) wiring 77 formal strategies (documented in [`strategies.md`](strategies.md)) across 7 core lots:
+1. **Fundamentals:** `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
+2. **Memory:** `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
+3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`.
+4. **Safety & Resilience:** `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
+5. **Collective Swarm:** `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
+6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`.
+7. **Deep Search & Budget:** `mcts_select` (UCB1), `prune` (Beam Search), `reallocate`, `budget_limit`, `prm_evaluate`.
 
-## Quick start
+---
 
-### Requirements
+## Repository Map
 
-- Rust 1.88 or newer
-- Git
-- Bash on Linux/macOS, or PowerShell on Windows
+```text
+GenOS/
+├── crates/                    # Core Rust Biomimetic Engine
+│   ├── genos-biology/         # Embryology, HOX differentiation, glial, neurobiology, tissue
+│   ├── genos-cell/            # Cellular agent definitions, metabolism, organelles
+│   ├── genos-genome/          # Epigenetics, chromatin states, loci, crossover
+│   ├── genos-reproduction/    # Mitosis, binary fission, budding, schizogony, meiosis
+│   ├── genos-orchestrator/    # Conscience, cognitive dissonance, eureka, task dispatch
+│   ├── genos-immune/          # Macrophage phagocytosis, fever, cellular defense
+│   ├── genos-signal/          # Juxtacrine, paracrine, endocrine communication mesh
+│   ├── genos-store/           # Merkle snapshots, versioned world capsules
+│   ├── genos-common/          # Shared traits, errors, and biological interfaces
+│   ├── genos-api/             # Native API endpoints
+│   └── genos-cli/             # Native CLI binary
+├── backend/                   # Node.js Control Plane & Runtime API
+│   ├── bin/                   # Runtime binaries (genos-orchestrate, genos-apoptosis, etc.)
+│   ├── proto/                 # Protocol Buffers definitions (agent, memory, workspace)
+│   ├── src/
+│   │   ├── controllers/       # HTTP/gRPC controllers
+│   │   ├── db/                # SQLite database interface & migrations
+│   │   ├── services/          # Core services (genetics, swarm metrics, immune, fleet)
+│   │   │   ├── primitiveHandlers/  # 7 Lots of real executable primitives
+│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 77 strategies
+│   │   │   └── mcpBioTools.js      # Biomimicry MCP tools executor
+│   │   └── strategies/        # Strategy registry and classification
+│   └── tests/                 # Comprehensive test suite (unit, integration, adversarial)
+├── mcp/                       # Model Context Protocol server bridge for IDEs & agents
+├── integrations/              # IDE extension contracts and integration schemas
+├── scripts/                   # Orchestration, code analysis, and maintenance scripts
+├── strategies.md              # Detailed catalog of all 77 implemented & experimental strategies
+├── runtime_arbiter.js         # The Thermodynamic Reality Arbiter
+└── .genos.md                  # Strict code generation & complexity governance rules
+```
 
-Clone the repository and run the smallest end-to-end proof:
+---
+
+## Quick Start
+
+### Prerequisites
+- **Rust:** 1.88 or newer
+- **Node.js:** 20.x or 22.x LTS
+- **Git**
+
+### 1. Build and Test the Rust Engine
 
 ```bash
+# Clone the repository
 git clone https://github.com/PISSARAW/GenOS.git
 cd GenOS
 git checkout v3
-./run-demo.sh
+
+# Build and verify the biological workspace crates
+cargo build --workspace
+cargo test --workspace
 ```
 
-## GenOS Studio
-
-GenOS Studio is the local browser control plane included in this repository.
-It combines a React and TypeScript frontend with an Express and SQLite backend
-to expose live agent, workspace, experiment, evaluation, lineage, tool, and
-telemetry views.
-
-<p align="center">
-  <img src="docs/assets/studio/dashboard.png" alt="GenOS Studio fleet dashboard" width="100%">
-</p>
-
-### Run Studio locally
-
-Studio requires Node.js 20.19+ on the 20.x line, or 22.12+, and npm. Start
-the backend from the repository root:
+### 2. Start the Backend Runtime
 
 ```bash
 cd backend
-npm ci
+npm install
 npm start
 ```
+The runtime initializes SQLite, loads vector and graph capabilities, and exposes the HTTP and gRPC control plane.
 
-In a second terminal:
+### 3. Connect via MCP (Model Context Protocol)
+
+GenOS provides an integrated MCP server allowing Claude, Cursor, or any compatible AI agent to invoke biological primitives:
 
 ```bash
-cd studio
-npm ci
-npm run dev
+cd mcp
+npm install
+node index.js
 ```
 
-## Documentation
+Available tools include:
+- `genos_biomimicry_stigmergy_deposit`: Leave digital pheromones on files.
+- `genos_resilience_cryptobiosis`: Enter deep hibernation to survive token famine.
+- `genos_biomimicry_epigenetic_chromatin`: Lock or unlock tool access via chromatin state.
+- `genos_evolution_assimilate_plasmid`: Horizontal skill transfer between agents.
+- `genos_biomimicry_telomere_fork`: Replicate agents with telomeric lifespan bounds.
 
-- **Understand the problem:** [Counterfactual OS paradigm](docs/0-context-and-vision/counterfactual-os.md)
-- **Study the system:** [ultimate architecture map](docs/genos_ultimate_architecture_map.md)
-- **Use the interfaces:** [CLI reference](docs/4-interfaces/cli-reference.md)
+### 4. Run an Autonomous Orchestration Mission
 
-## Repository map
-
-```text
-crates/        Rust models, runtime, stores, worlds, evaluation, API, and CLI
-backend/       Express + SQLite API for GenOS Studio
-studio/        React + TypeScript + Vite frontend
-examples/      Runnable proofs, scenarios, and reusable agent manifests
-docs/          Concepts, onboarding, architecture, interfaces, and operations
+```bash
+node backend/bin/genos-orchestrate.cjs '{"mission": "Refactor authorization layer with zero-downtime canary fork", "background": true}'
 ```
+
+---
+
+## Code Governance: The Reality Arbiter
+
+To ensure that autonomous agents do not produce unmaintainable spaghetti code or collude in hallucinations, GenOS enforces rules encoded in [`.genos.md`](.genos.md) and checked by [`runtime_arbiter.js`](runtime_arbiter.js):
+
+1. **Low Cyclomatic Complexity:** Code must remain readable, direct, and testable.
+2. **Strict Parameter Limits:** Maximum 3 parameters per function.
+3. **SOLID Principles:** Rigid separation of concerns across cellular modules.
+4. **Line Bounds:** Source files must not exceed 400 lines without an explicit exemption.
+5. **No Architectural Deviations:** Any fundamental pattern change requires an Architecture Decision Record (ADR).
+
+Any generated patch failing these conditions is rejected by the Reality Arbiter and discarded by the Caspase cascade.
+
+---
 
 ## License
 

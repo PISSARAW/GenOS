@@ -21,6 +21,7 @@ const { recordWorkerEvidence } = require('./agentEvidenceService');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
+const agentConscience = require('./agentConscienceService');
 
 function runtimeExitOutcome(termination, code, signal, stderr = '') {
   if (termination) {
@@ -49,6 +50,7 @@ function runtimeExitOutcome(termination, code, signal, stderr = '') {
 async function superviseMission(options) {
   const { db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable } = options;
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
+  const conscienceState = await agentConscience.loadConscienceState(db, agentId);
   // Keep the default stable regardless of whether `npm start` was launched from
   // the repository root or from backend/.
   const workspaceRoot = normalizedMission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
@@ -149,6 +151,24 @@ async function superviseMission(options) {
           emit(agentId, 'STRATEGY_GUARDRAIL_BLOCKED', 'HALT', decision.reason, { runId: executionRun.id }, 'critical', 'error');
           haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
         }
+
+        // Évaluation de la Conscience Cognitive
+        const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType) || currentEvent.severity === 'error';
+        const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType) || (eventType === 'AGENT_STEP' && currentEvent.action === 'VERIFY');
+        if (isErrorEvent) {
+          const evalResult = agentConscience.evaluateBranch(conscienceState, { errorsInLoop: 1 });
+          emit(agentId, 'CONSCIENCE_STATE_UPDATED', 'CONSCIENCE', `Dissonance cognitive augmentée à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'warning');
+          if (evalResult.apoptoticTriggered && !termination && !finalEvent) {
+            emit(agentId, 'COGNITIVE_APOPTOSIS', 'CONSCIENCE_LIMIT', `Dissonance cognitive critique (${conscienceState.dissonanceLevel.toFixed(1)} >= ${conscienceState.maxDissonanceThreshold}). Apoptose déclenchée.`, { conscienceState }, 'critical', 'apoptosis');
+            haltRuntime('cognitive_apoptosis', 'Dissonance cognitive critique.', 'Runtime halted by Cognitive Conscience Apoptosis.', { conscienceState });
+            continue;
+          }
+        } else if (isSuccessEvent) {
+          agentConscience.triggerEureka(conscienceState);
+          emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
+        }
+        await agentConscience.persistConscienceState(db, agentId, conscienceState);
+
         await advanceAutonomousRound(normalizedMission, currentEvent);
       } catch (err) {
         console.error('Error processing event', err);
@@ -220,6 +240,7 @@ async function superviseMission(options) {
   child.stdin.end(encodeMission({
     agentId,
     name: normalizedMission.name || dispatchedAgent.name || '',
+    nameMeaning: normalizedMission.nameMeaning || dispatchedAgent.name_meaning || '',
     role: normalizedMission.role || '',
     prompt: normalizedMission.prompt || normalizedMission.currentTask || '',
     modelTier: normalizedMission.modelTier || '',

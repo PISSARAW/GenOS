@@ -4,6 +4,8 @@ const runtimeAdapter = require('../agentRuntimeAdapter');
 const workerGarage = require('../workerGarageService');
 const strategyContracts = require('../strategyContractService');
 const agentAuthority = require('../agentAuthorityService');
+const agentIdentity = require('../agentIdentityService');
+const agentConscience = require('../agentConscienceService');
 const AgentRepository = require('../../repositories/agent.repository');
 
 class AgentDeployService {
@@ -39,9 +41,10 @@ class AgentDeployService {
     const db = await this.initRepo();
     
     const agentId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-    const agentName = name || (executionMode === 'worker'
-      ? workerGarage.workerName({ role, mission: prompt })
-      : `GenOS Orchestrator ${agentId.slice(-4)}`);
+    const identity = agentIdentity.generateAgentIdentity({ preferredName: name, role });
+    const agentName = identity.name;
+    const nameMeaning = identity.name_meaning;
+    const initialConscience = agentConscience.createConscienceState();
 
     let inheritedStrategyContract = null;
     if (executionMode === 'worker') {
@@ -59,10 +62,11 @@ class AgentDeployService {
 
     await this.agentRepo.create({
       id: agentId, 
-      name: agentName, 
+      name: agentName,
+      name_meaning: nameMeaning,
       role, 
       status: 'idle', 
-      agent_type: resolvedAgentType, 
+      agent_type: resolvedAgentType || 'GenOS', 
       execution_mode: executionMode, 
       workspace_id: workspaceId, 
       fleet_id: fleetId, 
@@ -71,8 +75,12 @@ class AgentDeployService {
       isolation_mode: workspaceIsolation, 
       parent_agent_id: parentAgentId, 
       lineage_relation: lineageRelation, 
-      about: about || prompt || `Autonomous agent for ${role}.`, 
-      current_task: prompt || 'Autonomous task execution'
+      about: about || prompt || identity.introduction, 
+      current_task: prompt || 'Autonomous task execution',
+      dissonance_level: initialConscience.dissonanceLevel,
+      eureka_count: initialConscience.eurekaMoments,
+      cognitive_budget: initialConscience.currentBudget,
+      is_apoptotic: initialConscience.isApoptotic ? 1 : 0
     });
 
     if (executionMode === 'orchestrator') {
@@ -108,7 +116,7 @@ class AgentDeployService {
 
     if (executionMode === 'orchestrator') {
       runtimeAdapter.startMission({
-        agentId, name: agentName, role, prompt: prompt || '', modelTier,
+        agentId, name: agentName, nameMeaning, introduction: identity.introduction, role, prompt: prompt || '', modelTier,
         workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
         workspaceRoot: workspace?.path,
         strategyContract: strategyContract.contract,

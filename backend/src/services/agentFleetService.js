@@ -24,6 +24,8 @@ const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundServ
 const { queueWorkerRecovery } = require('./agentRecoveryService');
 const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
 const { workerToolLease } = require('./agentOrchestrationState');
+const agentIdentity = require('./agentIdentityService');
+const agentConscience = require('./agentConscienceService');
 
 async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
   const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 14 * 60 * 1000);
@@ -70,16 +72,22 @@ async function runLocalWorker(db, mission, executionRun) {
     if (tokenBudget > 0 && promptTokenEstimate >= tokenBudget) {
       throw Object.assign(new Error(`Local worker prompt consumes its token budget before generation (${promptTokenEstimate} >= ${tokenBudget}).`), { code: 'BUDGET_EXHAUSTED' });
     }
+    const agentName = mission.name || 'GenOS Worker';
+    const agentMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Spécialiste autonome');
+    const selfIntro = agentIdentity.formatSelfIntroduction(agentName, agentMeaning, mission.role);
+    const conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
+    const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
+
     const result = await modelRouter.generate({
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
       priority: 'bulk',
       maxTokens: tokenBudget > 0 ? tokenBudget - promptTokenEstimate : undefined,
       policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
-        ? `You are a bounded GenOS local code worker. Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
+        ? `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local code worker (${agentName}). Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
         : (mission.role === 'Autonomous Orchestrator' || (mission.executionMode || mission.execution_mode) === 'orchestrator' || /orchestrator/i.test(mission.agentId))
-          ? `You are a GenOS orchestrator. Mission:\n${mission.prompt}`
-          : `You are a bounded GenOS local worker. Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
+          ? `${selfIntro}\n${conscienceBlock}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${mission.prompt}`
+          : `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local worker (${agentName}). Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     let evidenceReport;
@@ -148,12 +156,23 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
   const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
   const workers = [];
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const usedNames = [];
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
-    const name = workerGarage.workerName({ ...assignment, mission: mission.prompt });
+    const identity = agentIdentity.generateAgentIdentity({
+      preferredName: assignment.preferredName || assignment.name,
+      role: assignment.role,
+      excludeNames: usedNames
+    });
+    usedNames.push(identity.name);
+    const name = identity.name;
+    const nameMeaning = identity.name_meaning;
+    const initialConscience = agentConscience.createConscienceState();
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
     const prompt = [
+      identity.introduction,
+      agentConscience.formatConsciencePrompt(initialConscience),
       mission.prompt || parent.current_task || 'Autonomous task execution',
       `Assigned branch: ${assignment.label}.`,
       Array.isArray(assignment.capabilities) && assignment.capabilities.length
@@ -168,15 +187,16 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
         : `Budget allocation: ${perWorkerTokens} tokens.`
     ].filter(Boolean).join('\n');
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
-       VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?)`,
-      id, name, assignment.role, parent.agent_type || 'GenOS',
+      `INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic)
+       VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`,
+      id, name, nameMeaning, assignment.role, parent.agent_type || 'GenOS',
       parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
       parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
-      `Autonomous branch created by ${parent.name}. Budget round: initial; allocation: ${perWorkerTokens} tokens.`, prompt
+      `${identity.introduction} Budget round: initial; allocation: ${perWorkerTokens} tokens.`, prompt,
+      initialConscience.dissonanceLevel, initialConscience.eurekaMoments, initialConscience.currentBudget, initialConscience.isApoptotic ? 1 : 0
     );
     workers.push({
-      agentId: id, name, role: assignment.role, prompt,
+      agentId: id, name, nameMeaning, introduction: identity.introduction, role: assignment.role, prompt,
       branchAssignment: `${assignment.label}: ${assignment.hypothesis}`,
       artifact: assignment.artifact || plan.aTeam?.artifact || plan.trinity?.artifact || null,
       pipelineStage: Math.max(0, Number(assignment.pipelineStage || 0)),

@@ -96,8 +96,14 @@ async function loadAgentDossier(db, agentId) {
   const forks = descendants.filter((agent) => agent.lineage_relation !== 'independent');
   const genome = {
     identity: {
-      id: root.id, name: root.name, role: root.role, agentType: root.agent_type,
-      executionMode: root.execution_mode, modelTier: root.model_tier, language: root.language
+      id: root.id, name: root.name, nameMeaning: root.name_meaning, role: root.role, agentType: root.agent_type,
+      executionMode: root.execution_mode, modelTier: root.model_tier, language: root.language,
+      conscience: {
+        dissonanceLevel: root.dissonance_level || 0,
+        eurekaCount: root.eureka_count || 0,
+        cognitiveBudget: root.cognitive_budget || 100,
+        isApoptotic: Boolean(root.is_apoptotic)
+      }
     },
     lineage: { parentAgentId: root.parent_agent_id, relation: root.lineage_relation },
     strategy: currentContract,

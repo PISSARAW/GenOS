@@ -23,6 +23,21 @@ async function migrateLegacySchema(db) {
       if (!colNames.includes('language')) {
         await db.exec("ALTER TABLE agents ADD COLUMN language TEXT DEFAULT 'TypeScript';");
       }
+      if (!colNames.includes('name_meaning')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN name_meaning TEXT;');
+      }
+      if (!colNames.includes('dissonance_level')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN dissonance_level REAL DEFAULT 0.0;');
+      }
+      if (!colNames.includes('eureka_count')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN eureka_count INTEGER DEFAULT 0;');
+      }
+      if (!colNames.includes('cognitive_budget')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN cognitive_budget REAL DEFAULT 100.0;');
+      }
+      if (!colNames.includes('is_apoptotic')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN is_apoptotic INTEGER DEFAULT 0;');
+      }
     }
   } catch (err) {
     // Ignore migration error
