@@ -13,3 +13,5 @@ fossils/
 vault/
 *.db-shm
 *.db-wal
+genos_server.log
+.genos_server.pid
