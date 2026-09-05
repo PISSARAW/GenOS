@@ -150,6 +150,33 @@ impl BiomimeticOrchestrator {
         swarm
     }
 
+    /// Symbiogenèse Eucaryote : un agent (host) phagocyte un autre agent (symbiont)
+    pub fn trigger_endosymbiosis(&mut self, host_id: Uuid, symbiont_id: Uuid) -> Result<(), String> {
+        // 1. Extraire le symbionte (il n'est plus un acteur autonome)
+        let symbiont = self.active_cells.remove(&symbiont_id)
+            .ok_or_else(|| format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id))?;
+            
+        // 2. Récupérer l'hôte
+        if !self.active_cells.contains_key(&host_id) {
+            self.active_cells.insert(symbiont_id, symbiont);
+            return Err(format!("Hôte {} introuvable", host_id));
+        }
+        
+        let host = self.active_cells.get_mut(&host_id).unwrap();
+            
+        // 3. L'hôte phagocyte le symbionte
+        host.phagocytize(symbiont);
+        
+        // 4. Émettre un signal bioluminescent pour marquer l'événement
+        self.emit_bioluminescence(
+            FluorophoreColor::Green, 
+            "Mitochondria", 
+            ("ENDOSYMBIOSIS", "Symbiont successfully integrated as organelle")
+        );
+        
+        Ok(())
+    }
+
     /// Télémétrie bioluminescente : émission de fluorophores photoniques structurés
     pub fn emit_bioluminescence(&self, color: FluorophoreColor, organelle: &str, event_info: (&str, &str)) {
         let (event_type, details) = event_info;
@@ -160,5 +187,40 @@ impl BiomimeticOrchestrator {
             event_type,
             details,
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use genos_cell::Organelle;
+
+    #[test]
+    fn test_endosymbiosis() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        let host = AgentCell::new("Host", "The Absorber", "Architect");
+        let symbiont = AgentCell::new("Symbiont", "The Absorbed", "Verifier");
+        
+        let host_id = host.cell_id;
+        let symbiont_id = symbiont.cell_id;
+        
+        orchestrator.active_cells.insert(host_id, host);
+        orchestrator.active_cells.insert(symbiont_id, symbiont);
+        
+        assert!(orchestrator.active_cells.contains_key(&symbiont_id));
+        
+        let result = orchestrator.trigger_endosymbiosis(host_id, symbiont_id);
+        assert!(result.is_ok());
+        
+        // Symbiont should no longer be an active autonomous cell
+        assert!(!orchestrator.active_cells.contains_key(&symbiont_id));
+        
+        // Host should contain the symbiont as an organelle
+        let host_cell = orchestrator.active_cells.get(&host_id).unwrap();
+        assert_eq!(host_cell.organelles.len(), 1);
+        
+        let Organelle::Endosymbiont { original_id, role, .. } = &host_cell.organelles[0];
+        assert_eq!(*original_id, symbiont_id);
+        assert_eq!(role, "Verifier");
     }
 }

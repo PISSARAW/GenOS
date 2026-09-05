@@ -1,0 +1,26 @@
+{
+  "agent_id": "e9e9b144-c4c6-4aca-bfce-7cc457d8d9ed",
+  "branch_id": "branch-607e8522",
+  "created_at": "2026-09-05T11:07:12.165456900+00:00",
+  "genome": {
+    "cell_id": "e9e9b144-c4c6-4aca-bfce-7cc457d8d9ed",
+    "conscience": {
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0
+    },
+    "name": "Tariq",
+    "name_meaning": "L'étoile du matin (Arabe / Nord-Africain) - L'éclaireur avant-gardiste",
+    "role": "Autonomous Node"
+  },
+  "snapshot_id": "snap-607e85222148449992e73d4067a9f10f",
+  "state": {
+    "dissonance": 0.0,
+    "entropy": 0.42,
+    "execution_status": "quiescent",
+    "working_memory": []
+  },
+  "world_id": "world-matrix-0"
+}
