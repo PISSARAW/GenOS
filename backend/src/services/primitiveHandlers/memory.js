@@ -2,6 +2,7 @@
  * Lot 2 : Primitives de Mémoire (compile, cherry-pick, search, failures, stdp)
  */
 const vectorMemory = require('../vectorMemoryService');
+const trajectoryService = require('../trajectoryService');
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
 
@@ -50,15 +51,31 @@ async function cherryPickGoldenPath(context) {
     'GoldenPath',
     buffer
   );
+
+  let trajRecord = null;
+  try {
+    trajRecord = await trajectoryService.recordMissionTrajectory(db, {
+      id: context.trajectoryId,
+      agentId: context.agentId,
+      workspaceId: context.workspaceId,
+      task: context.task,
+      report: context.report,
+      turns,
+      status: context.status
+    });
+  } catch (err) {
+    console.error('Erreur enregistrement trajectoire:', err.message);
+  }
+
   telemetry.emitEvent({
     eventType: 'GOLDEN_PATH_SYNTHESIZED',
     agentId: context.agentId || 'strategy_adapter',
     action: 'CHERRY_PICK',
     detail: 'Synthesized golden path: ' + result.prunedStepCount + ' steps, ' + result.noiseReductionPercent + '% noise reduction.',
     severity: 'info',
-    payload: result
+    payload: { ...result, decisionId, trajectoryId: trajRecord?.trajectoryId }
   });
-  return { success: true, decisionId, ...result };
+  return { success: true, decisionId, trajectoryId: trajRecord?.trajectoryId, ...result };
 }
 
 async function searchMemory(context) {
@@ -81,12 +98,46 @@ async function searchFailures(context) {
 
 async function stdpUpdate(context) {
   const db = await getDatabase();
-  const sourceId = context.sourceId || context.causeId;
-  const targetId = context.targetId || context.effectId;
-  const delta = context.delta || 1.0;
-  if (!sourceId || !targetId) {
-    return { success: false, error: 'sourceId and targetId are required for STDP update.' };
+  let sourceId = context.sourceId || context.causeId;
+  let targetId = context.targetId || context.effectId;
+  const delta = Number.isFinite(context.delta) ? context.delta : 1.0;
+
+  if (!sourceId) {
+    const recentDecision = await db.get(
+      "SELECT id FROM genome_decisions WHERE created_by = ? OR category IN ('Experience', 'Decision') ORDER BY created_at DESC LIMIT 1",
+      context.agentId || context.orchestratorId || ''
+    );
+    sourceId = recentDecision ? recentDecision.id : null;
   }
+  if (!targetId) {
+    const recentGolden = await db.get(
+      "SELECT id FROM genome_decisions WHERE category = 'GoldenPath' ORDER BY created_at DESC LIMIT 1"
+    );
+    targetId = recentGolden ? recentGolden.id : null;
+  }
+
+  if (!sourceId || !targetId || sourceId === targetId) {
+    const agentNode = `node_cause_${context.agentId || 'agent'}`;
+    const targetNode = `node_effect_${Date.now()}`;
+    const float32 = new Float32Array(768);
+    const buf = Buffer.from(float32.buffer);
+    await db.run("INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, 'ConnectomeNode', ?)",
+      agentNode, 'Synaptic Cause Node', `Agent root ${context.agentId}`, context.agentId || 'stdp', buf);
+    await db.run("INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, 'ConnectomeNode', ?)",
+      targetNode, 'Synaptic Effect Node', `Outcome for ${context.task || 'mission'}`, context.agentId || 'stdp', buf);
+    sourceId = sourceId || agentNode;
+    targetId = targetId || targetNode;
+    if (sourceId === targetId) targetId = targetNode;
+  }
+
+  const [sRow, tRow] = await Promise.all([
+    db.get('SELECT id FROM genome_decisions WHERE id = ?', sourceId),
+    db.get('SELECT id FROM genome_decisions WHERE id = ?', targetId)
+  ]);
+  if (!sRow || !tRow) {
+    return { success: false, error: `Invalid foreign keys for STDP: sourceId=${sourceId}, targetId=${targetId}` };
+  }
+
   await db.run(
     'INSERT INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, ?) ON CONFLICT(source_id, target_id) DO UPDATE SET weight = MIN(20.0, MAX(-20.0, weight + ?))',
     sourceId, targetId, delta, delta

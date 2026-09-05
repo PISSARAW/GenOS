@@ -110,9 +110,94 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
   };
 }
 
+const telemetry = require('./telemetryObserver');
+const { embed } = require('./embeddingProvider');
+const { textToVector } = require('./memoryScoring');
+
+async function recordMissionTrajectory(db, options = {}) {
+  if (!db) return null;
+  const turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
+  const goldenPath = cherryPickGoldenPath(turns);
+  const trajId = options.id || `traj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const agentId = options.agentId || options.authorName || 'GenOS Agent';
+  const task = options.task || options.mission || 'Autonomous Task';
+  const report = options.report || {};
+  const status = options.status || (report.outcome === 'failed' ? 'rejected' : 'approved');
+
+  const claimStatements = Array.isArray(report.claims)
+    ? report.claims.map(c => c.statement || String(c)).join('; ')
+    : '';
+  const title = (report.claims?.[0]?.statement || task || 'Autonomous Trajectory').slice(0, 100);
+  const semanticSummary = [
+    `Task: ${task}`,
+    `Outcome: ${report.outcome || 'success'}`,
+    claimStatements ? `Claims: ${claimStatements}` : null,
+    `Golden Path: ${goldenPath.goldenPathSteps.length} steps (${goldenPath.noiseReductionPercent}% noise reduction)`
+  ].filter(Boolean).join(' | ');
+
+  let vec = null;
+  try {
+    vec = await embed(`${title} ${semanticSummary}`);
+  } catch (_) {}
+  if (!vec || vec.length !== 768) {
+    vec = textToVector(`${title} ${semanticSummary}`);
+  }
+  const float32 = new Float32Array(vec);
+  const buffer = Buffer.from(float32.buffer);
+
+  const diffLinesJson = JSON.stringify(goldenPath.goldenPathSteps.map(s => ({
+    step: s.step,
+    type: s.classification || s.type,
+    action: s.action,
+    detail: s.detail || s.cmd
+  })));
+
+  let workspaceId = options.workspaceId || null;
+  if (workspaceId) {
+    const wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
+    if (!wsRow) {
+      const fallbackWs = await db.get('SELECT id FROM workspaces LIMIT 1');
+      workspaceId = fallbackWs ? fallbackWs.id : null;
+    }
+  } else {
+    const fallbackWs = await db.get('SELECT id FROM workspaces LIMIT 1');
+    workspaceId = fallbackWs ? fallbackWs.id : null;
+  }
+
+  await db.run(
+    `INSERT INTO trajectories (
+      id, workspace_id, author_id, author_name, title, status,
+      semantic_summary, diff_file, diff_lines, confidence, embedding_blob
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    trajId,
+    workspaceId,
+    options.authorId || agentId,
+    agentId,
+    title,
+    status,
+    semanticSummary,
+    options.diffFile || 'src/agent.ts',
+    diffLinesJson,
+    options.confidence || 95,
+    buffer
+  );
+
+  telemetry.emitEvent({
+    eventType: 'TRAJECTORY_PERSISTED',
+    agentId: agentId,
+    action: 'RECORD_TRAJECTORY',
+    detail: `Trajectory ${trajId} recorded: ${goldenPath.goldenPathSteps.length} golden steps (${goldenPath.noiseReductionPercent}% pruned).`,
+    severity: 'info',
+    payload: { trajectoryId: trajId, goldenPath, title, status }
+  });
+
+  return { trajectoryId: trajId, goldenPath, title, status, success: true };
+}
+
 module.exports = {
   SEED_TRAJECTORY,
   classifyTurn,
   cherryPickGoldenPath,
-  counterfactualReplay
+  counterfactualReplay,
+  recordMissionTrajectory
 };

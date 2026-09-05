@@ -214,6 +214,7 @@ process.stdin.on('end', async () => {
   let buffer = '';
   let stderr = '';
   let finalReportText = '';
+  const recordedTurns = [];
   let cleanedUp = false;
   let budgetStopped = null;
   let eventCount = 0;
@@ -299,6 +300,7 @@ process.stdin.on('end', async () => {
       else if (type === 'item.started') emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item started.', payload: event });
       else if (type === 'item.completed') {
         if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') finalReportText = event.item.text;
+        recordedTurns.push({ step: recordedTurns.length + 1, type: event.item?.type || 'action', action: event.item?.command || event.item?.type || 'action', cmd: event.item?.command || null, pass: !event.error, detail: String(event.item?.command || event.item?.text || '').slice(0, 300) });
         emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
       }
       else if (type === 'turn.completed') {
@@ -373,7 +375,7 @@ process.stdin.on('end', async () => {
         emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
         strategyAdapter.executePipelineWithFeedback(
           ['stdp_update', 'cherry_pick_golden_path'],
-          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, task: mission.prompt, report, turns: [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
+          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
         ).catch(() => {});
         agentMemory.compileExecutionMemory(agentName, mission.prompt, report?.claims?.map(c => c.statement).join('\n') || finalReportText).catch(() => {});
       }
