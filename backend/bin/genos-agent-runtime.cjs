@@ -85,10 +85,10 @@ process.stdin.on('end', async () => {
   }
 
   // Resolve the repository relative to this bridge rather than the caller's cwd.
-  // The backend can be started from either `backend/` or the repository root.
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
-  const genosBinary = process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos');
-  const mcpBinary = process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp');
+  const resolveBin = (p) => fs.existsSync(p) ? p : (fs.existsSync(`${p}.exe`) ? `${p}.exe` : p);
+  const genosBinary = resolveBin(process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos'));
+  const mcpBinary = resolveBin(process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp'));
   const orchestratorBridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.resolve(__dirname, 'genos-orchestrate.cjs');
   let strategyContract = {};
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
@@ -177,10 +177,13 @@ process.stdin.on('end', async () => {
   }), { mode: 0o600 });
   const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
   args.push(...codexRuntimeConfiguration.commandOptions(mission));
-  if (fs.existsSync(mcpBinary) && fs.existsSync(genosBinary)) {
+  const mcpNodeScript = path.resolve(__dirname, '../../mcp/index.js');
+  const mcpCommand = fs.existsSync(mcpBinary) ? mcpBinary : (fs.existsSync(mcpNodeScript) ? process.execPath : null);
+  const mcpArgs = mcpCommand === mcpBinary ? ['stdio'] : [mcpNodeScript];
+  if (mcpCommand) {
     args.push(
-      '-c', `mcp_servers.genos.command=${JSON.stringify(mcpBinary)}`,
-      '-c', 'mcp_servers.genos.args=["stdio"]',
+      '-c', `mcp_servers.genos.command=${JSON.stringify(mcpCommand)}`,
+      '-c', `mcp_servers.genos.args=${JSON.stringify(mcpArgs)}`,
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
       '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,

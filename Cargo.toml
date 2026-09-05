@@ -12,4 +12,5 @@ members = [
     "crates/genos-orchestrator",
     "crates/genos-api",
     "crates/genos-cli",
+    "crates/genos-mcp",
 ]
