@@ -200,119 +200,204 @@ async fn main() {
         Commands::Init => println!("Initialisation de GenOS..."),
         Commands::Replay { args } => {
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : lancement du replay sur le snapshot par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic", "--snapshot", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Diff { args } => {
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "diff"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : comparaison entre origin et latest)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "diff", "origin", "latest"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "diff"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Blame { args } => {
             println!("Analyse de la source de l'hallucination / Blame...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "analyze"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : analyse de l'hallucination sur latest-snapshot)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "analyze", "--snapshot", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "analyze"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Trace { args } => {
             println!("Traçage de la causalité / Trace...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : traçage causal sur incident par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay", "default-trace.log"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Clone { args } => {
             println!("Clonage de l'agent...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "fork"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : clonage de l'agent parent par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "fork", "--parent-id", "default-parent"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "fork"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Mutate { args } => {
             println!("Mutation de l'agent...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : mutation du trait créativité)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate", "--agent-id", "default-agent", "--trait", "creativity"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Elevate { args } => {
             println!("Élévation de l'agent / Adapt...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : élévation de l'agent)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt", "--agent-id", "default-agent", "--constraint", "time", "--target", "1.0"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Rest { args } => {
             println!("Mise en repos de l'agent (Cryptobiosis)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "resilience", "cryptobiosis"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : cryptobiose de default-agent)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "resilience", "cryptobiosis", "--agent-id", "default-agent"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "resilience", "cryptobiosis"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Check { args } => {
             println!("Vérification / Audit...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : audit du latest-snapshot)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Compare { args } => {
             println!("Comparaison des phénotypes...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "phenotype", "measure-divergence"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : comparaison phénotypique sur default-trait)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "phenotype", "measure-divergence", "--trait-name", "default-trait", "--expected", "1.0", "--observed", "0.9", "--tolerance", "0.2"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "phenotype", "measure-divergence"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Retrace { args } => {
             println!("Retraçage / Incident...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "incident"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : analyse de l'incident par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "incident", "default-manifest.json"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "incident"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Restore { args } => {
             println!("Restauration depuis un snapshot (Capsule Create)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : création de capsule depuis latest-snapshot)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create", "--snapshot", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Recover { args } => {
             println!("Récupération (Causal Replay)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : récupération causale par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay", "default-recovery.log"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Retrieve { args } => {
             println!("Recherche RAG / Retrieve...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : recherche de 'default query')");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search", "default query"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Filter { args } => {
             println!("Filtrage des impasses (Loop Detection)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "loop-detection"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : détection de boucle sur history.log)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "loop-detection", "--history-file", "history.log"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "loop-detection"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Merge { args } => {
             println!("Fusion de branches (Capsule Merge)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : fusion de la branche courante)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge", "default-branch"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Parent { args } => {
             println!("Analyse de la généalogie (Swarm Allele)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : analyse des allèles du swarm par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer", "--swarm-id", "default-swarm"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Lineage { args } => {
@@ -325,22 +410,37 @@ async fn main() {
         Commands::Squeaze { args } => {
             println!("Condensation de l'agent (Prune)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : pruning de default-agent à 0.5)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune", "--agent-id", "default-agent", "--threshold", "0.5"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Think { args } => {
             println!("Évaluation du chemin neuronal (Think)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : évaluation neuronale de default-agent)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate", "--agent-id", "default-agent", "--pre-node", "input", "--post-node", "output"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Trio { args } => {
             println!("Déploiement en trio (Trinity)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : déploiement trinity sur mission alpha)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy", "--mission-id", "mission-alpha", "--strategies", "trio-default"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Multi { args } => {
