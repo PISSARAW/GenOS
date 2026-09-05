@@ -97,23 +97,29 @@ impl Default for EvolutionaryEcology {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct CollusionCheck {
+    pub consumed_tokens: u32,
+    pub physical_test_passed: bool,
+}
+
 impl EvolutionaryEcology {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Applique les lois de l'évolution pour contrer la loi de Goodhart et la collusion
-    pub fn enforce_anti_collusion(&mut self, agent_id: &str, consumed_tokens: u32, physical_test_passed: bool) -> Result<String, String> {
+    pub fn enforce_anti_collusion(&mut self, agent_id: &str, check: CollusionCheck) -> Result<String, String> {
         // 1. Punition Altruiste / Réputation (Les parias sociaux sont ignorés)
         if !self.reputation.is_trusted(agent_id) {
             return Err(format!("⚖️ [RÉPUTATION] L'Agent '{}' a une confiance trop basse (<30%). Ses évaluations sont rejetées par la ruche.", agent_id));
         }
 
         // 2. Signalisation Coûteuse (Handicap de Zahavi)
-        self.costly_signaling.evaluate_signal(consumed_tokens)?;
+        self.costly_signaling.evaluate_signal(check.consumed_tokens)?;
 
         // 3. L'Arbitrage de la Réalité
-        let reality_verdict = self.reality_arbiter.arbitrate_reality(physical_test_passed);
+        let reality_verdict = self.reality_arbiter.arbitrate_reality(check.physical_test_passed);
         
         // Si l'agent a "validé" l'action mais que la physique/réalité casse, l'agent perd massivement sa réputation
         if reality_verdict.is_err() {
@@ -134,21 +140,21 @@ mod tests {
         let mut ecology = EvolutionaryEcology::new();
         
         // 1. Collusion tacite (Le critique dit que c'est bien, mais ça ne lui a coûté que 50 tokens)
-        let cheap_signal = ecology.enforce_anti_collusion("Critique_Agent", 50, true);
+        let cheap_signal = ecology.enforce_anti_collusion("Critique_Agent", CollusionCheck { consumed_tokens: 50, physical_test_passed: true });
         assert!(cheap_signal.is_err());
         assert!(cheap_signal.unwrap_err().contains("SIGNAL TROMPEUR"));
 
         // 2. Évaluation coûteuse (600 tokens) MAIS la réalité échoue (Code ne compile pas)
-        let reality_crash = ecology.enforce_anti_collusion("Critique_Agent", 600, false);
+        let reality_crash = ecology.enforce_anti_collusion("Critique_Agent", CollusionCheck { consumed_tokens: 600, physical_test_passed: false });
         assert!(reality_crash.is_err());
         assert!(reality_crash.unwrap_err().contains("RÉALITÉ"));
         
         // La réputation de l'agent Critique_Agent a baissé à cause de la faille ci-dessus (1.0 -> 0.5).
         // Il fait encore une erreur...
-        let _ = ecology.enforce_anti_collusion("Critique_Agent", 600, false); // 0.5 -> 0.0
+        let _ = ecology.enforce_anti_collusion("Critique_Agent", CollusionCheck { consumed_tokens: 600, physical_test_passed: false }); // 0.5 -> 0.0
 
         // 3. L'agent est maintenant un Paria (Réputation à 0)
-        let paria_signal = ecology.enforce_anti_collusion("Critique_Agent", 1000, true);
+        let paria_signal = ecology.enforce_anti_collusion("Critique_Agent", CollusionCheck { consumed_tokens: 1000, physical_test_passed: true });
         assert!(paria_signal.is_err());
         assert!(paria_signal.unwrap_err().contains("RÉPUTATION")); // La ruche ne lui fait plus confiance
     }

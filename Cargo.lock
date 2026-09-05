@@ -242,12 +242,24 @@ dependencies = [
 [[package]]
 name = "genos-api"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "uuid",
+]
 
 [[package]]
 name = "genos-biology"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "genos-cell",
+ "genos-genome",
+ "genos-signal",
  "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]
@@ -281,10 +293,21 @@ version = "0.1.0"
 [[package]]
 name = "genos-genome"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
 
 [[package]]
 name = "genos-immune"
 version = "0.1.0"
+dependencies = [
+ "genos-genome",
+ "serde",
+ "uuid",
+]
 
 [[package]]
 name = "genos-orchestrator"
@@ -296,14 +319,31 @@ dependencies = [
 [[package]]
 name = "genos-reproduction"
 version = "0.1.0"
+dependencies = [
+ "genos-cell",
+ "genos-genome",
+ "serde",
+ "uuid",
+]
 
 [[package]]
 name = "genos-signal"
 version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
+]
 
 [[package]]
 name = "genos-store"
 version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
 
 [[package]]
 name = "getrandom"

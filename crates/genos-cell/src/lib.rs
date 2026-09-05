@@ -60,6 +60,17 @@ impl AgentCell {
     pub fn is_alive(&self) -> bool {
         !self.conscience.is_apoptotic
     }
+
+    pub fn binary_fission(&self, _mutation_rate: f64) -> Result<(Self, Self), String> {
+        let mut clone = self.clone();
+        clone.cell_id = Uuid::new_v4();
+        Ok((self.clone(), clone))
+    }
+
+    pub fn trigger_apoptosis(&mut self) {
+        self.conscience.is_apoptotic = true;
+        self.conscience.current_budget = 0.0;
+    }
 }
 
 #[cfg(test)]

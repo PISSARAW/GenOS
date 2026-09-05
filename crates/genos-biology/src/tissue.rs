@@ -16,6 +16,13 @@ pub struct Tissue {
     pub ecology: crate::ecology::EvolutionaryEcology,
 }
 
+#[derive(Clone, Debug)]
+pub struct TaskDelegation<'a> {
+    pub from_id: Uuid,
+    pub to_id: Uuid,
+    pub task: &'a str,
+}
+
 impl Tissue {
     pub fn new(name: &str, function: &str, stem_cell_id: Uuid) -> Self {
         Self {
@@ -36,7 +43,10 @@ impl Tissue {
 
     /// Délégation hiérarchique : La Cellule Souche donne une instruction formelle à une Cellule Somatique.
     /// Cela simule la transmission d'informations formelles via des Desmosomes (Ponts intercellulaires).
-    pub fn delegate_task(&self, from_id: Uuid, to_id: Uuid, task: &str) -> Result<String, String> {
+    pub fn delegate_task(&self, delegation: TaskDelegation) -> Result<String, String> {
+        let from_id = delegation.from_id;
+        let to_id = delegation.to_id;
+        let task = delegation.task;
         if from_id != self.stem_cell_id {
             return Err("Rejet Immunitaire (Mutinerie) : Seule la Cellule Souche peut dicter l'activité du tissu.".to_string());
         }
@@ -73,28 +83,28 @@ mod tests {
         frontend_tissue.integrate_cell(test_cell.cell_id);
 
         // 3. Succès : Le Manager délègue au Dev
-        let delegation = frontend_tissue.delegate_task(
-            manager_cell.cell_id,
-            dev_cell.cell_id,
-            "Implémenter le bouton de connexion",
-        );
+        let delegation = frontend_tissue.delegate_task(TaskDelegation {
+            from_id: manager_cell.cell_id,
+            to_id: dev_cell.cell_id,
+            task: "Implémenter le bouton de connexion",
+        });
         assert!(delegation.is_ok());
 
         // 4. Échec : Le Manager tente de déléguer à une cellule inconnue
-        let err_target = frontend_tissue.delegate_task(
-            manager_cell.cell_id,
-            rogue_cell.cell_id,
-            "Fais ceci",
-        );
+        let err_target = frontend_tissue.delegate_task(TaskDelegation {
+            from_id: manager_cell.cell_id,
+            to_id: rogue_cell.cell_id,
+            task: "Fais ceci",
+        });
         assert!(err_target.is_err());
         assert!(err_target.unwrap_err().contains("Routage"));
 
         // 5. Échec (Mutinerie) : Le Dev tente de donner un ordre au Testeur
-        let err_mutiny = frontend_tissue.delegate_task(
-            dev_cell.cell_id,
-            test_cell.cell_id,
-            "Écris mes tests",
-        );
+        let err_mutiny = frontend_tissue.delegate_task(TaskDelegation {
+            from_id: dev_cell.cell_id,
+            to_id: test_cell.cell_id,
+            task: "Écris mes tests",
+        });
         assert!(err_mutiny.is_err());
         assert!(err_mutiny.unwrap_err().contains("Mutinerie"));
     }

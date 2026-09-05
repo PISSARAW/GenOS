@@ -1,4 +1,4 @@
-﻿use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 
 
@@ -243,6 +243,12 @@ pub struct NervousSystem {
     pub axon: Axon,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NeuroSignal {
+    pub transmitter: Neurotransmitter,
+    pub amount: f64,
+}
+
 impl NervousSystem {
     pub fn new(node_id: &str) -> Self {
         Self {
@@ -250,16 +256,14 @@ impl NervousSystem {
             node_id: node_id.to_string(),
             dendritic_tree: DendriticTree { branches: vec![] },
             soma: Soma::new(),
-            axon: Axon::new(5.0), // CÃƒÆ’Ã‚Â¢ble de taille standard
+            axon: Axon::new(5.0),
         }
     }
 
-    /// RÃƒÆ’Ã‚Â©ception d'un signal chimique depuis la synapse d'un neurone voisin (ÃƒÆ’Ã¢â‚¬Â°coute des Dendrites)
-    pub fn receive_neurotransmitter(&mut self, source_id: &str, signal: &(Neurotransmitter, f64)) {
-        // L'arbre dendritique filtre et modifie le signal selon l'ÃƒÆ’Ã‚Â©pine concernÃƒÆ’Ã‚Â©e
-        let effect = self.dendritic_tree.process_signal(source_id, signal.1);
+    pub fn receive_neurotransmitter(&mut self, source_id: &str, signal: &NeuroSignal) {
+        let effect = self.dendritic_tree.process_signal(source_id, signal.amount);
 
-        match signal.0 {
+        match signal.transmitter {
             Neurotransmitter::Glutamate => self.soma.current_potential += effect, // Excitation (Rapproche de -55mV)
             Neurotransmitter::GABA => self.soma.current_potential -= effect, // Inhibition (Hyperpolarisation)
             Neurotransmitter::Dopamine => {
