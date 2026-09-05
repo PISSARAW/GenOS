@@ -13,21 +13,51 @@ use uuid::Uuid;
 use reqwest::blocking::Client;
 use std::env;
 
+fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<String> {
+    let url = format!("{}/api/tags", ollama_url);
+    if let Ok(res) = client.get(&url).send() {
+        if let Ok(json_resp) = res.json::<serde_json::Value>() {
+            if let Some(models) = json_resp["models"].as_array() {
+                // If there are any models installed, pick the first one available
+                // (In a more advanced Thalamus, this could score models based on task complexity)
+                if !models.is_empty() {
+                    if let Some(model_name) = models[0]["name"].as_str() {
+                        return Some(model_name.to_string());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
 fn call_llm_api(prompt: &str) -> String {
     dotenv::dotenv().ok();
     let client = Client::new();
 
-    // Prioritize Ollama if configured
     let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
-    let ollama_model = env::var("OLLAMA_MODEL").unwrap_or_else(|_| "llama3".to_string());
     
-    // Check if user specifically requested Gemini, otherwise try Ollama first if it's reachable.
-    let provider = env::var("LLM_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+    // THALAMUS ROUTING: Dynamically determine the best pathway
+    let override_provider = env::var("LLM_PROVIDER").ok();
+    let override_model = env::var("OLLAMA_MODEL").ok();
 
-    if provider.to_lowercase() == "ollama" {
+    let (chosen_provider, chosen_model) = if let Some(p) = override_provider {
+        (p, override_model.unwrap_or_else(|| "llama3".to_string()))
+    } else {
+        // Autonomic Thalamus decision: Check local cortex (Ollama) first
+        if let Some(local_model) = thalamus_select_ollama_model(&client, &ollama_url) {
+            println!("[Thalamus] Local pathway active. Routing to Ollama model: {}", local_model);
+            ("ollama".to_string(), local_model)
+        } else {
+            println!("[Thalamus] Local pathway dead. Rerouting to Cloud Cortex (Gemini).");
+            ("gemini".to_string(), "".to_string())
+        }
+    };
+
+    if chosen_provider.to_lowercase() == "ollama" {
         let url = format!("{}/api/generate", ollama_url);
         let body = serde_json::json!({
-            "model": ollama_model,
+            "model": chosen_model,
             "prompt": prompt,
             "stream": false
         });
@@ -39,21 +69,21 @@ fn call_llm_api(prompt: &str) -> String {
                     if let Some(text) = json_resp["response"].as_str() {
                         return text.to_string();
                     } else if let Some(err_msg) = json_resp["error"].as_str() {
-                        return format!("Ollama API Error ({}): {}", status, err_msg);
+                        return format!("Thalamus Error [Ollama {}] ({}): {}", chosen_model, status, err_msg);
                     }
-                    return format!("LLM Error: Unexpected JSON from Ollama: {}", json_resp);
+                    return format!("Thalamus Error: Unexpected JSON from local cortex: {}", json_resp);
                 }
-                return format!("LLM Error: Could not parse Ollama response. HTTP Status: {}", status);
+                return format!("Thalamus Error: Could not parse local response. HTTP Status: {}", status);
             },
             Err(e) => {
-                return format!("LLM Error: Failed to connect to Ollama at {}. Is Ollama running? Details: {}", ollama_url, e);
+                return format!("Thalamus Error: Synaptic failure connecting to {}. Details: {}", ollama_url, e);
             }
         }
     } else {
-        // Gemini fallback
+        // Gemini fallback pathway
         let api_key = match env::var("GEMINI_API_KEY") {
             Ok(k) => k,
-            Err(_) => return "LLM Error: GEMINI_API_KEY environment variable not set in .env".to_string()
+            Err(_) => return "Thalamus Error: Cloud routing failed. GEMINI_API_KEY environment variable not set in .env".to_string()
         };
         
         let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
@@ -66,9 +96,9 @@ fn call_llm_api(prompt: &str) -> String {
                         return text.to_string();
                     }
                 }
-                return "LLM Error: Could not extract text from Gemini response".to_string();
+                return "Thalamus Error: Could not extract sensory data from Gemini response".to_string();
             },
-            Err(e) => return format!("LLM Error: HTTP request failed: {}", e)
+            Err(e) => return format!("Thalamus Error: Cloud synaptic failure: {}", e)
         }
     }
 }
