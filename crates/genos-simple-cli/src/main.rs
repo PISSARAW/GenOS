@@ -117,7 +117,31 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
+    Debug {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Destroy {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Close {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Order {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Auto {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Fast {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Copy, Hub, Wisdom,
     Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
     Ruins, Id, Mind,
@@ -483,6 +507,79 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer", "--swarm-id", "alpha-swarm"]);
             } else {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Debug { args } => {
+            println!("Débogage (Bug Investigation)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : investigation du manifeste par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation", "default-manifest.json"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Destroy { args } => {
+            println!("Destruction / Prune...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : destruction / extinction de l'agent par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "record", "--lineage-id", "default-lineage", "--reason", "destroyed_by_user"]);
+            } else {
+                // Alternatively could map to agent prune, but fossil record fits "destroy" lineage well
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "record"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Close { args } => {
+            println!("Fermeture (World Run Stop)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : fermeture du monde par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "default", "--command", "stop", "--sandbox-backend", "native"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Order { args } => {
+            println!("Ordre / Conformité (Compliance Generate)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : génération de conformité standard ISO)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "compliance", "generate", "--standard", "iso-genos-1"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "compliance", "generate"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Auto { args } => {
+            println!("Mode Automatique (Trinity Deploy / Auto-start)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : déploiement autonome Trinity)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy", "--mission-id", "auto-mission", "--strategies", "autonomous"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Fast { args } => {
+            println!("Mode Rapide (Strategy Adapt / Time Constraint)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : adaptation de la stratégie pour une vitesse maximale)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt", "--agent-id", "default-agent", "--constraint", "time", "--target", "0.1"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
                 cmd.args(args);
             }
             let _ = cmd.status();
