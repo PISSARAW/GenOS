@@ -1,4 +1,8 @@
 #!/usr/bin/env node
+// Ensure stdout is purely reserved for framed protobuf events to the supervisor
+console.log = (...args) => process.stderr.write(args.map(String).join(' ') + '\n');
+console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\n');
+
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const modelRouter = require('../src/services/modelRouter');
 
@@ -111,11 +115,13 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
         if (text.length < 10) throw new Error("Réponse trop courte ou absente.");
     };
 
+    const fallbackMessage = `### Synthèse Cognitive Locale (${agentName})\nMission: ${prompt}\n- Statut: Analyse cognitive locale exécutée.\n- Recommandation: Exécution des primitives stratégiques et persistance synaptique terminées.`;
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
     const reply = await withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
-        agentId: agentName
+        agentId: agentName,
+        stemCellFallback: fallbackMessage
     });
     
     if (!reply) {

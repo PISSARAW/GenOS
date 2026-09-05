@@ -35,7 +35,9 @@ class AgentDeployService {
       lineageRelation = 'independent', 
       executionBudget,
       executionMode,
-      workspace
+      workspace,
+      runtime,
+      executor
     } = params;
 
     const db = await this.initRepo();
@@ -120,7 +122,9 @@ class AgentDeployService {
         workspaceIsolation, workspaceId, fleetId, agentType: resolvedAgentType,
         workspaceRoot: workspace?.path,
         strategyContract: strategyContract.contract,
-        executionBudget
+        executionBudget,
+        runtime,
+        executor
       }).catch(async (error) => {
         await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, agentId).catch(() => {});
         telemetry.emitEvent({ eventType: 'AGENT_RUNTIME_ERROR', agentId, action: 'ERROR', detail: error.message, severity: 'error', status: 'error' });

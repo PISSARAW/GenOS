@@ -44,12 +44,12 @@ async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
   const normalizedMission = { ...mission, agentId };
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
-  const executable = configuredExecutable();
+  const executable = configuredExecutable(normalizedMission);
   const db = await getDatabase();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
-  const availability = runtimeAvailability();
+  const availability = runtimeAvailability(executable);
   if (!availability.available) throw new Error(availability.reason);
   let contractRecord = await strategyContracts.getLatestContract(db, agentId);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
