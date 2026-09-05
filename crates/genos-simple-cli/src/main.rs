@@ -21,7 +21,31 @@ enum Commands {
     List,
     /// Initialise le projet
     Init,
-    Replay, Diff, Blame, Trace, Clone, Mutate, Elevate, Rest, Check, Compare, Retrace,
+    Replay {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Diff {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Blame {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Trace {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Clone {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Mutate {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Elevate, Rest, Check, Compare, Retrace,
     Restore, Recover, Retrieve, Filter, Merge, Parent, Lineage, Squeaze, Think, Trio,
     Multi, Broad, Swarm, Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
     Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
@@ -104,6 +128,46 @@ async fn main() {
                 .status();
         }
         Commands::Init => println!("Initialisation de GenOS..."),
+        Commands::Replay { args } => {
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Diff { args } => {
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "diff"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Blame { args } => {
+            println!("Analyse de la source de l'hallucination / Blame...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "analyze"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Trace { args } => {
+            println!("Traçage de la causalité / Trace...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Clone { args } => {
+            println!("Clonage de l'agent...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "fork"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Mutate { args } => {
+            println!("Mutation de l'agent...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
         _ => println!("Commande en cours de construction ou dispatch vers l'agent natif..."),
     }
 }
