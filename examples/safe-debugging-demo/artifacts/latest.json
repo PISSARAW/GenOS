@@ -1,50 +1,50 @@
 {
   "schema_version": 1,
   "scenario": "safe-parallel-debugging",
-  "generated_at": "2026-09-05T06:01:52.345Z",
+  "generated_at": "2026-09-05T06:11:28.848Z",
   "source": {
     "command": "./examples/safe-debugging-demo/run-demo.sh",
     "fixture": "examples/safe-debugging-demo/fixture"
   },
   "baseline": {
-    "world_id": "2dd2ba4c-e463-49b1-8176-74d35b39849f",
+    "world_id": "8577889b-7c64-470e-8e96-7d3dba9c4a86",
     "reproduced": true,
-    "snapshot_id": "6d73fae7-b093-4678-896d-6870dedb1451"
+    "snapshot_id": "fcd15439-e542-46fb-9e79-f5ba3f0a1c6c"
   },
   "candidates": [
     {
       "name": "candidate-a",
-      "world_id": "61a7c095-8fe5-4a34-9f68-49938e70fea4",
+      "world_id": "9b2b4b8b-ba38-4e31-a535-9a54ddfb8a52",
       "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 100) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
       "tests_passed": 5,
       "success": true,
       "exit_code": 0,
-      "duration_ms": 60.97
+      "duration_ms": 80.85
     },
     {
       "name": "candidate-b",
-      "world_id": "25d3d0b4-7bad-4fdb-9805-8aa1bfa922fb",
+      "world_id": "30ba6594-07f1-4581-b07d-c682e327f4cc",
       "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total > 99) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
       "tests_passed": 0,
       "success": false,
       "exit_code": 1,
-      "duration_ms": 66.56
+      "duration_ms": 75.11
     },
     {
       "name": "candidate-c",
-      "world_id": "5abf589d-190d-4376-8790-a13f38c5ca0e",
+      "world_id": "72360d32-0508-4349-a264-beb81700aa40",
       "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 90) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
       "tests_passed": 0,
       "success": false,
       "exit_code": 1,
-      "duration_ms": 83.15
+      "duration_ms": 90.2
     }
   ],
   "selection": {
     "winner": "candidate-a",
-    "replay_world_id": "7f1e3e7c-263d-461b-9557-0867f374286c",
+    "replay_world_id": "febf56f7-c37a-416b-a5cc-432de24b1beb",
     "replay_verified": true,
-    "promoted_snapshot_id": "edadb734-7caf-4b6b-9025-158e6d814e8e",
+    "promoted_snapshot_id": "02457a47-a6b3-4a2b-a337-2e176d4ed542",
     "merge_decision": "approved"
   },
   "usage": {
@@ -62,7 +62,7 @@
     "os_sandbox": false
   },
   "runtime": {
-    "wall_ms": 433,
+    "wall_ms": 497,
     "genos_operations": 15
   },
   "limits": [

@@ -4,7 +4,14 @@
   "description": "GenOS Agent Runtime API",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "apoptosis": "node bin/genos-apoptosis.cjs",
+    "daemon": "node bin/genos-daemon.cjs",
+    "daemon:interactive": "node bin/genos-daemon.cjs --interactive",
+    "daemon:audit": "node bin/genos-daemon.cjs --scan-only",
+    "autostart:enable": "node bin/genos-daemon.cjs --enable-autostart",
+    "autostart:disable": "node bin/genos-daemon.cjs --disable-autostart",
+    "autostart:status": "node bin/genos-daemon.cjs --status"
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.14.4",
