@@ -1,4 +1,4 @@
-const { evaluateCognitiveHealth } = require('./src/services/cognitiveMonitor.js');
+const { evaluateCognitiveHealth } = require('../src/services/cognitiveMonitor.js');
 const assert = require('assert');
 
 // Mock simple pour executer les tests

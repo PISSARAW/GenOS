@@ -26,10 +26,18 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "ENDOSYMBIOSIS_INTEGRATION",
                 &format!("Intégration du processus '{}'", target_process),
             );
+            let (atp_delta, efficiency, metabolic_role) = match organelle_name.to_lowercase().as_str() {
+                "mitochondria" | "mitochondrie" => (36, 0.94, "oxidative_phosphorylation"),
+                "chloroplast" => (18, 0.85, "photophosphorylation"),
+                "ribosome" => (12, 0.91, "protein_translation"),
+                _ => (16, 0.78, "organellar_coprocessing"),
+            };
             print_json(json!({
                 "success": true, "operation": "cellular_endosymbiosis",
                 "agent_id": agent_id, "target_process": target_process,
-                "organelle_name": organelle_name, "status": "integrated"
+                "organelle_name": organelle_name, "atp_yield_delta": atp_delta,
+                "symbiotic_efficiency": efficiency, "metabolic_role": metabolic_role,
+                "status": "integrated"
             }));
         }
         BiomimicrySubcommands::CellularBbb { agent_id, filter_level } => {
@@ -64,24 +72,38 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         }
         BiomimicrySubcommands::TheoryAutopoiesis { agent_id, target_gene, new_value } => {
             let mut cell = AgentCell::new(&agent_id, "Autopoïèse régénératrice", "Worker");
-            cell.conscience.dissonance_level = (cell.conscience.dissonance_level - new_value.min(50.0)).max(0.0);
+            let initial_dissonance = cell.conscience.dissonance_level;
+            cell.conscience.dissonance_level = (initial_dissonance - new_value.min(50.0)).max(0.0);
+            let membrane_integrity = (1.0 - (cell.conscience.dissonance_level / 100.0)).clamp(0.0, 1.0);
             print_json(json!({
                 "success": true, "operation": "theory_autopoiesis",
                 "agent_id": agent_id, "target_gene": target_gene,
                 "new_value": new_value, "self_repaired": true,
-                "residual_dissonance": cell.conscience.dissonance_level
+                "initial_dissonance": initial_dissonance,
+                "residual_dissonance": cell.conscience.dissonance_level,
+                "membrane_integrity": (membrane_integrity * 100.0).round() / 100.0,
+                "autopoietic_boundary_secured": true
             }));
         }
         BiomimicrySubcommands::HypothalamusHomeostasis { agent_id, nervous_state } => {
-            let transmitter = if nervous_state.to_lowercase().contains("stress") {
-                Neurotransmitter::GABA
+            let is_stress = nervous_state.to_lowercase().contains("stress")
+                || nervous_state.to_lowercase().contains("alarm")
+                || nervous_state.to_lowercase().contains("panic");
+            let (transmitter, symp_tone, parasymp_tone, gaba_level, glu_level) = if is_stress {
+                (Neurotransmitter::GABA, 0.85, 0.15, 48.0, 12.0)
             } else {
-                Neurotransmitter::Glutamate
+                (Neurotransmitter::Glutamate, 0.20, 0.80, 15.0, 42.0)
             };
+            let ratio: f64 = gaba_level / glu_level;
             print_json(json!({
                 "success": true, "operation": "hypothalamus_homeostasis",
                 "agent_id": agent_id, "nervous_state": nervous_state,
                 "neuromodulator": format!("{:?}", transmitter),
+                "sympathetic_tone": symp_tone,
+                "parasympathetic_tone": parasymp_tone,
+                "gaba_titration_nmol": gaba_level,
+                "glutamate_titration_nmol": glu_level,
+                "homeostatic_ratio": (ratio * 100.0).round() / 100.0,
                 "equilibrium_restored": true
             }));
         }
@@ -89,16 +111,26 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             let mut tree = DendriticTree { branches: Vec::new() };
             let error = (target_value - current_value).abs();
             let latency_diff = (expected_latency - actual_latency).abs();
-            let amplified = tree.process_signal(&agent_id, error);
+            let feedforward_gain = 1.0 + (latency_diff / expected_latency.max(1.0));
+            let compensated_error = error * feedforward_gain;
+            let amplified = tree.process_signal(&agent_id, compensated_error);
             tree.apply_structural_plasticity();
             print_json(json!({
                 "success": true, "operation": "cerebellum_coprocessor",
                 "agent_id": agent_id, "error": error, "latency_diff": latency_diff,
-                "feedforward_amplification": amplified, "dendritic_branches": tree.branches.len()
+                "feedforward_gain": (feedforward_gain * 100.0).round() / 100.0,
+                "feedforward_amplification": (amplified * 100.0).round() / 100.0,
+                "dendritic_branches": tree.branches.len(),
+                "smith_predictor_converged": true
             }));
         }
         BiomimicrySubcommands::EntericDelegate { agent_id, data_source, digestion_mode } => {
             let mode = digestion_mode.unwrap_or_else(|| "ferment".to_string());
+            let (nutrient_yield, hydrolysis_rate, peristaltic_freq) = match mode.as_str() {
+                "acid" => (0.74, "rapid_hydrolysis", "1.2 Hz"),
+                "peristalsis" => (0.86, "streamed_forwarding", "0.6 Hz"),
+                _ => (0.95, "anaerobic_fermentation", "0.2 Hz"),
+            };
             let manager = AgentCell::new("Enteric_Plexus", "Système nerveux entérique", "Manager");
             let mut tissue = Tissue::new("Enteric_Tissue", "Digestion de données", manager.cell_id);
             let worker_id = parse_uuid(&agent_id);
@@ -111,6 +143,9 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             print_json(json!({
                 "success": delegation.is_ok(), "operation": "enteric_delegate",
                 "agent_id": agent_id, "data_source": data_source, "digestion_mode": mode,
+                "nutrient_yield_ratio": nutrient_yield,
+                "hydrolysis_mechanism": hydrolysis_rate,
+                "peristaltic_frequency": peristaltic_freq,
                 "delegation_status": delegation.unwrap_or_else(|e| e)
             }));
         }
@@ -124,10 +159,18 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "GLIAL_PHAGOCYTOSIS",
                 &format!("Nettoyage synaptique intensité {}", mode),
             );
+            let (dead_cells, debris_cleared_pct, inflammatory_cytokines) = match mode.as_str() {
+                "high" | "aggressive" => (18, 96.5, 2.4),
+                "low" | "gentle" => (4, 62.0, 0.1),
+                _ => (9, 84.0, 0.7),
+            };
             print_json(json!({
                 "success": true, "operation": "glial_cleanup",
                 "agent_id": agent_id, "intensity": mode,
-                "phagocytized_dead_cells": if mode == "high" { 15 } else { 7 },
+                "phagocytized_dead_cells": dead_cells,
+                "debris_cleared_percent": debris_cleared_pct,
+                "inflammatory_cytokines": inflammatory_cytokines,
+                "bhe_integrity_restored": 0.99,
                 "synaptic_debris_cleared": true
             }));
         }

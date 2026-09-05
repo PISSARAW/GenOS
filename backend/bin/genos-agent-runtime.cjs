@@ -299,7 +299,11 @@ process.stdin.on('end', async () => {
       if (type === 'turn.started') emit({ eventType: 'AGENT_STEP', action: 'THINK', detail: 'Implementation turn started.', payload: event });
       else if (type === 'item.started') emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item started.', payload: event });
       else if (type === 'item.completed') {
-        if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') finalReportText = event.item.text;
+        if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') {
+          const c = immune.chaperoneAgentOutput(event.item.text, { prompt: mission.prompt });
+          finalReportText = c.purifiedText || event.item.text;
+          if (c.warning) emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive observée dans le message agent.', severity: 'warning', payload: c.health });
+        }
         recordedTurns.push({ step: recordedTurns.length + 1, type: event.item?.type || 'action', action: event.item?.command || event.item?.type || 'action', cmd: event.item?.command || null, pass: !event.error, detail: String(event.item?.command || event.item?.text || '').slice(0, 300) });
         emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
       }
@@ -348,6 +352,7 @@ process.stdin.on('end', async () => {
         emit({ eventType: 'CELLULAR_APOPTOSIS', action: 'APOPTOSIS', detail: 'Échec irrécupérable du formatage de Codex. Apoptose et signal de douleur déclenchés.', severity: 'error', status: 'error', payload: { error: phagocytosis.error, painSignal: phagocytosis.painSignal } });
       }
       report.author = report.author || { name: agentName, meaning: nameMeaning, role: mission.role };
+      if (typeof report.artifactText === 'string') report.artifactText = immune.chaperoneAgentOutput(report.artifactText, { prompt: mission.prompt }).purifiedText;
       const expectedDossiers = autonomyPlan.synthesisOnly ? (autonomyPlan.completedWorkerIds || []) : [];
       const influences = new Map((Array.isArray(report.dossierInfluence) ? report.dossierInfluence : [])
         .filter((entry) => entry && typeof entry.workerId === 'string')

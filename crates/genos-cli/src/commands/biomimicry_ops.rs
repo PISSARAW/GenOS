@@ -89,10 +89,7 @@ pub fn handle_bio_feature(feature: &str, action: &str, param: &[String]) {
             }));
         }
         _ => {
-            print_json(json!({
-                "success": true, "operation": "bio_feature",
-                "feature": feature, "action": action, "params": param, "status": "executed"
-            }));
+            crate::commands::biomimicry_features::handle_bio_feature(feature, action, param);
         }
     }
 }

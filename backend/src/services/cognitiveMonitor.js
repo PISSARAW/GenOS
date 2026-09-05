@@ -21,7 +21,7 @@ function calculateScores(textLower, expectedTerms, forbiddenTerms) {
         if (freqs[w] > maxCount) maxCount = freqs[w];
     }
     
-    const repetition = total > 0 ? (maxCount / total) : 0;
+    const repetition = (total > 0 && maxCount > 1) ? (maxCount / total) : 0;
     
     let expectedCount = 0;
     for (let t of expectedTerms) {
