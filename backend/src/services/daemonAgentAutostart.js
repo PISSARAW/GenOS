@@ -105,7 +105,7 @@ function enableAutostart(customConfig = {}) {
       '@echo off',
       `title GenOS Sentinel Daemon`,
       `cd /d "${repoRoot}"`,
-      `start "GenOS Sentinel" cmd.exe /k "node \\"${runnerScript}\\" --interactive"`,
+      `start "GenOS Sentinel" cmd.exe /k "node backend\\bin\\genos-daemon.cjs --interactive"`,
       ''
     ].join('\r\n');
 
