@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use genos_orchestrator::conscience::ConscienceState;
+pub mod conscience;
+pub use conscience::ConscienceState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {

@@ -266,7 +266,6 @@ dependencies = [
 name = "genos-cell"
 version = "0.1.0"
 dependencies = [
- "genos-orchestrator",
  "serde",
  "uuid",
 ]
@@ -277,8 +276,11 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "genos-biology",
  "genos-cell",
+ "genos-genome",
  "genos-orchestrator",
+ "genos-signal",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -321,7 +323,14 @@ dependencies = [
 name = "genos-orchestrator"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "genos-biology",
+ "genos-cell",
+ "genos-genome",
+ "genos-signal",
  "serde",
+ "serde_json",
+ "uuid",
 ]
 
 [[package]]

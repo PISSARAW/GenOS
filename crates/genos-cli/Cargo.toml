@@ -17,3 +17,6 @@ chrono = { version = "0.4", features = ["serde"] }
 sha2 = "0.10"
 genos-cell = { path = "../genos-cell" }
 genos-orchestrator = { path = "../genos-orchestrator" }
+genos-biology = { path = "../genos-biology" }
+genos-genome = { path = "../genos-genome" }
+genos-signal = { path = "../genos-signal" }

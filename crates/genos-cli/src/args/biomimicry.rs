@@ -16,6 +16,12 @@ pub enum BiomimicrySubcommands {
         #[arg(long)]
         organelle_name: String,
     },
+    CellularBbb {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        filter_level: String,
+    },
     StigmergyDeposit {
         #[arg(long)]
         agent_id: String,
@@ -109,6 +115,82 @@ pub enum BiomimicrySubcommands {
     Hypermutation {
         #[arg(long)]
         agent_id: String,
+    },
+    Spore {
+        #[arg(long)]
+        action: String,
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        spore_type: Option<String>,
+        #[arg(long)]
+        warm_and_wet: Option<bool>,
+        #[arg(long)]
+        nutrients: Option<bool>,
+    },
+    Bioluminescence {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "green")]
+        color: String,
+        #[arg(long, default_value = "mitochondria")]
+        organelle: String,
+        #[arg(long, default_value = "TELEMETRY")]
+        event_type: String,
+        #[arg(long, default_value = "")]
+        details: String,
+    },
+    AntiCollusion {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value_t = 600)]
+        consumed_tokens: u32,
+        #[arg(long, default_value_t = false)]
+        physical_test_passed: bool,
+    },
+    Redundancy {
+        #[arg(long)]
+        expected_tool: String,
+        #[arg(long)]
+        mutated_tool: String,
+        #[arg(long, default_value_t = false)]
+        fallback: bool,
+    },
+    Tissue {
+        #[arg(long)]
+        action: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        role: Option<String>,
+        #[arg(long)]
+        stem_id: Option<String>,
+        #[arg(long)]
+        worker_id: Option<String>,
+        #[arg(long)]
+        task: Option<String>,
+    },
+    Embryology {
+        #[arg(long)]
+        action: Option<String>,
+        #[arg(long, default_value_t = 2)]
+        divisions: u32,
+        #[arg(long, default_value_t = 1.0)]
+        gradient: f64,
+    },
+    Therapy {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        therapy_type: String,
+    },
+    Phenotype {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value_t = 0.5)]
+        uv_exposure: f64,
+        #[arg(long, default_value_t = 37.0)]
+        temperature: f64,
     },
 }
 
