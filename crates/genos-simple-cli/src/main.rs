@@ -346,22 +346,45 @@ async fn main() {
         Commands::Multi { args } => {
             println!("Exécution multi-agents (World Run)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : application des paramètres par défaut)");
+                cmd.args([
+                    "run", "-q", "-p", "genos-cli", "--", "world", "run",
+                    "--provider", "local",
+                    "--root", "./multi-world",
+                    "--world-id", "default-multi",
+                    "--command", "auto-start",
+                    "--sandbox-backend", "native"
+                ]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Broad { args } => {
             println!("Expansion des connaissances (Platform Ingest)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "ingest"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("Veuillez spécifier le chemin d'un fichier. Exemple : .\\g broad ./README.md");
+                println!("(Ou ingestion par défaut du README.md...)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "ingest", "./README.md"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "ingest"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         Commands::Swarm { args } => {
             println!("Gestion de l'essaim (Swarm)...");
             let mut cmd = std::process::Command::new("cargo");
-            cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm"]);
-            if !args.is_empty() { cmd.args(args); }
+            if args.is_empty() {
+                println!("(Mode auto : lancement de l'analyseur par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer", "--swarm-id", "alpha-swarm"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm"]);
+                cmd.args(args);
+            }
             let _ = cmd.status();
         }
         _ => println!("Commande en cours de construction ou dispatch vers l'agent natif..."),
