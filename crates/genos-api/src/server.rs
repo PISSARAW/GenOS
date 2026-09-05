@@ -10,6 +10,32 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use uuid::Uuid;
+use reqwest::blocking::Client;
+use std::env;
+
+fn call_gemini_api(prompt: &str) -> String {
+    dotenv::dotenv().ok();
+    let api_key = match env::var("GEMINI_API_KEY") {
+        Ok(k) => k,
+        Err(_) => return "LLM Error: GEMINI_API_KEY environment variable not set in .env".to_string()
+    };
+    
+    let client = Client::new();
+    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
+    let body = json!({ "contents": [{ "parts": [{"text": prompt}] }] });
+    
+    match client.post(&url).json(&body).send() {
+        Ok(res) => {
+            if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                if let Some(text) = json_resp["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                    return text.to_string();
+                }
+            }
+            "LLM Error: Could not extract text from Gemini response".to_string()
+        },
+        Err(e) => format!("LLM Error: HTTP request failed: {}", e)
+    }
+}
 
 pub fn handle_http_request(
     raw_req: &str,
@@ -98,10 +124,9 @@ pub fn handle_http_request(
         };
 
         let last_prompt = chat_req.messages.last().map(|m| m.content.as_str()).unwrap_or("Hello from client");
-        let completion_text = format!(
-            "[GenOS Native Engine] Processed prompt through biomimetic cortex: '{}'",
-            last_prompt
-        );
+        
+        let completion_text = call_gemini_api(last_prompt);
+        
         let prompt_tokens = (last_prompt.len() / 4).max(1) as u64;
         let completion_tokens = (completion_text.len() / 4).max(1) as u64;
 
