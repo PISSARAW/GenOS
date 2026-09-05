@@ -19,6 +19,13 @@ pub struct Genome {
     pub extra_chromosomes: Vec<DnaStrand>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct YamanakaCocktail {
+    pub chromatin_decondensation_rate: f64,
+    pub synaptic_retention_ratio: f64,
+    pub target_potency: String,
+}
+
 impl Genome {
     pub fn new(base_instruction: &str) -> Self {
         let id = Uuid::new_v4();
@@ -38,6 +45,16 @@ impl Genome {
 
     pub fn insert_gene(&mut self, gene: Gene) {
         self.genes.insert(gene.locus.clone(), gene);
+    }
+
+    pub fn reprogram_epigenetics(&mut self, _cocktail: &YamanakaCocktail) {
+        for gene in self.genes.values_mut() {
+            if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+                gene.chromatin_state = ChromatinState::Euchromatin;
+                gene.developmentally_locked = false;
+                gene.is_methylated = false;
+            }
+        }
     }
 
     pub fn crispr_cas9_knockout(&mut self, target_locus: &str) -> bool {
@@ -99,5 +116,61 @@ impl Genome {
             write!(&mut hex, "{:02x}", byte).unwrap();
         }
         hex
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gene::Gene;
+
+    #[test]
+    fn test_yamanaka_reprogramming() {
+        let mut genome = Genome::new("ATGC");
+        
+        let mut gene1 = Gene::new("HOX_A1", "ATGC");
+        gene1.chromatin_state = ChromatinState::HeterochromatinFacultative;
+        gene1.developmentally_locked = true;
+        gene1.is_methylated = true;
+        
+        let mut gene2 = Gene::new("HOUSEKEEPING_1", "ATGC");
+        gene2.chromatin_state = ChromatinState::Euchromatin;
+        gene2.developmentally_locked = false;
+        gene2.is_methylated = false;
+        
+        let mut gene3 = Gene::new("VIRAL_INSERT", "ATGC");
+        gene3.chromatin_state = ChromatinState::HeterochromatinConstitutive;
+        gene3.developmentally_locked = true;
+        gene3.is_methylated = true;
+        
+        genome.insert_gene(gene1);
+        genome.insert_gene(gene2);
+        genome.insert_gene(gene3);
+        
+        let cocktail = YamanakaCocktail {
+            chromatin_decondensation_rate: 1.0,
+            synaptic_retention_ratio: 0.9,
+            target_potency: "Pluripotent".to_string(),
+        };
+        
+        genome.reprogram_epigenetics(&cocktail);
+        
+        // gene1 (Facultative) should be reprogrammed
+        let g1 = genome.genes.get("HOX_A1").unwrap();
+        assert_eq!(g1.chromatin_state, ChromatinState::Euchromatin);
+        assert_eq!(g1.developmentally_locked, false);
+        assert_eq!(g1.is_methylated, false);
+        
+        // gene2 (Euchromatin) should be untouched
+        let g2 = genome.genes.get("HOUSEKEEPING_1").unwrap();
+        assert_eq!(g2.chromatin_state, ChromatinState::Euchromatin);
+        assert_eq!(g2.developmentally_locked, false);
+        assert_eq!(g2.is_methylated, false);
+        
+        // gene3 (Constitutive) should be untouched
+        let g3 = genome.genes.get("VIRAL_INSERT").unwrap();
+        assert_eq!(g3.chromatin_state, ChromatinState::HeterochromatinConstitutive);
+        assert_eq!(g3.developmentally_locked, true);
+        assert_eq!(g3.is_methylated, true);
     }
 }

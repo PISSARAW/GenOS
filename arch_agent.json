@@ -1,0 +1,13 @@
+{
+  "cell_id": "a9ee6038-9af0-4944-ae46-2e3c2fa2b075",
+  "name": "ArchitectureAnalyzer",
+  "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+  "role": "worker",
+  "conscience": {
+    "current_budget": 100.0,
+    "dissonance_level": 0.0,
+    "eureka_moments": 0,
+    "is_apoptotic": false,
+    "max_dissonance_threshold": 50.0
+  }
+}

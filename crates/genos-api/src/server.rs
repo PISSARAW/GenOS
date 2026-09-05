@@ -35,7 +35,7 @@ fn call_llm_api(prompt: &str) -> String {
     dotenv::dotenv().ok();
     let client = Client::new();
 
-    let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
+    let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
     
     // THALAMUS ROUTING: Dynamically determine the best pathway
     let override_provider = env::var("LLM_PROVIDER").ok();

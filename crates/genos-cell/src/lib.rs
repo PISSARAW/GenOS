@@ -4,12 +4,22 @@ pub mod conscience;
 pub use conscience::ConscienceState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Organelle {
+    Endosymbiont {
+        original_id: Uuid,
+        role: String,
+        internal_state: Box<AgentCell>,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct AgentCell {
     pub cell_id: Uuid,
     pub name: String,
     pub name_meaning: String,
     pub role: String,
     pub conscience: ConscienceState,
+    pub organelles: Vec<Organelle>,
 }
 
 impl Default for AgentCell {
@@ -36,6 +46,7 @@ impl Default for AgentCell {
             name_meaning: meaning.to_string(),
             role: "Autonomous Node".to_string(),
             conscience: ConscienceState::default(),
+            organelles: Vec::new(),
         }
     }
 }
@@ -48,6 +59,7 @@ impl AgentCell {
             name_meaning: name_meaning.into(),
             role: role.into(),
             conscience: ConscienceState::default(),
+            organelles: Vec::new(),
         }
     }
 
@@ -56,6 +68,15 @@ impl AgentCell {
             "Je m'appelle {}, ce qui signifie '{}'. C'est l'identité et le sens que je porte dans l'écosystème GenOS en tant que {}.",
             self.name, self.name_meaning, self.role
         )
+    }
+
+    pub fn phagocytize(&mut self, symbiont: AgentCell) {
+        let organelle = Organelle::Endosymbiont {
+            original_id: symbiont.cell_id,
+            role: symbiont.role.clone(),
+            internal_state: Box::new(symbiont),
+        };
+        self.organelles.push(organelle);
     }
 
     pub fn is_alive(&self) -> bool {
