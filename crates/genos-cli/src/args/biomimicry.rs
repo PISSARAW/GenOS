@@ -210,4 +210,38 @@ pub enum EvolutionSubcommands {
         #[arg(long)]
         plasmid_name: Option<String>,
     },
+    Crossover {
+        #[arg(long)]
+        parent_a: String,
+        #[arg(long)]
+        parent_b: String,
+        #[arg(long, default_value_t = 0.5)]
+        swap_prob: f64,
+        #[arg(long)]
+        crossover_point: Option<usize>,
+    },
+    Division {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long, default_value = "mitosis")]
+        mode: String,
+        #[arg(long, default_value_t = 0.0)]
+        mutation_rate: f64,
+        #[arg(long, default_value_t = 0.5)]
+        daughter_volume: f64,
+        #[arg(long, default_value_t = 2)]
+        merozoite_count: usize,
+    },
+    Phylogeny {
+        #[arg(long, default_value = "divergence")]
+        action: String,
+        #[arg(long)]
+        genome_a: String,
+        #[arg(long)]
+        genome_b: Option<String>,
+        #[arg(long, default_value_t = 0.01)]
+        mutation_rate: f64,
+        #[arg(long, default_value_t = false)]
+        is_plant: bool,
+    },
 }

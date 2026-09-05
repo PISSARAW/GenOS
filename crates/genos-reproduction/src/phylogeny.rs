@@ -1,4 +1,8 @@
 
+use serde::{Deserialize, Serialize};
+use crate::genome::Genome;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum HybridizationResult {
     /// 1. Le passage en fraude : Les parents sont assez proches (ex: Sapiens & Neandertal). Hybride fertile.
     Introgression(Genome),
@@ -10,8 +14,6 @@ pub enum HybridizationResult {
     Incompatible,
 }
 
-use crate::genome::Genome;
-
 // --- Paramètres de Spéciation (Magic Numbers extraits) ---
 /// Divergence maximale (en millions d'années simulées) au-delà de laquelle l'hybridation échoue complètement.
 pub const MAX_DIVERGENCE_HYBRIDIZATION: f64 = 25.0;
@@ -21,7 +23,7 @@ pub const MAX_DIVERGENCE_INTROGRESSION: f64 = 15.0;
 pub const DIVERGENCE_RATIO_MULTIPLIER: f64 = 350.0;
 
 /// Représente un des 3 grands Royaumes (Domaines) du vivant.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Domain {
     Bacteria,
     Archaea,
@@ -29,7 +31,7 @@ pub enum Domain {
 }
 
 /// Clade spécifique pour Eukaryota pour illustrer la proximité Animaux-Champignons
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum EukaryoteClade {
     Plants,
     Fungi,
@@ -37,7 +39,7 @@ pub enum EukaryoteClade {
 }
 
 /// Un nœud dans l'arbre phylogénétique.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PhylogeneticNode {
     Leaf {
         name: String,

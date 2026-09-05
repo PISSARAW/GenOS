@@ -137,4 +137,48 @@ async function phagocytizeExosomes() {
   return exosomes;
 }
 
-module.exports = { runGenos, resolveGenosBin, studioBridgeRoot, ensureRoot, resolveInRoot, repositoryRoot, phagocytizeExosomes };
+async function runCrossover(options = {}) {
+  const parentA = options.parentA || 'PARENT_ALPHA';
+  const parentB = options.parentB || 'PARENT_BETA';
+  const args = ['evolution', 'crossover', '--parent-a', String(parentA), '--parent-b', String(parentB)];
+  if (options.swapProb !== undefined) {
+    args.push('--swap-prob', String(options.swapProb));
+  }
+  if (options.crossoverPoint !== undefined) {
+    args.push('--crossover-point', String(options.crossoverPoint));
+  }
+  return runGenos(args);
+}
+
+async function runCellDivision(options = {}) {
+  const agentId = options.agentId || 'cell_division_root';
+  const mode = options.mode || 'mitosis';
+  const args = ['evolution', 'division', '--agent-id', String(agentId), '--mode', String(mode)];
+  if (options.mutationRate !== undefined) args.push('--mutation-rate', String(options.mutationRate));
+  if (options.daughterVolume !== undefined) args.push('--daughter-volume', String(options.daughterVolume));
+  if (options.merozoiteCount !== undefined) args.push('--merozoite-count', String(options.merozoiteCount));
+  return runGenos(args);
+}
+
+async function runPhylogeny(options = {}) {
+  const action = options.action || 'divergence';
+  const genomeA = options.genomeA || 'GENOME_A';
+  const args = ['evolution', 'phylogeny', '--action', String(action), '--genome-a', String(genomeA)];
+  if (options.genomeB) args.push('--genome-b', String(options.genomeB));
+  if (options.mutationRate !== undefined) args.push('--mutation-rate', String(options.mutationRate));
+  if (options.isPlant) args.push('--is-plant');
+  return runGenos(args);
+}
+
+module.exports = {
+  runGenos,
+  resolveGenosBin,
+  studioBridgeRoot,
+  ensureRoot,
+  resolveInRoot,
+  repositoryRoot,
+  phagocytizeExosomes,
+  runCrossover,
+  runCellDivision,
+  runPhylogeny
+};
