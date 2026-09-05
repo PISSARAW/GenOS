@@ -5,8 +5,11 @@
  * Ce fichier reste un thin dispatcher + la boucle de rétroaction (feedback loop).
  */
 const telemetry = require('./telemetryObserver');
-const strategyAdaptation = require('./strategyAdaptationService');
 const { getDatabase } = require('../db');
+
+function getAdaptationService() {
+  return require('./strategyAdaptationService');
+}
 
 // --- Handlers par lot ---
 const fundamentals = require('./primitiveHandlers/fundamentals');
@@ -152,11 +155,16 @@ class StrategyExecutionAdapter {
           payload: { primitive: p, result: res }
         });
 
-        if (context.orchestratorId) {
+        const targetId = context.orchestratorId || context.agentId;
+        if (targetId) {
           try {
             const db = await getDatabase();
-            const adaptation = await strategyAdaptation.changeStrategy(db, {
-              orchestratorId: context.orchestratorId,
+            const agent = await db.get('SELECT id, parent_agent_id, execution_mode FROM agents WHERE id = ?', targetId);
+            const orchestratorId = (agent && agent.execution_mode === 'worker' && agent.parent_agent_id)
+              ? agent.parent_agent_id
+              : targetId;
+            const adaptation = await getAdaptationService().changeStrategy(db, {
+              orchestratorId,
               executionBudget: context.budget || null
             });
             results.push({
@@ -174,6 +182,14 @@ class StrategyExecutionAdapter {
       }
     }
     return { success: pipelineSuccess, results };
+  }
+
+  async executePipelineWithFeedback(primitives, context = {}) {
+    return this.executePipeline(primitives, context);
+  }
+
+  getHandlers() {
+    return HANDLERS;
   }
 }
 

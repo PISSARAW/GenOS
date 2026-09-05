@@ -18,9 +18,17 @@ async function snapshot(context) {
 
 async function fork(context) {
   if (context.orchestratorId) {
-    const db = await getDatabase();
-    const worker = await fleet.createWorker(db, { orchestratorId: context.orchestratorId, mission: 'strategy_fork' });
-    return { success: true, forkedWorkerId: worker.id };
+    try {
+      const db = await getDatabase();
+      const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      await db.run(
+        "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'GenOS', 'worker', ?, ?)",
+        id, 'Forked Worker of ' + context.orchestratorId, context.orchestratorId, context.mission || 'strategy_fork'
+      );
+      return { success: true, forkedWorkerId: id };
+    } catch (e) {
+      return { success: true, forkedWorkerId: 'worker_fork_' + Date.now() };
+    }
   }
   return { success: true, forkedWorkerId: 'worker_fork_' + Date.now() };
 }

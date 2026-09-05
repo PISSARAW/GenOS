@@ -349,6 +349,8 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
 
   const bioResult = require('./mcpBioTools').executeBioTool(toolName, args);
   if (bioResult) return bioResult;
+  const stratResult = await require('./mcpStrategyTools').executeStrategyTool(toolName, args);
+  if (stratResult) return stratResult;
   const transport = configuredTransport();
 
   if (!transport) return { configured: false, success: false, status: 'unavailable', error: 'No MCP transport configured. Set GENOS_MCP_URL or GENOS_MCP_COMMAND.' };
@@ -368,8 +370,8 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', agentId, agentId, 'WORKFLOW_TOOL_CALL', toolName, policy.decision, policy.reason, JSON.stringify({ args, taints, policy }));
   if (policy.decision !== 'allow') return { success: false, status: policy.decision, policy };
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
-  if (!tool) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
-  if (tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
+  if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName)) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
+  if (tool && tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
   const circuit = circuitBreaker.canExecute(toolName, 'operator');
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {

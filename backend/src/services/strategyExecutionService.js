@@ -131,6 +131,50 @@ function policyViolation(event) {
   return null;
 }
 
+const STAGE_PRIMITIVE_MAP = {
+  memory_retrieval: ['search_memory', 'compile_memory', 'search_failures'],
+  snapshot: ['snapshot'],
+  isolated_forks: ['fork', 'mcts_select'],
+  instrumented_run: ['vfs_dry_run', 'run'],
+  adaptive_evaluation: ['evaluate', 'verify'],
+  diff_and_replay: ['diff', 'safe_revert'],
+  audit: ['provenance', 'dependency_matrix'],
+  conditional_promotion: ['select_winner', 'stdp_update', 'cherry_pick_golden_path']
+};
+
+function resolveStagePrimitives(stageKey, portfolio = []) {
+  const defaults = STAGE_PRIMITIVE_MAP[stageKey] || [];
+  const portfolioPrimitives = (portfolio || []).flatMap((s) => s.primitives || []);
+  const matching = portfolioPrimitives.filter((p) => defaults.includes(p));
+  return matching.length ? [...new Set(matching)] : defaults;
+}
+
+async function executeStepPrimitives(db, agentId, options = {}) {
+  const { step, context = {} } = options;
+  if (!step) return { success: true, results: [] };
+  try {
+    const contractRow = await db.get(
+      'SELECT contract_json FROM strategy_contracts WHERE agent_id = ? AND status = "active" ORDER BY version DESC LIMIT 1',
+      agentId
+    );
+    const contract = json(contractRow?.contract_json, {});
+    const stageKey = step.stage_key || step.stageKey || '';
+    const primitives = resolveStagePrimitives(stageKey, contract.strategy_portfolio);
+    if (!primitives.length) return { success: true, results: [] };
+    const execContext = {
+      agentId,
+      orchestratorId: agentId,
+      workspaceId: context.workspaceId,
+      task: context.task || context.detail,
+      ...context
+    };
+    const adapter = require('./strategyExecutionAdapter');
+    return await adapter.executePipelineWithFeedback(primitives, execContext);
+  } catch (err) {
+    return { success: false, error: err.message, results: [] };
+  }
+}
+
 async function recordExecutionEvent(db, agentId, event) {
   const row = await db.get("SELECT * FROM strategy_execution_runs WHERE agent_id = ? AND status IN ('planned', 'running') ORDER BY created_at DESC LIMIT 1", agentId);
   if (!row) return null;
@@ -162,6 +206,10 @@ async function recordExecutionEvent(db, agentId, event) {
 
   if (index >= 0 && steps[index]) {
     const step = steps[index];
+    let primitiveExec = null;
+    if (step.status === 'planned') {
+      primitiveExec = await executeStepPrimitives(db, agentId, { step, context: { ...event.payload, task: event.detail } });
+    }
     if (index > 0) {
       await db.run(
         `UPDATE strategy_execution_steps
@@ -174,6 +222,9 @@ async function recordExecutionEvent(db, agentId, event) {
     }
     const evidence = json(step.evidence_json, []);
     evidence.push({ eventType: event.eventType, action: event.action, detail: event.detail, timestamp: now });
+    if (primitiveExec && Array.isArray(primitiveExec.results) && primitiveExec.results.length) {
+      evidence.push({ primitiveResults: primitiveExec.results, success: primitiveExec.success, timestamp: now });
+    }
     const stepMetrics = json(step.actual_metrics_json, {});
     await db.run(
       `UPDATE strategy_execution_steps SET status = ?, actual_metrics_json = ?, evidence_json = ?,
@@ -231,12 +282,13 @@ async function listRuns(db, agentId) {
   return Promise.all(rows.map((row) => hydrateRun(db, row)));
 }
 
-const strategyExecutionAdapter = require('./strategyExecutionAdapter');
-
 module.exports = {
   createExecutionRun,
   hydrateRun,
   recordExecutionEvent,
+  executeStepPrimitives,
+  executePipelineWithFeedback: (primitives, context) => require('./strategyExecutionAdapter').executePipelineWithFeedback(primitives, context),
+  executePrimitive: (primitive, context) => require('./strategyExecutionAdapter').executePrimitive(primitive, context),
   approveRun,
   getRun,
   getLatestRun,
@@ -245,5 +297,5 @@ module.exports = {
   compileExecutionPlan,
   metricDelta,
   normalizedBudget,
-  strategyExecutionAdapter
+  get strategyExecutionAdapter() { return require('./strategyExecutionAdapter'); }
 };

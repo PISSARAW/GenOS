@@ -2,15 +2,15 @@ const assert = require('assert');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const { ensureAgentStrategyContracts } = require('./src/db/seed');
-const { TEST_ADMIN_TOKEN } = require('./testAuth');
-const { buildStrategyContract } = require('./src/services/strategyContractService');
-const { encodeMission, decodeMission } = require('./src/services/runtimeProtocol');
-const { listStrategies } = require('./src/strategies/strategyRegistry');
-const { selectStrategyPortfolio } = require('./src/strategies/strategySelector');
-const strategyExecution = require('./src/services/strategyExecutionService');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const { ensureAgentStrategyContracts } = require('../src/db/seed');
+const { TEST_ADMIN_TOKEN } = require('../testAuth');
+const { buildStrategyContract } = require('../src/services/strategyContractService');
+const { encodeMission, decodeMission } = require('../src/services/runtimeProtocol');
+const { listStrategies } = require('../src/strategies/strategyRegistry');
+const { selectStrategyPortfolio } = require('../src/strategies/strategySelector');
+const strategyExecution = require('../src/services/strategyExecutionService');
 
 const PORT = 4103;
 

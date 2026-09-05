@@ -16,6 +16,13 @@ message AgentMission {
   string workspace_isolation = 7;
   string agent_type = 8;
   string execution_mode = 9;
+  string strategy_contract_json = 10;
+  string orchestrator_agent_id = 11;
+  string autonomy_plan_json = 12;
+  string tool_lease_json = 13;
+  string genos_capsule_json = 14;
+  string execution_policy_json = 15;
+  string execution_budget_json = 16;
   string name_meaning = 20;
 }
 

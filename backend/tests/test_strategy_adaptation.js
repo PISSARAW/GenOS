@@ -1,10 +1,10 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const contracts = require('./src/services/strategyContractService');
-const execution = require('./src/services/strategyExecutionService');
-const adaptation = require('./src/services/strategyAdaptationService');
-const { getDatabase, closeDatabase } = require('./src/db');
+const contracts = require('../src/services/strategyContractService');
+const execution = require('../src/services/strategyExecutionService');
+const adaptation = require('../src/services/strategyAdaptationService');
+const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
   const current = contracts.buildStrategyContract({ problem: 'Implement a small API endpoint.' });
