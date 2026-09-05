@@ -13,6 +13,8 @@ const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProt
 const workerRecovery = require('../src/services/workerFailureRecoveryService');
 const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
+const strategyAdapter = require('../src/services/strategyExecutionAdapter');
+const agentMemory = require('../src/services/agentMemoryContext');
 
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
@@ -74,7 +76,7 @@ function compactAutonomyPlan(plan = {}) {
 
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
-process.stdin.on('end', () => {
+process.stdin.on('end', async () => {
   let mission;
   try { mission = decodeMissionInput(raw); } catch (error) {
     process.stderr.write(`Invalid mission payload (protobuf frame or JSON object): ${error.message}\n`);
@@ -120,15 +122,21 @@ process.stdin.on('end', () => {
   const conscienceState = agentConscience.createConscienceState();
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
 
+  let memoryBlock = '';
+  try {
+    memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(agentName, mission.prompt || mission.currentTask);
+  } catch (_) {}
+
   const prompt = [
     `${selfIntro}`,
     `Agent role: ${mission.role || 'Autonomous implementation agent'}.`,
     `${conscienceBlock}`,
+    memoryBlock ? `${memoryBlock}` : '',
     authorityInstruction,
     'Work directly in the assigned repository and implement the mission completely.',
     `Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"author":{"name":"${agentName}","meaning":"${nameMeaning}"},"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"],"dossierInfluence":[{"workerId":"delegated worker id","usedClaims":["claim used or rejected"],"influence":"how this dossier changed or constrained the synthesis"}],"artifact":"creative when applicable","artifactText":"creative work when applicable","creativeEvaluation":{"rubric":{"craft":0,"coherence":0,"originality":0,"emotionalImpact":0,"constraintCoverage":0},"constraintCoverage":0,"revisions":[],"criticEvidence":[]},"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.`,
     strategyContract.selected_strategy?.primary
-      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}`
+      ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}\n\nExecutable Strategy Primitives: The 7 lots of GenOS primitives are executable via MCP tools (e.g. genos_strat_mcts_select, genos_strat_compile_memory, genos_strat_mutate, genos_strat_stdp_update, genos_strat_evaluate, genos_strat_bisect_agent, genos_strat_vfs_dry_run) or genos_execute_primitive. Invoke them at appropriate stages of the mission.`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
     !isWorker && autonomyPlan.schema
       ? `Autonomous orchestration plan. Its phases and tools are decision gates, not a mandatory script: choose and invoke only the smallest safe tools justified by current evidence. Record every elected action and preserve replay/merge evidence before promotion:\n${JSON.stringify(runtimeAutonomyPlan, null, 2)}`
@@ -256,6 +264,14 @@ process.stdin.on('end', () => {
     else if (observedCostUsd > budgetLimit('costUsd')) stopForBudget('costUsd', observedCostUsd, budgetLimit('costUsd'));
   };
   emit({ eventType: 'AGENT_PLAN_CREATED', action: 'PLAN', detail: 'Codex implementation runtime accepted the mission.', status: 'running', currentTask: mission.prompt });
+  strategyAdapter.executePipelineWithFeedback(
+    ['search_memory', 'compile_memory'],
+    { agentId: mission.agentId, orchestratorId: orchestratorAgentId, task: mission.prompt }
+  ).then((res) => {
+    if (res && res.results && res.results.length) {
+      emit({ eventType: 'AGENT_STEP', action: 'MEMORY_RETRIEVAL', detail: 'Strategy memory retrieval primitives executed.', payload: { results: res.results } });
+    }
+  }).catch(() => {});
   const latencyLimit = budgetLimit('latencyMs');
   if (Number.isFinite(latencyLimit)) {
     latencyTimer = setTimeout(() => stopForBudget('latencyMs', latencyLimit + 1, latencyLimit), latencyLimit);
@@ -344,6 +360,11 @@ process.stdin.on('end', () => {
         emit({ eventType: 'WORKER_TASK_FAILED', action: 'REPORT_FAILURE', detail: classified.failure.reason || 'Worker did not complete the assigned task.', severity: 'warning', status: 'error', currentTask: 'Task failed; awaiting orchestrator decision', payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof } });
       } else {
         emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
+        strategyAdapter.executePipelineWithFeedback(
+          ['stdp_update', 'cherry_pick_golden_path'],
+          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, task: mission.prompt, report }
+        ).catch(() => {});
+        agentMemory.compileExecutionMemory(agentName, mission.prompt, report?.claims?.map(c => c.statement).join('\n') || finalReportText).catch(() => {});
       }
     }
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
