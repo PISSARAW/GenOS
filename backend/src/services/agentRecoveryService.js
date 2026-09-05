@@ -120,6 +120,11 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       );
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
+    const previousVariant = Number(mission.variantIndex || 0);
+    const nextVariant = previousVariant + 1;
+    emit(orchestratorId, 'COGNITIVE_MOLTING_TRIGGERED', 'MUE_COGNITIVE', `Mue cognitive déclenchée : passage au variant de modèle index ${previousVariant} -> ${nextVariant}.`, {
+      sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1, previousVariant, nextVariant
+    }, 'info');
     emit(orchestratorId, 'WORKER_RECOVERY_DISPATCHED', decision.action, `Dispatched ${decision.action} as '${name}'.`, {
       sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1,
       slot: garage.slot, capacity: garage.capacity, decision
@@ -135,6 +140,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       name,
       role,
       prompt,
+      variantIndex: nextVariant,
       originalMission: report.mission,
       recoveryAttempt: report.attempt + 1,
       recoveryMaxAttempts: report.maxAttempts,

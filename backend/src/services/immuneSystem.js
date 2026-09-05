@@ -34,7 +34,8 @@ async function withImmunity(basePrompt, complexity, validatorFn, maxRetries = 3,
         const currentVariant = (variantIndex !== undefined ? variantIndex : 0) + (attempt - 1);
         
         console.log(`[ImmuneSystem:${agentId}] Phagocytose... Essai ${attempt}/${maxRetries} (Pléiotropie/Mue: Modèle index ${currentVariant})`);
-        const rawRes = await askLocalLLM(currentPrompt, complexity, agentId, currentVariant);
+        const fn = module.exports.askLocalLLM || askLocalLLM;
+        const rawRes = await fn(currentPrompt, complexity, agentId, currentVariant);
         
         if (!rawRes) {
             console.log(`[Apoptose:${agentId}] Mort silencieuse (pas de réponse).`);
@@ -94,8 +95,8 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const currentVariant = (opts.variantIndex !== undefined ? opts.variantIndex : 0) + (attempt - 1);
         console.log(`[ImmuneSystem-Text:${agentId}] Phagocytose Structurelle... Essai ${attempt}/${maxRetries} (Pléiotropie: Modèle index ${currentVariant})`);
-        
-        let rawRes = await askLocalLLM(currentPrompt, complexity, agentId, currentVariant);
+        const fn = module.exports.askLocalLLM || askLocalLLM;
+        let rawRes = await fn(currentPrompt, complexity, agentId, currentVariant);
         
         if (!rawRes) {
             console.log(`[Apoptose-Text:${agentId}] Mort silencieuse.`);
@@ -143,8 +144,135 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
     return opts.stemCellFallback || null;
 }
 
+function formatPainSignal(errorMessage, context = '') {
+    const detail = String(errorMessage || 'Mutation structurelle inconnue').trim();
+    const snippet = context ? ` Contexte: ${String(context).slice(0, 150)}` : '';
+    return `[SIGNAL IMMUNITAIRE : DOULEUR COGNITIVE] Ton rapport a muté avec l'erreur : "${detail}".${snippet} RÈGLE STRICTE : Produis un JSON valide sans préambule, sans code markdown non fermé, contenant "author", "outcome", "claims".`;
+}
+
+function evaluateCognitiveDrift(text, options = {}) {
+    if (!text || typeof text !== 'string') {
+        return { healthy: true, health: { health_score: 1.0 }, warning: false };
+    }
+    const clean = text.trim();
+    const expectedTerms = options.expectedTerms || clean.split(/\s+/).filter(w => w.length > 5).slice(0, 5);
+    const health = evaluateCognitiveHealth(clean, expectedTerms, options.forbiddenTerms || []);
+    return {
+        healthy: health.health_score >= 0.5,
+        warning: health.health_score < 0.5,
+        health
+    };
+}
+
+function cleanMarkdownAndNoise(raw) {
+    let text = String(raw || '').trim();
+    text = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) text = match[0];
+    text = text.replace(/,\s*([}\]])/g, '$1');
+    return text;
+}
+
+function heuristicReconstruction(raw, err) {
+    const text = String(raw || '');
+    const outcomeMatch = text.match(/"outcome"\s*:\s*"([^"]+)"/i);
+    const claimsMatch = text.match(/"claims"\s*:\s*(\[[^\]]*\])/i);
+    const statementMatches = [...text.matchAll(/"statement"\s*:\s*"([^"]+)"/gi)];
+
+    if (!outcomeMatch && !claimsMatch && statementMatches.length === 0) {
+        return null;
+    }
+
+    const outcome = outcomeMatch ? outcomeMatch[1] : (/réussi|success|completed/i.test(text) ? 'success' : 'failed');
+    let claims = [];
+    if (claimsMatch) {
+        try { claims = JSON.parse(claimsMatch[1]); } catch (_) {}
+    }
+    if (!claims.length && statementMatches.length) {
+        claims = statementMatches.map(m => ({ statement: m[1], evidence: ['chaperone_reconstructed'] }));
+    }
+    return {
+        author: { name: 'ChaperoneRestored', meaning: 'Restauré par le Chaperon Moléculaire' },
+        outcome: outcome || 'success',
+        claims: claims.length ? claims : [{ statement: 'Sortie extraite par le Chaperon Moléculaire.', evidence: ['macrophage_recovery'] }],
+        uncertainties: ['Structure JSON partiellement reconstituée par heuristique immunitaire.']
+    };
+}
+
+function chaperoneRepairJson(rawText, validatorFn = null) {
+    if (!rawText || typeof rawText !== 'string' || !rawText.trim()) {
+        return { ok: false, error: 'Empty output', painSignal: formatPainSignal('Sortie vide ou absente') };
+    }
+    const cleaned = cleanMarkdownAndNoise(rawText);
+    let parsed = null;
+    let repaired = false;
+    let heuristic = false;
+
+    try {
+        parsed = JSON.parse(cleaned);
+        repaired = cleaned !== rawText.trim();
+    } catch (parseError) {
+        const reconstructed = heuristicReconstruction(rawText, parseError);
+        if (reconstructed) {
+            parsed = reconstructed;
+            repaired = true;
+            heuristic = true;
+        } else {
+            return { ok: false, error: parseError.message, painSignal: formatPainSignal(parseError.message, rawText) };
+        }
+    }
+
+    if (validatorFn && typeof validatorFn === 'function') {
+        try {
+            validatorFn(parsed);
+        } catch (valErr) {
+            return { ok: false, error: valErr.message, painSignal: formatPainSignal(valErr.message, rawText) };
+        }
+    }
+
+    return { ok: true, data: parsed, repaired, heuristic };
+}
+
+function phagocytoseCodexReport(rawText, options = {}) {
+    const agentName = options.agentName || 'GenOS Agent';
+    const nameMeaning = options.nameMeaning || 'Autonomous agent';
+    const role = options.role || 'Autonomous implementation agent';
+
+    const repair = chaperoneRepairJson(rawText, (data) => {
+        if (data && !Array.isArray(data.claims)) throw new Error("L'attribut 'claims' doit être un tableau.");
+    });
+
+    if (repair.ok) {
+        const report = repair.data;
+        report.author = report.author || { name: agentName, meaning: nameMeaning, role };
+        if (!Array.isArray(report.claims)) report.claims = [];
+        return { ok: true, report, repaired: repair.repaired, heuristic: repair.heuristic };
+    }
+
+    return {
+        ok: false,
+        error: repair.error,
+        painSignal: repair.painSignal,
+        fallbackReport: {
+            author: { name: agentName, meaning: nameMeaning, role },
+            outcome: 'failed',
+            failure: {
+                category: 'mutated_output',
+                reason: repair.painSignal,
+                evidence: [repair.error || 'Syntax mutation']
+            },
+            claims: [],
+            unverifiedClaims: ["Le rapport a muté et n'a pas pu être réparé par le Chaperon Moléculaire."]
+        }
+    };
+}
+
 module.exports = {
     withImmunity,
     withTextImmunity,
-    askLocalLLM
+    askLocalLLM,
+    formatPainSignal,
+    evaluateCognitiveDrift,
+    chaperoneRepairJson,
+    phagocytoseCodexReport
 };

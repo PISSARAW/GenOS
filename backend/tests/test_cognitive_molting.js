@@ -1,6 +1,6 @@
 const assert = require('assert');
-const { generate } = require('./src/services/modelRouter.js');
-const { withImmunity } = require('./src/services/immuneSystem.js');
+const { generate } = require('../src/services/modelRouter.js');
+const { withImmunity } = require('../src/services/immuneSystem.js');
 
 console.log("=== TESTS : COGNITIVE MOLTING (MUE COGNITIVE) ===");
 

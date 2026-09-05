@@ -15,6 +15,7 @@ const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
+const immune = require('../src/services/immuneSystem');
 
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
@@ -300,7 +301,11 @@ process.stdin.on('end', async () => {
         if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') finalReportText = event.item.text;
         emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
       }
-      else if (type === 'turn.completed') emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
+      else if (type === 'turn.completed') {
+        const drift = finalReportText ? immune.evaluateCognitiveDrift(finalReportText) : null;
+        if (drift?.warning) emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive ou répétition excessive observée.', severity: 'warning', payload: drift });
+        emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
+      }
     });
   });
   child.stderr.on('data', (chunk) => {
@@ -329,13 +334,16 @@ process.stdin.on('end', async () => {
       emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'ORCHESTRATION_POLICY', detail: `Required GenOS orchestration tools were not observed: ${missingTools.join(', ')}.`, severity: 'error', status: 'error', payload: { missingTools, observedTools: [...observedTools] } });
       process.exitCode = 1;
     } else if (code === 0) {
+      const phagocytosis = immune.phagocytoseCodexReport(finalReportText, { agentName, nameMeaning, role: mission.role });
       let report;
-      try {
-        const json = finalReportText.match(/\{[\s\S]*\}/)?.[0];
-        report = JSON.parse(json || '');
-        if (!Array.isArray(report.claims)) throw new Error('claims must be an array');
-      } catch (_) {
-        report = { claims: [], unverifiedClaims: ['The agent completed without a valid evidence report.'] };
+      if (phagocytosis.ok) {
+        report = phagocytosis.report;
+        if (phagocytosis.repaired) {
+          emit({ eventType: 'CHAPERONE_REPAIR_SUCCESS', action: 'HOMEOSTASIS', detail: 'La protéine Chaperon a réparé la syntaxe JSON altérée de Codex.', payload: { heuristic: !!phagocytosis.heuristic } });
+        }
+      } else {
+        report = phagocytosis.fallbackReport;
+        emit({ eventType: 'CELLULAR_APOPTOSIS', action: 'APOPTOSIS', detail: 'Échec irrécupérable du formatage de Codex. Apoptose et signal de douleur déclenchés.', severity: 'error', status: 'error', payload: { error: phagocytosis.error, painSignal: phagocytosis.painSignal } });
       }
       report.author = report.author || { name: agentName, meaning: nameMeaning, role: mission.role };
       const expectedDossiers = autonomyPlan.synthesisOnly ? (autonomyPlan.completedWorkerIds || []) : [];
@@ -365,7 +373,7 @@ process.stdin.on('end', async () => {
         emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
         strategyAdapter.executePipelineWithFeedback(
           ['stdp_update', 'cherry_pick_golden_path'],
-          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, task: mission.prompt, report }
+          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, task: mission.prompt, report, turns: [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
         ).catch(() => {});
         agentMemory.compileExecutionMemory(agentName, mission.prompt, report?.claims?.map(c => c.statement).join('\n') || finalReportText).catch(() => {});
       }
