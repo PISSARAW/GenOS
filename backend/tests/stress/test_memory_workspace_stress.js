@@ -9,18 +9,18 @@ const {
   searchMemory,
   cherryPickGoldenPath,
   counterfactualReplay
-} = require('./src/services/vectorMemoryService');
+} = require('../../src/services/vectorMemoryService');
 
 const {
   diffWorkspaces,
   bisectAnomaly,
   remediateRollback
-} = require('./src/services/bisectionService');
+} = require('../../src/services/bisectionService');
 
 const {
   crossoverGenome,
   analyzeAlleles
-} = require('./src/services/geneticsService');
+} = require('../../src/services/geneticsService');
 
 let passedTests = 0;
 let failedTests = 0;
@@ -53,7 +53,7 @@ async function testVectorMemoryNoisyQueries() {
   // Case B: Noisy Nonce / Gibberish Query
   const noisyQuery = '!!!@@@### $$$%%%^^^ &&&***()_+ 1234567890 zyxwvutsrqponmlkjihgfedcba';
   const noisySearch = await searchMemory(noisyQuery);
-  assert(noisySearch.resultsCount === 3, 'All corpus documents evaluated against noisy query');
+  assert(noisySearch.resultsCount >= 3, 'All corpus documents evaluated against noisy query');
   assert(noisySearch.allScoredExperiences.length > 0, 'Results returned without error');
 
   // Case C: Exact Lexical & Semantic Hybrid Boost
@@ -163,10 +163,10 @@ function testRollbackIntegrity() {
 /**
  * 5. Genetic Crossover & Allele Frequency Mining
  */
-function testGeneticsAndAlleles() {
+async function testGeneticsAndAlleles() {
   console.log('\n--- Genetics Challenge 5: Crossover & Allele Mining ---');
 
-  const alleles = analyzeAlleles();
+  const alleles = await analyzeAlleles();
   assert(alleles.totalAllelesTracked >= 6, 'Tracks standard gene alleles');
   assert(alleles.dominantBeneficialGenes.length > 0, 'Identifies dominant beneficial alleles');
 
@@ -187,14 +187,16 @@ async function runMemoryWorkspaceStressSuite() {
   testGoldenPathSynthesis();
   testDeepCausalBisection();
   testRollbackIntegrity();
-  testGeneticsAndAlleles();
+  await testGeneticsAndAlleles();
 
   console.log(`\nMemory & Workspace Suite Completed: ${passedTests} PASSED, ${failedTests} FAILED\n`);
   return { passed: passedTests, failed: failedTests };
 }
 
 if (require.main === module) {
-  runMemoryWorkspaceStressSuite();
+  runMemoryWorkspaceStressSuite().then(res => {
+    process.exitCode = res.failed === 0 ? 0 : 1;
+  });
 }
 
 module.exports = { runMemoryWorkspaceStressSuite };

@@ -58,6 +58,29 @@ process.stdin.on('end', async () => {
   const conscienceState = agentConscience.createConscienceState();
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
 
+  const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
+  const agentMemory = require('../src/services/agentMemoryContext');
+  let strategyContract = {};
+  try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
+  const primaryStrategy = strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
+
+  let strategyContext = '';
+  try {
+    const memOutcome = await strategyExecutionAdapter.executePipelineWithFeedback(
+      ['search_memory', 'compile_memory', 'search_failures'],
+      { agentId: mission.agentId || agentName, orchestratorId: mission.orchestratorAgentId || mission.agentId || agentName, task: prompt }
+    );
+    if (memOutcome && memOutcome.results && memOutcome.results.length) {
+      strategyContext = `[STRATÉGIE GENOS ACTIVE : ${primaryStrategy}]\nPrimitives exécutées : ` +
+        memOutcome.results.map((r) => `${r.primitive} (${r.result?.success ? 'OK' : 'FAIL'})`).join(', ') + '\n\n';
+    }
+  } catch (e) {}
+
+  let memoryBlock = '';
+  try {
+    memoryBlock = await agentMemory.formatCognitiveMemoryPrompt(agentName, prompt);
+  } catch (e) {}
+
   // Use a strong persona instruction to prevent the LLM's default alignment from refusing to "analyze a site/project"
   const framedPrompt = `${selfIntro} Tu as un accès TOTAL et DIRECT au "site" ou "projet" dont parle l'utilisateur, car il s'agit du code source local fourni ci-dessous.
 RÈGLE ABSOLUE : Tu ne dois SOUS AUCUN PRÉTEXTE t'excuser, dire que tu es une IA générique, ou affirmer que tu n'as pas accès à internet. Tu incarnes ton rôle et ton identité (${agentName}). Tu AS déjà accès au site via les fichiers.
@@ -65,7 +88,7 @@ Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉ
 
 ${conscienceBlock}
 
-IMPORTANT / ARTÉFACTS OBLIGATOIRES: Si tu dois créer ou modifier un fichier, générer un document long, ou un plan d'implémentation, tu DOIS obligatoirement l'encadrer avec les balises \`[ARTIFACT: chemin/vers/fichier.ext]\` au début et \`[/ARTIFACT]\` à la fin. Ne mets pas ce contenu dans le chat standard et n'utilise pas de blocs de code pour cela.
+${memoryBlock}${strategyContext}IMPORTANT / ARTÉFACTS OBLIGATOIRES: Si tu dois créer ou modifier un fichier, générer un document long, ou un plan d'implémentation, tu DOIS obligatoirement l'encadrer avec les balises \`[ARTIFACT: chemin/vers/fichier.ext]\` au début et \`[/ARTIFACT]\` à la fin. Ne mets pas ce contenu dans le chat standard et n'utilise pas de blocs de code pour cela.
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
 
 ${contextStr}Requête de l'utilisateur : ${prompt}`;
@@ -116,6 +139,19 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
       }
     }
     
+    try {
+      await strategyExecutionAdapter.executePipelineWithFeedback(
+        ['evaluate', 'stdp_update', 'cherry_pick_golden_path'],
+        {
+          agentId: mission.agentId || agentName,
+          orchestratorId: mission.orchestratorAgentId || mission.agentId || agentName,
+          task: prompt,
+          reply
+        }
+      );
+      await agentMemory.compileExecutionMemory(agentName, prompt, reply);
+    } catch (e) {}
+
     const report = { 
         outcome: 'success', 
         claims: [{ statement: reply, evidence: [selfIntro] }],
