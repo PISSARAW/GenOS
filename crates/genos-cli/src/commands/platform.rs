@@ -4,6 +4,21 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use crate::args::PlatformSubcommands;
 
+fn read_dir_recursive(dir: &Path, content: &mut String) {
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if !path.ends_with(".git") && !path.ends_with("node_modules") && !path.ends_with("target") {
+                    read_dir_recursive(&path, content);
+                }
+            } else if let Ok(text) = fs::read_to_string(&path) {
+                content.push_str(&format!("\n--- File: {} ---\n{}\n", path.display(), text));
+            }
+        }
+    }
+}
+
 pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
     match cmd {
         PlatformSubcommands::Ingest { document, index } => {
@@ -14,9 +29,56 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
         }
         PlatformSubcommands::Search { query, index } => {
             let idx = index.unwrap_or_else(|| "default".to_string());
+            
+            // Actually search the repo
+            let target_dir = format!("../{}", query);
+            let path = Path::new(&target_dir);
+            
+            let mut context = String::new();
+            if path.exists() && path.is_dir() {
+                read_dir_recursive(path, &mut context);
+            } else {
+                context = "No files found or directory doesn't exist.".to_string();
+            }
+
+            // Truncate context to avoid token limits
+            if context.len() > 80_000 {
+                context.truncate(80_000);
+            }
+
+            let prompt = format!("You are an AI code analyzer. Here is the codebase for {}:\n\n{}\n\nProvide a very brief architectural summary of what this code does.", query, context);
+            
+            // Call the local GenOS API server
+            let client = reqwest::blocking::Client::new();
+            let body = json!({
+                "model": "genos-core-v3",
+                "messages": [
+                    { "role": "user", "content": prompt }
+                ]
+            });
+            
+            let mut score = 0.95;
+            let result_content = match client.post("http://localhost:8085/v1/chat/completions").json(&body).send() {
+                Ok(res) => {
+                    if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                        if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                            text.to_string()
+                        } else {
+                            format!("API Error: Malformed response: {}", json_resp)
+                        }
+                    } else {
+                        "API Error: Failed to parse JSON".to_string()
+                    }
+                },
+                Err(e) => {
+                    score = 0.0;
+                    format!("API Connection Error: {}. Is the GenOS server running? Try '.\\g start'.", e)
+                }
+            };
+
             println!("{}", json!({
                 "operation": "platform_search", "query": query, "index": idx, "matches": [
-                    { "content": "Sample grounded context for query", "score": 0.95 }
+                    { "content": result_content.trim(), "score": score }
                 ]
             }));
         }
