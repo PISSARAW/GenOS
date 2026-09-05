@@ -34,7 +34,7 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
 
   const totalActions = sample.length;
   if (totalActions === 0) {
-    return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0 };
+    return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0, sampleSize: 0 };
   }
 
   const { entropy, normalizedEntropy, uniqueActions } = getEntropyStats(sample);

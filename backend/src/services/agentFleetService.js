@@ -26,6 +26,7 @@ const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
 const { workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
+const agentEvolution = require('./agentEvolutionService');
 
 async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
   const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 14 * 60 * 1000);
@@ -137,13 +138,15 @@ async function runLocalWorker(db, mission, executionRun) {
   }
 }
 
-async function createAutonomousWorkers(db, orchestrator, plan, mission) {
+async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const circuitBreaker = require('./circuitBreaker');
   const circuit = circuitBreaker.canExecute('worker_deployment', orchestrator.agent_type);
   if (!circuit.allowed) {
     throw new Error(`Worker deployment rejected: ${circuit.message}`);
   }
   
+  const plan = options.plan || options;
+  const mission = options.mission || (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
   if (!assignments.length) return [];
   const parent = await db.get(
@@ -152,8 +155,8 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     orchestrator.id
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
-  const initialRound = plan.tokenPolicy.rounds?.initial;
-  const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor((plan.tokenPolicy.total * plan.tokenPolicy.workerShare) / assignments.length));
+  const initialRound = plan.tokenPolicy?.rounds?.initial;
+  const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
   const workers = [];
   const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
   const usedNames = [];
@@ -167,6 +170,17 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
     usedNames.push(identity.name);
     const name = identity.name;
     const nameMeaning = identity.name_meaning;
+    const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, {
+      strategy: plan.strategyContract?.primary || 'tree-search'
+    });
+    await agentEvolution.recordWorkerLineage(db, {
+      agentId: id, name, role: assignment.role, workspaceId: parent.workspace_id
+    }, {
+      parentId: parent.id,
+      genes: evolution.genes,
+      parents: evolution.parents,
+      predictedFitness: evolution.predictedFitness
+    });
     const initialConscience = agentConscience.createConscienceState();
     const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
@@ -205,7 +219,8 @@ async function createAutonomousWorkers(db, orchestrator, plan, mission) {
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
       workspaceRoot, workspaceProvisioned: true, localModel: localRoute.selectedModel, localRoutingPolicy: localRoute.policy, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
       executionPolicy: mission.executionPolicy,
-      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id }
+      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
+      genome: evolution.genes, predictedFitness: evolution.predictedFitness
     });
   }
   return workers;
