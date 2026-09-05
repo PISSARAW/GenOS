@@ -18,10 +18,7 @@ process.stdin.on('end', async () => {
 
   let prompt = mission.prompt || mission.currentTask || "No prompt provided";
 
-  // Clean the massive GenOS orchestration meta-prompt to avoid confusing small local models
-  if (prompt.includes('MANDATORY FINAL SYNTHESIS PHASE') || prompt.includes('Assigned branch:')) {
-    prompt = prompt.split('\n')[0].trim();
-  }
+  // Removed the prompt stripping so the agent receives the full orchestration context including JSON schemas.
 
   // Inject Workspace Context so the model can actually answer questions about "this project"
   let contextStr = '';
@@ -54,10 +51,19 @@ process.stdin.on('end', async () => {
   const agentIdentity = require('../src/services/agentIdentityService');
   const agentConscience = require('../src/services/agentConscienceService');
 
-  const agentName = mission.name || 'Griot';
-  const nameMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Assistant cognitif de GenOS');
-  const agentRole = mission.role || 'Assistant IA de développement';
-  const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, agentRole);
+  let agentName = mission.name;
+  let nameMeaning = mission.nameMeaning;
+  let selfIntro = '';
+  
+  if (!agentName || agentName === 'Worker') {
+    const generated = agentIdentity.generateAgentIdentity({ role: mission.role });
+    agentName = generated.name;
+    nameMeaning = generated.name_meaning;
+    selfIntro = generated.introduction;
+  } else {
+    nameMeaning = nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Assistant cognitif de GenOS');
+    selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
+  }
 
   const conscienceState = agentConscience.createConscienceState();
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
@@ -161,7 +167,7 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     const report = { 
         outcome: 'success', 
         claims: [{ statement: reply, evidence: [selfIntro] }],
-        author: { name: agentName, meaning: nameMeaning, role: agentRole }
+        author: { name: agentName, meaning: nameMeaning, role: mission.role || 'Assistant IA de développement' }
     };
     
     process.stdout.write(encodeEvent({
