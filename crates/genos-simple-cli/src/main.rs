@@ -45,8 +45,31 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Elevate, Rest, Check, Compare, Retrace,
-    Restore, Recover, Retrieve, Filter, Merge, Parent, Lineage, Squeaze, Think, Trio,
+    Elevate {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Rest {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Check {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Compare {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Retrace {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Restore {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Recover, Retrieve, Filter, Merge, Parent, Lineage, Squeaze, Think, Trio,
     Multi, Broad, Swarm, Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
     Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
@@ -165,6 +188,48 @@ async fn main() {
             println!("Mutation de l'agent...");
             let mut cmd = std::process::Command::new("cargo");
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Elevate { args } => {
+            println!("Élévation de l'agent / Adapt...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Rest { args } => {
+            println!("Mise en repos de l'agent (Cryptobiosis)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "resilience", "cryptobiosis"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Check { args } => {
+            println!("Vérification / Audit...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Compare { args } => {
+            println!("Comparaison des phénotypes...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "phenotype", "measure-divergence"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Retrace { args } => {
+            println!("Retraçage / Incident...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "incident"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Restore { args } => {
+            println!("Restauration depuis un snapshot (Capsule Create)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create"]);
             if !args.is_empty() { cmd.args(args); }
             let _ = cmd.status();
         }
