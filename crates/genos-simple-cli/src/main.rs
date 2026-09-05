@@ -999,15 +999,15 @@ async fn main() {
                 [{{\"filename\": \"index.html\", \"content\": \"...\"}}]", prompt
             );
 
-            let client = reqwest::blocking::Client::new();
+            let client = reqwest::Client::new();
             let body = serde_json::json!({
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": full_prompt }]
             });
 
-            match client.post("http://localhost:8085/v1/chat/completions").json(&body).send() {
+            match client.post("http://localhost:8085/v1/chat/completions").json(&body).send().await {
                 Ok(res) => {
-                    if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                    if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                         if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
                             let clean_text = text.trim().strip_prefix("```json").unwrap_or(text.trim()).strip_suffix("```").unwrap_or(text.trim());
                             if let Ok(files) = serde_json::from_str::<serde_json::Value>(clean_text) {
