@@ -58,7 +58,7 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
             });
             
             let mut score = 0.95;
-            let result_content = match client.post("http://localhost:8085/v1/chat/completions").json(&body).send() {
+            let result_content = match client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body).send() {
                 Ok(res) => {
                     if let Ok(json_resp) = res.json::<serde_json::Value>() {
                         if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
