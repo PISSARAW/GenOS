@@ -13,6 +13,7 @@ const fundamentals = require('./primitiveHandlers/fundamentals');
 const memory = require('./primitiveHandlers/memory');
 const evolution = require('./primitiveHandlers/evolution');
 const safety = require('./primitiveHandlers/safety');
+const collective = require('./primitiveHandlers/collective');
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
@@ -75,7 +76,15 @@ const HANDLERS = {
   taint_tracking: safety.permissionCheck,
   execution_receipt: safety.permissionCheck,
   artifact_hash: safety.permissionCheck,
-  artifact_gate: safety.permissionCheck
+  artifact_gate: safety.permissionCheck,
+
+  // Lot 5 — Collectif & Swarm Intelligence
+  pheromone_deposit: collective.pheromoneDeposit,
+  trail_selection: collective.trailSelection,
+  evaporation: collective.trailSelection,
+  brier_scores: collective.brierScores,
+  quorum: collective.quorum,
+  weighted_quorum: collective.weightedQuorum
 };
 
 class StrategyExecutionAdapter {
