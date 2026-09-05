@@ -5,7 +5,13 @@ const { listStrategies } = require('../strategies/strategyRegistry');
 const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
 
 function buildStrategyContract(input = {}) {
-  const selection = selectStrategyPortfolio(input);
+  const selectionInput = {
+    ...input,
+    allowExperimental: input.allowExperimental !== undefined ? input.allowExperimental : true,
+    allowPrototype: input.allowPrototype !== undefined ? input.allowPrototype : true,
+    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk !== undefined ? input.allowExperimentalAtHighRisk : true
+  };
+  const selection = selectStrategyPortfolio(selectionInput);
   const problem = selection.problem;
   const problemProfile = selection.profile;
   const selected = selection.primary;
