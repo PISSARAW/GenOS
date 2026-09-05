@@ -15,17 +15,47 @@ function bundledRuntimeEnvironment() {
   };
 }
 
-function configuredExecutable() {
-  const configured = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
-  if (configured) return configured;
+const CODEX_RUNTIME_PATH = path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');
+const LOCAL_RUNTIME_PATH = path.resolve(__dirname, '../../bin/local-codex-runtime.cjs');
 
-  // The bundled bridge is the supported local default. Keeping this fallback
-  // here makes every launch path (npm, Studio, or an API test) behave the same
-  // without requiring a separately managed environment file.
-  return path.resolve(__dirname, '../../bin/genos-agent-runtime.cjs');
+function isLocalRuntime(executable) {
+  if (!executable) return false;
+  return path.basename(executable).includes('local-codex-runtime');
 }
 
-function runtimeAvailability() {
+function configuredExecutable(mission = {}) {
+  const envVal = String(process.env.GENOS_AGENT_EXECUTOR || '').trim();
+  const missionExecutor = String(mission.executor || mission.runtime || '').trim();
+  const candidate = missionExecutor || envVal;
+
+  if (
+    candidate === 'local' ||
+    candidate === 'local-codex-runtime' ||
+    mission.agentType === 'Local' ||
+    mission.modelTier === 'Local' ||
+    mission.localRuntime === true
+  ) {
+    return LOCAL_RUNTIME_PATH;
+  }
+
+  if (candidate === 'codex' || candidate === 'genos-agent-runtime') {
+    return CODEX_RUNTIME_PATH;
+  }
+
+  if (candidate) return candidate;
+
+  return CODEX_RUNTIME_PATH;
+}
+
+function runtimeAvailability(executable) {
+  const target = executable || configuredExecutable();
+  if (isLocalRuntime(target)) {
+    const exists = fsSync.existsSync(target);
+    return {
+      available: exists,
+      reason: exists ? 'Local cognitive runtime ready.' : `Local runtime script not found at ${target}`
+    };
+  }
   return { available: true };
 }
 
@@ -36,5 +66,12 @@ function resolveExecutable(executable, workspaceRoot) {
   return executable;
 }
 
-
-module.exports = { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability, resolveExecutable };
+module.exports = {
+  bundledRuntimeEnvironment,
+  configuredExecutable,
+  runtimeAvailability,
+  resolveExecutable,
+  isLocalRuntime,
+  CODEX_RUNTIME_PATH,
+  LOCAL_RUNTIME_PATH
+};

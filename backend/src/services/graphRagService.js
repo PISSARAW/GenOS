@@ -194,8 +194,91 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
   return connectedItems;
 }
 
+const nerService = require('./nerService');
+const { getDatabase } = require('../db');
+
+/**
+ * Ingests a document into the Knowledge Graph with entity extraction and synaptic wiring
+ * @param {string} docId
+ * @param {string} text
+ * @param {object} dbInstance
+ * @returns {Promise<{ docId: string, entitiesCount: number, relationsCount: number }>}
+ */
+async function ingestDocument(docId, text, dbInstance = null) {
+  const db = dbInstance || await getDatabase();
+  const { entities, relations } = await nerService.extractEntities(text);
+
+  const content = String(text || '').slice(0, 1000);
+  const title = `Document ${docId}`;
+  const float32 = new Float32Array(768);
+  const buffer = Buffer.from(float32.buffer);
+  await db.run(
+    `INSERT OR REPLACE INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
+     VALUES (?, ?, ?, ?, 'graph_rag', 'document', 1.0)`,
+    docId, title, content, buffer
+  );
+
+  const enriched = await nerService.enrichKnowledgeGraph(db, text, docId);
+
+  return {
+    docId,
+    entitiesCount: entities.length,
+    relationsCount: relations.length,
+    synapsesCreated: enriched.synapsesCreated
+  };
+}
+
+/**
+ * Queries the Knowledge Graph using recursive traversal and entity extraction
+ * @param {string} query
+ * @param {number} limit
+ * @param {object} dbInstance
+ * @returns {Promise<{ nodes: object[], synthesis: string }>}
+ */
+async function queryKnowledgeGraph(query, limit = 5, dbInstance = null) {
+  const db = dbInstance || await getDatabase();
+  const q = String(query || '').trim();
+  if (!q) return { nodes: [], synthesis: 'Empty query' };
+
+  const { entities } = await nerService.extractEntities(q);
+  const entityTerms = entities.map(e => e.text);
+
+  let matchedDecisions = [];
+  if (entityTerms.length > 0) {
+    const placeholders = entityTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
+    const params = entityTerms.flatMap(t => [`%${t}%`, `%${t}%`]);
+    matchedDecisions = await db.all(
+      `SELECT id, title, category, content, synaptic_weight FROM genome_decisions
+       WHERE ${placeholders} ORDER BY synaptic_weight DESC LIMIT ?`,
+      ...params, limit
+    );
+  }
+
+  if (matchedDecisions.length === 0) {
+    matchedDecisions = await db.all(
+      `SELECT id, title, category, content, synaptic_weight FROM genome_decisions
+       WHERE title LIKE ? OR content LIKE ? ORDER BY synaptic_weight DESC LIMIT ?`,
+      `%${q}%`, `%${q}%`, limit
+    );
+  }
+
+  const topIds = matchedDecisions.map(d => d.id);
+  const synapticNeighbors = await traverseSynapses(topIds, db);
+
+  const allNodes = [...matchedDecisions, ...synapticNeighbors].slice(0, limit * 2);
+  const labels = allNodes.map(n => n.title || n.label || n.id);
+  const synthesis = `Found ${allNodes.length} graph node(s) linked to '${q}': ${labels.slice(0, 3).join(', ')}`;
+
+  return {
+    nodes: allNodes,
+    synthesis
+  };
+}
+
 module.exports = {
   traverseSynapses,
   fetchTemporalAnchors,
-  expandGraphRag
+  expandGraphRag,
+  queryKnowledgeGraph,
+  ingestDocument
 };

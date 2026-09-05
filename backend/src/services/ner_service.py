@@ -11,6 +11,16 @@ labels = ["Person", "Organization", "Location", "Object", "Technology", "Action"
 class NERRequest(BaseModel):
     text: str
 
+@app.get("/")
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "ok",
+        "service": "gliner_ner",
+        "labels": labels,
+        "model": "urchade/gliner_medium-v2.1"
+    }
+
 @app.post("/extract")
 async def extract_entities(req: NERRequest):
     entities = model.predict_entities(req.text, labels)
