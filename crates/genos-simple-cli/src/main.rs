@@ -141,8 +141,31 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Copy, Hub, Wisdom,
-    Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
+    Copy {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Hub {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Wisdom {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Synapse {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Wipe {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Operate {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
     Ruins, Id, Mind,
 }
@@ -580,6 +603,78 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt", "--agent-id", "default-agent", "--constraint", "time", "--target", "0.1"]);
             } else {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Copy { args } => {
+            println!("Copie / Sauvegarde (Snapshot Create)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : création d'un snapshot de l'agent par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "create", "--agent", "default-agent", "--out", "snapshot_copy.json"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "create"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Hub { args } => {
+            println!("Hub / Création de monde (World Create)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : création d'un hub local)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "create", "--provider", "local", "--root", "./hub", "--world-id", "hub-01"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "create"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Wisdom { args } => {
+            println!("Sagesse / Base de connaissances (Platform Search)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : recherche de la sagesse universelle dans l'index)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search", "wisdom"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Synapse { args } => {
+            println!("Synapse / Réseau Neuronal (Synaptic)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : évaluation du réseau synaptique par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate", "--agent-id", "default-agent", "--pre-node", "0", "--post-node", "1"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Wipe { args } => {
+            println!("Nettoyage / Effacement (Agent Prune Maximum)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : élagage radical de l'agent)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune", "--agent-id", "default-agent", "--threshold", "0.99"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Operate { args } => {
+            println!("Opération (World Run)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : lancement des opérations sur le hub par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "hub-01", "--command", "operate", "--sandbox-backend", "native"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
             let _ = cmd.status();
