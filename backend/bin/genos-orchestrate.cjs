@@ -13,6 +13,7 @@ const dynamicOrganization = require('../src/services/dynamicOrganizationService'
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
+const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 
 if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   telemetry.on('telemetry', (evt) => {
@@ -336,7 +337,9 @@ async function main() {
     console.log("started"); const agents = await waitForCompletion(db);
     const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
     const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs) }));
+    const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
+    telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
+    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
   } catch (error) {
     if (delegatedWorkerId) {
       await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, delegatedWorkerId).catch(() => {});
