@@ -1,13 +1,14 @@
+use serde::{Deserialize, Serialize};
 use crate::cell::AgentCell;
 use crate::genome::Genome;
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SporeType {
     FungalReproductive,
     BacterialEndospore,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Spore {
     pub spore_type: SporeType,
     pub genome: Genome,

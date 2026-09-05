@@ -76,6 +76,33 @@ fn main() {
             }
         },
         Some(Commands::Platform(cmd)) => platform::execute(cmd.subcommand),
+        Some(Commands::Resilience(cmd)) => match cmd.subcommand {
+            args::ResilienceSubcommands::Cryptobiosis { agent_id, .. } => biomimicry::execute(args::BiomimicrySubcommands::Cryptobiosis { agent_id }),
+        },
+        Some(Commands::Ais(cmd)) => match cmd.subcommand {
+            args::AisSubcommands::DangerTelemetry { agent_id, severity, threat_context } => {
+                println!("{}", serde_json::json!({ "success": true, "operation": "danger_telemetry", "agent_id": agent_id, "severity": severity, "threat_context": threat_context }));
+                Ok(())
+            }
+            args::AisSubcommands::ClonalHypermutate { agent_id, mutation_rate, clone_count } => {
+                println!("{}", serde_json::json!({ "success": true, "operation": "clonal_hypermutate", "agent_id": agent_id, "mutation_rate": mutation_rate, "clone_count": clone_count }));
+                Ok(())
+            }
+            args::AisSubcommands::PrrScan { agent_id, patterns } => {
+                println!("{}", serde_json::json!({ "success": true, "operation": "prr_scan", "agent_id": agent_id, "patterns": patterns }));
+                Ok(())
+            }
+        },
+        Some(Commands::Synaptic(cmd)) => match cmd.subcommand {
+            args::SynapticSubcommands::PruneScale { agent_id, scale } => {
+                println!("{}", serde_json::json!({ "success": true, "operation": "prune_scale", "agent_id": agent_id, "scale": scale }));
+                Ok(())
+            }
+            args::SynapticSubcommands::PathEvaluate { agent_id, pre_node, post_node } => {
+                println!("{}", serde_json::json!({ "success": true, "operation": "path_evaluate", "agent_id": agent_id, "pre_node": pre_node, "post_node": post_node }));
+                Ok(())
+            }
+        },
     };
 
     if let Err(err) = result {

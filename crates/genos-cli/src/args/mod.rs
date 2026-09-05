@@ -1,8 +1,10 @@
 pub mod biomimicry;
+pub mod biology_extra;
 pub mod subcommands;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
+pub use biology_extra::*;
 pub use subcommands::*;
 
 #[derive(Parser, Debug)]
@@ -61,4 +63,10 @@ pub enum Commands {
     World(WorldCmd),
     /// Platform RAG operations
     Platform(PlatformCmd),
+    /// Resilience operations
+    Resilience(ResilienceCmd),
+    /// Artificial Immune System operations
+    Ais(AisCmd),
+    /// Synaptic operations
+    Synaptic(SynapticCmd),
 }
