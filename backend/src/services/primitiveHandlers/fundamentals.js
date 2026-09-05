@@ -5,6 +5,7 @@ const mcpExecutor = require('../mcpExecutor');
 const evaluation = require('../evaluationObservabilityService');
 const agentRecovery = require('../agentRecoveryService');
 const fleet = require('../agentFleetService');
+const epistemics = require('../epistemics');
 const { getDatabase } = require('../../db');
 
 async function snapshot(context) {
@@ -80,7 +81,13 @@ async function safeRevert(context) {
 async function run(context) {
   if (context.orchestratorId && context.tool) {
     const res = await mcpExecutor.execute({ agentId: context.orchestratorId, toolName: context.tool, args: context.args || {} });
-    return { success: res.success, status: 'completed', result: res };
+    const epistemic = epistemics.validateToolPerception(res, context.tool);
+    return {
+      success: res.success && !epistemic.isInvalid(),
+      status: epistemic.isInvalid() ? 'epistemic_invalid' : 'completed',
+      result: res,
+      epistemicState: epistemic.state
+    };
   }
   return { success: true, status: 'running' };
 }
