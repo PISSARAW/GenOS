@@ -999,7 +999,7 @@ async fn main() {
                 [{{\"filename\": \"index.html\", \"content\": \"...\"}}]", prompt
             );
 
-            let client = reqwest::Client::new();
+            let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
             let body = serde_json::json!({
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": full_prompt }]

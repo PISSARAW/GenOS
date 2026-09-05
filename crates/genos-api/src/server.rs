@@ -33,7 +33,7 @@ fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<Str
 
 fn call_llm_api(prompt: &str) -> String {
     dotenv::dotenv().ok();
-    let client = Client::new();
+    let client = Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
 
     let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
     
