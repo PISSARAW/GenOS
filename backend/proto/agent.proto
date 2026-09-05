@@ -16,6 +16,7 @@ message AgentMission {
   string workspace_isolation = 7;
   string agent_type = 8;
   string execution_mode = 9;
+  string name_meaning = 20;
 }
 
 message AgentId { string id = 1; }

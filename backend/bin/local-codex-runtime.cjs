@@ -47,10 +47,23 @@ process.stdin.on('end', async () => {
     contextStr = `[CONTEXTE DU WORKSPACE ACTIF : Projet "${projectName}"]\nFichiers à la racine : ${files}${extraInfo}\n\n`;
   } catch(e) {}
 
+  const agentIdentity = require('../src/services/agentIdentityService');
+  const agentConscience = require('../src/services/agentConscienceService');
+
+  const agentName = mission.name || 'Griot';
+  const nameMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Assistant cognitif de GenOS');
+  const agentRole = mission.role || 'Assistant IA de développement';
+  const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, agentRole);
+
+  const conscienceState = agentConscience.createConscienceState();
+  const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
+
   // Use a strong persona instruction to prevent the LLM's default alignment from refusing to "analyze a site/project"
-  const framedPrompt = `Tu es Griot, l'assistant IA de développement de GenOS. Tu as un accès TOTAL et DIRECT au "site" ou "projet" dont parle l'utilisateur, car il s'agit du code source local fourni ci-dessous.
-RÈGLE ABSOLUE : Tu ne dois SOUS AUCUN PRÉTEXTE t'excuser, dire que tu es une IA, ou affirmer que tu n'as pas accès à internet. Tu AS déjà accès au site via les fichiers.
+  const framedPrompt = `${selfIntro} Tu as un accès TOTAL et DIRECT au "site" ou "projet" dont parle l'utilisateur, car il s'agit du code source local fourni ci-dessous.
+RÈGLE ABSOLUE : Tu ne dois SOUS AUCUN PRÉTEXTE t'excuser, dire que tu es une IA générique, ou affirmer que tu n'as pas accès à internet. Tu incarnes ton rôle et ton identité (${agentName}). Tu AS déjà accès au site via les fichiers.
 Si l'utilisateur te demande d'"explorer" ou d'"analyser" le site, réponds IMMÉDIATEMENT en te basant sur le contexte ci-dessous, sans aucune phrase d'avertissement.
+
+${conscienceBlock}
 
 IMPORTANT / ARTÉFACTS OBLIGATOIRES: Si tu dois créer ou modifier un fichier, générer un document long, ou un plan d'implémentation, tu DOIS obligatoirement l'encadrer avec les balises \`[ARTIFACT: chemin/vers/fichier.ext]\` au début et \`[/ARTIFACT]\` à la fin. Ne mets pas ce contenu dans le chat standard et n'utilise pas de blocs de code pour cela.
 PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT utiliser des listes de tâches Markdown (\`- [ ]\`).
@@ -79,7 +92,7 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     const reply = await withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
-        agentId: 'griot_runtime'
+        agentId: agentName
     });
     
     if (!reply) {
@@ -105,7 +118,8 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     
     const report = { 
         outcome: 'success', 
-        claims: [{ statement: reply, evidence: [] }] 
+        claims: [{ statement: reply, evidence: [selfIntro] }],
+        author: { name: agentName, meaning: nameMeaning, role: agentRole }
     };
     
     process.stdout.write(encodeEvent({

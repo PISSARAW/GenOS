@@ -6,7 +6,7 @@ import re
 
 MAX_LINES = 400
 EXTENSIONS = {'.rs', '.js', '.mjs', '.py', '.ts'}
-EXCLUDE_DIRS = {'node_modules', 'target', 'vendor', '.git', 'dist', 'build'}
+EXCLUDE_DIRS = {'node_modules', 'target', 'vendor', '.git', 'dist', 'build', '.genos'}
 
 def check_file(path: Path) -> list[str]:
     violations = []

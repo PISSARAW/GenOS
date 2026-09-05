@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 // Mock dependencies (dans la version finale, importées depuis genos-cell et genos-biology)
-use crate::mock_dependencies::{AgentCell, NervousSystemLocation, Myelinator};
+use self::mock_dependencies::{AgentCell, NervousSystemLocation, Myelinator};
 
 pub mod mock_dependencies {
     use super::*;

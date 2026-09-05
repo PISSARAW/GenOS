@@ -48,7 +48,7 @@ function profileProblem(problem = '', overrides = {}) {
   let type = overrides.type || classifyProblem(problem);
   
   // Normalize known external typologies (e.g., from JIRA/GitHub or direct injection)
-  if (!PROBLEM_PROFILES[type]) {
+  if (!PREFERRED_PRIMARY[type]) {
     // If it's an unrecognized explicit type, fall back to classification
     type = classifyProblem(String(type) + ' ' + problem);
   }
