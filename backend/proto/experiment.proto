@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.experiment;
+
+service ExperimentService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc RunExperiment (ExperimentRequest) returns (ExperimentResponse);
+  rpc GetExperimentStatus (ExperimentIdRequest) returns (ExperimentResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message ExperimentRequest { string name = 1; string config_json = 2; }
+message ExperimentIdRequest { string experiment_id = 1; }
+message ExperimentResponse { string experiment_id = 1; string status = 2; string result_json = 3; }

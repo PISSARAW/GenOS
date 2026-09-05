@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.productProof;
+
+service ProductProofService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc GenerateProof (ProofRequest) returns (ProofResponse);
+  rpc VerifyProof (ProofVerifyRequest) returns (ProofVerifyResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message ProofRequest { string feature_id = 1; string execution_id = 2; }
+message ProofResponse { string proof_hash = 1; string claims_json = 2; }
+message ProofVerifyRequest { string proof_hash = 1; }
+message ProofVerifyResponse { bool verified = 1; string explanation = 2; }

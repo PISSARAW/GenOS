@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.prompt;
+
+service PromptService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc EvaluatePromptDrift (DriftRequest) returns (DriftResponse);
+  rpc GetPromptTemplate (PromptTemplateRequest) returns (PromptTemplateResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message DriftRequest { string base_prompt = 1; string current_prompt = 2; }
+message DriftResponse { float levenshtein_ratio = 1; string drift_status = 2; }
+message PromptTemplateRequest { string role = 1; }
+message PromptTemplateResponse { string template = 1; }

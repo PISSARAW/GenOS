@@ -2,21 +2,17 @@ syntax = "proto3";
 package genos.memory.v1;
 
 service MemoryService {
+  rpc Ping (Empty) returns (PingResponse);
   rpc StoreMemory (MemoryEntry) returns (StoreResponse);
   rpc SearchMemory (SearchQuery) returns (SearchResponse);
+  rpc CherryPickGoldenPath (CherryPickRequest) returns (CherryPickResponse);
 }
 
-message MemoryEntry {
-  string id = 1;
-  string content = 2;
-  repeated float embedding = 3;
-}
-
-message SearchQuery {
-  string text = 1;
-  repeated float vector = 2;
-  int32 limit = 3;
-}
-
+message Empty {}
+message PingResponse { string status = 1; }
+message MemoryEntry { string id = 1; string content = 2; repeated float embedding = 3; }
+message SearchQuery { string text = 1; repeated float vector = 2; int32 limit = 3; }
 message StoreResponse { bool success = 1; }
 message SearchResponse { repeated MemoryEntry results = 1; }
+message CherryPickRequest { repeated string turns_json = 1; }
+message CherryPickResponse { string golden_path_json = 1; int32 noise_reduction_pct = 2; }

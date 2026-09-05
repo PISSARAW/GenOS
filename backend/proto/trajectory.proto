@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.trajectory;
+
+service TrajectoryService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc RecordTrajectory (RecordTrajectoryRequest) returns (TrajectoryResponse);
+  rpc GetTrajectory (TrajectoryQuery) returns (TrajectoryResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message RecordTrajectoryRequest { string agent_id = 1; string step_action = 2; string detail = 3; }
+message TrajectoryQuery { string agent_id = 1; int32 limit = 2; }
+message TrajectoryResponse { string agent_id = 1; repeated string steps = 2; }

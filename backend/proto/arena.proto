@@ -1,0 +1,18 @@
+syntax = "proto3";
+package genos.arena;
+
+service ArenaService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc RunTournament (TournamentRequest) returns (TournamentResponse);
+  rpc CalculatePareto (ParetoRequest) returns (ParetoResponse);
+  rpc GetLeaderboard (Empty) returns (LeaderboardResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message TournamentRequest { string problem_id = 1; string problem_spec_json = 2; }
+message TournamentResponse { bool success = 1; string winner = 2; string leaderboard_json = 3; }
+message ParetoRequest { string candidates_json = 1; }
+message ParetoResponse { int32 pareto_count = 1; string pareto_front_json = 2; string knee_point_json = 3; }
+message LeaderboardResponse { repeated SolverRank solvers = 1; }
+message SolverRank { string key = 1; string name = 2; int32 elo = 3; }

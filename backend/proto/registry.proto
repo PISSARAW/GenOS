@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.registry;
+
+service RegistryService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc RegisterWorkspace (RegisterWorkspaceRequest) returns (WorkspaceRegResponse);
+  rpc ResolveWorkspace (ResolveWorkspaceRequest) returns (WorkspaceRegResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message RegisterWorkspaceRequest { string workspace_id = 1; string root_path = 2; }
+message ResolveWorkspaceRequest { string workspace_id = 1; }
+message WorkspaceRegResponse { bool found = 1; string root_path = 2; }

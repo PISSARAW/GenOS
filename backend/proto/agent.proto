@@ -2,10 +2,13 @@ syntax = "proto3";
 package genos.agent.v1;
 
 service AgentService {
+  rpc Ping (Empty) returns (PingResponse);
   rpc StartMission (AgentMission) returns (MissionResponse);
   rpc StopMission (AgentId) returns (StatusResponse);
 }
 
+message Empty {}
+message PingResponse { string status = 1; }
 message AgentMission {
   string agent_id = 1;
   string name = 2;
@@ -25,7 +28,6 @@ message AgentMission {
   string execution_budget_json = 16;
   string name_meaning = 20;
 }
-
 message AgentId { string id = 1; }
 message MissionResponse { bool success = 1; string message = 2; }
 message StatusResponse { bool stopped = 1; string status = 2; }

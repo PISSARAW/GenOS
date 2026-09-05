@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.lineage;
+
+service LineageService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc GetPhylogeny (Empty) returns (PhylogenyResponse);
+  rpc RecordLineage (RecordLineageRequest) returns (RecordLineageResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message PhylogenyResponse { string nodes_json = 1; string edges_json = 2; int32 node_count = 3; }
+message RecordLineageRequest { string agent_id = 1; string parent_id = 2; string role = 3; float score = 4; }
+message RecordLineageResponse { bool success = 1; }

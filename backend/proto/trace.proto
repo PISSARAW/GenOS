@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.trace;
+
+service TraceService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ExportTraces (TraceExportRequest) returns (TraceExportResponse);
+  rpc GetTraceSpans (TraceSpansRequest) returns (TraceSpansResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message TraceExportRequest { string tournament_id = 1; string format = 2; }
+message TraceExportResponse { string trace_id = 1; string spans_json = 2; }
+message TraceSpansRequest { string trace_id = 1; }
+message TraceSpansResponse { repeated string spans = 1; }
