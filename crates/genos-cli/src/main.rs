@@ -1,5 +1,7 @@
 mod args;
 mod commands;
+#[cfg(test)]
+mod tests;
 
 use clap::Parser;
 use args::{
