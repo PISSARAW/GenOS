@@ -69,7 +69,27 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Recover, Retrieve, Filter, Merge, Parent, Lineage, Squeaze, Think, Trio,
+    Recover {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Retrieve {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Filter {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Merge {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Parent {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Lineage, Squeaze, Think, Trio,
     Multi, Broad, Swarm, Debug, Destroy, Close, Order, Auto, Fast, Copy, Hub, Wisdom,
     Synapse, Wipe, Operate, Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
@@ -230,6 +250,41 @@ async fn main() {
             println!("Restauration depuis un snapshot (Capsule Create)...");
             let mut cmd = std::process::Command::new("cargo");
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Recover { args } => {
+            println!("Récupération (Causal Replay)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Retrieve { args } => {
+            println!("Recherche RAG / Retrieve...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Filter { args } => {
+            println!("Filtrage des impasses (Loop Detection)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "loop-detection"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Merge { args } => {
+            println!("Fusion de branches (Capsule Merge)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
+            if !args.is_empty() { cmd.args(args); }
+            let _ = cmd.status();
+        }
+        Commands::Parent { args } => {
+            println!("Analyse de la généalogie (Swarm Allele)...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer"]);
             if !args.is_empty() { cmd.args(args); }
             let _ = cmd.status();
         }
