@@ -34,17 +34,19 @@ fn call_llm_api(prompt: &str) -> String {
 
         match client.post(&url).json(&body).send() {
             Ok(res) => {
+                let status = res.status();
                 if let Ok(json_resp) = res.json::<serde_json::Value>() {
                     if let Some(text) = json_resp["response"].as_str() {
                         return text.to_string();
+                    } else if let Some(err_msg) = json_resp["error"].as_str() {
+                        return format!("Ollama API Error ({}): {}", status, err_msg);
                     }
+                    return format!("LLM Error: Unexpected JSON from Ollama: {}", json_resp);
                 }
-                return "LLM Error: Could not extract text from Ollama response".to_string();
+                return format!("LLM Error: Could not parse Ollama response. HTTP Status: {}", status);
             },
-            Err(_) => {
-                // If Ollama fails and no fallback is explicitly disabled, we could fall back to Gemini
-                // But for now, just return the Ollama connection error.
-                return format!("LLM Error: Failed to connect to Ollama at {}. Is Ollama running?", ollama_url);
+            Err(e) => {
+                return format!("LLM Error: Failed to connect to Ollama at {}. Is Ollama running? Details: {}", ollama_url, e);
             }
         }
     } else {
