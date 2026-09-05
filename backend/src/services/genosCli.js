@@ -14,9 +14,21 @@ const path = require('path');
 const repositoryRoot = path.resolve(__dirname, '../../..');
 
 function resolveGenosBin() {
-  if (process.env.GENOS_BIN) return process.env.GENOS_BIN;
   const exe = process.platform === 'win32' ? 'genos.exe' : 'genos';
-  return path.join(repositoryRoot, 'target', 'debug', exe);
+  const repoDebug = path.join(repositoryRoot, 'target', 'debug', exe);
+  const repoRelease = path.join(repositoryRoot, 'target', 'release', exe);
+
+  if (process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)) {
+    const isLegacySystemInstall = process.env.GENOS_BIN.toLowerCase().includes('program files');
+    if (isLegacySystemInstall && (fs.existsSync(repoDebug) || fs.existsSync(repoRelease))) {
+      return fs.existsSync(repoDebug) ? repoDebug : repoRelease;
+    }
+    return process.env.GENOS_BIN;
+  }
+
+  if (fs.existsSync(repoDebug)) return repoDebug;
+  if (fs.existsSync(repoRelease)) return repoRelease;
+  return repoDebug;
 }
 
 function studioBridgeRoot() {

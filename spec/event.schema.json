@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://genos.ai/spec/event.schema.json",
+  "title": "AgentEvent",
+  "type": "object",
+  "required": ["event_id", "agent_id", "sequence", "timestamp", "event_type", "payload"],
+  "properties": {
+    "event_id": { "type": "string" },
+    "agent_id": { "type": "string" },
+    "branch_id": { "type": ["string", "null"] },
+    "sequence": { "type": "integer", "minimum": 0 },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "event_type": { "type": "string" },
+    "payload": { "type": "object" },
+    "causation_id": { "type": ["string", "null"] },
+    "correlation_id": { "type": ["string", "null"] }
+  },
+  "additionalProperties": true
+}

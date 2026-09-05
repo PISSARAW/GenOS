@@ -46,14 +46,14 @@ pub fn handle_merge(branch_id: &str, conditions: Option<&str>) -> Result<(), Str
     Ok(())
 }
 
-pub fn handle_loop_detection(history_file: &str, exact_match: usize, stagnation: usize, similarity: f64) -> Result<(), String> {
-    let exists = Path::new(history_file).exists();
+pub fn handle_loop_detection(cmd: &crate::args::LoopDetectionCmd) -> Result<(), String> {
+    let exists = Path::new(&cmd.history_file).exists();
     let output = json!({
-        "history_file": history_file,
+        "history_file": cmd.history_file,
         "file_exists": exists,
-        "exact_match_threshold": exact_match,
-        "stagnation_threshold": stagnation,
-        "similarity_threshold": similarity,
+        "exact_match_threshold": cmd.exact_match,
+        "stagnation_threshold": cmd.stagnation,
+        "similarity_threshold": cmd.similarity,
         "loop_detected": false,
         "recommendation": "PROCEED"
     });
@@ -73,7 +73,16 @@ pub fn handle_causality_fork(boundary_id: &str, new_boundary_id: &str) -> Result
     Ok(())
 }
 
-pub fn handle_phenotype_measure(trait_name: &str, expected: f64, observed: f64, tolerance: f64) -> Result<(), String> {
+pub struct PhenotypeValues {
+    pub expected: f64,
+    pub observed: f64,
+    pub tolerance: f64,
+}
+
+pub fn handle_phenotype_measure(trait_name: &str, values: PhenotypeValues) -> Result<(), String> {
+    let expected = values.expected;
+    let observed = values.observed;
+    let tolerance = values.tolerance;
     let divergence = (expected - observed).abs();
     let within_tolerance = divergence <= tolerance;
     let output = json!({
