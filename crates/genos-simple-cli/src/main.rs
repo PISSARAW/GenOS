@@ -217,8 +217,30 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    TwoParallel, TriParallel, MultiParallel,
-    Ruins, Id, Mind,
+    TwoParallel {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    TriParallel {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    MultiParallel {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Ruins {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Id {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Mind {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -882,6 +904,78 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search", ""]);
             } else {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::TwoParallel { args } => {
+            println!("Double exécution parallèle (Trinity Deploy / Duo)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : déploiement en duo)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy", "--mission-id", "duo-mission", "--strategies", "duo-strategy"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::TriParallel { args } => {
+            println!("Triple exécution parallèle (Trinity Deploy)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : déploiement en trio)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy", "--mission-id", "trio-mission", "--strategies", "trio-strategy"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::MultiParallel { args } => {
+            println!("Exécution massivement parallèle (Swarm / World Run)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : lancement du monde multi-parallèle)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "multi-parallel-world", "--command", "start", "--sandbox-backend", "native"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Ruins { args } => {
+            println!("Exploration des ruines (Fossil List Extinct)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : listage des anciens fossiles éteints)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Id { args } => {
+            println!("Identification (Audit de l'ID)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : audit de l'identifiant par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit", "default-id"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Mind { args } => {
+            println!("Analyse de l'esprit (Synaptic Path Evaluate)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : évaluation du cheminement mental)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate", "--agent-id", "default-mind", "--pre-node", "0", "--post-node", "1"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
                 cmd.args(args);
             }
             let _ = cmd.status();
