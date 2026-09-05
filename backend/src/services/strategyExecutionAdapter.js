@@ -15,6 +15,7 @@ const evolution = require('./primitiveHandlers/evolution');
 const safety = require('./primitiveHandlers/safety');
 const collective = require('./primitiveHandlers/collective');
 const temporal = require('./primitiveHandlers/temporal');
+const search = require('./primitiveHandlers/search');
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
@@ -97,7 +98,20 @@ const HANDLERS = {
   dependency_matrix: temporal.dependencyMatrix,
   lineage: temporal.provenance,
   provenance: temporal.provenance,
-  blame: temporal.provenance
+  blame: temporal.provenance,
+
+  // Lot 7 — Recherche Profonde & Budget
+  mcts_select: search.mctsSelect,
+  expand: search.mctsSelect,
+  prune: search.prune,
+  retain_top_k: search.prune,
+  reallocate: search.reallocate,
+  resource_equalize: search.reallocate,
+  token_limit: search.budgetLimit,
+  time_limit: search.budgetLimit,
+  iteration_limit: search.budgetLimit,
+  prm_evaluate: search.prmEvaluate,
+  score_partial_repro: search.prmEvaluate
 };
 
 class StrategyExecutionAdapter {
