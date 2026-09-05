@@ -13,27 +13,61 @@ use uuid::Uuid;
 use reqwest::blocking::Client;
 use std::env;
 
-fn call_gemini_api(prompt: &str) -> String {
+fn call_llm_api(prompt: &str) -> String {
     dotenv::dotenv().ok();
-    let api_key = match env::var("GEMINI_API_KEY") {
-        Ok(k) => k,
-        Err(_) => return "LLM Error: GEMINI_API_KEY environment variable not set in .env".to_string()
-    };
-    
     let client = Client::new();
-    let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
-    let body = json!({ "contents": [{ "parts": [{"text": prompt}] }] });
+
+    // Prioritize Ollama if configured
+    let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
+    let ollama_model = env::var("OLLAMA_MODEL").unwrap_or_else(|_| "llama3".to_string());
     
-    match client.post(&url).json(&body).send() {
-        Ok(res) => {
-            if let Ok(json_resp) = res.json::<serde_json::Value>() {
-                if let Some(text) = json_resp["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                    return text.to_string();
+    // Check if user specifically requested Gemini, otherwise try Ollama first if it's reachable.
+    let provider = env::var("LLM_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+
+    if provider.to_lowercase() == "ollama" {
+        let url = format!("{}/api/generate", ollama_url);
+        let body = serde_json::json!({
+            "model": ollama_model,
+            "prompt": prompt,
+            "stream": false
+        });
+
+        match client.post(&url).json(&body).send() {
+            Ok(res) => {
+                if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                    if let Some(text) = json_resp["response"].as_str() {
+                        return text.to_string();
+                    }
                 }
+                return "LLM Error: Could not extract text from Ollama response".to_string();
+            },
+            Err(_) => {
+                // If Ollama fails and no fallback is explicitly disabled, we could fall back to Gemini
+                // But for now, just return the Ollama connection error.
+                return format!("LLM Error: Failed to connect to Ollama at {}. Is Ollama running?", ollama_url);
             }
-            "LLM Error: Could not extract text from Gemini response".to_string()
-        },
-        Err(e) => format!("LLM Error: HTTP request failed: {}", e)
+        }
+    } else {
+        // Gemini fallback
+        let api_key = match env::var("GEMINI_API_KEY") {
+            Ok(k) => k,
+            Err(_) => return "LLM Error: GEMINI_API_KEY environment variable not set in .env".to_string()
+        };
+        
+        let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
+        let body = serde_json::json!({ "contents": [{ "parts": [{"text": prompt}] }] });
+        
+        match client.post(&url).json(&body).send() {
+            Ok(res) => {
+                if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                    if let Some(text) = json_resp["candidates"][0]["content"]["parts"][0]["text"].as_str() {
+                        return text.to_string();
+                    }
+                }
+                return "LLM Error: Could not extract text from Gemini response".to_string();
+            },
+            Err(e) => return format!("LLM Error: HTTP request failed: {}", e)
+        }
     }
 }
 
@@ -125,7 +159,7 @@ pub fn handle_http_request(
 
         let last_prompt = chat_req.messages.last().map(|m| m.content.as_str()).unwrap_or("Hello from client");
         
-        let completion_text = call_gemini_api(last_prompt);
+        let completion_text = call_llm_api(last_prompt);
         
         let prompt_tokens = (last_prompt.len() / 4).max(1) as u64;
         let completion_tokens = (completion_text.len() / 4).max(1) as u64;
