@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Successive-halving budget rounds: score initial worker evidence, select
  * survivors, and dispatch their continuation missions.
  */
@@ -32,11 +32,23 @@ async function advanceAutonomousRound(mission, event) {
   if (state.results.size < state.workerIds.size) return;
   state.advanced = true;
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
-  const survivors = selectSurvivors(
-    [...state.results.values()].filter((result) => result.status === 'completed'),
-    continuation?.survivorCount
-  );
-  emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches.`, { allocation: state.plan.tokenPolicy.allocation, initial: state.plan.tokenPolicy.rounds.initial, continuation, survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score })) }, 'info');
+  const completed = [...state.results.values()].filter((result) => result.status === 'completed');
+  const arenaTask = require('./arenaTaskEvaluation');
+  const paretoResult = arenaTask.evaluateDossiersPareto(completed.map(r => ({
+    workerId: r.agentId,
+    evidenceReport: r.payload?.evidenceReport || {},
+    fitnessScore: r.evidenceScore,
+    tokens: r.payload?.tokens || 1000
+  })));
+  const survivors = selectSurvivors(completed, continuation?.survivorCount);
+  emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches (Pareto Front: ${paretoResult.paretoFrontCount}, Knee-Point: ${paretoResult.kneePoint?.candidateId || 'none'}).`, {
+    allocation: state.plan.tokenPolicy.allocation,
+    initial: state.plan.tokenPolicy.rounds.initial,
+    continuation,
+    paretoFrontCount: paretoResult.paretoFrontCount,
+    kneePoint: paretoResult.kneePoint?.candidateId || null,
+    survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score }))
+  }, 'info');
   const continuationWorkerIds = [];
   for (const survivor of survivors) {
     const previous = state.workers.get(survivor.agentId);

@@ -22,8 +22,11 @@ const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agent
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
+const swarmSentinel = require('./swarmSentinelService');
 
-function runtimeExitOutcome(termination, code, signal, stderr = '') {
+function runtimeExitOutcome(termination, code, options = {}) {
+  const signal = typeof options === 'object' && options !== null ? options.signal : options;
+  const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
   if (termination) {
     return {
       status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
@@ -152,6 +155,20 @@ async function superviseMission(options) {
           haltRuntime('guardrail', decision.reason, 'Runtime halted by the strategy execution guardrail.', { runId: executionRun.id });
         }
 
+        // Swarm Sentinel: Surveillance active de l'entropie de Shannon & effondrement de boucle
+        const sentinelResult = swarmSentinel.inspectEvent(agentId, currentEvent);
+        if (sentinelResult.intervention && !termination && !finalEvent) {
+          emit(agentId, 'SWARM_ENTROPY_COLLAPSE', 'SENTINEL_HALT', sentinelResult.reason, {
+            state: sentinelResult.state, normalizedEntropy: sentinelResult.normalizedEntropy
+          }, 'critical', 'deadlock_collapse');
+          haltRuntime('deadlock_collapse', sentinelResult.reason, 'Runtime halted: Swarm Sentinel detected infinite cognitive repetition / deadlock.', { sentinelResult });
+          continue;
+        } else if (sentinelResult.action === 'WARN_SPIKE') {
+          emit(agentId, 'SWARM_ENTROPY_SPIKE', 'ENTROPY_WARNING', sentinelResult.reason, {
+            state: sentinelResult.state, normalizedEntropy: sentinelResult.normalizedEntropy
+          }, 'warning');
+        }
+
         // Évaluation de la Conscience Cognitive
         const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType) || currentEvent.severity === 'error';
         const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType) || (eventType === 'AGENT_STEP' && currentEvent.action === 'VERIFY');
@@ -213,6 +230,7 @@ async function superviseMission(options) {
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.
     activeProcesses.delete(agentId);
+    swarmSentinel.clearAgent(agentId);
     // The capsule outlives the process only by the GC grace delay, so
     // evidence-aware merging can finish reading it before reclamation.
     workspaceLifecycle.scheduleWorkspaceCleanup(agentId);

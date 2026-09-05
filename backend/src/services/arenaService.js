@@ -341,11 +341,16 @@ function exportTrace(tournamentId, format = 'json-dag', solverKeys = Object.keys
     spans
   };
 }
-
 module.exports = {
   SOLVER_PROFILES,
   calculateElo,
   runTournament,
   calculateParetoFront,
+  findKneePoint,
   exportTrace
 };
+
+const arenaTaskEvaluation = require('./arenaTaskEvaluation');
+module.exports.evaluateDossiersPareto = (dossiers, options) => arenaTaskEvaluation.evaluateDossiersPareto(dossiers, options);
+module.exports.dossierToCandidate = (dossier, options) => arenaTaskEvaluation.dossierToCandidate(dossier, options);
+
