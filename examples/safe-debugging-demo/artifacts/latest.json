@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "scenario": "safe-parallel-debugging",
+  "generated_at": "2026-09-05T06:01:52.345Z",
+  "source": {
+    "command": "./examples/safe-debugging-demo/run-demo.sh",
+    "fixture": "examples/safe-debugging-demo/fixture"
+  },
+  "baseline": {
+    "world_id": "2dd2ba4c-e463-49b1-8176-74d35b39849f",
+    "reproduced": true,
+    "snapshot_id": "6d73fae7-b093-4678-896d-6870dedb1451"
+  },
+  "candidates": [
+    {
+      "name": "candidate-a",
+      "world_id": "61a7c095-8fe5-4a34-9f68-49938e70fea4",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 100) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 5,
+      "success": true,
+      "exit_code": 0,
+      "duration_ms": 60.97
+    },
+    {
+      "name": "candidate-b",
+      "world_id": "25d3d0b4-7bad-4fdb-9805-8aa1bfa922fb",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total > 99) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 0,
+      "success": false,
+      "exit_code": 1,
+      "duration_ms": 66.56
+    },
+    {
+      "name": "candidate-c",
+      "world_id": "5abf589d-190d-4376-8790-a13f38c5ca0e",
+      "mutation": "function finalPrice(total, isMember) {\n  if (!Number.isFinite(total) || total < 0) {\n    throw new TypeError('total must be a non-negative number');\n  }\n  if (isMember && total >= 90) {\n    return Number((total * 0.8).toFixed(2));\n  }\n  return total;\n}\n\nmodule.exports = { finalPrice };",
+      "tests_passed": 0,
+      "success": false,
+      "exit_code": 1,
+      "duration_ms": 83.15
+    }
+  ],
+  "selection": {
+    "winner": "candidate-a",
+    "replay_world_id": "7f1e3e7c-263d-461b-9557-0867f374286c",
+    "replay_verified": true,
+    "promoted_snapshot_id": "edadb734-7caf-4b6b-9025-158e6d814e8e",
+    "merge_decision": "approved"
+  },
+  "usage": {
+    "model_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cost_usd": 0,
+    "reason": "This deterministic demo invokes no language model."
+  },
+  "execution": {
+    "mode": "deterministic_fixture",
+    "live": false,
+    "model_invoked": false,
+    "provider": "directory",
+    "os_sandbox": false
+  },
+  "runtime": {
+    "wall_ms": 433,
+    "genos_operations": 15
+  },
+  "limits": [
+    "This proves isolation, replay and conditional selection; it does not measure model quality.",
+    "The directory provider isolates files by directory, not by an OS security sandbox."
+  ]
+}
