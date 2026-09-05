@@ -1,11 +1,11 @@
 const assert = require('assert');
-const { withImmunity } = require('./src/services/immuneSystem.js');
+const { withImmunity } = require('../src/services/immuneSystem.js');
 
 console.log("=== TESTS : COGNITIVE IMMUNE SYSTEM ===");
 
 // Simulation d'une fonction de génération (mock de modelRouter)
 // Pour les tests, on va surcharger la méthode localement
-const immuneSys = require('./src/services/immuneSystem.js');
+const immuneSys = require('../src/services/immuneSystem.js');
 
 let callCount = 0;
 immuneSys.askLocalLLM = async (prompt) => {

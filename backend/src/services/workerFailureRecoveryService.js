@@ -11,6 +11,7 @@ function classifyFailure(event = {}) {
   if (declared) return declared;
   const text = `${event.detail || ''} ${payload.failure?.reason || ''} ${payload.stderr || ''}`.toLowerCase();
   if (/permission|forbidden|policy|not allowed|unauthori/.test(text)) return 'capability_mismatch';
+  if (/mutat|malform|apoptos|syntax|chaperon/.test(text)) return 'mutated_output';
   if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text)) return 'falsified_hypothesis';
   if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text)) return 'transient_runtime';
   if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text)) return 'capability_mismatch';
@@ -83,6 +84,12 @@ function decideRecovery(report) {
       reason: 'The failure indicates that the current worker profile or permitted capabilities do not fit the mission.'
     };
   }
+  if (report.category === 'mutated_output') {
+    return {
+      action: 'mutate_worker', terminal: false, retry: true, identity: 'new', role: 'recovery_specialist',
+      reason: 'The previous worker output mutated or suffered structural apoptosis; triggering cognitive molting with structural chaperone guidance.'
+    };
+  }
   if (['falsified_hypothesis', 'contradictory_evidence'].includes(report.category)) {
     return {
       action: 'fork_worker', terminal: false, retry: true, identity: 'new', role: 'independent_reviewer',
@@ -108,16 +115,21 @@ function decideRecovery(report) {
 }
 
 function recoveryPrompt(report, decision) {
-  return [
+  const parts = [
     report.mission,
     '',
     `Recovery attempt ${report.attempt + 1}/${report.maxAttempts}.`,
     `Previous worker failure category: ${report.category}.`,
-    `Previous failure: ${report.reason}`,
-    report.evidence.length ? `Evidence already obtained: ${JSON.stringify(report.evidence)}` : 'No conclusive evidence was obtained.',
-    `Orchestrator decision: ${decision.action}. ${decision.reason}`,
-    'Use a materially different method. Return either a verified answer, a structured failure report, or a rigorous noAnswerProof with concrete evidence. Never claim that no answer exists merely because the retry budget is exhausted.'
-  ].join('\n');
+    `Previous failure: ${report.reason}`
+  ];
+  if (report.reason && report.reason.includes('[SIGNAL IMMUNITAIRE : DOULEUR COGNITIVE]')) {
+    parts.push('INSTRUCTION DE RÉPARATION IMMUNITAIRE (CANALISATION ÉPIGÉNÉTIQUE) :');
+    parts.push(report.reason);
+  }
+  parts.push(report.evidence.length ? `Evidence already obtained: ${JSON.stringify(report.evidence)}` : 'No conclusive evidence was obtained.');
+  parts.push(`Orchestrator decision: ${decision.action}. ${decision.reason}`);
+  parts.push('Use a materially different method. Return either a verified answer, a structured failure report, or a rigorous noAnswerProof with concrete evidence. Never claim that no answer exists merely because the retry budget is exhausted.');
+  return parts.join('\n');
 }
 
 module.exports = {
