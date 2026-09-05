@@ -231,4 +231,19 @@ async function listRuns(db, agentId) {
   return Promise.all(rows.map((row) => hydrateRun(db, row)));
 }
 
-module.exports = { DEFAULT_BUDGET, metricDelta, compileExecutionPlan, createExecutionRun, recordExecutionEvent, approveRun, getRun, getLatestRun, listRuns };
+const strategyExecutionAdapter = require('./strategyExecutionAdapter');
+
+module.exports = {
+  createExecutionRun,
+  hydrateRun,
+  recordExecutionEvent,
+  approveRun,
+  getRun,
+  getLatestRun,
+  listRuns,
+  parseRun,
+  compileExecutionPlan,
+  metricDelta,
+  normalizedBudget,
+  strategyExecutionAdapter
+};
