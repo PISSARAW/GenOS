@@ -193,8 +193,31 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Daemon,
-    Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
+    Daemon {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Preagi {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Civilization {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Explore {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Research {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Search {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    TwoParallel, TriParallel, MultiParallel,
     Ruins, Id, Mind,
 }
 
@@ -787,6 +810,78 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "prune-scale", "--agent-id", "default-agent", "--scale", "0.8"]);
             } else {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "prune-scale"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Daemon { args } => {
+            println!("Lancement du Démon (Serve)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : lancement du daemon sur le port par défaut)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "serve"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "serve"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Preagi { args } => {
+            println!("Création de l'entité Pre-AGI (Agent Create)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : création de l'agent pre-agi-core)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "create", "--name", "pre-agi-core", "--out", "preagi-snapshot.json"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "create"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Civilization { args } => {
+            println!("Simulation de civilisation (World Run)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : lancement du monde civilization-alpha)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "civilization-alpha", "--command", "start", "--sandbox-backend", "native"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Explore { args } => {
+            println!("Exploration des strates (Fossil List)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : listage profond des fossiles)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Research { args } => {
+            println!("Recherche approfondie (Experiment Bug Investigation)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : recherche sur une anomalie générique)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation", "anomaly.json"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Search { args } => {
+            println!("Recherche globale (Platform Search)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : recherche vide)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search", ""]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
                 cmd.args(args);
             }
             let _ = cmd.status();
