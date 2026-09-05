@@ -14,6 +14,7 @@ const memory = require('./primitiveHandlers/memory');
 const evolution = require('./primitiveHandlers/evolution');
 const safety = require('./primitiveHandlers/safety');
 const collective = require('./primitiveHandlers/collective');
+const temporal = require('./primitiveHandlers/temporal');
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
@@ -84,7 +85,19 @@ const HANDLERS = {
   evaporation: collective.trailSelection,
   brier_scores: collective.brierScores,
   quorum: collective.quorum,
-  weighted_quorum: collective.weightedQuorum
+  weighted_quorum: collective.weightedQuorum,
+
+  // Lot 6 — Temporel & Causal
+  causal_replay_intervention: temporal.causalReplay,
+  causal_replay: temporal.causalReplay,
+  mutated_universes: temporal.mutatedUniverses,
+  alternative_future: temporal.mutatedUniverses,
+  causal_rebase: temporal.causalRebase,
+  inject_change: temporal.causalRebase,
+  dependency_matrix: temporal.dependencyMatrix,
+  lineage: temporal.provenance,
+  provenance: temporal.provenance,
+  blame: temporal.provenance
 };
 
 class StrategyExecutionAdapter {
