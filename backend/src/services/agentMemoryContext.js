@@ -52,6 +52,27 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     const { experiences, pitfalls, goldenPaths } = await retrieveAgentMemories(agentId, task, options);
     const sections = [];
 
+    // Uptake synaptic vesicles from the synaptic cleft
+    let vesicleEngrams = [];
+    try {
+      vesicleEngrams = await vectorMemory.uptakeVesicles();
+    } catch {}
+
+    let epistemicShield = null;
+    if (vesicleEngrams.length > 0) {
+      const regularVesicles = [];
+      for (const v of vesicleEngrams) {
+        if (v.content && v.content.includes('[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD]')) {
+          epistemicShield = v.content;
+        } else if (v.content) {
+          regularVesicles.push(`  * ⚡ ${v.content.slice(0, 250)}`);
+        }
+      }
+      if (regularVesicles.length > 0) {
+        sections.push(`- Vésicules Synaptiques Reçues (Synaptic Cleft) :\n${regularVesicles.join('\n')}`);
+      }
+    }
+
     if (experiences.length > 0) {
       const expLines = experiences.map(e => {
         const title = e.title ? `[${e.title}] ` : '';
@@ -78,18 +99,25 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
       sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
     }
 
-    if (sections.length === 0) return '';
+    if (sections.length === 0 && !epistemicShield) return '';
 
-    return `[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]\n` +
-      `Tu disposes des souvenirs suivants issus d'expériences antérieures sur des problèmes analogues. Utilise-les pour guider tes choix :\n` +
-      sections.join('\n\n') + '\n\n';
+    let promptBlock = '';
+    if (epistemicShield) {
+      promptBlock += `${epistemicShield}\n\n`;
+    }
+    if (sections.length > 0) {
+      promptBlock += `[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]\n` +
+        `Tu disposes des souvenirs suivants issus d'expériences antérieures sur des problèmes analogues. Utilise-les pour guider tes choix :\n` +
+        sections.join('\n\n') + '\n\n';
+    }
+    return promptBlock;
   } catch {
     return '';
   }
 }
 
 /**
- * Persists an experience summary to vector memory after mission execution
+ * Persists an experience summary to vector memory after mission execution and deposits exosomes
  * @param {string} agentId
  * @param {string} task
  * @param {string} summary
@@ -99,7 +127,21 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
   if (!summary) return null;
   try {
     const content = `Task: ${task}\nResult: ${summary.slice(0, 1000)}`;
-    return await vectorMemory.storeMemory(agentId, content, null);
+    const memId = await vectorMemory.storeMemory(agentId, content, null);
+
+    // Epigenetic Exosome secretion into extracellular matrix for future generations
+    try {
+      await vectorMemory.depositExosome({
+        new_engrams: [{
+          content: `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`,
+          vector: new Array(768).fill(0.0)
+        }],
+        plasmid_name: `plasmid_${agentId}_${Date.now()}`,
+        plasmid_code: `// Epigenetic transmission from ${agentId}\n// Task: ${task.slice(0, 80)}\n// Insight: ${summary.slice(0, 200)}`
+      });
+    } catch {}
+
+    return memId;
   } catch {
     return null;
   }

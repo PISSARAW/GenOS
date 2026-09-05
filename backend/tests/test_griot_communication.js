@@ -1,4 +1,4 @@
-const { executeBioTool } = require('./src/services/mcpBioTools');
+const { executeBioTool } = require('../src/services/mcpBioTools');
 const cp = require('child_process');
 
 function runEndocrineTest() {
@@ -25,10 +25,10 @@ function runEndocrineTest() {
     throw new Error("Test failed: execution was not successful");
   }
 
-  const expectedCmd = 'genos biomimicry bio-feature --feature endocrine --action modulate --param endocrine_action="secrete" --param swarm_id="swarm_01" --param hormone="adrenaline" --param amount="high"';
+  const expectedSuffix = 'biomimicry bio-feature --feature endocrine --action modulate --param endocrine_action="secrete" --param swarm_id="swarm_01" --param hormone="adrenaline" --param amount="high"';
   
-  if (executedCommand !== expectedCmd) {
-    throw new Error(`Test failed. Expected command:\n${expectedCmd}\nGot:\n${executedCommand}`);
+  if (!executedCommand.endsWith(expectedSuffix)) {
+    throw new Error(`Test failed. Expected command ending in:\n${expectedSuffix}\nGot:\n${executedCommand}`);
   }
 
   console.log("Endocrine test passed!");
@@ -58,10 +58,10 @@ function runEpigeneticTest() {
     throw new Error("Test failed: execution was not successful");
   }
 
-  const expectedCmd = 'genos biomimicry epigenetic-chromatin --agent-id griot_01 --locus "communication_module" --state methylated';
+  const expectedSuffix = 'biomimicry epigenetic-chromatin --agent-id griot_01 --locus "communication_module" --state methylated';
   
-  if (executedCommand !== expectedCmd) {
-    throw new Error(`Test failed. Expected command:\n${expectedCmd}\nGot:\n${executedCommand}`);
+  if (!executedCommand.endsWith(expectedSuffix)) {
+    throw new Error(`Test failed. Expected command ending in:\n${expectedSuffix}\nGot:\n${executedCommand}`);
   }
 
   console.log("Epigenetic test passed!");

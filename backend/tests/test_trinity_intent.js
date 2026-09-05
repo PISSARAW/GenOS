@@ -1,5 +1,5 @@
 const assert = require('assert');
-const trinity = require('./src/services/trinityService');
+const trinity = require('../src/services/trinityService');
 
 const interview = trinity.analyzeMission('Interview me to create a plan for the product.');
 assert.equal(interview.recommended, true);

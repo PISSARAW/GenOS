@@ -1,4 +1,4 @@
-const { enforceOutputContract } = require('./src/services/outputGovernor.js');
+const { enforceOutputContract } = require('../src/services/outputGovernor.js');
 
 /**
  * Test unitaire pour l'Output Governor

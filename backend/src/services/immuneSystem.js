@@ -267,12 +267,46 @@ function phagocytoseCodexReport(rawText, options = {}) {
     };
 }
 
+/**
+ * Chaperonne une sortie textuelle d'agent en la purifiant via outputGovernor
+ * et en évaluant sa santé cognitive via cognitiveMonitor.
+ * @param {string} rawText
+ * @param {object} options
+ * @returns {{ purifiedText: string, health: object, warning: boolean }}
+ */
+function chaperoneAgentOutput(rawText, options = {}) {
+    if (!rawText || typeof rawText !== 'string') {
+        return {
+            purifiedText: '',
+            health: { health_score: 1.0, repetition_score: 0, topic_alignment: 1.0, semantic_drift: 0 },
+            warning: false
+        };
+    }
+
+    const purifiedText = enforceOutputContract(rawText, {
+        stripPreamble: options.stripPreamble !== false,
+        stripPostamble: options.stripPostamble !== false,
+        format: options.format || 'markdown'
+    });
+
+    const expectedTerms = options.expectedTerms || (options.prompt ? options.prompt.split(/\s+/).filter(w => w.length > 5).slice(0, 5) : []);
+    const health = evaluateCognitiveHealth(purifiedText, expectedTerms, options.forbiddenTerms || []);
+
+    return {
+        purifiedText,
+        health,
+        warning: health.health_score < 0.6
+    };
+}
+
 module.exports = {
     withImmunity,
     withTextImmunity,
+    chaperoneAgentOutput,
     askLocalLLM,
     formatPainSignal,
     evaluateCognitiveDrift,
     chaperoneRepairJson,
     phagocytoseCodexReport
 };
+

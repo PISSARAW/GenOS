@@ -6,11 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const zlib = require('zlib');
-const protobuf = require('protobufjs');
 const { getDatabase } = require('../db');
 const { embed } = require('./embeddingProvider');
-const { studioBridgeRoot } = require('./genosCli');
+const synapticTransmission = require('./synapticTransmissionService');
 const {
   textToVector,
   cosineSimilarity,
@@ -324,10 +322,15 @@ class VectorMemoryService {
 
       await database.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
 
+      const exosomeStats = await synapticTransmission.absorbExosomes(database);
+
       return {
         consolidated: true,
         memoriesDecayed: true,
-        apoptosisCount: doomedIds.length
+        apoptosisCount: doomedIds.length,
+        exosomesAbsorbed: exosomeStats.absorbedCount,
+        engramsStored: exosomeStats.engramsStored,
+        plasmidsAssimilated: exosomeStats.plasmidsAssimilated
       };
     } catch {
       return { consolidated: true, memoriesDecayed: false, apoptosisCount: 0 };
@@ -335,25 +338,19 @@ class VectorMemoryService {
   }
 
   async releaseVesicles(engrams = []) {
-    const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
-    if (!fs.existsSync(cleftDir)) fs.mkdirSync(cleftDir, { recursive: true });
+    return synapticTransmission.releaseVesicles(engrams);
+  }
 
-    const protoPath = path.join(__dirname, '../proto/synapse.proto');
-    const root = await protobuf.load(protoPath);
-    const Vesicle = root.lookupType('synapse.Vesicle');
+  async uptakeVesicles() {
+    return synapticTransmission.uptakeVesicles();
+  }
 
-    const payload = { engrams };
-    const errMsg = Vesicle.verify(payload);
-    if (errMsg) throw new Error(errMsg);
+  async depositExosome(params = {}) {
+    return synapticTransmission.depositExosome(params);
+  }
 
-    const message = Vesicle.create(payload);
-    const buffer = Vesicle.encode(message).finish();
-    const compressed = zlib.gzipSync(buffer);
-
-    const id = crypto.randomUUID();
-    const filePath = path.join(cleftDir, `vesicle_${id}.vesicle`);
-    fs.writeFileSync(filePath, compressed);
-    return filePath;
+  async absorbExosomes(db = null) {
+    return synapticTransmission.absorbExosomes(db);
   }
 
   cherryPickGoldenPath(turns) {
@@ -378,5 +375,8 @@ module.exports = Object.assign(serviceInstance, {
   sleepCycle: serviceInstance.sleepCycle.bind(serviceInstance),
   storeMemory: serviceInstance.storeMemory.bind(serviceInstance),
   deleteMemory: serviceInstance.deleteMemory.bind(serviceInstance),
-  releaseVesicles: serviceInstance.releaseVesicles.bind(serviceInstance)
+  releaseVesicles: serviceInstance.releaseVesicles.bind(serviceInstance),
+  uptakeVesicles: serviceInstance.uptakeVesicles.bind(serviceInstance),
+  depositExosome: serviceInstance.depositExosome.bind(serviceInstance),
+  absorbExosomes: serviceInstance.absorbExosomes.bind(serviceInstance)
 });

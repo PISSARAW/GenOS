@@ -127,7 +127,7 @@ async function phagocytizeExosomes() {
         const compressed = fs.readFileSync(fullPath);
         const buffer = zlib.gunzipSync(compressed);
         const message = Exosome.decode(buffer);
-        exosomes.push(Exosome.toObject(message, { arrays: true }));
+        exosomes.push(Exosome.toObject(message, { arrays: true, keepCase: true }));
         fs.unlinkSync(fullPath); // digest the exosome
       } catch (e) {
         console.error('Failed to phagocytize exosome:', file, e);
