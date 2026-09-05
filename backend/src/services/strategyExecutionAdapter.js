@@ -1,4 +1,4 @@
-﻿const mcpExecutor = require('./mcpExecutor');
+const mcpExecutor = require('./mcpExecutor');
 const evaluation = require('./evaluationObservabilityService');
 const agentRecovery = require('./agentRecoveryService');
 const fleet = require('./agentFleetService');
@@ -14,17 +14,25 @@ class StrategyExecutionAdapter {
       eventType: 'STRATEGY_PRIMITIVE_EXEC',
       action: primitive,
       severity: 'info',
-      detail: \Executing primitive \\,
+      detail: Executing primitive ,
       payload: context
     });
 
     switch (primitive) {
       case 'snapshot':
       case 'cryptobiosis_freeze':
-        return { success: true, snapshotId: \snap_\\ };
+        if (context.workspaceId) {
+          const snapshot = await agentRecovery.createSnapshot(await getDatabase(), context.workspaceId, strategy_snapshot_);
+          return { success: true, snapshotId: snapshot.id };
+        }
+        return { success: true, snapshotId: snap_ };
       
       case 'fork':
-        return { success: true, forkedWorkerId: \worker_fork_\\ };
+        if (context.orchestratorId) {
+          const worker = await fleet.createWorker(await getDatabase(), { orchestratorId: context.orchestratorId, mission: 'strategy_fork' });
+          return { success: true, forkedWorkerId: worker.id };
+        }
+        return { success: true, forkedWorkerId: worker_fork_ };
       
       case 'slm_route':
       case 'provider_route':
@@ -45,7 +53,6 @@ class StrategyExecutionAdapter {
       case 'verify':
         try {
           const evalResult = await evaluation.runImpossibleBench({ task: context.task || 'test' });
-          // Si le brier score est trop mauvais (proche de 1), on considère que c'est un échec
           const isGood = evalResult.brier_score < 0.4;
           return { success: isGood, brierScore: evalResult.brier_score, metrics: evalResult };
         } catch (err) {
@@ -53,17 +60,29 @@ class StrategyExecutionAdapter {
         }
 
       case 'vfs_dry_run':
+        const vfs = require('./vfsSandboxService');
+        if (context.workspaceId && context.patch) {
+          const res = await vfs.dryRunPatch(context.workspaceId, context.patch);
+          return { success: res.clean, dryRunCompleted: true, blastRadius: res.blastRadius };
+        }
         return { success: true, dryRunCompleted: true, blastRadius: 'low' };
 
       case 'safe_revert':
+        if (context.workspaceId && context.snapshotId) {
+          const revert = await agentRecovery.restoreSnapshot(await getDatabase(), context.workspaceId, context.snapshotId);
+          return { success: true, revertedTo: context.snapshotId };
+        }
         return { success: true, revertedTo: 'last_known_good_state' };
 
       case 'run':
+        if (context.orchestratorId && context.tool) {
+          const res = await mcpExecutor.execute({ agentId: context.orchestratorId, toolName: context.tool, args: context.args || {} });
+          return { success: res.success, status: 'completed', result: res };
+        }
         return { success: true, status: 'running' };
 
       default:
-        // Mock default behavior
-        return { success: true, message: \Mocked primitive execution for \\ };
+        return { success: true, message: Mocked primitive execution for  };
     }
   }
 
@@ -74,22 +93,19 @@ class StrategyExecutionAdapter {
       const res = await this.executePrimitive(p, context);
       results.push({ primitive: p, result: res });
       
-      // Boucle de rétroaction (Feedback Loop) : si une étape de la stratégie échoue
-      // de façon critique (ex: évaluation Brier score très mauvaise), on déclenche l'adaptation.
       if (!res.success) {
         pipelineSuccess = false;
         telemetry.emitEvent({
           eventType: 'STRATEGY_FEEDBACK_LOOP_TRIGGERED',
           action: 'ADAPT_STRATEGY',
           severity: 'warning',
-          detail: \Primitive \ failed. Triggering strategy adaptation feedback loop.\,
+          detail: Primitive  failed. Triggering strategy adaptation feedback loop.,
           payload: { primitive: p, result: res }
         });
         
         if (context.orchestratorId) {
           try {
             const db = await getDatabase();
-            // Demande au StrategyAdaptationService de changer de stratégie en urgence
             const adaptation = await strategyAdaptation.changeStrategy(db, {
               orchestratorId: context.orchestratorId,
               executionBudget: context.budget || null
@@ -105,7 +121,7 @@ class StrategyExecutionAdapter {
             });
           }
         }
-        break; // On arrête l'exécution de la timeline actuelle
+        break; 
       }
     }
     return { success: pipelineSuccess, results };
