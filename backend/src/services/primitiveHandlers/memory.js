@@ -4,6 +4,7 @@
 const vectorMemory = require('../vectorMemoryService');
 const trajectoryService = require('../trajectoryService');
 const telemetry = require('../telemetryObserver');
+const epistemics = require('../epistemics');
 const { getDatabase } = require('../../db');
 
 async function compileMemory(context) {
@@ -83,7 +84,17 @@ async function searchMemory(context) {
   const query = context.query || context.task || '';
   const limit = context.limit || 5;
   const results = await vectorMemory.searchMemory(query, { limit }, db);
-  const found = (results.allScoredExperiences || []).length;
+  const experiences = results.allScoredExperiences || [];
+  const validatedExperiences = experiences.map((item) => {
+    const epistemic = epistemics.validateMemoryPerception(item);
+    return {
+      ...item,
+      epistemicState: epistemic.state,
+      isEpistemicallyValid: !epistemic.isInvalid()
+    };
+  });
+  results.allScoredExperiences = validatedExperiences;
+  const found = validatedExperiences.length;
   return { success: found > 0, resultCount: found, results };
 }
 
