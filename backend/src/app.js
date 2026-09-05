@@ -50,6 +50,7 @@ const registryRoutes = require('./routes/registryRoutes');
 const frameworkRoutes = require('./routes/frameworkRoutes');
 const productProofRoutes = require('./routes/productProofRoutes');
 const rustBridgeRoutes = require('./routes/rustBridgeRoutes');
+const daemonRoutes = require('./routes/daemonRoutes');
 const healthController = require('./controllers/healthController');
 
 function createApp() {
@@ -130,6 +131,7 @@ function createApp() {
   app.use('/api/compliance', complianceRoutes);
   app.use('/api/ide', ideRoutes);
   app.use('/api/strategies', strategyRoutes);
+  app.use('/api/daemon', daemonRoutes);
   app.use('/api', schemaRoutes);
 
   // Root /api scoped route aggregators
