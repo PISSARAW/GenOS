@@ -2,67 +2,283 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { spawn } from "child_process";
+import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 
-const server = new Server({ name: "genos-v2-mcp", version: "2.0.0" }, { capabilities: { tools: {} } });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const repoRoot = path.resolve(__dirname, "..");
 
-async function runGenos(args) {
-    return new Promise((resolve, reject) => {
-        const genosPath = path.resolve(process.cwd(), "../crates/genos-core");
-        const cargoPath = process.platform === 'win32' ? 'cargo.exe' : 'cargo';
-        const child = spawn(cargoPath, ["run", "-q", "--bin", "genos", "--", ...args], {
-            cwd: genosPath, shell: false
-        });
+const server = new Server(
+  { name: "genos-mcp", version: "3.0.0" },
+  { capabilities: { tools: {} } }
+);
 
-        let out = "";
-        child.stdout.on("data", d => out += d.toString());
-        child.stderr.on("data", d => out += d.toString());
+function resolveGenosBin() {
+  if (process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)) {
+    return process.env.GENOS_BIN;
+  }
+  const isWin = process.platform === "win32";
+  const binaryName = isWin ? "genos.exe" : "genos";
+  const searchPaths = [
+    path.join(repoRoot, "target/debug", binaryName),
+    path.join(repoRoot, "target/release", binaryName),
+    path.join(process.cwd(), "target/debug", binaryName),
+  ];
+  for (const p of searchPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
 
-        child.on("close", code => {
-            resolve(out);
-        });
-        
-        child.on("error", err => {
-            reject(err);
-        });
+function runExecutable(cmd, args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { cwd, shell: false });
+    let out = "";
+    child.stdout.on("data", (d) => (out += d.toString()));
+    child.stderr.on("data", (d) => (out += d.toString()));
+    child.on("close", (code) => {
+      if (code === 0) resolve(out);
+      else reject(new Error(`Process exited with code ${code}: ${out}`));
     });
+    child.on("error", (err) => reject(err));
+  });
+}
+
+async function runGenosCli(args) {
+  const genosBin = resolveGenosBin();
+  if (genosBin) {
+    return runExecutable(genosBin, args, repoRoot);
+  }
+  const cargoPath = process.platform === "win32" ? "cargo.exe" : "cargo";
+  const manifest = path.join(repoRoot, "Cargo.toml");
+  return runExecutable(
+    cargoPath,
+    ["run", "-q", "--manifest-path", manifest, "-p", "genos-cli", "--", ...args],
+    repoRoot
+  );
+}
+
+async function runOrchestrator(payload) {
+  const bridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repoRoot, "backend/bin/genos-orchestrate.cjs");
+  return runExecutable(process.execPath, [bridge, JSON.stringify(payload)], repoRoot);
+}
+
+const ALL_TOOLS = [
+  {
+    name: "genos_orchestrate",
+    description: "Launch or continue an autonomous GenOS mission. Decomposes tasks, coordinates workers, and produces verified claims.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mission: { type: "string", description: "Goal or user request to achieve." },
+        strategy: { type: "string", description: "Optional strategy hint from the 77 available." },
+        background: { type: "boolean", description: "True to run detached in the background." },
+      },
+      required: ["mission"],
+    },
+  },
+  {
+    name: "genos_delegate_worker",
+    description: "Delegate an isolated bounded sub-task to a GenOS worker inside a dedicated capsule.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mission: { type: "string", description: "Sub-task for the delegated worker." },
+        role: { type: "string", description: "Specialized role of the worker." },
+      },
+      required: ["mission"],
+    },
+  },
+  {
+    name: "genos_snapshot",
+    description: "Create an immutable content-addressed checkpoint of the workspace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        message: { type: "string", description: "Snapshot commit/audit message." },
+        branch_id: { type: "string", description: "Optional branch identifier." },
+      },
+      required: ["message"],
+    },
+  },
+  {
+    name: "genos_capsule_create",
+    description: "Provision an isolated copy-on-write execution capsule from a snapshot.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        snapshot_id: { type: "string", description: "Source snapshot ID." },
+        seed: { type: "string", description: "Optional seed identifier." },
+      },
+      required: ["snapshot_id"],
+    },
+  },
+  {
+    name: "genos_execute_primitive",
+    description: "Execute one of the 96 GenOS strategic primitives directly with telemetry and verification.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        primitive_name: { type: "string", description: "Name of the primitive (e.g. mcts_select, stdp_update)." },
+        args: { type: "object", description: "Input arguments for the primitive." },
+      },
+      required: ["primitive_name"],
+    },
+  },
+  {
+    name: "genos_change_strategy",
+    description: "Switch active strategy portfolio at any runtime decision gate based on empirical evidence.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        strategy: { type: "string", description: "Target strategy identifier." },
+        reason: { type: "string", description: "Evidence justifying the transition." },
+      },
+      required: ["strategy", "reason"],
+    },
+  },
+  {
+    name: "genos_report_progress",
+    description: "Report concise milestone progress or blocker update to the orchestrator and user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        phase: { type: "string", description: "Current phase name." },
+        message: { type: "string", description: "Outcome and next steps." },
+        progress_percent: { type: "number", minimum: 0, maximum: 100 },
+      },
+      required: ["phase", "message"],
+    },
+  },
+  {
+    name: "genos_change_organization",
+    description: "Modify the communication and routing topology of the agent collective.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        organization: { type: "string", description: "Target organization topology." },
+        reason: { type: "string", description: "Justification for topology change." },
+      },
+      required: ["organization", "reason"],
+    },
+  },
+  {
+    name: "genos_organization_state",
+    description: "Read the active organization topology, permissions, and visible communication links.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "genos_worker_publish",
+    description: "Publish evidence, hypotheses, or signals to peer workers through enforced routing.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        kind: { type: "string", description: "Type of publication." },
+        content: { type: "string", description: "Message payload." },
+      },
+      required: ["kind", "content"],
+    },
+  },
+  {
+    name: "genos_worker_inbox",
+    description: "Retrieve messages and evidence visible to this worker under the current topology.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        after_id: { type: "integer", description: "Cursor offset." },
+        limit: { type: "integer", description: "Max messages to return." },
+      },
+    },
+  },
+  {
+    name: "genos_v2_init",
+    description: "Initialize GenOS workspace state.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "genos_v2_fork",
+    description: "Fork workspace state into an isolated branch.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        parent_id: { type: "string", description: "Parent snapshot or branch ID." },
+      },
+    },
+  },
+];
+
+function getFilteredTools() {
+  const lease = process.env.GENOS_MCP_LEASE
+    ? process.env.GENOS_MCP_LEASE.split(",").map((s) => s.trim()).filter(Boolean)
+    : null;
+  const exposeAll = /^(1|true)$/i.test(process.env.GENOS_MCP_EXPOSE_ALL || "");
+
+  if (lease && lease.length > 0) {
+    return ALL_TOOLS.filter((t) =>
+      lease.some((l) => l === t.name || t.name === `genos_${l}`)
+    );
+  }
+  if (exposeAll) return ALL_TOOLS;
+  return [ALL_TOOLS[0]];
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [
-        { 
-            name: "genos_v2_init", 
-            description: "Init",
-            inputSchema: { type: "object", properties: {} }
-        },
-        { 
-            name: "genos_v2_fork", 
-            description: "Fork",
-            inputSchema: {
-                type: "object",
-                properties: {
-                    parent_id: { type: "string" }
-                }
-            }
-        }
-    ]
+  tools: getFilteredTools(),
 }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    let args = [];
-    try {
-        switch (request.params.name) {
-            case "genos_v2_init": args = ["init"]; break;
-            case "genos_v2_fork": args = ["fork", "--parent-id", request.params.arguments?.parent_id || "ROOT"]; break;
-            default: args = ["init"];
-        }
-        const result = await runGenos(args);
-        return { content: [{ type: "text", text: result }] };
-    } catch (e) {
-        return { content: [{ type: "text", text: e.message }], isError: true };
+  const { name, arguments: args = {} } = request.params;
+  try {
+    let result = "";
+    switch (name) {
+      case "genos_orchestrate":
+        result = await runOrchestrator({ action: "orchestrate", ...args });
+        break;
+      case "genos_delegate_worker":
+        result = await runOrchestrator({ action: "dispatch_worker", background: false, ...args });
+        break;
+      case "genos_change_strategy":
+        result = await runOrchestrator({ action: "change_strategy", ...args });
+        break;
+      case "genos_report_progress":
+        result = await runOrchestrator({ action: "report_progress", ...args });
+        break;
+      case "genos_change_organization":
+        result = await runOrchestrator({ action: "change_organization", ...args });
+        break;
+      case "genos_organization_state":
+        result = await runOrchestrator({ action: "organization_state", ...args });
+        break;
+      case "genos_worker_publish":
+        result = await runOrchestrator({ action: "organization_publish", ...args });
+        break;
+      case "genos_worker_inbox":
+        result = await runOrchestrator({ action: "organization_inbox", ...args });
+        break;
+      case "genos_snapshot":
+        result = await runGenosCli(["snapshot", "create", "--message", args.message || "MCP snapshot"]);
+        break;
+      case "genos_capsule_create":
+        result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT"]);
+        break;
+      case "genos_v2_init":
+        result = await runGenosCli(["init"]);
+        break;
+      case "genos_v2_fork":
+        result = await runGenosCli(["fork", "--parent-id", args.parent_id || "ROOT"]);
+        break;
+      default:
+        result = await runGenosCli(["--help"]);
+        break;
     }
+    return { content: [{ type: "text", text: result }] };
+  } catch (e) {
+    return { content: [{ type: "text", text: e.message }], isError: true };
+  }
 });
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error("🧬 GenOS V2 MCP Server running on stdio");
+console.error("🧬 GenOS MCP Server running on stdio");

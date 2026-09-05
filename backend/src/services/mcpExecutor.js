@@ -16,6 +16,9 @@ function configuredTransport() {
   // still see only genos_orchestrate by default.
   const bundled = path.resolve(__dirname, '../../../target/debug/genos-mcp');
   if (fs.existsSync(bundled)) return { type: 'stdio', command: bundled, args: ['stdio'], bundled: true };
+  if (fs.existsSync(`${bundled}.exe`)) return { type: 'stdio', command: `${bundled}.exe`, args: ['stdio'], bundled: true };
+  const mcpIndex = path.resolve(__dirname, '../../../mcp/index.js');
+  if (fs.existsSync(mcpIndex)) return { type: 'stdio', command: process.execPath, args: [mcpIndex], bundled: true };
   return null;
 }
 
@@ -30,7 +33,8 @@ function rpcRequest(id, method, params = {}) {
   return { jsonrpc: '2.0', id, method, params };
 }
 
-async function callHttp(url, toolName, args, timeoutMs) {
+async function callHttp(url, toolName, options = {}) {
+  const { args = {}, timeoutMs = 30000 } = options;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const auth = process.env.GENOS_MCP_TOKEN ? { authorization: `Bearer ${process.env.GENOS_MCP_TOKEN}` } : {};
@@ -51,13 +55,15 @@ async function callHttp(url, toolName, args, timeoutMs) {
   } finally { clearTimeout(timer); }
 }
 
-async function callStdio(commandLine, args, toolName, toolArgs, timeoutMs) {
+async function callStdio(transport, toolName, options = {}) {
+  const { command: commandLine, args: cmdArgs = [] } = transport;
+  const { args: toolArgs = {}, timeoutMs = 30000 } = options;
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
-  const child = spawn(executable, [...tokens, ...args], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
+  const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
   let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
   child.stdout.on('data', (chunk) => {
@@ -355,8 +361,8 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
 
   if (!transport) return { configured: false, success: false, status: 'unavailable', error: 'No MCP transport configured. Set GENOS_MCP_URL or GENOS_MCP_COMMAND.' };
   const result = transport.type === 'http'
-    ? await callHttp(transport.url, toolName, args, timeoutMs)
-    : await callStdio(transport.command, transport.args, toolName, args, timeoutMs);
+    ? await callHttp(transport.url, toolName, { args, timeoutMs })
+    : await callStdio(transport, toolName, { args, timeoutMs });
   const isError = result.isError === true;
   return { configured: true, success: !isError, status: isError ? 'tool_error' : 'completed', transport: transport.type, output: result.structuredContent ?? result.content ?? result };
 }
