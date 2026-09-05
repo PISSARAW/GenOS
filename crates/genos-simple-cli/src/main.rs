@@ -980,7 +980,6 @@ async fn main() {
             }
             let _ = cmd.status();
         }
-        _ => println!("Commande en cours de construction ou dispatch vers l'agent natif..."),
     }
 }
 
