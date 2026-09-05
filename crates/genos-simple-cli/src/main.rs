@@ -241,6 +241,10 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
+    Generate {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
 }
 
 #[tokio::main]
@@ -979,6 +983,54 @@ async fn main() {
                 cmd.args(args);
             }
             let _ = cmd.status();
+        }
+        Commands::Generate { args } => {
+            if args.is_empty() {
+                println!("Usage: .\\g generate <Dossier> <Prompt...>");
+                return;
+            }
+            let target_dir = format!("../{}", args[0]);
+            let prompt = args[1..].join(" ");
+            println!("Création du projet dans '{}'...", target_dir);
+            
+            let full_prompt = format!(
+                "Generate the files for this request: '{}'. 
+                Output exactly in this JSON format and nothing else:
+                [{{\"filename\": \"index.html\", \"content\": \"...\"}}]", prompt
+            );
+
+            let client = reqwest::blocking::Client::new();
+            let body = serde_json::json!({
+                "model": "genos-core-v3",
+                "messages": [{ "role": "user", "content": full_prompt }]
+            });
+
+            match client.post("http://localhost:8085/v1/chat/completions").json(&body).send() {
+                Ok(res) => {
+                    if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                        if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                            let clean_text = text.trim().strip_prefix("```json").unwrap_or(text.trim()).strip_suffix("```").unwrap_or(text.trim());
+                            if let Ok(files) = serde_json::from_str::<serde_json::Value>(clean_text) {
+                                if let Some(file_array) = files.as_array() {
+                                    let _ = std::fs::create_dir_all(&target_dir);
+                                    for file in file_array {
+                                        if let (Some(name), Some(content)) = (file["filename"].as_str(), file["content"].as_str()) {
+                                            let file_path = std::path::Path::new(&target_dir).join(name);
+                                            if let Ok(_) = std::fs::write(&file_path, content) {
+                                                println!("✔️ Créé : {}", file_path.display());
+                                            }
+                                        }
+                                    }
+                                    println!("Projet généré avec succès !");
+                                    return;
+                                }
+                            }
+                            println!("Erreur: Le modèle n'a pas renvoyé le format JSON attendu.\nRéponse brute :\n{}", text);
+                        }
+                    }
+                },
+                Err(e) => println!("API Error: {}", e),
+            }
         }
     }
 }
