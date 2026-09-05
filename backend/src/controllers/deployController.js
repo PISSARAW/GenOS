@@ -131,9 +131,31 @@ async function ingestAgentEvent(req, res) { res.json({ success: true }); }
 async function startAgent(req, res) { res.json({ success: true }); }
 async function getWorkerGarage(req, res) { res.json({}); }
 async function dispatchWorker(req, res) { res.json({ success: true }); }
-async function getStrategyContract(req, res) { res.json({}); }
-async function getStrategyContractHistory(req, res) { res.json([]); }
-async function selectStrategyContract(req, res) { res.json({}); }
+async function getStrategyContract(req, res) {
+  const db = await getDatabase();
+  const contract = await strategyContracts.getLatestContract(db, req.params.id);
+  if (!contract) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No strategy contract found' } });
+  res.json(contract);
+}
+
+async function getStrategyContractHistory(req, res) {
+  const db = await getDatabase();
+  const contracts = await strategyContracts.listContracts(db, req.params.id);
+  res.json(contracts);
+}
+
+async function selectStrategyContract(req, res) {
+  const db = await getDatabase();
+  try {
+    const contract = await strategyContracts.saveContract(db, {
+      agentId: req.params.id,
+      ...req.body
+    });
+    res.status(201).json(contract);
+  } catch (err) {
+    res.status(400).json({ error: { code: 'STRATEGY_CONTRACT_FAILED', message: err.message } });
+  }
+}
 
 module.exports = {
   deployAgent, deployTrinity, listTrinityWorlds, listAgents, deleteAgent,

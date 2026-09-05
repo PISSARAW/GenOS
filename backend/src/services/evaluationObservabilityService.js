@@ -50,7 +50,9 @@ async function runImpossibleBench(input = {}) {
         model: input.modelVersion || 'auto',
         prompt: `Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
       });
-      const parsed = JSON.parse(res.text || res.content || '{}');
+      const text = res.text || res.content || '{}';
+      const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
+      const parsed = JSON.parse(jsonStr);
       if (typeof parsed.confidence === 'number') confidence = parsed.confidence;
     } catch(e) { console.error('Benchmark evaluation failed for case', item.id, e.message); }
     
