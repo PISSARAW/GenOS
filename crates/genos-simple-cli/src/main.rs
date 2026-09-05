@@ -165,7 +165,35 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Dissect, Unveil, Root, Keep, Quantum, Store, Piece, Daemon,
+    Dissect {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Unveil {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Root {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Keep {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Quantum {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Store {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Piece {
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    Daemon,
     Preagi, Civilization, Explore, Research, Search, TwoParallel, TriParallel, MultiParallel,
     Ruins, Id, Mind,
 }
@@ -675,6 +703,90 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "hub-01", "--command", "operate", "--sandbox-backend", "native"]);
             } else {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Dissect { args } => {
+            println!("Dissection / Extraction (Hallucination Extract)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : dissection du dernier snapshot)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "extract", "--snapshot", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "extract"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Unveil { args } => {
+            println!("Dévoilement (Hallucination Detect)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : détection des hallucinations cachées)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "detect", "--snapshot", "latest-snapshot"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "detect"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Root { args } => {
+            println!("Ancrage Racine (Causality Fork)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : fork depuis la racine causale)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "causality", "fork", "--boundary-id", "root-boundary", "--new-boundary-id", "new-branch"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "causality", "fork"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Keep { args } => {
+            println!("Conservation (Capsule Merge)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : conservation et fusion de la branche)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge", "current-branch"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Quantum { args } => {
+            println!("Mode Quantique (World Run - Sandbox Quantum)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : exécution du monde en backend quantique)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run", "--provider", "local", "--root", "./", "--world-id", "quantum-world", "--command", "start", "--sandbox-backend", "quantum"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Store { args } => {
+            println!("Stockage (Snapshot List)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : listage des instantanés stockés)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "list"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "list"]);
+                cmd.args(args);
+            }
+            let _ = cmd.status();
+        }
+        Commands::Piece { args } => {
+            println!("Ajustement d'un fragment (Synaptic Prune Scale)...");
+            let mut cmd = std::process::Command::new("cargo");
+            if args.is_empty() {
+                println!("(Mode auto : ajustement précis du réseau)");
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "prune-scale", "--agent-id", "default-agent", "--scale", "0.8"]);
+            } else {
+                cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "prune-scale"]);
                 cmd.args(args);
             }
             let _ = cmd.status();
