@@ -393,7 +393,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     }
   }
 
-  const bioResult = require('./mcpBioTools').executeBioTool(toolName, args);
+  const bioResult = await require('./mcpBioTools').executeBioTool(toolName, args);
   if (bioResult) return bioResult;
   const stratResult = await require('./mcpStrategyTools').executeStrategyTool(toolName, args);
   if (stratResult) return stratResult;
