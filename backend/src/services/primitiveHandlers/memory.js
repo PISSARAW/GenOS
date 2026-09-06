@@ -5,7 +5,7 @@ const vectorMemory = require('../vectorMemoryService');
 const trajectoryService = require('../trajectoryService');
 const telemetry = require('../telemetryObserver');
 const epistemics = require('../epistemics');
-const { getDatabase } = require('../../db');
+const { getDatabase, withTransaction } = require('../../db');
 
 async function compileMemory(context) {
   const db = await getDatabase();
@@ -114,16 +114,20 @@ async function stdpUpdate(context) {
   const preSpikeAt = Number(context.preSpikeAt ?? context.preTimestamp);
   const postSpikeAt = Number(context.postSpikeAt ?? context.postTimestamp);
   const tauMs = Number(context.tauMs ?? 20);
+  const tauPlus = Number(context.tauPlus ?? tauMs);
+  const tauMinus = Number(context.tauMinus ?? tauMs);
   const learningRate = Number(context.learningRate ?? context.delta ?? 1);
   const transmitterType = String(context.transmitterType || 'glutamate').toLowerCase();
 
   if (!sourceId || !targetId || sourceId === targetId) return { success: false, error: 'Distinct sourceId and targetId required for STDP.' };
   if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt)) return { success: false, error: 'preSpikeAt and postSpikeAt are required for STDP.' };
-  if (!Number.isFinite(tauMs) || tauMs <= 0 || !Number.isFinite(learningRate) || learningRate <= 0) return { success: false, error: 'Positive tauMs and learningRate required for STDP.' };
+  if (!Number.isFinite(tauMs) || tauMs <= 0 || !Number.isFinite(tauPlus) || tauPlus <= 0 || !Number.isFinite(tauMinus) || tauMinus <= 0 || !Number.isFinite(learningRate) || learningRate <= 0) return { success: false, error: 'Positive STDP time constants and learningRate required.' };
   if (!['glutamate', 'gaba', 'dopamine', 'serotonin'].includes(transmitterType)) return { success: false, error: 'Unsupported transmitterType.' };
   const deltaT = postSpikeAt - preSpikeAt;
   if (deltaT === 0) return { success: false, error: 'preSpikeAt and postSpikeAt must differ for STDP.' };
-  const update = Math.sign(deltaT) * learningRate * Math.exp(-Math.abs(deltaT) / tauMs);
+  const update = deltaT > 0
+    ? learningRate * Math.exp(-Math.abs(deltaT) / tauPlus)
+    : -learningRate * Math.exp(-Math.abs(deltaT) / tauMinus);
 
   const [sRow, tRow] = await Promise.all([
     db.get('SELECT id FROM genome_decisions WHERE id = ?', sourceId),
@@ -133,8 +137,10 @@ async function stdpUpdate(context) {
     return { success: false, error: `Invalid foreign keys for STDP: sourceId=${sourceId}, targetId=${targetId}` };
   }
 
-  await db.run(
-    `INSERT INTO memory_synapses
+  let row;
+  await withTransaction(db, async (tx) => {
+    await tx.run(
+      `INSERT INTO memory_synapses
       (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, last_updated_at)
       VALUES (?, ?, MIN(20.0, MAX(-20.0, ?)), ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(source_id, target_id) DO UPDATE SET
@@ -144,9 +150,9 @@ async function stdpUpdate(context) {
         post_spike_at = excluded.post_spike_at,
         delta_t_ms = excluded.delta_t_ms,
         last_updated_at = CURRENT_TIMESTAMP`,
-    sourceId, targetId, update, transmitterType, preSpikeAt, postSpikeAt, deltaT
-  );
-    await db.run(
+      sourceId, targetId, update, transmitterType, preSpikeAt, postSpikeAt, deltaT
+    );
+    await tx.run(
       `UPDATE memory_synapses SET
          receptor_density = CASE WHEN ? > 0 THEN MIN(3.0, receptor_density + 0.05) ELSE MAX(0.0, receptor_density - 0.05) END,
          activity_history = activity_history + 1,
@@ -155,7 +161,8 @@ async function stdpUpdate(context) {
        WHERE source_id = ? AND target_id = ?`,
       update, update, update, sourceId, targetId
     );
-  const row = await db.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', sourceId, targetId);
+    row = await tx.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', sourceId, targetId);
+  });
   telemetry.emitEvent({
     eventType: 'STDP_SYNAPSE_UPDATED',
     agentId: context.agentId || 'strategy_adapter',
