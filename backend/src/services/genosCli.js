@@ -158,6 +158,7 @@ function resolveInRoot(reference) {
 
 const protobuf = require('protobufjs');
 const zlib = require('zlib');
+const crypto = require('crypto');
 
 async function phagocytizeExosomes() {
   const exosomeDir = path.join(studioBridgeRoot(), 'extracellular_matrix');
@@ -194,7 +195,18 @@ async function runCrossover(options = {}) {
     args.push('--crossover-point', String(options.crossoverPoint));
   }
   if (options.seed !== undefined) args.push('--seed', String(options.seed));
-  return runGenos(args);
+  const result = await runGenos(args);
+  if (!result.json) return result;
+  const replayInput = {
+    version: 'genos-crossover-v1',
+    parentA,
+    parentB,
+    swapProb: options.swapProb ?? 0.5,
+    crossoverPoint: options.crossoverPoint ?? null,
+    seed: options.seed ?? 'genos-default-crossover'
+  };
+  const reproducibilityKey = crypto.createHash('sha256').update(JSON.stringify(replayInput)).digest('hex');
+  return { ...result, json: { ...result.json, reproducibility_key: reproducibilityKey } };
 }
 
 async function runCellDivision(options = {}) {
@@ -204,6 +216,7 @@ async function runCellDivision(options = {}) {
   if (options.mutationRate !== undefined) args.push('--mutation-rate', String(options.mutationRate));
   if (options.daughterVolume !== undefined) args.push('--daughter-volume', String(options.daughterVolume));
   if (options.merozoiteCount !== undefined) args.push('--merozoite-count', String(options.merozoiteCount));
+  if (options.hayflickLimit !== undefined) args.push('--hayflick-limit', String(options.hayflickLimit));
   if (options.seed !== undefined) args.push('--seed', String(options.seed));
   return runGenos(args);
 }

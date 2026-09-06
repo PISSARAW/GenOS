@@ -21,6 +21,12 @@ async function runTests() {
   assert.strictEqual(crossResult.json.status, 'recombined');
   assert(crossResult.json.child_genome_id, 'Child genome ID must be generated');
   assert(crossResult.json.maternal_sequence_length > 0, 'Chromosome sequence length must be > 0');
+  const replayCrossResult = await genosCli.runCrossover({
+    parentA: 'AGENT_GENOME_ARCHITECT',
+    parentB: 'AGENT_GENOME_CRITIC',
+    swapProb: 0.5
+  });
+  assert.strictEqual(replayCrossResult.json.reproducibility_key, crossResult.json.reproducibility_key);
   console.log(`  ✅ PASS: Meiotic crossover generated child ${crossResult.json.child_genome_id} (${crossResult.json.crossover_strategy})`);
 
   // --- 2. Test CLI Rust : Cell Division (Mitosis & Binary Fission) ---
@@ -44,6 +50,21 @@ async function runTests() {
   assert.strictEqual(fissionResult.json.division_mode, 'binary_fission');
   assert.strictEqual(fissionResult.json.mutation_rate_applied, 0.08);
   console.log(`  ✅ PASS: Binary fission with point mutation completed: ${fissionResult.json.child_genome_id}`);
+
+  const buddingResult = await genosCli.runCellDivision({
+    agentId: 'cell_budding_mother_01',
+    mode: 'budding',
+    daughterVolume: 0.25,
+    hayflickLimit: 5
+  });
+  assert(buddingResult.ok, `CLI budding failed: ${buddingResult.stderr}`);
+  assert.strictEqual(buddingResult.json.division_mode, 'budding');
+  assert.strictEqual(buddingResult.json.daughter_volume, 0.25);
+  assert.strictEqual(buddingResult.json.mother_scars_count, 1);
+  assert.strictEqual(buddingResult.json.hayflick_limit, 5);
+  assert.strictEqual(buddingResult.json.remaining_buds, 4);
+  assert.strictEqual(buddingResult.json.is_ephemeral, true);
+  console.log(`  ✅ PASS: Asymmetric budding produced ephemeral bud ${buddingResult.json.daughter_genome_id} (scars: ${buddingResult.json.mother_scars_count})`);
 
   // --- 3. Test CLI Rust : Phylogenetic Tree & Molecular Clock ---
   console.log('\n--- 3. Testing Rust Native Phylogeny & Molecular Clock ---');
