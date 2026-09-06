@@ -67,7 +67,18 @@ async function breed(context) {
   }
 
   // 1. Recombinaison méiotique des gènes cognitifs (stratégie, outils, hyperparamètres)
-  const childRecomb = geneticsService.crossoverGenome(rowA, rowB, {
+  const genomeForAgent = (row) => ({
+    id: row.id,
+    name: row.name,
+    genes: {
+      role: row.role || 'worker',
+      strategy: row.role || 'adaptive-hybrid',
+      tools: ['genos_inspect'],
+      temp: 0.5,
+      topP: 0.9
+    }
+  });
+  const childRecomb = geneticsService.crossoverGenome(genomeForAgent(rowA), genomeForAgent(rowB), {
     strategy: context.strategy || 'uniform',
     mutationRate: context.mutationRate ?? 0.05
   });
