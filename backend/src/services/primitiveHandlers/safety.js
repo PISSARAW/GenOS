@@ -56,13 +56,15 @@ async function apoptosis(context) {
     "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = ? WHERE id = ?",
     '[APOPTOSIS] ' + reason, targetId
   );
+  const runtimeAdapter = require('../agentRuntimeAdapter');
+  const runtimeStopped = Boolean(runtimeAdapter.stopMission(targetId));
   telemetry.emitEvent({
     eventType: 'AGENT_APOPTOSIS',
     agentId: targetId,
     action: 'TERMINATE',
     detail: 'Agent ' + targetId + ' terminated by apoptosis: ' + reason,
     severity: 'critical',
-    payload: { targetId, reason, previousStatus: agent.status }
+    payload: { targetId, reason, previousStatus: agent.status, runtimeStopped }
   });
 
   let fossilRecord = null;
@@ -74,7 +76,7 @@ async function apoptosis(context) {
   } catch (err) {
     return { success: false, terminated: targetId, reason, error: `Fossilization failed: ${err.message}` };
   }
-  return { success: true, terminated: targetId, reason, fossilRecord };
+  return { success: true, terminated: targetId, reason, fossilRecord, runtimeStopped };
 }
 
 async function fossilize(context) {
