@@ -17,6 +17,18 @@ function getStrategy(id) {
   return strategy ? toPublicStrategy(strategy) : null;
 }
 
+function registryHealth() {
+  const strategies = listStrategies();
+  const missingPrimitives = [...new Set(strategies.flatMap((strategy) => strategy.missingPrimitives))].sort();
+  return {
+    total: strategies.length,
+    ready: strategies.filter((strategy) => strategy.executionStatus === 'ready').length,
+    partial: strategies.filter((strategy) => strategy.executionStatus === 'partial').length,
+    missingPrimitives,
+    complete: missingPrimitives.length === 0
+  };
+}
+
 function toPublicStrategy(strategy) {
   const handlers = require('../services/strategyExecutionAdapter').getHandlers();
   const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
@@ -30,4 +42,4 @@ function toPublicStrategy(strategy) {
   };
 }
 
-module.exports = { listStrategies, getStrategy };
+module.exports = { listStrategies, getStrategy, registryHealth };
