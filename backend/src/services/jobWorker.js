@@ -35,6 +35,9 @@ async function claim(db, table, id) {
 async function executeWorkflow(db, run) {
   const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', run.workflow_id);
   if (!workflow) throw new Error('Workflow no longer exists.');
+  if (Number(workflow.version) !== Number(run.workflow_version)) {
+    throw new Error(`Workflow version mismatch: run requested v${run.workflow_version}, current definition is v${workflow.version}.`);
+  }
   const graph = JSON.parse(workflow.graph_json || '{"nodes":[],"edges":[]}');
   const traceId = `trace-${run.id}`;
   const started = Date.now();
