@@ -103,18 +103,38 @@ async function analyzeAlleles(scope = {}) {
     createdAt: decision.created_at
   }));
 
-  const beneficial = [];
-  const lethal = [];
-
   const lineage = await db.all(
     scoped
-      ? 'SELECT n.score, n.state_summary FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.node_type = ? AND w.organization_id = ? AND w.project_id = ?'
-      : 'SELECT score, state_summary FROM lineage_nodes WHERE node_type = ?',
+      ? 'SELECT n.score, n.state_summary, n.metadata FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.node_type = ? AND w.organization_id = ? AND w.project_id = ?'
+      : 'SELECT score, state_summary, metadata FROM lineage_nodes WHERE node_type = ?',
     ...(scoped ? ['agent', scope.organizationId, scope.projectId] : ['agent'])
   );
   const scoredCount = lineage.filter((n) => n.score !== null).length;
   const highFitnessCount = lineage.filter((n) => Number(n.score) >= 0.7).length;
   const correlation = scoredCount > 0 ? Number((highFitnessCount / scoredCount).toFixed(2)) : 0.85;
+  const geneStats = new Map();
+  for (const row of lineage) {
+    let genes = {};
+    try { genes = JSON.parse(row.metadata || '{}').genes || {}; } catch (_) {}
+    for (const [gene, value] of Object.entries(genes)) {
+      const key = `${gene}=${JSON.stringify(value)}`;
+      const stat = geneStats.get(key) || { gene, value, count: 0, highFitness: 0, lowFitness: 0 };
+      stat.count += 1;
+      if (Number(row.score) >= 0.7) stat.highFitness += 1;
+      if (Number(row.score) < 0.3) stat.lowFitness += 1;
+      geneStats.set(key, stat);
+    }
+  }
+  const geneFrequencyMatrix = [...geneStats.values()].map((stat) => ({
+    alleleId: `${stat.gene}:${JSON.stringify(stat.value)}`,
+    name: stat.gene,
+    value: stat.value,
+    count: stat.count,
+    successCorrelation: Number((stat.highFitness / stat.count).toFixed(2)),
+    status: stat.highFitness >= stat.lowFitness ? 'BENEFICIAL_CANDIDATE' : 'DETRIMENTAL_CANDIDATE'
+  }));
+  const beneficial = geneFrequencyMatrix.filter((gene) => gene.status === 'BENEFICIAL_CANDIDATE');
+  const lethal = geneFrequencyMatrix.filter((gene) => gene.status === 'DETRIMENTAL_CANDIDATE');
 
   return {
     timestamp: new Date().toISOString(),
@@ -124,13 +144,13 @@ async function analyzeAlleles(scope = {}) {
     unclassifiedAlleles: allAlleles,
     analysisBasis: scoredCount > 0 ? 'lineage-and-recorded-decisions' : 'recorded-decisions-only',
     selectionAnalysisAvailable: scoredCount > 0,
-    geneFrequencyMatrix: allAlleles.map(a => ({
+    geneFrequencyMatrix: [...allAlleles.map(a => ({
       alleleId: a.id,
       name: a.name,
       category: a.category,
       successCorrelation: correlation,
       status: a.type
-    }))
+    })), ...geneFrequencyMatrix]
   };
 }
 
