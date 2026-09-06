@@ -16,6 +16,18 @@ function extractDossierReport(dossier) {
   return dossier.evidenceReport || {};
 }
 
+function testResultPassed(test) {
+  if (typeof test === 'boolean') return test;
+  if (test && typeof test === 'object') {
+    if (test.passed === true || test.ok === true || test.exitCode === 0) return true;
+    if (test.passed === false || test.ok === false || Number(test.exitCode) !== 0) return false;
+    return false;
+  }
+  const text = String(test || '').trim().toLowerCase();
+  if (!text || /\b(?:not\s+ok|fail(?:ed|ure)?|error|exception|exit\s+code\s+[1-9]\d*)\b/.test(text)) return false;
+  return /^(?:ok\b|passed\b|pass\b|successful\b|success\b|exit\s+code\s+0\b)/.test(text);
+}
+
 function dossierToCandidate(dossier, options = {}) {
   const report = extractDossierReport(dossier);
   const claims = Array.isArray(report.claims) ? report.claims : [];
@@ -25,7 +37,7 @@ function dossierToCandidate(dossier, options = {}) {
   // Compute adversarial pass rate from verified tests
   let passRate = 50;
   if (tests.length > 0) {
-    const passed = tests.filter((t) => typeof t === 'string' && (t.includes('ok') || t.includes('passed') || !t.includes('failed'))).length;
+    const passed = tests.filter(testResultPassed).length;
     passRate = Number(((passed / tests.length) * 100).toFixed(1));
   } else if (report.outcome === 'success') {
     passRate = 90;
@@ -99,6 +111,7 @@ function evaluateTaskBenchmark(taskSpec, solutions = []) {
 
 module.exports = {
   dossierToCandidate,
+  testResultPassed,
   evaluateDossiersPareto,
   evaluateTaskBenchmark
 };
