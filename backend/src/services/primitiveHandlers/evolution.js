@@ -215,34 +215,47 @@ async function select(context) {
 async function paretoSelect(context) {
   const candidates = context.candidates || [];
   const objectives = context.objectives || ['quality', 'cost'];
+  const directions = context.directions || {};
   if (candidates.length === 0) {
     return { success: false, error: 'No candidates for Pareto selection.' };
   }
+  const directionFor = (objective) => {
+    const explicit = directions[objective];
+    if (explicit !== undefined) {
+      if (explicit !== 'min' && explicit !== 'max') throw new Error(`Direction for '${objective}' must be 'min' or 'max'.`);
+      return explicit;
+    }
+    return /cost|latency|time|token|risk|error/i.test(objective) ? 'min' : 'max';
+  };
+  const objectiveDirections = Object.fromEntries(objectives.map((objective) => [objective, directionFor(objective)]));
   const points = [];
-  for (const candidate of candidates) {
-    const id = candidate.id || candidate;
+  for (const [index, candidate] of candidates.entries()) {
+    if (!candidate || typeof candidate !== 'object') return { success: false, error: `Candidate at index ${index} must be an object.` };
+    const id = candidate.id || `candidate-${index}`;
     const scores = objectives.map((objective) => Number(candidate[objective]));
     if (scores.some((score) => !Number.isFinite(score))) {
       return { success: false, error: `Candidate '${id}' is missing a numeric Pareto score.` };
     }
-    points.push({ id, scores });
+    points.push({ id, key: `${id}#${index}`, scores });
   }
   const paretoFront = points.filter((point) => {
     return !points.some(other => {
-      if (other.id === point.id) return false;
-      return other.scores.every((s, j) => s >= point.scores[j]) && other.scores.some((s, j) => s > point.scores[j]);
+      if (other.key === point.key) return false;
+      const atLeastAsGood = other.scores.every((score, index) => objectiveDirections[objectives[index]] === 'min' ? score <= point.scores[index] : score >= point.scores[index]);
+      const strictlyBetter = other.scores.some((score, index) => objectiveDirections[objectives[index]] === 'min' ? score < point.scores[index] : score > point.scores[index]);
+      return atLeastAsGood && strictlyBetter;
     });
   });
-  const dominated = points.filter(p => !paretoFront.some(f => f.id === p.id));
+  const dominated = points.filter(p => !paretoFront.some(f => f.key === p.key));
   telemetry.emitEvent({
     eventType: 'EVOLUTION_PARETO',
     agentId: context.orchestratorId || 'strategy_adapter',
     action: 'PARETO_SELECT',
     detail: 'Pareto front: ' + paretoFront.length + ' non-dominated / ' + points.length + ' total.',
     severity: 'info',
-    payload: { paretoFront, dominated, objectives }
+    payload: { paretoFront, dominated, objectives, directions: objectiveDirections }
   });
-  return { success: paretoFront.length > 0, paretoFront, dominated, objectives };
+  return { success: paretoFront.length > 0, paretoFront, dominated, objectives, directions: objectiveDirections };
 }
 
 async function speciation(context) {
