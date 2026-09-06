@@ -188,7 +188,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
   const predictedFitness = Number(Math.min(99.0, 88.0 + (1 - childGenes.temp) * 8 + (childGenes.tools.length >= 3 ? 3 : 0)).toFixed(1));
 
   return {
-    childId: `agent-crossover-${Date.now()}`,
+    childId: `agent-crossover-${crypto.randomUUID()}`,
     crossoverStrategy: strategy,
     mutationRateApplied: mutationRate,
     parents: {
