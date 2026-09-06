@@ -155,6 +155,18 @@ async function executeEvaluation(db, job) {
   await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify(result), job.id);
 }
 
+async function updateCampaignStatus(db, campaignId) {
+  if (!campaignId) return;
+  const jobs = await db.all('SELECT status FROM evaluation_jobs WHERE campaign_id = ?', campaignId);
+  if (!jobs.length) return;
+  const status = jobs.some((job) => job.status === 'failed')
+    ? 'failed'
+    : jobs.every((job) => job.status === 'completed')
+      ? 'completed'
+      : 'running';
+  await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
+}
+
 async function executeModelJob(db, job) {
   const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}'); const outputs = [];
   for (const model of (models.length ? models : [null])) {
@@ -188,7 +200,9 @@ async function processOnce() {
     const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
     const evaluation = selectFairWorkflow(queuedEvaluations);
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
+      if (evaluation.campaign_id) await db.run("UPDATE evaluation_campaigns SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'planned'", evaluation.campaign_id);
       await withRetry(db, 'evaluation_jobs', evaluation, () => executeEvaluation(db, evaluation));
+      await updateCampaignStatus(db, evaluation.campaign_id);
     }
     const queuedModels = await db.all("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
     const model = selectFairWorkflow(queuedModels);

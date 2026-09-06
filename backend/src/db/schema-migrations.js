@@ -111,6 +111,7 @@ async function applyVersionedMigrations(db) {
   if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
   if (!evaluationNames.has('attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
+  if (!evaluationNames.has('campaign_id')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN campaign_id TEXT');
   const synapseColumns = new Set((await db.all('PRAGMA table_info(memory_synapses)')).map(column => column.name));
   if (!synapseColumns.has('transmitter_type')) await db.exec("ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'");
   if (!synapseColumns.has('pre_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN pre_spike_at INTEGER');
