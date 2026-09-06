@@ -114,6 +114,9 @@ async function runTests() {
   const eventTypes = events.map(e => e.eventType);
   assert.ok(eventTypes.includes('AGENT_PLAN_CREATED'), 'Doit émettre AGENT_PLAN_CREATED');
   assert.ok(eventTypes.includes('AGENT_COMPLETED'), 'Doit émettre AGENT_COMPLETED');
+  const completed = events.find((event) => event.eventType === 'AGENT_COMPLETED');
+  const report = JSON.parse(completed.payloadJson || '{}').evidenceReport;
+  assert.notMatch(report.claims?.[0]?.statement || '', /Synthèse Cognitive Locale/, 'Un fallback ne doit pas être présenté comme une génération réussie');
   console.log(`-> Cas 4.1 Validé : Exit code 0, événements reçus : ${eventTypes.join(', ')}.`);
 
   // -------------------------------------------------------------
