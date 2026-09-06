@@ -81,6 +81,7 @@ async function callHttp(url, toolName, options = {}) {
 async function callStdio(transport, toolName, options = {}) {
   const { command: commandLine, args: cmdArgs = [] } = transport;
   const { args: toolArgs = {}, timeoutMs = 30000 } = options;
+  const deadlineAt = Date.now() + Math.max(1, Number(timeoutMs) || 30000);
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
@@ -105,11 +106,13 @@ async function callStdio(transport, toolName, options = {}) {
     }
   });
   const waitFor = (id) => new Promise((resolve, reject) => {
+    const remaining = deadlineAt - Date.now();
+    if (remaining <= 0) return reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
     const timer = setTimeout(() => {
       pending = null;
       child.kill('SIGKILL');
       reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
-    }, timeoutMs);
+    }, remaining);
     pending = { id, resolve, reject, timer };
   });
   child.once('error', (error) => {
