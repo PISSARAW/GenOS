@@ -121,7 +121,7 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
     try {
       await db.run(
         `UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, current_task = 'Terminated by Apoptosis Sentinel', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [agent]
+        agent
       );
     } catch (e) {
       // Ignore if agent row doesn't exist
