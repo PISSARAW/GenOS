@@ -26,8 +26,26 @@ message AgentMission {
   string genos_capsule_json = 14;
   string execution_policy_json = 15;
   string execution_budget_json = 16;
+  ConscienceState conscience_state = 17;
   string name_meaning = 20;
 }
 message AgentId { string id = 1; }
-message MissionResponse { bool success = 1; string message = 2; }
-message StatusResponse { bool stopped = 1; string status = 2; }
+message MissionResponse {
+  bool success = 1;
+  string message = 2;
+  ConscienceState conscience_state = 3;
+}
+message StatusResponse {
+  bool stopped = 1;
+  string status = 2;
+  ConscienceState conscience_state = 3;
+}
+message ConscienceState {
+  double current_budget = 1;
+  double baseline_budget = 2;
+  double dissonance_level = 3;
+  uint32 eureka_moments = 4;
+  bool is_apoptotic = 5;
+  double max_dissonance_threshold = 6;
+  uint64 revision = 7;
+}
