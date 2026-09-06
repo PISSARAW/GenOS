@@ -304,6 +304,22 @@ mod tests {
     }
 
     #[test]
+    fn test_validation_rejects_empty_chromosome() {
+        let mut genome = Genome::new("VALIDATE");
+        genome.chromosome_maternal.replace_sequence(Vec::new());
+        assert!(genome.validate().is_err());
+    }
+
+    #[test]
+    fn test_validation_rejects_invalid_gene_exon_range() {
+        let mut genome = Genome::new("VALIDATE");
+        let mut gene = Gene::new("GENE", "DNA");
+        gene.default_exons.push((0, gene.dna.len() + 1));
+        genome.insert_gene(gene);
+        assert!(genome.validate().is_err());
+    }
+
+    #[test]
     fn test_double_strand_repair_replaces_the_broken_region() {
         let mut genome = Genome::new("REPAIR");
         genome.chromosome_maternal.replace_sequence(vec![
