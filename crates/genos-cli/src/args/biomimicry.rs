@@ -237,7 +237,7 @@ pub enum EvolutionSubcommands {
         mutation_rate: f64,
         #[arg(long, default_value_t = 0.25)]
         daughter_volume: f64,
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 4)]
         merozoite_count: usize,
         #[arg(long)]
         hayflick_limit: Option<u32>,

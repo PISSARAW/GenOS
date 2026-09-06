@@ -139,33 +139,65 @@ fn handle_division(
             }
         }
         "schizogony" => {
-            match CellDivision::schizogony(&parent, merozoite_count) {
-                Ok(daughters) => {
-                    let ids: Vec<String> = daughters.iter().map(|d| d.genome_id().to_string()).collect();
+            let actual_seed = seed.unwrap_or("genos-default-schizogony");
+            match CellDivision::schizogony_with_seed(&parent, merozoite_count, mutation_rate, actual_seed) {
+                Ok(res) => {
+                    let ids: Vec<String> = res.merozoites.iter().map(|d| d.genome_id().to_string()).collect();
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "schizogony",
-                        "mother_genome_id": parent.genome_id().to_string(),
+                        "mother_genome_id": res.mother_genome_id.to_string(),
+                        "mother_lysed": res.mother_lysed,
                         "progeny_count": ids.len(),
                         "progeny_genome_ids": ids,
+                        "mutation_rate_applied": res.mutation_rate_applied,
+                        "seed": actual_seed,
                         "status": "schizogony_completed"
                     }));
                 }
                 Err(e) => print_json(json!({ "success": false, "error": e })),
             }
         }
+        "meiosis" => {
+            match CellDivision::meiosis_with_seed(&parent, None, seed.unwrap_or("genos-default-meiosis")) {
+                Ok(result) => {
+                    let ids: Vec<String> = result.gametes.iter().map(|d| d.genome_id().to_string()).collect();
+                    print_json(json!({
+                        "success": true,
+                        "operation": "cell_division",
+                        "division_mode": "meiosis",
+                        "mother_genome_id": parent.genome_id().to_string(),
+                        "progeny_count": ids.len(),
+                        "gamete_genome_ids": ids,
+                        "crossover_point": result.crossover_point,
+                        "reduction_completed": result.reduction_completed,
+                        "status": "meiosis_completed"
+                    }));
+                }
+                Err(e) => print_json(json!({ "success": false, "error": e })),
+            }
+        }
         _ => {
-            // Mitosis par défaut
-            match CellDivision::mitosis(&parent) {
-                Ok((p, c)) => {
+            // Mitosis par défaut (attestée avec contrôle du fuseau et rejet d'amitose)
+            match CellDivision::mitosis_attested(&parent) {
+                Ok(res) => {
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "mitosis",
-                        "parent_genome_id": p.genome_id().to_string(),
-                        "clone_genome_id": c.genome_id().to_string(),
+                        "parent_genome_id": res.parent.genome_id().to_string(),
+                        "clone_genome_id": res.clone.genome_id().to_string(),
+                        "lineage_id": res.attestation.lineage_id.to_string(),
+                        "spindle_aligned": res.attestation.spindle_aligned,
+                        "spindle_alignment_hash": res.attestation.spindle_alignment_hash,
+                        "attestation_hash": res.attestation.attestation_hash,
+                        "amitosis_rejected": res.attestation.amitosis_rejected,
                         "progeny_count": 1,
+                        "twin_clones": [
+                            res.parent.genome_id().to_string(),
+                            res.clone.genome_id().to_string()
+                        ],
                         "status": "mitosis_completed"
                     }));
                 }

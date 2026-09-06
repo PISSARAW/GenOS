@@ -34,6 +34,15 @@ fn parse_chromatin_state(value: &str) -> Result<ChromatinState, String> {
     }
 }
 
+fn telomere_state_path(agent_id: &str) -> Result<PathBuf, String> {
+    if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
+        return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
+    }
+    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    Ok(root.join("telomeres").join(format!("{}.json", agent_id)))
+}
+
+
 pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
     match cmd {
         BiomimicrySubcommands::CellularEndosymbiosis { agent_id, target_process, organelle_name } => {
@@ -281,17 +290,67 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "is_new_species": divergence > t
             }));
         }
-        BiomimicrySubcommands::TelomereFork { parent_id } => {
-            let parent = AgentCell::new(&parent_id, "Parent cellule souche", "Worker");
-            let fission_res = parent.binary_fission(0.01);
-            let (child_id, divisions) = match fission_res {
-                Ok((_, child)) => (child.cell_id.to_string(), 49),
-                Err(_) => (format!("child_{}", parent_id), 0),
+        BiomimicrySubcommands::TelomereFork { agent_id, force_telomerase } => {
+            let state_path = match telomere_state_path(&agent_id) {
+                Ok(p) => p,
+                Err(e) => {
+                    print_json(json!({
+                        "success": false,
+                        "operation": "telomere_fork",
+                        "parent_id": agent_id,
+                        "agent_id": agent_id,
+                        "error": e,
+                        "status": "error"
+                    }));
+                    return Ok(());
+                }
             };
-            print_json(json!({
-                "success": true, "operation": "telomere_fork",
-                "parent_id": parent_id, "child_id": child_id, "remaining_divisions": divisions
-            }));
+
+            let mut cell: AgentCell = if state_path.exists() {
+                match fs::read_to_string(&state_path).ok().and_then(|s| serde_json::from_str(&s).ok()) {
+                    Some(c) => c,
+                    None => AgentCell::new(&agent_id, "Cellule souche", "Worker"),
+                }
+            } else {
+                AgentCell::new(&agent_id, "Cellule souche", "Worker")
+            };
+
+            if force_telomerase {
+                cell.apply_telomerase();
+            }
+
+            match cell.budding(0.5) {
+                Ok(child) => {
+                    if let Some(parent_dir) = state_path.parent() {
+                        let _ = fs::create_dir_all(parent_dir);
+                    }
+                    let _ = fs::write(&state_path, serde_json::to_string_pretty(&cell).unwrap_or_default());
+                    print_json(json!({
+                        "success": true,
+                        "operation": "telomere_fork",
+                        "parent_id": agent_id,
+                        "agent_id": agent_id,
+                        "child_id": child.cell_id.to_string(),
+                        "bud_scars": cell.bud_scars,
+                        "hayflick_limit": cell.hayflick_limit,
+                        "remaining_divisions": cell.remaining_divisions(),
+                        "telomerase_active": force_telomerase,
+                        "is_senescent": cell.is_senescent,
+                        "status": if cell.is_senescent { "senescent" } else { "active" }
+                    }));
+                }
+                Err(e) => {
+                    print_json(json!({
+                        "success": false,
+                        "operation": "telomere_fork",
+                        "parent_id": agent_id,
+                        "agent_id": agent_id,
+                        "error": e,
+                        "remaining_divisions": cell.remaining_divisions(),
+                        "status": "senescent_blocked"
+                    }));
+                }
+            }
         }
         BiomimicrySubcommands::Apoptosis { agent_id } => {
             let mut cell = AgentCell::new(&agent_id, "Cellule cible", "Worker");
