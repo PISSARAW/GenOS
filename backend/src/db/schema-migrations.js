@@ -115,15 +115,27 @@ async function applyVersionedMigrations(db) {
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
   if (!evaluationNames.has('campaign_id')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN campaign_id TEXT');
   const synapseColumns = new Set((await db.all('PRAGMA table_info(memory_synapses)')).map(column => column.name));
-  if (!synapseColumns.has('transmitter_type')) await db.exec("ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'");
-  if (!synapseColumns.has('pre_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN pre_spike_at INTEGER');
-  if (!synapseColumns.has('post_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN post_spike_at INTEGER');
-  if (!synapseColumns.has('delta_t_ms')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN delta_t_ms REAL');
-  if (!synapseColumns.has('receptor_density')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN receptor_density REAL NOT NULL DEFAULT 1.0');
-  if (!synapseColumns.has('activity_history')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN activity_history INTEGER NOT NULL DEFAULT 0');
-  if (!synapseColumns.has('c3_opsonization')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN c3_opsonization REAL NOT NULL DEFAULT 0.0');
-  if (!synapseColumns.has('cd47_expression')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN cd47_expression REAL NOT NULL DEFAULT 1.0');
-  if (!synapseColumns.has('last_updated_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME');
+  const synapseAlterations = [
+    ['transmitter_type', "ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'"],
+    ['pre_spike_at', 'ALTER TABLE memory_synapses ADD COLUMN pre_spike_at INTEGER'],
+    ['post_spike_at', 'ALTER TABLE memory_synapses ADD COLUMN post_spike_at INTEGER'],
+    ['delta_t_ms', 'ALTER TABLE memory_synapses ADD COLUMN delta_t_ms REAL'],
+    ['receptor_density', 'ALTER TABLE memory_synapses ADD COLUMN receptor_density REAL NOT NULL DEFAULT 1.0'],
+    ['activity_history', 'ALTER TABLE memory_synapses ADD COLUMN activity_history INTEGER NOT NULL DEFAULT 0'],
+    ['c3_opsonization', 'ALTER TABLE memory_synapses ADD COLUMN c3_opsonization REAL NOT NULL DEFAULT 0.0'],
+    ['cd47_expression', 'ALTER TABLE memory_synapses ADD COLUMN cd47_expression REAL NOT NULL DEFAULT 1.0'],
+    ['last_updated_at', 'ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME']
+  ].filter(([column]) => !synapseColumns.has(column));
+  if (synapseAlterations.length) {
+    await db.exec('BEGIN IMMEDIATE;');
+    try {
+      for (const [, sql] of synapseAlterations) await db.exec(sql);
+      await db.exec('COMMIT;');
+    } catch (error) {
+      await db.exec('ROLLBACK;');
+      throw error;
+    }
+  }
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
   }
