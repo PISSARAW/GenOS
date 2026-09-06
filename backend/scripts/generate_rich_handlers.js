@@ -357,9 +357,16 @@ module.exports = {
   RecordLineage: async (call, callback) => {
     try {
       const db = await getDatabase();
-      const { agent_id, parent_id, role, score } = call.request || {};
-      await evolution.recordWorkerLineage(db, { agentId: agent_id, role }, { parentId: parent_id, predictedFitness: score });
-      callback(null, { success: true });
+      const { agent_id, parent_id, role, score, organization_id, project_id, workspace_id } = call.request || {};
+      if (!agent_id || !parent_id) return callback(null, { success: false });
+      let wsId = workspace_id;
+      if (!wsId) {
+        const agent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent_id);
+        wsId = agent?.workspace_id;
+      }
+      if (!wsId) return callback(null, { success: false });
+      const result = await evolution.recordWorkerLineage(db, { agentId: agent_id, workspaceId: wsId, role }, { parentId: parent_id, validatedFitness: score });
+      callback(null, { success: !!result?.success });
     } catch (err) {
       callback(null, { success: false });
     }
