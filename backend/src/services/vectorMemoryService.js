@@ -413,7 +413,7 @@ class VectorMemoryService {
         (Array.isArray(item.tags) && (item.tags.includes('golden_path') || item.tags.includes('trajectory')))
       )
     );
-    const explicitCandidates = allScored.filter(i => (i.status === 'SUCCESS' || !i.status || i.status === 'approved') && isExplicitGolden(i));
+    const explicitCandidates = allScored.filter(i => (i.status === 'SUCCESS' || !i.status || i.status === 'approved') && i.inhibitorySignal !== 'active' && isExplicitGolden(i));
 
     let topSuccessful;
     if (explicitCandidates.length > 0) {
@@ -425,11 +425,11 @@ class VectorMemoryService {
       }).slice(0, 3);
     } else {
       const isExecution = (i) => i.category !== 'Conversation' && i.category !== 'SystemSignal' && i.category !== 'Fact' && i.category !== 'Preference';
-      const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && isExecution(i));
-      const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS' && i.category !== 'Conversation' && i.category !== 'SystemSignal');
+      const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && isExecution(i));
+      const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && i.category !== 'Conversation' && i.category !== 'SystemSignal');
       topSuccessful = (candidateGolden.length > 0 ? candidateGolden : fallbackGolden).slice(0, 3);
     }
-    const topPitfalls = topItems.filter(i => i.status === 'FAILURE').slice(0, 2);
+    const topPitfalls = (scoredItems.filter(i => (i.status === 'FAILURE' || i.category === 'Failure') && i.id !== 'signal_ignorance')).slice(0, 2);
 
     return {
       query,

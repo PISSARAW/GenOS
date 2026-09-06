@@ -43,10 +43,10 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
           SELECT
             CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
             t.depth + 1,
-            ms.weight
+            t.weight * (MIN(2.0, ms.weight) / 2.0)
           FROM traverse t
           JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}
-          WHERE t.depth < 2 AND ms.weight > 0
+          WHERE t.depth < 2 AND ms.weight > 0 AND (ms.transmitter_type IS NULL OR ms.transmitter_type != 'gaba')
         )
       SELECT id, depth, weight FROM traverse WHERE depth > 0
       ORDER BY weight DESC, depth ASC LIMIT 15
@@ -79,7 +79,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
         id: item.id,
         title: item.title,
         category: item.category,
-        status: 'SUCCESS',
+        status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
         summary: item.content,
         tags: ['genome', item.category, 'graph_association'],
         author: item.created_by,
@@ -139,7 +139,7 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
           id: prev.id,
           title: prev.title,
           category: prev.category,
-          status: 'SUCCESS',
+          status: prev.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
           summary: prev.content,
           tags: ['genome', 'temporal_context_past'],
           author: prev.created_by,
@@ -173,7 +173,7 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
           id: next.id,
           title: next.title,
           category: next.category,
-          status: 'SUCCESS',
+          status: next.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
           summary: next.content,
           tags: ['genome', 'temporal_context_future'],
           author: next.created_by,
