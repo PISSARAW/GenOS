@@ -6,6 +6,23 @@ const os = require('os');
 const modelRouter = require('./modelRouter');
 const localModelDiscovery = require('./localModelDiscovery');
 
+let previousCpuSample = null;
+
+function machineLoad() {
+  if (process.platform !== 'win32') return os.loadavg()[0];
+  const cpus = os.cpus();
+  const times = cpus.reduce((total, cpu) => {
+    const value = cpu.times;
+    return total + value.user + value.nice + value.sys + value.idle + value.irq;
+  }, 0);
+  const idle = cpus.reduce((total, cpu) => total + cpu.times.idle, 0);
+  const current = { times, idle };
+  const previous = previousCpuSample;
+  previousCpuSample = current;
+  if (!previous || current.times <= previous.times) return null;
+  return ((current.times - previous.times) - (current.idle - previous.idle)) / (current.times - previous.times) * cpus.length;
+}
+
 function modelUsage(result = {}) {
   const inputTokens = Number(result.inputTokens || 0);
   const outputTokens = Number(result.outputTokens || 0);
@@ -63,13 +80,13 @@ function rankLocalModels(models, modelTier) {
 
 async function localWorkerRoute(db, agentId, role, modelTier, tenant = {}) {
   const cpuCount = os.cpus().length;
-  const load = os.loadavg()[0];
+  const load = machineLoad();
   const freeMemoryRatio = os.freemem() / os.totalmem();
   const models = await localModelDiscovery.discoverLocalModels();
   const localCodeEnabled = process.env.GENOS_ALLOW_LOCAL_CODE_WORKERS === '1';
   const reviewRole = /reviewer|observer|red_team|blue_team/i.test(role || '');
   const implementationRole = /implementation|coder|developer/i.test(role || '');
-  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && cpuCount >= 4 && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
+  const eligible = (reviewRole || (localCodeEnabled && implementationRole)) && cpuCount >= 4 && load !== null && load < cpuCount * 0.8 && freeMemoryRatio >= 0.15;
   const chatModels = competentLocalModels(models, { role, modelTier, purpose: 'worker' });
   const policy = await modelRouter.localRoutingPolicy(db, { agentId, ...tenant }, chatModels.map((model) => model.uri));
   const orderedUris = policy.configured
@@ -88,4 +105,4 @@ async function localWorkerRoute(db, agentId, role, modelTier, tenant = {}) {
   };
 }
 
-module.exports = { modelUsage, consultLocalModels, modelScale, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute };
+module.exports = { modelUsage, consultLocalModels, modelScale, localCompetencyFloor, competentLocalModels, rankLocalModels, localWorkerRoute, machineLoad };
