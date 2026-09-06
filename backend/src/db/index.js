@@ -68,7 +68,7 @@ async function closeDatabase() {
 
 async function withTransaction(db, callback) {
   // Laisse SQLite gérer la concurrence via WAL et busy_timeout
-  await db.exec('BEGIN TRANSACTION;');
+  await db.exec('BEGIN IMMEDIATE;');
   try {
     const result = await callback(db);
     await db.exec('COMMIT;');

@@ -125,6 +125,10 @@ function parseRow(row) {
 }
 
 async function saveContract(db, context = {}) {
+  if (!context._inTransaction) {
+    const { withTransaction } = require('../db');
+    return withTransaction(db, (tx) => saveContract(tx, { ...context, _inTransaction: true }));
+  }
   const agent = await db.get('SELECT a.id, a.execution_mode, a.workspace_id FROM agents a WHERE a.id = ?', context.agentId);
   if (!agent) throw new Error(`Agent '${context.agentId}' was not found`);
   if (context.workspaceId && agent.workspace_id !== context.workspaceId) {
@@ -150,7 +154,7 @@ async function saveContract(db, context = {}) {
     hash, JSON.stringify(contract), context.decisionReason || contract.selected_strategy.rationale,
     context.createdBy || 'orchestrator'
   );
-  return getLatestContract(db, context.agentId);
+  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE id = ?', id));
 }
 
 async function getLatestContract(db, agentId) {
