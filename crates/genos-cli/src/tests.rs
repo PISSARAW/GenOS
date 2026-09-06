@@ -121,6 +121,7 @@ mod tests {
             parent_b: "AGENT_BETA_FALSIFIER".to_string(),
             swap_prob: 0.5,
             crossover_point: None,
+            speciation_threshold: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_cross.is_ok());
@@ -130,9 +131,21 @@ mod tests {
             parent_b: "AGENT_BETA_FALSIFIER".to_string(),
             swap_prob: 0.5,
             crossover_point: Some(10),
+            speciation_threshold: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_cross_pt.is_ok());
+
+        // Test speciation barrier rejection when divergence exceeds threshold
+        let res_cross_speciation = reproduction::execute(EvolutionSubcommands::Crossover {
+            parent_a: "AGENT_ALPHA_ARCHITECT".to_string(),
+            parent_b: "AGENT_BETA_FALSIFIER".to_string(),
+            swap_prob: 0.5,
+            crossover_point: None,
+            speciation_threshold: Some(0.0001),
+            seed: Some("test-seed".to_string()),
+        });
+        assert!(res_cross_speciation.is_ok());
 
         // 2. Cell Division (Mitosis, Binary Fission, Budding, Schizogony)
         let res_mitosis = reproduction::execute(EvolutionSubcommands::Division {

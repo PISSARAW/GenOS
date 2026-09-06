@@ -194,6 +194,9 @@ async function runCrossover(options = {}) {
   if (options.crossoverPoint !== undefined) {
     args.push('--crossover-point', String(options.crossoverPoint));
   }
+  if (options.speciationThreshold !== undefined) {
+    args.push('--speciation-threshold', String(options.speciationThreshold));
+  }
   if (options.seed !== undefined) args.push('--seed', String(options.seed));
   const result = await runGenos(args);
   if (!result.json) return result;

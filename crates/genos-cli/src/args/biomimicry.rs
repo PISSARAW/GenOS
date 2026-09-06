@@ -226,6 +226,8 @@ pub enum EvolutionSubcommands {
         #[arg(long)]
         crossover_point: Option<usize>,
         #[arg(long)]
+        speciation_threshold: Option<f64>,
+        #[arg(long)]
         seed: Option<String>,
     },
     Division {

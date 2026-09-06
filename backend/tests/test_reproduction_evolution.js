@@ -159,13 +159,22 @@ async function runTests() {
   const db = await getDatabase();
   const parent1Id = `parent_test_1_${Date.now()}`;
   const parent2Id = `parent_test_2_${Date.now()}`;
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ('workspace-default', 'Default Workspace', ?)", __dirname);
 
   await db.run(
-    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier) VALUES (?, 'Parent Architect', 'architect', 'idle', 'GenOS', 'worker', 'Build resilient state machine', 'standard')",
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier, workspace_id) VALUES (?, 'Parent Architect', 'architect', 'idle', 'GenOS', 'worker', 'Build resilient state machine', 'standard', 'workspace-default')",
     parent1Id
   );
   await db.run(
-    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier) VALUES (?, 'Parent RedTeam', 'security_auditor', 'idle', 'GenOS', 'worker', 'Probe and fuzz invariants', 'standard')",
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier, workspace_id) VALUES (?, 'Parent RedTeam', 'security_auditor', 'idle', 'GenOS', 'worker', 'Probe and fuzz invariants', 'standard', 'workspace-default')",
+    parent2Id
+  );
+  await db.run(
+    "INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary) VALUES (?, 'workspace-default', 'Parent Architect', 'agent', 1.0, 'Parent')",
+    parent1Id
+  );
+  await db.run(
+    "INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary) VALUES (?, 'workspace-default', 'Parent RedTeam', 'agent', 1.0, 'Parent')",
     parent2Id
   );
 
@@ -209,6 +218,15 @@ async function runTests() {
     parentA: isolatedParentA, parentB: isolatedParentB, workspaceId: 'workspace-a'
   });
   assert.strictEqual(crossWorkspaceBreed.success, false, 'Cross-workspace breeding must be rejected');
+
+  // Speciation barrier enforcement test
+  const speciationBlockedBreed = await strategyAdapter.executePrimitive('breed', {
+    parentA: parent1Id,
+    parentB: parent2Id,
+    speciationThreshold: 0.0001
+  });
+  assert.strictEqual(speciationBlockedBreed.success, false, 'Breeding with exceeded speciation threshold must be blocked');
+  console.log('  ✅ PASS: Speciation barrier enforced in breed primitive');
 
   // --- 5. Test Strategy Primitive : Speciation with Phylogeny ---
   console.log('\n--- 5. Testing Strategy Primitive "speciation" with Niche Divergence ---');

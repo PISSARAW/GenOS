@@ -12,8 +12,8 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
         EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name } => {
             handle_assimilate_plasmid(agent_id, source_agent_id, plasmid_name);
         }
-        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, seed } => {
-            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, seed.as_deref());
+        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, speciation_threshold, seed } => {
+            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, speciation_threshold, seed.as_deref());
         }
         EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed } => {
             handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed.as_deref());
@@ -38,9 +38,33 @@ fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<S
     }));
 }
 
-fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_point: Option<usize>, seed: Option<&str>) {
+fn handle_crossover(
+    parent_a: &str,
+    parent_b: &str,
+    swap_prob: f64,
+    crossover_point: Option<usize>,
+    speciation_threshold: Option<f64>,
+    seed: Option<&str>,
+) {
     let mut g_a = Genome::new(parent_a);
     let mut g_b = Genome::new(parent_b);
+
+    let divergence = PhylogeneticTree::estimate_divergence_time(&g_a, &g_b);
+    if let Some(threshold) = speciation_threshold {
+        if divergence > threshold {
+            print_json(json!({
+                "success": false,
+                "operation": "meiotic_crossover",
+                "error": format!("Speciation barrier exceeded: phylogenetic divergence ({:.2} My) > threshold ({:.2} My)", divergence, threshold),
+                "parent_a": parent_a,
+                "parent_b": parent_b,
+                "phylogenetic_divergence_mya": divergence,
+                "speciation_threshold": threshold,
+                "status": "incompatible_barrier"
+            }));
+            return;
+        }
+    }
 
     // Enrichir avec quelques gènes de test pour valider l'échange
     g_a.insert_gene(Gene::new("strategy", "depth_first_mcts"));
@@ -76,6 +100,8 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
         "crossover_strategy": strategy_name,
         "seed": seed.unwrap_or("genos-default-crossover"),
         "maternal_sequence_length": child_a_mat_len,
+        "phylogenetic_divergence_mya": divergence,
+        "speciation_barrier_satisfied": true,
         "status": "recombined"
     }));
 }
