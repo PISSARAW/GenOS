@@ -1,4 +1,24 @@
 const { generate } = require('./modelRouter.js');
+const circuitBreaker = require('./circuitBreaker.js');
+
+const THREAT_SIGNATURES = [
+    { name: 'SQL_INJECTION', pattern: /\bunion\s+select\b|\bor\s+1\s*=\s*1\b|;\s*drop\s+table\b/i },
+    { name: 'COMMAND_INJECTION', pattern: /(?:;|&&|\|\|)\s*(?:rm|del|curl|wget|powershell|cmd)\b/i },
+    { name: 'PATH_TRAVERSAL', pattern: /(?:\.\.[/\\]){2,}/ },
+    { name: 'PROMPT_INJECTION', pattern: /ignore (?:all )?(?:previous|prior) instructions|system prompt/i }
+];
+
+function scanThreats(target) {
+    const content = String(target || '');
+    const threats = THREAT_SIGNATURES
+        .filter((signature) => signature.pattern.test(content))
+        .map((signature) => signature.name);
+    return { threats };
+}
+
+function tripKillSwitch(reason = 'Immune system emergency stop') {
+    return circuitBreaker.triggerHalt(String(reason), 'immune_system');
+}
 
 /**
  * Système Immunitaire Cognitif Global pour GenOS
@@ -300,6 +320,8 @@ function chaperoneAgentOutput(rawText, options = {}) {
 }
 
 module.exports = {
+    scanThreats,
+    tripKillSwitch,
     withImmunity,
     withTextImmunity,
     chaperoneAgentOutput,
