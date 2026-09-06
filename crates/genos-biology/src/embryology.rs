@@ -77,9 +77,17 @@ fn hox_axis(value: &str) -> Option<u8> {
 
 /// ACTE 4 : Le Sculpteur (Apoptose)
 pub fn sculpt_architecture_via_apoptosis(swarm: &mut Vec<AgentCell>) {
+    let mut role_counts = std::collections::HashMap::new();
+    for cell in swarm.iter() {
+        *role_counts.entry(cell.role.clone()).or_insert(0usize) += 1;
+    }
     for (i, cell) in swarm.iter_mut().enumerate() {
-        if i % 3 == 0 {
+        let count = role_counts.get(&cell.role).copied().unwrap_or(1);
+        if i % 3 == 0 && count > 1 {
             cell.trigger_apoptosis();
+            if let Some(role_count) = role_counts.get_mut(&cell.role) {
+                *role_count -= 1;
+            }
         }
     }
     swarm.retain(|c| c.is_alive());
@@ -131,5 +139,17 @@ mod tests {
         genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
         differentiate_swarm(&mut swarm, 1.0, &mut genome);
         assert!(genome.genes.values().all(|gene| !gene.developmentally_locked));
+    }
+
+    #[test]
+    fn test_apoptosis_preserves_hox_role_coverage() {
+        let zygote = AgentCell::new("Zygote", "Origin", "Stem");
+        let mut swarm = cleave_zygote(zygote, 2);
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        differentiate_swarm(&mut swarm, 1.0, &mut genome);
+        let roles: std::collections::HashSet<_> = swarm.iter().map(|cell| cell.role.clone()).collect();
+        sculpt_architecture_via_apoptosis(&mut swarm);
+        let surviving_roles: std::collections::HashSet<_> = swarm.iter().map(|cell| cell.role.clone()).collect();
+        assert_eq!(roles, surviving_roles);
     }
 }
