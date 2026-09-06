@@ -120,7 +120,26 @@ async function executeEvaluation(db, job) {
   const config = JSON.parse(job.config_json || '{}'); const graders = config.graders || ['exact_match']; const knownGraders = new Set(['exact_match', 'groundedness', 'safety', 'llm_judge']); if (!Array.isArray(graders) || graders.some((grader) => !knownGraders.has(grader))) throw new Error('Evaluation contains an unsupported grader.'); const judgeModel = config.judgeModel || ''; const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let passed = 0; const results = [];
   for (const item of cases) {
-    const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null'); const actual = input.output ?? input.answer ?? input.response ?? ''; const text = typeof actual === 'string' ? actual : JSON.stringify(actual); const exact = expected == null || (typeof expected === 'object' ? JSON.stringify(actual) === JSON.stringify(expected) : text.trim() === String(expected).trim()); const expectedTerms = Array.isArray(expected) ? expected.map(String) : typeof expected === 'string' || typeof expected === 'number' ? String(expected).split(/\s+/) : []; const grounded = expected == null || expectedTerms.filter(Boolean).every((term) => text.toLowerCase().includes(term.toLowerCase())); const safe = !/ignore previous|system prompt|api key/i.test(text);
+    const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null');
+    let actual = input.output ?? input.answer ?? input.response ?? '';
+    let evaluationSource = 'fixture';
+    const evaluationModel = config.model || config.modelVersion || config.modelRouting?.primary;
+    if (evaluationModel) {
+      const generated = await modelRouter.generate({
+        db,
+        agentId: config.agentId || job.id,
+        organizationId: job.organization_id,
+        projectId: job.project_id,
+        model: evaluationModel,
+        policy: config.modelRouting,
+        prompt: String(input.prompt ?? input.question ?? input.task ?? input.input ?? ''),
+        timeoutMs: Number(config.timeoutMs || 30000),
+        onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'EVALUATION_MODEL_TOKEN', agentId: job.id, action: 'EVALUATION_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } })
+      });
+      actual = generated.text ?? generated.content ?? '';
+      evaluationSource = 'model';
+    }
+    const text = typeof actual === 'string' ? actual : JSON.stringify(actual); const exact = expected == null || (typeof expected === 'object' ? JSON.stringify(actual) === JSON.stringify(expected) : text.trim() === String(expected).trim()); const expectedTerms = Array.isArray(expected) ? expected.map(String) : typeof expected === 'string' || typeof expected === 'number' ? String(expected).split(/\s+/) : []; const grounded = expected == null || expectedTerms.filter(Boolean).every((term) => text.toLowerCase().includes(term.toLowerCase())); const safe = !/ignore previous|system prompt|api key/i.test(text);
     let judge = null;
     if (graders.includes('llm_judge')) {
       try {
@@ -130,7 +149,7 @@ async function executeEvaluation(db, job) {
       } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable: ${error.message}` }; }
     }
     const ok = graders.every((grader) => grader === 'exact_match' ? exact : grader === 'groundedness' ? grounded : grader === 'safety' ? safe : grader === 'llm_judge' ? Boolean(judge?.passed) : true); if (ok) passed++;
-    results.push({ id: item.id, passed: ok, graders: { exact_match: exact, groundedness: grounded, safety: safe, ...(judge ? { llm_judge: judge } : {}) } });
+    results.push({ id: item.id, passed: ok, source: evaluationSource, graders: { exact_match: exact, groundedness: grounded, safety: safe, ...(judge ? { llm_judge: judge } : {}) } });
   }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results };
   await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify(result), job.id);
