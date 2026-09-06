@@ -202,8 +202,10 @@ async function superviseMission(options) {
         }
 
         // Évaluation de la Conscience Cognitive
-        const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType) || currentEvent.severity === 'error';
-        const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType) || (eventType === 'AGENT_STEP' && currentEvent.action === 'VERIFY');
+        const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)
+          || (currentEvent.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
+        const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)
+          && currentEvent.severity !== 'error';
         if (isErrorEvent) {
           const evalResult = agentConscience.evaluateBranch(conscienceState, { errorsInLoop: 1 });
           emit(agentId, 'CONSCIENCE_STATE_UPDATED', 'CONSCIENCE', `Dissonance cognitive augmentée à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'warning');
