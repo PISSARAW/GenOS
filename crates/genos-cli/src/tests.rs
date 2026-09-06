@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::args::{AgentSubcommands, SnapshotSubcommands, BiomimicrySubcommands, EvolutionSubcommands};
-    use crate::commands::{agent, snapshot, biomimicry, hallucination, replay, reproduction};
+    use crate::args::{AgentSubcommands, SnapshotSubcommands, BiomimicrySubcommands};
+    use crate::commands::{agent, snapshot, biomimicry, hallucination, replay};
 
     #[test]
     fn test_agent_and_snapshot_lifecycle() {
