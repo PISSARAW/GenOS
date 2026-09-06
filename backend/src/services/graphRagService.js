@@ -214,7 +214,9 @@ async function ingestDocument(docId, text, dbInstance = null) {
 
   const content = String(text || '').slice(0, 1000);
   const title = `Document ${docId}`;
-  const float32 = new Float32Array(768);
+  const { embed } = require('./embeddingProvider');
+  const vec = (await embed(content)) || textToVector(content);
+  const float32 = new Float32Array(vec);
   const buffer = Buffer.from(float32.buffer);
   await db.run(
     `INSERT OR REPLACE INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
