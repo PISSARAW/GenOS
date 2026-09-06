@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { buildAllocation, selectSurvivors } = require('./src/services/tokenAllocationService');
+const { buildAllocation, selectSurvivors } = require('../src/services/tokenAllocationService');
 
 const staged = buildAllocation({ totalTokens: 500000, workerShare: 0.6, workerCount: 3, minimumWorkerTokens: 8000, mode: 'successive_halving_with_reallocation' });
 assert.deepStrictEqual(staged.initial, { workerCount: 3, pool: 100000, perWorkerTokens: 33333 });
