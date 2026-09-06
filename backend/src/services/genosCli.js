@@ -73,7 +73,7 @@ function parseCommandLine(commandLine) {
   return args;
 }
 
-function runGenosSync(commandLine) {
+function runGenosSync(commandLine, { timeoutMs = 60000 } = {}) {
   const args = parseCommandLine(commandLine);
   if (args[0] === 'genos') args.shift();
   const bin = resolveGenosBin();
@@ -82,7 +82,9 @@ function runGenosSync(commandLine) {
     cwd: ensureRoot(),
     env: { ...process.env },
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
+    windowsHide: true,
+    timeout: Math.max(1, Number(timeoutMs) || 60000),
+    killSignal: 'SIGTERM'
   });
 }
 
