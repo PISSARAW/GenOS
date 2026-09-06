@@ -48,10 +48,16 @@ impl BiomimeticOrchestrator {
     }
 
     /// Crée et enregistre un nouveau Tissu cellulaire dirigé par la racine ou une cellule souche
-    pub fn create_tissue(&mut self, name: &str, function_role: &str) -> &mut Tissue {
+    pub fn create_tissue(&mut self, name: &str, function_role: &str) -> Result<&mut Tissue, String> {
+        if self.tissues.contains_key(name) {
+            return Err(format!("Tissu '{}' existe déjà", name));
+        }
+        if !self.active_cells.contains_key(&self.orchestrator_id) {
+            return Err("La cellule souche de l'orchestrateur est introuvable".to_string());
+        }
         let tissue = Tissue::new(name, function_role, self.orchestrator_id);
         self.tissues.insert(name.to_string(), tissue);
-        self.tissues.get_mut(name).unwrap()
+        Ok(self.tissues.get_mut(name).unwrap())
     }
 
     /// Intègre une cellule ouvrière dans un tissu donné
