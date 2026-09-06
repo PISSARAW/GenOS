@@ -99,10 +99,8 @@ impl Genome {
             } else {
                 &mut self.chromosome_paternal
             };
-            if start <= target.sequence.len() {
-                let tail = target.sequence.split_off(start);
-                target.sequence.extend(chunk);
-                target.sequence.extend(tail);
+            if start + len <= target.sequence.len() {
+                target.sequence.splice(start..start + len, chunk);
             }
         }
     }
@@ -172,5 +170,32 @@ mod tests {
         assert_eq!(g3.chromatin_state, ChromatinState::HeterochromatinConstitutive);
         assert_eq!(g3.developmentally_locked, true);
         assert_eq!(g3.is_methylated, true);
+    }
+
+    #[test]
+    fn test_double_strand_repair_replaces_the_broken_region() {
+        let mut genome = Genome::new("REPAIR");
+        genome.chromosome_maternal.sequence = vec![
+            crate::dna::DnaNucleotide::A,
+            crate::dna::DnaNucleotide::A,
+            crate::dna::DnaNucleotide::A,
+            crate::dna::DnaNucleotide::A,
+        ];
+        genome.chromosome_paternal.sequence = vec![
+            crate::dna::DnaNucleotide::C,
+            crate::dna::DnaNucleotide::G,
+            crate::dna::DnaNucleotide::T,
+            crate::dna::DnaNucleotide::C,
+        ];
+        genome.repair_double_strand_break(true, 1..3);
+        assert_eq!(
+            genome.chromosome_maternal.sequence,
+            vec![
+                crate::dna::DnaNucleotide::A,
+                crate::dna::DnaNucleotide::G,
+                crate::dna::DnaNucleotide::T,
+                crate::dna::DnaNucleotide::A,
+            ]
+        );
     }
 }

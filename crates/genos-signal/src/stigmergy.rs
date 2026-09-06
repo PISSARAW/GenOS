@@ -18,11 +18,14 @@ impl StigmergyField {
     pub fn new(default_decay: f64) -> Self {
         Self {
             markers: HashMap::new(),
-            default_decay,
+            default_decay: default_decay.clamp(0.0, 1.0),
         }
     }
 
     pub fn deposit(&mut self, marker: &str, amount: f64) {
+        if !amount.is_finite() || amount <= 0.0 {
+            return;
+        }
         let entry = self.markers.entry(marker.to_string()).or_insert(0.0);
         *entry += amount;
     }

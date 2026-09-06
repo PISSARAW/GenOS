@@ -14,10 +14,9 @@ mod tests {
 
     #[test]
     fn test_dna_synthesis_and_transcription() {
-        let dna = DnaStrand::synthesize("HELLO GENOS");
-        assert!(!dna.sequence.is_empty());
+        let dna = DnaStrand::new(vec![DnaNucleotide::A, DnaNucleotide::C, DnaNucleotide::G, DnaNucleotide::T]);
         let rna = RnaPolymerase::transcribe(&dna);
-        assert_eq!(rna.sequence.len(), dna.sequence.len());
+        assert_eq!(rna.sequence, vec![RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::C, RnaNucleotide::A]);
     }
 
     #[test]
@@ -31,5 +30,19 @@ mod tests {
             micro_rnas: &rnas,
         });
         assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_ribosome_uses_start_and_stop_codons() {
+        let rna = RnaStrand {
+            sequence: vec![
+                RnaNucleotide::G, RnaNucleotide::G, RnaNucleotide::G,
+                RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::G,
+                RnaNucleotide::G, RnaNucleotide::C, RnaNucleotide::U,
+                RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::A,
+            ],
+            ejc_positions: Vec::new(),
+        };
+        assert_eq!(Ribosome::translate(&rna).amino_acids, vec![10, 17]);
     }
 }

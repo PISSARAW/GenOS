@@ -73,7 +73,7 @@ impl PhylogeneticTree {
 
         let mut child_genome = genome_a.clone();
         child_genome.chromosome_maternal = genome_a.chromosome_maternal.clone();
-        child_genome.chromosome_paternal = genome_b.chromosome_maternal.clone();
+        child_genome.chromosome_paternal = genome_b.chromosome_paternal.clone();
 
         if divergence <= MAX_DIVERGENCE_INTROGRESSION && genome_a.extra_chromosomes.len() == genome_b.extra_chromosomes.len() {
             return HybridizationResult::Introgression(child_genome);

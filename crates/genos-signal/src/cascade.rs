@@ -20,7 +20,11 @@ impl Ligand {
         Self {
             name: name.to_string(),
             mode,
-            concentration,
+            concentration: if concentration.is_finite() {
+                concentration.max(0.0)
+            } else {
+                0.0
+            },
         }
     }
 }
@@ -42,7 +46,11 @@ impl Receptor {
     }
 
     pub fn receive(&self, ligand: &Ligand) -> Option<&str> {
-        if ligand.name == self.target_ligand && ligand.concentration >= self.threshold {
+        if ligand.name == self.target_ligand
+            && ligand.concentration.is_finite()
+            && self.threshold.is_finite()
+            && ligand.concentration >= self.threshold.max(0.0)
+        {
             Some(&self.internal_cascade_signal)
         } else {
             None

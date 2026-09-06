@@ -69,10 +69,10 @@ impl RnaPolymerase {
             .sequence
             .iter()
             .map(|n| match n {
-                DnaNucleotide::A => RnaNucleotide::A,
-                DnaNucleotide::C => RnaNucleotide::C,
-                DnaNucleotide::G => RnaNucleotide::G,
-                DnaNucleotide::T => RnaNucleotide::U,
+                DnaNucleotide::A => RnaNucleotide::U,
+                DnaNucleotide::C => RnaNucleotide::G,
+                DnaNucleotide::G => RnaNucleotide::C,
+                DnaNucleotide::T => RnaNucleotide::A,
             })
             .collect();
         RnaStrand {

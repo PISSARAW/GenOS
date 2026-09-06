@@ -7,24 +7,40 @@ impl MeioticCrossover {
         let mut child_a = parent_a.clone();
         let mut child_b = parent_b.clone();
 
-        let mut a_mat = parent_a.chromosome_maternal.sequence.clone();
-        let mut b_mat = parent_b.chromosome_maternal.sequence.clone();
-
-        if crossover_point < a_mat.len() && crossover_point < b_mat.len() {
-            let a_tail = a_mat.split_off(crossover_point);
-            let b_tail = b_mat.split_off(crossover_point);
-            a_mat.extend(b_tail);
-            b_mat.extend(a_tail);
-
-            child_a.chromosome_maternal.sequence = a_mat;
-            child_b.chromosome_maternal.sequence = b_mat;
-        }
+        let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
+        let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
+        child_a.chromosome_maternal.sequence = a_gamete_1;
+        child_a.chromosome_paternal.sequence = b_gamete_1;
+        child_b.chromosome_maternal.sequence = a_gamete_2;
+        child_b.chromosome_paternal.sequence = b_gamete_2;
 
         (child_a, child_b)
     }
 
+    fn gametes(parent: &Genome, crossover_point: usize) -> (Vec<genos_genome::DnaNucleotide>, Vec<genos_genome::DnaNucleotide>) {
+        let point = crossover_point.min(parent.chromosome_maternal.sequence.len())
+            .min(parent.chromosome_paternal.sequence.len());
+        let mut first = parent.chromosome_maternal.sequence[..point].to_vec();
+        first.extend_from_slice(&parent.chromosome_paternal.sequence[point..]);
+        let mut second = parent.chromosome_paternal.sequence[..point].to_vec();
+        second.extend_from_slice(&parent.chromosome_maternal.sequence[point..]);
+        (first, second)
+    }
+
     pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
         let mut child = parent_a.clone();
+        let swap_prob = swap_prob.clamp(0.0, 1.0);
+        for (index, (a, b)) in child
+            .chromosome_maternal
+            .sequence
+            .iter_mut()
+            .zip(parent_b.chromosome_maternal.sequence.iter())
+            .enumerate()
+        {
+            if ((index * 37) % 100) as f64 / 100.0 < swap_prob {
+                *a = b.clone();
+            }
+        }
         for (i, gene_b) in parent_b.genes.iter().enumerate() {
             let roll = ((i * 37) % 100) as f64 / 100.0;
             if roll < swap_prob {
