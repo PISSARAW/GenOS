@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use rand::RngExt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DnaNucleotide {
@@ -6,6 +7,17 @@ pub enum DnaNucleotide {
     C,
     G,
     T,
+}
+
+impl DnaNucleotide {
+    pub fn mutate<R: rand::RngExt + ?Sized>(&self, rng: &mut R) -> Self {
+        match self {
+            Self::A => [Self::C, Self::G, Self::T][rng.random_range(0..3)],
+            Self::C => [Self::A, Self::G, Self::T][rng.random_range(0..3)],
+            Self::G => [Self::A, Self::C, Self::T][rng.random_range(0..3)],
+            Self::T => [Self::A, Self::C, Self::G][rng.random_range(0..3)],
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +75,18 @@ impl DnaStrand {
         if position < self.sequence.len() {
             self.sequence[position] = nucleotide;
         }
+    }
+
+    pub fn mutate_stochastic<R: rand::RngExt + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
+        if rate <= 0.0 { return 0; }
+        let mut count = 0;
+        for nucleotide in &mut self.sequence {
+            if rng.random_bool(rate.clamp(0.0, 1.0)) {
+                *nucleotide = nucleotide.mutate(rng);
+                count += 1;
+            }
+        }
+        count
     }
 
     pub fn apply_radiation(&mut self, from_idx: usize) {
