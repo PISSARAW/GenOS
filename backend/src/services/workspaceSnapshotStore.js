@@ -13,6 +13,7 @@ const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
+const { terminateChild } = require('./processTermination');
 
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
@@ -345,6 +346,7 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
     const output = await new Promise((resolve, reject) => {
       const child = spawn(shellExecutable, shellArgs, {
         cwd: workingDirectory,
+        detached: process.platform !== 'win32',
         env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1', TMPDIR: runnerRoot },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsVerbatimArguments: useWindowsShell
@@ -357,7 +359,7 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
       };
       child.stdout.on('data', (chunk) => { stdout = append(stdout, chunk); });
       child.stderr.on('data', (chunk) => { stderr = append(stderr, chunk); });
-      const timer = setTimeout(() => { child.kill('SIGKILL'); reject(Object.assign(new Error(`Test command timed out after ${timeoutMs}ms.`), { code: 'TEST_TIMEOUT' })); }, timeoutMs);
+      const timer = setTimeout(() => { terminateChild(child); reject(Object.assign(new Error(`Test command timed out after ${timeoutMs}ms.`), { code: 'TEST_TIMEOUT' })); }, timeoutMs);
       child.on('error', (error) => { clearTimeout(timer); reject(error); });
       child.on('close', (code, signal) => { clearTimeout(timer); resolve({ exitCode: code == null ? -1 : code, signal, stdout, stderr, truncated }); });
     });

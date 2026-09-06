@@ -2,6 +2,7 @@ const fs = require('fs/promises');
 const path = require('path');
 const { spawn } = require('child_process');
 const snapshotStore = require('./workspaceSnapshotStore');
+const { terminateChild } = require('./processTermination');
 
 const FORBIDDEN_PARTS = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', 'tests', 'test']);
 const FORBIDDEN_NAMES = /(^|\/)(Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|\.env[^/]*|.*\.config\.[^/]+|.*(?:^|[._-])(test|spec)(?:[._-]|$).*|.*secret.*|.*credential.*)$/i;
@@ -29,8 +30,8 @@ function allowedTest(command, root) {
 async function runTest(command, root) {
   const [program, ...args] = command.split(' ');
   return new Promise((resolve) => {
-    const child = spawn(program, args, { cwd: root, shell: false, env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = ''; let stderr = ''; const timer = setTimeout(() => child.kill('SIGKILL'), 120000);
+    const child = spawn(program, args, { cwd: root, shell: false, detached: process.platform !== 'win32', env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);
     child.stdout.on('data', (chunk) => { stdout = (stdout + chunk).slice(0, 20000); }); child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(0, 20000); });
     child.on('close', (code, signal) => { clearTimeout(timer); resolve({ command, exitCode: code, signal, stdout, stderr }); });
     child.on('error', (error) => { clearTimeout(timer); resolve({ command, exitCode: -1, stderr: error.message }); });
