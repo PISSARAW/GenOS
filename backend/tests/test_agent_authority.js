@@ -46,6 +46,12 @@ async function run() {
     agentId: 'authority-orchestrator',
     problem: 'Repair a stateful defect with deterministic tests'
   });
+  await db.run("INSERT INTO workspaces (id, name, path, description) VALUES ('authority-other-workspace', 'Other workspace', ?, 'Cross-workspace authority test')", __dirname);
+  await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES ('authority-cross-worker', 'Cross Worker', 'Worker', 'idle', 'worker', 'authority-other-workspace', 'authority-orchestrator')");
+  await assert.rejects(
+    () => authority.authorizeMission(db, 'authority-cross-worker', 'authority-orchestrator', 'authority-other-workspace'),
+    (error) => error.code === 'ORCHESTRATOR_WORKSPACE_MISMATCH'
+  );
 
   assert.equal(authority.normalizeExecutionMode(), 'orchestrator');
   assert.equal(authority.normalizeExecutionMode('worker'), 'worker');
