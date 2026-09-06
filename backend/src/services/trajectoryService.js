@@ -55,6 +55,7 @@ function cherryPickGoldenPath(rawTurns = []) {
     prunedStepCount: deadEndCount,
     noiseReductionPercent: Number((((deadEndCount) / (turns.length || 1)) * 100).toFixed(1)),
     goldenPathSteps: goldenPath,
+    goldenPath: goldenPath,
     classificationSummary: {
       exploration: classifiedSteps.filter(s => s.classification === 'Exploration').length,
       breakthrough: classifiedSteps.filter(s => s.classification === 'Breakthrough').length,
@@ -124,7 +125,7 @@ async function recordMissionTrajectory(db, options = {}) {
   const agentId = options.agentId || options.authorName || 'GenOS Agent';
   const task = options.task || options.mission || 'Autonomous Task';
   const report = options.report || {};
-  const status = ['pending', 'active', 'rejected', 'revising'].includes(options.status) ? options.status : 'pending';
+  const status = ['pending', 'active', 'approved', 'rejected', 'revising'].includes(options.status) ? options.status : 'pending';
   const requestedConfidence = Number(options.confidence);
   const confidence = Number.isFinite(requestedConfidence) ? Math.max(0, Math.min(100, requestedConfidence)) : 0;
 

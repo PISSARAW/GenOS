@@ -38,7 +38,7 @@ module.exports = {
       const turns = (call.request?.turns_json || []).map((t) => typeof t === 'string' ? JSON.parse(t) : t);
       const res = vectorMemory.cherryPickGoldenPath(turns);
       callback(null, {
-        golden_path_json: JSON.stringify(res.goldenPath || []),
+        golden_path_json: JSON.stringify(res.goldenPathSteps || res.goldenPath || []),
         noise_reduction_pct: res.noiseReductionPercent || 0
       });
     } catch (err) {
