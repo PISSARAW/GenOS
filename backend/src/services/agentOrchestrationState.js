@@ -9,6 +9,7 @@ const telemetry = require('./telemetryObserver');
 
 const activeProcesses = new Map();
 const missionStarts = new Map();
+const cancelledStarts = new Set();
 const pendingContinuations = new Map();
 const autonomousRounds = new Map();
 const pendingWorkerRecoveries = new Map();
@@ -66,6 +67,7 @@ async function updateAgent(agentId, status, currentTask) {
 module.exports = {
   activeProcesses,
   missionStarts,
+  cancelledStarts,
   pendingContinuations,
   pendingContinuations,
   autonomousRounds,
