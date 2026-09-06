@@ -83,7 +83,8 @@ async function applyVersionedMigrations(db) {
     ['011-project-lifecycle', 'Persist active and archived project lifecycle state'],
     ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers'],
     ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references'],
-    ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing']
+    ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing'],
+    ['015-synapse-indexes', 'Add B-Tree indexes on memory_synapses for target, weight, pruning and tenant scoping']
   ];
   await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
     id TEXT PRIMARY KEY,
@@ -100,7 +101,11 @@ async function applyVersionedMigrations(db) {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_episodic_agent_session ON episodic_memories (agent_id, session_id, created_at);
-  CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);`);
+  CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);
+  CREATE INDEX IF NOT EXISTS idx_synapses_target ON memory_synapses(target_id);
+  CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight);
+  CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression);
+  CREATE INDEX IF NOT EXISTS idx_synapses_tenant ON memory_synapses(organization_id, project_id);`);
   await migrateAgentStatusConstraint(db);
   const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
   if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
@@ -151,7 +156,7 @@ async function applyVersionedMigrations(db) {
   if (!projectColumns.some((column) => column.name === 'status')) await db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (organization) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
-    await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
+    await db.run('UPDATE OR IGNORE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
   for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
