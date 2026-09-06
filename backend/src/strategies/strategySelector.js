@@ -122,7 +122,7 @@ function choosePortfolio(decisions, profile) {
 
 function planPolicies(profile) {
   return {
-    allocation: profile.complexity >= 0.7 ? 'successive_halving_with_recursive_reallocation' : 'equal_minimum_then_score_weighted',
+    allocation: profile.complexity >= 0.7 ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted',
     evaluation: profile.objectives_conflict ? 'pareto_frontier_and_knee_point' : profile.evaluability === 'deterministic_tests' ? 'hard_tests_then_weighted_fitness' : 'evidence_weighted_fitness',
     merge: profile.risk === 'high' ? 'human_approved_cognitive_merge' : 'conditional_winner_promotion'
   };
