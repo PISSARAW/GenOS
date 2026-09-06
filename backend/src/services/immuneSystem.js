@@ -25,9 +25,9 @@ function tripKillSwitch(reason = 'Immune system emergency stop') {
  * Accessible par l'Agent, l'Orchestrateur, Griot et la A-Team.
  */
 
-async function askLocalLLM(prompt, complexity, agentId = 'griot', variantIndex = undefined) {
+async function askLocalLLM(prompt, complexity, agentId = 'griot', variantIndex = undefined, modelRouting = {}) {
     try {
-        const res = await generate({ agentId, prompt, complexity, maxTokens: 3000, variantIndex });
+        const res = await generate({ agentId, prompt, complexity, maxTokens: 3000, variantIndex, ...modelRouting });
         return res.text || res.content || res.response || String(res);
     } catch (e) {
         return null;
@@ -116,7 +116,7 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
         const currentVariant = (opts.variantIndex !== undefined ? opts.variantIndex : 0) + (attempt - 1);
         console.log(`[ImmuneSystem-Text:${agentId}] Phagocytose Structurelle... Essai ${attempt}/${maxRetries} (Pléiotropie: Modèle index ${currentVariant})`);
         const fn = module.exports.askLocalLLM || askLocalLLM;
-        let rawRes = await fn(currentPrompt, complexity, agentId, currentVariant);
+        let rawRes = await fn(currentPrompt, complexity, agentId, currentVariant, opts.modelRouting || {});
         
         if (!rawRes) {
             console.log(`[Apoptose-Text:${agentId}] Mort silencieuse.`);

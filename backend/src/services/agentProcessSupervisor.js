@@ -285,7 +285,9 @@ async function superviseMission(options) {
     ,toolLeaseJson: JSON.stringify(normalizedMission.toolLease || []),
     genosCapsuleJson: JSON.stringify(genosCapsule),
     executionPolicyJson: JSON.stringify(normalizedMission.executionPolicy),
-    executionBudgetJson: JSON.stringify(runtimeBudget || {})
+    executionBudgetJson: JSON.stringify(runtimeBudget || {}),
+    localModel: normalizedMission.localModel || '',
+    localRoutingPolicyJson: JSON.stringify(normalizedMission.localRoutingPolicy || {})
   }));
   return { started: true, executionRun };
 }
