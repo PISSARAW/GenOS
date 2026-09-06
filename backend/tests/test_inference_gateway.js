@@ -79,7 +79,22 @@ async function main() {
   assert.ok(rejected, 'overflow task must be rejected with INFERENCE_QUEUE_FULL');
   global.__openGate();
   await Promise.allSettled([held, ...filler]);
+  await new Promise((resolve) => setImmediate(resolve));
   console.log('queue rejection OK');
+
+  gateway.reset();
+  process.env.GENOS_INFERENCE_MAX_CONCURRENT = '1';
+  process.env.GENOS_INFERENCE_QUEUE_CAPACITY = '8';
+  const fairnessGate = new Promise((resolve) => { global.__openGate = resolve; });
+  const fairnessOrder = [];
+  const first = gateway.schedule(() => fairnessGate.then(() => fairnessOrder.push('tenant-a-1')), { provider: 'vllm', organizationId: 'org-a', projectId: 'project-a' });
+  const aSecond = gateway.schedule(() => { fairnessOrder.push('tenant-a-2'); }, { provider: 'vllm', organizationId: 'org-a', projectId: 'project-a' });
+  const bFirst = gateway.schedule(() => { fairnessOrder.push('tenant-b-1'); }, { provider: 'vllm', organizationId: 'org-b', projectId: 'project-b' });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  global.__openGate();
+  await Promise.all([first, aSecond, bFirst]);
+  assert.deepEqual(fairnessOrder, ['tenant-a-1', 'tenant-b-1', 'tenant-a-2'], `bulk inference must rotate between tenants: ${JSON.stringify(fairnessOrder)}`);
+  console.log('tenant round-robin OK:', fairnessOrder.join(' < '));
   delete process.env.GENOS_INFERENCE_QUEUE_CAPACITY;
   delete process.env.GENOS_INFERENCE_QUEUE_TIMEOUT_MS;
   delete process.env.GENOS_INFERENCE_MAX_CONCURRENT;

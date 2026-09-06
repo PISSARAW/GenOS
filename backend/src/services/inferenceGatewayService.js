@@ -31,6 +31,10 @@ const state = {
     interactive: [],
     bulk: []
   },
+  lastFairnessKey: {
+    interactive: null,
+    bulk: null
+  },
   perProvider: new Map()
 };
 
@@ -97,8 +101,12 @@ function enqueue(task) {
 
 function dequeue() {
   const lane = state.queues.interactive.length ? 'interactive' : 'bulk';
-  const task = state.queues[lane].shift();
+  const queue = state.queues[lane];
+  const previousKey = state.lastFairnessKey[lane];
+  const nextIndex = queue.findIndex((task) => task.fairnessKey !== previousKey);
+  const task = queue.splice(nextIndex >= 0 ? nextIndex : 0, 1)[0];
   if (!task) return null;
+  state.lastFairnessKey[lane] = task.fairnessKey;
   const providerEntry = state.perProvider.get(task.provider);
   if (providerEntry) providerEntry.queued -= 1;
   return task;
@@ -184,6 +192,8 @@ function reset() {
   state.running = 0;
   state.queues.interactive = [];
   state.queues.bulk = [];
+  state.lastFairnessKey.interactive = null;
+  state.lastFairnessKey.bulk = null;
   state.perProvider = new Map();
 }
 
