@@ -6,16 +6,21 @@
 const arenaService = require('../services/arenaService');
 const telemetry = require('../services/telemetryObserver');
 
-let lastTournament = null;
+const tournaments = new Map();
+
+function scopeKey(req) {
+  return req.tenant ? `${req.tenant.organizationId}:${req.tenant.projectId}` : 'global';
+}
 
 async function getTournament(req, res, next) {
   try {
     // Lazily seed a deterministic default tournament so the leaderboard is
     // never empty for Studio dashboards or fresh backend processes.
-    if (!lastTournament) {
-      lastTournament = arenaService.runTournament(undefined, undefined, 3);
+    const key = scopeKey(req);
+    if (!tournaments.has(key)) {
+      tournaments.set(key, arenaService.runTournament(undefined, undefined, 3));
     }
-    res.json(lastTournament);
+    res.json(tournaments.get(key));
   } catch (err) {
     next(err);
   }
@@ -25,7 +30,7 @@ async function runTournament(req, res, next) {
   try {
     const { problemSpec, solvers, rounds, agentIds = [] } = req.body || {};
     const result = arenaService.runTournament(problemSpec, solvers, rounds || 3, agentIds);
-    lastTournament = result;
+    tournaments.set(scopeKey(req), result);
     result.leaderboard.forEach((solver) => telemetry.emitEvent({
       eventType: 'ARENA_SOLVER_EVALUATED',
       agentId: solver.agentId || 'arena_orchestrator',
@@ -42,7 +47,8 @@ async function runTournament(req, res, next) {
 
 async function getPareto(req, res, next) {
   try {
-    const solutions = req.body?.solutions || lastTournament?.leaderboard || null;
+    const tournament = tournaments.get(scopeKey(req));
+    const solutions = req.body?.solutions || tournament?.leaderboard || null;
     const paretoResult = arenaService.calculateParetoFront(solutions);
     res.json(paretoResult);
   } catch (err) {
@@ -56,11 +62,12 @@ async function getTrace(req, res, next) {
     // Unknown ids fall back to the most recent tournament: Studio inspectors
     // request traces by id from their local history, which may predate a
     // backend restart that reset the in-memory tournament cache.
-    if (!lastTournament) {
+    const tournament = tournaments.get(scopeKey(req));
+    if (!tournament) {
       return res.json({ traceId: null, format: format || 'json-dag', exportedAt: null, spans: [] });
     }
-    const solverKeys = lastTournament.leaderboard.map((solver) => solver.solverKey);
-    const trace = arenaService.exportTrace(tournamentId || lastTournament.tournamentId, format, solverKeys);
+    const solverKeys = tournament.leaderboard.map((solver) => solver.solverKey);
+    const trace = arenaService.exportTrace(tournamentId || tournament.tournamentId, format, solverKeys);
     res.json(trace);
   } catch (err) {
     next(err);
