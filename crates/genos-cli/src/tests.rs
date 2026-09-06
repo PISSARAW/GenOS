@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use crate::args::{AgentSubcommands, SnapshotSubcommands, BiomimicrySubcommands};
-    use crate::commands::{agent, snapshot, biomimicry, hallucination, replay};
+    use crate::args::{AgentSubcommands, SnapshotSubcommands, BiomimicrySubcommands, EvolutionSubcommands};
+    use crate::commands::{agent, snapshot, biomimicry, hallucination, replay, reproduction};
 
     #[test]
     fn test_agent_and_snapshot_lifecycle() {
@@ -260,5 +260,30 @@ mod tests {
 
         let audit_res = capsule::handle_audit("snap_test_101", None);
         assert!(audit_res.is_ok());
+    }
+
+    #[test]
+    fn test_budding_cli_lifecycle() {
+        let res = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_budding_test_root".to_string(),
+            mode: "budding".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 0.25,
+            merozoite_count: 1,
+            hayflick_limit: Some(5),
+            seed: None,
+        });
+        assert!(res.is_ok());
+
+        let res_invalid = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_budding_test_root".to_string(),
+            mode: "budding".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 1.5,
+            merozoite_count: 1,
+            hayflick_limit: Some(5),
+            seed: None,
+        });
+        assert!(res_invalid.is_ok());
     }
 }
