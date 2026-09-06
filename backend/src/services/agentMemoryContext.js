@@ -72,7 +72,7 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     // Uptake synaptic vesicles from the synaptic cleft
     let vesicleEngrams = [];
     try {
-      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId);
+      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId, { peek: true });
     } catch {}
 
     let epistemicShield = null;
@@ -95,7 +95,8 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
       const expLines = experiences.map(e => {
         const title = e.title ? `[${e.title}] ` : '';
         const summary = truncateWords(e.summary || e.content || '', 250);
-        const weight = e.weight !== undefined ? ` (force: ${Number(e.weight).toFixed(1)})` : '';
+        const weightVal = e.synaptic_weight ?? e.weight;
+        const weight = weightVal !== undefined && weightVal !== null ? ` (force: ${Number(weightVal).toFixed(1)})` : '';
         return `  * ${title}${summary}${weight}`;
       });
       sections.push(`- Souvenirs & Leçons Apprises :\n${expLines.join('\n')}`);
