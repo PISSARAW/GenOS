@@ -15,8 +15,8 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
         EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, seed } => {
             handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, seed.as_deref());
         }
-        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, seed } => {
-            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, seed.as_deref());
+        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed } => {
+            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed.as_deref());
         }
         EvolutionSubcommands::Phylogeny { action, genome_a, genome_b, mutation_rate, is_plant } => {
             handle_phylogeny(&action, &genome_a, genome_b.as_deref(), mutation_rate, is_plant);
@@ -80,8 +80,19 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
     }));
 }
 
-fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volume: f64, merozoite_count: usize, seed: Option<&str>) {
-    let parent = Genome::new(agent_id);
+fn handle_division(
+    agent_id: &str,
+    mode: &str,
+    mutation_rate: f64,
+    daughter_volume: f64,
+    merozoite_count: usize,
+    hayflick_limit: Option<u32>,
+    seed: Option<&str>,
+) {
+    let mut parent = Genome::new(agent_id);
+    if let Some(limit) = hayflick_limit {
+        parent.hayflick_limit = limit;
+    }
 
     match mode.to_lowercase().as_str() {
         "binary_fission" | "fission" => {
@@ -93,6 +104,8 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
                         "division_mode": "binary_fission",
                         "parent_genome_id": p.genome_id().to_string(),
                         "child_genome_id": c.genome_id().to_string(),
+                        "daughter_a_id": p.genome_id().to_string(),
+                        "daughter_b_id": c.genome_id().to_string(),
                         "mutation_rate_applied": mutation_rate,
                         "seed": seed.unwrap_or("genos-default-fission"),
                         "progeny_count": 1,
@@ -103,15 +116,21 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
             }
         }
         "budding" => {
-            match CellDivision::budding(&parent, daughter_volume) {
-                Ok((m, d)) => {
+            let limit = hayflick_limit.unwrap_or(parent.hayflick_limit);
+            match CellDivision::budding_with_limit(&parent, daughter_volume, parent.bud_scars.len() as u32, limit) {
+                Ok(res) => {
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "budding",
-                        "mother_genome_id": m.genome_id().to_string(),
-                        "daughter_genome_id": d.genome_id().to_string(),
-                        "daughter_volume": daughter_volume,
+                        "mother_genome_id": res.mother.genome_id().to_string(),
+                        "daughter_genome_id": res.daughter.genome_id().to_string(),
+                        "daughter_volume": res.daughter_volume,
+                        "mother_scars_count": res.bud_scars,
+                        "hayflick_limit": res.hayflick_limit,
+                        "remaining_buds": res.remaining_divisions,
+                        "is_senescent": res.is_senescent,
+                        "is_ephemeral": true,
                         "progeny_count": 1,
                         "status": "budding_completed"
                     }));
