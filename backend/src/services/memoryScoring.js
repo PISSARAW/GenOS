@@ -82,27 +82,23 @@ function cosineSimilarity(vecA = [], vecB = []) {
   return Number((dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))).toFixed(4));
 }
 
-/**
- * Evaluates epistemic vigilance multiplier and applies source markers
- * @param {object} item
- * @returns {number}
- */
 function computeCredibilityMultiplier(item) {
-  const authorLower = String(item.author || '').toLowerCase();
-  let multiplier = 1.0;
+  const authorLower = String(item?.author || '').toLowerCase();
+  if (authorLower === 'memory_seed' || authorLower === 'system') return 1.2;
+  if (authorLower === 'user' || authorLower === 'human') return 0.95;
+  return 1.0;
+}
 
-  if (authorLower === 'memory_seed' || authorLower === 'system') {
-    multiplier = 1.2;
-    if (item.summary && !item.summary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
-      item.summary = `[VERIFIED_SYSTEM_FACT] ${item.summary}`;
-    }
-  } else if (authorLower === 'user' || authorLower === 'human') {
-    multiplier = 0.95;
-    if (item.summary && !item.summary.startsWith('[Source: Utilisateur]')) {
-      item.summary = `[Source: Utilisateur] ${item.summary}`;
-    }
+function enrichSummaryWithSourceMarker(item) {
+  const authorLower = String(item?.author || '').toLowerCase();
+  const rawSummary = String(item?.summary || '');
+  if ((authorLower === 'memory_seed' || authorLower === 'system') && rawSummary && !rawSummary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
+    return `[VERIFIED_SYSTEM_FACT] ${rawSummary}`;
   }
-  return multiplier;
+  if ((authorLower === 'user' || authorLower === 'human') && rawSummary && !rawSummary.startsWith('[Source: Utilisateur]')) {
+    return `[Source: Utilisateur] ${rawSummary}`;
+  }
+  return rawSummary;
 }
 
 /**
@@ -181,6 +177,7 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
 
   return {
     ...item,
+    summary: enrichSummaryWithSourceMarker(item),
     similarityScore: Number(finalScore.toFixed(4)),
     cosineMetric: cosScore,
     weight
