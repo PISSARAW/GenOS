@@ -3,6 +3,7 @@
 const mcp = require('./mcpExecutor');
 const telemetry = require('./telemetryObserver');
 const path = require('path');
+const { getDatabase } = require('../db');
 
 function actionArguments(decision, event, workspaceRoot) {
   const payload = event.payload || {};
@@ -33,12 +34,30 @@ function actionArguments(decision, event, workspaceRoot) {
 function sourceBranch(payload) { return payload.branchId || payload.executionRunId || undefined; }
 
 async function execute({ orchestratorId, sourceAgentId, decision, event, workspaceRoot }) {
+  const sourceEventId = String(event.id || '').trim();
+  let db = null;
+  if (sourceEventId && decision.tool) {
+    db = await getDatabase();
+    const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
+    const receipt = await db.run(
+      `INSERT OR IGNORE INTO orchestration_action_receipts
+        (receipt_key, orchestrator_id, source_event_id, tool, status)
+       VALUES (?, ?, ?, ?, 'started')`,
+      receiptKey, orchestratorId, sourceEventId, decision.tool
+    );
+    if (receipt.changes !== 1) {
+      telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
+      return { executed: false, duplicate: true };
+    }
+  }
   const args = actionArguments(decision, event, workspaceRoot);
   if (!args) {
     telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: orchestratorId, action: decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, reason: decision.reason, eventId: event.id } });
+    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'failed', completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
     return { executed: false, deferred: true, reason: 'missing_required_evidence' };
   }
   const result = await mcp.execute({ agentId: orchestratorId, toolName: decision.tool, args });
+  if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", result.success ? 'completed' : 'failed', orchestratorId, sourceEventId, decision.tool);
   telemetry.emitEvent({ eventType: result.success ? 'ORCHESTRATION_ACTION_EXECUTED' : 'ORCHESTRATION_ACTION_FAILED', agentId: orchestratorId, action: decision.action, detail: result.success ? `Executed ${decision.tool}.` : `Could not execute ${decision.tool}: ${result.error || result.status}`, severity: result.success ? 'info' : 'warning', payload: { sourceAgentId, tool: decision.tool, args, result, eventId: event.id } });
   if (result.success && decision.tool === 'genos_record_experience') {
     const memoryArgs = { root: workspaceRoot, facts: [`${args.strategy}: ${args.outcome}`], decisions: [decision.reason], failures: args.successful ? [] : [args.outcome], constraints: ['Capsule changes are never merged automatically.'], source_refs: args.evidence || [] };
