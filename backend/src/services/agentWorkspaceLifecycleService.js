@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Worktree lifecycle for isolated agent capsules.
  *
  * createIsolatedWorkspace() hands every agent a git worktree (or, for non-Git
@@ -81,8 +81,19 @@ async function trackWorkspace(agentId, workspaceRoot) {
   );
 }
 
-function forgetWorkspace(agentId) {
+async function forgetWorkspace(agentId, cleanupDisk = false) {
+  const tracked = activeWorktrees.get(agentId);
   activeWorktrees.delete(agentId);
+  try {
+    const db = await getDatabase();
+    await ensureCleanupTable(db);
+    const row = await db.get('SELECT workspace_root FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+    await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
+    const targetRoot = tracked?.workspaceRoot || row?.workspace_root;
+    if (cleanupDisk && targetRoot) {
+      await cleanupWorkspace(targetRoot, agentId);
+    }
+  } catch (_) {}
 }
 
 async function cleanupWorkspace(workspaceRoot, agentId = null) {

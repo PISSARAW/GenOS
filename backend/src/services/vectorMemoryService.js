@@ -35,7 +35,7 @@ class VectorMemoryService {
     return getDatabase();
   }
 
-  async storeMemory(agentId, content, embedding = null) {
+  async storeMemory(agentId, content, embedding = null, tenant = {}) {
     const db = await this.initDb();
     const normalizedContent = String(content || '').trim();
     if (!normalizedContent) throw new Error('Memory content is required.');
@@ -49,9 +49,10 @@ class VectorMemoryService {
     const float32 = new Float32Array(vec);
     const buffer = Buffer.from(float32.buffer);
     await db.run(
-      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      id, 'Agent Experience', normalizedContent, buffer, agentId, 'Experience', 1.0
+      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, 'Agent Experience', normalizedContent, buffer, agentId, 'Experience', 1.0,
+      tenant.organizationId || null, tenant.projectId || null
     );
     return id;
   }
@@ -64,8 +65,15 @@ class VectorMemoryService {
   async fetchCorpus(db, query, queryVec, options = {}) {
     if (!db) return [];
     const ownerId = String(options.ownerId || '').trim();
+    const orgId = String(options.organizationId || '').trim();
+    const orgFilter = orgId ? ' AND (t.organization_id = ? OR t.organization_id IS NULL)' : '';
     const ownerFilter = ownerId ? ' AND t.created_by = ?' : '';
-    const ownerParams = ownerId ? [ownerId] : [];
+    const trajParams = [];
+    if (ownerId) trajParams.push(ownerId);
+    if (orgId) trajParams.push(orgId);
+    const decParams = [];
+    if (ownerId) decParams.push(ownerId);
+    if (orgId) decParams.push(orgId);
     const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
     const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
     const cleanQuery = query.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
@@ -97,9 +105,9 @@ class VectorMemoryService {
           LEFT JOIN vector_matches v ON t.rowid = v.rowid
           LEFT JOIN fts_matches f ON t.rowid = f.rowid
           WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)
-            ${ownerId ? 'AND t.author_id = ?' : ''}
+            ${ownerId ? 'AND t.author_id = ?' : ''}${orgFilter}
           ORDER BY rrf_score DESC LIMIT 50
-        `, [queryVecJson, ftsMatch, ...ownerParams]);
+        `, [queryVecJson, ftsMatch, ...trajParams]);
 
         const decisions = await db.all(`
           WITH 
@@ -121,9 +129,9 @@ class VectorMemoryService {
           FROM genome_decisions t
           LEFT JOIN vector_matches v ON t.rowid = v.rowid
           LEFT JOIN fts_matches f ON t.rowid = f.rowid
-          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}
+          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}${orgFilter}
           ORDER BY rrf_score DESC LIMIT 50
-        `, [queryVecJson, ftsMatch, ...ownerParams]);
+        `, [queryVecJson, ftsMatch, ...decParams]);
 
         const items = [];
         for (const item of trajectories) {
@@ -168,6 +176,7 @@ class VectorMemoryService {
 
     // Fallback: standard SQL table scan
     try {
+      const ownerParams = ownerId ? [ownerId] : [];
       const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at FROM trajectories${ownerId ? ' WHERE author_id = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
       const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions${ownerFilter ? ' WHERE created_by = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
       return [
@@ -281,7 +290,13 @@ class VectorMemoryService {
     }
 
     // GraphRAG: Spreading activation and time cells
-    const connectedItems = await expandGraphRag(topItems, db, { hormone: options.hormone, corpus: scoredItems, ownerId: options.ownerId });
+    const connectedItems = await expandGraphRag(topItems, db, {
+      hormone: options.hormone,
+      corpus: scoredItems,
+      ownerId: options.ownerId,
+      organizationId: options.organizationId,
+      projectId: options.projectId
+    });
     const allScored = [...topItems, ...connectedItems];
 
     // Explicit Golden Path matching: prioritize records categorized or tagged as GoldenPath/Trajectory
@@ -351,6 +366,11 @@ class VectorMemoryService {
           HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
         `);
         doomedIds = doomed.map(d => d.id);
+
+        if (doomedIds.length > 0) {
+          const placeholders = doomedIds.map(() => '?').join(',');
+          await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
+        }
 
         // 5. Trajectory retention & pruning: remove stale rejected non-exceptional trajectories
         let prunedTrajectories = 0;
