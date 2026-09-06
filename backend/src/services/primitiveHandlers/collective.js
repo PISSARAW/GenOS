@@ -12,10 +12,13 @@ async function pheromoneDeposit(context) {
   const orchestratorId = context.orchestratorId;
   const agentId = context.agentId;
   const path = context.path || context.trail || 'default_trail';
-  const strength = context.strength || 1.0;
+  const strength = context.strength === undefined ? 1 : Number(context.strength);
 
   if (!orchestratorId || !agentId) {
     return { success: false, error: 'orchestratorId and agentId required for pheromone_deposit.' };
+  }
+  if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
+    return { success: false, error: 'pheromone strength must be a finite value in [0, 1].' };
   }
 
   // On utilise l'infrastructure DynamicOrganization pour diffuser la trace
@@ -50,6 +53,8 @@ async function trailSelection(context) {
   }
   
   try {
+    const state = await dynOrg.getState(db, orchestratorId);
+    if (!state) return { success: false, error: `Orchestrator '${orchestratorId}' has no active organization.` };
     const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || 3600000);
     if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
       return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
@@ -58,8 +63,8 @@ async function trailSelection(context) {
     const referenceTime = Number.isFinite(suppliedReferenceTime) ? suppliedReferenceTime : Date.now();
     const rows = await db.all(
       `SELECT payload_json, created_at FROM agent_organization_messages 
-       WHERE orchestrator_id = ? AND kind = 'trace' ORDER BY id DESC LIMIT 100`,
-      orchestratorId
+        WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace' ORDER BY id DESC LIMIT 100`,
+            orchestratorId, state.version
     );
     
     const trailStrengths = {};
@@ -74,7 +79,7 @@ async function trailSelection(context) {
       } catch (e) {}
     }
     
-    const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a]);
+    const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a] || a.localeCompare(b));
     const selectedTrail = sortedTrails.length > 0 ? sortedTrails[0] : null;
     
     telemetry.emitEvent({
