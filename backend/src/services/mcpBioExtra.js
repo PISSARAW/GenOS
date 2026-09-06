@@ -68,7 +68,23 @@ function executeBioExtra(toolName, args = {}) {
     return handleBioCall(`genos biomimicry therapy --agent-id ${agentId} --therapy-type "${therapy}"`);
   }
 
-  const known = ['genos_quantitative_genetics', 'genos_coevolution', 'genos_lamarckian_mutation', 'genos_grns', 'genos_dna_methylation', 'genos_cell_division', 'genos_molecular_chaperone', 'genos_necrosis_ledger', 'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust', 'genos_routing_algorithm'];
+  if (toolName === 'genos_cell_division') {
+    const agentId = args.agent_id || args.agentId || 'cell_division_root';
+    const mode = args.mode || 'budding';
+    const params = [`--agent-id ${agentId}`, `--mode ${mode}`];
+    if (args.daughter_volume !== undefined || args.daughterVolume !== undefined) {
+      params.push(`--daughter-volume ${args.daughter_volume ?? args.daughterVolume}`);
+    }
+    if (args.mutation_rate !== undefined || args.mutationRate !== undefined) {
+      params.push(`--mutation-rate ${args.mutation_rate ?? args.mutationRate}`);
+    }
+    if (args.hayflick_limit !== undefined || args.hayflickLimit !== undefined) {
+      params.push(`--hayflick-limit ${args.hayflick_limit ?? args.hayflickLimit}`);
+    }
+    return handleBioCall(`genos evolution division ${params.join(' ')}`);
+  }
+
+  const known = ['genos_quantitative_genetics', 'genos_coevolution', 'genos_lamarckian_mutation', 'genos_grns', 'genos_dna_methylation', 'genos_molecular_chaperone', 'genos_necrosis_ledger', 'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust', 'genos_routing_algorithm'];
   if (known.includes(toolName)) {
     return handleBioCall(`genos extra ${toolName} --agent-id ${args.agent_id || 'global'}`);
   }
