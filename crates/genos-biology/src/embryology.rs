@@ -21,12 +21,20 @@ pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
 /// ACTE 2 & 3 : Le GPS Paracrine (Gènes HOX) et la Différenciation Épigénétique
 pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, genome: &mut Genome) {
     let total = swarm.len();
+    if total == 0 {
+        return;
+    }
+    let gradient = if topology_gradient.is_finite() {
+        topology_gradient.clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
     for (i, cell) in swarm.iter_mut().enumerate() {
-        let position_ratio = i as f64 / total.max(1) as f64;
+        let position_ratio = if total == 1 { 0.0 } else { i as f64 / (total - 1) as f64 };
 
-        if position_ratio < topology_gradient / 3.0 {
+        if position_ratio < gradient / 3.0 {
             cell.role = "HOX-1_UI_FRONTEND".to_string();
-        } else if position_ratio < (topology_gradient / 3.0) * 2.0 {
+        } else if position_ratio < (gradient / 3.0) * 2.0 {
             cell.role = "HOX-2_LOGIC_BACKEND".to_string();
         } else {
             cell.role = "HOX-3_DATA_STORAGE".to_string();
@@ -71,5 +79,19 @@ mod tests {
 
         sculpt_architecture_via_apoptosis(&mut swarm);
         assert!(swarm.len() < 4);
+    }
+
+    #[test]
+    fn test_differentiation_covers_hox_axis_and_clamps_gradient() {
+        let zygote = AgentCell::new("Zygote", "Origin", "Stem");
+        let mut swarm = cleave_zygote(zygote, 2);
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        differentiate_swarm(&mut swarm, 2.0, &mut genome);
+        assert_eq!(swarm.first().map(|cell| cell.role.as_str()), Some("HOX-1_UI_FRONTEND"));
+        assert_eq!(swarm.last().map(|cell| cell.role.as_str()), Some("HOX-3_DATA_STORAGE"));
+        assert!(swarm.iter().any(|cell| cell.role == "HOX-2_LOGIC_BACKEND"));
+
+        differentiate_swarm(&mut swarm, f64::NAN, &mut genome);
+        assert!(swarm.iter().all(|cell| cell.role == "HOX-3_DATA_STORAGE"));
     }
 }
