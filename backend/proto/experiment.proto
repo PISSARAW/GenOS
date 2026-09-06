@@ -9,6 +9,6 @@ service ExperimentService {
 
 message Empty {}
 message PingResponse { string status = 1; }
-message ExperimentRequest { string name = 1; string config_json = 2; }
-message ExperimentIdRequest { string experiment_id = 1; }
+message ExperimentRequest { string name = 1; string config_json = 2; string workspace_id = 3; string organization_id = 4; string project_id = 5; }
+message ExperimentIdRequest { string experiment_id = 1; string organization_id = 2; string project_id = 3; }
 message ExperimentResponse { string experiment_id = 1; string status = 2; string result_json = 3; }
