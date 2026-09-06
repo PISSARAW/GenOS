@@ -19,7 +19,7 @@ async function mctsSelect(context) {
     return { success: false, error: 'parentVisits must be a positive finite number.' };
   }
   const inferredParentVisits = parentVisits || Math.max(1, candidates.length);
-  const scope = context.workspaceId ? ' JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.id = ?' : ' WHERE n.id = ?';
+  const scope = context.workspaceId ? ' JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.id = ?' : ' WHERE id = ?';
   const scored = [];
   
   for (const cId of candidates) {
@@ -92,20 +92,22 @@ async function prune(context) {
 
 async function reallocate(context) {
   // Successive Halving / Budget : Réalloue le budget (tokens) des agents tués vers les survivants.
-  const survivors = context.survivors || [];
-  const totalBudget = context.totalBudget || 100000;
+  const survivors = [...new Set((context.survivors || []).map(String).filter(Boolean))];
+  const totalBudget = context.totalBudget === undefined ? 100000 : Number(context.totalBudget);
   if (survivors.length === 0) return { success: false, error: 'No survivors to reallocate budget to.' };
+  if (!Number.isSafeInteger(totalBudget) || totalBudget < 0) return { success: false, error: 'totalBudget must be a non-negative safe integer.' };
   
   // Réallocation équitable
   const budgetPerSurvivor = Math.floor(totalBudget / survivors.length);
+  const remainder = totalBudget % survivors.length;
   const allocations = {};
-  survivors.forEach(s => allocations[s] = budgetPerSurvivor);
+  survivors.forEach((s, index) => { allocations[s] = budgetPerSurvivor + (index < remainder ? 1 : 0); });
   
   telemetry.emitEvent({
     eventType: 'SEARCH_REALLOCATE',
     agentId: context.orchestratorId || 'strategy_adapter',
     action: 'REALLOCATE',
-    detail: `Reallocated budget: ${budgetPerSurvivor} tokens per survivor (${survivors.length} survivors).`,
+    detail: `Reallocated ${totalBudget} tokens across ${survivors.length} survivors.`,
     severity: 'info',
     payload: { allocations, totalBudget }
   });
