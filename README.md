@@ -194,6 +194,11 @@ npm start
 ```
 The runtime initializes SQLite, loads vector and graph capabilities, and exposes the HTTP and gRPC control plane.
 
+The `g.cmd` and `g.ps1` wrappers intentionally target the user-friendly
+`genos-simple-cli` binary (`g`). The native `genos-cli` binary (`genos`) is
+invoked through the Cargo commands above or directly from `target/debug` after
+building the workspace; the two CLIs expose different command surfaces.
+
 ### 3. Connect via MCP (Model Context Protocol)
 
 GenOS provides an integrated MCP server allowing Claude, Cursor, or any compatible AI agent to invoke biological primitives:
