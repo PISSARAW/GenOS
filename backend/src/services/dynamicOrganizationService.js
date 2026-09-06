@@ -39,6 +39,15 @@ function organizationError(code, message) {
   return error;
 }
 
+function parsePayload(payloadJson) {
+  try {
+    const payload = JSON.parse(payloadJson || '{}');
+    return payload && typeof payload === 'object' ? payload : {};
+  } catch (_) {
+    return {};
+  }
+}
+
 async function ensureTables(db) {
   if (tableInitializations.has(db)) return tableInitializations.get(db);
   const initialization = db.exec(`
@@ -218,7 +227,7 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
     messages: rows.map((row) => ({
       ...row,
       senderAgentId: organizationProfile(row.organization)?.visibility === 'anonymous' ? 'anonymous_worker' : row.senderAgentId,
-      payload: JSON.parse(row.payloadJson || '{}')
+      payload: parsePayload(row.payloadJson)
     }))
   };
 }
