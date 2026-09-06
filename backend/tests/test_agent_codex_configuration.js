@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { commandOptions } = require('./src/services/codexRuntimeConfiguration');
+const { commandOptions } = require('../src/services/codexRuntimeConfiguration');
 
 assert.deepStrictEqual(commandOptions({}, {}), []);
 assert.deepStrictEqual(

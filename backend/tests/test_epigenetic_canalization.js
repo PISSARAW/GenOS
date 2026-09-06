@@ -1,9 +1,9 @@
 const assert = require('assert');
-const { withTextImmunity } = require('./src/services/immuneSystem.js');
+const { withTextImmunity } = require('../src/services/immuneSystem.js');
 
 console.log("=== TESTS : CANALISATION ÉPIGÉNÉTIQUE (CHAPERON MARKDOWN) ===");
 
-const immuneSys = require('./src/services/immuneSystem.js');
+const immuneSys = require('../src/services/immuneSystem.js');
 
 let callCount = 0;
 immuneSys.askLocalLLM = async (prompt) => {
@@ -13,11 +13,11 @@ immuneSys.askLocalLLM = async (prompt) => {
         return `
 # Titre
 ## 1. Contexte
-Bla bla
+GenOS orchestre des agents autonomes dans un workspace isolé.
 ## 2. Innovations
-Bla bla
+Le protocole protobuf transmet les événements de mission.
 ## 3. Impact
-Bla bla
+La supervision conserve des preuves vérifiables.
         `;
     }
     if (callCount === 2) {
@@ -25,13 +25,13 @@ Bla bla
         return `
 # Titre
 ## 1. Contexte
-Bla bla
+GenOS orchestre des agents autonomes dans un workspace isolé.
 ## 2. Innovations
-Bla bla
+Le protocole protobuf transmet les événements de mission.
 ## 3. Impact
-Bla bla
+La supervision conserve des preuves vérifiables.
 ## Sources
-- Source 1
+- Documentation interne du runtime.
         `;
     }
     return null;
