@@ -166,8 +166,26 @@ process.stdin.on('end', async () => {
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
-  const codexArgs = /\.c?js$/i.test(codex) ? [codex] : [];
-  const codexCommand = codexArgs.length ? process.execPath : codex;
+  const resolveCodexLaunch = (candidate) => {
+    if (!candidate || typeof candidate !== 'string') return { command: 'codex', args: [] };
+    const trimmed = candidate.trim();
+    if (!trimmed) return { command: 'codex', args: [] };
+    const isFile = (() => {
+      try {
+        return fs.existsSync(trimmed) && fs.statSync(trimmed).isFile();
+      } catch {
+        return false;
+      }
+    })();
+    const ext = path.extname(trimmed).toLowerCase();
+    if (isFile && (['.js', '.cjs', '.mjs', '.py', '.ts'].includes(ext) || !ext)) {
+      return { command: process.execPath, args: [trimmed] };
+    }
+    return { command: trimmed, args: [] };
+  };
+  const codexLaunch = resolveCodexLaunch(codex);
+  const codexCommand = codexLaunch.command;
+  const codexArgs = [...codexLaunch.args];
   // Worker capsules are intentionally plain copied directories rather than
   // Git worktrees. Codex must therefore accept an isolated non-Git capsule.
   // Runtime agents must not inherit the operator's MCP catalog. In particular,
@@ -387,11 +405,20 @@ process.stdin.on('end', async () => {
         emit({ eventType: 'WORKER_TASK_FAILED', action: 'REPORT_FAILURE', detail: classified.failure.reason || 'Worker did not complete the assigned task.', severity: 'warning', status: 'error', currentTask: 'Task failed; awaiting orchestrator decision', payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof } });
       } else {
         emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
-        strategyAdapter.executePipelineWithFeedback(
-          ['stdp_update', 'cherry_pick_golden_path'],
-          { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
-        ).catch(() => {});
-        agentMemory.compileExecutionMemory(agentName, mission.prompt, report?.claims?.map(c => c.statement).join('\n') || finalReportText).catch(() => {});
+        if (strategyContract.promotion?.require_human_approval === true) {
+          emit({ eventType: 'AGENT_AWAITING_APPROVAL', action: 'PROMOTION_GATE', detail: 'Human approval is required before strategy promotion.', status: 'blocked', currentTask: 'Awaiting human approval', payload: { evidenceReport: report } });
+        } else {
+          strategyAdapter.executePipelineWithFeedback(
+            ['stdp_update', 'cherry_pick_golden_path'],
+            { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
+          ).catch(() => {});
+          agentMemory.compileExecutionMemory(
+            agentName,
+            mission.prompt,
+            report?.claims?.map(c => c.statement).join('\n') || finalReportText,
+            { outcome: report?.outcome || 'success', organizationId: mission.organizationId, projectId: mission.projectId }
+          ).catch(() => {});
+        }
       }
     }
     else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });

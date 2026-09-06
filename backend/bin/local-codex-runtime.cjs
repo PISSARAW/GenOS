@@ -225,7 +225,7 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
           ]
         }
       );
-      await agentMemory.compileExecutionMemory(agentName, prompt, reply);
+      await agentMemory.compileExecutionMemory(agentName, prompt, reply, { outcome: 'success' });
     } catch (e) {}
 
     const report = { 
