@@ -12,7 +12,7 @@ const { paginateList } = require('../controllers/listPagination');
 router.use(attachTenant);
 
 router.get('/', paginateList(workspaceController.listWorkspaces));
-router.post('/', requirePermission('workspace:write'), workspaceController.createWorkspace);
+router.post('/', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.createWorkspace);
 router.get('/diff', workspaceController.getDiff);
 router.post('/bisect', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.bisect);
 router.post('/rollback', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.rollback);
