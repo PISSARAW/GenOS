@@ -21,6 +21,33 @@ function workerRole(label, hypothesis, role, modelTier) {
   return { label, hypothesis, role, modelTier };
 }
 
+function validatePhasesVsPortfolio(phases, portfolio = []) {
+  // Portfolio contains primitive names like 'search_memory', but phases require tool names like 'genos_search_failures'.
+  // Map tool names to primitive names by stripping the 'genos_' prefix.
+  const portfolioPrimitives = new Set((portfolio || []).flatMap((s) => s.primitives || []));
+  const missingByPhase = {};
+  for (const p of phases || []) {
+    const missing = [];
+    for (const tool of p.requiredTools || []) {
+      const primitiveName = String(tool).replace(/^genos_/, '');
+      if (!portfolioPrimitives.has(primitiveName) && !portfolioPrimitives.has(tool)) {
+        missing.push(tool);
+      }
+    }
+    if (missing.length > 0) {
+      missingByPhase[p.key] = missing;
+    }
+  }
+  return { missingByPhase, canProceed: Object.keys(missingByPhase).length === 0 };
+}
+
+function filterPhasesToPortfolio(phases, portfolio = []) {
+  // Filter phases to only those that can be executed with the portfolio.
+  const validation = validatePhasesVsPortfolio(phases, portfolio);
+  const missingPhases = new Set(Object.keys(validation.missingByPhase));
+  return phases.filter((p) => !missingPhases.has(p.key));
+}
+
 function buildAutonomyPlan(contract, budget = {}) {
   const profile = contract.problem_profile || {};
   const highRisk = profile.risk === 'high';
@@ -42,6 +69,11 @@ function buildAutonomyPlan(contract, budget = {}) {
   if (security) phases.push(phase('red_queen', ['genos_security_coevolution'], 'Run Red/Blue/neutral-observer coevolution in isolated worlds.'));
   phases.push(phase('replay_and_promote', ['genos_replay', 'genos_record_decision'], 'Replay the selected result and preserve the rationale before promotion.'));
 
+  // Filter phases to ensure they are realizable with the selected portfolio.
+  // If a phase requires primitives not in the portfolio, skip it.
+  // This ensures the autonomy plan adapts to the actual portfolio capabilities.
+  const realizable = filterPhasesToPortfolio(phases, contract.strategy_portfolio || []);
+
   const branches = (contract.branches || []).slice(0, branchCount);
   const workers = security
     ? [
@@ -51,7 +83,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     ]
     : branches.map((branch, index) => workerRole(branch.label, branch.hypothesis, index === 0 ? 'implementation' : 'independent_reviewer', index === 0 ? 'frontier' : 'standard'));
 
-  const requiredTools = [...new Set(phases.flatMap((entry) => entry.requiredTools))];
+  const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
   const totalTokens = Number(budget.tokens || 500000);
   const minimumWorkerTokens = Number(budget.minimumWorkerTokens || 8000);
   const affordableWorkers = Math.max(0, Math.floor((totalTokens * 0.6) / minimumWorkerTokens));
@@ -120,7 +152,7 @@ function buildAutonomyPlan(contract, budget = {}) {
         decide: 'replay the smallest relevant capsule; escalate to an adversarial Red/Blue loop for security or recurring failures'
       }
     ],
-    phases,
+    phases: realizable,
     requiredTools,
     workers,
     dispatchWorkers,
