@@ -6,10 +6,13 @@ import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { createRequire } from "module";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+const strategyTools = require("../backend/src/services/mcpStrategyTools");
 
 const server = new Server(
   { name: "genos-mcp", version: "3.0.0" },
@@ -229,6 +232,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     let result = "";
     switch (name) {
+      case "genos_execute_primitive": {
+        const primitiveArgs = {
+          ...args,
+          primitive: args.primitive || args.primitive_name || args.name,
+        };
+        const execution = await strategyTools.executeStrategyTool(name, primitiveArgs);
+        if (!execution) throw new Error(`Strategy tool '${name}' is unavailable.`);
+        if (!execution.success) throw new Error(execution.output?.error || `Primitive '${args.primitive_name || args.primitive || args.name || ''}' failed.`);
+        result = JSON.stringify(execution.output);
+        break;
+      }
       case "genos_orchestrate":
         result = await runOrchestrator({ action: "orchestrate", ...args });
         break;
