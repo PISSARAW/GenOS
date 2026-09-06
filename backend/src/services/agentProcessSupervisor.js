@@ -78,7 +78,7 @@ async function superviseMission(options) {
   // Disposable capsules (git worktrees or copies) are reclaimed after the
   // mission ends; a caller-provided workspace is never tracked.
   if (normalizedMission.workspaceProvisioned === true || dispatchedAgent.execution_mode === 'orchestrator') {
-    workspaceLifecycle.trackWorkspace(agentId, workspaceRoot);
+    await workspaceLifecycle.trackWorkspace(agentId, workspaceRoot);
   }
   // This marker distinguishes a deliberate control-plane stop from a runtime
   // failure.  SIGTERM makes a child exit non-zero on many platforms, so the
@@ -249,7 +249,7 @@ async function superviseMission(options) {
     swarmSentinel.clearAgent(agentId);
     // The capsule outlives the process only by the GC grace delay, so
     // evidence-aware merging can finish reading it before reclamation.
-    workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
+    await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
     const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
     const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
     if (!terminalEventSeen || termination || operatorStop) {
