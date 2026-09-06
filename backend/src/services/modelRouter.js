@@ -84,10 +84,11 @@ async function localRoutingPolicy(db, context, discovered = []) {
 }
 
 function parseSize(name) {
-  const match = name.match(/(\d+)(b|m)/i);
-  if (!match) return 7e9; // Fallback to 7B if unknown
-  const val = parseInt(match[1], 10);
-  return match[2].toLowerCase() === 'm' ? val * 1e6 : val * 1e9;
+  const match = String(name).match(/(\d+(?:\.\d+)?)\s*(k|m|b)/i);
+  if (!match) return 7e9;
+  const value = Number(match[1]);
+  const multiplier = { k: 1e3, m: 1e6, b: 1e9 }[match[2].toLowerCase()];
+  return value * multiplier;
 }
 
 async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
@@ -165,4 +166,4 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
 }
 
-module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore };
+module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
