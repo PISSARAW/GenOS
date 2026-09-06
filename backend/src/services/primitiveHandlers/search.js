@@ -4,6 +4,7 @@
  */
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
+const genosCli = require('../genosCli');
 
 async function mctsSelect(context) {
   // Monte Carlo Tree Search : Sélectionne le prochain noeud à explorer via la formule UCB1.
@@ -182,4 +183,93 @@ async function prmEvaluate(context) {
   }
 }
 
-module.exports = { mctsSelect, prune, reallocate, budgetLimit, prmEvaluate };
+async function schizogonyBurst(context = {}) {
+  const db = await getDatabase();
+  const agentId = context.agentId || context.orchestratorId || context.nodeId || 'schizont_root';
+  const merozoiteCount = Number(context.merozoiteCount || context.count || 4);
+  const mutationRate = Number(context.mutationRate !== undefined ? context.mutationRate : 0.05);
+  const seed = context.seed || 'mcts_schizogony_burst';
+  const workspaceId = context.workspaceId || 'workspace-default';
+
+  const divisionResult = await genosCli.runCellDivision({
+    agentId,
+    mode: 'schizogony',
+    merozoiteCount,
+    mutationRate,
+    seed
+  });
+
+  if (!divisionResult.ok || !divisionResult.json?.success) {
+    return {
+      success: false,
+      error: divisionResult.stderr || divisionResult.json?.error || 'Schizogony CLI execution failed'
+    };
+  }
+
+  const data = divisionResult.json;
+  const progenyIds = data.progeny_genome_ids || [];
+
+  // Register speculative branches in lineage_nodes for MCTS
+  for (let i = 0; i < progenyIds.length; i++) {
+    const merozoiteId = progenyIds[i];
+    try {
+      await db.run(
+        `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, state_summary, metadata)
+         VALUES (?, ?, ?, 'speculative_merozoite', 0.5, 0, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET score = excluded.score`,
+        merozoiteId,
+        workspaceId,
+        `Merozoite Branch ${i + 1} of ${agentId}`,
+        `MCTS Speculative Hypothesis #${i + 1}`,
+        JSON.stringify({
+          motherId: agentId,
+          motherGenomeId: data.mother_genome_id,
+          branchIndex: i + 1,
+          mutationRate: data.mutation_rate_applied,
+          seed
+        })
+      );
+    } catch (_) {}
+  }
+
+  // Update mother node in lineage graph: mark as lysed
+  try {
+    await db.run(
+      `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary, metadata)
+       VALUES (?, ?, ?, 'lysed_schizont', 1.0, 'Lysed Schizont Mother', ?)
+       ON CONFLICT(id) DO UPDATE SET state_summary = excluded.state_summary, metadata = excluded.metadata`,
+      agentId,
+      workspaceId,
+      `Schizont ${agentId}`,
+      JSON.stringify({ lysed: true, merozoitesReleased: progenyIds.length })
+    );
+  } catch (_) {}
+
+  telemetry.emitEvent({
+    eventType: 'SEARCH_SCHIZOGONY_BURST',
+    agentId: agentId || 'strategy_adapter',
+    action: 'SCHIZOGONY_BURST',
+    detail: `Schizogonic MCTS burst released ${progenyIds.length} speculative merozoite branches.`,
+    severity: 'info',
+    payload: {
+      motherId: agentId,
+      motherGenomeId: data.mother_genome_id,
+      progenyCount: progenyIds.length,
+      progenyGenomeIds: progenyIds,
+      mutationRate: data.mutation_rate_applied
+    }
+  });
+
+  return {
+    success: true,
+    divisionMode: 'schizogony',
+    motherGenomeId: data.mother_genome_id,
+    motherLysed: data.mother_lysed ?? true,
+    progenyCount: progenyIds.length,
+    progenyGenomeIds: progenyIds,
+    mutationRateApplied: data.mutation_rate_applied,
+    seed
+  };
+}
+
+module.exports = { mctsSelect, prune, reallocate, budgetLimit, prmEvaluate, schizogonyBurst };
