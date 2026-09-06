@@ -2,6 +2,7 @@ const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const { getDatabase } = require('../db');
 const agentAuthority = require('../services/agentAuthorityService');
 const workerGarage = require('../services/workerGarageService');
+const { createIsolatedWorkspace } = require('../services/agentWorkspaceLifecycleService');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Orchestrator is alive via gRPC!" }),
@@ -30,6 +31,7 @@ module.exports = {
         role: pair.role,
         mission: prompt
       });
+      const workspaceRoot = await createIsolatedWorkspace(pair.workspace_root, worker_id);
       const startPromise = runtimeAdapter.startMission({
         agentId: worker_id,
         orchestratorAgentId: orchestrator_id,
@@ -40,8 +42,9 @@ module.exports = {
         modelTier: pair.model_tier,
         agentType: pair.agent_type,
         workspaceId: pair.workspace_id,
-        workspaceRoot: pair.workspace_root,
-        workspaceIsolation: pair.isolation_mode
+        workspaceRoot,
+        workspaceIsolation: pair.isolation_mode,
+        workspaceProvisioned: true
       });
       startPromise.catch(async (error) => {
         await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, worker_id).catch(() => {});
