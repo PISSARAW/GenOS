@@ -68,7 +68,7 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream, signal });
 }
 
-async function readStreamingResponse(response, onToken) {
+async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   const reader = response.body?.getReader ? response.body.getReader() : null;
   if (!reader) return null;
   const decoder = new TextDecoder();
@@ -90,7 +90,12 @@ async function readStreamingResponse(response, onToken) {
     }
   };
   while (true) {
-    const next = await reader.read();
+    let idleTimer;
+    const idleTimeout = new Promise((_, reject) => {
+      idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs);
+    });
+    const next = await Promise.race([reader.read(), idleTimeout]);
+    clearTimeout(idleTimer);
     if (next.done) break;
     await consume(next.value);
   }
@@ -122,7 +127,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     if (!response.ok) throw new Error(`Model provider returned HTTP ${response.status}.`);
     const contentType = response.headers?.get?.('content-type') || '';
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
-      const streamed = await readStreamingResponse(response, onToken);
+      const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(prompt).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
     }
     const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.text || '').join('') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : (payload.choices?.[0]?.message?.content || '');
