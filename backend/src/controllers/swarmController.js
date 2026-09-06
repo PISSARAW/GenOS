@@ -6,8 +6,17 @@ const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const { sanitizeString } = require('../middleware/security');
 
+async function expireOpenProposals(db) {
+  await db.run(`
+    UPDATE swarm_proposals
+    SET status = 'expired'
+    WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+  `);
+}
+
 async function getConsensus(req, res) {
   const db = await getDatabase();
+  await expireOpenProposals(db);
   const proposals = await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
   const votes = await db.all('SELECT * FROM swarm_votes');
   const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
@@ -91,15 +100,22 @@ async function createProposal(req, res) {
 
 async function castVote(req, res) {
   const { proposalId, agentId = 'worker_node', vote = 'yes', reason = '' } = req.body || {};
-  const id = `${proposalId}-${agentId}-${Date.now()}`;
-
   const db = await getDatabase();
+  await expireOpenProposals(db);
+  const proposal = await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', proposalId);
+  if (!proposal) {
+    return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
+  }
+  if (proposal.status !== 'open') {
+    return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
+  }
+
+  const id = `${proposalId}-${agentId}-${Date.now()}`;
   await db.run(
     `INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, reason) VALUES (?, ?, ?, ?, ?, ?)`,
     id, proposalId, agentId, agentId, vote, reason
   );
 
-  const proposal = await db.get('SELECT quorum_threshold FROM swarm_proposals WHERE id = ?', proposalId);
   const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', proposalId);
   const yesCount = proposalVotes.filter((item) => item.vote === 'yes').length;
   const totalVotes = proposalVotes.length;
