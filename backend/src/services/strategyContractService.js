@@ -66,8 +66,7 @@ function buildStrategyContract(input = {}) {
       preserve_rejected_branches: true,
       merge_workspace_automatically: false
     },
-    observability: ['events', 'cost_usd', 'tokens', 'latency_ms', 'tool_receipts', 'lineage', 'diff'],
-    created_at: new Date().toISOString()
+    observability: ['events', 'cost_usd', 'tokens', 'latency_ms', 'tool_receipts', 'lineage', 'diff']
   };
 }
 
