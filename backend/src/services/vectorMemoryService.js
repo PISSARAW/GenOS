@@ -82,59 +82,95 @@ class VectorMemoryService {
       ? tokens.map(w => `"${w.replace(/"/g, '""')}"`).join(' OR ')
       : '"nothing_will_match_this"';
 
+    // 1. Decoupled Vector Matches
+    const trajVectorMap = new Map();
+    const decVectorMap = new Map();
     if (queryVecJson) {
       try {
-        const trajectories = await db.all(`
-          WITH 
-            vector_raw AS (
-              SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 50
-            ),
-            vector_matches AS (
-              SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
-            ),
-            fts_raw AS (
-              SELECT rowid, -bm25(trajectories_fts) as f_score FROM trajectories_fts WHERE trajectories_fts MATCH ?
-            ),
-            fts_matches AS (
-              SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
-            )
-          SELECT t.id, t.title, t.status, t.author_name, t.semantic_summary, t.diff_lines, t.created_at, 
-                 v.distance, f.f_score,
-                 (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
-          FROM trajectories t
-          LEFT JOIN vector_matches v ON t.rowid = v.rowid
-          LEFT JOIN fts_matches f ON t.rowid = f.rowid
-          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)
-            ${ownerId ? 'AND t.author_id = ?' : ''}${orgFilter}
-          ORDER BY rrf_score DESC LIMIT 50
-        `, [queryVecJson, ftsMatch, ...trajParams]);
+        const vRows = await db.all(
+          `SELECT rowid, distance 
+           FROM trajectories_vec WHERE embedding MATCH ? AND k = 50`,
+          [queryVecJson]
+        );
+        vRows.forEach((r, idx) => {
+          trajVectorMap.set(r.rowid, { distance: r.distance, rank: idx + 1 });
+        });
+      } catch (err) {
+        console.warn('[VectorMemory] trajectories_vec query failed:', err.message);
+      }
 
-        const decisions = await db.all(`
-          WITH 
-            vector_raw AS (
-              SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 50
-            ),
-            vector_matches AS (
-              SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
-            ),
-            fts_raw AS (
-              SELECT rowid, -bm25(genome_decisions_fts) as f_score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?
-            ),
-            fts_matches AS (
-              SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
-            )
-          SELECT t.id, t.title, t.category, t.content, t.created_by, t.created_at, t.synaptic_weight,
-                 v.distance, f.f_score,
-                 (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
-          FROM genome_decisions t
-          LEFT JOIN vector_matches v ON t.rowid = v.rowid
-          LEFT JOIN fts_matches f ON t.rowid = f.rowid
-          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}${orgFilter}
-          ORDER BY rrf_score DESC LIMIT 50
-        `, [queryVecJson, ftsMatch, ...decParams]);
+      try {
+        const vRows = await db.all(
+          `SELECT rowid, distance 
+           FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 50`,
+          [queryVecJson]
+        );
+        vRows.forEach((r, idx) => {
+          decVectorMap.set(r.rowid, { distance: r.distance, rank: idx + 1 });
+        });
+      } catch (err) {
+        console.warn('[VectorMemory] genome_decisions_vec query failed:', err.message);
+      }
+    }
 
-        const items = [];
-        for (const item of trajectories) {
+    // 2. Decoupled FTS5 Matches
+    const trajFtsMap = new Map();
+    const decFtsMap = new Map();
+    if (tokens.length > 0) {
+      try {
+        const fRows = await db.all(
+          `SELECT rowid, -bm25(trajectories_fts) as f_score 
+           FROM trajectories_fts WHERE trajectories_fts MATCH ? 
+           ORDER BY f_score DESC LIMIT 50`,
+          [ftsMatch]
+        );
+        fRows.forEach((r, idx) => {
+          trajFtsMap.set(r.rowid, { f_score: r.f_score, rank: idx + 1 });
+        });
+      } catch (err) {
+        console.warn('[VectorMemory] trajectories_fts query failed:', err.message);
+      }
+
+      try {
+        const fRows = await db.all(
+          `SELECT rowid, -bm25(genome_decisions_fts) as f_score 
+           FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ? 
+           ORDER BY f_score DESC LIMIT 50`,
+          [ftsMatch]
+        );
+        fRows.forEach((r, idx) => {
+          decFtsMap.set(r.rowid, { f_score: r.f_score, rank: idx + 1 });
+        });
+      } catch (err) {
+        console.warn('[VectorMemory] genome_decisions_fts query failed:', err.message);
+      }
+    }
+
+    // 3. Hydrate matching rows and compute RRF
+    const trajRowIds = Array.from(new Set([...trajVectorMap.keys(), ...trajFtsMap.keys()]));
+    const decRowIds = Array.from(new Set([...decVectorMap.keys(), ...decFtsMap.keys()]));
+    const items = [];
+
+    if (trajRowIds.length > 0) {
+      try {
+        const placeholders = trajRowIds.map(() => '?').join(',');
+        const queryParams = [...trajRowIds];
+        let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at 
+                   FROM trajectories t WHERE rowid IN (${placeholders})`;
+        if (ownerId) {
+          sql += ' AND t.author_id = ?';
+          queryParams.push(ownerId);
+        }
+        if (orgId) {
+          sql += orgFilter;
+          queryParams.push(orgId);
+        }
+        const rows = await db.all(sql, queryParams);
+        for (const item of rows) {
+          const v = trajVectorMap.get(item.rowid);
+          const f = trajFtsMap.get(item.rowid);
+          const vRankScore = v ? 1.0 / (60 + v.rank) : 0.0;
+          const fRankScore = f ? 1.0 / (60 + f.rank) : 0.0;
           let diffLines = [];
           try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
           items.push({
@@ -146,13 +182,36 @@ class VectorMemoryService {
             tags: ['trajectory', item.status],
             author: item.author_name,
             createdAt: item.created_at,
-            distance: item.distance,
-            f_score: item.f_score,
-            rrf_score: item.rrf_score
+            distance: v ? v.distance : null,
+            f_score: f ? f.f_score : null,
+            rrf_score: vRankScore + fRankScore
           });
         }
+      } catch (err) {
+        console.warn('[VectorMemory] Failed to hydrate trajectory rows:', err.message);
+      }
+    }
 
-        for (const item of decisions) {
+    if (decRowIds.length > 0) {
+      try {
+        const placeholders = decRowIds.map(() => '?').join(',');
+        const queryParams = [...decRowIds];
+        let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight 
+                   FROM genome_decisions t WHERE rowid IN (${placeholders})`;
+        if (ownerId) {
+          sql += ownerFilter;
+          queryParams.push(ownerId);
+        }
+        if (orgId) {
+          sql += orgFilter;
+          queryParams.push(orgId);
+        }
+        const rows = await db.all(sql, queryParams);
+        for (const item of rows) {
+          const v = decVectorMap.get(item.rowid);
+          const f = decFtsMap.get(item.rowid);
+          const vRankScore = v ? 1.0 / (60 + v.rank) : 0.0;
+          const fRankScore = f ? 1.0 / (60 + f.rank) : 0.0;
           items.push({
             id: item.id,
             title: item.title,
@@ -163,15 +222,19 @@ class VectorMemoryService {
             author: item.created_by,
             createdAt: item.created_at,
             synaptic_weight: item.synaptic_weight,
-            distance: item.distance,
-            f_score: item.f_score,
-            rrf_score: item.rrf_score
+            distance: v ? v.distance : null,
+            f_score: f ? f.f_score : null,
+            rrf_score: vRankScore + fRankScore
           });
         }
-        if (items.length > 0) return items;
       } catch (err) {
-        console.warn('[VectorMemory] Hybrid vector/FTS query failed, falling back to SQL table scan:', err.message);
+        console.warn('[VectorMemory] Failed to hydrate decision rows:', err.message);
       }
+    }
+
+    if (items.length > 0) {
+      items.sort((a, b) => (b.rrf_score || 0) - (a.rrf_score || 0));
+      return items.slice(0, 50);
     }
 
     // Fallback: standard SQL table scan
