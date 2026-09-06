@@ -85,7 +85,8 @@ async function changeStrategy(db, input = {}) {
       workspaceId: agent.workspace_id,
       contract: planned.candidate,
       decisionReason: planned.reason,
-      createdBy: 'runtime_orchestrator_adaptation'
+      createdBy: 'runtime_orchestrator_adaptation',
+      _inTransaction: true
     });
     const run = await strategyExecution.createExecutionRun(tx, {
       agentId: orchestratorId,
