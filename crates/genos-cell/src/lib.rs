@@ -188,6 +188,7 @@ impl AgentCell {
 
     pub fn apply_telomerase(&mut self) {
         self.bud_scars = 0;
+        self.bud_scar_ids.clear();
         self.is_senescent = false;
     }
 
@@ -197,7 +198,9 @@ impl AgentCell {
         }
         self.can_divide()?;
 
+        let daughter_id = Uuid::new_v4();
         self.bud_scars += 1;
+        self.bud_scar_ids.push(daughter_id);
         if self.bud_scars >= self.hayflick_limit {
             self.is_senescent = true;
         }
@@ -207,11 +210,14 @@ impl AgentCell {
         self.conscience.current_budget = (mother_budget * (1.0 - daughter_volume)).max(0.0);
 
         let mut daughter = self.clone();
-        daughter.cell_id = Uuid::new_v4();
+        daughter.cell_id = daughter_id;
         daughter.name = format!("{}_bud_{}", self.name, self.bud_scars);
         daughter.role = format!("Ephemeral Bud of {}", self.role);
         daughter.bud_scars = 0;
+        daughter.bud_scar_ids.clear();
         daughter.is_senescent = false;
+        daughter.is_ephemeral = true;
+        daughter.ephemeral_ttl = Some(10);
         // Daughter inherits a constrained Hayflick limit to prevent recursive spawn storms
         daughter.hayflick_limit = (self.hayflick_limit / 2).max(1);
         daughter.conscience.current_budget = daughter_budget;
