@@ -59,6 +59,12 @@ async function breed(context) {
   if (!rowA || !rowB) {
     return { success: false, error: 'One or both parents not found.' };
   }
+  if (rowA.workspace_id !== rowB.workspace_id) {
+    return { success: false, error: 'Parents must belong to the same workspace.' };
+  }
+  if (context.workspaceId && rowA.workspace_id !== context.workspaceId) {
+    return { success: false, error: 'Parent workspace does not match the requested workspace.' };
+  }
 
   // 1. Recombinaison méiotique des gènes cognitifs (stratégie, outils, hyperparamètres)
   const childRecomb = geneticsService.crossoverGenome(rowA, rowB, {

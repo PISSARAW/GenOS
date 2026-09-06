@@ -110,6 +110,23 @@ async function runTests() {
   assert(childRow.current_task.includes('Strategy:'), 'Child task must contain recombined strategy description');
   console.log(`  ✅ PASS: Offspring ${breedRes.childId} bred with strategy ${breedRes.childGenes.strategy}, tools [${breedRes.childGenes.tools.join(', ')}], fitness score ${breedRes.fitnessScore}`);
 
+  const isolatedParentA = `parent_isolated_a_${Date.now()}`;
+  const isolatedParentB = `parent_isolated_b_${Date.now()}`;
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ('workspace-a', 'Workspace A', ?)", __dirname);
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path) VALUES ('workspace-b', 'Workspace B', ?)", __dirname);
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier, workspace_id) VALUES (?, 'Isolated A', 'worker', 'idle', 'GenOS', 'worker', 'A', 'standard', 'workspace-a')",
+    isolatedParentA
+  );
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, model_tier, workspace_id) VALUES (?, 'Isolated B', 'worker', 'idle', 'GenOS', 'worker', 'B', 'standard', 'workspace-b')",
+    isolatedParentB
+  );
+  const crossWorkspaceBreed = await strategyAdapter.executePrimitive('breed', {
+    parentA: isolatedParentA, parentB: isolatedParentB, workspaceId: 'workspace-a'
+  });
+  assert.strictEqual(crossWorkspaceBreed.success, false, 'Cross-workspace breeding must be rejected');
+
   // --- 5. Test Strategy Primitive : Speciation with Phylogeny ---
   console.log('\n--- 5. Testing Strategy Primitive "speciation" with Niche Divergence ---');
   const orchId = `orch_spec_${Date.now()}`;
