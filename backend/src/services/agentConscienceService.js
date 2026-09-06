@@ -18,7 +18,8 @@ function createConscienceState(initial = {}) {
     dissonanceLevel: Math.max(0, finiteOr(initial.dissonanceLevel, 0.0)),
     eurekaMoments: Math.max(0, Math.floor(finiteOr(initial.eurekaMoments, 0))),
     isApoptotic: Boolean(initial.isApoptotic ?? false),
-    maxDissonanceThreshold: Math.max(0.000001, finiteOr(initial.maxDissonanceThreshold, DEFAULT_MAX_DISSONANCE))
+    maxDissonanceThreshold: Math.max(0.000001, finiteOr(initial.maxDissonanceThreshold, DEFAULT_MAX_DISSONANCE)),
+    revision: Math.max(0, Math.floor(finiteOr(initial.revision, 0)))
   };
 }
 
@@ -94,26 +95,28 @@ function formatConsciencePrompt(state) {
  * Persiste l'état de conscience en base SQLite si les colonnes existent.
  */
 async function persistConscienceState(db, agentId, state) {
-  try {
-    await db.run(
+  const result = await db.run(
       `UPDATE agents SET 
          dissonance_level = ?, 
          eureka_count = ?, 
          cognitive_budget = ?,
          cognitive_baseline_budget = ?,
          is_apoptotic = ?,
+         conscience_revision = conscience_revision + 1,
          updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
+       WHERE id = ? AND conscience_revision = ?`,
       state.dissonanceLevel,
       state.eurekaMoments,
       state.currentBudget,
       state.baselineBudget,
       state.isApoptotic ? 1 : 0,
-      agentId
-    );
-  } catch (err) {
-    // Si les colonnes n'ont pas encore été migrées, on ne bloque pas l'exécution
+      agentId,
+      state.revision
+  );
+  if (result.changes !== 1) {
+    throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
   }
+  state.revision += 1;
 }
 
 /**
@@ -122,7 +125,7 @@ async function persistConscienceState(db, agentId, state) {
 async function loadConscienceState(db, agentId) {
   try {
     const row = await db.get(
-      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, is_apoptotic FROM agents WHERE id = ?',
+      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
       agentId
     );
     if (!row) return createConscienceState();
@@ -131,10 +134,11 @@ async function loadConscienceState(db, agentId) {
       eurekaMoments: row.eureka_count,
       currentBudget: row.cognitive_budget,
       baselineBudget: row.cognitive_baseline_budget,
-      isApoptotic: Boolean(row.is_apoptotic)
+      isApoptotic: Boolean(row.is_apoptotic),
+      revision: row.conscience_revision
     });
-  } catch {
-    return createConscienceState();
+  } catch (error) {
+    throw new Error(`Unable to load conscience state for agent ${agentId}: ${error.message}`);
   }
 }
 
