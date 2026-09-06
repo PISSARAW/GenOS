@@ -187,18 +187,27 @@ async function breed(context) {
 
 async function select(context) {
   const db = await getDatabase();
-  const candidates = context.candidates || [];
+  const candidates = [...new Map((context.candidates || []).map((candidate) => {
+    const id = typeof candidate === 'string' ? candidate : candidate?.id;
+    return [id, { id, input: candidate }];
+  }).filter(([id]) => id)).values()];
   if (candidates.length === 0) {
     return { success: false, error: 'No candidates provided for selection.' };
   }
   const scored = [];
-  for (const cId of candidates) {
-    const row = await db.get("SELECT id, status, current_task FROM agents WHERE id = ?", cId);
+  for (const candidate of candidates) {
+    const row = context.workspaceId
+      ? await db.get('SELECT a.id, a.status, a.current_task, l.score AS lineage_score FROM agents a LEFT JOIN lineage_nodes l ON l.id = a.id WHERE a.id = ? AND a.workspace_id = ?', candidate.id, context.workspaceId)
+      : await db.get('SELECT a.id, a.status, a.current_task, l.score AS lineage_score FROM agents a LEFT JOIN lineage_nodes l ON l.id = a.id WHERE a.id = ?', candidate.id);
     if (!row) continue;
+    const inputFitness = Number(candidate.input?.fitnessScore ?? candidate.input?.score);
+    const fitnessScore = Number.isFinite(inputFitness) ? inputFitness : Number(row.lineage_score || 0) * 100;
+    const evidenceScore = Number(candidate.input?.evidenceScore);
     const statusScore = row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : 0);
-    scored.push({ id: cId, status: row.status, score: statusScore });
+    const score = statusScore + fitnessScore + (Number.isFinite(evidenceScore) ? evidenceScore : 0);
+    scored.push({ id: candidate.id, status: row.status, fitnessScore, evidenceScore: Number.isFinite(evidenceScore) ? evidenceScore : null, score });
   }
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
   const winner = scored[0] || null;
   const losers = scored.slice(1).map(s => s.id);
   telemetry.emitEvent({
