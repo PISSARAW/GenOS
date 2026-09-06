@@ -224,9 +224,32 @@ function getToolMetrics(filterName = null, timeWindowMs = 60000) {
   };
 }
 
+function dryRunPatch(workspaceId, patch, vfsState = {}) {
+  if (!workspaceId) throw new Error('workspaceId is required for VFS dry-run.');
+  const entries = Array.isArray(patch) ? patch : [patch];
+  if (!entries.length || entries.some((entry) => !entry || typeof entry.path !== 'string' || !entry.path.trim())) {
+    throw new Error('patch must contain at least one file path.');
+  }
+  for (const entry of entries) {
+    const normalized = entry.path.replace(/\\/g, '/');
+    if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.split('/').includes('..')) {
+      throw new Error(`Patch path escapes the workspace: ${entry.path}`);
+    }
+  }
+  const state = { ...vfsState };
+  const simulations = entries.map((entry) => simulateDryRun('genos_create', { path: entry.path, content: entry.content || '' }, state));
+  const sideEffects = simulations.reduce((result, simulation) => {
+    for (const key of ['filesCreated', 'filesModified', 'filesDeleted', 'subprocesses', 'networkRequests']) result[key].push(...simulation.sideEffects[key]);
+    return result;
+  }, { filesCreated: [], filesModified: [], filesDeleted: [], subprocesses: [], networkRequests: [] });
+  const blastRadius = calculateBlastRadius(sideEffects.filesCreated.length + sideEffects.filesModified.length, false, 'operator');
+  return { clean: true, workspaceId, blastRadius, blastRadiusScore: blastRadius, sideEffects, simulations };
+}
+
 module.exports = {
   getToolSchema,
   simulateDryRun,
   getToolMetrics,
-  calculateBlastRadius
+  calculateBlastRadius,
+  dryRunPatch
 };
