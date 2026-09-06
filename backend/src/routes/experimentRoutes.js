@@ -8,7 +8,7 @@ const experimentController = require('../controllers/experimentController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 
-router.use(attachTenant);
+router.use(requireTenantScope());
 
 router.get('/', experimentController.listExperiments);
 router.get('/recent', experimentController.getRecentExperiments);

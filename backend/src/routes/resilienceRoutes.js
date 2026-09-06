@@ -8,7 +8,7 @@ const resilienceController = require('../controllers/resilienceController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 
-router.use(attachTenant);
+router.use(requireTenantScope());
 
 router.post('/apoptosis', requirePermission('emergency_kill'), requireTenantScope({ write: true }), resilienceController.triggerApoptosis);
 router.get('/policy', resilienceController.getPolicy);
