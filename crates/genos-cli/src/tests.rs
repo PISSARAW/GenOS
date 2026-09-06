@@ -121,6 +121,7 @@ mod tests {
             parent_b: "AGENT_BETA_FALSIFIER".to_string(),
             swap_prob: 0.5,
             crossover_point: None,
+            seed: Some("test-seed".to_string()),
         });
         assert!(res_cross.is_ok());
 
@@ -129,6 +130,7 @@ mod tests {
             parent_b: "AGENT_BETA_FALSIFIER".to_string(),
             swap_prob: 0.5,
             crossover_point: Some(10),
+            seed: Some("test-seed".to_string()),
         });
         assert!(res_cross_pt.is_ok());
 
@@ -139,6 +141,7 @@ mod tests {
             mutation_rate: 0.0,
             daughter_volume: 0.5,
             merozoite_count: 2,
+            seed: Some("test-seed".to_string()),
         });
         assert!(res_mitosis.is_ok());
 
@@ -148,6 +151,7 @@ mod tests {
             mutation_rate: 0.05,
             daughter_volume: 0.5,
             merozoite_count: 2,
+            seed: Some("test-seed".to_string()),
         });
         assert!(res_fission.is_ok());
 

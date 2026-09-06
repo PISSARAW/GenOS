@@ -4,6 +4,7 @@ pub use genos_cell as cell;
 pub mod crossover;
 pub mod division;
 pub mod phylogeny;
+mod seed;
 
 pub use crossover::MeioticCrossover;
 pub use division::{CellDivision, DivisionMode};
