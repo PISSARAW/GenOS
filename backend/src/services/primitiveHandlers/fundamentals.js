@@ -8,6 +8,8 @@ const fleet = require('../agentFleetService');
 const epistemics = require('../epistemics');
 const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
+const modelProvider = require('../modelProvider');
+const localModelDiscovery = require('../localModelDiscovery');
 
 async function snapshot(context) {
   if (context.workspaceId) {
@@ -35,10 +37,20 @@ async function fork(context) {
   }
 }
 
-function slmRoute(context = {}) {
+async function slmRoute(context = {}) {
   const model = String(context.model || context.modelUri || '').trim();
   if (!model) return { success: false, error: 'model or modelUri required for provider routing.' };
-  return { success: true, routedTo: model };
+  const status = modelProvider.getModelStatus(model);
+  if (!status.configured || !status.apiKeyConfigured) {
+    return { success: false, error: status.error || `Model provider is not configured for ${model}.` };
+  }
+  if (['ollama', 'lmstudio', 'vllm'].includes(status.provider)) {
+    const discovered = await localModelDiscovery.discoverLocalModels();
+    if (!discovered.some((candidate) => candidate.uri === model)) {
+      return { success: false, error: `Local model '${model}' was not discovered.` };
+    }
+  }
+  return { success: true, routedTo: model, provider: status.provider, verified: true };
 }
 
 async function bisectAgent(context) {
