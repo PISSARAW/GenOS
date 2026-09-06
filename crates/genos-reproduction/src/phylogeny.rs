@@ -130,7 +130,10 @@ impl PhylogeneticTree {
 
     /// L'HORLOGE MOLÉCULAIRE (Molecular Clock)
     /// Calcule le temps exact de divergence entre deux agents en se basant sur le taux de mutations silencieuses.
-    pub fn molecular_clock(genome_a: &Genome, genome_b: &Genome, mutation_rate_per_generation: f64) -> f64 {
+    pub fn molecular_clock(genome_a: &Genome, genome_b: &Genome, mutation_rate_per_generation: f64) -> Result<f64, String> {
+        if !mutation_rate_per_generation.is_finite() || mutation_rate_per_generation <= 0.0 {
+            return Err("Mutation rate per generation must be finite and greater than zero".to_string());
+        }
         let seq_a = &genome_a.chromosome_maternal.sequence;
         let seq_b = &genome_b.chromosome_maternal.sequence;
         
@@ -148,9 +151,9 @@ impl PhylogeneticTree {
         let mutations_per_lineage = (silent_mutations as f64) / 2.0;
         
         // Temps = (Mutations de la lignée) / (Vitesse de mutation)
-        let generations_ago = mutations_per_lineage / mutation_rate_per_generation.max(0.0001);
+        let generations_ago = mutations_per_lineage / mutation_rate_per_generation;
         
-        generations_ago
+        Ok(generations_ago)
     }
 
     /// L'ÈVE MITOCHONDRIALE (Mitochondrial Eve)

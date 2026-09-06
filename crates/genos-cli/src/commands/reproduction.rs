@@ -191,17 +191,19 @@ fn handle_phylogeny(action: &str, genome_a: &str, genome_b: Option<&str>, mutati
             }));
         }
         "molecular_clock" => {
-            let generations = genos_reproduction::phylogeny::molecular_clock(&g_a, &g_b, mutation_rate);
-            print_json(json!({
-                "success": true,
-                "operation": "phylogeny",
-                "action": "molecular_clock",
-                "genome_a": genome_a,
-                "genome_b": g_b.genome_id.to_string(),
-                "mutation_rate_per_generation": mutation_rate,
-                "estimated_generations_divergence": generations,
-                "status": "calculated"
-            }));
+            match genos_reproduction::phylogeny::molecular_clock(&g_a, &g_b, mutation_rate) {
+                Ok(generations) => print_json(json!({
+                    "success": true,
+                    "operation": "phylogeny",
+                    "action": "molecular_clock",
+                    "genome_a": genome_a,
+                    "genome_b": g_b.genome_id.to_string(),
+                    "mutation_rate_per_generation": mutation_rate,
+                    "estimated_generations_divergence": generations,
+                    "status": "calculated"
+                })),
+                Err(error) => print_json(json!({ "success": false, "error": error }))
+            }
         }
         "tree" => {
             let _tree = build_reference_phylogenetic_tree(&g_a);
