@@ -19,6 +19,8 @@ fn command_error(message: impl std::fmt::Display) -> ! {
 #[derive(Parser)]
 #[command(name = "g", about = "GenOS Simple CLI", version = "1.0")]
 struct Cli {
+    #[arg(long, global = true, help = "Confirm an operation with destructive side effects")]
+    yes: bool,
     #[command(subcommand)]
     command: Commands,
 }
@@ -266,9 +268,20 @@ enum Commands {
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let Cli { yes, command } = Cli::parse();
 
-    match cli.command {
+    if !yes && matches!(
+        &command,
+        Commands::Destroy { .. }
+            | Commands::Wipe { .. }
+            | Commands::Close { .. }
+            | Commands::Keep { .. }
+    ) {
+        eprintln!("Cette commande modifie l'état GenOS. Relancez-la avec --yes pour confirmer.");
+        std::process::exit(2);
+    }
+
+    match command {
         Commands::Start => {
             println!("Démarrage du serveur GenOS API...");
             if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
