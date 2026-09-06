@@ -3,7 +3,20 @@ const { runGenosSync } = require('./genosCli');
 function handleBioCall(cmd) {
   try {
     const out = runGenosSync(cmd);
-    return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    const outputStr = out.toString();
+    let parsed = null;
+    try {
+      parsed = JSON.parse(outputStr.trim());
+    } catch (_) {}
+    return {
+      configured: true,
+      success: true,
+      status: 'completed',
+      transport: 'local',
+      output: outputStr,
+      json: parsed,
+      ...(parsed && typeof parsed === 'object' ? parsed : {})
+    };
   } catch (e) {
     return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
   }
@@ -70,7 +83,7 @@ function executeBioExtra(toolName, args = {}) {
 
   if (toolName === 'genos_cell_division') {
     const agentId = args.agent_id || args.agentId || 'cell_division_root';
-    const mode = args.mode || 'budding';
+    const mode = args.mode || 'mitosis';
     const params = [`--agent-id ${agentId}`, `--mode ${mode}`];
     if (args.daughter_volume !== undefined || args.daughterVolume !== undefined) {
       params.push(`--daughter-volume ${args.daughter_volume ?? args.daughterVolume}`);
