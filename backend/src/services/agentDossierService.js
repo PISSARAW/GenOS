@@ -39,6 +39,7 @@ async function agentFamily(db, agentId, tenant) {
      )
      SELECT * FROM family ORDER BY depth, created_at, id`,
     agentId,
+    ...scope.params,
     ...scope.params
   );
 }
