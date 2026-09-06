@@ -8,7 +8,7 @@ const {
   simulateDryRun,
   getToolMetrics,
   calculateBlastRadius
-} = require('./src/services/vfsSandboxService');
+} = require('../../src/services/vfsSandboxService');
 
 let passedTests = 0;
 let failedTests = 0;
@@ -50,11 +50,8 @@ function testSchemaInspectionEdgeCases() {
 
   // Prototype pollution probe
   const protoSchema = getToolSchema('__proto__');
-  const isObjectPrototypeLeak = protoSchema.type === undefined;
-  if (isObjectPrototypeLeak) {
-    console.log('  ⚠️ EMPIRICAL OBSERVATION: getToolSchema("__proto__") inherits Object.prototype without checking hasOwnProperty (type is undefined)');
-  }
-  assert(protoSchema !== undefined, 'Prototype pollution tool name returns response object without unhandled crash');
+  assert(protoSchema.type === 'object', 'Prototype-like tool names use the generic schema');
+  console.log('  ✅ Prototype-like tool names are handled safely.');
 }
 
 /**

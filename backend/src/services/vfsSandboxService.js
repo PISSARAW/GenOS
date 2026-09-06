@@ -81,7 +81,9 @@ function getToolSchema(toolName) {
     throw new Error('Tool name is required for schema inspection');
   }
 
-  const customSchema = TOOL_SCHEMAS[toolName];
+  const customSchema = Object.prototype.hasOwnProperty.call(TOOL_SCHEMAS, toolName)
+    ? TOOL_SCHEMAS[toolName]
+    : null;
   if (customSchema) {
     return {
       $schema: 'http://json-schema.org/draft-07/schema#',
