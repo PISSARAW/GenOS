@@ -409,6 +409,8 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
 
 async function execute({ agentId, toolName, args = {}, taints = [] }) {
   const db = await getDatabase();
+  const scopeRow = agentId ? await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId) : null;
+  const circuitScope = scopeRow?.organization_id && scopeRow?.project_id ? `${scopeRow.organization_id}:${scopeRow.project_id}` : 'global';
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
   const permissions = permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : [];
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
@@ -418,16 +420,16 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   const tool = await db.get('SELECT * FROM mcp_tools WHERE name = ?', toolName);
   if (!tool && !require('./mcpStrategyTools').isStrategyTool(toolName)) return { success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` };
   if (tool && tool.is_locked === 1) return { success: false, status: 'circuit_open', error: `Tool '${toolName}' is persisted in quarantine.` };
-  const circuit = circuitBreaker.canExecute(toolName, 'operator');
+  const circuit = circuitBreaker.canExecute(toolName, 'operator', circuitScope);
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {
     const result = await executeConfiguredTransport({ toolName, args });
-    if (result.success) circuitBreaker.recordSuccess(toolName);
-    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`);
+    if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
+    else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
     telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
     return result;
   } catch (error) {
-    circuitBreaker.recordFailure(toolName, error.message);
+    circuitBreaker.recordFailure(toolName, error.message, circuitScope);
     telemetry.emitEvent({ eventType: 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: error.message, severity: 'warning', payload: { toolName, args } });
     return { success: false, status: 'failed', error: error.message };
   }

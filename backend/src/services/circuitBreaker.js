@@ -31,17 +31,25 @@ class CircuitBreakerService {
     this.haltTimestamp = null;
     this.toolLockOverrides = new Map(); // toolName -> boolean
     this.halfOpenProbe = null;
+    this.scopedStates = new Map();
+  }
+
+  context(scope = 'global') {
+    if (scope === 'global') return this;
+    if (!this.scopedStates.has(scope)) this.scopedStates.set(scope, { state: 'CLOSED', failureCount: 0, lastFailureTime: 0, lastStateChange: Date.now(), halfOpenProbe: null });
+    return this.scopedStates.get(scope);
   }
 
   isDestructive(toolName) {
     return DESTRUCTIVE_TOOLS.includes(toolName);
   }
 
-  checkState() {
+  checkState(scope = 'global') {
+    const state = this.context(scope);
     const now = Date.now();
-    if (this.state === 'OPEN' && now - this.lastStateChange > this.cooldownMs) {
-      this.state = 'HALF-OPEN';
-      this.lastStateChange = now;
+    if (state.state === 'OPEN' && now - state.lastStateChange > this.cooldownMs) {
+      state.state = 'HALF-OPEN';
+      state.lastStateChange = now;
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_HALF_OPEN',
         agentId: 'circuit_breaker',
@@ -50,10 +58,10 @@ class CircuitBreakerService {
         severity: 'warning'
       });
     }
-    return this.state;
+    return state.state;
   }
 
-  canExecute(toolName, userRole = 'viewer') {
+  canExecute(toolName, userRole = 'viewer', scope = 'global') {
     if (this.isHalted) {
       return { allowed: false, reason: 'SYSTEM_HALTED', message: `Execution blocked. System is halted: ${this.haltReason}` };
     }
@@ -63,7 +71,8 @@ class CircuitBreakerService {
       return { allowed: false, reason: 'TOOL_LOCKED', message: `Tool '${toolName}' is manually locked in quarantine.` };
     }
 
-    const state = this.checkState();
+    const state = this.checkState(scope);
+    const stateContext = this.context(scope);
     const isDestructive = this.isDestructive(toolName);
 
     if (isDestructive && userRole !== 'admin') {
@@ -75,21 +84,22 @@ class CircuitBreakerService {
     }
 
     if (state === 'HALF-OPEN' && isDestructive) {
-      if (this.halfOpenProbe && this.halfOpenProbe !== toolName) {
+      if (stateContext.halfOpenProbe && stateContext.halfOpenProbe !== toolName) {
         return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
       }
-      this.halfOpenProbe = toolName;
+      stateContext.halfOpenProbe = toolName;
     }
 
     return { allowed: true, state };
   }
 
-  recordSuccess(toolName) {
-    if (this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName) {
-      this.state = 'CLOSED';
-      this.failureCount = 0;
-      this.halfOpenProbe = null;
-      this.lastStateChange = Date.now();
+  recordSuccess(toolName, scope = 'global') {
+    const state = this.context(scope);
+    if (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName) {
+      state.state = 'CLOSED';
+      state.failureCount = 0;
+      state.halfOpenProbe = null;
+      state.lastStateChange = Date.now();
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_RESET',
         agentId: 'circuit_breaker',
@@ -100,27 +110,28 @@ class CircuitBreakerService {
     }
   }
 
-  recordFailure(toolName, errorDetail) {
+  recordFailure(toolName, errorDetail, scope = 'global') {
+    const state = this.context(scope);
     const now = Date.now();
-    if (now - this.lastFailureTime > this.failureWindowMs) {
-      this.failureCount = 1;
+    if (now - state.lastFailureTime > this.failureWindowMs) {
+      state.failureCount = 1;
     } else {
-      this.failureCount += 1;
+      state.failureCount += 1;
     }
-    this.lastFailureTime = now;
+    state.lastFailureTime = now;
 
     telemetry.emitEvent({
       eventType: 'TOOL_FAILURE',
       agentId: 'circuit_breaker',
       action: 'FAILURE_RECORDED',
-      detail: `Tool '${toolName}' failed (${this.failureCount}/3). Error: ${errorDetail}`,
+      detail: `Tool '${toolName}' failed (${state.failureCount}/3). Error: ${errorDetail}`,
       severity: 'warning'
     });
 
-    if (this.failureCount >= 3 || (this.state === 'HALF-OPEN' && this.halfOpenProbe === toolName)) {
-      this.state = 'OPEN';
-      this.halfOpenProbe = null;
-      this.lastStateChange = now;
+    if (state.failureCount >= 3 || (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName)) {
+      state.state = 'OPEN';
+      state.halfOpenProbe = null;
+      state.lastStateChange = now;
       telemetry.emitEvent({
         eventType: 'CIRCUIT_BREAKER_TRIPPED',
         agentId: 'circuit_breaker',
