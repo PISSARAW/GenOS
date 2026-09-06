@@ -2,6 +2,8 @@ use crate::cell::AgentCell;
 use crate::genome::{ChromatinState, Gene, Genome};
 use std::collections::HashSet;
 
+pub const MAX_ZYGOTE_DIVISIONS: u32 = 16;
+
 pub fn seed_hox_genome(base_instruction: &str) -> Genome {
     let mut genome = Genome::new(base_instruction);
     genome.insert_gene(Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT"));
@@ -14,7 +16,7 @@ pub fn seed_hox_genome(base_instruction: &str) -> Genome {
 /// Génère un essaim d'agents "Cellules Souches" identiques à partir d'une racine unique.
 pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
     let mut swarm = vec![zygote];
-    for _ in 0..divisions {
+    for _ in 0..divisions.min(MAX_ZYGOTE_DIVISIONS) {
         let mut new_generation = Vec::new();
         for cell in &mut swarm {
             if let Ok((parent, clone)) = cell.clone().binary_fission(0.0) {
@@ -151,5 +153,12 @@ mod tests {
         sculpt_architecture_via_apoptosis(&mut swarm);
         let surviving_roles: std::collections::HashSet<_> = swarm.iter().map(|cell| cell.role.clone()).collect();
         assert_eq!(roles, surviving_roles);
+    }
+
+    #[test]
+    fn test_zygote_divisions_are_bounded() {
+        let zygote = AgentCell::new("Zygote", "Origin", "Stem");
+        let swarm = cleave_zygote(zygote, MAX_ZYGOTE_DIVISIONS + 4);
+        assert_eq!(swarm.len(), 1usize << MAX_ZYGOTE_DIVISIONS);
     }
 }
