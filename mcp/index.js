@@ -102,10 +102,10 @@ const ALL_TOOLS = [
     inputSchema: {
       type: "object",
       properties: {
-        message: { type: "string", description: "Snapshot commit/audit message." },
-        branch_id: { type: "string", description: "Optional branch identifier." },
+        agent: { type: "string", description: "Path to the agent genome input." },
+        out: { type: "string", description: "Output path for the snapshot JSON." },
       },
-      required: ["message"],
+      required: ["agent", "out"],
     },
   },
   {
@@ -269,7 +269,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await runOrchestrator({ action: "organization_inbox", ...args });
         break;
       case "genos_snapshot":
-        result = await runGenosCli(["snapshot", "create", "--message", args.message || "MCP snapshot"]);
+        result = await runGenosCli(["snapshot", "create", "--agent", args.agent, "--out", args.out]);
         break;
       case "genos_capsule_create":
         result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT"]);
@@ -278,7 +278,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await runGenosCli(["init"]);
         break;
       case "genos_v2_fork":
-        result = await runGenosCli(["fork", "--parent-id", args.parent_id || "ROOT"]);
+        result = await runGenosCli(["agent", "fork", "--parent-id", args.parent_id || "ROOT"]);
         break;
       default:
         result = await runGenosCli(["--help"]);
