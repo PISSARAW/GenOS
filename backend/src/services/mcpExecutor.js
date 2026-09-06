@@ -274,14 +274,28 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     };
   }
   if (toolName === 'genos_synaptic_prune_scale') {
-    const threshold = Number(args.threshold ?? 0.1);
+    const threshold = Number(args.threshold ?? 0.1) * Number(args.scale ?? 1.0);
+    const agentId = args.agent_id || args.agentId;
+    const orgId = args.organization_id || args.organizationId;
+    const projId = args.project_id || args.projectId;
     const db = await getDatabase();
     let prunedCount = 0;
     if (db) {
-      const res = await db.run(
-        'DELETE FROM memory_synapses WHERE ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5)',
-        threshold
-      );
+      let sql = 'DELETE FROM memory_synapses WHERE (ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5))';
+      const params = [threshold];
+      if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
+        sql += ' AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?) OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))';
+        params.push(agentId, agentId);
+      }
+      if (orgId) {
+        sql += ' AND (organization_id = ? OR organization_id IS NULL)';
+        params.push(orgId);
+      }
+      if (projId) {
+        sql += ' AND (project_id = ? OR project_id IS NULL)';
+        params.push(projId);
+      }
+      const res = await db.run(sql, ...params);
       prunedCount = res?.changes || 0;
     }
     return {
@@ -289,7 +303,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       success: true,
       status: 'completed',
       transport: 'strategy_primitive',
-      output: { success: true, prunedSynapses: prunedCount, threshold }
+      output: { success: true, prunedSynapses: prunedCount, threshold, agent_id: agentId || 'global' }
     };
   }
   if (toolName === 'genos_trinity_deploy') {
@@ -465,10 +479,91 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   return { configured: true, success: !isError, status: isError ? 'tool_error' : 'completed', transport: transport.type, output: result.structuredContent ?? result.content ?? result };
 }
 
+function checkChromatinLock(agentId, toolName) {
+  if (!agentId || !toolName) return null;
+  const repositoryRoot = path.resolve(__dirname, '../../..');
+  const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
+  const candidateDirs = [
+    path.join(workspaceRoot, '.genos', 'chromatin'),
+    path.join(workspaceRoot, '.genos-matrix', 'chromatin'),
+    path.join(process.cwd(), '.genos', 'chromatin'),
+    path.join(process.cwd(), '.genos-matrix', 'chromatin')
+  ];
+
+  let chromatinData = null;
+  for (const dir of candidateDirs) {
+    const filePath = path.join(dir, `${agentId}.json`);
+    if (fs.existsSync(filePath)) {
+      try {
+        chromatinData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (chromatinData) break;
+      } catch (_) {}
+    }
+  }
+
+  if (!chromatinData) return null;
+
+  const genes = chromatinData.genes || {};
+  const normalizedTool = String(toolName).toLowerCase().trim();
+
+  for (const [locus, gene] of Object.entries(genes)) {
+    const normLocus = String(locus).toLowerCase().trim();
+    const isMatch = normLocus === normalizedTool ||
+      normLocus.replace(/^genos_/, '') === normalizedTool.replace(/^genos_/, '') ||
+      normalizedTool.includes(normLocus) ||
+      normLocus.includes(normalizedTool);
+
+    if (isMatch) {
+      const isLocked = gene.developmentally_locked === true ||
+        (gene.chromatin_state && String(gene.chromatin_state).toLowerCase() !== 'euchromatin');
+      if (isLocked) {
+        return {
+          locked: true,
+          locus,
+          chromatinState: gene.chromatin_state,
+          developmentallyLocked: gene.developmentally_locked,
+          reason: 'Tool locked in heterochromatin'
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 async function execute({ agentId, toolName, args = {}, taints = [] }) {
   const db = await getDatabase();
   const scopeRow = agentId ? await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId) : null;
   const circuitScope = scopeRow?.organization_id && scopeRow?.project_id ? `${scopeRow.organization_id}:${scopeRow.project_id}` : 'global';
+
+  // Chromatin state validation: if agent has this locus locked in heterochromatin, deny execution.
+  if (agentId) {
+    const chromatinLock = checkChromatinLock(agentId, toolName);
+    if (chromatinLock) {
+      const reason = chromatinLock.reason || 'Tool locked in heterochromatin';
+      await db.run(
+        'INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        agentId, agentId, 'WORKFLOW_TOOL_CALL', toolName, 'deny', reason,
+        JSON.stringify({ args, taints, chromatin: chromatinLock })
+      );
+      telemetry.emitEvent({
+        eventType: 'WORKFLOW_MCP_TOOL_FAILED',
+        agentId,
+        action: 'MCP_EXECUTE',
+        detail: `Tool '${toolName}' blocked: ${reason}.`,
+        severity: 'warning',
+        payload: { toolName, args, chromatin: chromatinLock }
+      });
+      return {
+        success: false,
+        status: 'deny',
+        error: reason,
+        reason,
+        policy: { decision: 'deny', reason }
+      };
+    }
+  }
+
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
   const permissions = permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : [];
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
@@ -493,4 +588,4 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock };
