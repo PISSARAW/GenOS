@@ -2,7 +2,7 @@ pub mod ais;
 pub mod cyber_immune;
 pub mod virology;
 
-pub use ais::{AntibodyDetector, Antigen, ClonalSelection};
+pub use ais::{AntibodyDetector, Antigen, ClonalExpansionResult, ClonalSelection};
 pub use cyber_immune::{AutotomyModule, CircuitBreaker, CircuitState, GossipNode, StemCellRegenerator};
 pub use virology::{Bacteriophage, Retrovirus, Virion};
 
@@ -100,5 +100,26 @@ mod tests {
 
         let retrovirus = Retrovirus::new("receptor", "repair");
         assert_eq!(retrovirus.reverse_transcribe(), genos_genome::DnaStrand::synthesize("repair"));
+    }
+
+    #[test]
+    fn test_clonal_expansion_and_hypermutation() {
+        let mut ais = ClonalSelection::new();
+        ais.detectors.push(AntibodyDetector::new("DET_BASE", "PATHOGEN_ALPHA", 0.7));
+
+        let antigen = Antigen {
+            id: "AG_MUTANT".into(),
+            epitope: "PATHOGEN_ALPHA_VARIANT".into(),
+            danger_level: 0.9,
+        };
+
+        let res = ais.clonal_expansion_and_hypermutate(&antigen, 16, 0.2);
+        assert_eq!(res.clones_generated, 16);
+        assert_eq!(res.matured_detectors.len(), 16);
+        assert!(res.best_affinity > 0.0);
+        // Best clone was added to detectors
+        assert!(ais.detectors.len() > 1);
+        // With danger level 0.9 and high affinity match, memory pool was populated
+        assert!(!ais.memory_pool.is_empty());
     }
 }
