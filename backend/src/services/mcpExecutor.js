@@ -35,6 +35,23 @@ function rpcRequest(id, method, params = {}) {
   return { jsonrpc: '2.0', id, method, params };
 }
 
+async function readMcpHttpResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('text/event-stream')) return response.json();
+  const text = await response.text();
+  const payloads = [];
+  for (const event of text.split(/\r?\n\r?\n/)) {
+    for (const line of event.split(/\r?\n/)) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      try { payloads.push(JSON.parse(data)); } catch (_) {}
+    }
+  }
+  if (!payloads.length) throw new Error('MCP HTTP SSE response contained no JSON-RPC payload.');
+  return payloads[payloads.length - 1];
+}
+
 function runSafeSync(commandLine) {
   return runGenosSync(commandLine);
 }
@@ -47,12 +64,12 @@ async function callHttp(url, toolName, options = {}) {
   try {
     const initialize = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } })), signal: controller.signal });
     if (!initialize.ok) throw new Error(`MCP HTTP initialize returned ${initialize.status}.`);
-    const initPayload = await initialize.json();
+    const initPayload = await readMcpHttpResponse(initialize);
     if (initPayload.error) throw new Error(initPayload.error.message || 'MCP initialize failed.');
     await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }), signal: controller.signal }).catch(() => {});
     const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: args })), signal: controller.signal });
     if (!response.ok) throw new Error(`MCP HTTP tools/call returned ${response.status}.`);
-    const payload = await response.json();
+    const payload = await readMcpHttpResponse(response);
     if (payload.error) throw new Error(payload.error.message || 'MCP tools/call failed.');
     return payload.result || payload;
   } catch (error) {
