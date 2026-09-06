@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/traceController');
+const { requireTenantScope } = require('../middleware/tenant');
+router.use(requireTenantScope());
 router.get('/', controller.listTraces);
 router.get('/:traceId', controller.getTrace);
 router.post('/ingest', controller.ingestSpan);
