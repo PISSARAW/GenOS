@@ -1,6 +1,7 @@
 const telemetry = require('../services/telemetryObserver');
 const swarmMetrics = require('../services/swarmMetricsService');
 const { getDatabase } = require('../db');
+const grpc = require('@grpc/grpc-js');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Telemetry is alive via gRPC!" }),
@@ -34,7 +35,7 @@ module.exports = {
       const metrics = swarmMetrics.calculateShannonEntropy(events);
       callback(null, { entropy: metrics.rawEntropy || 0, state: metrics.cognitiveDriftState || 'IDLE' });
     } catch (err) {
-      callback(null, { entropy: 0, state: 'ERROR' });
+      callback({ code: grpc.status.INTERNAL, message: `Unable to load swarm metrics: ${err.message}` });
     }
   }
 };

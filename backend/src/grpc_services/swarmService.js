@@ -1,5 +1,6 @@
 const swarmMetrics = require('../services/swarmMetricsService');
 const { getDatabase } = require('../db');
+const grpc = require('@grpc/grpc-js');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Swarm is alive via gRPC!" }),
@@ -17,7 +18,7 @@ module.exports = {
         agent_count: activeCount?.count || 0
       });
     } catch (err) {
-      callback(null, { entropy: 0, normalized_entropy: 0, state: 'IDLE', agent_count: 0 });
+      callback({ code: grpc.status.INTERNAL, message: `Unable to load swarm metrics: ${err.message}` });
     }
   },
 
@@ -39,7 +40,7 @@ module.exports = {
         topology_json: JSON.stringify(topo)
       });
     } catch (err) {
-      callback(null, { node_ids: [], topology_json: '{}' });
+      callback({ code: grpc.status.INTERNAL, message: `Unable to load swarm topology: ${err.message}` });
     }
   }
 };
