@@ -47,8 +47,14 @@ impl Tissue {
         let from_id = delegation.from_id;
         let to_id = delegation.to_id;
         let task = delegation.task;
+        if task.trim().is_empty() {
+            return Err("Erreur de Routage : Une tâche non vide est requise.".to_string());
+        }
         if from_id != self.stem_cell_id {
             return Err("Rejet Immunitaire (Mutinerie) : Seule la Cellule Souche peut dicter l'activité du tissu.".to_string());
+        }
+        if from_id == to_id {
+            return Err("Erreur de Routage : La cellule souche ne peut pas se déléguer à elle-même.".to_string());
         }
         if !self.somatic_cells.contains(&to_id) {
             return Err("Erreur de Routage : Cette cellule n'appartient pas au tissu cible.".to_string());
@@ -107,5 +113,19 @@ mod tests {
         });
         assert!(err_mutiny.is_err());
         assert!(err_mutiny.unwrap_err().contains("Mutinerie"));
+
+        let err_empty = frontend_tissue.delegate_task(TaskDelegation {
+            from_id: manager_cell.cell_id,
+            to_id: dev_cell.cell_id,
+            task: "  ",
+        });
+        assert!(err_empty.unwrap_err().contains("tâche non vide"));
+
+        let err_self = frontend_tissue.delegate_task(TaskDelegation {
+            from_id: manager_cell.cell_id,
+            to_id: manager_cell.cell_id,
+            task: "Self dispatch",
+        });
+        assert!(err_self.unwrap_err().contains("elle-même"));
     }
 }
