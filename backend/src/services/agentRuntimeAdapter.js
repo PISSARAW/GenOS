@@ -56,7 +56,7 @@ async function startMissionInternal(mission) {
   const executable = configuredExecutable(normalizedMission);
   const db = await getDatabase();
   assertNotCancelled();
-  const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
+  const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId, normalizedMission.workspaceId || null);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
   const availability = runtimeAvailability(executable);
@@ -194,6 +194,10 @@ function startMission(mission) {
   const start = startMissionInternal(mission).finally(async () => {
     missionStarts.delete(agentId);
     cancelledStarts.delete(agentId);
+    emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
+      agentId,
+      reason: 'runtime shutdown completed; review queued worker recovery if any'
+    }, 'info');
     await dispatchWorkerRecovery(agentId);
     dispatchPendingContinuation(agentId);
   });
