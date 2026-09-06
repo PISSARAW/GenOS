@@ -35,6 +35,7 @@ const state = {
     interactive: null,
     bulk: null
   },
+  consecutiveInteractive: 0,
   perProvider: new Map()
 };
 
@@ -55,6 +56,11 @@ function queueTimeoutMs() {
 
 function queueDepth() {
   return state.queues.interactive.length + state.queues.bulk.length;
+}
+
+function maxInteractiveBurst() {
+  const configured = Number(process.env.GENOS_INFERENCE_MAX_INTERACTIVE_BURST);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 3;
 }
 
 function providerDepth(provider) {
@@ -100,13 +106,16 @@ function enqueue(task) {
 }
 
 function dequeue() {
-  const lane = state.queues.interactive.length ? 'interactive' : 'bulk';
+  const forceBulk = state.queues.bulk.length > 0 && state.consecutiveInteractive >= maxInteractiveBurst();
+  const lane = state.queues.interactive.length && !forceBulk ? 'interactive' : 'bulk';
   const queue = state.queues[lane];
   const previousKey = state.lastFairnessKey[lane];
   const nextIndex = queue.findIndex((task) => task.fairnessKey !== previousKey);
   const task = queue.splice(nextIndex >= 0 ? nextIndex : 0, 1)[0];
   if (!task) return null;
   state.lastFairnessKey[lane] = task.fairnessKey;
+  if (lane === 'interactive') state.consecutiveInteractive += 1;
+  else state.consecutiveInteractive = 0;
   const providerEntry = state.perProvider.get(task.provider);
   if (providerEntry) providerEntry.queued -= 1;
   return task;
@@ -194,6 +203,7 @@ function reset() {
   state.queues.bulk = [];
   state.lastFairnessKey.interactive = null;
   state.lastFairnessKey.bulk = null;
+  state.consecutiveInteractive = 0;
   state.perProvider = new Map();
 }
 
