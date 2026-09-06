@@ -95,6 +95,10 @@ function formatConsciencePrompt(state) {
  * Persiste l'état de conscience en base SQLite si les colonnes existent.
  */
 async function persistConscienceState(db, agentId, state) {
+  const previous = await db.get(
+    'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
+    agentId
+  );
   const result = await db.run(
       `UPDATE agents SET 
          dissonance_level = ?, 
@@ -116,6 +120,21 @@ async function persistConscienceState(db, agentId, state) {
   if (result.changes !== 1) {
     throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
   }
+  await db.run(
+    `INSERT INTO conscience_transitions
+      (agent_id, from_revision, to_revision, from_dissonance, to_dissonance,
+       from_budget, to_budget, from_apoptotic, to_apoptotic)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    agentId,
+    previous?.conscience_revision ?? state.revision,
+    state.revision + 1,
+    previous?.dissonance_level ?? state.dissonanceLevel,
+    state.dissonanceLevel,
+    previous?.cognitive_budget ?? state.currentBudget,
+    state.currentBudget,
+    previous?.is_apoptotic ? 1 : 0,
+    state.isApoptotic ? 1 : 0
+  );
   state.revision += 1;
 }
 
