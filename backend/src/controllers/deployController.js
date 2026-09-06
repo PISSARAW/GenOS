@@ -236,7 +236,7 @@ async function dispatchWorker(req, res) {
     const orchestratorId = req.params.id;
     const workerId = req.params.workerId || req.body.workerId;
     const scope = workspaceScope(req, 'ww');
-    const scopedPair = await db.get(`SELECT worker.id, ww.id AS workspace_id
+    const scopedPair = await db.get(`SELECT worker.id, worker.name, worker.role, worker.model_tier, worker.agent_type, worker.isolation_mode, ww.id AS workspace_id, ww.path AS workspace_root
       FROM agents worker
       JOIN workspaces ww ON ww.id = worker.workspace_id
       JOIN agents orchestrator ON orchestrator.id = worker.parent_agent_id
@@ -254,9 +254,26 @@ async function dispatchWorker(req, res) {
       role: req.body.role || 'implementer',
       mission: req.body.mission || 'Assigned mission'
     });
+    const startPromise = runtimeAdapter.startMission({
+      agentId: workerId,
+      name: req.body.name || scopedPair.name,
+      role: req.body.role || scopedPair.role,
+      prompt: req.body.mission || 'Assigned mission',
+      modelTier: scopedPair.model_tier,
+      executionMode: 'worker',
+      agentType: scopedPair.agent_type,
+      workspaceId: scopedPair.workspace_id,
+      workspaceRoot: scopedPair.workspace_root,
+      workspaceIsolation: scopedPair.isolation_mode,
+      orchestratorAgentId: orchestratorId,
+      executionBudget: req.body.executionBudget || {}
+    });
+    startPromise.catch(async (error) => {
+      await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, workerId).catch(() => {});
+    });
     telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: workerId, action: 'DISPATCH', detail: `Worker dispatched by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorId, tenant: req.tenant || null } });
     
-    res.json(slot);
+    res.status(202).json({ ...slot, started: true, status: 'queued' });
   } catch (err) {
     if (err.code === 'AGENT_NOT_FOUND' || err.code === 'WORKER_ORCHESTRATOR_MISMATCH' || err.code === 'ORCHESTRATOR_NOT_FOUND') {
       res.status(404).json({ error: { code: err.code, message: err.message } });
