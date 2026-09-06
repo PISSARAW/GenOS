@@ -75,7 +75,14 @@ fn handle_create(agent_path: &str, out: &str) -> Result<(), String> {
     let json_str = serde_json::to_string_pretty(&snapshot_payload).map_err(|e| e.to_string())?;
     fs::write(out_path, json_str).map_err(|e| e.to_string())?;
 
-    println!("Snapshot created: {}", out);
+    println!("{}", json!({
+        "success": true,
+        "operation": "snapshot_create",
+        "snapshot_id": snapshot_payload["snapshot_id"],
+        "agent_id": snapshot_payload["agent_id"],
+        "branch_id": snapshot_payload["branch_id"],
+        "file": out
+    }));
     Ok(())
 }
 
