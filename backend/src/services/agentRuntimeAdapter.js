@@ -39,7 +39,7 @@ const {
 const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
-const { terminateChild, terminatePid } = require('./processTermination');
+const { terminateChild, terminatePid, processMatches } = require('./processTermination');
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
@@ -224,7 +224,7 @@ function stopMission(agentId) {
       const agent = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', agentId);
       if (agent?.runtime_pid) {
         terminatePid(agent.runtime_pid);
-        await db.run("UPDATE agents SET status = 'blocked', runtime_pid = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
+        await db.run("UPDATE agents SET status = 'blocked', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
       }
     }).catch(() => {});
     return false;
@@ -241,13 +241,18 @@ function stopAllMissions() {
 }
 
 async function reconcilePersistedRuntimes(db) {
-  const rows = await db.all("SELECT id, runtime_pid FROM agents WHERE status = 'running' AND runtime_pid IS NOT NULL");
+  const rows = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status = 'running' AND runtime_pid IS NOT NULL");
   let reconciled = 0;
   for (const row of rows) {
     let alive = true;
     try { process.kill(Number(row.runtime_pid), 0); } catch (_) { alive = false; }
-    if (!alive) {
-      await db.run("UPDATE agents SET status = 'error', runtime_pid = NULL, current_task = 'Runtime disappeared before shutdown reconciliation', updated_at = CURRENT_TIMESTAMP WHERE id = ?", row.id);
+    const matches = alive && processMatches(row.runtime_pid, row.runtime_executable);
+    if (alive && matches) terminatePid(row.runtime_pid);
+    if (!alive || !matches) {
+      await db.run("UPDATE agents SET status = 'error', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", alive ? 'Runtime PID was reused by another executable.' : 'Runtime disappeared before shutdown reconciliation', row.id);
+      reconciled += 1;
+    } else {
+      await db.run("UPDATE agents SET status = 'blocked', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Orphaned runtime terminated during startup reconciliation', updated_at = CURRENT_TIMESTAMP WHERE id = ?", row.id);
       reconciled += 1;
     }
   }
