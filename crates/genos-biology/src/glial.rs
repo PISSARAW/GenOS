@@ -6,7 +6,7 @@ use self::glial_cell::{GlialCell, Myelinator, NervousSystemLocation};
 pub mod glial_cell {
     use super::*;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct GlialCell {
         pub cell_id: String,
         pub metabolism: Metabolism,
@@ -17,24 +17,24 @@ pub mod glial_cell {
         pub nervous_system: Option<NervousSystem>,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Metabolism {
-        pub atp_budget: u64,
+        pub atp_budget: f64,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct NervousSystem {
         pub location: NervousSystemLocation,
         pub axon: Axon,
     }
 
-    #[derive(Clone, PartialEq)]
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     pub enum NervousSystemLocation {
         Central,
         Peripheral,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Axon {
         pub terminals: Vec<Synapse>,
         pub myelination_level: f64,
@@ -42,13 +42,13 @@ pub mod glial_cell {
         pub nogo_inhibited: bool,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Synapse {
         pub c3_opsonization: f64,
         pub cd47_expression: f64,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub enum Myelinator {
         Oligodendrocyte {
             connected_axons: Vec<String>,
@@ -136,7 +136,7 @@ impl GlialProcessor for AstrocyteProcessor {
         if agent.nervous_system.is_some() {
             ctx.state
                 .neurons_alive
-                .insert(agent.cell_id.clone(), agent.metabolism.atp_budget > 0);
+                .insert(agent.cell_id.clone(), agent.metabolism.atp_budget > 0.0);
         }
 
         if let Some(astro) = &mut agent.astrocyte {
@@ -165,12 +165,9 @@ impl GlialProcessor for AstrocyteProcessor {
     }
 
     fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
-        if let Some(ns) = &mut agent.nervous_system {
-            if ctx.state.reactive_astrocytes.contains(&agent.cell_id) {
-                ns.axon.terminals.clear();
-            } else {
-                agent.metabolism.atp_budget = agent.metabolism.atp_budget.saturating_add(20);
-            }
+        if agent.nervous_system.is_some() {
+            let energy_support = if ctx.state.reactive_astrocytes.contains(&agent.cell_id) { 10.0 } else { 20.0 };
+            agent.metabolism.atp_budget += energy_support;
         }
     }
 }
@@ -188,12 +185,12 @@ impl GlialProcessor for MicrogliaProcessor {
                 micro.plaque_accumulation += 1.0;
 
                 if micro.plaque_accumulation > 10.0 {
-                    micro.inflammatory_cytokines += 5.0;
+                    micro.inflammatory_cytokines = (micro.inflammatory_cytokines + 5.0).min(100.0);
                     ctx.state.inflammation_surge += micro.inflammatory_cytokines;
                 }
             } else {
                 micro.state = MicrogliaState::Sentinel;
-                micro.inflammatory_cytokines = 0.0;
+                micro.inflammatory_cytokines *= 0.9;
                 micro.plaque_accumulation = 0.0;
             }
             c4_over = micro.c4_overexpression;
@@ -203,10 +200,9 @@ impl GlialProcessor for MicrogliaProcessor {
         if let Some(ns) = &mut agent.nervous_system {
             if ns.location == NervousSystemLocation::Central {
                 ns.axon.terminals.retain(|synapse| {
-                    if pro_inflam {
-                        return true;
-                    }
-                    let local_c3 = synapse.c3_opsonization + if c4_over { 0.5 } else { 0.0 };
+                    let local_c3 = synapse.c3_opsonization
+                        + if c4_over { 0.5 } else { 0.0 }
+                        + if pro_inflam { 0.25 } else { 0.0 };
                     !(local_c3 > 0.5 && synapse.cd47_expression < 0.5)
                 });
             }
@@ -215,10 +211,7 @@ impl GlialProcessor for MicrogliaProcessor {
 
     fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
         if ctx.state.inflammation_surge > 0.0 && agent.nervous_system.is_some() {
-            agent.metabolism.atp_budget = agent
-                .metabolism
-                .atp_budget
-                .saturating_sub(ctx.state.inflammation_surge as u64);
+            agent.metabolism.atp_budget = (agent.metabolism.atp_budget - ctx.state.inflammation_surge).max(0.0);
         }
     }
 }
@@ -238,12 +231,15 @@ impl GlialProcessor for EpendymalProcessor {
     }
 
     fn aggregate(&self, state: &mut GlialAggregateState, env: &mut GlialEnvironment) {
-        if env.is_sleeping && state.active_cilia && !env.drainage_blocked {
-            *env.amyloid_plaques = (*env.amyloid_plaques - 2.0).max(0.0);
+        if state.active_cilia && !env.drainage_blocked {
+            let clearance = if env.is_sleeping { 2.0 } else { 0.5 };
+            *env.amyloid_plaques = (*env.amyloid_plaques - clearance).max(0.0);
         }
         *env.csf_volume += state.csf_production;
         if !state.active_cilia || env.drainage_blocked {
-            *env.csf_pressure += state.csf_production * 0.5;
+            *env.csf_pressure = (*env.csf_pressure + state.csf_production * 0.5).min(20.0);
+        } else {
+            *env.csf_pressure = (*env.csf_pressure - state.csf_production * 0.1).max(5.0);
         }
     }
 

@@ -5,6 +5,8 @@ pub mod bioluminescence;
 pub mod ecology;
 pub mod embryology;
 pub mod glial;
+pub use glial::{GlialEnvironment, GlialPipeline};
+pub use glial::glial_cell::GlialCell;
 pub mod neurobiology;
 pub mod phenotype;
 pub mod redundancy;
