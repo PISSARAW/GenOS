@@ -187,7 +187,7 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
 async function expandGraphRag(topItems = [], db = null, options = {}) {
   const connectedItems = [];
   const topIds = topItems
-    .filter(i => i.category !== 'Trajectory' && i.category !== undefined && !String(i.id).startsWith('seed-'))
+    .filter(i => i.category !== undefined && !String(i.id).startsWith('seed-'))
     .map(i => i.id);
 
   // 1. Spreading Activation through physical synapses
