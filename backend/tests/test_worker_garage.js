@@ -42,6 +42,10 @@ async function run() {
     assert.equal(reserved.reserved, true);
     const renamed = await db.get("SELECT name, current_task, status FROM agents WHERE id = 'garage-worker-4'");
     assert.deepEqual(renamed, { name: 'Verify · replacement mission', current_task: 'replacement mission', status: 'running' });
+    await assert.rejects(() => garage.reserveSlot(db, {
+      orchestratorId: 'garage-root', workerId: 'garage-worker-4',
+      name: 'Duplicate dispatch', role: 'independent_reviewer', mission: 'duplicate'
+    }), (error) => error.code === 'WORKER_ALREADY_RUNNING');
 
     await db.run("UPDATE agents SET status = 'blocked', current_task = 'Stopping on operator request' WHERE id = 'garage-worker-4'");
     current = await garage.state(db, 'garage-root');
@@ -61,6 +65,12 @@ async function run() {
       role: 'independent_reviewer', mission: 'Audit invoice rounding and VAT totals'
     });
     assert.equal(unrelated, null, 'an idle specialist is not reused outside its scope');
+
+    await db.run("UPDATE agents SET status = 'completed' WHERE id = 'garage-worker-2'");
+    await assert.rejects(() => garage.reserveSlot(db, {
+      orchestratorId: 'garage-root', workerId: 'garage-worker-2',
+      name: 'Completed reuse', role: 'independent_reviewer', mission: 'completed reuse'
+    }), (error) => error.code === 'WORKER_NOT_IDLE');
 
     await db.run("UPDATE agents SET status = 'running' WHERE id = 'garage-worker-2'");
     const active = await garage.findReusableWorker(db, 'garage-root', {
