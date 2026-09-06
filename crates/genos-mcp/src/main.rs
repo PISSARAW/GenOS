@@ -210,6 +210,13 @@ fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String)
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
+        "genos_snapshot"
+        | "genos_capsule_create"
+        | "genos_merge"
+        | "genos_audit"
+        | "genos_biomimicry"
+        | "genos_v2_init"
+        | "genos_v2_fork" => execute_cli(workspace, name, args),
         _ => (-1, format!("Unsupported MCP tool: {name}")),
     }
 }
