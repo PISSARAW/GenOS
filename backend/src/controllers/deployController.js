@@ -285,12 +285,14 @@ async function dispatchWorker(req, res) {
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
   if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
-  let contract = await strategyContracts.getLatestContract(db, req.params.id);
+  const scopedAgent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', req.params.id);
+  let contract = await strategyContracts.getLatestContract(db, req.params.id, scopedAgent?.workspace_id);
   if (!contract) {
     const agent = await db.get('SELECT parent_agent_id, execution_mode FROM agents WHERE id = ?', req.params.id);
     if (agent?.execution_mode === 'worker' && agent.parent_agent_id) {
       if (!await canAccessAgent(db, req, agent.parent_agent_id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Parent agent not found in the selected project.' } });
-      contract = await strategyContracts.getLatestContract(db, agent.parent_agent_id);
+      const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agent.parent_agent_id);
+      contract = await strategyContracts.getLatestContract(db, agent.parent_agent_id, parent?.workspace_id);
       if (contract) return res.json({ ...contract, inheritedByWorker: true });
     }
   }
@@ -301,7 +303,8 @@ async function getStrategyContract(req, res) {
 async function getStrategyContractHistory(req, res) {
   const db = await getDatabase();
   if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
-  const contracts = await strategyContracts.listContracts(db, req.params.id);
+  const scopedAgent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', req.params.id);
+  const contracts = await strategyContracts.listContracts(db, req.params.id, scopedAgent?.workspace_id);
   res.json(contracts);
 }
 

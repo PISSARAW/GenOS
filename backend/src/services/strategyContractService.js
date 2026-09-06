@@ -175,12 +175,22 @@ async function saveContract(db, context = {}) {
   return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE id = ?', id));
 }
 
-async function getLatestContract(db, agentId) {
-  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1', agentId));
+async function getLatestContract(db, agentId, workspaceId = null) {
+  return parseRow(await db.get(
+    workspaceId
+      ? 'SELECT * FROM strategy_contracts WHERE agent_id = ? AND workspace_id = ? ORDER BY version DESC LIMIT 1'
+      : 'SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC LIMIT 1',
+    ...(workspaceId ? [agentId, workspaceId] : [agentId])
+  ));
 }
 
-async function listContracts(db, agentId) {
-  const rows = await db.all('SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC', agentId);
+async function listContracts(db, agentId, workspaceId = null) {
+  const rows = await db.all(
+    workspaceId
+      ? 'SELECT * FROM strategy_contracts WHERE agent_id = ? AND workspace_id = ? ORDER BY version DESC'
+      : 'SELECT * FROM strategy_contracts WHERE agent_id = ? ORDER BY version DESC',
+    ...(workspaceId ? [agentId, workspaceId] : [agentId])
+  );
   return rows.map(parseRow);
 }
 
