@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_MEMORY_DETECTORS: usize = 256;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Antigen {
     pub id: String,
@@ -70,7 +72,12 @@ impl ClonalSelection {
         for detector in &self.detectors {
             if detector.matches(antigen) {
                 if antigen.danger_level > 0.5 {
-                    self.memory_pool.push(detector.clone());
+                    if !self.memory_pool.iter().any(|memory| memory.id == detector.id) {
+                        if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
+                            self.memory_pool.remove(0);
+                        }
+                        self.memory_pool.push(detector.clone());
+                    }
                 }
                 return true;
             }
