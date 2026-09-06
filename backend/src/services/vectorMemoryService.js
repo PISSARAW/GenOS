@@ -77,10 +77,14 @@ class VectorMemoryService {
     const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
     const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
     const cleanQuery = query.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
-    const tokens = cleanQuery.split(/\s+/).filter(w => w.length > 0);
+    const rawTokens = cleanQuery.split(/\s+/).filter(w => w.length > 0);
+    // Preserve French and multilingual terms while stripping isolated elisions (l', d')
+    const tokens = rawTokens.length > 1
+      ? rawTokens.filter(w => w.length > 1 || /\d/.test(w))
+      : rawTokens;
     const ftsMatch = tokens.length > 0
       ? tokens.map(w => `"${w.replace(/"/g, '""')}"`).join(' OR ')
-      : '"nothing_will_match_this"';
+      : null;
 
     // 1. Decoupled Vector Matches
     const trajVectorMap = new Map();
@@ -116,12 +120,12 @@ class VectorMemoryService {
     // 2. Decoupled FTS5 Matches
     const trajFtsMap = new Map();
     const decFtsMap = new Map();
-    if (tokens.length > 0) {
+    if (ftsMatch) {
       try {
         const fRows = await db.all(
-          `SELECT rowid, -rank as f_score 
+          `SELECT rowid, -bm25(trajectories_fts) as f_score 
            FROM trajectories_fts WHERE trajectories_fts MATCH ? 
-           ORDER BY rank ASC LIMIT 50`,
+           ORDER BY f_score DESC LIMIT 50`,
           [ftsMatch]
         );
         fRows.forEach((r, idx) => {
@@ -133,9 +137,9 @@ class VectorMemoryService {
 
       try {
         const fRows = await db.all(
-          `SELECT rowid, -rank as f_score 
+          `SELECT rowid, -bm25(genome_decisions_fts) as f_score 
            FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ? 
-           ORDER BY rank ASC LIMIT 50`,
+           ORDER BY f_score DESC LIMIT 50`,
           [ftsMatch]
         );
         fRows.forEach((r, idx) => {
@@ -143,7 +147,6 @@ class VectorMemoryService {
         });
       } catch (err) {
         console.warn('[VectorMemory] genome_decisions_fts query failed:', err.message);
-      }
     }
 
     // 3. Hydrate matching rows and compute RRF
