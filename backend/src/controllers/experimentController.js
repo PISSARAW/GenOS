@@ -156,6 +156,29 @@ async function getWaves(req, res) {
   res.json(waves);
 }
 
+async function updateStatus(req, res, next) {
+  try {
+    const nextStatus = String(req.body?.status || '').trim();
+    const allowed = new Set(['Setup', 'Running', 'Analyzed', 'Success', 'Failed']);
+    if (!allowed.has(nextStatus)) return res.status(400).json({ error: { code: 'INVALID_STATUS', message: `Unsupported experiment status '${nextStatus}'.` } });
+    const transitions = {
+      Setup: new Set(['Running', 'Failed']),
+      Running: new Set(['Analyzed', 'Success', 'Failed']),
+      Analyzed: new Set(['Success', 'Failed']),
+      Success: new Set(),
+      Failed: new Set()
+    };
+    const db = await getDatabase();
+    const scope = workspaceScope(req);
+    const experiment = await db.get(`SELECT e.* FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE e.id = ? AND ${scope.clause}`, req.params.experimentId, ...scope.params);
+    if (!experiment) return res.status(404).json({ error: { code: 'EXPERIMENT_NOT_FOUND', message: 'Experiment not found.' } });
+    if (!transitions[experiment.status].has(nextStatus)) return res.status(409).json({ error: { code: 'INVALID_TRANSITION', message: `Cannot transition experiment from '${experiment.status}' to '${nextStatus}'.` } });
+    const summary = req.body?.resultsSummary === undefined ? experiment.results_summary : JSON.stringify(req.body.resultsSummary);
+    await db.run('UPDATE experiments SET status = ?, results_summary = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', nextStatus, summary, experiment.id);
+    res.json({ success: true, experimentId: experiment.id, previousStatus: experiment.status, status: nextStatus, resultsSummary: summary });
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   listExperiments,
   getRecentExperiments,
@@ -163,5 +186,6 @@ module.exports = {
   getAnalysis,
   getThoughts,
   getCoevolution,
-  getWaves
+  getWaves,
+  updateStatus
 };
