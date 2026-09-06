@@ -11,7 +11,9 @@ function isStrategyTool(toolName) {
     toolName === 'genos_execute_primitive' ||
     toolName === 'genos_execute_strategy_pipeline' ||
     toolName === 'genos_record_experience' ||
-    toolName === 'genos_compile_memory'
+    toolName === 'genos_compile_memory' ||
+    toolName === 'genos_synaptic_stdp_update' ||
+    toolName === 'genos_synaptic_prune_scale'
   );
 }
 
@@ -76,6 +78,49 @@ async function executeStrategyTool(toolName, args = {}) {
         status: ok ? 'completed' : 'tool_error',
         transport: 'strategy_primitive',
         output: res
+      };
+    }
+
+    if (toolName === 'genos_synaptic_stdp_update') {
+      const primitiveArgs = {
+        sourceId: args.source_id || args.sourceId || args.causeId,
+        targetId: args.target_id || args.targetId || args.effectId,
+        preSpikeAt: args.pre_spike_at || args.preSpikeAt,
+        postSpikeAt: args.post_spike_at || args.postSpikeAt,
+        learningRate: args.learning_rate || args.learningRate,
+        transmitterType: args.transmitter_type || args.transmitterType,
+        agentId: args.agent_id || args.agentId,
+        ...args
+      };
+      const res = await strategyExecutionAdapter.executePrimitive('stdp_update', primitiveArgs);
+      const ok = res && res.success !== false;
+      return {
+        configured: true,
+        success: ok,
+        status: ok ? 'completed' : 'tool_error',
+        transport: 'strategy_primitive',
+        output: res
+      };
+    }
+
+    if (toolName === 'genos_synaptic_prune_scale') {
+      const { getDatabase } = require('../db');
+      const db = await getDatabase();
+      const threshold = Number(args.threshold ?? 0.1);
+      let prunedCount = 0;
+      if (db) {
+        const res = await db.run(
+          'DELETE FROM memory_synapses WHERE ABS(weight) < ? OR (c3_opsonization > 0.5 AND cd47_expression < 0.5)',
+          threshold
+        );
+        prunedCount = res?.changes || 0;
+      }
+      return {
+        configured: true,
+        success: true,
+        status: 'completed',
+        transport: 'strategy_primitive',
+        output: { success: true, prunedSynapses: prunedCount, threshold }
       };
     }
 
