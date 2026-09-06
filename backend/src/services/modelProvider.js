@@ -50,7 +50,7 @@ function modelConfiguration(model) {
   return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, stream = true }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, stream = true, signal }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model);
   // Local inference goes through the gateway's bounded queue: concurrent
@@ -58,11 +58,11 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   // have their own rate limits and bypass the queue.
   if (inferenceGateway.isLocalProvider(configuration.provider)) {
     return inferenceGateway.schedule(
-      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream }),
+      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream, signal }),
       { provider: configuration.provider, priority, agentId }
     );
   }
-  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream });
+  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream, signal });
 }
 
 async function readStreamingResponse(response, onToken) {
@@ -95,9 +95,12 @@ async function readStreamingResponse(response, onToken) {
   return { text, usage };
 }
 
-async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, stream = true }) {
+async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, stream = true, signal }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  else signal?.addEventListener('abort', abort, { once: true });
   try {
     const configuration = modelConfiguration(model);
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
@@ -125,7 +128,10 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
   } catch (error) {
     if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
     throw error;
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+  }
 }
 
 function getModelStatus(model) {
