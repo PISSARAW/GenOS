@@ -45,4 +45,54 @@ mod tests {
         };
         assert_eq!(Ribosome::translate(&rna).amino_acids, vec![10, 17]);
     }
+
+    #[test]
+    fn test_pioneer_transcription_factor_unlocks_facultative_heterochromatin() {
+        let mut gene = Gene::new("SOMATIC_GENE", "AGENT_INSTRUCTION");
+        gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
+        gene.developmentally_locked = true;
+
+        let empty_tfs = Vec::new();
+        let empty_rnas = Vec::new();
+        let res_locked = gene.express(ExpressionContext {
+            active_tfs: &empty_tfs,
+            alternative_splicing: None,
+            micro_rnas: &empty_rnas,
+        });
+        assert_eq!(res_locked, Err("OFF: Heterochromatin locked".to_string()));
+
+        // Generic pioneer factor
+        let pioneer_generic = vec!["PIONEER_FACTOR".to_string()];
+        let res_generic = gene.express(ExpressionContext {
+            active_tfs: &pioneer_generic,
+            alternative_splicing: None,
+            micro_rnas: &empty_rnas,
+        });
+        assert!(res_generic.is_ok(), "Generic pioneer factor must unlock facultative heterochromatin");
+
+        // Locus-specific pioneer factor
+        let pioneer_locus = vec!["PIONEER_SOMATIC_GENE".to_string()];
+        let res_locus = gene.express(ExpressionContext {
+            active_tfs: &pioneer_locus,
+            alternative_splicing: None,
+            micro_rnas: &empty_rnas,
+        });
+        assert!(res_locus.is_ok(), "Locus pioneer factor must unlock facultative heterochromatin");
+    }
+
+    #[test]
+    fn test_constitutive_heterochromatin_resists_pioneer_factors() {
+        let mut gene = Gene::new("CENTROMERE", "SATELLITE_DNA");
+        gene.chromatin_state = ChromatinState::HeterochromatinConstitutive;
+        gene.developmentally_locked = true;
+
+        let pioneer_generic = vec!["PIONEER_FACTOR".to_string(), "PIONEER_CENTROMERE".to_string()];
+        let empty_rnas = Vec::new();
+        let res = gene.express(ExpressionContext {
+            active_tfs: &pioneer_generic,
+            alternative_splicing: None,
+            micro_rnas: &empty_rnas,
+        });
+        assert_eq!(res, Err("OFF: Heterochromatin locked".to_string()), "Constitutive heterochromatin cannot be opened by pioneer factors");
+    }
 }

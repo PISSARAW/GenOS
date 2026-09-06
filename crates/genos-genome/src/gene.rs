@@ -89,8 +89,24 @@ impl Gene {
         if self.is_methylated || self.expression_volume <= 0.0 {
             return Err("OFF: Gene silenced".to_string());
         }
-        if self.chromatin_state != ChromatinState::Euchromatin || self.developmentally_locked {
+
+        // L'hétérochromatine constitutive est irréversiblement verrouillée
+        if self.chromatin_state == ChromatinState::HeterochromatinConstitutive {
             return Err("OFF: Heterochromatin locked".to_string());
+        }
+
+        // L'hétérochromatine facultative peut être décondensée par des facteurs pionniers
+        let is_condensed = self.chromatin_state == ChromatinState::HeterochromatinFacultative || self.developmentally_locked;
+        if is_condensed {
+            let pioneer_locus = format!("PIONEER_{}", self.locus);
+            let has_pioneer = ctx.active_tfs.iter().any(|tf| {
+                tf == "PIONEER_FACTOR"
+                    || tf == &pioneer_locus
+                    || (tf.starts_with("PIONEER_") && tf.ends_with(&self.locus))
+            });
+            if !has_pioneer {
+                return Err("OFF: Heterochromatin locked".to_string());
+            }
         }
         if let Some(rep) = &self.bound_repressor {
             if ctx.active_tfs.contains(rep) {
