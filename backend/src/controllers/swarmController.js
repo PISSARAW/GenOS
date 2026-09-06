@@ -22,7 +22,14 @@ function hasReachedQuorum(yesCount, totalVotes, activeNodeCount, threshold) {
 async function getConsensus(req, res) {
   const db = await getDatabase();
   await expireOpenProposals(db);
-  const proposals = await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
+  const proposals = req.tenant
+    ? await db.all(`
+      SELECT p.* FROM swarm_proposals p
+      JOIN workspaces w ON w.id = p.workspace_id
+      WHERE w.organization_id = ? AND w.project_id = ?
+      ORDER BY p.created_at DESC
+    `, req.tenant.organizationId, req.tenant.projectId)
+    : await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
   const votes = await db.all('SELECT * FROM swarm_votes');
   const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
   const votesByProposal = new Map();
@@ -99,6 +106,12 @@ async function createProposal(req, res) {
   const id = `prop-${Date.now()}`;
 
   const db = await getDatabase();
+  const workspace = req.tenant
+    ? await db.get('SELECT id FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?', workspaceId, req.tenant.organizationId, req.tenant.projectId)
+    : await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
+  if (!workspace) {
+    return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace was not found in the current scope.' } });
+  }
   await db.run(
     `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     id, workspaceId, proposerAgentId, safeProposer, safeTitle, safeDescription, 'open', threshold
@@ -127,7 +140,13 @@ async function castVote(req, res) {
   }
   const db = await getDatabase();
   await expireOpenProposals(db);
-  const proposal = await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', safeProposalId);
+  const proposal = req.tenant
+    ? await db.get(`
+      SELECT p.id, p.status, p.quorum_threshold FROM swarm_proposals p
+      JOIN workspaces w ON w.id = p.workspace_id
+      WHERE p.id = ? AND w.organization_id = ? AND w.project_id = ?
+    `, safeProposalId, req.tenant.organizationId, req.tenant.projectId)
+    : await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', safeProposalId);
   if (!proposal) {
     return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
   }
