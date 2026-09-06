@@ -112,16 +112,15 @@ async function changeStrategy(db, input = {}) {
 
   const autonomyPlan = buildAutonomyPlan(planned.candidate, budget);
 
-  let previousRuntimeStopped = false;
-  if (activeRun && ['planned', 'running'].includes(activeRun.status)) {
-    const { stopMission } = require('./agentRuntimeAdapter');
-    previousRuntimeStopped = stopMission(orchestratorId);
-  }
-
-  const { selected, nextRun } = await withTransaction(db, async (tx) => {
+  const { selected, nextRun, previousRuntimeStopped } = await withTransaction(db, async (tx) => {
     const lockedCurrent = await strategyContracts.getLatestContract(tx, orchestratorId);
     if (!lockedCurrent || lockedCurrent.id !== current.id || lockedCurrent.version !== current.version) {
       throw Object.assign(new Error('The strategy contract changed while adaptation was being planned.'), { code: 'STRATEGY_CONCURRENT_CHANGE' });
+    }
+    let previousRuntimeStopped = false;
+    if (activeRun && ['planned', 'running'].includes(activeRun.status)) {
+      const { stopMission } = require('./agentRuntimeAdapter');
+      previousRuntimeStopped = stopMission(orchestratorId);
     }
     const nextContract = await strategyContracts.saveContract(tx, {
       agentId: orchestratorId,
@@ -146,7 +145,7 @@ async function changeStrategy(db, input = {}) {
         `Superseded by strategy contract v${nextContract.version}: ${planned.reason}`, activeRun.id
       );
     }
-    return { selected: nextContract, nextRun: run };
+    return { selected: nextContract, nextRun: run, previousRuntimeStopped };
   });
   return {
     changed: true,
