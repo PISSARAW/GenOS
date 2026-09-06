@@ -166,11 +166,13 @@ async function processOnce() {
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
       try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
     }
-    const evaluation = await db.get("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
+    const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
+    const evaluation = selectFairWorkflow(queuedEvaluations);
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
       await withRetry(db, 'evaluation_jobs', evaluation, () => executeEvaluation(db, evaluation));
     }
-    const model = await db.get("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
+    const queuedModels = await db.all("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
+    const model = selectFairWorkflow(queuedModels);
     if (model && await claim(db, 'model_jobs', model.id)) await withRetry(db, 'model_jobs', model, () => executeModelJob(db, model));
   } finally { busy = false; }
 }
