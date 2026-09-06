@@ -144,8 +144,16 @@ class StrategyExecutionAdapter {
       return handler(context);
     }
 
-    // Default : mock pour les primitives pas encore câblées
-    return { success: true, message: 'Mocked primitive execution for ' + primitive };
+    const error = new Error(`Strategy primitive '${primitive}' has no registered handler.`);
+    error.code = 'STRATEGY_PRIMITIVE_UNIMPLEMENTED';
+    telemetry.emitEvent({
+      eventType: 'STRATEGY_PRIMITIVE_UNIMPLEMENTED',
+      action: primitive,
+      severity: 'error',
+      detail: error.message,
+      payload: { primitive, agentId: context.agentId || null }
+    });
+    return { success: false, error: error.message, code: error.code };
   }
 
   async executePipeline(primitives, context = {}) {
