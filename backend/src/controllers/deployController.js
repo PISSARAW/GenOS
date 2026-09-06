@@ -127,6 +127,7 @@ async function deleteAgent(req, res, next) {
     const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
     const stopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
     await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, stopped } });
     res.json({ success: true, agentId: req.params.id, stopped });
   } catch (error) { next(error); }
 }
@@ -138,6 +139,7 @@ async function stopAgent(req, res, next) {
     const processStopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
     if (!processStopped) await db.run("UPDATE agents SET status = CASE WHEN status = 'running' THEN 'idle' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", req.params.id);
     const agent = await db.get('SELECT status FROM agents WHERE id = ?', req.params.id);
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'STOP', detail: `Agent stop requested by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, processStopped } });
     res.json({ stopped: processStopped, status: processStopped ? 'stopping' : (agent?.status || 'idle') });
   } catch (error) { next(error); }
 }
@@ -215,6 +217,7 @@ async function startAgent(req, res) {
     startPromise.catch(async (error) => {
       await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, agent.id).catch(() => {});
     });
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: agent.id, action: 'START', detail: `Agent start requested by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorAgentId: req.body?.orchestratorAgentId || null, tenant: req.tenant || null } });
     res.status(result?.duplicate ? 200 : 202).json({ success: true, started: !result?.duplicate, duplicate: Boolean(result?.duplicate), status: result?.duplicate ? 'already_running' : 'queued' });
   } catch (err) {
     const status = err.code === 'AGENT_EXECUTOR_UNAVAILABLE' ? 503 : 409;
@@ -250,6 +253,7 @@ async function dispatchWorker(req, res) {
       role: req.body.role || 'implementer',
       mission: req.body.mission || 'Assigned mission'
     });
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: workerId, action: 'DISPATCH', detail: `Worker dispatched by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorId, tenant: req.tenant || null } });
     
     res.json(slot);
   } catch (err) {
