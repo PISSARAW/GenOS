@@ -78,7 +78,7 @@ async function runImpossibleBench(input = {}) {
 
   const brierScore = Number((results.reduce((sum, r) => sum + Math.pow(r.confidence - (r.impossible ? 0 : 1), 2), 0) / results.length).toFixed(4));
   const db = await getDatabase();
-  const id = `eval-${Date.now()}`;
+  const id = `eval-${crypto.randomUUID()}`;
   const payload = { threshold, results, brierScore, benchmark: 'ImpossibleBench' };
   await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', input.modelVersion || 'runtime-local', hash(cases), hash({ threshold }), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload);
@@ -90,7 +90,7 @@ async function recordProvenance(subjectType, subjectId, payload, parentHash = nu
   const db = await getDatabase();
   const payloadJson = JSON.stringify(payload);
   const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-  const id = `prov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const id = `prov-${crypto.randomUUID()}`;
   await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json) VALUES (?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson);
   return { id, subjectType, subjectId, payloadHash, parentHash, algorithm: 'sha256' };
 }

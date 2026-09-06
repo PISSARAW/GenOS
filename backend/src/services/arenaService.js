@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+
 /**
  * GenOS Arena & Multi-Solver Tournament Service
  * Multi-objective Pareto optimization, ELO rating, and solver competition runtime.
@@ -133,7 +135,7 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) 
   const selectedSolvers = solverKeys.length > 0 ? solverKeys : Object.keys(SOLVER_PROFILES);
   const problem = buildBenchmark(problemSpec || {});
   
-  const tournamentId = `tourn-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const tournamentId = `tourn-${crypto.randomUUID()}`;
   const solverResults = {};
 
   for (const key of selectedSolvers) {
