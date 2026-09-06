@@ -81,9 +81,15 @@ async function getPhylogeneticTree(workspaceId) {
 /**
  * Mines allele and gene frequencies from trajectories and decisions
  */
-async function analyzeAlleles() {
+async function analyzeAlleles(scope = {}) {
   const db = await getDatabase();
-  let decisions = await db.all('SELECT id, title, category, content, created_at FROM genome_decisions ORDER BY created_at ASC');
+  const scoped = scope.organizationId && scope.projectId;
+  let decisions = await db.all(
+    scoped
+      ? 'SELECT id, title, category, content, created_at FROM genome_decisions WHERE organization_id = ? AND project_id = ? ORDER BY created_at ASC'
+      : 'SELECT id, title, category, content, created_at FROM genome_decisions ORDER BY created_at ASC',
+    ...(scoped ? [scope.organizationId, scope.projectId] : [])
+  );
   if (decisions.length === 0) {
     // Baseline gene pool for fresh installs so the analyzer has candidates.
     decisions = SEED_DECISIONS;
@@ -100,7 +106,12 @@ async function analyzeAlleles() {
   const beneficial = [];
   const lethal = [];
 
-  const lineage = await db.all('SELECT score, state_summary FROM lineage_nodes WHERE node_type = ?', 'agent');
+  const lineage = await db.all(
+    scoped
+      ? 'SELECT n.score, n.state_summary FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.node_type = ? AND w.organization_id = ? AND w.project_id = ?'
+      : 'SELECT score, state_summary FROM lineage_nodes WHERE node_type = ?',
+    ...(scoped ? ['agent', scope.organizationId, scope.projectId] : ['agent'])
+  );
   const scoredCount = lineage.filter((n) => n.score !== null).length;
   const highFitnessCount = lineage.filter((n) => Number(n.score) >= 0.7).length;
   const correlation = scoredCount > 0 ? Number((highFitnessCount / scoredCount).toFixed(2)) : 0.85;

@@ -280,6 +280,8 @@ const TABLES_CORE = [
 "    created_by TEXT NOT NULL,",
 "    category TEXT DEFAULT 'Architecture',",
 "    synaptic_weight REAL DEFAULT 1.0,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    last_accessed_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 ");",
