@@ -3,11 +3,11 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { decide } = require('./src/controllers/releaseController');
-const releases = require('./src/controllers/releaseController');
-const { getDatabase, closeDatabase } = require('./src/db');
+const { decide } = require('../src/controllers/releaseController');
+const releases = require('../src/controllers/releaseController');
+const { getDatabase, closeDatabase } = require('../src/db');
 
-const config = { slo: { maxErrorRate: 0.02, maxP95LatencyMs: 500, minRequests: 10 } };
+const config = { slo: { maxErrorRate: 0.02, maxAverageLatencyMs: 500, minRequests: 10 } };
 const metrics = [
   { variant: 'stable', requests: 10, errors: 0, latency_ms_total: 1000 },
   { variant: 'canary', requests: 10, errors: 0, latency_ms_total: 800 }

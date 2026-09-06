@@ -70,7 +70,7 @@ async function createRollout(req, res, next) {
     if (!['canary', 'ab'].includes(strategy)) return res.status(400).json({ error: { code: 'INVALID_ROLLOUT_STRATEGY', message: 'strategy must be canary or ab.' } });
     const config = {
       variants: req.body?.variants || (strategy === 'canary' ? [{ name: 'stable', traffic: 95 }, { name: 'canary', traffic: 5 }] : [{ name: 'control', traffic: 50 }, { name: 'candidate', traffic: 50 }]),
-      slo: req.body?.slo || { maxErrorRate: 0.01, maxP95LatencyMs: 3000, minRequests: 100 }
+      slo: req.body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 }
     };
     const traffic = config.variants.reduce((total, variant) => total + number(variant.traffic), 0);
     if (config.variants.length < 2 || Math.abs(traffic - 100) > 0.001 || config.variants.some(variant => !variant.name || number(variant.traffic) < 0)) {
@@ -110,9 +110,9 @@ function decide(metrics, config) {
   const averageLatencyMs = totalRequests ? metrics.reduce((sum, metric) => sum + metric.latency_ms_total, 0) / totalRequests : 0;
   const minRequests = Math.max(1, number(policy.minRequests, 100));
   if (totalRequests < minRequests) return { status: 'paused', reason: 'insufficient_sample', totalRequests, errorRate, averageLatencyMs };
-  if (errorRate > number(policy.maxErrorRate, 0.01) || averageLatencyMs > number(policy.maxP95LatencyMs, 3000)) return { status: 'rolled_back', reason: 'slo_breach', totalRequests, errorRate, averageLatencyMs };
+  if (errorRate > number(policy.maxErrorRate, 0.01) || averageLatencyMs > number(policy.maxAverageLatencyMs, 3000)) return { status: 'rolled_back', reason: 'slo_breach', totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
   const winner = [...metrics].sort((left, right) => (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) || (left.latency_ms_total / Math.max(1, left.requests)) - (right.latency_ms_total / Math.max(1, right.requests)))[0]?.variant;
-  return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs };
+  return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
 }
 
 async function decideRollout(req, res, next) {
