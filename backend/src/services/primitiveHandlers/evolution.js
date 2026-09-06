@@ -69,7 +69,7 @@ async function breed(context) {
   // 1. Recombinaison méiotique des gènes cognitifs (stratégie, outils, hyperparamètres)
   const childRecomb = geneticsService.crossoverGenome(rowA, rowB, {
     strategy: context.strategy || 'uniform',
-    mutationRate: context.mutationRate || 0.05
+    mutationRate: context.mutationRate ?? 0.05
   });
 
   // 2. Recombinaison native méiotique Rust via crates/genos-reproduction
@@ -95,7 +95,7 @@ async function breed(context) {
   const tools = childRecomb.childGenes?.tools || ['genos_inspect'];
   const crossoverTask = `${rowA.name || parentA} (${rowA.role || 'worker'}) x ${rowB.name || parentB} (${rowB.role || 'worker'}) -> Strategy: ${strategy}. Tools: [${tools.join(', ')}]. Mission: ${rowA.current_task || 'collaborative mission'}`;
 
-  const childId = childRecomb.childId || ('child_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
+  const childId = childRecomb.childId || `child_${crypto.randomUUID()}`;
   await db.run(
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
     childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
