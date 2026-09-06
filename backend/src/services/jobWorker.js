@@ -7,7 +7,7 @@ const mcpExecutor = require('./mcpExecutor');
 let timer = null;
 let busy = false;
 let recovered = false;
-let lastWorkflowScope = null;
+const lastScopeByTable = new Map();
 const MAX_WORKFLOW_NODES = 10000;
 const MAX_WORKFLOW_DEPTH = 256;
 const MAX_PARALLEL_BRANCHES = 32;
@@ -16,9 +16,10 @@ function workflowScopeKey(row) {
   return `${row.organization_id || 'global'}:${row.project_id || 'global'}`;
 }
 
-function selectFairWorkflow(rows = []) {
-  const next = rows.find((row) => workflowScopeKey(row) !== lastWorkflowScope) || rows[0] || null;
-  if (next) lastWorkflowScope = workflowScopeKey(next);
+function selectFairWorkflow(rows = [], table = 'workflow_runs') {
+  const lastScope = lastScopeByTable.get(table) || null;
+  const next = rows.find((row) => workflowScopeKey(row) !== lastScope) || rows[0] || null;
+  if (next) lastScopeByTable.set(table, workflowScopeKey(next));
   return next;
 }
 
@@ -232,7 +233,7 @@ async function processOnce() {
     const db = await getDatabase();
     if (!recovered) { await recoverInterruptedJobs(db); recovered = true; }
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
-    const workflow = selectFairWorkflow(queuedWorkflows);
+    const workflow = selectFairWorkflow(queuedWorkflows, 'workflow_runs');
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
       try { await executeWorkflow(db, workflow); } catch (error) {
         const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
@@ -240,14 +241,14 @@ async function processOnce() {
       }
     }
     const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
-    const evaluation = selectFairWorkflow(queuedEvaluations);
+    const evaluation = selectFairWorkflow(queuedEvaluations, 'evaluation_jobs');
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
       if (evaluation.campaign_id) await db.run("UPDATE evaluation_campaigns SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'planned'", evaluation.campaign_id);
       await withRetry(db, 'evaluation_jobs', evaluation, () => executeEvaluation(db, evaluation));
       await updateCampaignStatus(db, evaluation.campaign_id);
     }
     const queuedModels = await db.all("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
-    const model = selectFairWorkflow(queuedModels);
+    const model = selectFairWorkflow(queuedModels, 'model_jobs');
     if (model && await claim(db, 'model_jobs', model.id)) await withRetry(db, 'model_jobs', model, () => executeModelJob(db, model));
   } finally { busy = false; }
 }
