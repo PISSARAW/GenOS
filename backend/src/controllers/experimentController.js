@@ -2,6 +2,7 @@
  * GenOS Experiments Lab Controller
  */
 
+const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 
