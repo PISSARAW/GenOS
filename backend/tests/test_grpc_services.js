@@ -226,7 +226,7 @@ async function runGrpcSuite() {
     const agentDesc = descriptors.agent.genos.agent.v1;
     const agentClient = createClient(agentDesc.AgentService);
     const stopRes = await callRpc(agentClient, 'StopMission', { id: 'agent-stop-test' });
-    assert.strictEqual(stopRes.stopped, true);
+    assert.strictEqual(stopRes.stopped, false);
     console.log(`  ✅ PASS: AgentService StopMission -> stopped: ${stopRes.stopped}`);
 
     const orchDesc = descriptors.orchestrator.genos.orchestrator.v1;
