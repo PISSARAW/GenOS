@@ -225,9 +225,12 @@ async function generateVesicle(req, res, next) {
           text = `[OBSOLETE/CORRECTED FACT - DO NOT USE] ` + text;
       }
       
+      const validVec = (Array.isArray(r.vector) && r.vector.length === 768)
+        ? r.vector
+        : textToVector(text);
       return {
         content: text,
-        vector: r.vector || new Array(768).fill(0.0)
+        vector: validVec
       };
     });
     

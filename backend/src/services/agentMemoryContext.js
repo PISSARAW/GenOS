@@ -180,10 +180,12 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
 
     // Epigenetic Exosome secretion into extracellular matrix for future generations
     try {
+      const engramContent = `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`;
+      const { textToVector } = require('./memoryScoring');
       await vectorMemory.depositExosome({
         new_engrams: [{
-          content: `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`,
-          vector: new Array(768).fill(0.0)
+          content: engramContent,
+          vector: textToVector(engramContent)
         }],
         plasmid_name: `plasmid_${agentId}_${Date.now()}`,
         plasmid_code: `// Epigenetic transmission from ${agentId}\n// Task: ${task.slice(0, 80)}\n// Insight: ${summary.slice(0, 200)}`

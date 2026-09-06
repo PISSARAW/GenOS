@@ -472,8 +472,10 @@ async function plasmidDivergence(context) {
   let newPlasmidId = null;
   if (mutantPromoted) {
     newPlasmidId = `plasmid_v2_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const newContent = context.candidatePlasmidCode || context.mutantSolution || `// Optimized mutant replacing ${plasmidId}\n// Goal: ${optimizationGoal}`;
-    const float32 = new Float32Array(new Array(768).fill(0.0));
+    const { embed } = require('../embeddingProvider');
+    const { textToVector } = require('../memoryScoring');
+    const vec = (await embed(newContent)) || textToVector(newContent);
+    const float32 = new Float32Array(vec);
     const embeddingBuffer = Buffer.from(float32.buffer);
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob, organization_id, project_id)
