@@ -266,5 +266,98 @@ mod tests {
             assert!(con.is_methylated);
         }
     }
+
+    #[test]
+    fn test_crossover_epigenetic_reprogramming() {
+        let mut parent_a = Genome::new("PARENT_SOMATIC");
+        let mut fac_gene = genos_genome::Gene::new("somatic_tool", "ACTG");
+        fac_gene.chromatin_state = genos_genome::ChromatinState::HeterochromatinFacultative;
+        fac_gene.developmentally_locked = true;
+        fac_gene.is_methylated = true;
+        parent_a.insert_gene(fac_gene);
+
+        let mut parent_b = Genome::new("PARENT_CONSTITUTIVE");
+        let mut con_gene = genos_genome::Gene::new("centromere_core", "GTCA");
+        con_gene.chromatin_state = genos_genome::ChromatinState::HeterochromatinConstitutive;
+        con_gene.developmentally_locked = true;
+        con_gene.is_methylated = true;
+        parent_b.insert_gene(con_gene);
+
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.5, "crossover-seed-999");
+        
+        if let Some(fac) = child.genes.get("somatic_tool") {
+            assert_eq!(fac.chromatin_state, genos_genome::ChromatinState::Euchromatin);
+            assert!(!fac.developmentally_locked);
+            assert!(!fac.is_methylated);
+        }
+        if let Some(con) = child.genes.get("centromere_core") {
+            assert_eq!(con.chromatin_state, genos_genome::ChromatinState::HeterochromatinConstitutive);
+            assert!(con.developmentally_locked);
+            assert!(con.is_methylated);
+        }
+
+        let (child_1, child_2) = MeioticCrossover::single_point_crossover(&parent_a, &parent_b, 8);
+        for c in [&child_1, &child_2] {
+            if let Some(fac) = c.genes.get("somatic_tool") {
+                assert_eq!(fac.chromatin_state, genos_genome::ChromatinState::Euchromatin);
+                assert!(!fac.developmentally_locked);
+                assert!(!fac.is_methylated);
+            }
+            if let Some(con) = c.genes.get("centromere_core") {
+                assert_eq!(con.chromatin_state, genos_genome::ChromatinState::HeterochromatinConstitutive);
+                assert!(con.developmentally_locked);
+                assert!(con.is_methylated);
+            }
+        }
+    }
+
+    #[test]
+    fn test_meiosis_with_mutation() {
+        let genome = Genome::new("DIPLOID_PARENT_MUTATION_TEST");
+        let result = CellDivision::meiosis_with_seed_and_mutation(
+            &genome,
+            Some(8),
+            "meiosis-seed-42",
+            0.2,
+        ).expect("meiosis with mutation should succeed");
+
+        assert_eq!(result.gametes.len(), 4);
+        assert_eq!(result.mutation_rate_applied, 0.2);
+
+        // With 0.2 mutation rate, gametes will show divergence from initial sequence
+        let mut total_mutations = 0;
+        let original_maternal = genome.chromosome_maternal.as_slice();
+        for gamete in &result.gametes {
+            for (orig, mutated) in original_maternal.iter().zip(gamete.chromosome_maternal.as_slice()) {
+                if orig != mutated {
+                    total_mutations += 1;
+                }
+            }
+        }
+        assert!(total_mutations > 0, "Mutations should be observed on gametes");
+    }
+
+    #[test]
+    fn test_molecular_clock_diploid_both_strands() {
+        use crate::phylogeny::molecular_clock;
+
+        let mut g1 = Genome::new("BASE_GENOME_12345");
+        let mut g2 = g1.clone();
+
+        // Mutate paternal strand only on g2
+        let mut pat = g2.chromosome_paternal.as_slice().to_vec();
+        pat[0] = genos_genome::DnaNucleotide::T;
+        pat[1] = genos_genome::DnaNucleotide::G;
+        g2.chromosome_paternal.replace_sequence(pat);
+
+        let divergence = molecular_clock(&g1, &g2, 0.05).expect("molecular clock should succeed");
+        assert!(divergence > 0.0, "Molecular clock must detect paternal strand mutations");
+
+        // Invalid mutation rates
+        assert!(molecular_clock(&g1, &g2, -0.1).is_err());
+        assert!(molecular_clock(&g1, &g2, 1.5).is_err());
+    }
 }
+
+
 
