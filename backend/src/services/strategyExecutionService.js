@@ -175,10 +175,12 @@ async function executeStepPrimitives(db, agentId, options = {}) {
   const { step, context = {} } = options;
   if (!step) return { success: true, results: [] };
   try {
-    const contractRow = await db.get(
-      'SELECT contract_json FROM strategy_contracts WHERE agent_id = ? AND status = "active" ORDER BY version DESC LIMIT 1',
-      agentId
-    );
+    const contractRow = options.contractId
+      ? await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', options.contractId)
+      : await db.get(
+        'SELECT contract_json FROM strategy_contracts WHERE agent_id = ? AND status = "active" ORDER BY version DESC LIMIT 1',
+        agentId
+      );
     const contract = json(contractRow?.contract_json, {});
     const stageKey = step.stage_key || step.stageKey || '';
     const primitives = resolveStagePrimitives(stageKey, contract.strategy_portfolio);
@@ -198,7 +200,10 @@ async function executeStepPrimitives(db, agentId, options = {}) {
 }
 
 async function recordExecutionEvent(db, agentId, event) {
-  const row = await db.get("SELECT * FROM strategy_execution_runs WHERE agent_id = ? AND status IN ('planned', 'running') ORDER BY created_at DESC LIMIT 1", agentId);
+  const executionRunId = event.payload?.executionRunId;
+  const row = executionRunId
+    ? await db.get("SELECT * FROM strategy_execution_runs WHERE id = ? AND agent_id = ? AND status IN ('planned', 'running')", executionRunId, agentId)
+    : await db.get("SELECT * FROM strategy_execution_runs WHERE agent_id = ? AND status IN ('planned', 'running') ORDER BY created_at DESC LIMIT 1", agentId);
   if (!row) return null;
   const steps = await db.all('SELECT * FROM strategy_execution_steps WHERE run_id = ? ORDER BY sequence', row.id);
   const previousMetrics = json(row.metrics_json, {});
@@ -231,7 +236,7 @@ async function recordExecutionEvent(db, agentId, event) {
     const step = steps[index];
     let primitiveExec = null;
     if (!guardrailReason && step.status === 'planned') {
-      primitiveExec = await executeStepPrimitives(db, agentId, { step, context: { ...event.payload, task: event.detail } });
+      primitiveExec = await executeStepPrimitives(db, agentId, { step, contractId: row.contract_id, context: { ...event.payload, task: event.detail } });
       if (!guardrailReason) guardrailReason = primitiveFailureReason(step, primitiveExec);
     }
     const evidence = json(step.evidence_json, []);
