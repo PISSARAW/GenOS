@@ -86,10 +86,10 @@ async function fossilize(context) {
     if (res.ok && res.data) {
       return { success: true, fossil: res.data };
     }
+    return { success: false, lineageId, error: res.error || 'Fossilization returned no record.' };
   } catch (err) {
-    // fallback
+    return { success: false, lineageId, error: `Fossilization failed: ${err.message}` };
   }
-  return { success: true, lineageId, stratum: 'FOSSIL_RECORDED_FALLBACK' };
 }
 
 async function listFossils() {
@@ -98,10 +98,10 @@ async function listFossils() {
     if (res.ok && res.data) {
       return { success: true, fossils: res.data.fossils || [], total: res.data.total_fossils || 0 };
     }
+    return { success: false, fossils: [], total: 0, error: res.error || 'Fossil listing returned no data.' };
   } catch (err) {
-    // fallback
+    return { success: false, fossils: [], total: 0, error: `Fossil listing failed: ${err.message}` };
   }
-  return { success: true, fossils: [], total: 0 };
 }
 
 async function quarantine(context) {
