@@ -2,9 +2,12 @@ const assert = require('assert');
 const { getDatabase } = require('../src/db');
 const genosCli = require('../src/services/genosCli');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
+const geneticsService = require('../src/services/geneticsService');
 
 async function runTests() {
   console.log('=== Test Suite : Reconnexion de genos-reproduction & Moteur Génétique ===\n');
+  assert.strictEqual(geneticsService.crossoverGenome({ genes: { role: 'a', strategy: 'a', tools: [], temp: 0.1, topP: 0.9 } }, { genes: { role: 'b', strategy: 'b', tools: [], temp: 0.2, topP: 0.8 } }, { mutationRate: 0 }).mutationRateApplied, 0);
+  assert.throws(() => geneticsService.crossoverGenome({}, {}, { mutationRate: 1.01 }), /mutationRate must be between 0 and 1/);
 
   // --- 1. Test CLI Rust : Meiotic Crossover ---
   console.log('--- 1. Testing Rust Native Meiotic Crossover ---');

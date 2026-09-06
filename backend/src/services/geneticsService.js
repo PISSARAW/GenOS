@@ -138,7 +138,10 @@ function crossoverGenome(parentA, parentB, options = {}) {
   const resolvedA = parentA?.genes ? parentA : { ...defaults.parentA, ...(parentA || {}) };
   const resolvedB = parentB?.genes ? parentB : { ...defaults.parentB, ...(parentB || {}) };
   const strategy = options.strategy || 'uniform'; // single_point, multi_point, uniform
-  const mutationRate = Math.min(0.15, Math.max(0.0, options.mutationRate || 0.05));
+  const mutationRate = options.mutationRate === undefined ? 0.05 : Number(options.mutationRate);
+  if (!Number.isFinite(mutationRate) || mutationRate < 0 || mutationRate > 1) {
+    throw new RangeError('mutationRate must be between 0 and 1');
+  }
 
   if (!resolvedA.genes || !resolvedB.genes) {
     throw new Error('Two recorded parent genomes are required');
