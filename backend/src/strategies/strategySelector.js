@@ -157,7 +157,12 @@ function selectStrategyPortfolio(input = {}) {
     return { strategy, eligible: constraint.eligible, score: constraint.eligible ? scoreStrategy(strategy, profile) : null, reason: constraint.reason };
   });
   const portfolio = choosePortfolio(decisions, profile);
-  const primary = portfolio.find((strategy) => strategy.id === PREFERRED_PRIMARY[profile.type]) || portfolio[0];
+  const primary = portfolio.find((strategy) => strategy.id === PREFERRED_PRIMARY[profile.type])
+    || portfolio.slice().sort((left, right) => {
+      const leftScore = decisions.find((item) => item.strategy.id === left.id)?.score ?? -Infinity;
+      const rightScore = decisions.find((item) => item.strategy.id === right.id)?.score ?? -Infinity;
+      return rightScore - leftScore;
+    })[0];
   if (!primary) throw new Error('No strategy satisfies the problem constraints and maturity policy');
   const summary = summarizeDecisions(decisions, portfolio);
   const policies = planPolicies(profile);

@@ -11,9 +11,9 @@ const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
 function buildStrategyContract(input = {}) {
   const selectionInput = {
     ...input,
-    allowExperimental: input.allowExperimental !== undefined ? input.allowExperimental : true,
-    allowPrototype: input.allowPrototype !== undefined ? input.allowPrototype : true,
-    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk !== undefined ? input.allowExperimentalAtHighRisk : true
+    allowExperimental: input.allowExperimental !== undefined ? input.allowExperimental : false,
+    allowPrototype: input.allowPrototype !== undefined ? input.allowPrototype : false,
+    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk !== undefined ? input.allowExperimentalAtHighRisk : false
   };
   const selection = selectStrategyPortfolio(selectionInput);
   const problem = selection.problem;
