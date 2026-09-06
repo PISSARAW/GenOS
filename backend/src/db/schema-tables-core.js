@@ -300,6 +300,8 @@ const TABLES_CORE = [
 "    activity_history INTEGER NOT NULL DEFAULT 0,",
 "    c3_opsonization REAL NOT NULL DEFAULT 0.0,",
 "    cd47_expression REAL NOT NULL DEFAULT 1.0,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    last_updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
 "    FOREIGN KEY (source_id) REFERENCES genome_decisions(id) ON DELETE CASCADE,",

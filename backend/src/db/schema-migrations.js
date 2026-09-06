@@ -136,6 +136,11 @@ async function applyVersionedMigrations(db) {
       FROM cryptobiosis_snapshots_legacy`);
     await db.exec('DROP TABLE cryptobiosis_snapshots_legacy');
   }
+  const cryptoColsNow = new Set((await db.all('PRAGMA table_info(cryptobiosis_snapshots)')).map(column => column.name));
+  if (!cryptoColsNow.has('id')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN id TEXT');
+  if (!cryptoColsNow.has('reason')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN reason TEXT');
+  if (!cryptoColsNow.has('state_json')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN state_json TEXT');
+  if (!cryptoColsNow.has('thawed_by')) await db.exec('ALTER TABLE cryptobiosis_snapshots ADD COLUMN thawed_by TEXT');
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
@@ -148,7 +153,7 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'trace_spans', 'telemetry_events']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);

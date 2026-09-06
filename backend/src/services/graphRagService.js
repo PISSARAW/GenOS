@@ -11,29 +11,35 @@ const { cosineSimilarity } = require('./memoryScoring');
  * @param {object} db
  * @returns {Promise<object[]>}
  */
-async function traverseSynapses(topIds = [], db = null, ownerId = '') {
+async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {}) {
   if (!db || !topIds.length) return [];
 
   const placeholders = topIds.map(() => '?').join(',');
   try {
     const ownerClause = ownerId ? ' AND gd.created_by = ?' : '';
-    const ownerParams = ownerId ? [ownerId] : [];
+    const orgClause = tenant.organizationId ? ' AND (gd.organization_id = ? OR gd.organization_id IS NULL)' : '';
+    const synapseOrgClause = tenant.organizationId ? ' AND (ms.organization_id = ? OR ms.organization_id IS NULL)' : '';
+    const queryParams = [...topIds];
+    if (ownerId) queryParams.push(ownerId);
+    if (tenant.organizationId) queryParams.push(tenant.organizationId);
+    if (tenant.organizationId) queryParams.push(tenant.organizationId);
+
     const synapses = await db.all(`
       WITH RECURSIVE
         traverse(id, depth, weight) AS (
-          SELECT id, 0, 1.0 FROM genome_decisions gd WHERE id IN (${placeholders})${ownerClause}
+          SELECT id, 0, 1.0 FROM genome_decisions gd WHERE id IN (${placeholders})${ownerClause}${orgClause}
           UNION
           SELECT
             CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
             t.depth + 1,
             ms.weight
           FROM traverse t
-          JOIN memory_synapses ms ON ms.source_id = t.id OR ms.target_id = t.id
+          JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}
           WHERE t.depth < 2 AND ms.weight > 0
         )
       SELECT id, depth, weight FROM traverse WHERE depth > 0
       ORDER BY weight DESC, depth ASC LIMIT 15
-    `, [...topIds, ...ownerParams]);
+    `, queryParams);
 
     const linkedIds = [];
     for (const s of synapses) {
@@ -44,8 +50,8 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '') {
 
     const linkedPlaceholders = uniqueLinkedIds.map(() => '?').join(',');
     const connectedDecisions = await db.all(
-      `SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}`,
-      [...uniqueLinkedIds, ...ownerParams]
+      `SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}`,
+      tenant.organizationId ? [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), tenant.organizationId] : [...uniqueLinkedIds, ...(ownerId ? [ownerId] : [])]
     );
 
     return connectedDecisions.map(item => ({
@@ -144,7 +150,7 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
 
   // 1. Spreading Activation through physical synapses
   if (topIds.length > 0 && db) {
-    const synapticNeighbors = await traverseSynapses(topIds, db, options.ownerId || '');
+    const synapticNeighbors = await traverseSynapses(topIds, db, options.ownerId || '', { organizationId: options.organizationId, projectId: options.projectId });
     for (const item of synapticNeighbors) {
       if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
         connectedItems.push(item);
