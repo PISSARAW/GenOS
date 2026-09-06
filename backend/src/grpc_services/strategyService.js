@@ -20,11 +20,15 @@ module.exports = {
   },
 
   GetContract: (call, callback) => {
-    try {
-      const contract = strategyContract.getStrategyContract(call.request?.strategy_name || 'tree-search');
-      callback(null, { contract_json: JSON.stringify(contract || {}) });
-    } catch (err) {
-      callback(null, { contract_json: '{}' });
-    }
+    Promise.resolve()
+      .then(async () => {
+        const agentId = String(call.request?.agent_id || '').trim();
+        if (!agentId) throw Object.assign(new Error('agent_id is required.'), { code: 3 });
+        const db = await require('../db').getDatabase();
+        const contract = await strategyContract.getLatestContract(db, agentId);
+        if (!contract) throw Object.assign(new Error(`No strategy contract exists for agent '${agentId}'.`), { code: 5 });
+        callback(null, { contract_json: JSON.stringify(contract.contract), contract_id: contract.id, version: contract.version, contract_hash: contract.contractHash });
+      })
+      .catch((err) => callback({ code: err.code || 13, message: err.message }));
   }
 };
