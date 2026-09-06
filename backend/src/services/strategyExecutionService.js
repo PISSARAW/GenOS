@@ -118,6 +118,14 @@ function stepIndex(event, stepCount) {
   return -1;
 }
 
+function unfinishedPhaseReason(steps, index) {
+  if (index <= 0) return null;
+  const unfinished = steps.filter((step) => step.sequence < index && !['completed', 'skipped'].includes(step.status));
+  return unfinished.length
+    ? `Cannot enter '${steps[index]?.stage_key}' before completing: ${unfinished.map((step) => step.stage_key).join(', ')}.`
+    : null;
+}
+
 function exceededGuardrail(metrics, budget) {
   for (const key of ['tokens', 'costUsd', 'latencyMs', 'events']) {
     if (metrics[key] > budget[key]) return `${key} budget exceeded (${metrics[key]} > ${budget[key]})`;
@@ -194,7 +202,7 @@ async function recordExecutionEvent(db, agentId, event) {
   };
   const budget = json(row.budget_json, DEFAULT_BUDGET);
   const blocked = ['BUDGET_EXHAUSTED', 'AGENT_HALTED'].includes(event.eventType);
-  const guardrailReason = policyViolation(event)
+  let guardrailReason = policyViolation(event)
     || (blocked ? event.detail || 'execution blocked by runtime guardrail' : null)
     || exceededGuardrail(metrics, budget);
   const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType);
@@ -203,22 +211,13 @@ async function recordExecutionEvent(db, agentId, event) {
   const approvalRequired = completed && json(contractRow?.contract_json, {}).promotion?.require_human_approval === true;
   const index = stepIndex(event, steps.length);
   const now = new Date().toISOString();
+  if (!guardrailReason) guardrailReason = unfinishedPhaseReason(steps, index);
 
   if (index >= 0 && steps[index]) {
     const step = steps[index];
     let primitiveExec = null;
-    if (step.status === 'planned') {
+    if (!guardrailReason && step.status === 'planned') {
       primitiveExec = await executeStepPrimitives(db, agentId, { step, context: { ...event.payload, task: event.detail } });
-    }
-    if (index > 0) {
-      await db.run(
-        `UPDATE strategy_execution_steps
-            SET status = CASE WHEN status = 'running' THEN 'completed' ELSE 'skipped' END,
-                started_at = CASE WHEN status = 'running' THEN COALESCE(started_at, ?) ELSE started_at END,
-                completed_at = COALESCE(completed_at, ?)
-          WHERE run_id = ? AND sequence < ? AND status IN ('planned', 'running')`,
-        now, now, row.id, index
-      );
     }
     const evidence = json(step.evidence_json, []);
     evidence.push({ eventType: event.eventType, action: event.action, detail: event.detail, timestamp: now });
@@ -297,5 +296,6 @@ module.exports = {
   compileExecutionPlan,
   metricDelta,
   normalizedBudget,
+  unfinishedPhaseReason,
   get strategyExecutionAdapter() { return require('./strategyExecutionAdapter'); }
 };
