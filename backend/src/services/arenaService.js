@@ -231,16 +231,17 @@ function findKneePoint(paretoSet) {
   const minCost = Math.min(...costs), maxCost = Math.max(...costs) || minCost + 0.001;
   const minFit = Math.min(...fitnesses), maxFit = Math.max(...fitnesses) || minFit + 1;
   const minPass = Math.min(...passRates), maxPass = Math.max(...passRates) || minPass + 1;
+  const normalize = (value, minimum, maximum) => maximum > minimum ? (value - minimum) / (maximum - minimum) : 0.5;
 
   let bestPoint = paretoSet[0];
   let minDistanceToIdeal = Infinity;
 
   // Ideal point: minTime, minCost, maxFitness, maxPassRate (normalized to 0, 0, 1, 1)
   for (const sol of paretoSet) {
-    const normTime = (sol.executionTimeMs - minTime) / (maxTime - minTime);
-    const normCost = (sol.tokenCostUSD - minCost) / (maxCost - minCost);
-    const normFit = (sol.fitnessScore - minFit) / (maxFit - minFit);
-    const normPass = (sol.adversarialPassRate - minPass) / (maxPass - minPass);
+    const normTime = normalize(sol.executionTimeMs, minTime, maxTime);
+    const normCost = normalize(sol.tokenCostUSD, minCost, maxCost);
+    const normFit = normalize(sol.fitnessScore, minFit, maxFit);
+    const normPass = normalize(sol.adversarialPassRate, minPass, maxPass);
 
     // Distance to Utopia point (0, 0, 1, 1)
     const dist = Math.sqrt(
@@ -250,7 +251,9 @@ function findKneePoint(paretoSet) {
       Math.pow(1 - normPass, 2)
     );
 
-    if (dist < minDistanceToIdeal) {
+    const currentKey = String(sol.candidateId || sol.solverKey || sol.id || '');
+    const bestKey = String(bestPoint.candidateId || bestPoint.solverKey || bestPoint.id || '');
+    if (dist < minDistanceToIdeal || (dist === minDistanceToIdeal && currentKey.localeCompare(bestKey) < 0)) {
       minDistanceToIdeal = dist;
       bestPoint = sol;
     }
@@ -275,15 +278,23 @@ function calculateParetoFront(candidateSolutions = []) {
     };
   }
 
+  const isValidSolution = (solution) => solution && typeof solution === 'object'
+    && [solution.executionTimeMs, solution.tokenCostUSD, solution.fitnessScore, solution.adversarialPassRate]
+      .every((value) => Number.isFinite(Number(value)))
+    && Number(solution.executionTimeMs) >= 0
+    && Number(solution.tokenCostUSD) >= 0;
+  const validSolutions = solutions.filter(isValidSolution);
+  const invalidSolutions = solutions.filter((solution) => !isValidSolution(solution));
+
   const paretoFront = [];
   const dominatedSolutions = [];
 
-  for (let i = 0; i < solutions.length; i++) {
-    const candidate = solutions[i];
+  for (let i = 0; i < validSolutions.length; i++) {
+    const candidate = validSolutions[i];
     let isDominated = false;
 
-    for (let j = 0; j < solutions.length; j++) {
-      if (i !== j && dominates(solutions[j], candidate)) {
+    for (let j = 0; j < validSolutions.length; j++) {
+      if (i !== j && dominates(validSolutions[j], candidate)) {
         isDominated = true;
         break;
       }
@@ -301,6 +312,8 @@ function calculateParetoFront(candidateSolutions = []) {
   return {
     timestamp: new Date().toISOString(),
     totalEvaluated: solutions.length,
+    validEvaluated: validSolutions.length,
+    invalidSolutions,
     paretoFrontCount: paretoFront.length,
     paretoFront,
     dominatedSolutions,
