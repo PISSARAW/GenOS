@@ -6,7 +6,9 @@
 const path = require('path');
 const { spawn } = require('child_process');
 const { encodeMission, decodeEvents, MAX_FRAME_BYTES } = require('./runtimeProtocol');
-const { resolveExecutable } = require('./agentRuntimeExecutable');
+const { resolveExecutable, isLocalRuntime } = require('./agentRuntimeExecutable');
+const modelRouter = require('./modelRouter');
+const localModelDiscovery = require('./localModelDiscovery');
 const strategyExecution = require('./strategyExecutionService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
 const resilienceService = require('./resilienceService');
@@ -269,6 +271,14 @@ async function superviseMission(options) {
   });
   await updateAgent(agentId, 'running', normalizedMission.prompt);
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
+  if (isLocalRuntime(resolvedExecutable) && !normalizedMission.localRoutingPolicy) {
+    const workspace = normalizedMission.workspaceId
+      ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
+      : {};
+    const discovered = await localModelDiscovery.discoverChatModelUris();
+    normalizedMission.localRoutingPolicy = await modelRouter.localRoutingPolicy(db, { agentId, ...workspace }, discovered);
+    normalizedMission.localModel = normalizedMission.localRoutingPolicy.primary;
+  }
   child.stdin.end(encodeMission({
     agentId,
     name: normalizedMission.name || dispatchedAgent.name || '',
