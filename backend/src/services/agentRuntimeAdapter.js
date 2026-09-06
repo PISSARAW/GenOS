@@ -245,7 +245,20 @@ function stopMission(agentId) {
 }
 
 function stopAllMissions() {
-  return [...new Set([...activeProcesses.keys(), ...activeWorkerBarriers.keys()])].filter(stopMission);
+  const ids = new Set([
+    ...activeProcesses.keys(),
+    ...missionStarts.keys(),
+    ...activeWorkerBarriers.keys(),
+    ...pendingContinuations.keys(),
+    ...pendingWorkerRecoveries.keys()
+  ]);
+  for (const agentId of ids) {
+    cancelledStarts.add(agentId);
+    pendingContinuations.delete(agentId);
+    pendingWorkerRecoveries.delete(agentId);
+    stopMission(agentId);
+  }
+  return [...ids];
 }
 
 async function reconcilePersistedRuntimes(db) {
