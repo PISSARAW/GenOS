@@ -23,6 +23,7 @@ const { appendBounded } = require('./boundedOutput');
 
 const activeWorktrees = new Map();
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
+const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 
 function gcDelayMs() {
   const configured = Number(process.env.GENOS_WORKTREE_GC_DELAY_MS);
@@ -94,11 +95,13 @@ function scheduleWorkspaceCleanup(agentId) {
   const delay = gcDelayMs();
   if (delay < 0) return false;
   const reclaim = async () => {
-    activeWorktrees.delete(agentId);
     try {
       const via = await cleanupWorkspace(tracked.workspaceRoot, agentId);
+      activeWorktrees.delete(agentId);
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };
     } catch (_) {
+      tracked.scheduled = false;
+      setTimeout(() => scheduleWorkspaceCleanup(agentId), CLEANUP_RETRY_DELAY_MS).unref();
       return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'failed' };
     }
   };
