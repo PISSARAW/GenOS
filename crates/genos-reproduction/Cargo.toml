@@ -9,4 +9,5 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 genos-genome = { path = "../genos-genome" }
 genos-cell = { path = "../genos-cell" }
 rand = "0.10"
+sha2 = "0.10"
 
