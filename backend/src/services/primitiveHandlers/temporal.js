@@ -138,10 +138,16 @@ async function provenance(context) {
 
   const lineage = [];
   let currentId = targetId;
+  const visited = new Set();
+  let truncated = false;
 
   // Remonte de parent en parent jusqu'à la racine (max depth 10)
   for (let i = 0; i < 10; i++) {
-    const agent = await db.get(`SELECT id, parent_agent_id, lineage_relation, current_task FROM agents WHERE id = ?`, currentId);
+    if (visited.has(currentId)) return { success: false, error: `Causal provenance cycle detected at '${currentId}'.`, lineage, cycleAt: currentId };
+    visited.add(currentId);
+    const agent = context.workspaceId
+      ? await db.get(`SELECT a.id, a.parent_agent_id, a.lineage_relation, a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.id = ?`, currentId, context.workspaceId)
+      : await db.get(`SELECT id, parent_agent_id, lineage_relation, current_task FROM agents WHERE id = ?`, currentId);
     if (!agent) break;
     
     lineage.push({
@@ -153,6 +159,7 @@ async function provenance(context) {
     if (!agent.parent_agent_id || agent.parent_agent_id === agent.id) break;
     currentId = agent.parent_agent_id;
   }
+  if (lineage.length === 10 && lineage[lineage.length - 1]?.parent_agent_id) truncated = true;
 
   telemetry.emitEvent({
     eventType: 'TEMPORAL_PROVENANCE',
@@ -163,7 +170,7 @@ async function provenance(context) {
     payload: { targetId, lineageDepth: lineage.length, rootId: lineage[lineage.length - 1]?.id }
   });
   
-  return { success: true, lineage, rootId: lineage[lineage.length - 1]?.id };
+  return { success: true, lineage, rootId: lineage[lineage.length - 1]?.id, truncated };
 }
 
 module.exports = { causalReplay, mutatedUniverses, causalRebase, dependencyMatrix, provenance };
