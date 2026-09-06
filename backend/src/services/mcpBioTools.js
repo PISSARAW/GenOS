@@ -384,9 +384,22 @@ function executeBioTool(toolName, args) {
 
       // VRAI BINDING AUDIO LOCAL (Simulation d'appel PowerShell pour l'audio sur Windows)
       // En production, ce binding appellerait un processus natif ou une librairie C++
-      const audioCmd = `powershell -c "[System.Console]::Beep(${args.freq || 440}, ${args.duration || 500})"`;
-      cp.execSync(audioCmd);
-      const out = runGenosSync(`genos biomimicry echolocation --freq ${args.freq}`);
+      const frequency = Number(args.freq ?? 440);
+      const duration = Number(args.duration ?? 500);
+      if (!Number.isFinite(frequency) || !Number.isFinite(duration) || frequency <= 0 || duration <= 0) {
+        throw new Error('Echolocation frequency and duration must be positive numbers.');
+      }
+      cp.spawnSync('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '[System.Console]::Beep([double]$env:GENOS_BEEP_FREQUENCY, [int]$env:GENOS_BEEP_DURATION)'
+      ], {
+        env: { ...process.env, GENOS_BEEP_FREQUENCY: String(frequency), GENOS_BEEP_DURATION: String(duration) },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+      const out = runGenosSync(`genos biomimicry echolocation --freq ${frequency}`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
