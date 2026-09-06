@@ -14,6 +14,7 @@ const {
   getAutostartStatus,
   runProactiveCycle
 } = require('../src/services/daemonAgentAutostart');
+const vectorMemoryService = require('../src/services/vectorMemoryService');
 
 function printBanner(config, useColor) {
   if (!useColor) {
@@ -80,17 +81,28 @@ async function main() {
 
   const result = runProactiveCycle();
 
+  // Consolidation synaptique & élagage automatique lors du cycle de la sentinelle
+  let sleepReport = null;
+  try {
+    sleepReport = await vectorMemoryService.sleepCycle();
+  } catch (_) {}
+
   if (isScanOnly) {
     console.log(JSON.stringify({
       agent: config.name,
       totalRepos: result.audit.totalRepos,
-      reportPath: result.audit.savedFiles.latestFile
+      reportPath: result.audit.savedFiles.latestFile,
+      sleepCycle: sleepReport ? { consolidated: sleepReport.consolidated, apoptosisCount: sleepReport.apoptosisCount, prunedTrajectories: sleepReport.prunedTrajectories } : null
     }, null, 2));
     return;
   }
 
   // Affichage du rapport stylisé dans le terminal
   console.log(formatReportForTerminal(result.audit.report, useColor));
+  if (sleepReport?.consolidated && !isScanOnly) {
+    const sleepMsg = `🧠 [Consolidation Synaptique] Cycle de veille effectué : ${sleepReport.apoptosisCount || 0} souvenir(s) élagué(s), ${sleepReport.prunedTrajectories || 0} trajectoire(s) purgée(s).`;
+    console.log(useColor ? `\x1b[35m${sleepMsg}\x1b[0m\n` : `${sleepMsg}\n`);
+  }
   const reportMessage = `📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}`;
   console.log(useColor ? `\n\x1b[90m${reportMessage}\x1b[0m\n` : `\n${reportMessage}\n`);
 
