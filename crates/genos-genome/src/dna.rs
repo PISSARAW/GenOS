@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use rand::RngExt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DnaNucleotide {

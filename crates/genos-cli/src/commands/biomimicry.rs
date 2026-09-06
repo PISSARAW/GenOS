@@ -215,6 +215,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 nervous_system: Some(glial_cell::NervousSystem {
                     location: glial_cell::NervousSystemLocation::Central,
                     axon: glial_cell::Axon { terminals, myelination_level: 0.8, is_severed: false, nogo_inhibited: false },
+                    dendritic_tree: Some(DendriticTree::new()),
                 }),
             };
             let mut bhe_integrity = 1.0;
@@ -289,11 +290,35 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             if let Some(parent) = state_path.parent() { fs::create_dir_all(parent).map_err(|error| format!("Failed to create chromatin store: {}", error))?; }
             fs::write(&state_path, serde_json::to_string_pretty(&genome).map_err(|error| format!("Failed to serialize chromatin state: {}", error))?)
                 .map_err(|error| format!("Failed to persist chromatin state: {}", error))?;
+
+            let mut synced_with_platform = false;
+            let api_url = std::env::var("GENOS_API_URL")
+                .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_millis(1500))
+                .build()
+                .unwrap_or_default();
+            let mut req = client.post(format!("{}/api/platform/permissions", api_url));
+            if let Ok(token) = std::env::var("GENOS_API_TOKEN").or_else(|_| std::env::var("GENOS_ACCESS_KEY")) {
+                req = req.header("Authorization", format!("Bearer {}", token));
+            }
+            let denied_tools = if developmentally_locked { vec![locus.clone()] } else { vec![] };
+            let permissions = if developmentally_locked { vec![] } else { vec![locus.clone()] };
+            if let Ok(res) = req.json(&json!({
+                "agentId": agent_id,
+                "permissions": permissions,
+                "deniedTools": denied_tools,
+                "taintPolicy": "block_external"
+            })).send() {
+                synced_with_platform = res.status().is_success();
+            }
+
             print_json(json!({
                 "success": true, "operation": "epigenetic_chromatin",
                 "agent_id": agent_id, "locus": locus, "state": state,
                 "methylation_applied": is_methylated, "developmentally_locked": developmentally_locked,
-                "genome_id": genome.genome_id().to_string(), "state_path": state_path
+                "genome_id": genome.genome_id().to_string(), "state_path": state_path,
+                "synced_with_platform": synced_with_platform
             }));
         }
         BiomimicrySubcommands::SpeciationCheck { agent_id, threshold } => {
