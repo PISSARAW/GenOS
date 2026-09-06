@@ -49,6 +49,11 @@ function queueCapacity() {
   return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 256;
 }
 
+function fairnessCapacity() {
+  const configured = Number(process.env.GENOS_INFERENCE_TENANT_QUEUE_CAPACITY);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 64;
+}
+
 function queueTimeoutMs() {
   const configured = Number(process.env.GENOS_INFERENCE_QUEUE_TIMEOUT_MS);
   return Number.isFinite(configured) && configured >= 0 ? Math.floor(configured) : 120000;
@@ -92,6 +97,13 @@ function emitTransition(eventType, task, extra = {}) {
 
 function enqueue(task) {
   const lane = PRIORITIES[task.priority] === 0 ? 'interactive' : 'bulk';
+  const tenantDepth = state.queues.interactive.concat(state.queues.bulk).filter((queued) => queued.fairnessKey === task.fairnessKey).length;
+  if (tenantDepth >= fairnessCapacity()) {
+    const error = new Error(`Inference queue is full for tenant ${task.fairnessKey} (${tenantDepth}/${fairnessCapacity()}).`);
+    error.code = 'INFERENCE_TENANT_QUEUE_FULL';
+    emitTransition('INFERENCE_TENANT_REJECTED', task, { detail: error.message, severity: 'warning' });
+    throw error;
+  }
   if (queueDepth() >= queueCapacity()) {
     const error = new Error(`Inference queue is full (${queueDepth()}/${queueCapacity()}); rejecting ${task.provider} task.`);
     error.code = 'INFERENCE_QUEUE_FULL';

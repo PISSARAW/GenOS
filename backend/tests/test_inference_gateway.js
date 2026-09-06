@@ -110,10 +110,24 @@ async function main() {
   await Promise.all([heldBurst, ...interactiveTasks, bulkTask]);
   assert.equal(burstOrder.indexOf('bulk'), 2, 'bulk inference must run after the configured interactive burst');
   console.log('interactive burst cap OK:', burstOrder.join(' < '));
+  await new Promise((resolve) => setImmediate(resolve));
+  gateway.reset();
+  process.env.GENOS_INFERENCE_MAX_CONCURRENT = '1';
+  process.env.GENOS_INFERENCE_QUEUE_CAPACITY = '8';
+  process.env.GENOS_INFERENCE_TENANT_QUEUE_CAPACITY = '1';
+  const tenantGate = new Promise((resolve) => { global.__openGate = resolve; });
+  const tenantHeld = gateway.schedule(() => tenantGate, { provider: 'vllm', organizationId: 'org-limit', projectId: 'project-limit' });
+  const tenantQueued = gateway.schedule(() => {}, { provider: 'vllm', organizationId: 'org-limit', projectId: 'project-limit' });
+  const tenantOverflow = gateway.schedule(() => {}, { provider: 'vllm', organizationId: 'org-limit', projectId: 'project-limit' });
+  await assert.rejects(tenantOverflow, (error) => error.code === 'INFERENCE_TENANT_QUEUE_FULL');
+  global.__openGate();
+  await Promise.all([tenantHeld, tenantQueued]);
+  console.log('tenant queue quota OK');
   delete process.env.GENOS_INFERENCE_QUEUE_CAPACITY;
   delete process.env.GENOS_INFERENCE_QUEUE_TIMEOUT_MS;
   delete process.env.GENOS_INFERENCE_MAX_CONCURRENT;
   delete process.env.GENOS_INFERENCE_MAX_INTERACTIVE_BURST;
+  delete process.env.GENOS_INFERENCE_TENANT_QUEUE_CAPACITY;
 
   server.close();
   console.log('Inference gateway: all assertions passed.');
