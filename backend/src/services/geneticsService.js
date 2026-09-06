@@ -97,14 +97,7 @@ async function analyzeAlleles() {
     createdAt: decision.created_at
   }));
 
-  const beneficial = allAlleles.map((allele) => ({
-    id: allele.id,
-    name: allele.name,
-    category: allele.category,
-    status: 'candidate-beneficial',
-    evidence: 'recorded-decision',
-    createdAt: allele.createdAt
-  }));
+  const beneficial = [];
   const lethal = [];
 
   const lineage = await db.all('SELECT score, state_summary FROM lineage_nodes WHERE node_type = ?', 'agent');
@@ -117,6 +110,7 @@ async function analyzeAlleles() {
     totalAllelesTracked: allAlleles.length,
     dominantBeneficialGenes: beneficial,
     lethalDetrimentalGenes: lethal,
+    unclassifiedAlleles: allAlleles,
     analysisBasis: scoredCount > 0 ? 'lineage-and-recorded-decisions' : 'recorded-decisions-only',
     selectionAnalysisAvailable: scoredCount > 0,
     geneFrequencyMatrix: allAlleles.map(a => ({
