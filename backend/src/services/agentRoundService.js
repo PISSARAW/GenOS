@@ -72,13 +72,14 @@ async function advanceAutonomousRound(mission, event) {
     survivors: survivors.map(({ agentId, evidenceScore: score }) => ({ agentId, evidenceScore: score }))
   }, 'info');
   const continuationWorkerIds = [];
-  for (const survivor of survivors) {
+  for (const [index, survivor] of survivors.entries()) {
     const previous = state.workers.get(survivor.agentId);
+    const assignedTokens = continuation.workerTokens?.[index] || continuation.perWorkerTokens;
     const dossier = JSON.stringify(survivor.payload.evidenceReport || {}).slice(0, 8000);
     pendingContinuations.set(survivor.agentId, {
       ...previous,
-      prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${continuation.perWorkerTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`,
-      executionBudget: { ...previous.executionBudget, tokens: continuation.perWorkerTokens },
+      prompt: `${previous.prompt}\n\nBudget round: continuation. You were selected after evidence scoring. Use the remaining ${assignedTokens} tokens only to resolve the highest-value uncertainty and return a final evidence report. Initial dossier:\n${dossier}`,
+      executionBudget: { ...previous.executionBudget, tokens: assignedTokens },
       budgetRound: { stage: 'continuation', orchestratorId: round.orchestratorId }
     });
     continuationWorkerIds.push(survivor.agentId);
