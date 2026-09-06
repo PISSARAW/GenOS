@@ -78,6 +78,8 @@ const TABLES_CORE = [
 "    about TEXT,",
 "    current_task TEXT,",
 "    runtime_pid INTEGER,",
+"    runtime_started_at DATETIME,",
+"    runtime_executable TEXT,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
 "    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,",
 "    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL,",
