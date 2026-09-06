@@ -150,8 +150,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const assignments = plan.dispatchWorkers || [];
   if (!assignments.length) return [];
   const parent = await db.get(
-    `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
-            w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
+        `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
+          w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
     orchestrator.id
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
