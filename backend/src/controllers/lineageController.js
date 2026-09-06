@@ -5,10 +5,18 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 
+function workspaceScope(req, alias = 'w') {
+  const prefix = alias ? `${alias}.` : '';
+  return req.tenant
+    ? { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] }
+    : { clause: `${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL`, params: [] };
+}
+
 async function getLineage(req, res) {
   const db = await getDatabase();
-  const nodes = await db.all('SELECT * FROM lineage_nodes ORDER BY created_at LIMIT 2000');
-  const edges = await db.all('SELECT * FROM lineage_edges ORDER BY created_at LIMIT 4000');
+  const scope = workspaceScope(req);
+  const nodes = await db.all(`SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE ${scope.clause} ORDER BY n.created_at LIMIT 2000`, ...scope.params);
+  const edges = await db.all(`SELECT e.* FROM lineage_edges e JOIN workspaces w ON w.id = e.workspace_id WHERE ${scope.clause} ORDER BY e.created_at LIMIT 4000`, ...scope.params);
 
   const formattedNodes = nodes.map(n => ({
     id: n.id,
@@ -34,7 +42,8 @@ async function getLineage(req, res) {
 async function inspectNode(req, res) {
   const { nodeId } = req.body || {};
   const db = await getDatabase();
-  const node = await db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId || 'node-root');
+  const scope = workspaceScope(req);
+  const node = await db.get(`SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND ${scope.clause}`, nodeId || 'node-root', ...scope.params);
 
   if (!node) {
     return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Node ${nodeId} not found` } });
@@ -61,7 +70,8 @@ async function cloneNode(req, res) {
   const clonedId = `node-clone-${Date.now()}`;
 
   const db = await getDatabase();
-  const parentAgent = await db.get('SELECT * FROM agents WHERE id = ?', parentId);
+  const scope = workspaceScope(req);
+  const parentAgent = await db.get(`SELECT a.* FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, parentId, ...scope.params);
   if (parentAgent) {
     const agentId = `agent_clone_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const orchestratorId = parentAgent.execution_mode === 'orchestrator'
@@ -85,9 +95,13 @@ async function cloneNode(req, res) {
     return res.status(201).json({ success: true, clonedAgentId: agentId, parentAgentId: parentAgent.id, status: 'idle' });
   }
 
+  const sourceNode = await db.get(`SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND ${scope.clause}`, parentId, ...scope.params);
+  if (!sourceNode?.workspace_id) {
+    return res.status(404).json({ error: { code: 'LINEAGE_NODE_NOT_FOUND', message: `Lineage node '${parentId}' is not available in this project.` } });
+  }
   await db.run(
     `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, pos_x, pos_y, state_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    clonedId, 'ws-genos-core', `Clone of ${parentId || 'Root'}`, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node'
+    clonedId, sourceNode.workspace_id, `Clone of ${parentId || 'Root'}`, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node'
   );
 
   telemetry.emitEvent({
@@ -104,7 +118,9 @@ async function cloneNode(req, res) {
 async function killNode(req, res) {
   const { nodeId } = req.body || {};
   const db = await getDatabase();
-  await db.run("UPDATE lineage_nodes SET state_summary = 'Apoptosis Terminated' WHERE id = ?", nodeId);
+  const scope = workspaceScope(req);
+  const result = await db.run(`UPDATE lineage_nodes SET state_summary = 'Apoptosis Terminated' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces w WHERE ${scope.clause})`, nodeId, ...scope.params);
+  if (!result.changes) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Node ${nodeId} not found in this project.` } });
 
   telemetry.emitEvent({
     eventType: 'NODE_TERMINATED',
