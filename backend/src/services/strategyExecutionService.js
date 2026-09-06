@@ -160,7 +160,15 @@ function resolveStagePrimitives(stageKey, portfolio = []) {
   const defaults = STAGE_PRIMITIVE_MAP[stageKey] || [];
   const portfolioPrimitives = (portfolio || []).flatMap((s) => s.primitives || []);
   const matching = portfolioPrimitives.filter((p) => defaults.includes(p));
-  return matching.length ? [...new Set(matching)] : defaults;
+  // STRICT: Do not fall back to defaults if portfolio has no matching primitives.
+  // This ensures that only contracted primitives are executed.
+  if (matching.length === 0 && defaults.length > 0) {
+    throw Object.assign(
+      new Error(`Stage '${stageKey}' requires one of [${defaults.join(', ')}] but the selected strategy portfolio does not support any. Portfolio primitives: [${portfolioPrimitives.join(', ') || 'none'}]`),
+      { code: 'STRATEGY_PORTFOLIO_UNSUPPORTED_STAGE', stageKey, required: defaults, available: portfolioPrimitives }
+    );
+  }
+  return [...new Set(matching)];
 }
 
 async function executeStepPrimitives(db, agentId, options = {}) {
