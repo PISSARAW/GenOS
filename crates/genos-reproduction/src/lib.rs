@@ -21,7 +21,8 @@ mod tests {
         let g = Genome::new("INITIAL_STEM_CELL");
         let (p, c) = CellDivision::mitosis(&g).unwrap();
         assert_eq!(p.genome_id, g.genome_id);
-        assert_eq!(c.genome_id, g.genome_id);
+        assert_ne!(c.genome_id, g.genome_id);
+        assert_eq!(c.lineage_id, g.lineage_id);
     }
 
     #[test]

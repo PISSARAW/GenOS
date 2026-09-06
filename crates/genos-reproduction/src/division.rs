@@ -1,5 +1,6 @@
 use genos_genome::Genome;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DivisionMode {
@@ -18,6 +19,7 @@ impl CellDivision {
         }
         let parent = genome.clone();
         let mut child = genome.clone();
+        child.genome_id = Uuid::new_v4();
         let id_bytes = child.genome_id.as_bytes();
         for (index, nucleotide) in child
             .chromosome_maternal
@@ -40,14 +42,20 @@ impl CellDivision {
     }
 
     pub fn mitosis(genome: &Genome) -> Result<(Genome, Genome), String> {
-        Ok((genome.clone(), genome.clone()))
+        let parent = genome.clone();
+        let mut child = genome.clone();
+        child.genome_id = Uuid::new_v4();
+        Ok((parent, child))
     }
 
     pub fn budding(mother: &Genome, daughter_volume: f64) -> Result<(Genome, Genome), String> {
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
         }
-        Ok((mother.clone(), mother.clone()))
+        let parent = mother.clone();
+        let mut daughter = mother.clone();
+        daughter.genome_id = Uuid::new_v4();
+        Ok((parent, daughter))
     }
 
     pub fn schizogony(mother: &Genome, merozoite_count: usize) -> Result<Vec<Genome>, String> {
@@ -56,7 +64,9 @@ impl CellDivision {
         }
         let mut daughters = Vec::with_capacity(merozoite_count);
         for _ in 0..merozoite_count {
-            daughters.push(mother.clone());
+            let mut daughter = mother.clone();
+            daughter.genome_id = Uuid::new_v4();
+            daughters.push(daughter);
         }
         Ok(daughters)
     }
