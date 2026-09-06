@@ -42,6 +42,14 @@ fn telomere_state_path(agent_id: &str) -> Result<PathBuf, String> {
     Ok(root.join("telomeres").join(format!("{}.json", agent_id)))
 }
 
+fn cerebellum_state_path(agent_id: &str) -> Result<PathBuf, String> {
+    if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
+        return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
+    }
+    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    Ok(root.join("cerebellum").join(format!("{}.json", agent_id)))
+}
+
 
 pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
     match cmd {
@@ -136,20 +144,57 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::CerebellumCoprocessor { agent_id, target_value, expected_latency, current_value, actual_latency } => {
-            let mut tree = DendriticTree::new();
+            let path = cerebellum_state_path(&agent_id)?;
+            let mut tree = if path.exists() {
+                let content = std::fs::read_to_string(&path)
+                    .map_err(|e| format!("Impossible de lire l'état du cervelet: {}", e))?;
+                serde_json::from_str::<DendriticTree>(&content)
+                    .unwrap_or_else(|_| DendriticTree::new())
+            } else {
+                DendriticTree::new()
+            };
+
             let error = (target_value - current_value).abs();
             let latency_diff = (expected_latency - actual_latency).abs();
             let feedforward_gain = 1.0 + (latency_diff / expected_latency.max(1.0));
             let compensated_error = error * feedforward_gain;
-            let amplified = tree.process_signal(&agent_id, compensated_error);
+
+            // 1. Entrées de contexte transmises par les fibres parallèles (parallel fibers)
+            let parallel_fiber_id = format!("{}_parallel_fiber", agent_id);
+            let amplified = tree.process_signal_on_compartment(&parallel_fiber_id, compensated_error, "apical_oblique");
+
+            // 2. Erreur d'apprentissage transmise par la fibre grimpante (climbing fiber)
+            // Si l'erreur est importante, elle induit une LTD sur les fibres parallèles actives
+            // Si l'erreur est minimale, consolidation en LTP
+            let climbing_fiber_id = format!("{}_climbing_fiber", agent_id);
+            if error > 0.05 {
+                // Erreur motrice : dépression à long terme (LTD) sur les fibres parallèles
+                tree.apply_postsynaptic_stdp(&parallel_fiber_id, -15.0, 0.15);
+                tree.process_signal_on_compartment(&climbing_fiber_id, error, "distal_tuft");
+            } else {
+                // Convergence : consolidation à long terme (LTP)
+                tree.apply_postsynaptic_stdp(&parallel_fiber_id, 10.0, 0.20);
+            }
+
             tree.apply_structural_plasticity();
+
+            // Persistance de l'état du coprocesseur cérébelleux
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let serialized = serde_json::to_string_pretty(&tree).map_err(|e| e.to_string())?;
+            std::fs::write(&path, serialized).map_err(|e| e.to_string())?;
+
+            let converged = error < 0.1 && latency_diff <= 5.0;
+
             print_json(json!({
                 "success": true, "operation": "cerebellum_coprocessor",
                 "agent_id": agent_id, "error": error, "latency_diff": latency_diff,
                 "feedforward_gain": (feedforward_gain * 100.0).round() / 100.0,
                 "feedforward_amplification": (amplified * 100.0).round() / 100.0,
                 "dendritic_branches": tree.total_spines(),
-                "smith_predictor_converged": true
+                "persisted_path": path.to_string_lossy(),
+                "smith_predictor_converged": converged
             }));
         }
         BiomimicrySubcommands::EntericDelegate { agent_id, data_source, digestion_mode } => {
