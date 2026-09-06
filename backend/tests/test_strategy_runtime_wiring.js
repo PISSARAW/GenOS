@@ -18,8 +18,9 @@ async function runTests() {
     agentId: 'test-agent',
     orchestratorId: 'test-agent'
   });
-  assert.equal(pipelineRes.success, true, 'pipeline must succeed');
-  assert.equal(pipelineRes.results.length, 2, 'two primitives executed');
+  assert.equal(pipelineRes.success, false, 'pipeline must fail without snapshot context');
+  assert.equal(pipelineRes.results[0].primitive, 'snapshot', 'pipeline must stop at the failed primitive');
+  assert.equal(pipelineRes.results[1].primitive, 'adaptation_feedback', 'pipeline must record adaptation feedback');
   console.log('  ✅ executePipelineWithFeedback:', pipelineRes.success, pipelineRes.results.map((r) => r.primitive));
 
   console.log('\n=== TEST 2: MCP Strategy Tools Routing ===');
@@ -35,18 +36,18 @@ async function runTests() {
 
   const mcpExecPrim = await mcpStrategy.executeStrategyTool('genos_execute_primitive', {
     primitive: 'entropy_check',
-    context: {}
+    context: { actionHistory: ['snapshot', 'fork', 'snapshot'] }
   });
   assert.equal(mcpExecPrim.configured, true);
   assert.equal(mcpExecPrim.output.success, true);
   console.log('  ✅ MCP genos_execute_primitive(entropy_check) routed:', mcpExecPrim.status);
 
   const mcpExecPipeline = await mcpStrategy.executeStrategyTool('genos_execute_strategy_pipeline', {
-    primitives: ['snapshot', 'slm_route'],
-    context: { agentId: 'test-agent' }
+    primitives: ['entropy_check'],
+    context: { actionHistory: ['snapshot', 'fork', 'snapshot'] }
   });
   assert.equal(mcpExecPipeline.configured, true);
-  assert.equal(mcpExecPipeline.output.results.length, 2);
+  assert.equal(mcpExecPipeline.output.results.length, 1);
   console.log('  ✅ MCP genos_execute_strategy_pipeline routed:', mcpExecPipeline.status);
 
   const mcpDirect = await mcpExecutor.executeConfiguredTransport({

@@ -15,24 +15,24 @@ async function snapshot(context) {
     const snap = await agentRecovery.createSnapshot(await getDatabase(), context.workspaceId, label);
     return { success: true, snapshotId: snap.id };
   }
-  return { success: true, snapshotId: 'snap_' + Date.now() };
+  return { success: false, error: 'workspaceId required for snapshot.' };
 }
 
 async function fork(context) {
-  if (context.orchestratorId) {
-    try {
-      const db = await getDatabase();
-      const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-      await db.run(
-        "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'GenOS', 'worker', ?, ?)",
-        id, 'Forked Worker of ' + context.orchestratorId, context.orchestratorId, context.mission || 'strategy_fork'
-      );
-      return { success: true, forkedWorkerId: id };
-    } catch (e) {
-      return { success: true, forkedWorkerId: 'worker_fork_' + Date.now() };
-    }
+  if (!context.orchestratorId) {
+    return { success: false, error: 'orchestratorId required for fork.' };
   }
-  return { success: true, forkedWorkerId: 'worker_fork_' + Date.now() };
+  try {
+    const db = await getDatabase();
+    const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    await db.run(
+      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'GenOS', 'worker', ?, ?)",
+      id, 'Forked Worker of ' + context.orchestratorId, context.orchestratorId, context.mission || 'strategy_fork'
+    );
+    return { success: true, forkedWorkerId: id };
+  } catch (error) {
+    return { success: false, error: 'Fork failed: ' + error.message };
+  }
 }
 
 function slmRoute() {
@@ -45,11 +45,21 @@ async function bisectAgent(context) {
     const res = await bisectService.bisectAnomalyAsync(context.workspaceId, context.bugTrigger);
     return { success: true, bisectionResult: res };
   }
-  return { success: true, bisectionResult: 'Culprit identified at step 3' };
+  return { success: false, error: 'workspaceId and bugTrigger required for bisection.' };
 }
 
-function entropyCheck() {
-  return { success: true, entropy: Math.random() * 0.5 };
+function entropyCheck(context) {
+  if (!Array.isArray(context.actionHistory) || context.actionHistory.length === 0) {
+    return { success: false, error: 'actionHistory required for entropy check.' };
+  }
+  const counts = new Map();
+  for (const action of context.actionHistory) counts.set(action, (counts.get(action) || 0) + 1);
+  const total = context.actionHistory.length;
+  const entropy = [...counts.values()].reduce((sum, count) => {
+    const probability = count / total;
+    return sum - probability * Math.log2(probability);
+  }, 0);
+  return { success: true, entropy, samples: total };
 }
 
 async function evaluate(context) {
@@ -68,7 +78,7 @@ async function vfsDryRun(context) {
     const res = await vfs.dryRunPatch(context.workspaceId, context.patch);
     return { success: res.clean, dryRunCompleted: true, blastRadius: res.blastRadius };
   }
-  return { success: true, dryRunCompleted: true, blastRadius: 'low' };
+  return { success: false, error: 'workspaceId and patch required for VFS dry-run.' };
 }
 
 async function safeRevert(context) {
@@ -76,7 +86,7 @@ async function safeRevert(context) {
     await agentRecovery.restoreSnapshot(await getDatabase(), context.workspaceId, context.snapshotId);
     return { success: true, revertedTo: context.snapshotId };
   }
-  return { success: true, revertedTo: 'last_known_good_state' };
+  return { success: false, error: 'workspaceId and snapshotId required for revert.' };
 }
 
 async function run(context) {
@@ -90,7 +100,7 @@ async function run(context) {
       epistemicState: epistemic.state
     };
   }
-  return { success: true, status: 'running' };
+  return { success: false, error: 'orchestratorId and tool required for execution.' };
 }
 
 async function cryptobiosisFreeze(context) {
@@ -108,10 +118,10 @@ async function cryptobiosisFreeze(context) {
         status: res.data.status || 'FROZEN_VITRIFIED'
       };
     }
-  } catch (e) {
-    // fallback
+  } catch (error) {
+    return { success: false, agentId, error: 'Cryptobiosis freeze failed: ' + error.message };
   }
-  return { success: true, agentId, status: 'FROZEN_VITRIFIED_FALLBACK' };
+  return { success: false, agentId, error: 'Cryptobiosis freeze returned no capsule.' };
 }
 
 async function cryptobiosisThaw(context) {
@@ -128,10 +138,10 @@ async function cryptobiosisThaw(context) {
         status: res.data.status
       };
     }
-  } catch (e) {
-    // fallback
+  } catch (error) {
+    return { success: false, agentId, error: 'Cryptobiosis thaw failed: ' + error.message };
   }
-  return { success: true, agentId, status: 'RESUSCITATED_FALLBACK' };
+  return { success: false, agentId, error: 'Cryptobiosis thaw returned no state.' };
 }
 
 module.exports = {
