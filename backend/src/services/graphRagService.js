@@ -32,7 +32,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
           SELECT
             CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
             t.depth + 1,
-            ms.weight
+            CASE WHEN ms.source_id = t.id THEN ms.weight ELSE ms.weight * 0.5 END
           FROM traverse t
           JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}
           WHERE t.depth < 2 AND ms.weight > 0
@@ -42,8 +42,13 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
     `, queryParams);
 
     const linkedIds = [];
+    const synapseWeightById = new Map();
     for (const s of synapses) {
-      if (!topIds.includes(s.id)) linkedIds.push(s.id);
+      if (!topIds.includes(s.id)) {
+        linkedIds.push(s.id);
+        const cur = synapseWeightById.get(s.id) || 0;
+        if (s.weight > cur) synapseWeightById.set(s.id, s.weight);
+      }
     }
     const uniqueLinkedIds = [...new Set(linkedIds)];
     if (!uniqueLinkedIds.length) return [];
@@ -54,20 +59,26 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
       tenant.organizationId ? [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), tenant.organizationId] : [...uniqueLinkedIds, ...(ownerId ? [ownerId] : [])]
     );
 
-    return connectedDecisions.map(item => ({
-      id: item.id,
-      title: item.title,
-      category: item.category,
-      status: 'SUCCESS',
-      summary: item.content,
-      tags: ['genome', item.category, 'graph_association'],
-      author: item.created_by,
-      createdAt: item.created_at,
-      vector: [],
-      synaptic_weight: item.synaptic_weight || 1.0,
-      similarityScore: Number(((item.synaptic_weight || 1.0) * 0.4).toFixed(4)),
-      cosineMetric: 0.5
-    }));
+    return connectedDecisions.map(item => {
+      const edgeWeight = synapseWeightById.get(item.id) ?? 1.0;
+      const normalizedEdge = Math.min(2.5, Math.max(0.1, edgeWeight));
+      const score = Number(((item.synaptic_weight || 1.0) * 0.4 * normalizedEdge).toFixed(4));
+      return {
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        status: 'SUCCESS',
+        summary: item.content,
+        tags: ['genome', item.category, 'graph_association'],
+        author: item.created_by,
+        createdAt: item.created_at,
+        vector: [],
+        synaptic_weight: item.synaptic_weight || 1.0,
+        similarityScore: score,
+        cosineMetric: 0.5,
+        synaptic_edge_weight: Number(edgeWeight.toFixed(4))
+      };
+    });
   } catch {
     return [];
   }
@@ -79,20 +90,38 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
  * @param {object} db
  * @returns {Promise<object[]>}
  */
-async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '') {
+async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', options = {}) {
   if (!db || !timeAnchors.length) return [];
   const temporalItems = [];
+  const horizonHours = Number.isFinite(options.horizonHours) ? options.horizonHours : 24;
+  const horizonMs = horizonHours * 3600 * 1000;
 
   for (const anchor of timeAnchors) {
     if (!anchor.createdAt) continue;
+    const anchorTime = new Date(anchor.createdAt).getTime();
+    if (Number.isNaN(anchorTime)) continue;
+
+    const minTime = new Date(anchorTime - horizonMs).toISOString();
+    const maxTime = new Date(anchorTime + horizonMs).toISOString();
 
     try {
-      const ownerClause = ownerId ? ' AND created_by = ?' : '';
-      const ownerParams = ownerId ? [ownerId] : [];
-      const prev = await db.get(
-        `SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at < ? AND id != ?${ownerClause} ORDER BY created_at DESC LIMIT 1`,
-        anchor.createdAt, anchor.id, ...ownerParams
-      );
+      let pastQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at < ? AND created_at >= ? AND id != ?';
+      const pastParams = [anchor.createdAt, minTime, anchor.id];
+      if (ownerId) {
+        pastQuery += ' AND created_by = ?';
+        pastParams.push(ownerId);
+      }
+      if (options.organizationId) {
+        pastQuery += ' AND organization_id = ?';
+        pastParams.push(options.organizationId);
+      }
+      if (options.projectId) {
+        pastQuery += ' AND project_id = ?';
+        pastParams.push(options.projectId);
+      }
+      pastQuery += ' ORDER BY created_at DESC LIMIT 1';
+
+      const prev = await db.get(pastQuery, ...pastParams);
       if (prev) {
         temporalItems.push({
           id: prev.id,
@@ -110,10 +139,23 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '') {
         });
       }
 
-      const next = await db.get(
-        `SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at > ? AND id != ?${ownerClause} ORDER BY created_at ASC LIMIT 1`,
-        anchor.createdAt, anchor.id, ...ownerParams
-      );
+      let nextQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at > ? AND created_at <= ? AND id != ?';
+      const nextParams = [anchor.createdAt, maxTime, anchor.id];
+      if (ownerId) {
+        nextQuery += ' AND created_by = ?';
+        nextParams.push(ownerId);
+      }
+      if (options.organizationId) {
+        nextQuery += ' AND organization_id = ?';
+        nextParams.push(options.organizationId);
+      }
+      if (options.projectId) {
+        nextQuery += ' AND project_id = ?';
+        nextParams.push(options.projectId);
+      }
+      nextQuery += ' ORDER BY created_at ASC LIMIT 1';
+
+      const next = await db.get(nextQuery, ...nextParams);
       if (next) {
         temporalItems.push({
           id: next.id,
@@ -161,7 +203,7 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
   // 2. Temporal Reasoning (Time Cells)
   if (topItems.length > 0 && db) {
     const timeAnchors = topItems.slice(0, 2);
-    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, options.ownerId || '');
+    const timeNeighbors = await fetchTemporalAnchors(timeAnchors, db, options.ownerId || '', options);
     for (const item of timeNeighbors) {
       if (!topItems.find(t => t.id === item.id) && !connectedItems.find(c => c.id === item.id)) {
         connectedItems.push(item);
