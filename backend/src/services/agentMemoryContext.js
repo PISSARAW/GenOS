@@ -179,27 +179,46 @@ function formatGoldenPath(g) {
  * @param {string} agentId
  * @param {string} task
  * @param {string} summary
+ * @param {object} [options={}]
  * @returns {Promise<string|null>}
  */
-async function compileExecutionMemory(agentId = 'agent', task = '', summary = '') {
+async function compileExecutionMemory(agentId = 'agent', task = '', summary = '', options = {}) {
   if (!summary) return null;
   try {
-    const content = `Task: ${task}\nResult: ${summary.slice(0, 1000)}`;
-    const memId = await vectorMemory.storeMemory(agentId, content, null);
+    const isFailure = Boolean(options.isFailure || options.status === 'failed' || options.outcome === 'failed');
+    
+    // Epistemic validation: reject hallucinations, placeholders, and unverified claims
+    const epistemics = require('./epistemics');
+    const perception = epistemics.validateMemoryPerception({ summary, title: task });
+    if (perception.isInvalid()) {
+      return null;
+    }
 
-    // Epigenetic Exosome secretion into extracellular matrix for future generations
-    try {
-      const engramContent = `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`;
-      const { textToVector } = require('./memoryScoring');
-      await vectorMemory.depositExosome({
-        new_engrams: [{
-          content: engramContent,
-          vector: textToVector(engramContent)
-        }],
-        plasmid_name: `plasmid_${agentId}_${Date.now()}`,
-        plasmid_code: `// Epigenetic transmission from ${agentId}\n// Task: ${task.slice(0, 80)}\n// Insight: ${summary.slice(0, 200)}`
-      });
-    } catch {}
+    const category = isFailure ? 'Failure' : 'Experience';
+    const content = `Task: ${task}\nResult: ${summary.slice(0, 1000)}`;
+    const memId = await vectorMemory.storeMemory(agentId, content, null, {
+      category,
+      organizationId: options.organizationId,
+      projectId: options.projectId
+    });
+
+    // Only secrete positive exosomes into the extracellular matrix for successful missions
+    if (!isFailure) {
+      try {
+        const engramContent = `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`;
+        const { textToVector } = require('./memoryScoring');
+        await vectorMemory.depositExosome({
+          new_engrams: [{
+            content: engramContent,
+            vector: textToVector(engramContent)
+          }],
+          plasmid_name: `plasmid_${agentId}_${Date.now()}`,
+          plasmid_code: `// Epigenetic transmission from ${agentId}\n// Task: ${task.slice(0, 80)}\n// Insight: ${summary.slice(0, 200)}`,
+          organizationId: options.organizationId,
+          projectId: options.projectId
+        });
+      } catch {}
+    }
 
     return memId;
   } catch {

@@ -183,7 +183,7 @@ class VectorMemoryService {
           queryParams.push(ownerId);
         }
         if (orgId) {
-          sql += orgFilter;
+          sql += ' AND (t.workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?) OR t.workspace_id IS NULL)';
           queryParams.push(orgId);
         }
         const rows = await db.all(sql, queryParams);
