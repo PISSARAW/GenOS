@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::cell::AgentCell;
+use crate::cell::{AgentCell, Organelle};
 use crate::cell::ConscienceState;
 use crate::genome::Genome;
 use uuid::Uuid;
@@ -16,6 +16,7 @@ pub struct Spore {
     pub genome: Genome,
     pub parent_cell_id: Uuid,
     pub conscience: ConscienceState,
+    pub organelles: Vec<Organelle>,
     pub bunker_armor: u32,
 }
 
@@ -26,6 +27,7 @@ impl Spore {
             genome,
             parent_cell_id: Uuid::new_v4(),
             conscience: ConscienceState::default(),
+            organelles: Vec::new(),
             bunker_armor,
         }
     }
@@ -36,6 +38,7 @@ impl Spore {
             genome,
             parent_cell_id: cell.cell_id,
             conscience: cell.conscience.clone(),
+            organelles: cell.organelles.clone(),
             bunker_armor,
         }
     }
@@ -61,6 +64,7 @@ impl Spore {
             SporeType::BacterialEndospore => "Bacterial Vegetative Cell".to_string(),
         };
         new_cell.conscience = self.conscience;
+        new_cell.organelles = self.organelles;
         Ok(new_cell)
     }
 
@@ -101,5 +105,14 @@ mod tests {
         let revived = bunker.germinate(true, true).unwrap();
         assert_eq!(revived.role, "Bacterial Vegetative Cell");
         assert_eq!(revived.conscience.current_budget, 100.0);
+    }
+
+    #[test]
+    fn test_spore_round_trip_preserves_organelles() {
+        let mut cell = AgentCell::new("Host", "Host", "Worker");
+        cell.organelles.push(Organelle::Ribosome { id: Uuid::new_v4(), translation_capacity: 4 });
+        let spore = Spore::from_cell(SporeType::BacterialEndospore, &cell, Genome::new("CELL"), 9999);
+        let revived = spore.germinate(true, true).unwrap();
+        assert_eq!(revived.organelles.len(), 1);
     }
 }
