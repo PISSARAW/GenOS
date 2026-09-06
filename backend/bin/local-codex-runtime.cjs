@@ -5,6 +5,7 @@ console.info = (...args) => process.stderr.write(args.map(String).join(' ') + '\
 
 const { decodeMissionInput, encodeEvent } = require('../src/services/runtimeProtocol');
 const modelRouter = require('../src/services/modelRouter');
+const path = require('path');
 
 let raw = Buffer.alloc(0);
 process.stdin.on('data', (chunk) => { raw = Buffer.concat([raw, chunk]); });
@@ -24,7 +25,6 @@ process.stdin.on('end', async () => {
   let contextStr = '';
   try {
     const fs = require('fs');
-    const path = require('path');
     const cwd = process.cwd();
     const projectName = process.env.GRIOT_PROJECT_NAME || path.basename(cwd);
     
@@ -72,6 +72,10 @@ process.stdin.on('end', async () => {
   const agentMemory = require('../src/services/agentMemoryContext');
   let strategyContract = {};
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
+  let executionPolicy = {};
+  try { executionPolicy = JSON.parse(mission.executionPolicyJson || '{}'); } catch {}
+  const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
+  const allowFileEdits = executionPolicy.allowFileEdits === true;
   const primaryStrategy = strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
 
   let strategyContext = '';
@@ -143,7 +147,12 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
       const filepath = match[1].trim();
       const code = match[2].trim();
       try {
-        const absPath = pathLib.resolve(process.cwd(), filepath);
+        if (!allowFileEdits) throw new Error('File edits are not authorized by the GenOS execution policy.');
+        const absPath = pathLib.resolve(workspaceRoot, filepath);
+        const relativePath = pathLib.relative(workspaceRoot, absPath);
+        if (relativePath.startsWith('..') || pathLib.isAbsolute(relativePath)) {
+          throw new Error(`Artifact path escapes the mission workspace: ${filepath}`);
+        }
         fsLib.mkdirSync(pathLib.dirname(absPath), { recursive: true });
         fsLib.writeFileSync(absPath, code);
       } catch (e) {
