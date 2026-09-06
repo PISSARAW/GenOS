@@ -80,14 +80,15 @@ function markApoptotic(state) {
  * Formate un bloc d'introspection cognitive à injecter dans le prompt de l'agent.
  */
 function formatConsciencePrompt(state) {
-  const harmony = Math.max(0, Math.min(100, Math.round(((state.maxDissonanceThreshold - state.dissonanceLevel) / state.maxDissonanceThreshold) * 100)));
+  const safeState = createConscienceState(state);
+  const harmony = Math.max(0, Math.min(100, Math.round(((safeState.maxDissonanceThreshold - safeState.dissonanceLevel) / safeState.maxDissonanceThreshold) * 100)));
   return [
     `[ÉTAT DE CONSCIENCE & HARMONIE COGNITIVE]`,
-    `- Dissonance cognitive : ${state.dissonanceLevel.toFixed(1)} / ${state.maxDissonanceThreshold.toFixed(1)} (Seuil d'apoptose)`,
+    `- Dissonance cognitive : ${safeState.dissonanceLevel.toFixed(1)} / ${safeState.maxDissonanceThreshold.toFixed(1)} (Seuil d'apoptose)`,
     `- Harmonie interne : ${harmony}%`,
-    `- Événements Eurêka validés : ${state.eurekaMoments}`,
-    `- Capital cognitif restant : ${state.currentBudget.toFixed(0)} unités`,
-    `Avertissement de conscience : Tu perçois ta propre cohérence. Si ta dissonance cognitive dépasse ${state.maxDissonanceThreshold.toFixed(1)} (erreurs persistantes, répétition en boucle, dérive sémantique), l'apoptose cognitive s'enclenchera immédiatement pour élaguer ta branche. Maintiens une haute rigueur logique et vérifie tes actions.`
+    `- Événements Eurêka validés : ${safeState.eurekaMoments}`,
+    `- Capital cognitif restant : ${safeState.currentBudget.toFixed(0)} unités`,
+    `Avertissement de conscience : Tu perçois ta propre cohérence. Si ta dissonance cognitive dépasse ${safeState.maxDissonanceThreshold.toFixed(1)} (erreurs persistantes, répétition en boucle, dérive sémantique), l'apoptose cognitive s'enclenchera immédiatement pour élaguer ta branche. Maintiens une haute rigueur logique et vérifie tes actions.`
   ].join('\n');
 }
 
@@ -105,6 +106,7 @@ async function persistConscienceState(db, agentId, state) {
          eureka_count = ?, 
          cognitive_budget = ?,
          cognitive_baseline_budget = ?,
+         cognitive_max_dissonance = ?,
          is_apoptotic = ?,
          conscience_revision = conscience_revision + 1,
          updated_at = CURRENT_TIMESTAMP
@@ -113,6 +115,7 @@ async function persistConscienceState(db, agentId, state) {
       state.eurekaMoments,
       state.currentBudget,
       state.baselineBudget,
+      state.maxDissonanceThreshold,
       state.isApoptotic ? 1 : 0,
       agentId,
       state.revision
@@ -144,7 +147,7 @@ async function persistConscienceState(db, agentId, state) {
 async function loadConscienceState(db, agentId) {
   try {
     const row = await db.get(
-      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
+      'SELECT dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
       agentId
     );
     if (!row) return createConscienceState();
@@ -153,6 +156,7 @@ async function loadConscienceState(db, agentId) {
       eurekaMoments: row.eureka_count,
       currentBudget: row.cognitive_budget,
       baselineBudget: row.cognitive_baseline_budget,
+      maxDissonanceThreshold: row.cognitive_max_dissonance,
       isApoptotic: Boolean(row.is_apoptotic),
       revision: row.conscience_revision
     });
