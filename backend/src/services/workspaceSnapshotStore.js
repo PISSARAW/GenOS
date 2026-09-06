@@ -222,6 +222,8 @@ async function materialize(snapshot, destination) {
     await fsp.writeFile(target, bytes);
     await fsp.chmod(target, file.mode).catch(() => {});
   }
+  const materializedHash = manifestHash(await collectFiles(destination));
+  if (materializedHash !== manifest.hash) throw new Error(`Snapshot materialization checksum mismatch for ${destination}.`);
   return manifest;
 }
 
