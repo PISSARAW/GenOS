@@ -209,11 +209,11 @@ pub struct EvolutionCmd {
 #[derive(Subcommand, Debug)]
 pub enum EvolutionSubcommands {
     AssimilatePlasmid {
-        #[arg(long)]
+        #[arg(long, alias = "agent-id")]
         agent_id: Option<String>,
-        #[arg(long)]
+        #[arg(long, alias = "source")]
         source_agent_id: Option<String>,
-        #[arg(long)]
+        #[arg(long, alias = "plasmid-id")]
         plasmid_name: Option<String>,
     },
     Crossover {
