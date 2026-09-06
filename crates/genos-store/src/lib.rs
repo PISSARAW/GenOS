@@ -2,18 +2,53 @@ pub mod capsule;
 pub mod cryptobiosis;
 pub mod event;
 pub mod fossil;
+pub mod memory;
 pub mod snapshot;
 
 pub use capsule::{Capsule, CapsuleStore};
 pub use cryptobiosis::{CryptobiosisStore, FrozenAgent};
 pub use event::{Event, InMemoryEventStore};
 pub use fossil::{FossilRecord, FossilRegistry};
+pub use memory::{cosine_similarity, InMemoryVectorRepository};
 pub use snapshot::{SnapshotManifest, SnapshotStore};
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn test_in_memory_vector_repository() {
+        use genos_common::traits::{MemoryEntry, MemoryRepository, SearchQuery};
+        use std::collections::HashMap;
+
+        let repo = InMemoryVectorRepository::new();
+        let e1 = MemoryEntry {
+            id: "mem-1".into(),
+            content: "SQLite WAL journal mode for concurrency".into(),
+            embedding: Some(vec![1.0, 0.0, 0.0]),
+            tags: HashMap::new(),
+        };
+        let e2 = MemoryEntry {
+            id: "mem-2".into(),
+            content: "Epigenetic chromatin silencing of unused genes".into(),
+            embedding: Some(vec![0.0, 1.0, 0.0]),
+            tags: HashMap::new(),
+        };
+
+        repo.store_memory(e1).unwrap();
+        repo.store_memory(e2).unwrap();
+        assert_eq!(repo.count(), 2);
+
+        let res = repo.search(SearchQuery {
+            text: None,
+            vector: Some(vec![0.9, 0.1, 0.0]),
+            limit: 1,
+        }).unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].id, "mem-1");
+    }
 
     #[test]
     fn test_event_store_append_and_read() {
