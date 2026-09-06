@@ -110,7 +110,6 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
 }
 
 async function state(db, orchestratorId) {
-  const { activeProcesses } = require('./agentOrchestrationState');
   const dbWorkers = await db.all(
     `SELECT id, name, role, current_task as currentTask, status, created_at as createdAt
      FROM agents
@@ -119,14 +118,7 @@ async function state(db, orchestratorId) {
      ORDER BY created_at, id`,
     orchestratorId
   );
-  // Empêche les "zombies" (agents running en DB mais processus mort au redémarrage)
-  const activeWorkers = dbWorkers.filter(w => activeProcesses.has(w.id));
-  
-  // Clean up des zombies en arrière-plan
-  const zombies = dbWorkers.filter(w => !activeProcesses.has(w.id));
-  for (const z of zombies) {
-    db.run("UPDATE agents SET status = 'error', current_task = 'Orphaned by server restart' WHERE id = ?", z.id).catch(() => {});
-  }
+  const activeWorkers = dbWorkers;
 
   return {
     capacity: MAX_ACTIVE_WORKERS,
