@@ -172,7 +172,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   // Apply mutation if triggered
   let mutatedGene = null;
-  if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:mutation`) < mutationRate * 5) {
+  if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:mutation`) < mutationRate) {
     mutatedGene = 'temp';
     childGenes.temp = Number((Math.min(0.8, childGenes.temp + 0.05)).toFixed(2));
   }
