@@ -3,6 +3,7 @@ use serde_json::json;
 use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
 use genos_biology::ecology::{CollusionCheck, EvolutionaryEcology};
 use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
+use genos_biology::glial::{glial_cell, Astrocyte, GlialEnvironment, GlialPipeline, Microglia, MicrogliaState};
 use genos_biology::neurobiology::{DendriticTree, Neurotransmitter};
 use genos_biology::phenotype::EnvironmentalFactors;
 use genos_biology::redundancy::RedundancySystem;
@@ -158,18 +159,59 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "GLIAL_PHAGOCYTOSIS",
                 &format!("Nettoyage synaptique intensité {}", mode),
             );
-            let (dead_cells, debris_cleared_pct, inflammatory_cytokines) = match mode.as_str() {
-                "high" | "aggressive" => (18, 96.5, 2.4),
-                "low" | "gentle" => (4, 62.0, 0.1),
-                _ => (9, 84.0, 0.7),
+            let severity = match mode.as_str() {
+                "high" | "aggressive" => 0.9,
+                "low" | "gentle" => 0.3,
+                _ => 0.6,
             };
+            let terminal_count = 20usize;
+            let terminals = (0..terminal_count)
+                .map(|index| glial_cell::Synapse {
+                    c3_opsonization: if (index as f64 / terminal_count as f64) < severity { 0.8 } else { 0.1 },
+                    cd47_expression: 0.4,
+                })
+                .collect();
+            let mut agent = glial_cell::GlialCell {
+                cell_id: agent_id.clone(),
+                metabolism: glial_cell::Metabolism { atp_budget: 100.0 },
+                astrocyte: Some(Astrocyte { glycogen_reserve: 50.0, is_reactive: false, protected_neurons: vec![agent_id.clone()] }),
+                myelinator: None,
+                microglia: Some(Microglia {
+                    state: MicrogliaState::Amoeboid,
+                    plaque_accumulation: severity * 12.0,
+                    inflammatory_cytokines: 0.0,
+                    c4_overexpression: false,
+                    is_pro_inflammatory: false,
+                }),
+                ependymal: None,
+                nervous_system: Some(glial_cell::NervousSystem {
+                    location: glial_cell::NervousSystemLocation::Central,
+                    axon: glial_cell::Axon { terminals, myelination_level: 0.8, is_severed: false, nogo_inhibited: false },
+                }),
+            };
+            let mut bhe_integrity = 1.0;
+            let mut amyloid_plaques = severity * 10.0;
+            let mut csf_volume = 10.0;
+            let mut csf_pressure = 10.0;
+            GlialPipeline::new().process_all(std::slice::from_mut(&mut agent), GlialEnvironment {
+                bhe_integrity: &mut bhe_integrity,
+                amyloid_plaques: &mut amyloid_plaques,
+                csf_volume: &mut csf_volume,
+                csf_pressure: &mut csf_pressure,
+                is_sleeping: false,
+                drainage_blocked: false,
+            });
+            let remaining_synapses = agent.nervous_system.as_ref().map(|ns| ns.axon.terminals.len()).unwrap_or(0);
+            let dead_cells = if agent.metabolism.atp_budget <= 0.0 { 1 } else { 0 };
+            let debris_cleared_pct = ((terminal_count.saturating_sub(remaining_synapses)) as f64 / terminal_count as f64) * 100.0;
+            let inflammatory_cytokines = agent.microglia.as_ref().map(|m| m.inflammatory_cytokines).unwrap_or(0.0);
             print_json(json!({
                 "success": true, "operation": "glial_cleanup",
                 "agent_id": agent_id, "intensity": mode,
                 "phagocytized_dead_cells": dead_cells,
                 "debris_cleared_percent": debris_cleared_pct,
                 "inflammatory_cytokines": inflammatory_cytokines,
-                "bhe_integrity_restored": 0.99,
+                "bhe_integrity_restored": bhe_integrity,
                 "synaptic_debris_cleared": true
             }));
         }
