@@ -53,7 +53,8 @@ async function advanceAutonomousRound(mission, event) {
     fitnessScore: r.evidenceScore,
     tokens: r.payload?.tokens || 1000
   })));
-  const survivors = selectSurvivors(completed, continuation?.survivorCount);
+  const paretoAgentIds = new Set((paretoResult.paretoFront || []).map((candidate) => candidate.candidateId));
+  const survivors = selectSurvivors(completed, continuation?.survivorCount, paretoAgentIds);
   emit(round.orchestratorId, 'TOKEN_ROUND_EVALUATED', 'SUCCESSIVE_HALVING', `Initial screening selected ${survivors.length} of ${state.workerIds.size} branches (Pareto Front: ${paretoResult.paretoFrontCount}, Knee-Point: ${paretoResult.kneePoint?.candidateId || 'none'}).`, {
     allocation: state.plan.tokenPolicy.allocation,
     initial: state.plan.tokenPolicy.rounds.initial,

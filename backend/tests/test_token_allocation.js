@@ -18,4 +18,10 @@ assert.deepStrictEqual(
     { agentId: 'a', status: 'idle', evidenceScore: 0.9 }
   ], 2).map((candidate) => candidate.agentId), ['a', 'b']
 );
+assert.deepStrictEqual(
+  selectSurvivors([
+    { agentId: 'score-winner', status: 'completed', evidenceScore: 1 },
+    { agentId: 'pareto-winner', status: 'completed', evidenceScore: 0.2 }
+  ], 1, new Set(['pareto-winner'])).map((candidate) => candidate.agentId), ['pareto-winner']
+);
 console.log('Token allocation checks passed.');
