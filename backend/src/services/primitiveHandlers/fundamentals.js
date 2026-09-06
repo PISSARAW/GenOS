@@ -35,8 +35,10 @@ async function fork(context) {
   }
 }
 
-function slmRoute() {
-  return { success: true, routedTo: 'small_local_model' };
+function slmRoute(context = {}) {
+  const model = String(context.model || context.modelUri || '').trim();
+  if (!model) return { success: false, error: 'model or modelUri required for provider routing.' };
+  return { success: true, routedTo: model };
 }
 
 async function bisectAgent(context) {

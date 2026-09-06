@@ -12,12 +12,11 @@ const path = require('path');
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
   const agentId = context.agentId || context.orchestratorId;
-  const inputFile = context.inputFile || '/tmp/causal_input.json';
+  const inputFile = context.inputFile;
   const outputFile = context.outputFile || `/tmp/causal_report_${Date.now()}.json`;
 
-  if (!fs.existsSync(inputFile)) {
-    // Créer un fichier bouchon si absent pour la démo
-    fs.writeFileSync(inputFile, JSON.stringify({ steps: [] }));
+  if (!inputFile || !fs.existsSync(inputFile)) {
+    return { success: false, error: 'Existing inputFile required for causal replay.' };
   }
 
   const res = await mcpExecutor.execute({
@@ -70,12 +69,12 @@ async function mutatedUniverses(context) {
 async function causalRebase(context) {
   // Injecte un changement dans le passé et re-calcule le plan d'exécution futur.
   const agentId = context.agentId || context.orchestratorId;
-  const graphFile = context.graphFile || '/tmp/compute_plan.json';
+  const graphFile = context.graphFile;
   const injectionStep = context.injectionStep || 'step_1';
   const injectedKeys = context.injectedKeys || ['altered_state'];
 
-  if (!fs.existsSync(graphFile)) {
-    fs.writeFileSync(graphFile, JSON.stringify({ nodes: [] }));
+  if (!graphFile || !fs.existsSync(graphFile)) {
+    return { success: false, error: 'Existing graphFile required for causal rebase.' };
   }
 
   const res = await mcpExecutor.execute({
