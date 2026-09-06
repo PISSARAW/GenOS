@@ -347,7 +347,9 @@ async function executeBioTool(toolName, args) {
 
   if (toolName === 'genos_biomimicry_telomere_fork') {
     try {
-      const out = runGenosSync(`genos biomimicry telomere-fork --agent-id ${args.agent_id}` + (args.force_telomerase ? ` --force-telomerase` : ''));
+      const targetId = args.agent_id || args.parent_id || 'root_agent';
+      const cmd = `genos biomimicry telomere-fork --agent-id ${targetId}` + (args.force_telomerase ? ` --force-telomerase` : '');
+      const out = runGenosSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
