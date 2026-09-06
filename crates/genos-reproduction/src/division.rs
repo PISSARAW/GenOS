@@ -13,12 +13,28 @@ pub struct CellDivision;
 
 impl CellDivision {
     pub fn binary_fission(genome: &Genome, mutation_rate: f64) -> Result<(Genome, Genome), String> {
+        if !(0.0..=1.0).contains(&mutation_rate) {
+            return Err("Mutation rate must be between 0 and 1".to_string());
+        }
         let parent = genome.clone();
         let mut child = genome.clone();
-        if mutation_rate > 0.0 && !child.chromosome_maternal.sequence.is_empty() {
-            let mut pt = child.chromosome_maternal.clone();
-            pt.mutate_point(0, genos_genome::DnaNucleotide::T);
-            child.chromosome_maternal = pt;
+        let id_bytes = child.genome_id.as_bytes();
+        for (index, nucleotide) in child
+            .chromosome_maternal
+            .sequence
+            .iter_mut()
+            .chain(child.chromosome_paternal.sequence.iter_mut())
+            .enumerate()
+        {
+            let score = id_bytes[index % id_bytes.len()] as f64 / 256.0;
+            if score < mutation_rate {
+                *nucleotide = match nucleotide {
+                    genos_genome::DnaNucleotide::A => genos_genome::DnaNucleotide::C,
+                    genos_genome::DnaNucleotide::C => genos_genome::DnaNucleotide::G,
+                    genos_genome::DnaNucleotide::G => genos_genome::DnaNucleotide::T,
+                    genos_genome::DnaNucleotide::T => genos_genome::DnaNucleotide::A,
+                };
+            }
         }
         Ok((parent, child))
     }

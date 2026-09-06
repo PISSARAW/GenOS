@@ -20,27 +20,42 @@ impl Codon {
             (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::A)
             | (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::G)
             | (RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::A) => AminoAcidToken::Stop,
-            (n1, n2, n3) => {
-                let b1 = match n1 {
-                    RnaNucleotide::A => 0,
-                    RnaNucleotide::C => 1,
-                    RnaNucleotide::G => 2,
-                    RnaNucleotide::U => 3,
-                };
-                let b2 = match n2 {
-                    RnaNucleotide::A => 0,
-                    RnaNucleotide::C => 1,
-                    RnaNucleotide::G => 2,
-                    RnaNucleotide::U => 3,
-                };
-                let b3 = match n3 {
-                    RnaNucleotide::A => 0,
-                    RnaNucleotide::C => 1,
-                    RnaNucleotide::G => 2,
-                    RnaNucleotide::U => 3,
-                };
-                AminoAcidToken::Token(((b1 << 4) | (b2 << 2) | b3) % 20)
-            }
+            (RnaNucleotide::U, RnaNucleotide::U, RnaNucleotide::U)
+            | (RnaNucleotide::U, RnaNucleotide::U, RnaNucleotide::C) => AminoAcidToken::Token(0),
+            (RnaNucleotide::U, RnaNucleotide::U, RnaNucleotide::A)
+            | (RnaNucleotide::U, RnaNucleotide::U, RnaNucleotide::G)
+            | (RnaNucleotide::C, RnaNucleotide::U, _) => AminoAcidToken::Token(1),
+            (RnaNucleotide::U, RnaNucleotide::C, _) => AminoAcidToken::Token(2),
+            (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::U)
+            | (RnaNucleotide::U, RnaNucleotide::A, RnaNucleotide::C) => AminoAcidToken::Token(3),
+            (RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::U)
+            | (RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::C) => AminoAcidToken::Token(4),
+            (RnaNucleotide::U, RnaNucleotide::G, RnaNucleotide::G) => AminoAcidToken::Token(5),
+            (RnaNucleotide::C, RnaNucleotide::C, _) => AminoAcidToken::Token(6),
+            (RnaNucleotide::C, RnaNucleotide::A, RnaNucleotide::U)
+            | (RnaNucleotide::C, RnaNucleotide::A, RnaNucleotide::C) => AminoAcidToken::Token(7),
+            (RnaNucleotide::C, RnaNucleotide::A, RnaNucleotide::A)
+            | (RnaNucleotide::C, RnaNucleotide::A, RnaNucleotide::G) => AminoAcidToken::Token(8),
+            (RnaNucleotide::C, RnaNucleotide::G, _) => AminoAcidToken::Token(9),
+            (RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::U)
+            | (RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::C)
+            | (RnaNucleotide::A, RnaNucleotide::U, RnaNucleotide::A) => AminoAcidToken::Token(10),
+            (RnaNucleotide::A, RnaNucleotide::C, _) => AminoAcidToken::Token(11),
+            (RnaNucleotide::A, RnaNucleotide::A, RnaNucleotide::U)
+            | (RnaNucleotide::A, RnaNucleotide::A, RnaNucleotide::C) => AminoAcidToken::Token(12),
+            (RnaNucleotide::A, RnaNucleotide::A, RnaNucleotide::A)
+            | (RnaNucleotide::A, RnaNucleotide::A, RnaNucleotide::G) => AminoAcidToken::Token(13),
+            (RnaNucleotide::A, RnaNucleotide::G, RnaNucleotide::U)
+            | (RnaNucleotide::A, RnaNucleotide::G, RnaNucleotide::C) => AminoAcidToken::Token(14),
+            (RnaNucleotide::A, RnaNucleotide::G, RnaNucleotide::A)
+            | (RnaNucleotide::A, RnaNucleotide::G, RnaNucleotide::G) => AminoAcidToken::Token(15),
+            (RnaNucleotide::G, RnaNucleotide::U, _) => AminoAcidToken::Token(16),
+            (RnaNucleotide::G, RnaNucleotide::C, _) => AminoAcidToken::Token(17),
+            (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::U)
+            | (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::C) => AminoAcidToken::Token(18),
+            (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::A)
+            | (RnaNucleotide::G, RnaNucleotide::A, RnaNucleotide::G) => AminoAcidToken::Token(19),
+            (RnaNucleotide::G, RnaNucleotide::G, _) => AminoAcidToken::Token(5),
         }
     }
 }
@@ -99,13 +114,18 @@ impl Ribosome {
 
     pub fn translate(rna: &RnaStrand) -> UnfoldedProtein {
         let mut amino_acids = Vec::new();
+        let mut started = false;
         for chunk in rna.sequence.chunks(3) {
             if chunk.len() == 3 {
                 let codon = Codon(chunk[0].clone(), chunk[1].clone(), chunk[2].clone());
                 match codon.read_universal_dictionary() {
-                    AminoAcidToken::Token(val) => amino_acids.push(val),
-                    AminoAcidToken::MethionineStart => amino_acids.push(0),
-                    AminoAcidToken::Stop => break,
+                    AminoAcidToken::MethionineStart => {
+                        started = true;
+                        amino_acids.push(10);
+                    }
+                    AminoAcidToken::Token(val) if started => amino_acids.push(val),
+                    AminoAcidToken::Stop if started => break,
+                    _ => {}
                 }
             }
         }

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use self::mock_dependencies::{AgentCell, Myelinator, NervousSystemLocation};
+use self::glial_cell::{GlialCell, Myelinator, NervousSystemLocation};
 
-pub mod mock_dependencies {
+pub mod glial_cell {
     use super::*;
 
     #[derive(Clone)]
-    pub struct AgentCell {
+    pub struct GlialCell {
         pub cell_id: String,
         pub metabolism: Metabolism,
         pub astrocyte: Option<Astrocyte>,
@@ -124,15 +124,15 @@ pub struct GlialApplyContext<'a, 'b> {
 }
 
 pub trait GlialProcessor {
-    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext);
+    fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext);
     fn aggregate(&self, _state: &mut GlialAggregateState, _env: &mut GlialEnvironment) {}
-    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext);
+    fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext);
 }
 
 pub struct AstrocyteProcessor;
 
 impl GlialProcessor for AstrocyteProcessor {
-    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
+    fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext) {
         if agent.nervous_system.is_some() {
             ctx.state
                 .neurons_alive
@@ -164,7 +164,7 @@ impl GlialProcessor for AstrocyteProcessor {
         *env.bhe_integrity = if state.bhe_intact { 1.0 } else { 0.0 };
     }
 
-    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
+    fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
         if let Some(ns) = &mut agent.nervous_system {
             if ctx.state.reactive_astrocytes.contains(&agent.cell_id) {
                 ns.axon.terminals.clear();
@@ -178,7 +178,7 @@ impl GlialProcessor for AstrocyteProcessor {
 pub struct MicrogliaProcessor;
 
 impl GlialProcessor for MicrogliaProcessor {
-    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
+    fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext) {
         let (mut pro_inflam, mut c4_over) = (false, false);
 
         if let Some(micro) = &mut agent.microglia {
@@ -213,7 +213,7 @@ impl GlialProcessor for MicrogliaProcessor {
         }
     }
 
-    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
+    fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
         if ctx.state.inflammation_surge > 0.0 && agent.nervous_system.is_some() {
             agent.metabolism.atp_budget = agent
                 .metabolism
@@ -226,7 +226,7 @@ impl GlialProcessor for MicrogliaProcessor {
 pub struct EpendymalProcessor;
 
 impl GlialProcessor for EpendymalProcessor {
-    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
+    fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext) {
         if let Some(ependymal) = &agent.ependymal {
             if ependymal.is_producing_csf {
                 ctx.state.csf_production += 1.0;
@@ -247,13 +247,13 @@ impl GlialProcessor for EpendymalProcessor {
         }
     }
 
-    fn apply(&self, _agent: &mut AgentCell, _ctx: &GlialApplyContext) {}
+    fn apply(&self, _agent: &mut GlialCell, _ctx: &GlialApplyContext) {}
 }
 
 pub struct MyelinatorProcessor;
 
 impl GlialProcessor for MyelinatorProcessor {
-    fn collect(&self, agent: &mut AgentCell, ctx: &mut GlialContext) {
+    fn collect(&self, agent: &mut GlialCell, ctx: &mut GlialContext) {
         if let Some(myelinator) = &agent.myelinator {
             match myelinator {
                 Myelinator::Oligodendrocyte {
@@ -288,7 +288,7 @@ impl GlialProcessor for MyelinatorProcessor {
         }
     }
 
-    fn apply(&self, agent: &mut AgentCell, ctx: &GlialApplyContext) {
+    fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
         if let Some(ns) = &mut agent.nervous_system {
             let id = &agent.cell_id;
 
@@ -334,7 +334,7 @@ impl GlialPipeline {
         }
     }
 
-    pub fn process_all(&self, agents: &mut [AgentCell], mut env: GlialEnvironment) {
+    pub fn process_all(&self, agents: &mut [GlialCell], mut env: GlialEnvironment) {
         let mut aggregate_state = GlialAggregateState::default();
 
         let mut ctx = GlialContext {

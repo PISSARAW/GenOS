@@ -1,28 +1,5 @@
 use std::collections::HashMap;
-
-// Note : Dans l'architecture cible, Genome vient du crate `genos-genome`
-// use genos_genome::{Genome, ChromatinState};
-
-// Mock struct pour satisfaire le compilateur sans importer tout le reste
-#[derive(Clone, Debug)]
-pub struct Genome {
-    pub genes: HashMap<String, Gene>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Gene {
-    pub key: String,
-    pub is_methylated: bool,
-    pub expression_volume: f64,
-    pub developmentally_locked: bool,
-    pub protein_output: String,
-}
-
-impl Gene {
-    pub fn express(&self) -> Result<String, ()> {
-        Ok(self.protein_output.clone())
-    }
-}
+use genos_genome::{Gene, Genome};
 
 #[derive(Clone, Debug, Default)]
 pub struct EnvironmentalFactors {
@@ -106,11 +83,15 @@ impl PhenotypeRegistry {
         phenotype.cellular_shape = "Round (Normal)".to_string();
 
         let mut expressed_proteins = Vec::new();
+        let active_tfs = Vec::new();
+        let micro_rnas = Vec::new();
         for gene in genome.genes.values() {
-            if gene.is_methylated || gene.expression_volume <= 0.0 {
-                continue;
-            }
-            if let Ok(protein) = gene.express() {
+            let context = genos_genome::ExpressionContext {
+                active_tfs: &active_tfs,
+                alternative_splicing: None,
+                micro_rnas: &micro_rnas,
+            };
+            if let Ok(protein) = gene.express(context) {
                 expressed_proteins.push((protein, gene.expression_volume));
             }
         }

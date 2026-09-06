@@ -32,12 +32,14 @@ impl Spliceosome {
     pub fn splice(pre_mrna: &RnaStrand, exons: &[(usize, usize)]) -> RnaStrand {
         let mut mature = Vec::new();
         let mut ejcs = Vec::new();
+        let mut previous_end = 0;
         for &(start, end) in exons {
-            if start < pre_mrna.sequence.len() {
-                let bounded_end = std::cmp::min(end, pre_mrna.sequence.len());
-                mature.extend_from_slice(&pre_mrna.sequence[start..bounded_end]);
-                ejcs.push(mature.len());
+            if start >= end || start < previous_end || end > pre_mrna.sequence.len() {
+                continue;
             }
+            mature.extend_from_slice(&pre_mrna.sequence[start..end]);
+            previous_end = end;
+            ejcs.push(mature.len());
         }
         if !ejcs.is_empty() {
             ejcs.pop();
@@ -84,7 +86,10 @@ impl Gene {
     }
 
     pub fn express(&self, ctx: ExpressionContext) -> Result<String, String> {
-        if self.chromatin_state != ChromatinState::Euchromatin {
+        if self.is_methylated || self.expression_volume <= 0.0 {
+            return Err("OFF: Gene silenced".to_string());
+        }
+        if self.chromatin_state != ChromatinState::Euchromatin || self.developmentally_locked {
             return Err("OFF: Heterochromatin locked".to_string());
         }
         if let Some(rep) = &self.bound_repressor {

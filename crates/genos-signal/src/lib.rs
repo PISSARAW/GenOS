@@ -28,4 +28,17 @@ mod tests {
         field.evaporate();
         assert_eq!(field.read("OPTIMAL_PATH"), 5.0);
     }
+
+    #[test]
+    fn test_signals_reject_non_biological_concentrations() {
+        let ligand = Ligand::new("ATP", SignalingMode::Paracrine, -2.0);
+        assert_eq!(ligand.concentration, 0.0);
+
+        let mut field = StigmergyField::new(2.0);
+        field.deposit("INVALID", -1.0);
+        assert_eq!(field.read("INVALID"), 0.0);
+        field.deposit("VALID", 1.0);
+        field.evaporate();
+        assert_eq!(field.read("VALID"), 0.0);
+    }
 }
