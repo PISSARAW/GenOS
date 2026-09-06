@@ -122,8 +122,12 @@ async function listAgents(req, res) {
 async function listTrinityWorlds(req, res) { res.json([]); }
 async function deleteAgent(req, res, next) {
   const db = await getDatabase();
-  await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
-  res.json({ success: true });
+  try {
+    if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
+    const stopped = runtimeAdapter.stopMission(req.params.id);
+    await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
+    res.json({ success: true, agentId: req.params.id, stopped });
+  } catch (error) { next(error); }
 }
 async function stopAgent(req, res, next) {
   const db = await getDatabase();
@@ -135,8 +139,45 @@ async function stopAgent(req, res, next) {
     res.json({ stopped: processStopped, status: processStopped ? 'stopping' : (agent?.status || 'idle') });
   } catch (error) { next(error); }
 }
-async function stopAgents(req, res, next) { res.json({ success: true }); }
-async function deleteAgents(req, res, next) { res.json({ success: true }); }
+async function scopedAgentIds(db, req, requestedIds) {
+  const scope = workspaceScope(req, 'w');
+  const params = [...scope.params];
+  let condition = '';
+  if (requestedIds?.length) {
+    condition = ` AND a.id IN (${requestedIds.map(() => '?').join(',')})`;
+    params.push(...requestedIds);
+  }
+  const rows = await db.all(`SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE ${scope.clause}${condition}`, ...params);
+  return rows.map((row) => row.id);
+}
+
+async function stopAgents(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const requestedIds = Array.isArray(req.body?.agentIds) ? req.body.agentIds.map(String) : null;
+    const agentIds = await scopedAgentIds(db, req, requestedIds);
+    let stopped = 0;
+    for (const agentId of agentIds) {
+      if (runtimeAdapter.stopMission(agentId)) stopped += 1;
+      else await db.run("UPDATE agents SET status = CASE WHEN status = 'running' THEN 'idle' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
+    }
+    res.json({ success: true, requested: agentIds.length, stopped });
+  } catch (error) { next(error); }
+}
+
+async function deleteAgents(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const requestedIds = Array.isArray(req.body?.agentIds) ? req.body.agentIds.map(String) : null;
+    const agentIds = await scopedAgentIds(db, req, requestedIds);
+    let stopped = 0;
+    for (const agentId of agentIds) {
+      if (runtimeAdapter.stopMission(agentId)) stopped += 1;
+      await db.run('DELETE FROM agents WHERE id = ?', agentId);
+    }
+    res.json({ success: true, deleted: agentIds.length, stopped });
+  } catch (error) { next(error); }
+}
 async function subscribeAgent(req, res) { res.json({ success: true }); }
 async function getAgentHistory(req, res) { res.json([]); }
 async function pingAgent(req, res, next) { res.json({ status: 'acknowledged' }); }
