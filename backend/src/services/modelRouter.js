@@ -85,7 +85,7 @@ async function localRoutingPolicy(db, context, discovered = []) {
 
 function parseSize(name) {
   const match = String(name).match(/(\d+(?:\.\d+)?)\s*(k|m|b)/i);
-  if (!match) return 7e9;
+  if (!match) return null;
   const value = Number(match[1]);
   const multiplier = { k: 1e3, m: 1e6, b: 1e9 }[match[2].toLowerCase()];
   return value * multiplier;
@@ -106,7 +106,13 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     const rawModels = await localModelDiscovery.discoverLocalModels();
     const chatModels = rawModels.filter((m) => m.chatCapable);
     if (chatModels.length > 0) {
-      const sorted = chatModels.sort((a, b) => (a.size || parseSize(a.model)) - (b.size || parseSize(b.model)));
+      const sorted = [...chatModels].sort((a, b) => {
+        const leftSize = Number(a.size) || parseSize(a.model);
+        const rightSize = Number(b.size) || parseSize(b.model);
+        if (leftSize === null) return rightSize === null ? 0 : 1;
+        if (rightSize === null) return -1;
+        return leftSize - rightSize;
+      });
       let selectedModel;
       if (variantIndex !== undefined) {
          // MUE COGNITIVE (Polymorphisme) : Rotation à travers les modèles disponibles
