@@ -26,6 +26,8 @@ function buildStrategyContract(input = {}) {
     problem_profile: problemProfile,
     selected_strategy: {
       primary: selected.id,
+      requested_primary: selection.requestedPrimary,
+      fallback: selection.primaryFallback,
       allocation: selection.policies.allocation,
       evaluation: selection.policies.evaluation,
       merge: selection.policies.merge,
@@ -73,6 +75,9 @@ function validateContract(contract) {
   if (!contract || contract.schema !== CONTRACT_SCHEMA) throw new Error(`Contract schema must be ${CONTRACT_SCHEMA}`);
   if (!contract.problem_profile?.type) throw new Error('problem_profile.type is required');
   if (!contract.selected_strategy?.primary) throw new Error('selected_strategy.primary is required');
+  if (contract.selected_strategy.fallback && (!contract.selected_strategy.fallback.requested || !contract.selected_strategy.fallback.selected || !contract.selected_strategy.fallback.reason)) {
+    throw new Error('selected_strategy.fallback must include requested, selected, and reason');
+  }
   const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
   if (!registryIds.has(contract.selected_strategy.primary)) throw new Error(`Unknown primary strategy '${contract.selected_strategy.primary}'`);
   if (!Array.isArray(contract.strategy_portfolio)) throw new Error('strategy_portfolio must be an array');
