@@ -41,7 +41,7 @@ function evolveWorkerGenome(parentAgent, assignment, options = {}) {
 
   const crossover = genetics.crossoverGenome(parentA, parentB, {
     strategy: options.crossoverStrategy || 'uniform',
-    mutationRate: options.mutationRate || 0.08
+    mutationRate: options.mutationRate === undefined ? 0.08 : options.mutationRate
   });
 
   return {
