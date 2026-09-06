@@ -23,6 +23,7 @@ const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision }
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
 const swarmSentinel = require('./swarmSentinelService');
+const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
 function runtimeExitOutcome(termination, code, options = {}) {
   const signal = typeof options === 'object' && options !== null ? options.signal : options;
@@ -84,7 +85,7 @@ async function superviseMission(options) {
     if (termination) return false;
     termination = { kind, reason };
     emit(agentId, 'AGENT_RUNTIME_HALT_REQUESTED', kind.toUpperCase(), detail, { reason, ...payload }, 'critical', 'blocked');
-    child.kill('SIGTERM');
+    terminateChild(child);
     return true;
   };
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
@@ -235,6 +236,7 @@ async function superviseMission(options) {
     emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
   child.on('close', async (code, signal) => { require('fs').writeFileSync('close.log', `closed with ${code}`);
+    clearTerminationTimer(child);
     await executionQueue;
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.

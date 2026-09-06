@@ -39,6 +39,7 @@ const {
 const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
+const { terminateChild } = require('./processTermination');
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
@@ -199,7 +200,7 @@ function stopMission(agentId) {
   // The close handler recognizes this marker as an operator-requested halt,
   // rather than reporting SIGTERM as a runtime failure.
   child.genosStopRequested = true;
-  child.kill('SIGTERM');
+  terminateChild(child);
   return true;
 }
 
