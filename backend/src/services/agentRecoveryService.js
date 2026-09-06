@@ -73,9 +73,10 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   try {
     db = await getDatabase();
     source = await db.get(
-      `SELECT id, name, role, agent_type, workspace_id, fleet_id, model_tier, language,
-              isolation_mode, parent_agent_id
-       FROM agents WHERE id = ? AND execution_mode = 'worker'`,
+            `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
+              a.isolation_mode, a.parent_agent_id
+             FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+             WHERE a.id = ? AND a.execution_mode = 'worker'`,
       sourceAgentId
     );
   } catch (error) {
