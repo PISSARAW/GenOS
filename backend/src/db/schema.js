@@ -66,66 +66,101 @@ async function initializeSchema(db) {
   `);
   
   // Initialize vec0 Virtual Tables for Native Vector Search
-  await db.exec(`
-    CREATE VIRTUAL TABLE IF NOT EXISTS trajectories_vec USING vec0(
-        embedding float[768]
-    );
-    DROP TRIGGER IF EXISTS trajectories_vec_ai;
-    CREATE TRIGGER trajectories_vec_ai AFTER INSERT ON trajectories
-    WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
-        INSERT INTO trajectories_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
-    END;
-    DROP TRIGGER IF EXISTS trajectories_vec_ad;
-    CREATE TRIGGER trajectories_vec_ad AFTER DELETE ON trajectories BEGIN
-        DELETE FROM trajectories_vec WHERE rowid = old.rowid;
-    END;
-    DROP TRIGGER IF EXISTS trajectories_vec_au;
-    CREATE TRIGGER trajectories_vec_au AFTER UPDATE ON trajectories BEGIN
-        DELETE FROM trajectories_vec WHERE rowid = old.rowid;
-        INSERT INTO trajectories_vec(rowid, embedding)
-        SELECT new.rowid, new.embedding_blob
-        WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
-    END;
-
-    CREATE VIRTUAL TABLE IF NOT EXISTS genome_decisions_vec USING vec0(
-        embedding float[768]
-    );
-    DROP TRIGGER IF EXISTS genome_decisions_vec_ai;
-    CREATE TRIGGER genome_decisions_vec_ai AFTER INSERT ON genome_decisions
-    WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
-        INSERT INTO genome_decisions_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
-    END;
-    DROP TRIGGER IF EXISTS genome_decisions_vec_ad;
-    CREATE TRIGGER genome_decisions_vec_ad AFTER DELETE ON genome_decisions BEGIN
-        DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
-    END;
-    DROP TRIGGER IF EXISTS genome_decisions_vec_au;
-    CREATE TRIGGER genome_decisions_vec_au AFTER UPDATE ON genome_decisions BEGIN
-        DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
-        INSERT INTO genome_decisions_vec(rowid, embedding)
-        SELECT new.rowid, new.embedding_blob
-        WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
-    END;
-  `);
-
-  // Rebuild the FTS and VEC indexes if they are empty but core tables have data
-  const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
-  if (trajectoriesFtsCount.c === 0) {
-      await db.exec(`
-          INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
-          SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
+  try {
+    await db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS trajectories_vec USING vec0(
+          embedding float[768]
+      );
+      DROP TRIGGER IF EXISTS trajectories_vec_ai;
+      CREATE TRIGGER trajectories_vec_ai AFTER INSERT ON trajectories
+      WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
+          INSERT INTO trajectories_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
+      END;
+      DROP TRIGGER IF EXISTS trajectories_vec_ad;
+      CREATE TRIGGER trajectories_vec_ad AFTER DELETE ON trajectories BEGIN
+          DELETE FROM trajectories_vec WHERE rowid = old.rowid;
+      END;
+      DROP TRIGGER IF EXISTS trajectories_vec_au;
+      CREATE TRIGGER trajectories_vec_au AFTER UPDATE ON trajectories BEGIN
+          DELETE FROM trajectories_vec WHERE rowid = old.rowid;
           INSERT INTO trajectories_vec(rowid, embedding)
-          SELECT rowid, embedding_blob FROM trajectories WHERE embedding_blob IS NOT NULL;
-      `);
-  }
-  const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
-  if (genomeFtsCount.c === 0) {
-      await db.exec(`
-          INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
-          SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
+          SELECT new.rowid, new.embedding_blob
+          WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
+      END;
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS genome_decisions_vec USING vec0(
+          embedding float[768]
+      );
+      DROP TRIGGER IF EXISTS genome_decisions_vec_ai;
+      CREATE TRIGGER genome_decisions_vec_ai AFTER INSERT ON genome_decisions
+      WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
+          INSERT INTO genome_decisions_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
+      END;
+      DROP TRIGGER IF EXISTS genome_decisions_vec_ad;
+      CREATE TRIGGER genome_decisions_vec_ad AFTER DELETE ON genome_decisions BEGIN
+          DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
+      END;
+      DROP TRIGGER IF EXISTS genome_decisions_vec_au;
+      CREATE TRIGGER genome_decisions_vec_au AFTER UPDATE ON genome_decisions BEGIN
+          DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
           INSERT INTO genome_decisions_vec(rowid, embedding)
-          SELECT rowid, embedding_blob FROM genome_decisions WHERE embedding_blob IS NOT NULL;
+          SELECT new.rowid, new.embedding_blob
+          WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
+      END;
+    `);
+  } catch (err) {
+    console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
+  }
+
+  // Rebuild the FTS and VEC indexes independently if they are empty but core tables have data
+  try {
+    const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
+    if (trajectoriesFtsCount && trajectoriesFtsCount.c === 0) {
+      await db.exec(`
+        INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
+        SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
       `);
+    }
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize trajectories_fts index:', err.message);
+  }
+
+  try {
+    const trajectoriesVecCount = await db.get("SELECT COUNT(*) as c FROM trajectories_vec");
+    if (trajectoriesVecCount && trajectoriesVecCount.c === 0) {
+      await db.exec(`
+        INSERT INTO trajectories_vec(rowid, embedding)
+        SELECT rowid, embedding_blob FROM trajectories 
+        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize trajectories_vec index:', err.message);
+  }
+
+  try {
+    const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
+    if (genomeFtsCount && genomeFtsCount.c === 0) {
+      await db.exec(`
+        INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
+        SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize genome_decisions_fts index:', err.message);
+  }
+
+  try {
+    const genomeVecCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_vec");
+    if (genomeVecCount && genomeVecCount.c === 0) {
+      await db.exec(`
+        INSERT INTO genome_decisions_vec(rowid, embedding)
+        SELECT rowid, embedding_blob FROM genome_decisions 
+        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize genome_decisions_vec index:', err.message);
   }
 }
 
