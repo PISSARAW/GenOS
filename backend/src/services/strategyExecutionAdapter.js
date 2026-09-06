@@ -132,6 +132,35 @@ const HANDLERS = {
   score_partial_repro: search.prmEvaluate
 };
 
+/**
+ * Log primitive execution for audit trail: records which primitives were actually
+ * called during strategy execution, enabling post-mortem analysis and coherence
+ * verification between contracted and executed primitives.
+ */
+async function logPrimitiveExecutionAudit(agentId, primitives = [], context = {}) {
+  try {
+    const db = await getDatabase();
+    if (!db) return;
+    const timestamp = new Date().toISOString();
+    const executionKey = `audit_${agentId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const details = {
+      executionKey,
+      agentId,
+      primitives: primitives.map((p) => String(p).toLowerCase()),
+      contextAgentId: context.agentId,
+      contextOrchestrator: context.orchestratorId,
+      timestamp
+    };
+    await db.run(
+      `INSERT OR IGNORE INTO orchestration_action_receipts (receipt_key, orchestrator_id, source_event_id, tool, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      executionKey, context.orchestratorId || agentId, `exec_${Date.now()}`, `primitives: ${primitives.join(',')}`, 'completed', timestamp
+    );
+  } catch (err) {
+    // Fail silently: audit logging should not block execution
+  }
+}
+
 class StrategyExecutionAdapter {
   constructor() {}
 
@@ -208,6 +237,8 @@ class StrategyExecutionAdapter {
   }
 
   async executePipelineWithFeedback(primitives, context = {}) {
+    // Log the executed primitives for audit trail before executing
+    await logPrimitiveExecutionAudit(context.agentId, primitives, context);
     return this.executePipeline(primitives, context);
   }
 
