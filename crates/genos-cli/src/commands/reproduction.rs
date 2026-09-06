@@ -30,10 +30,36 @@ fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<S
     let source = source_agent_id.unwrap_or_else(|| "donor".to_string());
     let name = plasmid_name.unwrap_or_else(|| "plasmid_core".to_string());
     let plasmid = Plasmid::new(&name);
+
+    let root = if std::path::Path::new(".genos-matrix").exists() {
+        std::path::PathBuf::from(".genos-matrix")
+    } else {
+        std::path::PathBuf::from(".genos")
+    };
+    let chromatin_dir = root.join("chromatin");
+    let state_path = chromatin_dir.join(format!("{}.json", target));
+    let mut genome = if state_path.exists() {
+        std::fs::read_to_string(&state_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Genome>(&s).ok())
+            .unwrap_or_else(|| Genome::new(&target))
+    } else {
+        Genome::new(&target)
+    };
+
+    if !genome.plasmids.iter().any(|p| p.instruction == plasmid.instruction) {
+        genome.plasmids.push(plasmid.clone());
+    }
+
+    let _ = std::fs::create_dir_all(&chromatin_dir);
+    let persisted = std::fs::write(&state_path, serde_json::to_string_pretty(&genome).unwrap_or_default()).is_ok();
+
     print_json(json!({
         "success": true, "operation": "assimilate_plasmid",
         "agent_id": target, "source_agent_id": source,
         "plasmid_name": plasmid.instruction, "plasmid_id": plasmid.id.to_string(),
+        "persisted": persisted,
+        "plasmids_count": genome.plasmids.len(),
         "status": "assimilated"
     }));
 }
