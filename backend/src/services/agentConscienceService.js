@@ -9,6 +9,7 @@
 
 const DEFAULT_MAX_DISSONANCE = 50.0;
 const DEFAULT_BASELINE_BUDGET = 100.0;
+const persistTails = new Map();
 
 function createConscienceState(initial = {}) {
   const finiteOr = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -103,6 +104,16 @@ function formatConsciencePrompt(state) {
  * Persiste l'état de conscience en base SQLite si les colonnes existent.
  */
 async function persistConscienceState(db, agentId, state) {
+  const previousTail = persistTails.get(agentId) || Promise.resolve();
+  const operation = previousTail.catch(() => {}).then(() => persistConscienceStateNow(db, agentId, state));
+  const tracked = operation.finally(() => {
+    if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
+  });
+  persistTails.set(agentId, tracked);
+  return operation;
+}
+
+async function persistConscienceStateNow(db, agentId, state, retry = true) {
   const previous = await db.get(
     'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
     agentId
@@ -128,7 +139,14 @@ async function persistConscienceState(db, agentId, state) {
       state.revision
   );
   if (result.changes !== 1) {
-    throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
+    if (!retry) throw new Error(`Conscience state conflict for agent ${agentId} at revision ${state.revision}`);
+    const current = await loadConscienceState(db, agentId);
+    state.dissonanceLevel = Math.max(state.dissonanceLevel, current.dissonanceLevel);
+    state.eurekaMoments = Math.max(state.eurekaMoments, current.eurekaMoments);
+    state.currentBudget = Math.min(state.currentBudget, current.currentBudget);
+    state.isApoptotic = state.isApoptotic || current.isApoptotic;
+    state.revision = current.revision;
+    return persistConscienceStateNow(db, agentId, state, false);
   }
   await db.run(
     `INSERT INTO conscience_transitions
