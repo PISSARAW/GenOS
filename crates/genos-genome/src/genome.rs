@@ -26,6 +26,13 @@ pub struct YamanakaCocktail {
     pub target_potency: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GenomeFingerprint {
+    pub genome_id: Uuid,
+    pub lineage_id: Uuid,
+    pub hash: String,
+}
+
 impl Genome {
     pub fn genome_id(&self) -> Uuid { self.genome_id }
 
@@ -35,6 +42,26 @@ impl Genome {
         let mut child = self.clone();
         child.genome_id = Uuid::new_v4();
         child
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        if self.genome_id == Uuid::nil() { return Err("genome_id must not be nil".into()); }
+        if self.lineage_id == Uuid::nil() { return Err("lineage_id must not be nil".into()); }
+        for (key, gene) in &self.genes {
+            if key != &gene.locus { return Err(format!("gene map key does not match locus '{key}'")); }
+        }
+        Ok(())
+    }
+
+    pub fn fingerprint(&self) -> Result<GenomeFingerprint, String> {
+        self.validate()?;
+        Ok(GenomeFingerprint { genome_id: self.genome_id, lineage_id: self.lineage_id, hash: self.hash_library() })
+    }
+
+    pub fn verify_fingerprint(&self, fingerprint: &GenomeFingerprint) -> bool {
+        self.genome_id == fingerprint.genome_id
+            && self.lineage_id == fingerprint.lineage_id
+            && self.hash_library() == fingerprint.hash
     }
 
     pub fn new(base_instruction: &str) -> Self {
@@ -207,5 +234,14 @@ mod tests {
                 crate::dna::DnaNucleotide::A,
             ]
         );
+    }
+
+    #[test]
+    fn test_fingerprint_detects_genome_mutation() {
+        let mut genome = Genome::new("IMMUTABLE");
+        let fingerprint = genome.fingerprint().unwrap();
+        assert!(genome.verify_fingerprint(&fingerprint));
+        genome.insert_gene(Gene::new("MUTATED", "ATGC"));
+        assert!(!genome.verify_fingerprint(&fingerprint));
     }
 }
