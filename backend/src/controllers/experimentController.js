@@ -51,6 +51,9 @@ async function launchExperiment(req, res) {
   if (!allowedTypes.includes(experimentType)) {
     return res.status(400).json({ error: { message: `Unsupported experiment type: ${type}` } });
   }
+  if (!Number.isInteger(chaosLevel) || chaosLevel < 0 || chaosLevel > 100) {
+    return res.status(400).json({ error: { code: 'INVALID_CHAOS_LEVEL', message: 'chaosLevel must be an integer between 0 and 100.' } });
+  }
   const expId = `exp-${crypto.randomUUID()}`;
   const color = experimentType === 'security_coevolution' ? '#cf222e' : (experimentType === 'incident_experiment' ? '#8250df' : '#0969da');
 
