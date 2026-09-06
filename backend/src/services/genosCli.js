@@ -7,7 +7,7 @@
  * bridge operations never mix with the backend's SQLite store.
  */
 
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
@@ -40,6 +40,50 @@ function ensureRoot() {
   const root = studioBridgeRoot();
   fs.mkdirSync(root, { recursive: true });
   return root;
+}
+
+function parseCommandLine(commandLine) {
+  const args = [];
+  let current = '';
+  let quote = null;
+  let escaping = false;
+  for (const char of String(commandLine)) {
+    if (escaping) {
+      current += char;
+      escaping = false;
+    } else if (char === '\\' && quote !== "'") {
+      escaping = true;
+    } else if (quote) {
+      if (char === quote) quote = null;
+      else current += char;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+    } else if (/\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = '';
+      }
+    } else {
+      current += char;
+    }
+  }
+  if (escaping) current += '\\';
+  if (quote) throw new Error('Unterminated quote in GenOS CLI command.');
+  if (current) args.push(current);
+  return args;
+}
+
+function runGenosSync(commandLine) {
+  const args = parseCommandLine(commandLine);
+  if (args[0] === 'genos') args.shift();
+  const bin = resolveGenosBin();
+  if (!fs.existsSync(bin)) throw new Error(`genos binary not found at ${bin}.`);
+  return execFileSync(bin, args, {
+    cwd: ensureRoot(),
+    env: { ...process.env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true
+  });
 }
 
 /**
@@ -197,6 +241,8 @@ async function runListFossils() {
 
 module.exports = {
   runGenos,
+  runGenosSync,
+  parseCommandLine,
   resolveGenosBin,
   studioBridgeRoot,
   ensureRoot,

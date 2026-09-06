@@ -1,13 +1,4 @@
-const cp = require('child_process');
-const genosCli = require('./genosCli');
-
-function runGenosSync(cmdString) {
-  const bin = genosCli.resolveGenosBin();
-  const actualCmd = cmdString.startsWith('genos ')
-    ? `"${bin}" ${cmdString.slice(6)}`
-    : cmdString;
-  return cp.execSync(actualCmd);
-}
+const { runGenosSync } = require('./genosCli');
 
 function handleBioCall(cmd) {
   try {
