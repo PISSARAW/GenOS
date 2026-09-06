@@ -53,6 +53,7 @@ async function startServer() {
     // 2.5 Create gRPC Server (Microservices Architecture)
     if (cluster.worker.id === 1) {
       const grpc = require('@grpc/grpc-js');
+      const fs = require('fs');
       const loadAllProtos = require('./proto/index.js');
       const registerAllServices = require('./src/grpc_services/index.js');
       
@@ -65,7 +66,13 @@ async function startServer() {
       }
       
       const GRPC_PORT = process.env.GRPC_PORT || 50051;
-      grpcServer.bindAsync(`0.0.0.0:${GRPC_PORT}`, grpc.ServerCredentials.createInsecure(), (err, boundPort) => {
+      const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
+      const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
+      const credentials = tlsKey && tlsCert
+        ? grpc.ServerCredentials.createSsl(null, [{ private_key: fs.readFileSync(tlsKey), cert_chain: fs.readFileSync(tlsCert) }], false)
+        : grpc.ServerCredentials.createInsecure();
+      const bindAddress = tlsKey && tlsCert ? (process.env.GRPC_BIND_ADDRESS || '0.0.0.0') : (process.env.GRPC_BIND_ADDRESS || '127.0.0.1');
+      grpcServer.bindAsync(`${bindAddress}:${GRPC_PORT}`, credentials, (err, boundPort) => {
         if (err) {
           console.warn(`[GenOS gRPC] Warning: could not bind port ${GRPC_PORT}:`, err.message);
         } else {
