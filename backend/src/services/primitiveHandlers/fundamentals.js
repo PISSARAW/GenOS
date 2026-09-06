@@ -102,8 +102,12 @@ async function evaluate(context) {
 async function vfsDryRun(context) {
   const vfs = require('../vfsSandboxService');
   if (context.workspaceId && context.patch) {
-    const res = await vfs.dryRunPatch(context.workspaceId, context.patch);
-    return { success: res.clean, dryRunCompleted: true, blastRadius: res.blastRadius };
+    try {
+      const res = vfs.dryRunPatch(context.workspaceId, context.patch, context.vfsState || {});
+      return { success: res.clean, dryRunCompleted: true, blastRadius: res.blastRadius, sideEffects: res.sideEffects };
+    } catch (error) {
+      return { success: false, dryRunCompleted: false, error: error.message };
+    }
   }
   return { success: false, error: 'workspaceId and patch required for VFS dry-run.' };
 }
