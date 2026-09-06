@@ -64,7 +64,13 @@ async function getPhylogeneticTree(workspaceId) {
     ? await db.all('SELECT * FROM lineage_edges WHERE workspace_id = ?', workspaceId)
     : SEED_TREE_EDGES;
   const sourceRows = rows.length > 0 ? rows : SEED_TREE_NODES;
-  const parentByChild = new Map(edgeRows.map((edge) => [edge.target_node_id, edge.source_node_id]));
+  const parentsByChild = new Map();
+  for (const edge of edgeRows) {
+    if (!parentsByChild.has(edge.target_node_id)) {
+      parentsByChild.set(edge.target_node_id, []);
+    }
+    parentsByChild.get(edge.target_node_id).push(edge.source_node_id);
+  }
   const nodes = sourceRows.map((row) => {
     let metadata = {};
     let metadataCorrupt = false;
@@ -73,9 +79,12 @@ async function getPhylogeneticTree(workspaceId) {
     } catch {
       metadataCorrupt = true;
     }
+    const childParents = parentsByChild.get(row.id) || [];
     return {
       id: row.id,
-      parentId: parentByChild.get(row.id) || null,
+      parentId: childParents[0] || null,
+      parentIds: childParents,
+      isBiparental: childParents.length > 1,
       generation: metadata.generation ?? 0,
       name: row.label,
       genes: metadata.genes,

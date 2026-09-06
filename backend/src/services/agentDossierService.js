@@ -1,4 +1,5 @@
 const strategyContracts = require('./strategyContractService');
+const { getDatabase } = require('../db');
 const MAX_AGENT_FAMILY_DEPTH = 32;
 
 function parseJson(value, fallback = {}) {
@@ -84,6 +85,11 @@ function mutationRecords(events) {
 }
 
 async function loadAgentDossier(db, agentId, tenant) {
+  if (typeof db === 'string') {
+    tenant = agentId;
+    agentId = db;
+    db = await getDatabase();
+  }
   const family = await agentFamily(db, agentId, tenant);
   if (!family.length) return null;
   const root = family[0];
@@ -110,6 +116,10 @@ async function loadAgentDossier(db, agentId, tenant) {
   const children = family.filter((agent) => agent.parent_agent_id === agentId);
   const descendants = family.slice(1);
   const forks = descendants.filter((agent) => agent.lineage_relation !== 'independent');
+  const parentEdges = await db.all('SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?', agentId).catch(() => []);
+  const parentAgentIds = parentEdges.length > 0
+    ? parentEdges.map((e) => e.source_node_id)
+    : (root.parent_agent_id ? [root.parent_agent_id] : []);
   const genome = {
     identity: {
       id: root.id, name: root.name, nameMeaning: root.name_meaning, role: root.role, agentType: root.agent_type,
@@ -123,7 +133,12 @@ async function loadAgentDossier(db, agentId, tenant) {
         isApoptotic: Boolean(root.is_apoptotic)
       }
     },
-    lineage: { parentAgentId: root.parent_agent_id, relation: root.lineage_relation },
+    lineage: {
+      parentAgentId: root.parent_agent_id,
+      parentAgentIds,
+      biparental: parentAgentIds.length > 1,
+      relation: root.lineage_relation
+    },
     strategy: currentContract,
     decisions: decisions.map((item) => ({ ...item, cartNodes: parseJson(item.cart_nodes_json, []) })),
     runtimeCapsules: events.filter((event) => event.eventType === 'AGENT_CAPSULE_CREATED').map((event) => event.payload)
