@@ -108,24 +108,35 @@ async function absorbExosomes(db = null) {
 
   let engramsStored = 0;
   let plasmidsAssimilated = 0;
+  const errors = [];
 
   for (const exo of exosomes) {
     const engrams = exo.new_engrams || exo.newEngrams || [];
     if (Array.isArray(engrams)) {
       for (const engram of engrams) {
+        if (!engram || typeof engram.content !== 'string' || !engram.content.trim()) {
+          errors.push('Engram content is required.');
+          continue;
+        }
+        if (!Array.isArray(engram.vector) || engram.vector.length !== 768 || engram.vector.some(value => !Number.isFinite(Number(value)))) {
+          errors.push(`Engram '${engram.content.slice(0, 80)}' has no valid 768-dimensional vector.`);
+          continue;
+        }
         const id = `eng_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-        const vec = Array.isArray(engram.vector) && engram.vector.length === 768
-          ? engram.vector
-          : new Array(768).fill(0.0);
+        const vec = engram.vector;
         const float32 = new Float32Array(vec);
         const buffer = Buffer.from(float32.buffer);
 
-        await database.run(
-          `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          id, 'Exosome Absorbed Engram', engram.content || '', buffer, 'exosome_phagocytosis', 'Exosome', 1.5
-        ).catch((e) => { console.error('[absorbExosomes insert error]:', e); });
-        engramsStored += 1;
+        try {
+          await database.run(
+            `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            id, 'Exosome Absorbed Engram', engram.content, buffer, 'exosome_phagocytosis', 'Exosome', 1.5
+          );
+          engramsStored += 1;
+        } catch (error) {
+          errors.push(`Engram insertion failed: ${error.message}`);
+        }
       }
     }
 
@@ -133,16 +144,20 @@ async function absorbExosomes(db = null) {
     const pCode = exo.plasmid_code || exo.plasmidCode;
     if (pName || pCode) {
       const plasmidId = `plasmid_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
-      await database.run(
-        `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', 'exosome_matrix', 'Plasmid', 2.0
-      ).catch(() => {});
-      plasmidsAssimilated += 1;
+      try {
+        await database.run(
+          `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', 'exosome_matrix', 'Plasmid', 2.0
+        );
+        plasmidsAssimilated += 1;
+      } catch (error) {
+        errors.push(`Plasmid insertion failed: ${error.message}`);
+      }
     }
   }
 
-  return { absorbedCount: exosomes.length, engramsStored, plasmidsAssimilated };
+  return { success: errors.length === 0, absorbedCount: exosomes.length, engramsStored, plasmidsAssimilated, errors };
 }
 
 module.exports = {
