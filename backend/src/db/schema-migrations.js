@@ -111,6 +111,10 @@ async function applyVersionedMigrations(db) {
   if (!synapseColumns.has('pre_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN pre_spike_at INTEGER');
   if (!synapseColumns.has('post_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN post_spike_at INTEGER');
   if (!synapseColumns.has('delta_t_ms')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN delta_t_ms REAL');
+  if (!synapseColumns.has('receptor_density')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN receptor_density REAL NOT NULL DEFAULT 1.0');
+  if (!synapseColumns.has('activity_history')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN activity_history INTEGER NOT NULL DEFAULT 0');
+  if (!synapseColumns.has('c3_opsonization')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN c3_opsonization REAL NOT NULL DEFAULT 0.0');
+  if (!synapseColumns.has('cd47_expression')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN cd47_expression REAL NOT NULL DEFAULT 1.0');
   if (!synapseColumns.has('last_updated_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME');
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
