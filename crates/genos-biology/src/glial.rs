@@ -28,11 +28,7 @@ pub mod glial_cell {
         pub axon: Axon,
     }
 
-    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    pub enum NervousSystemLocation {
-        Central,
-        Peripheral,
-    }
+    pub use crate::neurobiology::NervousSystemLocation;
 
     #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Axon {
