@@ -264,6 +264,9 @@ mod tests {
 
     #[test]
     fn test_budding_cli_lifecycle() {
+        use crate::args::EvolutionSubcommands;
+        use crate::commands::reproduction;
+
         let res = reproduction::execute(EvolutionSubcommands::Division {
             agent_id: "agent_budding_test_root".to_string(),
             mode: "budding".to_string(),
