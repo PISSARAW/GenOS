@@ -41,7 +41,16 @@ impl MeioticCrossover {
             .sequence
             .iter_mut()
             .zip(parent_b.chromosome_maternal.sequence.iter())
-            
+        {
+            if rng.random_bool(swap_prob) {
+                *a = b.clone();
+            }
+        }
+        for (a, b) in child
+            .chromosome_paternal
+            .sequence
+            .iter_mut()
+            .zip(parent_b.chromosome_paternal.sequence.iter())
         {
             if rng.random_bool(swap_prob) {
                 *a = b.clone();
