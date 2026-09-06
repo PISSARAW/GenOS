@@ -51,4 +51,17 @@ mod tests {
         assert_eq!(AntibodyDetector::new("high", "x", 2.0).affinity_threshold, 1.0);
         assert_eq!(AntibodyDetector::new("nan", "x", f64::NAN).affinity_threshold, 1.0);
     }
+
+    #[test]
+    fn test_circuit_breaker_recovers_through_half_open() {
+        let mut breaker = CircuitBreaker::new(2);
+        breaker.record_failure();
+        breaker.record_failure();
+        assert_eq!(breaker.state, CircuitState::Open);
+        assert!(breaker.begin_recovery_probe());
+        assert_eq!(breaker.state, CircuitState::HalfOpen);
+        assert!(breaker.is_allowed());
+        breaker.record_success();
+        assert_eq!(breaker.state, CircuitState::Closed);
+    }
 }

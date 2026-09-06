@@ -97,6 +97,7 @@ impl StemCellRegenerator {
 pub enum CircuitState {
     Closed,
     Open,
+    HalfOpen,
 }
 
 pub struct CircuitBreaker {
@@ -121,12 +122,20 @@ impl CircuitBreaker {
 
     pub fn record_failure(&mut self) {
         self.failure_count += 1;
-        if self.failure_count >= self.threshold {
+        if self.state == CircuitState::HalfOpen || self.failure_count >= self.threshold {
             self.state = CircuitState::Open;
         }
     }
 
+    pub fn begin_recovery_probe(&mut self) -> bool {
+        if self.state != CircuitState::Open {
+            return false;
+        }
+        self.state = CircuitState::HalfOpen;
+        true
+    }
+
     pub fn is_allowed(&self) -> bool {
-        matches!(self.state, CircuitState::Closed)
+        matches!(self.state, CircuitState::Closed | CircuitState::HalfOpen)
     }
 }
