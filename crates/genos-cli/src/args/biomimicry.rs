@@ -228,6 +228,10 @@ pub enum EvolutionSubcommands {
         #[arg(long)]
         speciation_threshold: Option<f64>,
         #[arg(long)]
+        genes_a: Option<String>,
+        #[arg(long)]
+        genes_b: Option<String>,
+        #[arg(long)]
         seed: Option<String>,
     },
     Division {

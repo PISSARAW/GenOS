@@ -223,11 +223,13 @@ function crossoverGenome(parentA, parentB, options = {}) {
     let pickA = true;
 
     if (strategy === 'single_point') {
-      pickA = i < 2;
+      const split = Number.isInteger(options.crossoverPoint) ? options.crossoverPoint : 2;
+      pickA = i < split;
     } else if (strategy === 'multi_point') {
       pickA = i % 2 === 0;
     } else {
-      pickA = deterministicUnit(`${reproducibilitySeed}:locus:${key}`) >= 0.5;
+      const swapThreshold = typeof options.swapProb === 'number' ? options.swapProb : 0.5;
+      pickA = deterministicUnit(`${reproducibilitySeed}:locus:${key}`) >= swapThreshold;
     }
 
     if (key === 'tools') {

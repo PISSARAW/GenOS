@@ -161,6 +161,8 @@ async function breed(context) {
       tools: Array.isArray(genes.tools) ? genes.tools : ['genos_inspect']
     }
   });
+  const genomeA = genomeForAgent(rowA, await persistedGenes(rowA));
+  const genomeB = genomeForAgent(rowB, await persistedGenes(rowB));
   const crossoverStrategy = context.strategy || 'uniform';
   const mutationRate = context.mutationRate ?? 0.05;
   const swapProb = context.swapProb ?? 0.5;
@@ -168,9 +170,11 @@ async function breed(context) {
   const crossoverSeed = context.seed === undefined
     ? `${parentA}:${parentB}:${crossoverStrategy}:${mutationRate}:${swapProb}:${crossoverPoint ?? 'uniform'}`
     : String(context.seed);
-  const childRecomb = geneticsService.crossoverGenome(genomeForAgent(rowA, await persistedGenes(rowA)), genomeForAgent(rowB, await persistedGenes(rowB)), {
+  const childRecomb = geneticsService.crossoverGenome(genomeA, genomeB, {
     strategy: crossoverStrategy,
     mutationRate,
+    swapProb,
+    crossoverPoint,
     seed: crossoverSeed
   });
 
@@ -183,6 +187,8 @@ async function breed(context) {
       swapProb,
       crossoverPoint,
       speciationThreshold: context.speciationThreshold,
+      genesA: genomeA.genes,
+      genesB: genomeB.genes,
       seed: crossoverSeed
     });
     if (cliRun.json && cliRun.json.success === false) {
@@ -214,6 +220,7 @@ async function breed(context) {
     role: 'offspring'
   }, {
     parentIds: [parentA, parentB],
+    parents: { parentA: rowA.id, parentB: rowB.id },
     genes: childRecomb.childGenes,
     mutations: childRecomb.mutations,
     predictedFitness: childRecomb.predictedFitnessScore,
