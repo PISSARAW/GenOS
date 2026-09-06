@@ -1,6 +1,6 @@
 const assert = require('assert');
-const { getDatabase, closeDatabase } = require('./src/db');
-const service = require('./src/services/evaluationObservabilityService');
+const { getDatabase, closeDatabase } = require('../src/db');
+const service = require('../src/services/evaluationObservabilityService');
 
 async function run() {
   await getDatabase(':memory:');

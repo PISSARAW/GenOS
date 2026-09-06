@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { decideFromEvent } = require('./src/services/orchestrationDecisionService');
+const { decideFromEvent } = require('../src/services/orchestrationDecisionService');
 
 assert.equal(decideFromEvent({ eventType: 'AGENT_FAILED' }).tool, 'genos_replay');
 assert.equal(decideFromEvent({ eventType: 'HARD_INVARIANT_FAILURE' }).organization, 'red_blue_coevolution');
