@@ -277,7 +277,9 @@ async function superviseMission(options) {
     await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
     const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
     const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
-    if (!terminalEventSeen || termination || operatorStop) {
+    const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
+    const apoptosisTerminal = persistedAgent?.status === 'apoptosis' || Boolean(persistedAgent?.is_apoptotic);
+    if ((!terminalEventSeen || termination || operatorStop) && !apoptosisTerminal) {
       await updateAgent(agentId, outcome.status, outcome.task);
       emitTracked(outcome.eventType, outcome.action, outcome.detail, outcome.payload, outcome.severity, outcome.status);
       await executionQueue;
