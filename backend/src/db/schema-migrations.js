@@ -131,13 +131,15 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'trace_spans']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'trace_spans', 'telemetry_events']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
     if (table === 'trace_spans' && !columnNames.has('workspace_id')) await db.exec('ALTER TABLE trace_spans ADD COLUMN workspace_id TEXT');
+    if (table === 'telemetry_events' && !columnNames.has('event_id')) await db.exec('ALTER TABLE telemetry_events ADD COLUMN event_id TEXT');
   }
+  await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry_events(event_id) WHERE event_id IS NOT NULL');
   await migrateDatasetNameConstraint(db);
   await migrateNotificationPreferenceScope(db);
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
