@@ -7,15 +7,16 @@ module.exports = {
     const { schema_name, data_json } = call.request || {};
     try {
       const data = data_json ? JSON.parse(data_json) : {};
-      const res = specValidator.validate(schema_name, data);
-      callback(null, { valid: res.valid !== false, errors: res.errors || [] });
+      const result = specValidator.validateSpec(schema_name, data);
+      callback(null, { valid: result.valid, errors: result.errors || [] });
     } catch (err) {
       callback(null, { valid: false, errors: [err.message] });
     }
   },
 
   GetSchemaSpec: (call, callback) => {
-    const spec = specValidator.getSchema(call.request?.schema_name || 'default');
-    callback(null, { json_schema: JSON.stringify(spec || {}) });
+    const schemaName = call.request?.schema_name || 'default';
+    const result = specValidator.validateSpec(schemaName, {});
+    callback(null, { json_schema: JSON.stringify({ schema: result.schema, title: result.title, available: result.available }) });
   }
 };
