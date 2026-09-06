@@ -154,13 +154,17 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
             console.warn(`[Inflammation-Text:${agentId}] Mutation structurelle détectée : ${e.message}`);
             if (attempt === maxRetries) {
                 console.error(`[Apoptose-Text:${agentId}] Échec irrécupérable de la structure.`);
-                if (opts.stemCellFallback) return opts.stemCellFallback;
+                if (opts.stemCellFallback) {
+                    opts.onFallback?.(e);
+                    return opts.stemCellFallback;
+                }
                 return null;
             }
             currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
             CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée.`;
         }
     }
+    if (opts.stemCellFallback) opts.onFallback?.(new Error('No valid model response.'));
     return opts.stemCellFallback || null;
 }
 

@@ -150,11 +150,13 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
 
     const fallbackMessage = `### Synthèse Cognitive Locale (${agentName})\nMission: ${prompt}\n- Statut: Analyse cognitive locale exécutée.\n- Recommandation: Exécution des primitives stratégiques et persistance synaptique terminées.`;
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
+    let fallbackUsed = false;
     const generation = withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
         agentId: agentName,
-        stemCellFallback: fallbackMessage
+      stemCellFallback: fallbackMessage,
+      onFallback: () => { fallbackUsed = true; }
     });
     const timeoutMs = budgetLimit('latencyMs');
     const timeout = Number.isFinite(timeoutMs)
@@ -167,6 +169,9 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     
     if (!reply) {
         throw new Error("Échec critique de la génération (Apoptose).");
+    }
+    if (fallbackUsed) {
+      throw new Error(`Local model generation failed after retries. Fallback diagnostic: ${fallbackMessage}`);
     }
     const observedTokens = promptTokenEstimate + Math.ceil(Buffer.byteLength(String(reply), 'utf8') / 4);
     if (observedTokens > budgetLimit('tokens')) {
