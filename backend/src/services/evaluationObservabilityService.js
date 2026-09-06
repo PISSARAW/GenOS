@@ -116,6 +116,10 @@ async function runImpossibleBench(input = {}) {
 
 async function recordProvenance(subjectType, subjectId, payload, parentHash = null, scope = {}) {
   const db = await getDatabase();
+  if (parentHash) {
+    const parent = await db.get('SELECT id FROM provenance_records WHERE payload_hash = ?', parentHash);
+    if (!parent) throw Object.assign(new Error(`Provenance parent '${parentHash}' was not found.`), { code: 'PROVENANCE_PARENT_NOT_FOUND' });
+  }
   const payloadJson = JSON.stringify(payload);
   const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
   const id = `prov-${crypto.randomUUID()}`;
