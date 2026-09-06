@@ -183,7 +183,7 @@ async function stdpUpdate(context) {
   // Auto-detect recent causal pair from agent's trajectory or decisions if omitted in pipeline
   if ((!sourceId || !targetId) && context.agentId) {
     const recent = await db.all(
-      `SELECT id, created_at FROM genome_decisions WHERE created_by = ? ORDER BY created_at DESC LIMIT 2`,
+      `SELECT id, created_at FROM genome_decisions WHERE created_by = ? ORDER BY created_at DESC, rowid DESC LIMIT 2`,
       context.agentId
     );
     if (recent && recent.length >= 2) {
