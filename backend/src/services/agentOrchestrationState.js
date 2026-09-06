@@ -17,7 +17,7 @@ const workerEvidenceRounds = new Map();
 const activeWorkerRecoveryDispatches = new Set();
 const activeWorkerBarriers = new Map();
 
-const TERMINAL_AGENT_STATUSES = new Set(['idle', 'completed', 'blocked', 'error', 'terminated', 'apoptosis']);
+const TERMINAL_AGENT_STATUSES = new Set(['idle', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const WORKER_EVIDENCE_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
   'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'
