@@ -8,9 +8,11 @@ module.exports = {
       const db = await getDatabase();
       const { name, config_json } = call.request || {};
       const expId = `exp-${Date.now()}`;
+      let config = {};
+      try { config = config_json ? JSON.parse(config_json) : {}; } catch (error) { return callback(null, { experiment_id: '', status: 'error', result_json: JSON.stringify({ error: 'config_json must be valid JSON.' }) }); }
       await db.run(
-        'INSERT INTO experiments (id, name, status, config) VALUES (?, ?, ?, ?)',
-        expId, name || 'gRPC experiment', 'running', config_json || '{}'
+        'INSERT INTO experiments (id, title, experiment_type, status, protocol_config) VALUES (?, ?, ?, ?, ?)',
+        expId, name || 'gRPC experiment', 'scientific_experiment', 'Running', JSON.stringify(config)
       );
       callback(null, { experiment_id: expId, status: 'running', result_json: '{}' });
     } catch (err) {
@@ -25,7 +27,7 @@ module.exports = {
       callback(null, {
         experiment_id: exp?.id || '',
         status: exp?.status || 'not_found',
-        result_json: exp?.result || '{}'
+        result_json: exp?.results_summary || exp?.protocol_config || '{}'
       });
     } catch (err) {
       callback(null, { experiment_id: '', status: 'error', result_json: '{}' });
