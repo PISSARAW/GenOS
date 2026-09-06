@@ -7,6 +7,17 @@ const mcpExecutor = require('./mcpExecutor');
 let timer = null;
 let busy = false;
 let recovered = false;
+let lastWorkflowScope = null;
+
+function workflowScopeKey(row) {
+  return `${row.organization_id || 'global'}:${row.project_id || 'global'}`;
+}
+
+function selectFairWorkflow(rows = []) {
+  const next = rows.find((row) => workflowScopeKey(row) !== lastWorkflowScope) || rows[0] || null;
+  if (next) lastWorkflowScope = workflowScopeKey(next);
+  return next;
+}
 
 async function recoverInterruptedJobs(db) {
   await db.run("UPDATE workflow_runs SET status = 'queued', started_at = NULL WHERE status = 'running'");
@@ -132,7 +143,8 @@ async function processOnce() {
   try {
     const db = await getDatabase();
     if (!recovered) { await recoverInterruptedJobs(db); recovered = true; }
-    const workflow = await db.get("SELECT * FROM workflow_runs WHERE status = 'queued' ORDER BY created_at LIMIT 1");
+    const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
+    const workflow = selectFairWorkflow(queuedWorkflows);
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
       try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
     }
@@ -162,4 +174,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs };
+module.exports = { startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow };
