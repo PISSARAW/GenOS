@@ -269,7 +269,7 @@ async function dispatchWorker(req, res) {
       executionBudget: req.body.executionBudget || {}
     });
     startPromise.catch(async (error) => {
-      await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, workerId).catch(() => {});
+      await db.run("UPDATE agents SET status='idle', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", `Dispatch failed: ${error.message}`, workerId).catch(() => {});
     });
     telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: workerId, action: 'DISPATCH', detail: `Worker dispatched by ${req.user?.username || 'operator'}.`, severity: 'info', payload: { actor: req.user?.username || null, orchestratorId, tenant: req.tenant || null } });
     
