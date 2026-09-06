@@ -16,10 +16,21 @@ function terminateChild(child) {
   return true;
 }
 
+function terminatePid(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0 || numericPid === process.pid) return false;
+  try {
+    process.kill(numericPid, 'SIGTERM');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function clearTerminationTimer(child) {
   if (!child?.genosTerminationTimer) return;
   clearTimeout(child.genosTerminationTimer);
   child.genosTerminationTimer = null;
 }
 
-module.exports = { DEFAULT_GRACE_MS, gracePeriodMs, terminateChild, clearTerminationTimer };
+module.exports = { DEFAULT_GRACE_MS, gracePeriodMs, terminateChild, terminatePid, clearTerminationTimer };

@@ -71,6 +71,7 @@ async function superviseMission(options) {
     stdio: ['pipe', 'pipe', 'pipe']
   });
   activeProcesses.set(agentId, child);
+  await db.run('UPDATE agents SET runtime_pid = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', child.pid, agentId);
   // Disposable capsules (git worktrees or copies) are reclaimed after the
   // mission ends; a caller-provided workspace is never tracked.
   if (normalizedMission.workspaceProvisioned === true || dispatchedAgent.execution_mode === 'orchestrator') {
@@ -241,6 +242,7 @@ async function superviseMission(options) {
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.
     activeProcesses.delete(agentId);
+    await db.run('UPDATE agents SET runtime_pid = NULL WHERE id = ?', agentId);
     swarmSentinel.clearAgent(agentId);
     // The capsule outlives the process only by the GC grace delay, so
     // evidence-aware merging can finish reading it before reclamation.
