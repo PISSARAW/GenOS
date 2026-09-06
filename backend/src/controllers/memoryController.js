@@ -141,9 +141,9 @@ async function ingestMemory(req, res, next) {
               // Si c'est une correction, le lien ciblé à haute similarité est inhibé (GABAergique)
               await db.run(
                 `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
-                 VALUES (?, ?, -5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
+                 VALUES (?, ?, 5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
                  ON CONFLICT(source_id, target_id) DO UPDATE SET
-                   weight = MIN(-1.0, memory_synapses.weight - 2.0),
+                   weight = CASE WHEN memory_synapses.weight < 0 THEN MIN(-1.0, memory_synapses.weight - 2.0) ELSE MIN(20.0, memory_synapses.weight + 1.0) END,
                    transmitter_type = 'gaba',
                    activity_history = memory_synapses.activity_history + 1,
                    last_updated_at = CURRENT_TIMESTAMP`,
