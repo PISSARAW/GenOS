@@ -144,4 +144,19 @@ async function listRuns(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listWorkflows, createWorkflow, getWorkflow, updateWorkflow, validateWorkflow, createRun, listRuns, validateGraph };
+async function cancelRun(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const s = scopeSql(req);
+    const result = await db.run(
+      `UPDATE workflow_runs SET status = 'cancelled', error_json = ?, completed_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND status IN ('queued', 'running')
+           AND workflow_id IN (SELECT id FROM workflows WHERE ${s.clause})`,
+      JSON.stringify({ message: 'Workflow run cancelled by operator.', cancelled: true }), req.params.runId, ...s.params
+    );
+    if (result.changes !== 1) return res.status(409).json({ error: { code: 'RUN_NOT_CANCELLABLE', message: 'Run does not exist or is already terminal.' } });
+    res.json({ id: req.params.runId, status: 'cancelled' });
+  } catch (error) { next(error); }
+}
+
+module.exports = { listWorkflows, createWorkflow, getWorkflow, updateWorkflow, validateWorkflow, createRun, listRuns, cancelRun, validateGraph };

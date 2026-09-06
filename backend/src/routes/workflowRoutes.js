@@ -12,5 +12,6 @@ router.put('/:id', requirePermission('workspace:write'), requireTenantScope({ wr
 router.post('/:id/validate', controller.validateWorkflow);
 router.post('/:id/runs', requirePermission('experiment:run'), requireTenantScope({ write: true }), controller.createRun);
 router.get('/:id/runs', controller.listRuns);
+router.post('/:id/runs/:runId/cancel', requirePermission('experiment:run'), requireTenantScope({ write: true }), controller.cancelRun);
 
 module.exports = router;

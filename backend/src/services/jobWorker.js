@@ -40,6 +40,12 @@ async function claim(db, table, id) {
 }
 
 async function executeWorkflow(db, run) {
+  const activeRun = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
+  if (activeRun?.status === 'cancelled') {
+    const error = new Error('Workflow run was cancelled.');
+    error.code = 'WORKFLOW_CANCELLED';
+    throw error;
+  }
   const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', run.workflow_id);
   if (!workflow) throw new Error('Workflow no longer exists.');
   if (Number(workflow.version) !== Number(run.workflow_version)) {
@@ -65,6 +71,12 @@ async function executeWorkflow(db, run) {
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
   const runNode = async (node) => {
+    const currentRun = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
+    if (currentRun?.status === 'cancelled') {
+      const error = new Error('Workflow run was cancelled.');
+      error.code = 'WORKFLOW_CANCELLED';
+      throw error;
+    }
     if (!node || visited.has(node.id) || skipped.has(node.id)) return;
     if (!shouldRun(node)) {
       skipped.add(node.id);
@@ -212,7 +224,10 @@ async function processOnce() {
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
     const workflow = selectFairWorkflow(queuedWorkflows);
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
-      try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
+      try { await executeWorkflow(db, workflow); } catch (error) {
+        const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
+        await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', status, JSON.stringify({ message: error.message, cancelled: status === 'cancelled' }), workflow.id);
+      }
     }
     const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
     const evaluation = selectFairWorkflow(queuedEvaluations);
