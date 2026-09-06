@@ -17,16 +17,29 @@ function mapEvent(row) {
   };
 }
 
-async function agentFamily(db, agentId) {
+function workspaceScope(tenant, alias = 'w') {
+  const prefix = alias ? `${alias}.` : '';
+  return tenant
+    ? { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [tenant.organizationId, tenant.projectId] }
+    : { clause: `${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL`, params: [] };
+}
+
+async function agentFamily(db, agentId, tenant) {
+  const scope = workspaceScope(tenant);
   return db.all(
     `WITH RECURSIVE family AS (
-       SELECT *, 0 AS depth FROM agents WHERE id = ?
+       SELECT a.*, 0 AS depth FROM agents a
+       LEFT JOIN workspaces w ON w.id = a.workspace_id
+       WHERE a.id = ? AND ${scope.clause}
        UNION ALL
-       SELECT child.*, family.depth + 1 FROM agents child
-       JOIN family ON child.parent_agent_id = family.id
+      SELECT child.*, family.depth + 1 FROM agents child
+      LEFT JOIN workspaces w ON w.id = child.workspace_id
+      JOIN family ON child.parent_agent_id = family.id
+      WHERE ${scope.clause}
      )
      SELECT * FROM family ORDER BY depth, created_at, id`,
-    agentId
+    agentId,
+    ...scope.params
   );
 }
 
@@ -67,8 +80,8 @@ function mutationRecords(events) {
   return events.filter((event) => /MUTATION|CROSSOVER|EVOLUTION|PARASIT/.test(event.eventType) || /MUTAT|CROSSOVER|EVOL/.test(event.action));
 }
 
-async function loadAgentDossier(db, agentId) {
-  const family = await agentFamily(db, agentId);
+async function loadAgentDossier(db, agentId, tenant) {
+  const family = await agentFamily(db, agentId, tenant);
   if (!family.length) return null;
   const root = family[0];
   const familyIds = family.map((agent) => agent.id);
