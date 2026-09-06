@@ -11,9 +11,11 @@ async function search(req, res, next) {
   try {
     const query = req.body?.query || req.query?.q || '';
     const limit = parseInt(req.body?.limit || req.query?.limit || '5', 10);
+    const organizationId = req.tenant?.organizationId || req.headers?.['x-organization-id'];
+    const projectId = req.tenant?.projectId || req.headers?.['x-project-id'];
     const db = await getDatabase();
 
-    const results = await vectorMemoryService.searchMemory(query, { limit }, db);
+    const results = await vectorMemoryService.searchMemory(query, { limit, organizationId, projectId }, db);
     res.json(results);
   } catch (err) {
     next(err);
@@ -32,15 +34,20 @@ async function cherryPick(req, res, next) {
     const vec = (await embed(summaryText)) || textToVector(summaryText);
     const float32Array = new Float32Array(vec);
     const buffer = Buffer.from(float32Array.buffer);
+    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
+    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
+
     await db.run(
-      `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       decisionId,
       label,
       JSON.stringify(result.goldenPathSteps),
       JSON.stringify(result.goldenPathSteps.map((step) => step.id || step.step || step.action)),
       createdBy,
       'GoldenPath',
-      buffer
+      buffer,
+      orgId,
+      projId
     );
 
     telemetry.emitEvent({
@@ -72,6 +79,8 @@ async function counterfactual(req, res, next) {
 async function ingestMemory(req, res, next) {
   try {
     const { content, title = 'Turn Context', category = 'Conversation' } = req.body;
+    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
+    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
     const db = await getDatabase();
     
     // Convert to Float32Array
@@ -96,14 +105,14 @@ async function ingestMemory(req, res, next) {
     }
 
     await db.run(
-      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      decisionId, title, finalContent, buffer, 'python_script', category, initialWeight
+      `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      decisionId, title, finalContent, buffer, 'python_script', category, initialWeight, orgId, projId
     );
 
     // 2. Loi de Hebb (Création du Connectome GraphRAG) & Extinction GABAergique
     try {
       // On cherche les souvenirs liés (limite 3 pour le multi-hop)
-      const searchRes = await vectorMemoryService.searchMemory(content, { limit: 3 }, db);
+      const searchRes = await vectorMemoryService.searchMemory(content, { limit: 3, organizationId: orgId, projectId: projId }, db);
       const related = searchRes.allScoredExperiences || [];
       
       let isFirst = true;
@@ -112,11 +121,11 @@ async function ingestMemory(req, res, next) {
           
           if (isFirst && isCorrection) {
               // Si c'est une correction, le lien le plus fort est la cible à inhiber (GABAergique)
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type) VALUES (?, ?, -5.0, 'gaba')`, decisionId, rel.id);
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type, organization_id, project_id) VALUES (?, ?, -5.0, 'gaba', ?, ?)`, decisionId, rel.id, orgId, projId);
           } else if (rel.cosineMetric > 0.55) {
               // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning, Glutamatergique)
               // Le seuil est abaissé (0.55) pour permettre de lier des faits indirects (ex: A->B et B->C)
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type) VALUES (?, ?, 1.0, 'glutamate')`, decisionId, rel.id);
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type, organization_id, project_id) VALUES (?, ?, 1.0, 'glutamate', ?, ?)`, decisionId, rel.id, orgId, projId);
           }
           isFirst = false;
       }

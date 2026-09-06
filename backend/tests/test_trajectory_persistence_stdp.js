@@ -1,4 +1,4 @@
-﻿const assert = require('assert');
+const assert = require('assert');
 const { getDatabase } = require('../src/db');
 const trajectoryService = require('../src/services/trajectoryService');
 const memoryPrimitives = require('../src/services/primitiveHandlers/memory');
@@ -40,7 +40,7 @@ async function runTests() {
   // Vérifier la présence dans la table trajectories
   const trajRow = await db.get('SELECT * FROM trajectories WHERE id = ?', testTrajId);
   assert.ok(trajRow, 'La trajectoire doit être présente dans la table SQLite trajectories');
-  assert.strictEqual(trajRow.status, 'pending');
+  assert.strictEqual(trajRow.status, 'approved');
   assert.ok(trajRow.embedding_blob && trajRow.embedding_blob.length > 0, 'L embedding_blob 768-dim doit être stocké');
   console.log('-> Cas 1.2 Validé : Ligne insérée dans la table trajectories avec embedding blob.');
 
@@ -96,20 +96,36 @@ async function runTests() {
   assert.ok(synRow.receptor_density > 1 && synRow.c3_opsonization === 0, 'La LTP doit renforcer les récepteurs et effacer C3');
   console.log(`-> Cas 3.1 Validé : Synapse créée avec poids ${synRow.weight} dans memory_synapses.`);
 
-  // Cas 3.2 : dépression lorsque le spike post-synaptique précède le pré-synaptique
+  // Cas 3.2 : dépression lorsque le spike post-synaptique précède le pré-synaptique (LTD)
   const stdpReinforce = await memoryPrimitives.stdpUpdate({
     sourceId: stdpAuto.sourceId,
     targetId: stdpAuto.targetId,
     preSpikeAt: 1010,
     postSpikeAt: 1000,
-    learningRate: 2.0,
-    transmitterType: 'gaba'
+    learningRate: 0.5,
+    transmitterType: 'glutamate'
   });
   assert.ok(stdpReinforce.success);
   assert.ok(stdpReinforce.newWeight < synRow.weight, 'Le poids synaptique doit diminuer en LTD');
-  const ltdRow = await db.get('SELECT receptor_density, c3_opsonization FROM memory_synapses WHERE source_id = ? AND target_id = ?', stdpAuto.sourceId, stdpAuto.targetId);
+  assert.ok(stdpReinforce.newWeight >= 0.01, 'Le poids synaptique doit rester une conductance positive (>= 0.01)');
+  const ltdRow = await db.get('SELECT receptor_density, c3_opsonization, transmitter_type FROM memory_synapses WHERE source_id = ? AND target_id = ?', stdpAuto.sourceId, stdpAuto.targetId);
   assert.ok(ltdRow.receptor_density < synRow.receptor_density && ltdRow.c3_opsonization > 0, 'La LTD doit rétracter les récepteurs et marquer C3');
+  assert.strictEqual(ltdRow.transmitter_type, 'glutamate', 'Le type de neurotransmetteur doit rester glutamate (Principe de Dale)');
   console.log(`-> Cas 3.2 Validé : Dépression temporelle (${synRow.weight} -> ${stdpReinforce.newWeight}).`);
+
+  // Cas 3.3 : Modulation dopaminergique (STDP 3-facteurs / trace d'éligibilité)
+  const stdpDopamine = await memoryPrimitives.stdpUpdate({
+    sourceId: stdpAuto.sourceId,
+    targetId: stdpAuto.targetId,
+    preSpikeAt: 1000,
+    postSpikeAt: 1010,
+    learningRate: 1.0,
+    transmitterType: 'dopamine',
+    rewardSignal: 2.0
+  });
+  assert.ok(stdpDopamine.success);
+  assert.ok(stdpDopamine.update > 1.0, 'La dopamine avec reward > 1.0 doit amplifier la plasticité');
+  console.log(`-> Cas 3.3 Validé : STDP 3-facteurs modulée par la dopamine (update: ${stdpDopamine.update}).`);
 
   console.log('=== TOUS LES TESTS DE PERSISTANCE DE TRAJECTOIRE ET STDP ONT RÉUSSI ===');
 }

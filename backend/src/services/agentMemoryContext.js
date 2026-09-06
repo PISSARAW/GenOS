@@ -41,6 +41,13 @@ async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
   };
 }
 
+function formatGoldenPath(g) {
+  if (!g) return '';
+  const title = g.title ? `[${g.title}] ` : '';
+  const summary = g.summary || g.content || '';
+  return `${title}${summary}`.trim();
+}
+
 /**
  * Formats the cognitive memory block to inject into the agent prompt
  * @param {string} agentId
@@ -92,6 +99,28 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
       sections.push(`- Pièges & Échecs à Éviter Absolument (Anti-Trauma) :\n${pitLines.join('\n')}`);
     }
 
+    if (goldenPaths.length > 0) {
+      const gpLines = goldenPaths.map(g => `  * 🎯 ${formatGoldenPath(g)}`);
+      sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
+    }
+
+    if (sections.length === 0 && !epistemicShield) return '';
+
+    let promptBlock = '';
+    if (epistemicShield) {
+      promptBlock += `${epistemicShield}\n\n`;
+    }
+    if (sections.length > 0) {
+      promptBlock += `[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]\n` +
+        `Tu disposes des souvenirs suivants issus d'expériences antérieures sur des problèmes analogues. Utilise-les pour guider tes choix :\n` +
+        sections.join('\n\n') + '\n\n';
+    }
+    return promptBlock;
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Parses and formats a golden path into a clean step flow for the prompt
  * @param {object} g
@@ -134,28 +163,6 @@ function formatGoldenPath(g) {
 
   const fallbackText = (g.summary && !g.summary.startsWith('[') ? g.summary : g.title || g.summary || '').slice(0, 300);
   return `${title} ${fallbackText}`.trim();
-}
-
-    if (goldenPaths.length > 0) {
-      const gpLines = goldenPaths.map(g => `  * 🎯 ${formatGoldenPath(g)}`);
-      sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
-    }
-
-    if (sections.length === 0 && !epistemicShield) return '';
-
-    let promptBlock = '';
-    if (epistemicShield) {
-      promptBlock += `${epistemicShield}\n\n`;
-    }
-    if (sections.length > 0) {
-      promptBlock += `[MÉMOIRE COGNITIVE & EXPÉRIENCES PERTINENTES (GraphRAG)]\n` +
-        `Tu disposes des souvenirs suivants issus d'expériences antérieures sur des problèmes analogues. Utilise-les pour guider tes choix :\n` +
-        sections.join('\n\n') + '\n\n';
-    }
-    return promptBlock;
-  } catch {
-    return '';
-  }
 }
 
 /**
