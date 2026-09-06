@@ -201,7 +201,11 @@ async function runTests() {
       method: 'POST',
       path: '/api/genome/crossover',
       headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
-    }, { options: { strategy: 'uniform', mutationRate: 0.05 } });
+    }, {
+      parentA: { name: 'API Parent A', genes: { role: 'worker', strategy: 'tree-search', tools: ['genos_inspect'], temp: 0.4, topP: 0.9 } },
+      parentB: { name: 'API Parent B', genes: { role: 'reviewer', strategy: 'evidence', tools: ['genos_test'], temp: 0.5, topP: 0.9 } },
+      options: { strategy: 'uniform', mutationRate: 0.05 }
+    });
     assert(crossRes.status === 200 && crossRes.body.childGenes !== undefined && crossRes.body.predictedFitnessScore > 0, 'POST /api/genome/crossover synthesized valid child agent DNA');
 
     // 9. Memory & Experience: Hybrid Vector Search, Cherry-Pick & What-If

@@ -171,7 +171,11 @@ async function testGeneticsAndAlleles() {
   assert(alleles.unclassifiedAlleles.length > 0, 'Keeps recorded alleles unclassified without fitness evidence');
 
   // Crossover recombination with 15% mutation rate
-  const crossover = crossoverGenome(null, null, { strategy: 'uniform', mutationRate: 0.15 });
+  const crossover = crossoverGenome(
+    { name: 'Stress Parent A', genes: { role: 'worker', strategy: 'tree-search', tools: ['genos_inspect'], temp: 0.4, topP: 0.9 } },
+    { name: 'Stress Parent B', genes: { role: 'reviewer', strategy: 'evidence', tools: ['genos_test'], temp: 0.5, topP: 0.9 } },
+    { strategy: 'uniform', mutationRate: 0.15 }
+  );
   assert(crossover.childId.startsWith('agent-crossover-'), 'Child genome generated');
   assert(crossover.childGenes.role !== undefined, 'Child inherits role gene');
   assert(crossover.childGenes.strategy !== undefined, 'Child inherits strategy gene');
