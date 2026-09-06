@@ -173,16 +173,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, {
       strategy: plan.strategyContract?.primary || 'tree-search'
     });
-    await agentEvolution.recordWorkerLineage(db, {
-      agentId: id, name, role: assignment.role, workspaceId: parent.workspace_id
-    }, {
-      parentId: parent.id,
-      genes: evolution.genes,
-      parents: evolution.parents,
-      predictedFitness: evolution.predictedFitness
-    });
     const initialConscience = agentConscience.createConscienceState();
-    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
     const prompt = [
       identity.introduction,
@@ -200,6 +191,19 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
         ? `Budget round: initial screening. Use at most ${perWorkerTokens} tokens.`
         : `Budget allocation: ${perWorkerTokens} tokens.`
     ].filter(Boolean).join('\n');
+    const promptTokenEstimate = Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4);
+    if (perWorkerTokens > 0 && promptTokenEstimate >= perWorkerTokens) {
+      throw Object.assign(new Error(`Worker '${assignment.label || id}' prompt consumes its token budget before generation (${promptTokenEstimate} >= ${perWorkerTokens}).`), { code: 'WORKER_PROMPT_BUDGET_EXCEEDED' });
+    }
+    await agentEvolution.recordWorkerLineage(db, {
+      agentId: id, name, role: assignment.role, workspaceId: parent.workspace_id
+    }, {
+      parentId: parent.id,
+      genes: evolution.genes,
+      parents: evolution.parents,
+      predictedFitness: evolution.predictedFitness
+    });
+    const workspaceRoot = await createIsolatedWorkspace(sourceWorkspace, id, mission.capsuleRoot);
     await db.run(
       `INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task, dissonance_level, eureka_count, cognitive_budget, is_apoptotic)
        VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'autonomous_strategy_branch', ?, ?, ?, ?, ?, ?)`,
