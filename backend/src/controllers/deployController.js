@@ -231,7 +231,16 @@ async function dispatchWorker(req, res) {
   try {
     const orchestratorId = req.params.id;
     const workerId = req.params.workerId || req.body.workerId;
-    
+    const scope = workspaceScope(req, 'ww');
+    const scopedPair = await db.get(`SELECT worker.id
+      FROM agents worker
+      JOIN workspaces ww ON ww.id = worker.workspace_id
+      JOIN agents orchestrator ON orchestrator.id = worker.parent_agent_id
+      JOIN workspaces wo ON wo.id = orchestrator.workspace_id
+      WHERE worker.id = ? AND orchestrator.id = ? AND worker.execution_mode = 'worker'
+        AND ${scope.clause}
+        AND wo.organization_id = ww.organization_id AND wo.project_id = ww.project_id`, workerId, orchestratorId, ...scope.params);
+    if (!scopedPair) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Worker and orchestrator must belong to the selected project.' } });
     await agentAuthority.authorizeMission(db, workerId, orchestratorId);
     
     const slot = await workerGarage.reserveSlot(db, {
@@ -253,10 +262,12 @@ async function dispatchWorker(req, res) {
 }
 async function getStrategyContract(req, res) {
   const db = await getDatabase();
+  if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
   let contract = await strategyContracts.getLatestContract(db, req.params.id);
   if (!contract) {
     const agent = await db.get('SELECT parent_agent_id, execution_mode FROM agents WHERE id = ?', req.params.id);
     if (agent?.execution_mode === 'worker' && agent.parent_agent_id) {
+      if (!await canAccessAgent(db, req, agent.parent_agent_id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Parent agent not found in the selected project.' } });
       contract = await strategyContracts.getLatestContract(db, agent.parent_agent_id);
       if (contract) return res.json({ ...contract, inheritedByWorker: true });
     }
@@ -267,6 +278,7 @@ async function getStrategyContract(req, res) {
 
 async function getStrategyContractHistory(req, res) {
   const db = await getDatabase();
+  if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
   const contracts = await strategyContracts.listContracts(db, req.params.id);
   res.json(contracts);
 }
@@ -274,6 +286,7 @@ async function getStrategyContractHistory(req, res) {
 async function selectStrategyContract(req, res) {
   const db = await getDatabase();
   try {
+    if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
     const contract = await strategyContracts.saveContract(db, {
       agentId: req.params.id,
       ...req.body
