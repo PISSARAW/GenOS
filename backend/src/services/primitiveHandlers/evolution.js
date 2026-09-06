@@ -40,7 +40,7 @@ async function mutate(context) {
   if (!agentId) {
     return { success: false, error: 'agentId required for mutation.' };
   }
-  const parent = await db.get('SELECT a.id, a.current_task, a.workspace_id, a.model_tier FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
+  const parent = await db.get('SELECT id, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
   if (!parent) {
     return { success: false, error: 'Parent agent not found: ' + agentId };
   }
