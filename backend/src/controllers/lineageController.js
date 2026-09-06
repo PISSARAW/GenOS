@@ -212,6 +212,9 @@ async function getAlleles(req, res, next) {
 async function performCrossover(req, res, next) {
   try {
     const { parentA, parentB, options } = req.body || {};
+    if (!parentA?.genes || !parentB?.genes) {
+      return res.status(400).json({ error: { code: 'PARENT_GENOMES_REQUIRED', message: 'Two explicit parent genomes are required.' } });
+    }
     const result = geneticsService.crossoverGenome(parentA, parentB, options);
     
     telemetry.emitEvent({

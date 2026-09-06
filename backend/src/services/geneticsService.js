@@ -123,28 +123,20 @@ async function analyzeAlleles() {
   };
 }
 
-// Default parent genomes let the crossover synthesizer demo on fresh installs
-// where no agent genome has been recorded yet.
-const DEFAULT_PARENT_GENOMES = Object.freeze({
-  parentA: { name: 'Default Parent A', genes: { role: 'worker', strategy: 'tree-search', tools: ['genos_inspect', 'genos_patch', 'genos_test'], temp: 0.4, topP: 0.9 } },
-  parentB: { name: 'Default Parent B', genes: { role: 'orchestrator', strategy: 'chain-of-thought', tools: ['genos_plan', 'genos_dispatch', 'genos_review'], temp: 0.6, topP: 0.95 } }
-});
-
 /**
  * Performs genetic crossover recombination between two parent agent genomes
  */
 function crossoverGenome(parentA, parentB, options = {}) {
-  const defaults = DEFAULT_PARENT_GENOMES;
-  const resolvedA = parentA?.genes ? parentA : { ...defaults.parentA, ...(parentA || {}) };
-  const resolvedB = parentB?.genes ? parentB : { ...defaults.parentB, ...(parentB || {}) };
+  const resolvedA = parentA;
+  const resolvedB = parentB;
   const strategy = options.strategy || 'uniform'; // single_point, multi_point, uniform
   const mutationRate = options.mutationRate === undefined ? 0.05 : Number(options.mutationRate);
   if (!Number.isFinite(mutationRate) || mutationRate < 0 || mutationRate > 1) {
     throw new RangeError('mutationRate must be between 0 and 1');
   }
 
-  if (!resolvedA.genes || !resolvedB.genes) {
-    throw new Error('Two recorded parent genomes are required');
+  if (!resolvedA?.genes || !resolvedB?.genes) {
+    throw new Error('Two explicit parent genomes are required');
   }
   const pA = resolvedA;
   const pB = resolvedB;
