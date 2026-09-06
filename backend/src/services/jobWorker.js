@@ -8,6 +8,9 @@ let timer = null;
 let busy = false;
 let recovered = false;
 let lastWorkflowScope = null;
+const MAX_WORKFLOW_NODES = 10000;
+const MAX_WORKFLOW_DEPTH = 256;
+const MAX_PARALLEL_BRANCHES = 32;
 
 function workflowScopeKey(row) {
   return `${row.organization_id || 'global'}:${row.project_id || 'global'}`;
@@ -52,6 +55,7 @@ async function executeWorkflow(db, run) {
     throw new Error(`Workflow version mismatch: run requested v${run.workflow_version}, current definition is v${workflow.version}.`);
   }
   const graph = JSON.parse(workflow.graph_json || '{"nodes":[],"edges":[]}');
+  if ((graph.nodes || []).length > MAX_WORKFLOW_NODES) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_NODES}-node execution limit.`);
   const traceId = `trace-${run.id}`;
   const started = Date.now();
   const input = JSON.parse(run.input_json || '{}');
@@ -70,7 +74,8 @@ async function executeWorkflow(db, run) {
     return String(input[match[1]]) === match[2];
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
-  const runNode = async (node) => {
+  const runNode = async (node, depth = 0) => {
+    if (depth > MAX_WORKFLOW_DEPTH) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_DEPTH}-level execution depth limit.`);
     const currentRun = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
     if (currentRun?.status === 'cancelled') {
       const error = new Error('Workflow run was cancelled.');
@@ -105,7 +110,12 @@ async function executeWorkflow(db, run) {
       }
       if (/loop/i.test(kind)) { const configured = node.max_iterations ?? node.data?.maxIterations ?? 3; const count = Number(configured); if (!Number.isInteger(count) || count < 0 || count > 20) throw new Error(`Invalid maxIterations for node ${node.id}.`); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
       if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); if (!toolResult.success) throw new Error(toolResult.error || toolResult.policy?.reason || `MCP tool '${toolName}' is unavailable (${toolResult.status || 'unknown status'}).`); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
-      if (/parallel/i.test(kind)) { const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean); await Promise.all(branches.map(runNode)); nodeOutput = { status: 'completed', parallelBranches: branches.length }; }
+      if (/parallel/i.test(kind)) {
+        const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
+        if (branches.length > MAX_PARALLEL_BRANCHES) throw new Error(`Parallel node ${node.id} exceeds the ${MAX_PARALLEL_BRANCHES}-branch fan-out limit.`);
+        await Promise.all(branches.map((branch) => runNode(branch, depth + 1)));
+        nodeOutput = { status: 'completed', parallelBranches: branches.length };
+      }
       output[node.id] = nodeOutput;
       await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
       await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
@@ -118,10 +128,10 @@ async function executeWorkflow(db, run) {
       throw error;
     }
     const next = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
-    if (!/parallel/i.test(kind)) for (const child of next) await runNode(child);
+    if (!/parallel/i.test(kind)) for (const child of next) await runNode(child, depth + 1);
   };
   const roots = (graph.nodes || []).filter((node) => !edges.some((edge) => edge.target === node.id));
-  for (const root of roots.length ? roots : (graph.nodes || []).slice(0, 1)) await runNode(root);
+  for (const root of roots.length ? roots : (graph.nodes || []).slice(0, 1)) await runNode(root, 0);
   const unvisited = (graph.nodes || []).filter((node) => !visited.has(node.id) && !skipped.has(node.id)).map((node) => node.id);
   if (unvisited.length > 0) throw new Error(`Workflow contains unreachable nodes: ${unvisited.join(', ')}`);
   await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, skippedNodes: [...skipped], output }), run.id);
