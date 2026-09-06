@@ -133,11 +133,33 @@ async function pruneNode(nodeId, scope = {}) {
     ? await db.get('SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', nodeId, scope.organizationId, scope.projectId)
     : await db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId);
   if (!node) return null;
-  const metadata = { ...parse(node.metadata, {}), pruned: true, prunedAt: new Date().toISOString() };
-  await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), nodeId);
-  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata }, null, scope);
-  telemetry.emitEvent({ eventType: 'MCTS_NODE_PRUNED', agentId: node.agent_id || 'studio', action: 'PRUNE', detail: `MCTS node ${nodeId} pruned`, payload: { nodeId, provenance } });
-  return { nodeId, pruned: true, provenance };
+
+  // Récupération récursive de tous les nœuds descendants via lineage_edges
+  const descendantRows = await db.all(`
+    WITH RECURSIVE descendants(id) AS (
+      SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?
+      UNION
+      SELECT e.target_node_id FROM lineage_edges e
+      JOIN descendants d ON e.source_node_id = d.id
+    )
+    SELECT id FROM descendants
+  `, nodeId).catch(() => []);
+
+  const allPrunedIds = [nodeId, ...descendantRows.map(r => r.id)];
+  const prunedAt = new Date().toISOString();
+
+  for (const targetId of allPrunedIds) {
+    const row = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', targetId);
+    if (row) {
+      const metadata = { ...parse(row.metadata, {}), pruned: true, prunedAt, prunedRoot: nodeId };
+      await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), targetId);
+    }
+  }
+
+  const rootMeta = { ...parse(node.metadata, {}), pruned: true, prunedAt, descendantPrunedCount: descendantRows.length };
+  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata: rootMeta, allPrunedIds }, null, scope);
+  telemetry.emitEvent({ eventType: 'MCTS_NODE_PRUNED', agentId: node.agent_id || 'studio', action: 'PRUNE', detail: `MCTS node ${nodeId} and ${descendantRows.length} descendants pruned`, payload: { nodeId, allPrunedIds, provenance } });
+  return { nodeId, pruned: true, allPrunedIds, prunedCount: allPrunedIds.length, provenance };
 }
 
 async function updateNotifications(preferences, scope = {}) {

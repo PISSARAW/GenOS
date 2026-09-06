@@ -75,9 +75,11 @@ async function prune(context) {
   const retained = scored.slice(0, k).map(s => s.id);
   const pruned = scored.slice(k).map(s => s.id);
   const runtimeAdapter = require('../agentRuntimeAdapter');
+  const { scheduleWorkspaceCleanup } = require('../agentWorkspaceLifecycleService');
   for (const pid of pruned) {
     runtimeAdapter.stopMission(pid);
     await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
+    try { await scheduleWorkspaceCleanup(pid); } catch (_) {}
   }
   
   telemetry.emitEvent({
@@ -272,4 +274,19 @@ async function schizogonyBurst(context = {}) {
   };
 }
 
-module.exports = { mctsSelect, prune, reallocate, budgetLimit, prmEvaluate, schizogonyBurst };
+async function pruneAndScale(context) {
+  const pruneResult = await prune(context);
+  if (!pruneResult.success) return pruneResult;
+  const reallocateResult = await reallocate({
+    ...context,
+    survivors: pruneResult.retained
+  });
+  return {
+    success: true,
+    retained: pruneResult.retained,
+    pruned: pruneResult.pruned,
+    reallocation: reallocateResult
+  };
+}
+
+module.exports = { mctsSelect, prune, pruneAndScale, reallocate, budgetLimit, prmEvaluate, schizogonyBurst };
