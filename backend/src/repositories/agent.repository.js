@@ -44,7 +44,9 @@ class AgentRepository extends BaseRepository {
       LEFT JOIN trinity_worlds tw ON tw.agent_id = a.id
       LEFT JOIN strategy_contracts sc ON sc.agent_id = a.id
         AND sc.version = (SELECT MAX(latest.version) FROM strategy_contracts latest WHERE latest.agent_id = a.id)
-      WHERE a.status != 'terminated' AND ${scopeClause}
+      WHERE a.status NOT IN ('terminated', 'apoptosis', 'Apoptosis')
+        AND a.is_apoptotic = 0
+        AND ${scopeClause}
     `, ...scopeParams);
   }
 }
