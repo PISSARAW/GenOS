@@ -5,6 +5,17 @@
 
 const { cosineSimilarity } = require('./memoryScoring');
 
+function decodeEmbeddingBlob(blob) {
+  if (!blob) return [];
+  try {
+    if (Buffer.isBuffer(blob)) {
+      const float32 = new Float32Array(blob.buffer, blob.byteOffset, Math.floor(blob.byteLength / 4));
+      return Array.from(float32);
+    }
+  } catch (_) {}
+  return [];
+}
+
 /**
  * Traverses memory_synapses graph up to 2 hops using SQLite recursive CTE
  * @param {string[]} topIds
@@ -32,7 +43,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
           SELECT
             CASE WHEN ms.source_id = t.id THEN ms.target_id ELSE ms.source_id END,
             t.depth + 1,
-            CASE WHEN ms.source_id = t.id THEN ms.weight ELSE ms.weight * 0.5 END
+            ms.weight
           FROM traverse t
           JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}
           WHERE t.depth < 2 AND ms.weight > 0
@@ -46,8 +57,9 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
     for (const s of synapses) {
       if (!topIds.includes(s.id)) {
         linkedIds.push(s.id);
-        const cur = synapseWeightById.get(s.id) || 0;
-        if (s.weight > cur) synapseWeightById.set(s.id, s.weight);
+        if (!synapseWeightById.has(s.id) || s.weight > synapseWeightById.get(s.id)) {
+          synapseWeightById.set(s.id, s.weight);
+        }
       }
     }
     const uniqueLinkedIds = [...new Set(linkedIds)];
@@ -55,7 +67,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
 
     const linkedPlaceholders = uniqueLinkedIds.map(() => '?').join(',');
     const connectedDecisions = await db.all(
-      `SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}`,
+      `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}`,
       tenant.organizationId ? [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), tenant.organizationId] : [...uniqueLinkedIds, ...(ownerId ? [ownerId] : [])]
     );
 
@@ -72,7 +84,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
         tags: ['genome', item.category, 'graph_association'],
         author: item.created_by,
         createdAt: item.created_at,
-        vector: [],
+        vector: decodeEmbeddingBlob(item.embedding_blob),
         synaptic_weight: item.synaptic_weight || 1.0,
         similarityScore: score,
         cosineMetric: 0.5,
@@ -105,7 +117,7 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
     const maxTime = new Date(anchorTime + horizonMs).toISOString();
 
     try {
-      let pastQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at < ? AND created_at >= ? AND id != ?';
+      let pastQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE created_at < ? AND created_at >= ? AND id != ?';
       const pastParams = [anchor.createdAt, minTime, anchor.id];
       if (ownerId) {
         pastQuery += ' AND created_by = ?';
@@ -132,14 +144,14 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
           tags: ['genome', 'temporal_context_past'],
           author: prev.created_by,
           createdAt: prev.created_at,
-          vector: [],
+          vector: decodeEmbeddingBlob(prev.embedding_blob),
           synaptic_weight: prev.synaptic_weight || 1.0,
           similarityScore: Number(((prev.synaptic_weight || 1.0) * 0.35).toFixed(4)),
           cosineMetric: 0.45
         });
       }
 
-      let nextQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions WHERE created_at > ? AND created_at <= ? AND id != ?';
+      let nextQuery = 'SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE created_at > ? AND created_at <= ? AND id != ?';
       const nextParams = [anchor.createdAt, maxTime, anchor.id];
       if (ownerId) {
         nextQuery += ' AND created_by = ?';
@@ -166,7 +178,7 @@ async function fetchTemporalAnchors(timeAnchors = [], db = null, ownerId = '', o
           tags: ['genome', 'temporal_context_future'],
           author: next.created_by,
           createdAt: next.created_at,
-          vector: [],
+          vector: decodeEmbeddingBlob(next.embedding_blob),
           synaptic_weight: next.synaptic_weight || 1.0,
           similarityScore: Number(((next.synaptic_weight || 1.0) * 0.35).toFixed(4)),
           cosineMetric: 0.45
@@ -233,7 +245,7 @@ async function expandGraphRag(topItems = [], db = null, options = {}) {
             tags: [...(n.item.tags || []), 'vector_hop'],
             author: n.item.author,
             createdAt: n.item.createdAt,
-            vector: [],
+            vector: n.item.vector || [],
             synaptic_weight: n.item.synaptic_weight || 1.0,
             similarityScore: Number((n.sim * 0.5).toFixed(4)),
             cosineMetric: n.sim
