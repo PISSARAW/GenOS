@@ -84,9 +84,10 @@ pub fn sculpt_architecture_via_apoptosis(swarm: &mut Vec<AgentCell>) {
     for cell in swarm.iter() {
         *role_counts.entry(cell.role.clone()).or_insert(0usize) += 1;
     }
-    for (i, cell) in swarm.iter_mut().enumerate() {
+    // Élagage basé sur la redondance fonctionnelle et l'optimisation architecturale
+    for cell in swarm.iter_mut() {
         let count = role_counts.get(&cell.role).copied().unwrap_or(1);
-        if i % 3 == 0 && count > 1 {
+        if count > 1 {
             cell.trigger_apoptosis();
             if let Some(role_count) = role_counts.get_mut(&cell.role) {
                 *role_count -= 1;

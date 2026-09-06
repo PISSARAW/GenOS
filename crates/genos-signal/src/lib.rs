@@ -41,4 +41,20 @@ mod tests {
         field.evaporate();
         assert_eq!(field.read("VALID"), 0.0);
     }
+
+    #[test]
+    fn test_matrix_signal_decay() {
+        let mut matrix = ExtracellularMatrix::new();
+        let ligand = Ligand::new("CYTOKINE", SignalingMode::Paracrine, 1.0);
+        matrix.emit_signal(ParacrineSignal {
+            source_idx: 0,
+            ligand,
+            ttl: 2,
+        });
+        assert_eq!(matrix.paracrine_signals.len(), 1);
+        matrix.decay_signals();
+        assert_eq!(matrix.paracrine_signals.len(), 1);
+        matrix.decay_signals();
+        assert_eq!(matrix.paracrine_signals.len(), 0);
+    }
 }
