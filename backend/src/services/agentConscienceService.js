@@ -9,6 +9,8 @@
 
 const DEFAULT_MAX_DISSONANCE = 50.0;
 const DEFAULT_BASELINE_BUDGET = 100.0;
+const DEFAULT_EUREKA_WINDOW_MS = 60 * 1000;
+const DEFAULT_EUREKA_LIMIT = 3;
 const persistTails = new Map();
 
 function createConscienceState(initial = {}) {
@@ -20,7 +22,9 @@ function createConscienceState(initial = {}) {
     eurekaMoments: Math.max(0, Math.floor(finiteOr(initial.eurekaMoments, 0))),
     isApoptotic: Boolean(initial.isApoptotic ?? false),
     maxDissonanceThreshold: Math.max(0.000001, finiteOr(initial.maxDissonanceThreshold, DEFAULT_MAX_DISSONANCE)),
-    revision: Math.max(0, Math.floor(finiteOr(initial.revision, 0)))
+    revision: Math.max(0, Math.floor(finiteOr(initial.revision, 0))),
+    eurekaWindowStartedAt: finiteOr(initial.eurekaWindowStartedAt, 0),
+    eurekaWindowCount: Math.max(0, Math.floor(finiteOr(initial.eurekaWindowCount, 0)))
   };
 }
 
@@ -69,8 +73,17 @@ function evaluateBranch(state, metrics = {}) {
 /**
  * Déclenche un moment Eurêka : divise la dissonance par deux et augmente le capital cognitif.
  */
-function triggerEureka(state) {
+function triggerEureka(state, options = {}) {
   if (state.isApoptotic) return state;
+  const now = Number(options.now || Date.now());
+  const windowMs = Math.max(1, Number(options.windowMs || DEFAULT_EUREKA_WINDOW_MS));
+  const limit = Math.max(1, Math.floor(Number(options.limit || DEFAULT_EUREKA_LIMIT)));
+  if (!state.eurekaWindowStartedAt || now - state.eurekaWindowStartedAt >= windowMs) {
+    state.eurekaWindowStartedAt = now;
+    state.eurekaWindowCount = 0;
+  }
+  if (state.eurekaWindowCount >= limit) return state;
+  state.eurekaWindowCount += 1;
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
   state.currentBudget = Math.min(state.baselineBudget, state.currentBudget + 50.0);
@@ -193,6 +206,8 @@ async function loadConscienceState(db, agentId) {
 module.exports = {
   DEFAULT_MAX_DISSONANCE,
   DEFAULT_BASELINE_BUDGET,
+  DEFAULT_EUREKA_WINDOW_MS,
+  DEFAULT_EUREKA_LIMIT,
   createConscienceState,
   evaluateBranch,
   triggerEureka,
