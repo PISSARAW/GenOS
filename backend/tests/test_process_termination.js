@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
-const { terminateChild } = require('../src/services/processTermination');
+const { terminateChild, processMatches } = require('../src/services/processTermination');
+
+assert.equal(processMatches(process.pid, process.execPath), true);
+assert.equal(processMatches(-1, process.execPath), false);
 
 process.env.GENOS_PROCESS_GRACE_MS = '0';
 const signals = [];
