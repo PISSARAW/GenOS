@@ -54,8 +54,8 @@ async function breed(context) {
   if (!parentA || !parentB) {
     return { success: false, error: 'parentA and parentB required for breeding.' };
   }
-  const rowA = await db.get('SELECT a.id, a.name, a.role, a.current_task, a.model_tier, a.workspace_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', parentA);
-  const rowB = await db.get('SELECT a.id, a.name, a.role, a.current_task, a.model_tier, a.workspace_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', parentB);
+  const rowA = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
+  const rowB = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentB);
   if (!rowA || !rowB) {
     return { success: false, error: 'One or both parents not found.' };
   }
