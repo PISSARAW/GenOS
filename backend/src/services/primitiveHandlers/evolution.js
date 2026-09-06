@@ -75,8 +75,24 @@ async function mutate(context) {
       return { success: false, error: `Parent genome metadata is invalid: ${agentId}` };
     }
   }
-  const mutations = Array.isArray(context.mutations) ? context.mutations : [];
-  if (mutations.length === 0) return { success: false, error: 'At least one mutation descriptor is required.' };
+  let mutations = Array.isArray(context.mutations) ? context.mutations : [];
+  if (mutations.length === 0) {
+    // Autonomous exploratory mutation or hypermutation reheat
+    const currentTemp = Number(parent.genes?.temp ?? 0.4);
+    const targetTemp = Number((Math.min(0.85, Math.max(0.15, currentTemp > 0.6 ? currentTemp - 0.2 : currentTemp + 0.25))).toFixed(2));
+    mutations.push(`temp=${targetTemp}`);
+
+    const currentTopP = Number(parent.genes?.topP ?? 0.9);
+    const targetTopP = Number((Math.min(0.98, Math.max(0.6, currentTopP > 0.85 ? currentTopP - 0.1 : currentTopP + 0.05))).toFixed(2));
+    mutations.push(`topP=${targetTopP}`);
+
+    if (context.hypermutation || context.reheat) {
+      const tools = Array.isArray(parent.genes?.tools) ? [...parent.genes.tools] : ['genos_inspect'];
+      if (!tools.includes('genos_test')) tools.push('genos_test');
+      else if (!tools.includes('genos_patch')) tools.push('genos_patch');
+      mutations.push(`tools=${tools.join(',')}`);
+    }
+  }
   const evolved = agentEvolutionService.evolveWorkerGenome(parent, { role: context.role || 'mutant' }, {
     strategy: context.strategy,
     crossoverStrategy: context.crossoverStrategy,
@@ -534,5 +550,96 @@ async function plasmidDivergence(context) {
   };
 }
 
-module.exports = { mutate, breed, select, paretoSelect, speciation, plasmidDivergence };
+async function mutateSingle(context = {}) {
+  const targetGene = context.targetGene || context.gene || 'temp';
+  const db = await getDatabase();
+  const agentId = context.agentId || context.orchestratorId;
+  let currentVal = 0.5;
+  if (agentId) {
+    const parent = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', agentId);
+    try {
+      const meta = JSON.parse(parent?.metadata || '{}');
+      if (meta.genes && meta.genes[targetGene] !== undefined) {
+        currentVal = meta.genes[targetGene];
+      }
+    } catch (_) {}
+  }
+
+  let singleMutationDescriptor;
+  if (targetGene === 'temp') {
+    const nextVal = Number((Math.min(0.85, Math.max(0.15, Number(currentVal) + 0.1))).toFixed(2));
+    singleMutationDescriptor = `temp=${nextVal}`;
+  } else if (targetGene === 'topP') {
+    const nextVal = Number((Math.min(1.0, Math.max(0.5, Number(currentVal) - 0.1))).toFixed(2));
+    singleMutationDescriptor = `topP=${nextVal}`;
+  } else if (targetGene === 'strategy') {
+    singleMutationDescriptor = `strategy=${context.strategy || 'invariant-verification'}`;
+  } else if (targetGene === 'tools') {
+    const tools = Array.isArray(context.tools) ? context.tools.join(',') : (context.tool ? context.tool : 'genos_inspect,genos_test');
+    singleMutationDescriptor = `tools=${tools}`;
+  } else {
+    singleMutationDescriptor = `temp=0.7`;
+  }
+
+  return mutate({
+    ...context,
+    mutations: [singleMutationDescriptor],
+    singleFactor: targetGene
+  });
+}
+
+async function stagnationCheck(context = {}) {
+  const db = await getDatabase();
+  const agentId = context.agentId || context.orchestratorId || 'system';
+  const threshold = Number(context.stagnationThreshold ?? 3);
+  const lookback = Number(context.lookback ?? 6);
+
+  let failureCount = 0;
+  let recentEvents = [];
+
+  if (db) {
+    try {
+      recentEvents = await db.all(
+        `SELECT event_type, action, severity, created_at FROM telemetry_events
+         WHERE agent_id = ? ORDER BY id DESC LIMIT ?`,
+        agentId, lookback
+      );
+      failureCount = recentEvents.filter(e => String(e.severity || '').toLowerCase() === 'critical' || String(e.severity || '').toLowerCase() === 'warning' || e.action === 'FAILURE').length;
+    } catch (_) {}
+  }
+
+  if (Number.isFinite(Number(context.consecutiveFailures))) {
+    failureCount = Math.max(failureCount, Number(context.consecutiveFailures));
+  }
+
+  const stagnant = failureCount >= threshold || Boolean(context.forceStagnation);
+
+  telemetry.emitEvent({
+    eventType: 'STAGNATION_EVALUATED',
+    agentId,
+    action: 'STAGNATION_CHECK',
+    detail: `Stagnation check evaluated: stagnant=${stagnant} (failures: ${failureCount}/${threshold})`,
+    severity: stagnant ? 'warning' : 'info',
+    payload: { agentId, failureCount, threshold, stagnant }
+  });
+
+  return {
+    success: true,
+    stagnant,
+    failureCount,
+    threshold,
+    recommendedAction: stagnant ? 'hypermutation_reheat' : 'continue'
+  };
+}
+
+module.exports = {
+  mutate,
+  mutateSingle,
+  stagnationCheck,
+  breed,
+  select,
+  paretoSelect,
+  speciation,
+  plasmidDivergence
+};
 
