@@ -9,12 +9,25 @@ if (STRATEGIES.length !== 78) throw new Error(`Strategy registry must contain ex
 if (byId.size !== STRATEGIES.length) throw new Error('Strategy registry contains duplicate ids');
 
 function listStrategies() {
-  return STRATEGIES.map((strategy) => ({ ...strategy, problemTypes: [...strategy.problemTypes], traits: [...strategy.traits], primitives: [...strategy.primitives] }));
+  return STRATEGIES.map(toPublicStrategy);
 }
 
 function getStrategy(id) {
   const strategy = byId.get(id);
-  return strategy ? { ...strategy, problemTypes: [...strategy.problemTypes], traits: [...strategy.traits], primitives: [...strategy.primitives] } : null;
+  return strategy ? toPublicStrategy(strategy) : null;
+}
+
+function toPublicStrategy(strategy) {
+  const handlers = require('../services/strategyExecutionAdapter').getHandlers();
+  const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
+  return {
+    ...strategy,
+    problemTypes: [...strategy.problemTypes],
+    traits: [...strategy.traits],
+    primitives: [...strategy.primitives],
+    executionStatus: missingPrimitives.length ? 'partial' : 'ready',
+    missingPrimitives
+  };
 }
 
 module.exports = { listStrategies, getStrategy };
