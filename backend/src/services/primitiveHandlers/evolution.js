@@ -182,8 +182,12 @@ async function breed(context) {
       parentB: rowB.id,
       swapProb,
       crossoverPoint,
+      speciationThreshold: context.speciationThreshold,
       seed: crossoverSeed
     });
+    if (cliRun.json && cliRun.json.success === false) {
+      return { success: false, error: cliRun.json.error || 'Speciation barrier exceeded: parents cannot interbreed.' };
+    }
     if (cliRun.ok && cliRun.json) {
       nativeRecomb = cliRun.json;
     }

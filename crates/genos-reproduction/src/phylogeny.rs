@@ -108,6 +108,14 @@ impl PhylogeneticTree {
         true
     }
 
+    pub fn can_interbreed_with_threshold(genome_a: &Genome, genome_b: &Genome, max_divergence: f64) -> bool {
+        if genome_a.extra_chromosomes.len() != genome_b.extra_chromosomes.len() {
+            return false;
+        }
+        let divergence_time = Self::estimate_divergence_time(genome_a, genome_b);
+        divergence_time <= max_divergence
+    }
+
     pub fn estimate_divergence_time(leaf1: &Genome, leaf2: &Genome) -> f64 {
         let strands_a = [leaf1.chromosome_maternal.as_slice(), leaf1.chromosome_paternal.as_slice()];
         let strands_b = [leaf2.chromosome_maternal.as_slice(), leaf2.chromosome_paternal.as_slice()];

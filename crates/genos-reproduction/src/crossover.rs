@@ -161,4 +161,24 @@ impl MeioticCrossover {
             parentage: Parentage { parent_a: parent_a.genome_id(), parent_b: parent_b.genome_id() },
         }
     }
+
+    pub fn crossover_with_speciation(
+        parent_a: &Genome,
+        parent_b: &Genome,
+        swap_prob: f64,
+        speciation_threshold: Option<f64>,
+        seed: &str,
+    ) -> Result<Genome, String> {
+        let threshold = speciation_threshold.unwrap_or(crate::phylogeny::MAX_DIVERGENCE_INTROGRESSION);
+        let divergence = crate::phylogeny::PhylogeneticTree::estimate_divergence_time(parent_a, parent_b);
+
+        if divergence > threshold {
+            return Err(format!(
+                "Speciation barrier exceeded: phylogenetic divergence ({:.2} My) > threshold ({:.2} My)",
+                divergence, threshold
+            ));
+        }
+
+        Ok(Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, seed))
+    }
 }
