@@ -17,7 +17,7 @@ mod tests {
         assert_eq!(orch.name, "Griot_Prime");
 
         // 1. Formation d'un tissu
-        let _tissue = orch.create_tissue("Core_Engine", "Backend Logic");
+        let _tissue = orch.create_tissue("Core_Engine", "Backend Logic").unwrap();
         let worker = AgentCell::new("Chidi", "Esprit logique", "Worker");
         let worker_id = orch.add_worker("Core_Engine", worker).unwrap();
 
