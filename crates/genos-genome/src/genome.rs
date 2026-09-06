@@ -86,6 +86,22 @@ impl Genome {
         child
     }
 
+    pub fn mutate_stochastic<R: rand::Rng + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
+        if rate <= 0.0 { return 0; }
+        let mut count = 0;
+        count += self.chromosome_maternal.mutate_stochastic(rate, rng);
+        count += self.chromosome_paternal.mutate_stochastic(rate, rng);
+        for gene in self.genes.values_mut() {
+            count += gene.dna.mutate_stochastic(rate, rng);
+        }
+        count
+    }
+
+    pub fn hypermutate<R: rand::Rng + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
+        let accelerated = (rate * 3.0).clamp(0.05, 0.95);
+        self.mutate_stochastic(accelerated, rng)
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if self.genome_id == Uuid::nil() { return Err("genome_id must not be nil".into()); }
         if self.lineage_id == Uuid::nil() { return Err("lineage_id must not be nil".into()); }
@@ -388,5 +404,24 @@ mod tests {
         assert_eq!(facultative.expression_volume, 1.0);
         assert!(child.genes.get("CONSTITUTIVE").unwrap().is_methylated);
         assert_eq!(child.genes.get("CONSTITUTIVE").unwrap().chromatin_state, ChromatinState::HeterochromatinConstitutive);
+    }
+
+    #[test]
+    fn test_genome_mutate_stochastic_and_hypermutate() {
+        let mut genome = Genome::new("MUTATION_TEST");
+        genome.insert_gene(Gene::new("TEST_GENE", "AGTCAGTCAGTC"));
+        let mut rng = rand::rng();
+
+        let initial_hash = genome.content_hash();
+        let mutations_zero = genome.mutate_stochastic(0.0, &mut rng);
+        assert_eq!(mutations_zero, 0);
+        assert_eq!(genome.content_hash(), initial_hash);
+
+        let mutations = genome.mutate_stochastic(0.3, &mut rng);
+        assert!(mutations > 0);
+        assert_ne!(genome.content_hash(), initial_hash);
+
+        let hyper_mutations = genome.hypermutate(0.2, &mut rng);
+        assert!(hyper_mutations > 0);
     }
 }
