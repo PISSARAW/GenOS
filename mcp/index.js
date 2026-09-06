@@ -281,7 +281,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await runGenosCli(["agent", "fork", "--parent-id", args.parent_id || "ROOT"]);
         break;
       default:
-        result = await runGenosCli(["--help"]);
+        throw new Error(`Unsupported MCP tool '${name}'.`);
         break;
     }
     return { content: [{ type: "text", text: result }] };
