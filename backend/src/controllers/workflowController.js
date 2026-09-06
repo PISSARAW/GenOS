@@ -70,16 +70,19 @@ async function listWorkflows(req, res, next) {
 async function createWorkflow(req, res, next) {
   try {
     const db = await getDatabase();
-    const { name, workspaceId = null, description = '', graph = { nodes: [], edges: [] }, metadata = {} } = req.body || {};
+    const { name, workspaceId, description = '', graph = { nodes: [], edges: [] }, metadata = {} } = req.body || {};
     if (!name || typeof name !== 'string') return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workflow name is required.' } });
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
+    if (!workspaceId || typeof workspaceId !== 'string') return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required.' } });
     const id = `wf-${crypto.randomUUID()}`;
     const s = scopeSql(req);
     if (workspaceId && !await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params)) {
       return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
     }
-    await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspaceId, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
+    const workspace = await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params);
+    if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
+    await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspace.id, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
     res.status(201).json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', id)));
   } catch (error) { next(error); }
 }
