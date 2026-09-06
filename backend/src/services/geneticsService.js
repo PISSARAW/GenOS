@@ -11,6 +11,20 @@ function deterministicUnit(seed) {
   return digest.readUInt32BE(0) / 0x100000000;
 }
 
+function validateCognitiveGenes(genes, label = 'genome') {
+  if (!genes || typeof genes !== 'object') throw new TypeError(`${label} genes are required.`);
+  if (typeof genes.role !== 'string' || !genes.role.trim()) throw new TypeError(`${label}.role must be a non-empty string.`);
+  if (typeof genes.strategy !== 'string' || !genes.strategy.trim()) throw new TypeError(`${label}.strategy must be a non-empty string.`);
+  if (!Array.isArray(genes.tools) || !genes.tools.length || genes.tools.some((tool) => typeof tool !== 'string' || !tool.trim())) {
+    throw new TypeError(`${label}.tools must contain at least one non-empty tool name.`);
+  }
+  for (const key of ['temp', 'topP']) {
+    if (!Number.isFinite(Number(genes[key])) || Number(genes[key]) < 0 || Number(genes[key]) > 1) {
+      throw new RangeError(`${label}.${key} must be a finite value in [0, 1].`);
+    }
+  }
+}
+
 // Baseline evolutionary tree so fresh installs still render a meaningful DAG.
 const SEED_TREE_NODES = [
   { id: 'node-root', label: 'GenOS Master DAG Root', node_type: 'core', score: 1.0, state_summary: 'Root commit', metadata: { generation: 0, status: 'core' } },
@@ -172,6 +186,8 @@ function crossoverGenome(parentA, parentB, options = {}) {
   if (!resolvedA?.genes || !resolvedB?.genes) {
     throw new Error('Two explicit parent genomes are required');
   }
+  validateCognitiveGenes(resolvedA.genes, 'parentA');
+  validateCognitiveGenes(resolvedB.genes, 'parentB');
   const pA = resolvedA;
   const pB = resolvedB;
   const toolsA = Array.isArray(pA.genes.tools) ? pA.genes.tools : [];
@@ -240,4 +256,5 @@ module.exports = {
   getPhylogeneticTree,
   analyzeAlleles,
   crossoverGenome
+  ,validateCognitiveGenes
 };
