@@ -485,6 +485,7 @@ dependencies = [
  "genos-biology",
  "genos-cell",
  "genos-genome",
+ "genos-immune",
  "genos-orchestrator",
  "genos-reproduction",
  "genos-signal",
@@ -517,6 +518,7 @@ version = "0.1.0"
 dependencies = [
  "genos-genome",
  "serde",
+ "serde_json",
  "uuid",
 ]
 
