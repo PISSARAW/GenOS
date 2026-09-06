@@ -100,15 +100,17 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   if (item.rrf_score !== undefined && item.rrf_score !== null) {
     const rrfNorm = item.rrf_score * 30.0;
     if (item.distance !== undefined && item.distance !== null) {
-      cosScore = 1.0 - ((item.distance * item.distance) / 2.0);
+      const distance = Number(item.distance);
+      cosScore = Number.isFinite(distance) ? Math.max(0, Math.min(1, 1.0 - (distance / 2.0))) : 0;
     } else {
-      cosScore = rrfNorm;
+      cosScore = Math.max(0, Math.min(1, rrfNorm));
     }
     hybridScore = Math.max(rrfNorm, tfidfScore);
   } else if (item.vector && item.vector.length && queryInfo.queryVec && queryInfo.queryVec.length === item.vector.length) {
     cosScore = cosineSimilarity(queryInfo.queryVec, item.vector);
     hybridScore = Math.max(cosScore, tfidfScore);
   }
+  cosScore = Math.max(0, Math.min(1, Number(cosScore) || 0));
 
   const tags = Array.isArray(item.tags) ? item.tags : [];
   const queryTerms = queryLower.split(/\s+/).filter(w => w.length > 2);
@@ -139,6 +141,7 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   } else if (hormone === 'adrenaline') {
     if (cosScore < 0.75) finalScore = 0;
   }
+  finalScore = Math.max(0, Math.min(1, finalScore));
 
   return {
     ...item,
