@@ -131,7 +131,7 @@ async function updateNotifications(preferences, scope = {}) {
   for (const item of preferences || []) {
     await db.run('INSERT INTO notification_preferences (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(event_type, organization_id, project_id) DO UPDATE SET enabled=excluded.enabled, channels_json=excluded.channels_json, threshold=excluded.threshold, updated_at=CURRENT_TIMESTAMP', item.eventType, item.enabled ? 1 : 0, JSON.stringify(item.channels || ['studio']), item.threshold ?? null, scope.organizationId || '', scope.projectId || '');
   }
-  return overview();
+  return overview(scope);
 }
 
 module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance };
