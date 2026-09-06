@@ -26,8 +26,8 @@ async function run() {
   const generated = await proof.generateProof('safe-debugging', 'exec-test-1');
   assert(generated.hash && generated.hash.length === 64, 'Doit générer un hash SHA-256');
   assert(Array.isArray(generated.claims) && generated.claims.length === 3, 'Doit inclure 3 claims');
-  assert.equal(proof.verifyProof(generated.hash), true, 'Le hash doit être vérifié');
-  assert.equal(proof.verifyProof('invalid-hash'), false, 'Un hash invalide doit être rejeté');
+  assert.equal(proof.verifyProof(generated.hash, generated.evidence), true, 'Le hash doit être vérifié contre l evidence');
+  assert.equal(proof.verifyProof('invalid-hash', generated.evidence), false, 'Un hash invalide doit être rejeté');
   console.log('  ✅ Méthodes gRPC generateProof et verifyProof validées.');
 
   console.log('\n=== TEST 4: Contrôleur HTTP (productProofController) ===');
