@@ -27,15 +27,64 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
     };
 
     let cell = AgentCell::new(name, meaning, role);
+    let genome_doc = json!({
+        "apiVersion": "v0alpha1",
+        "kind": "AgentGenome",
+        "metadata": {
+            "name": name,
+            "version": "0.1.0"
+        },
+        "identity": {
+            "role": role,
+            "name": name,
+            "name_meaning": meaning,
+            "cell_id": cell.cell_id.to_string()
+        },
+        "cognition": {
+            "conscience": cell.conscience,
+            "organelles": cell.organelles
+        },
+        "objectives": {
+            "primary": role,
+            "operational_mode": "autonomous"
+        },
+        "policies": {
+            "hayflick_limit": cell.hayflick_limit,
+            "is_senescent": cell.is_senescent,
+            "is_ephemeral": cell.is_ephemeral,
+            "ephemeral_ttl": cell.ephemeral_ttl
+        },
+        "capabilities": ["inspect", "reason", "mutate"],
+        "memory_policy": {
+            "ltd_decay": true,
+            "consolidation": true,
+            "synaptic_pruning": true
+        },
+        "model_policy": {
+            "preferred": "default"
+        },
+        "tool_policy": {
+            "allowed_tools": ["genos_inspect", "genos_test"]
+        },
+        "cell_id": cell.cell_id.to_string(),
+        "name": cell.name,
+        "name_meaning": cell.name_meaning,
+        "role": cell.role,
+        "conscience": cell.conscience,
+        "organelles": cell.organelles,
+        "bud_scars": cell.bud_scars,
+        "hayflick_limit": cell.hayflick_limit
+    });
+
     let path = Path::new(out);
     if let Some(parent) = path.parent() {
         let _ = fs::create_dir_all(parent);
     }
 
     let serialized = if out.ends_with(".yaml") || out.ends_with(".yml") {
-        serde_yaml::to_string(&cell).map_err(|e| e.to_string())?
+        serde_yaml::to_string(&genome_doc).map_err(|e| e.to_string())?
     } else {
-        serde_json::to_string_pretty(&cell).map_err(|e| e.to_string())?
+        serde_json::to_string_pretty(&genome_doc).map_err(|e| e.to_string())?
     };
 
     fs::write(path, serialized).map_err(|e| e.to_string())?;
