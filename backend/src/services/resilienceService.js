@@ -66,7 +66,7 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const maxFailures = policy.maxConsecutiveFailures || 3;
   const divergenceThreshold = policy.divergenceThreshold || 0.55;
   const failureTrigger = consecutiveFailures >= maxFailures;
-  const semanticTrigger = semanticDivergence < divergenceThreshold;
+  const semanticTrigger = semanticDivergence > divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
   const maxCostUsd = Number(policy.maxCostUsd);
   const costTrigger = Number.isFinite(maxCostUsd) && maxCostUsd >= 0 && costUsd >= maxCostUsd;
@@ -75,7 +75,7 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
 
   let primaryReason = 'No termination criteria met';
   if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
-  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
+  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} > ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
   else if (costTrigger) primaryReason = `Execution cost limit breached (${costUsd} >= ${maxCostUsd} USD)`;
 
