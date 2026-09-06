@@ -27,9 +27,9 @@ async function resolveTenant(req) {
   }
   const user = req.user || await resolveUserFromHeaders(req.headers);
   const db = await getDatabase();
-  const project = await db.get('SELECT id, organization_id FROM projects WHERE id = ?', projectId);
+  const project = await db.get('SELECT id, organization_id, status FROM projects WHERE id = ?', projectId);
   if (!project || project.organization_id !== organizationId) return null;
-  if (user.permissions?.includes('all')) return { organizationId, projectId, principalId: principalId(user), user };
+  if (user.permissions?.includes('all')) return { organizationId, projectId, principalId: principalId(user), status: project.status || 'active', user };
   const membership = await db.get(
     `SELECT COALESCE(pm.role, om.role) AS role
        FROM organization_memberships om
@@ -39,7 +39,7 @@ async function resolveTenant(req) {
     projectId, principalId(user), organizationId
   );
   if (!membership) return null;
-  return { organizationId, projectId, principalId: principalId(user), role: membership.role, user };
+  return { organizationId, projectId, principalId: principalId(user), role: membership.role, status: project.status || 'active', user };
 }
 
 function requireTenantScope({ write = false } = {}) {
@@ -52,6 +52,9 @@ function requireTenantScope({ write = false } = {}) {
       }
       if (write && !['owner', 'admin', 'member'].includes(scope.role) && !scope.user?.permissions?.includes('all')) {
         return res.status(403).json({ error: { code: 'TENANT_WRITE_FORBIDDEN', message: 'Project membership is read-only' } });
+      }
+      if (write && scope.status === 'archived') {
+        return res.status(409).json({ error: { code: 'PROJECT_ARCHIVED', message: 'Archived projects are read-only.' } });
       }
       req.tenant = scope;
       next();

@@ -79,7 +79,8 @@ async function applyVersionedMigrations(db) {
     ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts'],
     ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project'],
     ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination'],
-    ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity']
+    ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity'],
+    ['011-project-lifecycle', 'Persist active and archived project lifecycle state']
   ];
   await migrateAgentStatusConstraint(db);
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
@@ -88,6 +89,8 @@ async function applyVersionedMigrations(db) {
   if (!names.has('project_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN project_id TEXT');
   await migrateWorkspaceNameConstraint(db);
   const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
+  const projectColumns = await db.all('PRAGMA table_info(projects)');
+  if (!projectColumns.some((column) => column.name === 'status')) await db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (organization) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
