@@ -10,12 +10,25 @@ const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
 const modelProvider = require('../modelProvider');
 const localModelDiscovery = require('../localModelDiscovery');
+const workspaceSnapshotStore = require('../workspaceSnapshotStore');
+
+async function scopedWorkspace(db, workspaceId) {
+  return db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId);
+}
 
 async function snapshot(context) {
   if (context.workspaceId) {
-    const label = 'strategy_snapshot_' + Date.now();
-    const snap = await agentRecovery.createSnapshot(await getDatabase(), context.workspaceId, label);
-    return { success: true, snapshotId: snap.id };
+    const db = await getDatabase();
+    const workspace = await scopedWorkspace(db, context.workspaceId);
+    if (!workspace) return { success: false, error: `Workspace '${context.workspaceId}' not found.` };
+    const snap = await workspaceSnapshotStore.capture({
+      db,
+      workspace,
+      label: context.label || `strategy_snapshot_${Date.now()}`,
+      reason: context.reason || 'Strategy snapshot',
+      author: context.agentId || context.orchestratorId || 'strategy_adapter'
+    });
+    return { success: true, snapshotId: snap.id, snapshotHash: snap.snapshotHash, stepNumber: snap.stepNumber };
   }
   return { success: false, error: 'workspaceId required for snapshot.' };
 }
