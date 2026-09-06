@@ -13,6 +13,13 @@ function evaluationScope(input = {}) {
   return { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
 }
 
+function calculateMetricScore(metricName, values = []) {
+  const numericValues = Array.isArray(values) ? values.map(Number).filter(Number.isFinite) : [];
+  if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
+  const value = Number(Math.max(0, Math.min(1, numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length)).toFixed(4));
+  return { metric: metricName || 'unnamed', value, evaluation: value >= 0.8 ? 'NOMINAL' : value >= 0.5 ? 'DEGRADED' : 'CRITICAL' };
+}
+
 async function overview(input = {}) {
   const db = await getDatabase();
   const scope = evaluationScope(input);
@@ -38,6 +45,10 @@ async function overview(input = {}) {
     provenance,
     notifications: notifications.map(n => ({ ...n, enabled: Boolean(n.enabled), channels: parse(n.channels_json, ['studio']) }))
   };
+}
+
+async function getObservabilitySummary(input = {}) {
+  return overview(input);
 }
 
 async function runImpossibleBench(input = {}) {
@@ -123,4 +134,4 @@ async function updateNotifications(preferences, scope = {}) {
   return overview();
 }
 
-module.exports = { overview, runImpossibleBench, pruneNode, updateNotifications, recordProvenance };
+module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance };
