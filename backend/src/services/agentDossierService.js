@@ -102,6 +102,8 @@ async function loadAgentDossier(db, agentId) {
         dissonanceLevel: root.dissonance_level || 0,
         eurekaCount: root.eureka_count || 0,
         cognitiveBudget: root.cognitive_budget || 100,
+        cognitiveBaselineBudget: root.cognitive_baseline_budget || 100,
+        conscienceRevision: root.conscience_revision || 0,
         isApoptotic: Boolean(root.is_apoptotic)
       }
     },

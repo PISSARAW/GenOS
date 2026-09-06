@@ -31,6 +31,8 @@ class AgentRepository extends BaseRepository {
       a.hallucination_count as hallucinationCount,
       a.name_meaning as nameMeaning, a.dissonance_level as dissonanceLevel,
       a.eureka_count as eurekaCount, a.cognitive_budget as cognitiveBudget,
+      a.cognitive_baseline_budget as cognitiveBaselineBudget,
+      a.conscience_revision as conscienceRevision,
       a.is_apoptotic as isApoptotic,
       COALESCE(a.about, a.current_task, 'Autonomous GenOS agent.') as about,
       tw.id as trinityWorldId, tw.name as trinityWorldName, tw.strategy as trinityStrategy,
