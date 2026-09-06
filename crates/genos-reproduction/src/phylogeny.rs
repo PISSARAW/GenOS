@@ -141,21 +141,22 @@ impl PhylogeneticTree {
     /// L'HORLOGE MOLÉCULAIRE (Molecular Clock)
     /// Calcule le temps exact de divergence entre deux agents en se basant sur le taux de mutations silencieuses.
     pub fn molecular_clock(genome_a: &Genome, genome_b: &Genome, mutation_rate_per_generation: f64) -> Result<f64, String> {
-        if !mutation_rate_per_generation.is_finite() || mutation_rate_per_generation <= 0.0 {
-            return Err("Mutation rate per generation must be finite and greater than zero".to_string());
+        if !mutation_rate_per_generation.is_finite() || mutation_rate_per_generation <= 0.0 || mutation_rate_per_generation > 1.0 {
+            return Err("Mutation rate per generation must be finite, greater than zero, and at most 1.0".to_string());
         }
-        let seq_a = genome_a.chromosome_maternal.as_slice();
-        let seq_b = genome_b.chromosome_maternal.as_slice();
+        let strands_a = [genome_a.chromosome_maternal.as_slice(), genome_a.chromosome_paternal.as_slice()];
+        let strands_b = [genome_b.chromosome_maternal.as_slice(), genome_b.chromosome_paternal.as_slice()];
         
         let mut silent_mutations = 0;
-        let min_len = seq_a.len().min(seq_b.len());
-        
-        for i in 0..min_len {
-            if seq_a[i] != seq_b[i] {
-                silent_mutations += 1; // On part du principe que ce sont des mutations neutres pour l'horloge
+        for (seq_a, seq_b) in strands_a.into_iter().zip(strands_b.into_iter()) {
+            let min_len = seq_a.len().min(seq_b.len());
+            for i in 0..min_len {
+                if seq_a[i] != seq_b[i] {
+                    silent_mutations += 1; // On part du principe que ce sont des mutations neutres pour l'horloge
+                }
             }
+            silent_mutations += seq_a.len().max(seq_b.len()) - min_len;
         }
-        silent_mutations += seq_a.len().max(seq_b.len()) - min_len;
 
         // Si on a 10 différences, c'est que A a fait 5 mutations et B a fait 5 mutations.
         let mutations_per_lineage = (silent_mutations as f64) / 2.0;

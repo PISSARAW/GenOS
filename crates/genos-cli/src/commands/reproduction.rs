@@ -216,7 +216,8 @@ fn handle_division(
             }
         }
         "meiosis" => {
-            match CellDivision::meiosis_with_seed(&parent, None, seed.unwrap_or("genos-default-meiosis")) {
+            let actual_seed = seed.unwrap_or("genos-default-meiosis");
+            match CellDivision::meiosis_with_seed_and_mutation(&parent, None, actual_seed, mutation_rate) {
                 Ok(result) => {
                     let ids: Vec<String> = result.gametes.iter().map(|d| d.genome_id().to_string()).collect();
                     print_json(json!({
@@ -228,6 +229,7 @@ fn handle_division(
                         "gamete_genome_ids": ids,
                         "crossover_point": result.crossover_point,
                         "reduction_completed": result.reduction_completed,
+                        "mutation_rate_applied": result.mutation_rate_applied,
                         "status": "meiosis_completed"
                     }));
                 }

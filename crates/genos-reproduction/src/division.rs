@@ -45,6 +45,8 @@ pub struct BuddingResult {
     pub hayflick_limit: u32,
     pub remaining_divisions: u32,
     pub is_senescent: bool,
+    #[serde(default)]
+    pub mutation_rate_applied: f64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -61,6 +63,8 @@ pub struct MeiosisResult {
     pub gametes: Vec<Genome>,
     pub crossover_point: usize,
     pub reduction_completed: bool,
+    #[serde(default)]
+    pub mutation_rate_applied: f64,
 }
 
 pub struct CellDivision;
@@ -238,8 +242,21 @@ impl CellDivision {
         current_scars: u32,
         hayflick_limit: u32,
     ) -> Result<BuddingResult, String> {
+        Self::budding_with_limit_and_mutation(mother, daughter_volume, current_scars, hayflick_limit, 0.0)
+    }
+
+    pub fn budding_with_limit_and_mutation(
+        mother: &Genome,
+        daughter_volume: f64,
+        current_scars: u32,
+        hayflick_limit: u32,
+        mutation_rate: f64,
+    ) -> Result<BuddingResult, String> {
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
+        }
+        if !(0.0..=1.0).contains(&mutation_rate) {
+            return Err("Mutation rate must be between 0 and 1".to_string());
         }
         if current_scars >= hayflick_limit {
             return Err(format!(
@@ -259,6 +276,21 @@ impl CellDivision {
         parent.insert_gene(genos_genome::Gene::new("bud_scars", &new_scars.to_string()));
         parent.insert_gene(genos_genome::Gene::new("hayflick_limit", &hayflick_limit.to_string()));
         parent.insert_gene(genos_genome::Gene::new("is_senescent", &is_senescent.to_string()));
+
+        // Somatic mutation during budding if mutation_rate > 0
+        if mutation_rate > 0.0 {
+            let seed = default_seed(&daughter.genome_id().to_string(), "budding_mutation");
+            let mut rng = rng_from_seed(&seed);
+            let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
+            let mut pat = daughter.chromosome_paternal.as_slice().to_vec();
+            for n in mat.iter_mut().chain(pat.iter_mut()) {
+                if rng.random_bool(mutation_rate) {
+                    *n = mutate_nucleotide(n, &mut rng);
+                }
+            }
+            daughter.chromosome_maternal.replace_sequence(mat);
+            daughter.chromosome_paternal.replace_sequence(pat);
+        }
 
         // Asymétrie génomique : le volume d'expression des gènes du bourgeon est pondéré par daughter_volume
         for gene in daughter.genes.values_mut() {
@@ -282,6 +314,7 @@ impl CellDivision {
             hayflick_limit,
             remaining_divisions: hayflick_limit.saturating_sub(new_scars),
             is_senescent,
+            mutation_rate_applied: mutation_rate,
         })
     }
 
@@ -348,11 +381,23 @@ impl CellDivision {
     }
 
     pub fn meiosis(genome: &Genome, crossover_point: Option<usize>) -> Result<Vec<Genome>, String> {
-        Self::meiosis_with_seed(genome, crossover_point, &default_seed(&genome.genome_id().to_string(), "meiosis"))
+        Self::meiosis_with_seed_and_mutation(genome, crossover_point, &default_seed(&genome.genome_id().to_string(), "meiosis"), 0.0)
             .map(|r| r.gametes)
     }
 
     pub fn meiosis_with_seed(genome: &Genome, crossover_point: Option<usize>, seed: &str) -> Result<MeiosisResult, String> {
+        Self::meiosis_with_seed_and_mutation(genome, crossover_point, seed, 0.0)
+    }
+
+    pub fn meiosis_with_seed_and_mutation(
+        genome: &Genome,
+        crossover_point: Option<usize>,
+        seed: &str,
+        mutation_rate: f64,
+    ) -> Result<MeiosisResult, String> {
+        if !(0.0..=1.0).contains(&mutation_rate) {
+            return Err("Mutation rate must be between 0 and 1".to_string());
+        }
         let mat_len = genome.chromosome_maternal.len();
         let pat_len = genome.chromosome_paternal.len();
         let min_len = mat_len.min(pat_len);
@@ -360,10 +405,10 @@ impl CellDivision {
             return Err("Cannot perform meiosis on empty chromosomes".to_string());
         }
 
+        let mut rng = rng_from_seed(seed);
         let pt = match crossover_point {
             Some(p) => p.min(min_len),
             None => {
-                let mut rng = rng_from_seed(seed);
                 rng.random_range(0..min_len)
             }
         };
@@ -386,7 +431,15 @@ impl CellDivision {
         let chromatids = [chrom_1, chrom_2, chrom_3, chrom_4];
         let mut gametes = Vec::with_capacity(4);
 
-        for (i, chrom) in chromatids.into_iter().enumerate() {
+        for (i, mut chrom) in chromatids.into_iter().enumerate() {
+            if mutation_rate > 0.0 {
+                for nucleotide in &mut chrom {
+                    if rng.random_bool(mutation_rate) {
+                        *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
+                    }
+                }
+            }
+
             let mut gamete = genome.derive_child();
             gamete.chromosome_maternal.replace_sequence(chrom.clone());
             gamete.chromosome_paternal.replace_sequence(chrom);
@@ -403,6 +456,15 @@ impl CellDivision {
                     gene.developmentally_locked = false;
                     gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
                 }
+                if mutation_rate > 0.0 {
+                    let mut seq = gene.dna.as_slice().to_vec();
+                    for nucleotide in &mut seq {
+                        if rng.random_bool(mutation_rate) {
+                            *nucleotide = mutate_nucleotide(nucleotide, &mut rng);
+                        }
+                    }
+                    gene.dna.replace_sequence(seq);
+                }
             }
 
             gamete.insert_gene(genos_genome::Gene::new(
@@ -417,6 +479,7 @@ impl CellDivision {
             gametes,
             crossover_point: pt,
             reduction_completed: true,
+            mutation_rate_applied: mutation_rate,
         })
     }
 }
