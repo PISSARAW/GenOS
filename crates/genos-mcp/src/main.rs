@@ -210,7 +210,7 @@ fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String)
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
-        _ => execute_cli(workspace, name, args),
+        _ => (-1, format!("Unsupported MCP tool: {name}")),
     }
 }
 
