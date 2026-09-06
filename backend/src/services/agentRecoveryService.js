@@ -38,6 +38,16 @@ function queueWorkerRecovery(mission, event) {
   const decision = workerRecovery.decideRecovery(report);
   const orchestratorId = mission.orchestratorAgentId;
   if (!orchestratorId) return { report, decision, queued: false };
+  const recoveryHistory = Array.isArray(mission.recoveryHistory) ? mission.recoveryHistory : [];
+  const repeatedStrategy = recoveryHistory.some((entry) => entry.category === report.category && entry.action === decision.action);
+  if (repeatedStrategy) {
+    const cycleDecision = {
+      action: 'escalate_recovery_cycle', terminal: true, retry: false,
+      reason: `Recovery cycle detected: '${decision.action}' already failed for category '${report.category}'.`
+    };
+    emit(orchestratorId, 'WORKER_RECOVERY_CYCLE_DETECTED', cycleDecision.action, cycleDecision.reason, { workerId, report, recoveryHistory }, 'error');
+    return { report, decision: cycleDecision, queued: false, cycleDetected: true };
+  }
   emit(orchestratorId, 'WORKER_FAILURE_REPORTED', 'ANALYZE_FAILURE', `Worker '${report.workerId}' reported that it could not complete its mission.`, { report }, 'warning');
   emit(orchestratorId, 'WORKER_RECOVERY_DECISION', decision.action, decision.reason, {
     workerId: report.workerId, report, decision
@@ -174,7 +184,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       originalMission: report.mission,
       recoveryAttempt: report.attempt + 1,
       recoveryMaxAttempts: report.maxAttempts,
-      recoveryHistory: [...(mission.recoveryHistory || []), { workerId: sourceAgentId, report, decision }],
+      recoveryHistory: [...(mission.recoveryHistory || []), { workerId: sourceAgentId, category: report.category, action: decision.action, report, decision }],
       bisection: bisectionResult || report.bisection || null,
       culpritReport: report.culpritReport || null,
       workspaceRoot,
