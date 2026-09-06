@@ -225,7 +225,7 @@ async function runGrpcSuite() {
     console.log('\n--- 9. Testing AgentService & OrchestratorService ---');
     const agentDesc = descriptors.agent.genos.agent.v1;
     const agentClient = createClient(agentDesc.AgentService);
-    const stopRes = await callRpc(agentClient, 'StopMission', { id: 'agent-stop-test' });
+    const stopRes = await callRpc(agentClient, 'StopMission', { id: 'agent-stop-test', workspace_id: 'ws-test-identity' });
     assert.strictEqual(stopRes.stopped, false);
     console.log(`  ✅ PASS: AgentService StopMission -> stopped: ${stopRes.stopped}`);
 

@@ -28,8 +28,11 @@ message AgentMission {
   string execution_budget_json = 16;
   ConscienceState conscience_state = 17;
   string name_meaning = 20;
+  string workspace_id = 21;
+  string organization_id = 22;
+  string project_id = 23;
 }
-message AgentId { string id = 1; }
+message AgentId { string id = 1; string workspace_id = 2; string organization_id = 3; string project_id = 4; }
 message MissionResponse {
   bool success = 1;
   string message = 2;

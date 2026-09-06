@@ -1,5 +1,19 @@
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const { getDatabase } = require('../db');
 const grpc = require('@grpc/grpc-js');
+
+async function resolveWorkspace(request) {
+  const workspaceId = String(request.workspace_id || '').trim();
+  if (!workspaceId) throw Object.assign(new Error('workspace_id is required.'), { code: 'INVALID_MISSION_SCOPE' });
+  const organizationId = String(request.organization_id || '').trim();
+  const projectId = String(request.project_id || '').trim();
+  const db = await getDatabase();
+  const workspace = organizationId && projectId
+    ? await db.get('SELECT * FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?', workspaceId, organizationId, projectId)
+    : await db.get('SELECT * FROM workspaces WHERE id = ? AND organization_id IS NULL AND project_id IS NULL', workspaceId);
+  if (!workspace) throw Object.assign(new Error(`Workspace '${workspaceId}' is not available in the requested project.`), { code: 'INVALID_MISSION_SCOPE' });
+  return workspace;
+}
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Agent is alive via gRPC!" }),
@@ -7,13 +21,15 @@ module.exports = {
   StartMission: async (call, callback) => {
     try {
       const mission = call.request || {};
+      const workspace = await resolveWorkspace(mission);
       await runtimeAdapter.startMission({
         agentId: mission.agent_id,
         name: mission.name,
         role: mission.role,
         prompt: mission.prompt,
         modelTier: mission.model_tier,
-        workspaceRoot: mission.workspace_root,
+        workspaceRoot: workspace.path,
+        workspaceId: workspace.id,
         workspaceIsolation: mission.workspace_isolation,
         agentType: mission.agent_type,
         executionMode: mission.execution_mode,
@@ -33,6 +49,15 @@ module.exports = {
   },
 
   StopMission: async (call, callback) => {
+    try {
+      const request = call.request || {};
+      const workspace = await resolveWorkspace(request);
+      const db = await getDatabase();
+      const agent = await db.get('SELECT id FROM agents WHERE id = ? AND workspace_id = ?', request.id, workspace.id);
+      if (!agent) return callback(null, { stopped: false, status: 'not_in_workspace' });
+    } catch (err) {
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: err.message });
+    }
     const agentId = call.request?.id;
     const stopped = Boolean(agentId && runtimeAdapter.stopMission(agentId));
     callback(null, { stopped, status: stopped ? 'stopped' : 'not_running' });
