@@ -47,7 +47,7 @@ async function cherryPick(req, res, next) {
       eventType: 'GOLDEN_PATH_SYNTHESIZED',
       agentId: 'memory_synthesizer',
       action: 'CHERRY_PICK',
-      detail: `Synthesized golden path with ${result.prunedStepCount} steps (${result.noiseReductionPercent}% noise reduction)`,
+      detail: `Synthesized golden path with ${result.goldenPathSteps.length} steps (${result.noiseReductionPercent}% noise reduction, ${result.prunedStepCount} pruned)`,
       severity: 'info',
       payload: result
     });
@@ -111,12 +111,12 @@ async function ingestMemory(req, res, next) {
           if (rel.id === decisionId) continue; // Pas d'auto-lien
           
           if (isFirst && isCorrection) {
-              // Si c'est une correction, le lien le plus fort est la cible à inhiber
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, -5.0)`, decisionId, rel.id);
+              // Si c'est une correction, le lien le plus fort est la cible à inhiber (GABAergique)
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type) VALUES (?, ?, -5.0, 'gaba')`, decisionId, rel.id);
           } else if (rel.cosineMetric > 0.55) {
-              // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning)
+              // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning, Glutamatergique)
               // Le seuil est abaissé (0.55) pour permettre de lier des faits indirects (ex: A->B et B->C)
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, 1.0)`, decisionId, rel.id);
+              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type) VALUES (?, ?, 1.0, 'glutamate')`, decisionId, rel.id);
           }
           isFirst = false;
       }
