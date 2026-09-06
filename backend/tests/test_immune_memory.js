@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { parseMarkdownAST } = require('./src/services/markdownParser');
+const { parseMarkdownAST } = require('../src/services/markdownParser');
 
 function validateHeading(nodes) {
     const node = nodes.find(n => n.type === 'heading' && n.text.startsWith('1. Contexte'));
@@ -9,7 +9,7 @@ function validateHeading(nodes) {
 }
 
 function runTests() {
-    const memoryPath = path.join(__dirname, 'src', 'db', 'immune_memory.json');
+    const memoryPath = path.join(__dirname, '..', 'src', 'db', 'immune_memory.json');
     const tests = JSON.parse(fs.readFileSync(memoryPath, 'utf8'));
     let passed = 0;
     
