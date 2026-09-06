@@ -24,7 +24,7 @@ async function triggerApoptosis(req, res, next) {
     if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${agentId}' was not found in this project.` } });
     const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold FROM resilience_policies WHERE id = 1');
     const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db, policy || {});
-    if (autopsy.apoptosisExecuted) runtimeAdapter.stopMission(agentId);
+    if (autopsy.apoptosisExecuted) await runtimeAdapter.stopMission(agentId);
 
     telemetry.emitEvent({
       eventType: 'APOPTOSIS_EVALUATED',
