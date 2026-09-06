@@ -10,10 +10,29 @@ use genos_biology::redundancy::RedundancySystem;
 use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
-use genos_genome::Genome;
+use genos_genome::{ChromatinState, Gene, Genome};
+use std::fs;
+use std::path::PathBuf;
 
 use crate::args::{BiomimicrySubcommands, EvolutionSubcommands};
 use crate::commands::biomimicry_ops::*;
+
+fn chromatin_state_path(agent_id: &str) -> Result<PathBuf, String> {
+    if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
+        return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
+    }
+    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    Ok(root.join("chromatin").join(format!("{}.json", agent_id)))
+}
+
+fn parse_chromatin_state(value: &str) -> Result<ChromatinState, String> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "euchromatin" => Ok(ChromatinState::Euchromatin),
+        "heterochromatin_facultative" | "facultative" => Ok(ChromatinState::HeterochromatinFacultative),
+        "heterochromatin_constitutive" | "constitutive" => Ok(ChromatinState::HeterochromatinConstitutive),
+        _ => Err("state must be euchromatin, heterochromatin_facultative, or heterochromatin_constitutive".to_string()),
+    }
+}
 
 pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
     match cmd {
@@ -226,12 +245,29 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::EpigeneticChromatin { agent_id, locus, state } => {
-            let genome = Genome::new(&agent_id);
-            let is_locked = state.to_lowercase().contains("hetero") || state.to_lowercase().contains("silence");
+            let chromatin_state = parse_chromatin_state(&state)?;
+            let state_path = chromatin_state_path(&agent_id)?;
+            let mut genome = if state_path.exists() {
+                serde_json::from_str(&fs::read_to_string(&state_path).map_err(|error| format!("Failed to read chromatin state: {}", error))?)
+                    .map_err(|error| format!("Invalid persisted chromatin state: {}", error))?
+            } else {
+                Genome::new(&agent_id)
+            };
+            let (is_methylated, developmentally_locked) = {
+                let gene = genome.genes.entry(locus.clone()).or_insert_with(|| Gene::new(&locus, &agent_id));
+                gene.chromatin_state = chromatin_state.clone();
+                gene.developmentally_locked = chromatin_state != ChromatinState::Euchromatin;
+                gene.is_methylated = chromatin_state != ChromatinState::Euchromatin;
+                (gene.is_methylated, gene.developmentally_locked)
+            };
+            if let Some(parent) = state_path.parent() { fs::create_dir_all(parent).map_err(|error| format!("Failed to create chromatin store: {}", error))?; }
+            fs::write(&state_path, serde_json::to_string_pretty(&genome).map_err(|error| format!("Failed to serialize chromatin state: {}", error))?)
+                .map_err(|error| format!("Failed to persist chromatin state: {}", error))?;
             print_json(json!({
                 "success": true, "operation": "epigenetic_chromatin",
                 "agent_id": agent_id, "locus": locus, "state": state,
-                "methylation_applied": is_locked, "genome_id": genome.genome_id().to_string()
+                "methylation_applied": is_methylated, "developmentally_locked": developmentally_locked,
+                "genome_id": genome.genome_id().to_string(), "state_path": state_path
             }));
         }
         BiomimicrySubcommands::SpeciationCheck { agent_id, threshold } => {
