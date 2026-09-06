@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DnaNucleotide {
     A,
     C,
@@ -8,7 +8,7 @@ pub enum DnaNucleotide {
     T,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RnaNucleotide {
     A,
     C,
@@ -43,6 +43,15 @@ impl DnaStrand {
     }
 
     pub fn as_slice(&self) -> &[DnaNucleotide] { &self.sequence }
+
+    pub fn as_str(&self) -> String {
+        self.sequence.iter().map(|n| match n {
+            DnaNucleotide::A => 'A',
+            DnaNucleotide::C => 'C',
+            DnaNucleotide::G => 'G',
+            DnaNucleotide::T => 'T',
+        }).collect()
+    }
 
     pub fn len(&self) -> usize { self.sequence.len() }
 
