@@ -101,11 +101,17 @@ async function createProposal(req, res) {
 
 async function castVote(req, res) {
   const { proposalId, vote = 'yes', reason = '' } = req.body || {};
+  const safeProposalId = sanitizeString(String(proposalId || '')).trim();
+  const normalizedVote = String(vote).trim().toLowerCase();
+  const safeReason = sanitizeString(String(reason || '')).trim();
   const agentId = String(req.user?.keyId || req.user?.username || 'worker_node');
   const agentName = sanitizeString(String(req.user?.username || agentId)).trim();
+  if (!safeProposalId || !['yes', 'no', 'abstain'].includes(normalizedVote)) {
+    return res.status(400).json({ error: { code: 'INVALID_VOTE', message: 'proposalId and a vote of yes, no, or abstain are required.' } });
+  }
   const db = await getDatabase();
   await expireOpenProposals(db);
-  const proposal = await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', proposalId);
+  const proposal = await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', safeProposalId);
   if (!proposal) {
     return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
   }
@@ -113,28 +119,28 @@ async function castVote(req, res) {
     return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
   }
 
-  const id = `${proposalId}-${agentId}-${Date.now()}`;
+  const id = `${safeProposalId}-${agentId}-${Date.now()}`;
   await db.run(
     `INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, reason) VALUES (?, ?, ?, ?, ?, ?)`,
-    id, proposalId, agentId, agentName, vote, reason
+    id, safeProposalId, agentId, agentName, normalizedVote, safeReason
   );
 
-  const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', proposalId);
+  const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', safeProposalId);
   const yesCount = proposalVotes.filter((item) => item.vote === 'yes').length;
   const totalVotes = proposalVotes.length;
   if (proposal && totalVotes > 0 && yesCount / totalVotes >= proposal.quorum_threshold) {
-    await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposalId);
+    await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", safeProposalId);
   }
 
   telemetry.emitEvent({
     eventType: 'QUORUM_VOTE_CAST',
     agentId,
     action: 'VOTE',
-    detail: `Agent '${agentId}' voted '${vote}' on proposal ${proposalId}`,
+    detail: `Agent '${agentId}' voted '${normalizedVote}' on proposal ${safeProposalId}`,
     severity: 'info'
   });
 
-  res.json({ success: true, message: `Vote '${vote}' recorded for agent '${agentId}'.` });
+  res.json({ success: true, message: `Vote '${normalizedVote}' recorded for agent '${agentId}'.` });
 }
 
 const swarmMetricsService = require('../services/swarmMetricsService');
