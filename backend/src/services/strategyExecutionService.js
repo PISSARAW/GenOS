@@ -5,6 +5,7 @@ const strategyContracts = require('./strategyContractService');
 // Codex's own context.  120k falls below that fixed baseline and incorrectly
 // kills otherwise completed missions before their result can be recorded.
 const DEFAULT_BUDGET = Object.freeze({ tokens: 500000, costUsd: 5, latencyMs: 30 * 60 * 1000, events: 500 });
+const MAX_RUN_LIST_LIMIT = 100;
 const FINAL_EVENTS = new Set([
   'AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN',
   'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED',
@@ -282,8 +283,9 @@ async function getLatestRun(db, agentId) {
   return hydrateRun(db, await db.get('SELECT * FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1', agentId));
 }
 
-async function listRuns(db, agentId) {
-  const rows = await db.all('SELECT * FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC', agentId);
+async function listRuns(db, agentId, requestedLimit = MAX_RUN_LIST_LIMIT) {
+  const limit = Math.max(1, Math.min(MAX_RUN_LIST_LIMIT, Math.floor(Number(requestedLimit) || MAX_RUN_LIST_LIMIT)));
+  const rows = await db.all('SELECT * FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT ?', agentId, limit);
   return Promise.all(rows.map((row) => hydrateRun(db, row)));
 }
 
@@ -298,6 +300,7 @@ module.exports = {
   getRun,
   getLatestRun,
   listRuns,
+  MAX_RUN_LIST_LIMIT,
   parseRun,
   compileExecutionPlan,
   metricDelta,
