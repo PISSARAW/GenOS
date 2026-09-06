@@ -32,7 +32,11 @@ async function getDatabase(dbFilePath) {
       filename,
       driver: sqlite3.Database
     });
-    sqliteVec.load(db.db);
+    try {
+      sqliteVec.load(db.db);
+    } catch (err) {
+      console.warn('[DB] sqlite-vec extension could not be loaded:', err.message);
+    }
 
     // Optimisations d'architecture (Single-writer, WAL, Timeout)
     await db.exec('PRAGMA journal_mode = WAL');
