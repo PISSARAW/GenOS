@@ -226,8 +226,8 @@ async function recordExecutionEvent(db, agentId, event) {
     || exceededGuardrail(metrics, budget);
   const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType);
   const completed = ['AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType);
-  const contractRow = completed ? await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id) : null;
-  const approvalRequired = completed && json(contractRow?.contract_json, {}).promotion?.require_human_approval === true;
+  const contractRecord = await strategyContracts.getContractById(db, row.contract_id);
+  const approvalRequired = completed && contractRecord?.contract?.promotion?.require_human_approval === true;
   const index = stepIndex(event, steps.length);
   const now = new Date().toISOString();
   if (!guardrailReason) guardrailReason = unfinishedPhaseReason(steps, index);
