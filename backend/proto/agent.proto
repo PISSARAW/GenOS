@@ -31,6 +31,8 @@ message AgentMission {
   string workspace_id = 21;
   string organization_id = 22;
   string project_id = 23;
+  string local_model = 24;
+  string local_routing_policy_json = 25;
 }
 message AgentId { string id = 1; string workspace_id = 2; string organization_id = 3; string project_id = 4; }
 message MissionResponse {

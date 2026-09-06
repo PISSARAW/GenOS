@@ -76,6 +76,8 @@ process.stdin.on('end', async () => {
   try { executionPolicy = JSON.parse(mission.executionPolicyJson || '{}'); } catch {}
   let executionBudget = {};
   try { executionBudget = JSON.parse(mission.executionBudgetJson || '{}'); } catch {}
+  let localRoutingPolicy = {};
+  try { localRoutingPolicy = JSON.parse(mission.localRoutingPolicyJson || '{}'); } catch {}
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
   const allowFileEdits = executionPolicy.allowFileEdits === true;
   const budgetLimit = (key) => {
@@ -155,6 +157,7 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
         validatorFn: griotValidator,
         maxRetries: 3,
         agentId: agentName,
+        modelRouting: { model: mission.localModel || undefined, policy: localRoutingPolicy },
       stemCellFallback: fallbackMessage,
       onFallback: () => { fallbackUsed = true; }
     });
