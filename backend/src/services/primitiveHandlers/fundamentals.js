@@ -14,6 +14,7 @@ const workspaceSnapshotStore = require('../workspaceSnapshotStore');
 const runtimeAdapter = require('../agentRuntimeAdapter');
 const workerGarage = require('../workerGarageService');
 const agentAuthority = require('../agentAuthorityService');
+const agentEvolution = require('../agentEvolutionService');
 
 async function scopedWorkspace(db, workspaceId) {
   return db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId);
@@ -49,11 +50,20 @@ async function fork(context) {
     await agentAuthority.requireOrchestrator(db, parent.id);
     const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     await db.run(
-      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'fork', ?)",
       id, 'Forked Worker of ' + context.orchestratorId, parent.agent_type || 'GenOS', parent.workspace_id, parent.fleet_id,
       parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId,
       context.mission || 'strategy_fork'
     );
+    await agentEvolution.recordWorkerLineage(db, {
+      agentId: id,
+      name: 'Forked Worker of ' + context.orchestratorId,
+      role: context.role || 'worker',
+      workspaceId: parent.workspace_id
+    }, {
+      parentId: context.orchestratorId,
+      edgeType: 'fork'
+    }).catch(() => {});
     const slot = await workerGarage.reserveSlot(db, {
       orchestratorId: context.orchestratorId,
       workerId: id,

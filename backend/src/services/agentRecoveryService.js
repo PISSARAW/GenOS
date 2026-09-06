@@ -12,6 +12,7 @@ const {
   activeWorkerBarriers, emit, updateAgent, workerToolLease
 } = require('./agentOrchestrationState');
 const { createIsolatedWorkspace, cleanupWorkspace } = require('./agentWorkspaceLifecycleService');
+const agentEvolution = require('./agentEvolutionService');
 const { getDatabase } = require('../db');
 
 const MAX_RECOVERY_DISPATCH_ATTEMPTS = 3;
@@ -152,6 +153,29 @@ async function dispatchWorkerRecovery(sourceAgentId) {
         source.model_tier || mission.modelTier || 'standard', source.language || 'TypeScript', source.isolation_mode || 'Branch',
         orchestratorId, decision.action, `Recovery scope: ${report.mission}`, prompt
       );
+      if (source.workspace_id) {
+        await agentEvolution.recordWorkerLineage(db, {
+          agentId: targetId,
+          name,
+          role,
+          workspaceId: source.workspace_id
+        }, {
+          parentId: orchestratorId,
+          edgeType: 'recovery'
+        }).catch(() => {});
+
+        if (sourceAgentId && sourceAgentId !== targetId) {
+          await db.run(
+            `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
+             VALUES (?, ?, ?, ?, 'recovery_transition')
+             ON CONFLICT(id) DO NOTHING`,
+            `edge_recovery_${sourceAgentId}_${targetId}`,
+            source.workspace_id,
+            sourceAgentId,
+            targetId
+          ).catch(() => {});
+        }
+      }
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
     const sourceRoot = source.workspace_root;

@@ -67,9 +67,36 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
   const parentIds = [...new Set(options.parentIds || (options.parentId ? [options.parentId] : []))].filter(Boolean);
   for (const parentId of parentIds) {
     if (parentId === workerInfo.agentId) return { success: false, error: 'A lineage node cannot be its own parent.' };
-    const parent = await db.get('SELECT id, workspace_id FROM lineage_nodes WHERE id = ?', parentId);
+    let parent = await db.get('SELECT id, workspace_id FROM lineage_nodes WHERE id = ?', parentId);
+    if (!parent) {
+      const agentParent = await db.get('SELECT id, name, role, workspace_id, execution_mode FROM agents WHERE id = ?', parentId);
+      if (agentParent) {
+        const parentWorkspaceId = agentParent.workspace_id || workspaceId;
+        await db.run(
+          `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO NOTHING`,
+          agentParent.id,
+          parentWorkspaceId,
+          agentParent.id,
+          agentParent.name || agentParent.id,
+          agentParent.execution_mode === 'orchestrator' ? 'core' : 'agent',
+          `Auto-provisioned parent: ${agentParent.role || 'agent'}`
+        );
+        parent = { id: agentParent.id, workspace_id: parentWorkspaceId };
+      }
+    }
     if (!parent) return { success: false, error: `Lineage parent '${parentId}' does not exist.` };
-    if (parent.workspace_id !== workspaceId) return { success: false, error: `Lineage parent '${parentId}' belongs to another workspace.` };
+    if (parent.workspace_id && parent.workspace_id !== workspaceId) {
+      const crossWs = await db.get(
+        `SELECT w1.id FROM workspaces w1 JOIN workspaces w2 ON (w1.project_id = w2.project_id AND w1.organization_id = w2.organization_id) WHERE w1.id = ? AND w2.id = ?`,
+        parent.workspace_id,
+        workspaceId
+      );
+      if (!crossWs) {
+        return { success: false, error: `Lineage parent '${parentId}' belongs to another workspace.` };
+      }
+    }
     const cycle = await db.get(`WITH RECURSIVE ancestors(id) AS (
       SELECT source_node_id FROM lineage_edges WHERE target_node_id = ?
       UNION
@@ -102,16 +129,18 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
       metadata
     );
 
+    const edgeType = options.edgeType || 'crossover_lineage';
     for (const parentId of parentIds) {
       const edgeId = `edge_${parentId}_${workerInfo.agentId}`;
       await db.run(
         `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
-         VALUES (?, ?, ?, ?, 'crossover_lineage')
+         VALUES (?, ?, ?, ?, ?)
          ON CONFLICT(id) DO NOTHING`,
         edgeId,
         workspaceId,
         parentId,
-        workerInfo.agentId
+        workerInfo.agentId,
+        edgeType
       );
     }
     return { success: true };
