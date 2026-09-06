@@ -227,6 +227,14 @@ impl AgentCell {
         Ok(daughter)
     }
 
+    pub fn mitosis(&self) -> Result<(Self, Self), String> {
+        self.can_divide()?;
+        let mut clone = self.clone();
+        clone.cell_id = Uuid::new_v4();
+        clone.regenerate_organelle_ids();
+        Ok((self.clone(), clone))
+    }
+
     pub fn binary_fission(&self, mutation_rate: f64) -> Result<(Self, Self), String> {
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
@@ -249,6 +257,41 @@ impl AgentCell {
         daughter_b.regenerate_organelle_ids();
 
         Ok((daughter_a, daughter_b))
+    }
+
+    pub fn schizogony(&mut self, merozoite_count: usize, _mutation_rate: f64) -> Result<Vec<AgentCell>, String> {
+        if merozoite_count < 2 || merozoite_count > 128 {
+            return Err(format!(
+                "Merozoite count must be between 2 and 128, got {}",
+                merozoite_count
+            ));
+        }
+        self.can_divide()?;
+
+        let per_merozoite_budget = (self.conscience.current_budget / merozoite_count as f64).max(0.0);
+        let mut merozoites = Vec::with_capacity(merozoite_count);
+
+        for idx in 0..merozoite_count {
+            let mut merozoite = self.clone();
+            merozoite.cell_id = Uuid::new_v4();
+            merozoite.name = format!("{}_merozoite_{}", self.name, idx + 1);
+            merozoite.role = format!("Merozoite Branch of {}", self.role);
+            merozoite.conscience.current_budget = per_merozoite_budget;
+            merozoite.conscience.baseline_budget = per_merozoite_budget;
+            merozoite.bud_scars = 0;
+            merozoite.bud_scar_ids.clear();
+            merozoite.is_senescent = false;
+            merozoite.is_ephemeral = true;
+            merozoite.ephemeral_ttl = Some(5);
+            merozoite.hayflick_limit = (self.hayflick_limit / 2).max(1);
+            merozoite.regenerate_organelle_ids();
+            merozoites.push(merozoite);
+        }
+
+        // Biological schizont cycle: mother cell lyses upon releasing merozoites
+        self.trigger_apoptosis();
+
+        Ok(merozoites)
     }
 
     pub fn trigger_apoptosis(&mut self) {
