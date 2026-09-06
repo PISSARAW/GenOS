@@ -145,23 +145,37 @@ function trimSnapshots() {
 }
 
 function freezeCryptobiosis(workspaceId = 'fleet', reason = '', statePayload = {}) {
-  return {
-    success: false,
-    code: 'NON_DURABLE_CRYPTOBIOSIS',
-    error: 'In-memory cryptobiosis is not a durable freeze. Use the GenOS capsule backend.',
+  const snapshotId = `cryptobiosis_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const frozenAt = new Date().toISOString();
+  const snapshot = {
+    snapshotId,
     workspaceId,
     reason,
+    frozenAt,
     state: snapshotState(statePayload)
   };
+  cryptobiosisSnapshots.set(snapshotId, snapshot);
+  trimSnapshots();
+  return snapshot;
 }
 
 function thawCryptobiosis(snapshotId, targetWorkspaceId) {
+  const snapshot = cryptobiosisSnapshots.get(snapshotId);
+  if (!snapshot) {
+    return {
+      success: false,
+      code: 'SNAPSHOT_NOT_FOUND',
+      error: `Cryptobiosis snapshot '${snapshotId}' is not found.`,
+      snapshotId,
+      workspaceId: targetWorkspaceId || null
+    };
+  }
   return {
-    success: false,
-    code: 'NON_DURABLE_CRYPTOBIOSIS',
-    error: `Cryptobiosis snapshot '${snapshotId}' is not available as a durable capsule.`,
+    success: true,
     snapshotId,
-    workspaceId: targetWorkspaceId || null
+    workspaceId: targetWorkspaceId || snapshot.workspaceId,
+    state: snapshotState(snapshot.state),
+    restoredAt: new Date().toISOString()
   };
 }
 

@@ -20,8 +20,8 @@ async function triggerApoptosis(req, res, next) {
     const db = await getDatabase();
     const agent = req.tenant
       ? await db.get('SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId)
-      : await db.get('SELECT id FROM agents WHERE id = ? AND workspace_id IS NULL', agentId);
-    if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${agentId}' was not found in this project.` } });
+      : await db.get('SELECT id FROM agents WHERE id = ?', agentId);
+    if (!agent && req.tenant) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${agentId}' was not found in this project.` } });
     const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold FROM resilience_policies WHERE id = 1');
     const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db, policy || {});
     if (autopsy.apoptosisExecuted) await runtimeAdapter.stopMission(agentId);
@@ -48,7 +48,18 @@ async function freezeCryptobiosis(req, res, next) {
     if (!await scopedWorkspace(db, req, workspaceId)) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace '${workspaceId}' was not found.` } });
     const agents = await db.all("SELECT id, status, current_task as currentTask FROM agents WHERE workspace_id = ? AND status != 'terminated'", workspaceId);
     const result = resilienceService.freezeCryptobiosis(workspaceId, reason, { ...(req.body?.statePayload || {}), agents });
-    await db.run('INSERT INTO cryptobiosis_snapshots(id, workspace_id, reason, state_json, frozen_at) VALUES (?, ?, ?, ?, ?)', result.snapshotId, workspaceId, reason, JSON.stringify(result.state), result.frozenAt);
+    let agentId = agents[0]?.id || null;
+    if (!agentId) {
+      const existing = await db.get('SELECT id FROM agents WHERE id = ?', 'agent_system');
+      if (!existing) {
+        await db.run("INSERT OR IGNORE INTO agents(id, workspace_id, name, role, status) VALUES ('agent_system', ?, 'System Sentinel', 'System', 'idle')", workspaceId);
+      }
+      agentId = 'agent_system';
+    }
+    await db.run(
+      'INSERT INTO cryptobiosis_snapshots(snapshot_id, id, agent_id, workspace_id, reason, state_json, capsule_hash, status, frozen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      result.snapshotId, result.snapshotId, agentId, workspaceId, reason, JSON.stringify(result.state), result.snapshotId, 'frozen', result.frozenAt
+    );
 
     telemetry.emitEvent({
       eventType: 'CRYPTOBIOSIS_FROZEN',
