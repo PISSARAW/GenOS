@@ -377,9 +377,9 @@ async function plasmidDivergence(context) {
     const float32 = new Float32Array(new Array(768).fill(0.0));
     const embeddingBuffer = Buffer.from(float32.buffer);
     await db.run(
-      `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob)
-       VALUES (?, ?, ?, ?, 'Plasmid', 2.5, ?)`,
-      newPlasmidId, `Plasmid Evolved (${plasmidName})`, newContent, mutantId, embeddingBuffer
+      `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, embedding_blob, organization_id, project_id)
+       VALUES (?, ?, ?, ?, 'Plasmid', 2.5, ?, ?, ?)`,
+      newPlasmidId, `Plasmid Evolved (${plasmidName})`, newContent, mutantId, embeddingBuffer, context.organizationId || null, context.projectId || null
     );
 
     await db.run("UPDATE agents SET status = 'completed' WHERE id = ?", mutantId).catch(() => {});

@@ -176,8 +176,8 @@ async function synthesizeGenome(req, res) {
   const decId = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   await db.run(
-    `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category) VALUES (?, ?, ?, ?, ?, ?)`,
-    decId, title, `Synthesized genome from ${cartNodes ? cartNodes.length : 0} nodes.`, JSON.stringify(cartNodes || []), 'genome_factory', 'Synthesis'
+    `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    decId, title, `Synthesized genome from ${cartNodes ? cartNodes.length : 0} nodes.`, JSON.stringify(cartNodes || []), 'genome_factory', 'Synthesis', req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
 
   telemetry.emitEvent({
@@ -197,8 +197,8 @@ async function recordDecision(req, res) {
   const id = `dec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   await db.run(
-    `INSERT INTO genome_decisions (id, title, content, created_by, category) VALUES (?, ?, ?, ?, ?)`,
-    id, title || 'Architectural Decision', content || '', createdBy, category
+    `INSERT INTO genome_decisions (id, title, content, created_by, category, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    id, title || 'Architectural Decision', content || '', createdBy, category, req.tenant?.organizationId || null, req.tenant?.projectId || null
   );
 
   res.status(201).json({ success: true, id });
@@ -218,7 +218,7 @@ async function getPhylogeny(req, res, next) {
 
 async function getAlleles(req, res, next) {
   try {
-    const alleles = await geneticsService.analyzeAlleles();
+    const alleles = await geneticsService.analyzeAlleles(req.tenant || {});
     res.json(alleles);
   } catch (err) {
     next(err);
