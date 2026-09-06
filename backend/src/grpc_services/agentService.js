@@ -22,7 +22,7 @@ module.exports = {
     try {
       const mission = call.request || {};
       const workspace = await resolveWorkspace(mission);
-      await runtimeAdapter.startMission({
+      const startPromise = runtimeAdapter.startMission({
         agentId: mission.agent_id,
         name: mission.name,
         role: mission.role,
@@ -42,7 +42,9 @@ module.exports = {
         executionBudget: parseJson(mission.execution_budget_json, {}, 'execution_budget_json'),
         nameMeaning: mission.name_meaning
       });
-      callback(null, { success: true, message: `Mission for agent ${mission.agent_id} started` });
+      const result = await Promise.race([startPromise, new Promise((resolve) => setTimeout(() => resolve({ queued: true }), 25))]);
+      startPromise.catch((error) => console.error(`[gRPC] Agent ${mission.agent_id} failed:`, error.message));
+      callback(null, { success: true, message: result?.duplicate ? `Mission for agent ${mission.agent_id} already running` : `Mission for agent ${mission.agent_id} started` });
     } catch (err) {
       callback({ code: err.code === 'INVALID_MISSION_JSON' ? grpc.status.INVALID_ARGUMENT : grpc.status.INTERNAL, message: err.message });
     }
