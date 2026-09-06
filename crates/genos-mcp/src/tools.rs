@@ -65,18 +65,6 @@ pub fn public_tool_specs() -> Vec<Value> {
             }
         }),
         json!({
-            "name": "genos_execute_primitive",
-            "description": "Execute one of the 96 GenOS strategic primitives directly with telemetry and verification.",
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "primitive_name": { "type": "string", "description": "Name of the primitive (e.g. mcts_select, stdp_update, compile_memory)." },
-                    "args": { "type": "object", "description": "Input arguments for the primitive." }
-                },
-                "required": ["primitive_name"]
-            }
-        }),
-        json!({
             "name": "genos_change_strategy",
             "description": "Switch active strategy portfolio at any runtime decision gate based on empirical evidence.",
             "inputSchema": {
