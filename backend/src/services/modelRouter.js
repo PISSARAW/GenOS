@@ -175,6 +175,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       return { ...result, route: { mode: 'fallback', selectedModel: uri, attempts } };
     } catch (error) {
       attempts.push({ model: uri, status: 'failed', error: error.message });
+      if (isLocal(uri)) await localModelDiscovery.discoverLocalModels({ force: true });
     }
   }
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
