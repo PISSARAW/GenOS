@@ -40,9 +40,14 @@ async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWork
       error.code = 'WORKER_BARRIER_CANCELLED';
       throw error;
     }
-    const agents = await db.all('SELECT id, status FROM agents WHERE parent_agent_id = ?', orchestratorId);
-    const descendantIds = new Set([...initialIds, ...agents.map((agent) => agent.id)]);
-    const statusesTerminal = agents.length >= initialIds.size
+    const trackedIds = new Set(activeWorkerBarriers.get(orchestratorId)?.workerIds || initialIds);
+    const ids = [...trackedIds];
+    const placeholders = ids.map(() => '?').join(',');
+    const agents = ids.length
+      ? await db.all(`SELECT id, status FROM agents WHERE parent_agent_id = ? AND id IN (${placeholders})`, orchestratorId, ...ids)
+      : [];
+    const descendantIds = new Set(ids);
+    const statusesTerminal = agents.length === trackedIds.size
       && agents.every((agent) => TERMINAL_AGENT_STATUSES.has(agent.status));
     const runtimePending = [...descendantIds].some((id) =>
       activeProcesses.has(id)
