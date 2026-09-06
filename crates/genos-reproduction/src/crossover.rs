@@ -121,16 +121,16 @@ impl MeioticCrossover {
             match (parent_a.genes.get(&locus), parent_b.genes.get(&locus)) {
                 (Some(ga), Some(gb)) => {
                     let chosen = if rng.random_bool(swap_prob) { gb } else { ga };
-                    recombined_genes.insert(locus, chosen.clone());
+                    recombined_genes.insert(locus, Self::reprogram_inherited_gene(chosen.clone()));
                 }
                 (Some(ga), None) => {
                     if rng.random_bool(1.0 - swap_prob * 0.5) {
-                        recombined_genes.insert(locus, ga.clone());
+                        recombined_genes.insert(locus, Self::reprogram_inherited_gene(ga.clone()));
                     }
                 }
                 (None, Some(gb)) => {
                     if rng.random_bool(swap_prob) {
-                        recombined_genes.insert(locus, gb.clone());
+                        recombined_genes.insert(locus, Self::reprogram_inherited_gene(gb.clone()));
                     }
                 }
                 (None, None) => {}
@@ -198,16 +198,6 @@ impl MeioticCrossover {
         Ok(Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, seed))
     }
 
-    fn reprogram_inherited_gene(mut gene: Gene) -> Gene {
-        if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
-            gene.chromatin_state = ChromatinState::Euchromatin;
-            gene.is_methylated = false;
-            gene.developmentally_locked = false;
-            gene.bound_repressor = None;
-            gene.expression_volume = 1.0;
-        }
-        gene
-    }
 }
 
 #[cfg(test)]
