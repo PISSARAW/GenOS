@@ -25,3 +25,4 @@ genos-reproduction = { path = "../genos-reproduction" }
 genos-store = { path = "../genos-store" }
 genos-api = { path = "../genos-api" }
 reqwest = { version = "0.13.4", features = ["blocking", "json"] }
+rand = "0.10"

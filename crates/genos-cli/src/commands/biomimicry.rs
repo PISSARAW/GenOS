@@ -11,6 +11,7 @@ use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
 use genos_genome::{ChromatinState, Gene, Genome};
+use rand;
 use std::fs;
 use std::path::PathBuf;
 
@@ -307,12 +308,19 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::GeneRegulatoryNetwork { agent_id, condition, action_script } => {
-            let genome = Genome::new(&agent_id);
+            let state_path = chromatin_state_path(&agent_id)?;
+            let genome = if state_path.exists() {
+                serde_json::from_str(&fs::read_to_string(&state_path).map_err(|error| format!("Failed to read chromatin state: {}", error))?)
+                    .map_err(|error| format!("Invalid persisted chromatin state: {}", error))?
+            } else {
+                Genome::new(&agent_id)
+            };
             let gene_count = genome.genes.len();
             print_json(json!({
                 "success": true, "operation": "gene_regulatory_network",
                 "agent_id": agent_id, "condition": condition,
                 "action_script": action_script, "active_genes": gene_count,
+                "plasmids_count": genome.plasmids.len(),
                 "expression_level": "UP_REGULATED"
             }));
         }
@@ -460,9 +468,15 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         }
         BiomimicrySubcommands::Hypermutation { agent_id } => {
             let redundancy = RedundancySystem::new();
+            let mut genome = Genome::new(&agent_id);
+            let mut rng = rand::rng();
+            let mutations_count = genome.hypermutate(redundancy.codon_degeneracy_tolerance.clamp(0.05, 0.5), &mut rng);
             print_json(json!({
                 "success": true, "operation": "hypermutation",
-                "agent_id": agent_id, "tolerance": redundancy.codon_degeneracy_tolerance,
+                "agent_id": agent_id,
+                "mutations_count": mutations_count,
+                "tolerance": redundancy.codon_degeneracy_tolerance,
+                "genome_id": genome.genome_id().to_string(),
                 "status": "ACTIVE"
             }));
         }
@@ -540,8 +554,16 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 temperature,
                 ..Default::default()
             };
-            let mut genome = Genome::new(&agent_id);
-            genome.insert_gene(Gene::new("FUR_COLOR", "BROWN_COLORS"));
+            let state_path = chromatin_state_path(&agent_id)?;
+            let mut genome = if state_path.exists() {
+                serde_json::from_str(&fs::read_to_string(&state_path).map_err(|error| format!("Failed to read chromatin state: {}", error))?)
+                    .unwrap_or_else(|_| Genome::new(&agent_id))
+            } else {
+                Genome::new(&agent_id)
+            };
+            if !genome.genes.contains_key("FUR_COLOR") {
+                genome.insert_gene(Gene::new("FUR_COLOR", "BROWN_COLORS"));
+            }
             let registry = create_default_registry();
             registry.apply_epigenetic_regulation(&mut genome, &factors);
             let phenotype = registry.compute(&genome, &factors);
