@@ -76,4 +76,29 @@ mod tests {
         std::fs::remove_file(path).unwrap();
         assert_eq!(restored.memory_pool.len(), 1);
     }
+
+    #[test]
+    fn test_gossip_and_service_regeneration() {
+        let mut source = GossipNode::new("source");
+        let mut peer = GossipNode::new("peer");
+        source.receive_threat("command-injection");
+        source.share_with(&mut peer);
+        assert!(peer.threats.contains("command-injection"));
+
+        let mut regenerator = StemCellRegenerator::new();
+        regenerator.register_blueprint("worker");
+        regenerator.start_service("worker");
+        regenerator.handle_failure("worker");
+        assert!(regenerator.is_running("worker"));
+    }
+
+    #[test]
+    fn test_virology_preserves_payloads() {
+        let virion = Virion::new_bacteriophage("agent-receptor", "halt");
+        assert!(virion.is_lytic);
+        assert_eq!(virion.envelope_spike, "agent-receptor");
+
+        let retrovirus = Retrovirus::new("receptor", "repair");
+        assert_eq!(retrovirus.reverse_transcribe(), genos_genome::DnaStrand::synthesize("repair"));
+    }
 }
