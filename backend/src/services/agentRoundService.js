@@ -9,6 +9,8 @@ const {
 } = require('./agentOrchestrationState');
 const { evidenceScore } = require('./agentEvidenceService');
 
+const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
+
 function autonomousWorkerId(orchestratorId, index) {
   return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
 }
@@ -88,7 +90,13 @@ function dispatchPendingContinuation(agentId) {
     return;
   }
   pendingContinuations.delete(agentId);
-  startMission(mission).catch((error) => emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId }, 'error'));
+  startMission(mission).catch((error) => {
+    const attempts = Number(mission.continuationDispatchAttempts || 0) + 1;
+    emit(mission.orchestratorAgentId || agentId, 'TOKEN_ROUND_DISPATCH_FAILED', 'SUCCESSIVE_HALVING', error.message, { workerId: agentId, attempts }, 'error');
+    if (attempts >= MAX_CONTINUATION_DISPATCH_ATTEMPTS) return;
+    pendingContinuations.set(agentId, { ...mission, continuationDispatchAttempts: attempts });
+    setTimeout(() => dispatchPendingContinuation(agentId), 50 * (2 ** (attempts - 1))).unref();
+  });
 }
 
-module.exports = { autonomousWorkerId, autonomousRoundOutcome, advanceAutonomousRound, dispatchPendingContinuation };
+module.exports = { MAX_CONTINUATION_DISPATCH_ATTEMPTS, autonomousWorkerId, autonomousRoundOutcome, advanceAutonomousRound, dispatchPendingContinuation };
