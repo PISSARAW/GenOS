@@ -24,7 +24,7 @@ const agentAuthority = require('./agentAuthorityService');
 const agentCapsules = require('./agentCapsuleService');
 const userProgress = require('./userProgressService');
 const {
-  activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers,
+  activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries,
   emit, updateAgent, orchestratorToolLease
 } = require('./agentOrchestrationState');
 const { localWorkerRoute } = require('./agentModelRoutingService');
@@ -192,14 +192,20 @@ function startMission(mission) {
   if (!agentId) return Promise.reject(new Error('agentId is required'));
   if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
   const start = startMissionInternal(mission).finally(async () => {
+    const cancelled = cancelledStarts.has(agentId) || activeWorkerBarriers.get(agentId)?.cancelled === true;
     missionStarts.delete(agentId);
     cancelledStarts.delete(agentId);
-    emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
-      agentId,
-      reason: 'runtime shutdown completed; review queued worker recovery if any'
-    }, 'info');
-    await dispatchWorkerRecovery(agentId);
-    dispatchPendingContinuation(agentId);
+    if (!cancelled) {
+      emit(agentId, 'WORKER_RECOVERY_DECISION', 'RECOVERY_DISPATCH', `Checking for queued worker recovery after runtime shutdown for ${agentId}.`, {
+        agentId,
+        reason: 'runtime shutdown completed; review queued worker recovery if any'
+      }, 'info');
+      await dispatchWorkerRecovery(agentId);
+      dispatchPendingContinuation(agentId);
+    } else {
+      pendingContinuations.delete(agentId);
+      pendingWorkerRecoveries.delete(agentId);
+    }
   });
   missionStarts.set(agentId, start);
   return start;
@@ -232,6 +238,7 @@ function stopMission(agentId) {
   }
   // The close handler recognizes this marker as an operator-requested halt,
   // rather than reporting SIGTERM as a runtime failure.
+  cancelledStarts.add(agentId);
   child.genosStopRequested = true;
   terminateChild(child);
   return true;
