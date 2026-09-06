@@ -80,9 +80,12 @@ async function applyVersionedMigrations(db) {
     ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project'],
     ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination'],
     ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity'],
-    ['011-project-lifecycle', 'Persist active and archived project lifecycle state']
+    ['011-project-lifecycle', 'Persist active and archived project lifecycle state'],
+    ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers']
   ];
   await migrateAgentStatusConstraint(db);
+  const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
+  if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
@@ -95,7 +98,7 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);

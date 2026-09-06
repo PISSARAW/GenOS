@@ -120,6 +120,8 @@ const TABLES_EXTENSIONS = [
 "    parent_hash TEXT,",
 "    algorithm TEXT NOT NULL DEFAULT 'sha256',",
 "    payload_json TEXT NOT NULL,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 ");",
 "",
