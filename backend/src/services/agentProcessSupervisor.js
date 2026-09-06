@@ -68,7 +68,8 @@ async function superviseMission(options) {
   const child = spawn(spawnCmd, spawnArgs, {
     cwd: workspaceRoot,
     env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false' },
-    stdio: ['pipe', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32'
   });
   activeProcesses.set(agentId, child);
   await db.run('UPDATE agents SET runtime_pid = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', child.pid, agentId);

@@ -1,4 +1,5 @@
 const DEFAULT_GRACE_MS = 5000;
+const { execFileSync } = require('child_process');
 
 function gracePeriodMs() {
   const configured = Number(process.env.GENOS_PROCESS_GRACE_MS);
@@ -7,9 +8,19 @@ function gracePeriodMs() {
 
 function terminateChild(child) {
   if (!child || child.exitCode !== null || child.signalCode) return false;
-  child.kill('SIGTERM');
+  if (process.platform === 'win32') {
+    try { execFileSync('taskkill', ['/PID', String(child.pid), '/T'], { stdio: 'ignore', windowsHide: true }); } catch (_) { child.kill('SIGTERM'); }
+  } else {
+    try { process.kill(-child.pid, 'SIGTERM'); } catch (_) { child.kill('SIGTERM'); }
+  }
   const timer = setTimeout(() => {
-    if (child.exitCode === null && !child.signalCode) child.kill('SIGKILL');
+    if (child.exitCode === null && !child.signalCode) {
+      if (process.platform === 'win32') {
+        try { execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); } catch (_) { child.kill('SIGKILL'); }
+      } else {
+        try { process.kill(-child.pid, 'SIGKILL'); } catch (_) { child.kill('SIGKILL'); }
+      }
+    }
   }, gracePeriodMs());
   if (typeof timer.unref === 'function') timer.unref();
   child.genosTerminationTimer = timer;
