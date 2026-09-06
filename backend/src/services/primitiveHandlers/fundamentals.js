@@ -137,6 +137,11 @@ async function recursiveFork(context = {}) {
     const childCountRow = await db.get('SELECT COUNT(*) as count FROM agents WHERE parent_agent_id = ?', orchestratorId);
     const currentBuds = childCountRow ? childCountRow.count : 0;
     if (currentBuds >= maxBuds) {
+      await db.run(
+        `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit reached)' WHERE id = ? OR agent_id = ?`,
+        orchestratorId, orchestratorId
+      ).catch(() => {});
+
       return {
         success: false,
         blockedByHayflick: true,
@@ -150,6 +155,14 @@ async function recursiveFork(context = {}) {
     const forkResult = await fork({ ...context, orchestratorId });
     if (!forkResult.success) {
       return forkResult;
+    }
+
+    const nextBuds = currentBuds + 1;
+    if (nextBuds >= maxBuds) {
+      await db.run(
+        `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit reached)' WHERE id = ? OR agent_id = ?`,
+        orchestratorId, orchestratorId
+      ).catch(() => {});
     }
 
     return {

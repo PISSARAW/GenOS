@@ -227,7 +227,31 @@ async function runCellDivision(options = {}) {
   if (options.merozoiteCount !== undefined) args.push('--merozoite-count', String(options.merozoiteCount));
   if (options.hayflickLimit !== undefined) args.push('--hayflick-limit', String(options.hayflickLimit));
   if (options.seed !== undefined) args.push('--seed', String(options.seed));
-  return runGenos(args);
+  const res = await runGenos(args);
+  if (res.ok && res.json) {
+    try {
+      const { getDatabase } = require('../db');
+      const db = await getDatabase();
+      const isApoptotic = res.json.mother_lysed ? 1 : 0;
+      const isSenescent = res.json.is_senescent || (res.json.remaining_buds === 0);
+      if (isApoptotic) {
+        await db.run(
+          `UPDATE agents SET is_apoptotic = 1, status = 'apoptosis', cognitive_budget = 0, current_task = 'Lysed following schizogony', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          agentId
+        ).catch(() => {});
+        await db.run(
+          `UPDATE lineage_nodes SET state_summary = 'Lysed mother cell (schizogony burst)' WHERE id = ? OR agent_id = ?`,
+          agentId, agentId
+        ).catch(() => {});
+      } else if (isSenescent) {
+        await db.run(
+          `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit)' WHERE id = ? OR agent_id = ?`,
+          agentId, agentId
+        ).catch(() => {});
+      }
+    } catch (_) {}
+  }
+  return res;
 }
 
 async function runPhylogeny(options = {}) {
@@ -267,7 +291,21 @@ async function runListFossils() {
 async function runTelomereFork(agentId, options = {}) {
   const args = ['biomimicry', 'telomere-fork', '--agent-id', String(agentId)];
   if (options.forceTelomerase) args.push('--force-telomerase');
-  return runGenos(args);
+  const res = await runGenos(args);
+  if (res.ok && res.json) {
+    try {
+      const { getDatabase } = require('../db');
+      const db = await getDatabase();
+      const remaining = res.json.remaining_divisions;
+      if (remaining === 0) {
+        await db.run(
+          `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Telomere exhaustion)' WHERE id = ? OR agent_id = ?`,
+          agentId, agentId
+        ).catch(() => {});
+      }
+    } catch (_) {}
+  }
+  return res;
 }
 
 module.exports = {
