@@ -58,11 +58,15 @@ async function mutate(context) {
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
     mutantId, 'Mutant of ' + agentId, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
   );
-  await agentEvolutionService.recordWorkerLineage(
+  const lineageResult = await agentEvolutionService.recordWorkerLineage(
     db,
     { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
     { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
   );
+  if (!lineageResult.success) {
+    await db.run('DELETE FROM agents WHERE id = ?', mutantId);
+    return { success: false, error: `Mutation lineage persistence failed: ${lineageResult.error}` };
+  }
   telemetry.emitEvent({
     eventType: 'EVOLUTION_MUTATION',
     agentId: agentId,
@@ -147,7 +151,7 @@ async function breed(context) {
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
     childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
   );
-  await agentEvolutionService.recordWorkerLineage(db, {
+  const lineageResult = await agentEvolutionService.recordWorkerLineage(db, {
     agentId: childId,
     workspaceId: rowA.workspace_id,
     name: 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB),
@@ -158,6 +162,10 @@ async function breed(context) {
     mutations: childRecomb.mutations,
     predictedFitness: childRecomb.predictedFitnessScore
   });
+  if (!lineageResult.success) {
+    await db.run('DELETE FROM agents WHERE id = ?', childId);
+    return { success: false, error: `Breeding lineage persistence failed: ${lineageResult.error}` };
+  }
 
   telemetry.emitEvent({
     eventType: 'EVOLUTION_BREED',

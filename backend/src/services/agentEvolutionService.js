@@ -54,7 +54,7 @@ function evolveWorkerGenome(parentAgent, assignment, options = {}) {
 }
 
 async function recordWorkerLineage(db, workerInfo, options = {}) {
-  if (!db || !workerInfo?.agentId) return;
+  if (!db || !workerInfo?.agentId) return { success: false, error: 'Database and agentId are required.' };
   const workspaceId = workerInfo.workspaceId || 'workspace-default';
   const metadata = JSON.stringify({
     genes: options.genes || {},
@@ -99,9 +99,10 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
         workerInfo.agentId
       );
     }
+    return { success: true };
   } catch (err) {
-    // Non-fatal lineage recording error
     console.error('Failed to record worker lineage:', err.message);
+    return { success: false, error: err.message };
   }
 }
 
