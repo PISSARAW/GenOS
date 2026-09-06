@@ -82,6 +82,7 @@ class AgentDeployService {
       dissonance_level: initialConscience.dissonanceLevel,
       eureka_count: initialConscience.eurekaMoments,
       cognitive_budget: initialConscience.currentBudget,
+      cognitive_baseline_budget: initialConscience.baselineBudget,
       is_apoptotic: initialConscience.isApoptotic ? 1 : 0
     });
 
