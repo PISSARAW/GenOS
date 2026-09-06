@@ -337,8 +337,57 @@ impl NervousSystem {
             }
         }
 
-        // 4. Nettoyage : On dÃƒÆ’Ã‚Â©truit dÃƒÆ’Ã‚Â©finitivement les synapses mortes
-        self.axon.terminals.retain(|s| s.weight > 0.0);
+        // 4. Nettoyage : On détruit définitivement les synapses mortes (weight <= 0)
+        // ou phagocytées suite au marquage opsonisant ("Eat Me" C3 > 0.8 et "Don't Eat Me" CD47 < 0.2)
+        self.axon.terminals.retain(|s| s.weight > 0.0 && !(s.c3_opsonization > 0.8 && s.cd47_expression < 0.2));
+    }
+}
+
+impl NervousSystem {
+    pub fn apply_stdp(&mut self, target_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
+        self.axon.apply_stdp(target_id, delta_t, learning_rate)
+    }
+}
+
+impl Axon {
+    /// STDP : Spike-Timing-Dependent Plasticity
+    /// delta_t = post_spike_time - pre_spike_time (en ms)
+    /// Si delta_t > 0 : causalité pré-post -> LTP (Long-Term Potentiation)
+    /// Si delta_t < 0 : corrélation inversée -> LTD (Long-Term Depression)
+    pub fn apply_stdp(&mut self, target_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
+        let synapse = self.terminals.iter_mut().find(|s| s.target_id == target_id)?;
+        let tau_plus = 20.0;
+        let tau_minus = 20.0;
+
+        let delta_w = if delta_t > 0.0 {
+            learning_rate * (-delta_t.abs() / tau_plus).exp()
+        } else if delta_t < 0.0 {
+            -learning_rate * (-delta_t.abs() / tau_minus).exp()
+        } else {
+            0.0
+        };
+
+        // Modulation hétérosynaptique selon le neurotransmetteur (modèle 3-facteurs)
+        let modulated_dw = match synapse.transmitter_type {
+            Neurotransmitter::Dopamine => delta_w * 1.5,
+            Neurotransmitter::Serotonin => delta_w * 0.8,
+            _ => delta_w,
+        };
+
+        if modulated_dw > 0.0 {
+            synapse.weight = (synapse.weight + modulated_dw).min(1.0);
+            synapse.ampa_receptors = (synapse.ampa_receptors + 0.1).min(2.0);
+            synapse.cd47_expression = (synapse.cd47_expression + 0.2).min(2.0);
+            synapse.c3_opsonization = 0.0;
+        } else if modulated_dw < 0.0 {
+            synapse.weight = (synapse.weight + modulated_dw).max(0.01);
+            synapse.ampa_receptors = (synapse.ampa_receptors - 0.1).max(0.0);
+            synapse.cd47_expression = (synapse.cd47_expression - 0.1).max(0.0);
+            synapse.c3_opsonization = (synapse.c3_opsonization + 0.1).min(2.0);
+        }
+
+        synapse.activity_history += 1;
+        Some(synapse.weight)
     }
 }
 
@@ -360,5 +409,55 @@ pub enum Myelinator {
         forming_regeneration_tube: bool,
     },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_stdp_potentiation_and_depression() {
+        let mut ns = NervousSystem::new("node_test");
+        ns.axon.terminals.push(Synapse::new(
+            "target_node".to_string(),
+            0.5,
+            Neurotransmitter::Glutamate,
+        ));
+
+        // 1. LTP : pre precedes post (delta_t = +10.0 ms)
+        let ltp_res = ns.apply_stdp("target_node", 10.0, 0.2);
+        assert!(ltp_res.is_some());
+        let ltp_weight = ltp_res.unwrap();
+        assert!(ltp_weight > 0.5, "LTP doit augmenter le poids synaptique");
+        let syn = &ns.axon.terminals[0];
+        assert!(syn.ampa_receptors > 1.0, "LTP doit augmenter les recepteurs AMPA");
+        assert_eq!(syn.c3_opsonization, 0.0, "LTP doit effacer le marquage C3");
+
+        // 2. LTD : post precedes pre (delta_t = -10.0 ms)
+        let ltd_res = ns.apply_stdp("target_node", -10.0, 0.1);
+        assert!(ltd_res.is_some());
+        let ltd_weight = ltd_res.unwrap();
+        assert!(ltd_weight < ltp_weight, "LTD doit diminuer le poids synaptique");
+        assert!(ltd_weight >= 0.01, "Le poids doit rester positif (conductance)");
+        let syn_ltd = &ns.axon.terminals[0];
+        assert!(syn_ltd.c3_opsonization > 0.0, "LTD doit marquer le complement C3");
+    }
+
+    #[test]
+    fn test_stdp_dopamine_modulation() {
+        let mut ns_glu = NervousSystem::new("node_glu");
+        ns_glu.axon.terminals.push(Synapse::new("target".to_string(), 0.3, Neurotransmitter::Glutamate));
+        let glu_weight = ns_glu.apply_stdp("target", 10.0, 0.2).unwrap();
+
+        let mut ns_dop = NervousSystem::new("node_dop");
+        ns_dop.axon.terminals.push(Synapse::new("target".to_string(), 0.3, Neurotransmitter::Dopamine));
+        let dop_weight = ns_dop.apply_stdp("target", 10.0, 0.2).unwrap();
+
+        assert!(
+            dop_weight > glu_weight,
+            "La dopamine doit amplifier le renforcement STDP (3-facteurs)"
+        );
+    }
+}
+
 
 
