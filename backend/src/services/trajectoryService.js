@@ -44,6 +44,7 @@ function classifyTurn(turn) {
  */
 function cherryPickGoldenPath(rawTurns = []) {
   const turns = Array.isArray(rawTurns) ? rawTurns : [];
+  if (turns.length === 0) throw new Error('At least one trajectory turn is required for a golden path.');
   const classifiedSteps = turns.map(classifyTurn);
   const goldenPath = classifiedSteps.filter(s => s.classification !== 'Dead-End');
   const deadEndCount = turns.length - goldenPath.length;

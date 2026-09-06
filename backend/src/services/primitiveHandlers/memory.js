@@ -6,6 +6,7 @@ const trajectoryService = require('../trajectoryService');
 const telemetry = require('../telemetryObserver');
 const epistemics = require('../epistemics');
 const { getDatabase, withTransaction } = require('../../db');
+const crypto = require('crypto');
 
 async function compileMemory(context) {
   const db = await getDatabase();
@@ -39,23 +40,22 @@ async function cherryPickGoldenPath(context) {
   const turns = context.turns || context.trajectory || [];
   const result = vectorMemory.cherryPickGoldenPath(turns);
   const db = await getDatabase();
-  const decisionId = 'dec-gp-' + Date.now();
+  const decisionId = 'dec-gp-' + crypto.createHash('sha256').update(JSON.stringify({ agentId: context.agentId || 'strategy_adapter', label: context.label || 'Golden Path', turns })).digest('hex').slice(0, 32);
   const float32 = new Float32Array(new Array(768).fill(0.0));
   const buffer = Buffer.from(float32.buffer);
-  await db.run(
-    'INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    decisionId,
-    context.label || 'Golden Path',
-    JSON.stringify(result.goldenPathSteps),
-    JSON.stringify(result.goldenPathSteps.map(s => s.id || s.step || s.action)),
-    context.agentId || 'strategy_adapter',
-    'GoldenPath',
-    buffer
-  );
-
   let trajRecord = null;
-  try {
-    trajRecord = await trajectoryService.recordMissionTrajectory(db, {
+  await withTransaction(db, async (tx) => {
+    await tx.run(
+      'INSERT OR IGNORE INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      decisionId,
+      context.label || 'Golden Path',
+      JSON.stringify(result.goldenPathSteps),
+      JSON.stringify(result.goldenPathSteps.map(s => s.id || s.step || s.action)),
+      context.agentId || 'strategy_adapter',
+      'GoldenPath',
+      buffer
+    );
+    trajRecord = await trajectoryService.recordMissionTrajectory(tx, {
       id: context.trajectoryId,
       agentId: context.agentId,
       workspaceId: context.workspaceId,
@@ -64,9 +64,7 @@ async function cherryPickGoldenPath(context) {
       turns,
       status: context.status
     });
-  } catch (err) {
-    console.error('Erreur enregistrement trajectoire:', err.message);
-  }
+  });
 
   telemetry.emitEvent({
     eventType: 'GOLDEN_PATH_SYNTHESIZED',
