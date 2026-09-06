@@ -8,6 +8,10 @@ const fs = require('fs');
 const path = require('path');
 const { runGenosSync } = require('./genosCli');
 
+function getToolRegistry() {
+  return require('./mcpToolRegistry');
+}
+
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
   const command = process.env.GENOS_MCP_COMMAND;
@@ -149,6 +153,16 @@ async function callStdio(transport, toolName, options = {}) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
+  const registry = getToolRegistry();
+  const normalizedToolName = String(toolName || '').trim();
+  const executionKind = registry.detectExecutionKind(normalizedToolName);
+  if (!normalizedToolName) {
+    return { configured: false, success: false, status: 'invalid_tool', error: 'toolName is required.' };
+  }
+  if (!registry.isSupportedTool(normalizedToolName)) {
+    return { configured: false, success: false, status: 'unsupported', error: `Tool '${normalizedToolName}' is not supported by the runtime dispatch registry.`, executionKind };
+  }
+
   const runLocal = (cmd) => {
     try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
     catch (e) { return { configured: true, success: false, status: e.code === 'ETIMEDOUT' ? 'timeout' : 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
@@ -342,10 +356,31 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   }
   if (toolName === 'genos_biomimicry_hippocampal_consolidate') {
     const cp = require('child_process');
+    const episodicMemoryService = require('./episodicMemoryService');
     try {
+      const score = Number.isFinite(Number(args.success_score)) ? Number(args.success_score) : 1.0;
+      let consolidationResult = null;
+      try {
+        consolidationResult = await episodicMemoryService.consolidateEpisodes({
+          agentId: args.agent_id,
+          sessionId: args.session_id,
+          scoreThreshold: score >= 0.7 ? score : 0.7,
+          purgeBelowThreshold: args.purge_failed !== false
+        });
+      } catch (err) {
+        // Continue even if DB consolidation encounters error
+      }
+      const episodesCount = consolidationResult?.totalProcessed || 1;
       const steps = (args.dag_step || []).map(s => `--param dag_step=${s}`).join(' ');
-      const out = runSafeSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${args.success_score} ${steps}`);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+      const out = runSafeSync(`genos biomimicry bio-feature --feature hippocampal --action consolidate --param agent_id=${args.agent_id} --param success_score=${score} --param episodes_count=${episodesCount} ${steps}`);
+      return {
+        configured: true,
+        success: true,
+        status: 'completed',
+        transport: 'local',
+        output: out.toString(),
+        consolidation: consolidationResult
+      };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
