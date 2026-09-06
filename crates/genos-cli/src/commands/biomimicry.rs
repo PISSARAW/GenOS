@@ -2,7 +2,7 @@ use serde_json::json;
 
 use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
 use genos_biology::ecology::{CollusionCheck, EvolutionaryEcology};
-use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis};
+use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
 use genos_biology::neurobiology::{DendriticTree, Neurotransmitter};
 use genos_biology::phenotype::EnvironmentalFactors;
 use genos_biology::redundancy::RedundancySystem;
@@ -293,7 +293,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         BiomimicrySubcommands::Embryology { action: _, divisions, gradient } => {
             let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Stem");
             let mut swarm = cleave_zygote(zygote, divisions);
-            let mut genome = Genome::new("HOX_BLUEPRINT");
+            let mut genome = seed_hox_genome("HOX_BLUEPRINT");
             differentiate_swarm(&mut swarm, gradient, &mut genome);
             sculpt_architecture_via_apoptosis(&mut swarm);
             let roles: Vec<String> = swarm.iter().map(|c| c.role.clone()).collect();

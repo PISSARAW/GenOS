@@ -1,5 +1,13 @@
 use crate::cell::AgentCell;
-use crate::genome::{ChromatinState, Genome};
+use crate::genome::{ChromatinState, Gene, Genome};
+
+pub fn seed_hox_genome(base_instruction: &str) -> Genome {
+    let mut genome = Genome::new(base_instruction);
+    genome.insert_gene(Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT"));
+    genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
+    genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
+    genome
+}
 
 /// ACTE 1 : Le Zygote et la Mitose
 /// Génère un essaim d'agents "Cellules Souches" identiques à partir d'une racine unique.
