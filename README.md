@@ -30,7 +30,15 @@ Traditional AI agent frameworks force workflows along a single, mutable timeline
 - **Git-like State Branching & Replay:** Snapshot workspace and agent state, fork competing hypotheses across isolated counterfactual worlds, execute in sandboxes, evaluate outcomes, and merge only verified winners.
 - **Epistemic Stigmergy:** Agents collaborate like social insects via digital pheromone trails deposited on shared graphs, eliminating expensive inter-agent natural language chatter.
 - **Cellular Division & Evolution:** Controlled replication through 5 biological modes (Mitosis, Binary Fission, Budding, Schizogony, Meiosis) while strictly rejecting non-deterministic amitosis.
-- **The Reality Arbiter:** Self-evaluation is checked by unforgeable thermodynamics: unit tests, compiler feedback, and physical sandbox validation decide survival—not LLM self-collusion.
+- **The Evidence Arbiter:** Promotion is gated by explicit tool results, tests, compiler feedback, provenance, and sandbox checks. Missing evidence is a failure; the runtime does not claim AGI or formal proof.
+
+### Current Scope and Non-Goals
+
+GenOS is an orchestration and verification runtime for multi-agent software work. It provides state branching, model routing, memory retrieval, tool execution, provenance, and experimental search strategies.
+
+It is not currently an AGI system. The repository does not provide autonomous model training, a general sensorimotor loop, a learned predictive world model, demonstrated cross-domain generalization, or machine consciousness. Biological terms such as genome, apoptosis, STDP, pheromone, and eureka describe runtime abstractions and heuristics; they are not claims of biological equivalence.
+
+Experimental primitives must expose missing evidence as an error. A successful result means that the registered operation completed with the supplied inputs, not that an agent learned, reasoned causally, or proved a proposition.
 
 ---
 
@@ -115,8 +123,8 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 - **Stem Cell Fallback:** If an essential worker is destroyed by an unrecoverable mutation, a pristine stem cell checkpoint is immediately mobilized to restore mission continuity.
 - **Cryptobiosis:** Puts agents into deep stasis under severe resource constraints, preserving state until resources return.
 
-### 6. 78 Biomimetic Strategies & 97 Execution Primitives
-GenOS ships with a full execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) wiring 78 formal strategies (documented in [`strategies.md`](strategies.md)) across 7 core lots:
+### 6. Strategy Registry & Execution Primitives
+GenOS ships with a strategy registry and an execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) covering documented strategies across 7 core lots. Some strategies are experimental and require concrete evidence in their context; an unknown or under-specified primitive fails explicitly rather than returning a simulated success.
 1. **Fundamentals:** `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
 2. **Memory:** `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
 3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`, `plasmid_divergent_fork`.
@@ -224,7 +232,7 @@ node backend/bin/genos-orchestrate.cjs '{"mission": "Refactor authorization laye
 
 ---
 
-## Code Governance: The Reality Arbiter
+## Code Governance: The Evidence Arbiter
 
 To ensure that autonomous agents do not produce unmaintainable spaghetti code or collude in hallucinations, GenOS enforces rules encoded in [`.genos.md`](.genos.md) and checked by [`runtime_arbiter.js`](runtime_arbiter.js):
 
@@ -234,7 +242,7 @@ To ensure that autonomous agents do not produce unmaintainable spaghetti code or
 4. **Line Bounds:** Source files must not exceed 400 lines without an explicit exemption.
 5. **No Architectural Deviations:** Any fundamental pattern change requires an Architecture Decision Record (ADR).
 
-Any generated patch failing these conditions is rejected by the Reality Arbiter and discarded by the Caspase cascade.
+Any generated patch failing these conditions is rejected by the Evidence Arbiter and discarded by the runtime recovery path.
 
 ---
 
