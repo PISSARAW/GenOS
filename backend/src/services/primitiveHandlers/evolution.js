@@ -340,6 +340,7 @@ async function plasmidDivergence(context) {
     'SELECT id, current_task, workspace_id, model_tier FROM agents WHERE id = ?',
     agentId
   );
+  if (!parent) return { success: false, error: `Parent agent not found: ${agentId}` };
   const workspaceId = parent?.workspace_id || context.workspaceId || null;
   const modelTier = parent?.model_tier || context.modelTier || 'standard';
   const baseTask = context.task || parent?.current_task || 'Plasmid-guided execution';
@@ -376,6 +377,9 @@ async function plasmidDivergence(context) {
   // 2. Évaluation de la divergence et arbitrage
   const mutantScore = Number(context.mutantScore ?? context.mutantFitness ?? (context.winner === 'mutant' ? 1.0 : 0.0));
   const baselineScore = Number(context.baselineScore ?? context.baselineFitness ?? 0.5);
+  if (!Number.isFinite(mutantScore) || !Number.isFinite(baselineScore)) {
+    return { success: false, error: 'Mutant and baseline scores must be finite numbers.' };
+  }
   const mutantPromoted = mutantScore > baselineScore || context.winner === 'mutant';
 
   let newPlasmidId = null;
