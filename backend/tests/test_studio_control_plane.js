@@ -1,6 +1,6 @@
 const assert = require('assert');
-const { validateGraph } = require('./src/controllers/workflowController');
-const { getDatabase, closeDatabase } = require('./src/db');
+const { validateGraph } = require('../src/controllers/workflowController');
+const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
   const db = await getDatabase(':memory:');
