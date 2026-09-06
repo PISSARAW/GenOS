@@ -21,6 +21,7 @@ async function initializeSchema(db) {
   await db.exec('PRAGMA temp_store = MEMORY;'); // Use RAM for temp tables and indices
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
+  try { await db.exec('ALTER TABLE rag_chunks ADD COLUMN embedding_blob BLOB;'); } catch (_) {}
   await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {
@@ -107,6 +108,26 @@ async function initializeSchema(db) {
           SELECT new.rowid, new.embedding_blob
           WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
       END;
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_vec USING vec0(
+          embedding float[768]
+      );
+      DROP TRIGGER IF EXISTS rag_chunks_vec_ai;
+      CREATE TRIGGER rag_chunks_vec_ai AFTER INSERT ON rag_chunks
+      WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
+          INSERT INTO rag_chunks_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
+      END;
+      DROP TRIGGER IF EXISTS rag_chunks_vec_ad;
+      CREATE TRIGGER rag_chunks_vec_ad AFTER DELETE ON rag_chunks BEGIN
+          DELETE FROM rag_chunks_vec WHERE rowid = old.rowid;
+      END;
+      DROP TRIGGER IF EXISTS rag_chunks_vec_au;
+      CREATE TRIGGER rag_chunks_vec_au AFTER UPDATE ON rag_chunks BEGIN
+          DELETE FROM rag_chunks_vec WHERE rowid = old.rowid;
+          INSERT INTO rag_chunks_vec(rowid, embedding)
+          SELECT new.rowid, new.embedding_blob
+          WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
+      END;
     `);
   } catch (err) {
     console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
@@ -161,6 +182,19 @@ async function initializeSchema(db) {
     }
   } catch (err) {
     console.warn('[Schema] Failed to synchronize genome_decisions_vec index:', err.message);
+  }
+
+  try {
+    const chunksVecCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks_vec");
+    if (chunksVecCount && chunksVecCount.c === 0) {
+      await db.exec(`
+        INSERT INTO rag_chunks_vec(rowid, embedding)
+        SELECT rowid, embedding_blob FROM rag_chunks 
+        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
+      `);
+    }
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize rag_chunks_vec index:', err.message);
   }
 }
 

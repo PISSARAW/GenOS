@@ -217,7 +217,7 @@ const TABLES_EXTENSIONS = [
 "",
 "-- 29. RAG document, chunk and retrieval records",
 "CREATE TABLE IF NOT EXISTS rag_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, content_length INTEGER NOT NULL DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);",
-"CREATE TABLE IF NOT EXISTS rag_chunks (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, chunk_index INTEGER NOT NULL, content TEXT NOT NULL, embedding_json TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(document_id) REFERENCES rag_documents(id) ON DELETE CASCADE);",
+"CREATE TABLE IF NOT EXISTS rag_chunks (id TEXT PRIMARY KEY, document_id TEXT NOT NULL, chunk_index INTEGER NOT NULL, content TEXT NOT NULL, embedding_json TEXT, embedding_blob BLOB, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(document_id) REFERENCES rag_documents(id) ON DELETE CASCADE);",
 "",
 "-- 30. Installed connectors, plugins and their tested schemas",
 "CREATE TABLE IF NOT EXISTS integrations (id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, type TEXT NOT NULL DEFAULT 'connector', status TEXT NOT NULL DEFAULT 'installed', config_json TEXT NOT NULL DEFAULT '{}', created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);",
