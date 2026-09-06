@@ -118,7 +118,8 @@ async function quarantine(context) {
   catch (error) { return { success: false, code: error.code, error: error.message }; }
   const reason = context.reason || 'Suspicious behavior detected.';
   await db.run(
-    "UPDATE agents SET status = 'quarantined', isolation_mode = 'Quarantine' WHERE id = ?",
+    "UPDATE agents SET status = 'blocked', isolation_mode = 'Quarantine', current_task = ? WHERE id = ?",
+    '[QUARANTINE] ' + reason,
     targetId
   );
   telemetry.emitEvent({
