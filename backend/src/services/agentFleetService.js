@@ -167,6 +167,12 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
   }
   const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
+  const splitBudget = (value, index) => {
+    const total = Number(value);
+    if (!Number.isFinite(total) || total <= 0) return undefined;
+    const base = Math.floor(total / assignments.length);
+    return base + (index < total - (base * assignments.length) ? 1 : 0);
+  };
   const workers = [];
   const sourceWorkspace = parent.workspace_path;
   if (!sourceWorkspace) throw new Error(`Workspace '${parent.workspace_id}' has no filesystem path.`);
@@ -238,7 +244,12 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
       workspaceRoot, workspaceProvisioned: true, localModel: localRoute.selectedModel, localRoutingPolicy: localRoute.policy, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
       executionPolicy: mission.executionPolicy,
-      executionBudget: { ...mission.executionBudget, tokens: assignedTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
+      executionBudget: {
+        ...mission.executionBudget,
+        tokens: assignedTokens,
+        ...(splitBudget(mission.executionBudget?.costUsd, index) !== undefined ? { costUsd: splitBudget(mission.executionBudget.costUsd, index) } : {}),
+        ...(splitBudget(mission.executionBudget?.events, index) !== undefined ? { events: splitBudget(mission.executionBudget.events, index) } : {})
+      }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
       genome: evolution.genes, predictedFitness: evolution.predictedFitness
     });
   }
