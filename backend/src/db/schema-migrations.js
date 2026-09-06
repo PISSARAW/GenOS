@@ -164,8 +164,19 @@ async function migrateNotificationPreferenceScope(db) {
       threshold REAL, organization_id TEXT NOT NULL DEFAULT '', project_id TEXT NOT NULL DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (event_type, organization_id, project_id)
     );
-    INSERT INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at)
-      SELECT event_type, enabled, channels_json, threshold, COALESCE(organization_id, ''), COALESCE(project_id, ''), updated_at FROM notification_preferences;
+    INSERT OR IGNORE INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at)
+      SELECT event_type, enabled, channels_json, threshold, organization_id_key, project_id_key, updated_at FROM (
+        SELECT event_type, enabled, channels_json, threshold,
+          COALESCE(organization_id, '') AS organization_id_key,
+          COALESCE(project_id, '') AS project_id_key,
+          updated_at,
+          ROW_NUMBER() OVER (
+            PARTITION BY event_type, COALESCE(organization_id, ''), COALESCE(project_id, '')
+            ORDER BY updated_at DESC, rowid DESC
+          ) AS row_rank
+        FROM notification_preferences
+      )
+      WHERE row_rank = 1;
     DROP TABLE notification_preferences;
     ALTER TABLE notification_preferences_scoped RENAME TO notification_preferences;`);
     await db.exec('COMMIT;');
