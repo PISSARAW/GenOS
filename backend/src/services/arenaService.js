@@ -132,8 +132,21 @@ function evaluateSolverStep(solverKey, problem, roundNum) {
  * Executes a multi-solver tournament round
  */
 function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) {
+  if (!Number.isInteger(rounds) || rounds < 1) throw new Error('rounds must be a positive integer.');
   const selectedSolvers = solverKeys.length > 0 ? solverKeys : Object.keys(SOLVER_PROFILES);
   const problem = buildBenchmark(problemSpec || {});
+  for (const solverKey of selectedSolvers) {
+    if (!SOLVER_PROFILES[solverKey]) throw new Error(`Unknown solver '${solverKey}'.`);
+  }
+  for (const benchmarkCase of problem.cases) {
+    if (!benchmarkCase.values.length || benchmarkCase.values.some((value) => !Number.isFinite(Number(value)))) {
+      throw new Error('Benchmark cases must contain non-empty numeric values.');
+    }
+    if (benchmarkCase.values.some((value, index) => index > 0 && Number(value) < Number(benchmarkCase.values[index - 1]))) {
+      throw new Error('Benchmark values must be sorted in ascending order.');
+    }
+    if (!Number.isFinite(Number(benchmarkCase.target))) throw new Error('Benchmark targets must be numeric.');
+  }
   
   const tournamentId = `tourn-${crypto.randomUUID()}`;
   const solverResults = {};
