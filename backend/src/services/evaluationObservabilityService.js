@@ -16,13 +16,15 @@ function evaluationScope(input = {}) {
 async function overview(input = {}) {
   const db = await getDatabase();
   const scope = evaluationScope(input);
+  const tenant = input.organizationId && input.projectId;
+  const tenantParams = tenant ? [input.organizationId, input.projectId] : [];
   const [nodes, edges, events, agents, runs, provenance, notifications] = await Promise.all([
-    db.all('SELECT id, label, node_type, score, visits, state_summary, metadata FROM lineage_nodes ORDER BY created_at ASC'),
-    db.all('SELECT id, source_node_id AS source, target_node_id AS target, edge_type, is_animated FROM lineage_edges'),
-    db.all('SELECT id, agent_id, event_type, action, detail, severity, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100'),
-    db.all('SELECT id, name, model_tier, lineage_relation, parent_agent_id, status FROM agents WHERE status != "terminated"'),
+    db.all(tenant ? 'SELECT n.id, n.label, n.node_type, n.score, n.visits, n.state_summary, n.metadata FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY n.created_at ASC' : 'SELECT id, label, node_type, score, visits, state_summary, metadata FROM lineage_nodes ORDER BY created_at ASC', ...tenantParams),
+    db.all(tenant ? 'SELECT e.id, e.source_node_id AS source, e.target_node_id AS target, e.edge_type, e.is_animated FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT id, source_node_id AS source, target_node_id AS target, edge_type, is_animated FROM lineage_edges'),
+    db.all(tenant ? 'SELECT e.id, e.agent_id, e.event_type, e.action, e.detail, e.severity, e.payload_json, e.created_at FROM telemetry_events e JOIN agents a ON a.id = e.agent_id JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at DESC LIMIT 100' : 'SELECT id, agent_id, event_type, action, detail, severity, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100', ...tenantParams),
+    db.all(tenant ? 'SELECT a.id, a.name, a.model_tier, a.lineage_relation, a.parent_agent_id, a.status FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status != "terminated" AND w.organization_id = ? AND w.project_id = ?' : 'SELECT id, name, model_tier, lineage_relation, parent_agent_id, status FROM agents WHERE status != "terminated"', ...tenantParams),
     db.all(`SELECT * FROM evaluation_runs WHERE ${scope.clause} ORDER BY created_at DESC LIMIT 30`, ...scope.params),
-    db.all('SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30'),
+    db.all(tenant ? 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 30' : 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30', ...tenantParams),
     db.all('SELECT * FROM notification_preferences ORDER BY event_type')
   ]);
   const fleetBrier = runs.length ? runs.reduce((sum, run) => sum + Number(run.brier_score || 0), 0) / runs.length : null;
@@ -81,27 +83,29 @@ async function runImpossibleBench(input = {}) {
   const id = `eval-${crypto.randomUUID()}`;
   const payload = { threshold, results, brierScore, benchmark: 'ImpossibleBench' };
   await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', input.modelVersion || 'runtime-local', hash(cases), hash({ threshold }), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
-  await recordProvenance('evaluation', id, payload);
+  await recordProvenance('evaluation', id, payload, null, input);
   telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId: 'studio', action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
   return { id, ...payload };
 }
 
-async function recordProvenance(subjectType, subjectId, payload, parentHash = null) {
+async function recordProvenance(subjectType, subjectId, payload, parentHash = null, scope = {}) {
   const db = await getDatabase();
   const payloadJson = JSON.stringify(payload);
   const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
   const id = `prov-${crypto.randomUUID()}`;
-  await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json) VALUES (?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson);
+  await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson, scope.organizationId || null, scope.projectId || null);
   return { id, subjectType, subjectId, payloadHash, parentHash, algorithm: 'sha256' };
 }
 
-async function pruneNode(nodeId) {
+async function pruneNode(nodeId, scope = {}) {
   const db = await getDatabase();
-  const node = await db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId);
+  const node = scope.organizationId && scope.projectId
+    ? await db.get('SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', nodeId, scope.organizationId, scope.projectId)
+    : await db.get('SELECT * FROM lineage_nodes WHERE id = ?', nodeId);
   if (!node) return null;
   const metadata = { ...parse(node.metadata, {}), pruned: true, prunedAt: new Date().toISOString() };
   await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), nodeId);
-  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata });
+  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata }, null, scope);
   telemetry.emitEvent({ eventType: 'MCTS_NODE_PRUNED', agentId: node.agent_id || 'studio', action: 'PRUNE', detail: `MCTS node ${nodeId} pruned`, payload: { nodeId, provenance } });
   return { nodeId, pruned: true, provenance };
 }
