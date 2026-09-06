@@ -61,9 +61,10 @@ async function startMissionInternal(mission) {
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
   const availability = runtimeAvailability(executable);
   if (!availability.available) throw new Error(availability.reason);
-  let contractRecord = await strategyContracts.getLatestContract(db, agentId);
+  let contractRecord = await strategyContracts.getLatestContract(db, agentId, dispatchedAgent.workspace_id);
   if (!contractRecord && normalizedMission.orchestratorAgentId) {
-    contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId);
+    const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', normalizedMission.orchestratorAgentId);
+    contractRecord = await strategyContracts.getLatestContract(db, normalizedMission.orchestratorAgentId, parent?.workspace_id || dispatchedAgent.workspace_id);
   }
   if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
