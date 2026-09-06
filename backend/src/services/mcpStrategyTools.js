@@ -45,19 +45,11 @@ async function executeStrategyTool(toolName, args = {}) {
     }
     if (toolName === 'genos_resilience_hypermutation') {
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
-      if (mutations.length === 0) {
-        return {
-          configured: true,
-          success: false,
-          status: 'tool_error',
-          transport: 'strategy_primitive',
-          output: { success: false, error: 'Bounded hypermutation requires explicit mutations.' }
-        };
-      }
       const res = await strategyExecutionAdapter.executePrimitive('mutate', {
         ...args,
         mutations,
-        mutationRate: args.mutationRate ?? 0
+        hypermutation: true,
+        mutationRate: args.mutationRate ?? 0.35
       });
       const ok = res && res.success !== false;
       return {
