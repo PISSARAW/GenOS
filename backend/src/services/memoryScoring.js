@@ -158,9 +158,17 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   const referenceTime = options.referenceTime == null ? Date.now() : new Date(options.referenceTime).getTime();
   const now = Number.isFinite(referenceTime) ? referenceTime : Date.now();
   const ageMs = now - new Date(item.createdAt || 0).getTime();
-  const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000) ? 1.5 : 1.0;
+  // Continuous temporal recency & Ebbinghaus decay
+  const tauMs = 7 * 24 * 3600 * 1000; // 7-day half-life decay
+  const temporalDecay = Math.max(0.4, 0.4 + 0.6 * Math.exp(-Math.max(0, ageMs) / tauMs));
+  const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000) ? 1.3 : 1.0;
+  const recencyFactor = item.createdAt ? (temporalDecay * neurogenesisBonus) : 1.0;
 
-  let finalScore = baseScore * (0.8 + 0.2 * weight) * credibility * neurogenesisBonus;
+  // Sensitive synaptic weight scaling: attenuated connections yield significantly lower retrieval scores
+  const normalizedWeight = Number.isFinite(weight) ? Math.max(0.0, weight) : 1.0;
+  const weightFactor = 0.3 + 0.7 * Math.min(1.5, normalizedWeight);
+
+  let finalScore = baseScore * weightFactor * credibility * recencyFactor;
 
   const hormone = options.hormone || 'normal';
   if (hormone === 'dopamine') {
