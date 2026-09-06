@@ -3,8 +3,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { getDatabase, closeDatabase } = require('./src/db');
-const { resolveTenant } = require('./src/middleware/tenant');
+const { getDatabase, closeDatabase } = require('../src/db');
+const { resolveTenant } = require('../src/middleware/tenant');
 
 async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-tenant-'));
@@ -23,6 +23,10 @@ async function main() {
   assert.equal(valid.projectId, 'project-test');
   const wrongProject = await resolveTenant({ headers: { authorization: `Bearer ${token}`, 'x-organization-id': 'org-test', 'x-project-id': 'project-other' } });
   assert.equal(wrongProject, null);
+  const orgMembership = await db.get('SELECT role FROM organization_memberships WHERE principal_id=? AND organization_id=?', 'key-tenant', 'org-test');
+  assert.equal(orgMembership.role, 'member');
+  const projectMembership = await db.get('SELECT role FROM project_memberships WHERE principal_id=? AND project_id=?', 'key-tenant', 'project-test');
+  assert.equal(projectMembership.role, 'member');
   await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-one','same-name','/tmp/one','org-test','project-test')");
   await db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-two','same-name','/tmp/two','org-test','project-other')");
   await assert.rejects(() => db.run("INSERT INTO workspaces(id,name,path,organization_id,project_id) VALUES('ws-three','same-name','/tmp/three','org-test','project-test')"), /UNIQUE/i);
