@@ -12,8 +12,8 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
         EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name } => {
             handle_assimilate_plasmid(agent_id, source_agent_id, plasmid_name);
         }
-        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, speciation_threshold, seed } => {
-            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, speciation_threshold, seed.as_deref());
+        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, speciation_threshold, genes_a, genes_b, seed } => {
+            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, speciation_threshold, genes_a.as_deref(), genes_b.as_deref(), seed.as_deref());
         }
         EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed } => {
             handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed.as_deref());
@@ -44,10 +44,46 @@ fn handle_crossover(
     swap_prob: f64,
     crossover_point: Option<usize>,
     speciation_threshold: Option<f64>,
+    genes_a: Option<&str>,
+    genes_b: Option<&str>,
     seed: Option<&str>,
 ) {
     let mut g_a = Genome::new(parent_a);
     let mut g_b = Genome::new(parent_b);
+
+    if let Some(json_str) = genes_a {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = parsed.as_object() {
+                for (k, v) in obj {
+                    let val_str = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        _ => v.to_string(),
+                    };
+                    g_a.insert_gene(Gene::new(k, &val_str));
+                }
+            }
+        }
+    } else {
+        g_a.insert_gene(Gene::new("strategy", "depth_first_mcts"));
+        g_a.insert_gene(Gene::new("safety_threshold", "0.95"));
+    }
+
+    if let Some(json_str) = genes_b {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = parsed.as_object() {
+                for (k, v) in obj {
+                    let val_str = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        _ => v.to_string(),
+                    };
+                    g_b.insert_gene(Gene::new(k, &val_str));
+                }
+            }
+        }
+    } else {
+        g_b.insert_gene(Gene::new("strategy", "pareto_adversarial"));
+        g_b.insert_gene(Gene::new("memory_tier", "vector_synapse"));
+    }
 
     let divergence = PhylogeneticTree::estimate_divergence_time(&g_a, &g_b);
     if let Some(threshold) = speciation_threshold {
@@ -66,28 +102,20 @@ fn handle_crossover(
         }
     }
 
-    // Enrichir avec quelques gènes de test pour valider l'échange
-    g_a.insert_gene(Gene::new("strategy", "depth_first_mcts"));
-    g_a.insert_gene(Gene::new("safety_threshold", "0.95"));
-    g_b.insert_gene(Gene::new("strategy", "pareto_adversarial"));
-    g_b.insert_gene(Gene::new("memory_tier", "vector_synapse"));
-
-    let (child_a_id, child_a_mat_len, strategy_name) = if let Some(pt) = crossover_point {
+    let (child_genome, strategy_name) = if let Some(pt) = crossover_point {
         let (res_a, _res_b) = MeioticCrossover::single_point_crossover(&g_a, &g_b, pt);
-        (
-            res_a.genome_id().to_string(),
-            res_a.chromosome_maternal.len(),
-            format!("single_point@{}", pt),
-        )
+        (res_a, format!("single_point@{}", pt))
     } else {
         let resolved_seed = seed.unwrap_or("genos-default-crossover");
         let res = MeioticCrossover::uniform_crossover_with_seed(&g_a, &g_b, swap_prob, resolved_seed);
-        (
-            res.genome_id().to_string(),
-            res.chromosome_maternal.len(),
-            format!("uniform_p{:.2}", swap_prob),
-        )
+        (res, format!("uniform_p{:.2}", swap_prob))
     };
+
+    let child_genes: serde_json::Map<String, serde_json::Value> = child_genome
+        .genes
+        .iter()
+        .map(|(k, v)| (k.clone(), serde_json::Value::String(v.dna.as_str())))
+        .collect();
 
     print_json(json!({
         "success": true,
@@ -96,10 +124,12 @@ fn handle_crossover(
         "parent_b": parent_b,
         "parent_a_genome_id": g_a.genome_id().to_string(),
         "parent_b_genome_id": g_b.genome_id().to_string(),
-        "child_genome_id": child_a_id,
+        "child_genome_id": child_genome.genome_id().to_string(),
+        "child_genes": child_genes,
         "crossover_strategy": strategy_name,
         "seed": seed.unwrap_or("genos-default-crossover"),
-        "maternal_sequence_length": child_a_mat_len,
+        "maternal_sequence_length": child_genome.chromosome_maternal.len(),
+        "paternal_sequence_length": child_genome.chromosome_paternal.len(),
         "phylogenetic_divergence_mya": divergence,
         "speciation_barrier_satisfied": true,
         "status": "recombined"

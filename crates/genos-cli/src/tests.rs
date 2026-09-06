@@ -122,6 +122,8 @@ mod tests {
             swap_prob: 0.5,
             crossover_point: None,
             speciation_threshold: None,
+            genes_a: None,
+            genes_b: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_cross.is_ok());
@@ -132,6 +134,8 @@ mod tests {
             swap_prob: 0.5,
             crossover_point: Some(10),
             speciation_threshold: None,
+            genes_a: None,
+            genes_b: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_cross_pt.is_ok());
@@ -143,9 +147,24 @@ mod tests {
             swap_prob: 0.5,
             crossover_point: None,
             speciation_threshold: Some(0.0001),
+            genes_a: None,
+            genes_b: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_cross_speciation.is_ok());
+
+        // Test crossover with real structured gene payloads
+        let res_cross_genes = reproduction::execute(EvolutionSubcommands::Crossover {
+            parent_a: "AGENT_ALPHA_ARCHITECT".to_string(),
+            parent_b: "AGENT_BETA_FALSIFIER".to_string(),
+            swap_prob: 0.5,
+            crossover_point: None,
+            speciation_threshold: None,
+            genes_a: Some(r#"{"role":"architect","strategy":"mcts"}"#.to_string()),
+            genes_b: Some(r#"{"role":"auditor","tools":"genos_inspect,genos_patch"}"#.to_string()),
+            seed: Some("test-seed".to_string()),
+        });
+        assert!(res_cross_genes.is_ok());
 
         // 2. Cell Division (Mitosis, Binary Fission, Budding, Schizogony)
         let res_mitosis = reproduction::execute(EvolutionSubcommands::Division {

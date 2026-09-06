@@ -197,6 +197,12 @@ async function runCrossover(options = {}) {
   if (options.speciationThreshold !== undefined) {
     args.push('--speciation-threshold', String(options.speciationThreshold));
   }
+  if (options.genesA) {
+    args.push('--genes-a', typeof options.genesA === 'string' ? options.genesA : JSON.stringify(options.genesA));
+  }
+  if (options.genesB) {
+    args.push('--genes-b', typeof options.genesB === 'string' ? options.genesB : JSON.stringify(options.genesB));
+  }
   if (options.seed !== undefined) args.push('--seed', String(options.seed));
   const result = await runGenos(args);
   if (!result.json) return result;
