@@ -116,8 +116,13 @@ function parseRow(row) {
 }
 
 async function saveContract(db, context = {}) {
-  const agent = await db.get('SELECT id, execution_mode FROM agents WHERE id = ?', context.agentId);
+  const agent = await db.get('SELECT a.id, a.execution_mode, a.workspace_id FROM agents a WHERE a.id = ?', context.agentId);
   if (!agent) throw new Error(`Agent '${context.agentId}' was not found`);
+  if (context.workspaceId && agent.workspace_id !== context.workspaceId) {
+    const error = new Error(`Agent '${context.agentId}' does not belong to workspace '${context.workspaceId}'.`);
+    error.code = 'AGENT_WORKSPACE_MISMATCH';
+    throw error;
+  }
   if (agent.execution_mode === 'worker') {
     const error = new Error(`Worker '${context.agentId}' cannot select a strategy contract; its orchestrator owns strategy selection.`);
     error.code = 'WORKER_REQUIRES_ORCHESTRATOR';

@@ -292,9 +292,11 @@ async function selectStrategyContract(req, res) {
   const db = await getDatabase();
   try {
     if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
+    const scopedAgent = await db.get('SELECT workspace_id FROM agents WHERE id = ?', req.params.id);
     const contract = await strategyContracts.saveContract(db, {
       agentId: req.params.id,
-      ...req.body
+      ...req.body,
+      workspaceId: scopedAgent.workspace_id
     });
     res.status(201).json(contract);
   } catch (err) {
