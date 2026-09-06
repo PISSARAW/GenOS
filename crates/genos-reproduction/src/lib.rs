@@ -237,5 +237,34 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_meiosis_chromatin_reprogramming_preserves_constitutive() {
+        let mut genome = Genome::new("DIPLOID_MOTHER_REPROGRAMMING");
+        let mut facultative_gene = genos_genome::Gene::new("somatic_gene", "ATGC");
+        facultative_gene.chromatin_state = genos_genome::ChromatinState::HeterochromatinFacultative;
+        facultative_gene.developmentally_locked = true;
+        facultative_gene.is_methylated = true;
+        genome.insert_gene(facultative_gene);
+
+        let mut constitutive_gene = genos_genome::Gene::new("centromere_gene", "GGCC");
+        constitutive_gene.chromatin_state = genos_genome::ChromatinState::HeterochromatinConstitutive;
+        constitutive_gene.developmentally_locked = true;
+        constitutive_gene.is_methylated = true;
+        genome.insert_gene(constitutive_gene);
+
+        let gametes = CellDivision::meiosis(&genome, Some(8)).expect("meiosis should succeed");
+        for gamete in gametes {
+            let fac = gamete.genes.get("somatic_gene").unwrap();
+            assert_eq!(fac.chromatin_state, genos_genome::ChromatinState::Euchromatin);
+            assert!(!fac.developmentally_locked);
+            assert!(!fac.is_methylated);
+
+            let con = gamete.genes.get("centromere_gene").unwrap();
+            assert_eq!(con.chromatin_state, genos_genome::ChromatinState::HeterochromatinConstitutive);
+            assert!(con.developmentally_locked);
+            assert!(con.is_methylated);
+        }
+    }
 }
 

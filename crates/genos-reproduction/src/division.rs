@@ -394,11 +394,15 @@ impl CellDivision {
             gamete.endogenous_retroviruses.clear();
             gamete.extra_chromosomes.clear();
 
-            // Ségrégation et déméthylation méiotique (reprogrammation gamétique)
+            // Ségrégation et reprogrammation méiotique (déméthylation gamétique)
+            // L'hétérochromatine constitutive est préservée, tandis que l'hétérochromatine
+            // facultative et les marques somatiques sont réinitialisées vers l'euchromatine totipotente.
             for gene in gamete.genes.values_mut() {
-                gene.is_methylated = false;
-                gene.developmentally_locked = false;
-                gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
+                if gene.chromatin_state != genos_genome::ChromatinState::HeterochromatinConstitutive {
+                    gene.is_methylated = false;
+                    gene.developmentally_locked = false;
+                    gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
+                }
             }
 
             gamete.insert_gene(genos_genome::Gene::new(
