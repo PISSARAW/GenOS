@@ -6,7 +6,9 @@ const express = require('express');
 const router = express.Router();
 const trajectoryController = require('../controllers/trajectoryController');
 const { requirePermission } = require('../middleware/auth');
-const { requireTenantScope } = require('../middleware/tenant');
+const { attachTenant, requireTenantScope } = require('../middleware/tenant');
+
+router.use(attachTenant);
 
 router.get('/', trajectoryController.getTrajectories);
 router.get('/pending', trajectoryController.getPending);

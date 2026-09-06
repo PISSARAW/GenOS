@@ -5,6 +5,22 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 
+function workspaceScope(req, alias = 'w') {
+  const prefix = alias ? `${alias}.` : '';
+  return req.tenant
+    ? { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] }
+    : { clause: `${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL`, params: [] };
+}
+
+async function findScopedTrajectory(db, req, id) {
+  const scope = workspaceScope(req);
+  return db.get(
+    `SELECT t.* FROM trajectories t JOIN workspaces w ON w.id = t.workspace_id WHERE t.id = ? AND ${scope.clause}`,
+    id,
+    ...scope.params
+  );
+}
+
 async function formatTrajectory(t) {
   let diffLines = [];
   try {
@@ -31,7 +47,11 @@ async function formatTrajectory(t) {
 
 async function getTrajectories(req, res) {
   const db = await getDatabase();
-  const allRows = await db.all('SELECT * FROM trajectories ORDER BY created_at DESC');
+  const scope = workspaceScope(req);
+  const allRows = await db.all(
+    `SELECT t.* FROM trajectories t JOIN workspaces w ON w.id = t.workspace_id WHERE ${scope.clause} ORDER BY t.created_at DESC`,
+    ...scope.params
+  );
 
   const pendingList = [];
   const activeList = [];
@@ -51,17 +71,21 @@ async function getTrajectories(req, res) {
 async function getPending(req, res) {
   const db = await getDatabase();
   const workspaceId = String(req.query.workspaceId || '').trim();
-  const workspace = workspaceId ? await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId) : null;
+  const scope = workspaceScope(req);
+  const workspace = workspaceId
+    ? await db.get(`SELECT id FROM workspaces WHERE (id = ? OR name = ?) AND ${scope.clause}`, workspaceId, workspaceId, ...scope.params)
+    : null;
   const rows = workspaceId
-    ? await db.all("SELECT * FROM trajectories WHERE status = 'pending' AND workspace_id = ? ORDER BY created_at DESC", workspace?.id || workspaceId)
-    : await db.all("SELECT * FROM trajectories WHERE status = 'pending' ORDER BY created_at DESC");
+    ? await db.all(`SELECT t.* FROM trajectories t JOIN workspaces w ON w.id = t.workspace_id WHERE t.status = 'pending' AND t.workspace_id = ? AND ${scope.clause} ORDER BY t.created_at DESC`, workspace?.id || workspaceId, ...scope.params)
+    : await db.all(`SELECT t.* FROM trajectories t JOIN workspaces w ON w.id = t.workspace_id WHERE t.status = 'pending' AND ${scope.clause} ORDER BY t.created_at DESC`, ...scope.params);
   const result = await Promise.all(rows.map(r => formatTrajectory(r)));
   res.json(result);
 }
 
 async function getActive(req, res) {
   const db = await getDatabase();
-  const rows = await db.all("SELECT * FROM trajectories WHERE status = 'active' ORDER BY created_at DESC");
+  const scope = workspaceScope(req);
+  const rows = await db.all(`SELECT t.* FROM trajectories t JOIN workspaces w ON w.id = t.workspace_id WHERE t.status = 'active' AND ${scope.clause} ORDER BY t.created_at DESC`, ...scope.params);
   const result = await Promise.all(rows.map(r => formatTrajectory(r)));
   res.json(result);
 }
@@ -71,6 +95,9 @@ async function createTrajectory(req, res) {
   const id = `traj-${Date.now()}`;
 
   const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const workspace = await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${scope.clause}`, workspaceId, ...scope.params);
+  if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace '${workspaceId}' is not available in this project.` } });
   await db.run(
     `INSERT INTO trajectories (id, workspace_id, author_name, title, status, semantic_summary, diff_file, diff_lines, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id, workspaceId, authorName, title || 'Autonomous Code Proposal', 'pending', summary || '', diffFile || 'src/app.ts', JSON.stringify(diffLines || []), 95
@@ -90,7 +117,10 @@ async function createTrajectory(req, res) {
 async function approveTrajectory(req, res) {
   const { id } = req.params;
   const db = await getDatabase();
-  await db.run("UPDATE trajectories SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ?", id);
+  const trajectory = await findScopedTrajectory(db, req, id);
+  if (!trajectory) return res.status(404).json({ error: { code: 'TRAJECTORY_NOT_FOUND', message: `Trajectory '${id}' was not found in this project.` } });
+  if (!['pending', 'active'].includes(trajectory.status)) return res.status(409).json({ error: { code: 'INVALID_TRAJECTORY_STATE', message: `Trajectory '${id}' cannot be approved from '${trajectory.status}'.` } });
+  await db.run("UPDATE trajectories SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?", id, trajectory.status);
 
   telemetry.emitEvent({
     eventType: 'TRAJECTORY_APPROVED',
@@ -108,7 +138,10 @@ async function rejectTrajectory(req, res) {
   const { reason = 'Code rejected by operator' } = req.body || {};
 
   const db = await getDatabase();
-  await db.run("UPDATE trajectories SET status = 'rejected', qa_feedback = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", reason, id);
+  const trajectory = await findScopedTrajectory(db, req, id);
+  if (!trajectory) return res.status(404).json({ error: { code: 'TRAJECTORY_NOT_FOUND', message: `Trajectory '${id}' was not found in this project.` } });
+  if (!['pending', 'active', 'revising'].includes(trajectory.status)) return res.status(409).json({ error: { code: 'INVALID_TRAJECTORY_STATE', message: `Trajectory '${id}' cannot be rejected from '${trajectory.status}'.` } });
+  await db.run("UPDATE trajectories SET status = 'rejected', qa_feedback = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?", reason, id, trajectory.status);
 
   telemetry.emitEvent({
     eventType: 'TRAJECTORY_REJECTED',
@@ -126,7 +159,10 @@ async function reviseTrajectory(req, res) {
   const { notes = 'Revision requested' } = req.body || {};
 
   const db = await getDatabase();
-  await db.run("UPDATE trajectories SET status = 'revising', qa_feedback = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", notes, id);
+  const trajectory = await findScopedTrajectory(db, req, id);
+  if (!trajectory) return res.status(404).json({ error: { code: 'TRAJECTORY_NOT_FOUND', message: `Trajectory '${id}' was not found in this project.` } });
+  if (!['pending', 'active', 'rejected'].includes(trajectory.status)) return res.status(409).json({ error: { code: 'INVALID_TRAJECTORY_STATE', message: `Trajectory '${id}' cannot be revised from '${trajectory.status}'.` } });
+  await db.run("UPDATE trajectories SET status = 'revising', qa_feedback = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?", notes, id, trajectory.status);
 
   telemetry.emitEvent({
     eventType: 'TRAJECTORY_REVISE',
