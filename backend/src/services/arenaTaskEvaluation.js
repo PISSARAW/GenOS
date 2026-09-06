@@ -82,7 +82,7 @@ function evaluateDossiersPareto(dossiers = [], options = {}) {
   const leaderboard = candidates.map((cand) => ({
     ...cand,
     eloRating: calculateElo(baseElo, 1500, (cand.fitnessScore / 100) * 0.7 + (cand.adversarialPassRate / 100) * 0.3)
-  })).sort((a, b) => b.eloRating - a.eloRating);
+  })).sort((a, b) => b.eloRating - a.eloRating || String(a.candidateId).localeCompare(String(b.candidateId)));
 
   return {
     timestamp: new Date().toISOString(),

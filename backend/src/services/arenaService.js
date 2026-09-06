@@ -179,7 +179,7 @@ function runTournament(problemSpec, solverKeys = [], rounds = 3, agentIds = []) 
   }
 
   // Rank competitors by ELO rating
-  const leaderboard = Object.values(solverResults).sort((a, b) => b.eloRating - a.eloRating);
+  const leaderboard = Object.values(solverResults).sort((a, b) => b.eloRating - a.eloRating || a.solverKey.localeCompare(b.solverKey));
 
   const result = {
     tournamentId,
