@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use genos_biology::bioluminescence::{BioluminescenceMicroscope, FluorophoreColor};
 use genos_biology::ecology::CollusionCheck;
-use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis};
+use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
 use genos_biology::redundancy::RedundancySystem;
 use genos_biology::spore::{Spore, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
@@ -57,9 +57,12 @@ impl BiomimeticOrchestrator {
     /// Intègre une cellule ouvrière dans un tissu donné
     pub fn add_worker(&mut self, tissue_name: &str, worker: AgentCell) -> Result<Uuid, String> {
         let worker_id = worker.cell_id;
-        self.active_cells.insert(worker_id, worker);
         let tissue = self.tissues.get_mut(tissue_name)
             .ok_or_else(|| format!("Tissu '{}' introuvable", tissue_name))?;
+        if self.active_cells.contains_key(&worker_id) {
+            return Err(format!("Cellule {} déjà active", worker_id));
+        }
+        self.active_cells.insert(worker_id, worker);
         tissue.integrate_cell(worker_id);
         Ok(worker_id)
     }
@@ -148,7 +151,7 @@ impl BiomimeticOrchestrator {
     pub fn cleave_and_differentiate(&mut self, divisions: u32, gradient: f64) -> Vec<AgentCell> {
         let zygote = AgentCell::new("Zygote_Origin", "Origine clonale", "Embryo");
         let mut swarm = cleave_zygote(zygote, divisions);
-        let mut genome = Genome::new("HOX_BLUEPRINT");
+        let mut genome = seed_hox_genome("HOX_BLUEPRINT");
         differentiate_swarm(&mut swarm, gradient, &mut genome);
         sculpt_architecture_via_apoptosis(&mut swarm);
         for cell in &swarm {
@@ -226,8 +229,21 @@ mod tests {
         let host_cell = orchestrator.active_cells.get(&host_id).unwrap();
         assert_eq!(host_cell.organelles.len(), 1);
         
-        let Organelle::Endosymbiont { original_id, role, .. } = &host_cell.organelles[0];
-        assert_eq!(*original_id, symbiont_id);
-        assert_eq!(role, "Verifier");
+        match &host_cell.organelles[0] {
+            Organelle::Endosymbiont { original_id, role, .. } => {
+                assert_eq!(*original_id, symbiont_id);
+                assert_eq!(role, "Verifier");
+            }
+            _ => panic!("expected an endosymbiont organelle"),
+        }
+    }
+
+    #[test]
+    fn test_add_worker_does_not_orphan_cell_on_unknown_tissue() {
+        let mut orchestrator = BiomimeticOrchestrator::new("Overmind", 50.0, 100.0);
+        let worker = AgentCell::new("Worker", "Worker", "Worker");
+        let worker_id = worker.cell_id;
+        assert!(orchestrator.add_worker("missing", worker).is_err());
+        assert!(!orchestrator.active_cells.contains_key(&worker_id));
     }
 }
