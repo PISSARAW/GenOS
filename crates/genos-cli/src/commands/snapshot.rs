@@ -9,6 +9,7 @@ use crate::args::SnapshotSubcommands;
 pub fn execute(cmd: SnapshotSubcommands) -> Result<(), String> {
     match cmd {
         SnapshotSubcommands::Create { agent, out } => handle_create(&agent, &out),
+        SnapshotSubcommands::Validate { file } => handle_validate(&file),
         SnapshotSubcommands::List => handle_list(),
     }
 }
@@ -182,6 +183,72 @@ fn handle_list() -> Result<(), String> {
     let output = json!({
         "count": snapshots.len(),
         "snapshots": snapshots
+    });
+
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
+}
+
+fn handle_validate(file_path: &str) -> Result<(), String> {
+    let path = Path::new(file_path);
+    if !path.exists() {
+        return Err(format!("Snapshot file not found: {}", file_path));
+    }
+
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read snapshot file '{}': {}", file_path, e))?;
+
+    let val: Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Invalid JSON format in '{}': {}", file_path, e))?;
+
+    let mut errors = Vec::new();
+
+    for field in ["snapshot_id", "agent_id", "branch_id", "world_id", "created_at"] {
+        if val.get(field).and_then(|v| v.as_str()).is_none() {
+            errors.push(format!("Missing required string field '{}'", field));
+        }
+    }
+
+    if let Some(genome) = val.get("genome") {
+        if !genome.is_object() {
+            errors.push("Field 'genome' must be an object".to_string());
+        } else if genome.get("apiVersion").is_none() || genome.get("kind").and_then(|k| k.as_str()) != Some("AgentGenome") {
+            errors.push("Embedded 'genome' must conform to AgentGenome specification".to_string());
+        }
+    } else {
+        errors.push("Missing required field 'genome'".to_string());
+    }
+
+    if let Some(state) = val.get("state") {
+        if !state.is_object() {
+            errors.push("Field 'state' must be an object".to_string());
+        }
+    } else {
+        errors.push("Missing required field 'state'".to_string());
+    }
+
+    if !errors.is_empty() {
+        let output = json!({
+            "success": false,
+            "operation": "snapshot_validate",
+            "file": file_path,
+            "schema": "snapshot.schema.json",
+            "status": "INVALID",
+            "errors": errors
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        return Err(format!("Snapshot validation failed: {}", errors.join(", ")));
+    }
+
+    let output = json!({
+        "success": true,
+        "operation": "snapshot_validate",
+        "file": file_path,
+        "schema": "snapshot.schema.json",
+        "status": "VALID",
+        "snapshot_id": val.get("snapshot_id").and_then(|v| v.as_str()),
+        "agent_id": val.get("agent_id").and_then(|v| v.as_str()),
+        "branch_id": val.get("branch_id").and_then(|v| v.as_str())
     });
 
     println!("{}", serde_json::to_string_pretty(&output).unwrap());

@@ -108,6 +108,24 @@ mod tests {
             gradient: 1.0,
         });
         assert!(res_embryo.is_ok());
+
+        let res_cerebellum_1 = biomimicry::execute(BiomimicrySubcommands::CerebellumCoprocessor {
+            agent_id: "agent_purkinje_test".to_string(),
+            target_value: 100.0,
+            expected_latency: 50.0,
+            current_value: 80.0,
+            actual_latency: 60.0,
+        });
+        assert!(res_cerebellum_1.is_ok());
+
+        let res_cerebellum_2 = biomimicry::execute(BiomimicrySubcommands::CerebellumCoprocessor {
+            agent_id: "agent_purkinje_test".to_string(),
+            target_value: 100.0,
+            expected_latency: 50.0,
+            current_value: 99.95,
+            actual_latency: 50.0,
+        });
+        assert!(res_cerebellum_2.is_ok());
     }
 
     #[test]
