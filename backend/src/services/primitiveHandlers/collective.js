@@ -61,11 +61,17 @@ async function trailSelection(context) {
     }
     const suppliedReferenceTime = context.referenceTime == null ? Date.now() : new Date(context.referenceTime).getTime();
     const referenceTime = Number.isFinite(suppliedReferenceTime) ? suppliedReferenceTime : Date.now();
+    const traceLimit = context.traceLimit == null ? 1000 : Number(context.traceLimit);
+    if (!Number.isInteger(traceLimit) || traceLimit < 1 || traceLimit > 10000) {
+      return { success: false, error: 'traceLimit must be an integer between 1 and 10000.' };
+    }
     const rows = await db.all(
       `SELECT payload_json, created_at FROM agent_organization_messages 
-        WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace' ORDER BY id DESC LIMIT 100`,
-            orchestratorId, state.version
+        WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace' ORDER BY id DESC LIMIT ?`,
+            orchestratorId, state.version, traceLimit
     );
+    const totalTraceCount = await db.get(`SELECT COUNT(*) AS count FROM agent_organization_messages
+      WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace'`, orchestratorId, state.version);
     
     const trailStrengths = {};
     for (const row of rows) {
@@ -88,9 +94,9 @@ async function trailSelection(context) {
       action: 'TRAIL_SELECTION',
       detail: `Selected trail ${selectedTrail || 'none'} from ${sortedTrails.length} options.`,
       severity: 'info',
-      payload: { selectedTrail, trailStrengths, referenceTime: new Date(referenceTime).toISOString() }
+      payload: { selectedTrail, trailStrengths, referenceTime: new Date(referenceTime).toISOString(), traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length }
     });
-    return { success: true, selectedTrail, trailStrengths };
+    return { success: true, selectedTrail, trailStrengths, traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length };
   } catch (err) {
     return { success: false, error: err.message };
   }
