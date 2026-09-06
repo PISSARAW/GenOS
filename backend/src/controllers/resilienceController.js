@@ -118,6 +118,16 @@ async function getDrift(req, res, next) {
   }
 }
 
+async function hypermutatePrompt(req, res, next) {
+  try {
+    const { prompt, mutationRate, seed, forcePerturbation } = req.body || {};
+    const result = resilienceService.somaticHypermutationPrompt(prompt, mutationRate, { seed, forcePerturbation });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getPolicy(req, res, next) {
   try {
     const db = await getDatabase();
@@ -140,6 +150,7 @@ module.exports = {
   freezeCryptobiosis,
   thawCryptobiosis,
   getDrift,
+  hypermutatePrompt,
   getPolicy,
   updatePolicy
 };
