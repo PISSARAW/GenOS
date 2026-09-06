@@ -144,30 +144,23 @@ function trimSnapshots() {
 }
 
 function freezeCryptobiosis(workspaceId = 'fleet', reason = '', statePayload = {}) {
-  const snapshotId = `cryptobiosis_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const snapshot = {
-    snapshotId,
+  return {
+    success: false,
+    code: 'NON_DURABLE_CRYPTOBIOSIS',
+    error: 'In-memory cryptobiosis is not a durable freeze. Use the GenOS capsule backend.',
     workspaceId,
     reason,
-    frozenAt: new Date().toISOString(),
     state: snapshotState(statePayload)
   };
-  cryptobiosisSnapshots.set(snapshotId, snapshot);
-  trimSnapshots();
-  return { success: true, ...snapshot, durability: 'process-memory' };
 }
 
 function thawCryptobiosis(snapshotId, targetWorkspaceId) {
-  const snapshot = cryptobiosisSnapshots.get(snapshotId);
-  if (!snapshot) throw new Error(`Cryptobiosis snapshot '${snapshotId}' was not found in this runtime.`);
-  const agents = Array.isArray(snapshot.state.agents) ? snapshot.state.agents : [];
   return {
-    success: true,
+    success: false,
+    code: 'NON_DURABLE_CRYPTOBIOSIS',
+    error: `Cryptobiosis snapshot '${snapshotId}' is not available as a durable capsule.`,
     snapshotId,
-    workspaceId: targetWorkspaceId || snapshot.workspaceId,
-    revivedAgentCount: agents.length,
-    state: snapshotState(snapshot.state),
-    durability: 'process-memory'
+    workspaceId: targetWorkspaceId || null
   };
 }
 
@@ -178,11 +171,71 @@ function hydrateCryptobiosis(snapshot) {
   return snapshot;
 }
 
+async function persistIntermediateState(db, agentId, statePayload = {}, reason = 'runtime checkpoint') {
+  if (!db || typeof db.run !== 'function') {
+    throw new Error('A database handle is required to persist intermediate runtime state.');
+  }
+  if (!agentId) {
+    throw new Error('agentId is required to persist intermediate runtime state.');
+  }
+  const state = snapshotState(statePayload || {});
+  const workspaceId = state.workspaceId || state.workspace_id || null;
+  const status = state.status || 'intermediate';
+  const currentTask = state.currentTask || state.current_task || null;
+  const snapshotId = `runtime_state_${String(agentId).replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await db.run(
+    `INSERT INTO agent_runtime_state (id, agent_id, workspace_id, status, current_task, reason, state_json, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+     ON CONFLICT(agent_id) DO UPDATE SET
+       workspace_id = excluded.workspace_id,
+       status = excluded.status,
+       current_task = excluded.current_task,
+       reason = excluded.reason,
+       state_json = excluded.state_json,
+       updated_at = CURRENT_TIMESTAMP`,
+    snapshotId,
+    agentId,
+    workspaceId,
+    status,
+    currentTask,
+    reason,
+    JSON.stringify(state)
+  );
+  return snapshotId;
+}
+
+async function restoreIntermediateState(db, agentId) {
+  if (!db || typeof db.get !== 'function') {
+    throw new Error('A database handle is required to restore intermediate runtime state.');
+  }
+  if (!agentId) {
+    throw new Error('agentId is required to restore intermediate runtime state.');
+  }
+  const row = await db.get('SELECT * FROM agent_runtime_state WHERE agent_id = ?', agentId);
+  if (!row) return null;
+  try {
+    return {
+      id: row.id,
+      agentId: row.agent_id,
+      workspaceId: row.workspace_id,
+      status: row.status,
+      currentTask: row.current_task,
+      reason: row.reason,
+      ...JSON.parse(row.state_json || '{}'),
+      updatedAt: row.updated_at
+    };
+  } catch (error) {
+    throw new Error(`Unable to restore intermediate state for agent ${agentId}: ${error.message}`);
+  }
+}
+
 module.exports = {
   calculateLevenshtein,
   trackHypermutationDrift,
   evaluateApoptosis,
   freezeCryptobiosis,
   thawCryptobiosis,
-  hydrateCryptobiosis
+  hydrateCryptobiosis,
+  persistIntermediateState,
+  restoreIntermediateState
 };
