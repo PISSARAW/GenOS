@@ -11,6 +11,18 @@ function deterministicUnit(seed) {
   return digest.readUInt32BE(0) / 0x100000000;
 }
 
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+  }
+  return value;
+}
+
+function contentFingerprint(value) {
+  return crypto.createHash('sha256').update(JSON.stringify(stableValue(value))).digest('hex');
+}
+
 function validateCognitiveGenes(genes, label = 'genome') {
   if (!genes || typeof genes !== 'object') throw new TypeError(`${label} genes are required.`);
   if (typeof genes.role !== 'string' || !genes.role.trim()) throw new TypeError(`${label}.role must be a non-empty string.`);
@@ -66,7 +78,7 @@ async function getPhylogeneticTree(workspaceId) {
       generation: metadata.generation ?? 0,
       name: row.label,
       genes: metadata.genes,
-      fitnessScore: Number(row.score || 0) * 100,
+      fitnessScore: row.score === null || row.score === undefined ? null : Number(row.score) * 100,
       status: metadata.status || row.node_type,
       mutationType: metadata.mutationType,
       geneDiff: row.state_summary || '',
@@ -196,7 +208,10 @@ function crossoverGenome(parentA, parentB, options = {}) {
   const childGenes = {};
   const geneKeys = ['role', 'strategy', 'tools', 'temp', 'topP'];
   const childId = `agent-crossover-${crypto.randomUUID()}`;
-  const mutationSeed = options.seed === undefined ? childId : String(options.seed);
+  const parentFingerprint = `${contentFingerprint(pA.genes)}:${contentFingerprint(pB.genes)}`;
+  const reproducibilitySeed = options.seed === undefined
+    ? contentFingerprint({ version: 'genos-crossover-v1', parentFingerprint, strategy })
+    : String(options.seed);
 
   // Crossover recombine logic
   for (let i = 0; i < geneKeys.length; i++) {
@@ -208,14 +223,13 @@ function crossoverGenome(parentA, parentB, options = {}) {
     } else if (strategy === 'multi_point') {
       pickA = i % 2 === 0;
     } else {
-      // uniform, but reproducible for the same parent genomes
-      pickA = deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:${strategy}:${i}`) >= 0.5;
+      pickA = deterministicUnit(`${reproducibilitySeed}:locus:${key}`) >= 0.5;
     }
 
     if (key === 'tools') {
       const toolSet = new Set(pickA ? toolsA : toolsB);
       // Horizontal gene transfer
-      if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:tools`) < 0.5) {
+      if (deterministicUnit(`${reproducibilitySeed}:horizontal-tools`) < 0.5) {
         toolSet.add(toolsB[0] || 'genos_inspect');
       }
       childGenes.tools = Array.from(toolSet);
@@ -226,7 +240,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   // Apply mutation if triggered
   let mutatedGene = null;
-  if (deterministicUnit(`${mutationSeed}:mutation`) < mutationRate) {
+  if (deterministicUnit(`${reproducibilitySeed}:mutation`) < mutationRate) {
     mutatedGene = 'temp';
     childGenes.temp = Number((Math.min(0.8, childGenes.temp + 0.05)).toFixed(2));
   }
@@ -235,6 +249,9 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   return {
     childId,
+    reproducibilitySeed,
+    parentFingerprint,
+    genomeHash: contentFingerprint(childGenes),
     crossoverStrategy: strategy,
     mutationRateApplied: mutationRate,
     parents: {
