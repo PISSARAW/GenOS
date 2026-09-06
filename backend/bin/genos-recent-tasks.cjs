@@ -9,9 +9,15 @@ async function getRecentTasks() {
     db = await open({ filename: dbPath, driver: sqlite3.Database });
     // Selectionner les 4 dernières missions distinctes
     const tasks = await db.all("SELECT DISTINCT current_task FROM agents WHERE current_task IS NOT NULL AND current_task != '' ORDER BY created_at DESC LIMIT 4");
-    console.log(JSON.stringify(tasks.map(t => t.current_task)));
+    console.log(JSON.stringify({ success: true, tasks: tasks.map(t => t.current_task) }));
   } catch (err) {
-    console.log(JSON.stringify([]));
+    console.error(`[Recent Tasks] Database error: ${err.message}`);
+    console.log(JSON.stringify({
+      success: false,
+      error: { code: 'DB_UNAVAILABLE', message: err.message },
+      tasks: []
+    }));
+    process.exitCode = 1;
   } finally {
     if (db) await db.close();
   }

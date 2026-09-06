@@ -37,7 +37,11 @@ async function apoptosis(customDbPath = null) {
 }
 
 if (require.main === module) {
-  apoptosis().catch(() => process.exit(1));
+  apoptosis()
+    .then((result) => {
+      if (!result.success) process.exitCode = 1;
+    })
+    .catch(() => { process.exitCode = 1; });
 }
 
 module.exports = { apoptosis };
