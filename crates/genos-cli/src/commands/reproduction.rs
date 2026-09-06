@@ -52,14 +52,14 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
         let (res_a, _res_b) = MeioticCrossover::single_point_crossover(&g_a, &g_b, pt);
         (
             res_a.genome_id().to_string(),
-            res_a.chromosome_maternal.sequence.len(),
+            res_a.chromosome_maternal.len(),
             format!("single_point@{}", pt),
         )
     } else {
         let res = MeioticCrossover::uniform_crossover(&g_a, &g_b, swap_prob);
         (
             res.genome_id().to_string(),
-            res.chromosome_maternal.sequence.len(),
+            res.chromosome_maternal.len(),
             format!("uniform_p{:.2}", swap_prob),
         )
     };

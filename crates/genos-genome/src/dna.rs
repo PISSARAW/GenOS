@@ -18,7 +18,7 @@ pub enum RnaNucleotide {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct DnaStrand {
-    pub sequence: Vec<DnaNucleotide>,
+    sequence: Vec<DnaNucleotide>,
 }
 
 impl DnaStrand {
@@ -41,6 +41,14 @@ impl DnaStrand {
         }
         Self { sequence }
     }
+
+    pub fn as_slice(&self) -> &[DnaNucleotide] { &self.sequence }
+
+    pub fn len(&self) -> usize { self.sequence.len() }
+
+    pub fn is_empty(&self) -> bool { self.sequence.is_empty() }
+
+    pub fn replace_sequence(&mut self, sequence: Vec<DnaNucleotide>) { self.sequence = sequence; }
 
     pub fn mutate_point(&mut self, position: usize, nucleotide: DnaNucleotide) {
         if position < self.sequence.len() {
