@@ -193,7 +193,7 @@ async function startAgent(req, res) {
     await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId);
     const contract = await strategyContracts.getLatestContract(db, agent.id);
     if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
-    const result = await runtimeAdapter.startMission({
+    const startPromise = runtimeAdapter.startMission({
       agentId: agent.id,
       name: agent.name,
       role: agent.role,
@@ -207,6 +207,13 @@ async function startAgent(req, res) {
       orchestratorAgentId: req.body?.orchestratorAgentId,
       strategyContract: contract.contract,
       executionBudget: req.body?.executionBudget || {}
+    });
+    const result = await Promise.race([
+      startPromise.then((value) => value),
+      new Promise((resolve) => setTimeout(() => resolve({ started: true, queued: true }), 25))
+    ]);
+    startPromise.catch(async (error) => {
+      await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, agent.id).catch(() => {});
     });
     res.status(result?.duplicate ? 200 : 202).json({ success: true, started: !result?.duplicate, duplicate: Boolean(result?.duplicate), status: result?.duplicate ? 'already_running' : 'queued' });
   } catch (err) {
