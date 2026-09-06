@@ -71,10 +71,11 @@ async function getConsensus(req, res) {
 }
 
 async function createProposal(req, res) {
-  const { title, description, quorumThreshold = 0.66, proposerName = 'operator', workspaceId = 'ws-genos-core' } = req.body || {};
+  const { title, description, quorumThreshold = 0.66, workspaceId = 'ws-genos-core' } = req.body || {};
   const safeTitle = sanitizeString(String(title || 'Swarm Proposal')).trim();
   const safeDescription = sanitizeString(String(description || ''));
-  const safeProposer = sanitizeString(String(proposerName || 'operator')).trim();
+  const safeProposer = sanitizeString(String(req.user?.username || 'operator')).trim();
+  const proposerAgentId = String(req.user?.keyId || safeProposer);
   const threshold = Number(quorumThreshold);
   if (!safeTitle || !Number.isFinite(threshold) || threshold <= 0 || threshold > 1) {
     return res.status(400).json({ error: { code: 'INVALID_PROPOSAL', message: 'A title and a quorumThreshold in (0, 1] are required.' } });
@@ -84,7 +85,7 @@ async function createProposal(req, res) {
   const db = await getDatabase();
   await db.run(
     `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspaceId, 'agent_operator', safeProposer, safeTitle, safeDescription, 'open', threshold
+    id, workspaceId, proposerAgentId, safeProposer, safeTitle, safeDescription, 'open', threshold
   );
 
   telemetry.emitEvent({
@@ -99,7 +100,9 @@ async function createProposal(req, res) {
 }
 
 async function castVote(req, res) {
-  const { proposalId, agentId = 'worker_node', vote = 'yes', reason = '' } = req.body || {};
+  const { proposalId, vote = 'yes', reason = '' } = req.body || {};
+  const agentId = String(req.user?.keyId || req.user?.username || 'worker_node');
+  const agentName = sanitizeString(String(req.user?.username || agentId)).trim();
   const db = await getDatabase();
   await expireOpenProposals(db);
   const proposal = await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', proposalId);
@@ -113,7 +116,7 @@ async function castVote(req, res) {
   const id = `${proposalId}-${agentId}-${Date.now()}`;
   await db.run(
     `INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, reason) VALUES (?, ?, ?, ?, ?, ?)`,
-    id, proposalId, agentId, agentId, vote, reason
+    id, proposalId, agentId, agentName, vote, reason
   );
 
   const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', proposalId);
