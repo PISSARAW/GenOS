@@ -98,7 +98,7 @@ async function run() {
 
     const wrongDispatcher = await request('POST', `/api/agents/not-the-parent/workers/${workerId}/dispatch`, {});
     assert.equal(wrongDispatcher.status, 404);
-    assert.equal(wrongDispatcher.body.error.code, 'WORKER_ORCHESTRATOR_MISMATCH');
+    assert.equal(wrongDispatcher.body.error.code, 'AGENT_NOT_FOUND');
 
     // A Studio stop also reconciles stale "running" rows when no child
     // process exists in this backend instance.
