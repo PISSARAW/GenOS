@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const { spawnSync } = require('node:child_process');
-const modelRouter = require('./src/services/modelRouter');
-const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
+const modelRouter = require('../src/services/modelRouter');
+const runtimeAdapter = require('../src/services/agentRuntimeAdapter');
 
 async function main() {
   const policyDb = {
@@ -58,18 +58,18 @@ async function main() {
     inputTokens: 13, outputTokens: 5, totalTokens: 18
   });
 
-  const runtimeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-agent-runtime.cjs'), 'utf8');
+  const runtimeSource = fs.readFileSync(path.resolve(__dirname, '../bin/genos-agent-runtime.cjs'), 'utf8');
   assert.match(runtimeSource, /localModelReview: plan\.localModelReview/);
   assert.match(runtimeSource, /accepted or rejected recommendations/);
 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-local-review-runtime-'));
   try {
     const capture = path.join(directory, 'prompt.txt');
-    const fakeCodex = path.join(directory, 'fake-codex');
+    const fakeCodex = path.join(directory, 'fake-codex.cjs');
     fs.writeFileSync(fakeCodex, `#!/usr/bin/env node
 const fs = require('fs'); let input = ''; process.stdin.on('data', chunk => input += chunk); process.stdin.on('end', () => { fs.writeFileSync(process.env.PROMPT_CAPTURE, input); process.stdout.write(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:JSON.stringify({outcome:'success',claims:[{statement:'done',evidence:['captured prompt']}],uncertainties:[],tests:[]})}})+'\\n'); process.stdout.write(JSON.stringify({type:'turn.completed'})+'\\n'); });
 `, { mode: 0o700 });
-    const runtime = spawnSync(process.execPath, [path.resolve(__dirname, 'bin/genos-agent-runtime.cjs')], {
+    const runtime = spawnSync(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
       cwd: directory,
       input: JSON.stringify({
         agentId: 'orchestrator-local-review-test', executionMode: 'orchestrator', prompt: 'audit local advice',

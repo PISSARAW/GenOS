@@ -166,6 +166,8 @@ process.stdin.on('end', async () => {
     `Mission:\n${mission.prompt || mission.currentTask || 'Inspect the repository and report the next safe action.'}`
   ].join('\n\n');
   const codex = process.env.CODEX_EXECUTABLE || 'codex';
+  const codexArgs = /\.c?js$/i.test(codex) ? [codex] : [];
+  const codexCommand = codexArgs.length ? process.execPath : codex;
   // Worker capsules are intentionally plain copied directories rather than
   // Git worktrees. Codex must therefore accept an isolated non-Git capsule.
   // Runtime agents must not inherit the operator's MCP catalog. In particular,
@@ -183,7 +185,7 @@ process.stdin.on('end', async () => {
     description: 'Enforce the execution policy attached to a GenOS mission.',
     hooks: { PreToolUse: [{ matcher: '^(Bash|apply_patch)$', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(policyHook)}`, timeout: 10 }] }] }
   }), { mode: 0o600 });
-  const args = ['exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
+  const args = [...codexArgs, 'exec', '--json', '--ephemeral', '--skip-git-repo-check', '--sandbox', 'workspace-write', '--dangerously-bypass-hook-trust', '-c', 'approval_policy="never"'];
   args.push(...codexRuntimeConfiguration.commandOptions(mission));
   const mcpNodeScript = path.resolve(__dirname, '../../mcp/index.js');
   const mcpCommand = fs.existsSync(mcpBinary) ? mcpBinary : (fs.existsSync(mcpNodeScript) ? process.execPath : null);
@@ -204,7 +206,7 @@ process.stdin.on('end', async () => {
     args.push('--dangerously-bypass-approvals-and-sandbox');
   }
   args.push('-C', workspace, '-');
-  const child = spawn(codex, args, {
+  const child = spawn(codexCommand, args, {
     cwd: workspace,
     env: {
       ...process.env,
