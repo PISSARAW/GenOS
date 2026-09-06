@@ -153,17 +153,17 @@ async function migrateDatasetNameConstraint(db) {
 
 async function migrateNotificationPreferenceScope(db) {
   const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notification_preferences'");
-  if (!table?.sql || !/event_type\s+TEXT\s+PRIMARY\s+KEY/i.test(table.sql)) return;
+  if (!table?.sql || (/organization_id\s+TEXT\s+NOT\s+NULL/i.test(table.sql) && /PRIMARY\s+KEY\s*\(event_type, organization_id, project_id\)/i.test(table.sql))) return;
   await db.exec('PRAGMA foreign_keys = OFF;');
   try {
     await db.exec('BEGIN IMMEDIATE;');
     await db.exec(`CREATE TABLE notification_preferences_scoped (
       event_type TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, channels_json TEXT NOT NULL DEFAULT '["studio"]',
-      threshold REAL, organization_id TEXT, project_id TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      threshold REAL, organization_id TEXT NOT NULL DEFAULT '', project_id TEXT NOT NULL DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (event_type, organization_id, project_id)
     );
     INSERT INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, updated_at)
-      SELECT event_type, enabled, channels_json, threshold, updated_at FROM notification_preferences;
+      SELECT event_type, enabled, channels_json, threshold, COALESCE(organization_id, ''), COALESCE(project_id, ''), updated_at FROM notification_preferences;
     DROP TABLE notification_preferences;
     ALTER TABLE notification_preferences_scoped RENAME TO notification_preferences;`);
     await db.exec('COMMIT;');

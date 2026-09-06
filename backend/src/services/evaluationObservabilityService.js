@@ -25,7 +25,7 @@ async function overview(input = {}) {
     db.all(tenant ? 'SELECT a.id, a.name, a.model_tier, a.lineage_relation, a.parent_agent_id, a.status FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status != "terminated" AND w.organization_id = ? AND w.project_id = ?' : 'SELECT id, name, model_tier, lineage_relation, parent_agent_id, status FROM agents WHERE status != "terminated"', ...tenantParams),
     db.all(`SELECT * FROM evaluation_runs WHERE ${scope.clause} ORDER BY created_at DESC LIMIT 30`, ...scope.params),
     db.all(tenant ? 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 30' : 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30', ...tenantParams),
-    db.all(tenant ? 'SELECT * FROM notification_preferences WHERE organization_id = ? AND project_id = ? ORDER BY event_type' : 'SELECT * FROM notification_preferences WHERE organization_id IS NULL AND project_id IS NULL ORDER BY event_type', ...tenantParams)
+    db.all(tenant ? 'SELECT * FROM notification_preferences WHERE organization_id = ? AND project_id = ? ORDER BY event_type' : "SELECT * FROM notification_preferences WHERE organization_id = '' AND project_id = '' ORDER BY event_type", ...tenantParams)
   ]);
   const fleetBrier = runs.length ? runs.reduce((sum, run) => sum + Number(run.brier_score || 0), 0) / runs.length : null;
   // Brier-calibrated voting: a lower error gives a higher (bounded) vote weight.
@@ -118,7 +118,7 @@ async function pruneNode(nodeId, scope = {}) {
 async function updateNotifications(preferences, scope = {}) {
   const db = await getDatabase();
   for (const item of preferences || []) {
-    await db.run('INSERT INTO notification_preferences (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(event_type, organization_id, project_id) DO UPDATE SET enabled=excluded.enabled, channels_json=excluded.channels_json, threshold=excluded.threshold, updated_at=CURRENT_TIMESTAMP', item.eventType, item.enabled ? 1 : 0, JSON.stringify(item.channels || ['studio']), item.threshold ?? null, scope.organizationId || null, scope.projectId || null);
+    await db.run('INSERT INTO notification_preferences (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP) ON CONFLICT(event_type, organization_id, project_id) DO UPDATE SET enabled=excluded.enabled, channels_json=excluded.channels_json, threshold=excluded.threshold, updated_at=CURRENT_TIMESTAMP', item.eventType, item.enabled ? 1 : 0, JSON.stringify(item.channels || ['studio']), item.threshold ?? null, scope.organizationId || '', scope.projectId || '');
   }
   return overview();
 }
