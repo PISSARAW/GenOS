@@ -9,7 +9,9 @@ function isStrategyTool(toolName) {
     toolName.startsWith('genos_strat_') ||
     toolName === 'genos_resilience_hypermutation' ||
     toolName === 'genos_execute_primitive' ||
-    toolName === 'genos_execute_strategy_pipeline'
+    toolName === 'genos_execute_strategy_pipeline' ||
+    toolName === 'genos_record_experience' ||
+    toolName === 'genos_compile_memory'
   );
 }
 
@@ -17,6 +19,28 @@ async function executeStrategyTool(toolName, args = {}) {
   if (!isStrategyTool(toolName)) return null;
 
   try {
+    if (toolName === 'genos_record_experience') {
+      const res = await strategyExecutionAdapter.executePrimitive('record_experience', args);
+      const ok = res && res.success !== false;
+      return {
+        configured: true,
+        success: ok,
+        status: ok ? 'completed' : 'tool_error',
+        transport: 'strategy_primitive',
+        output: res
+      };
+    }
+    if (toolName === 'genos_compile_memory') {
+      const res = await strategyExecutionAdapter.executePrimitive('compile_memory', args);
+      const ok = res && res.success !== false;
+      return {
+        configured: true,
+        success: ok,
+        status: ok ? 'completed' : 'tool_error',
+        transport: 'strategy_primitive',
+        output: res
+      };
+    }
     if (toolName === 'genos_resilience_hypermutation') {
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
       if (mutations.length === 0) {
