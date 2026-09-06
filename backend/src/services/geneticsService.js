@@ -244,16 +244,59 @@ function crossoverGenome(parentA, parentB, options = {}) {
     }
   }
 
-  // Apply mutation if triggered
-  let mutatedGene = null;
-  let mutationFrom = null;
-  let mutationTo = null;
+  // Multi-locus mutation if triggered
+  const appliedMutations = [];
   if (deterministicUnit(`${reproducibilitySeed}:mutation`) < mutationRate) {
-    mutationFrom = Number(childGenes.temp);
-    mutationTo = Number((Math.min(0.8, mutationFrom + 0.05)).toFixed(2));
-    if (mutationTo !== mutationFrom) {
-      mutatedGene = 'temp';
-      childGenes.temp = mutationTo;
+    // 1. Temperature mutation (bidirectional step)
+    const tempUnit = deterministicUnit(`${reproducibilitySeed}:mutation:temp_direction`);
+    const tempDelta = tempUnit < 0.5 ? -0.05 : 0.05;
+    const oldTemp = Number(childGenes.temp);
+    let newTemp = Number((oldTemp + tempDelta).toFixed(2));
+    if (newTemp < 0.1) newTemp = 0.15;
+    if (newTemp > 0.9) newTemp = 0.85;
+    if (newTemp !== oldTemp) {
+      childGenes.temp = newTemp;
+      appliedMutations.push({
+        gene: 'temp',
+        from: oldTemp,
+        to: newTemp,
+        delta: `${newTemp >= oldTemp ? '+' : ''}${(newTemp - oldTemp).toFixed(2)}`
+      });
+    }
+
+    // 2. topP mutation (probabilistic secondary locus)
+    if (deterministicUnit(`${reproducibilitySeed}:mutation:topP`) < mutationRate * 0.8) {
+      const oldTopP = Number(childGenes.topP);
+      const topPDelta = deterministicUnit(`${reproducibilitySeed}:mutation:topP_dir`) < 0.5 ? -0.05 : 0.05;
+      let newTopP = Number((oldTopP + topPDelta).toFixed(2));
+      if (newTopP < 0.5) newTopP = 0.55;
+      if (newTopP > 1.0) newTopP = 0.95;
+      if (newTopP !== oldTopP) {
+        childGenes.topP = newTopP;
+        appliedMutations.push({
+          gene: 'topP',
+          from: oldTopP,
+          to: newTopP,
+          delta: `${newTopP >= oldTopP ? '+' : ''}${(newTopP - oldTopP).toFixed(2)}`
+        });
+      }
+    }
+
+    // 3. Tools mutation (gene drift on tools)
+    if (deterministicUnit(`${reproducibilitySeed}:mutation:tools`) < mutationRate * 0.5) {
+      const AVAILABLE_DISCOVERY_TOOLS = ['genos_inspect', 'genos_patch', 'genos_test', 'genos_storage', 'genos_ais_prr_scan', 'genos_snapshot'];
+      const toolIdx = Math.floor(deterministicUnit(`${reproducibilitySeed}:mutation:tool_choice`) * AVAILABLE_DISCOVERY_TOOLS.length);
+      const candidateTool = AVAILABLE_DISCOVERY_TOOLS[toolIdx];
+      if (!childGenes.tools.includes(candidateTool)) {
+        const oldTools = [...childGenes.tools];
+        childGenes.tools.push(candidateTool);
+        appliedMutations.push({
+          gene: 'tools',
+          from: oldTools,
+          to: childGenes.tools,
+          delta: `+${candidateTool}`
+        });
+      }
     }
   }
 
@@ -271,19 +314,86 @@ function crossoverGenome(parentA, parentB, options = {}) {
       parentB: pB.name || 'Parent B'
     },
     childGenes,
-    mutations: mutatedGene ? [{ gene: mutatedGene, from: mutationFrom, to: mutationTo, delta: `+${(mutationTo - mutationFrom).toFixed(2)}` }] : [],
+    mutations: appliedMutations,
     predictedFitnessScore: predictedFitness,
-    // The score above is a heuristic formula over temperature and tool count;
-    // no proving ground has evaluated this genome, so the honest status is
-    // "unvalidated" until a real evaluation run is wired in.
     predictedFitnessBasis: 'heuristic',
     provingGroundStatus: 'UNVALIDATED_HEURISTIC'
+  };
+}
+
+/**
+ * Somatic Hypermutation: accelerates mutation rate across cognitive loci
+ * under severe stress, stagnation, or circuit breaker trips.
+ */
+function somaticHypermutate(genes = {}, options = {}) {
+  validateCognitiveGenes(genes, 'somaticHypermutate');
+  const stressLevel = Math.max(0.1, Math.min(2.0, Number(options.stressLevel ?? 1.0)));
+  const baseRate = Math.max(0.1, Math.min(1.0, Number(options.mutationRate ?? 0.4)));
+  const effectiveRate = Math.min(1.0, baseRate * stressLevel);
+  const seed = options.seed ? String(options.seed) : `hyper_${Date.now()}_${Math.random()}`;
+
+  const mutatedGenes = {
+    ...genes,
+    tools: [...(genes.tools || [])]
+  };
+  const mutationsApplied = [];
+
+  // 1. Reheat Temperature
+  const oldTemp = Number(mutatedGenes.temp);
+  const reheatDelta = ((deterministicUnit(`${seed}:hyper:temp`) * 0.35 + 0.1) * stressLevel);
+  let newTemp = Number((Math.min(0.95, Math.max(0.1, oldTemp + (deterministicUnit(`${seed}:hyper:dir`) < 0.3 ? -reheatDelta * 0.5 : reheatDelta)))).toFixed(2));
+  if (newTemp !== oldTemp) {
+    mutatedGenes.temp = newTemp;
+    mutationsApplied.push({ gene: 'temp', from: oldTemp, to: newTemp, reason: 'thermal_reheat' });
+  }
+
+  // 2. Perturb topP
+  const oldTopP = Number(mutatedGenes.topP);
+  const topPShift = (deterministicUnit(`${seed}:hyper:topP`) < 0.5 ? -0.1 : 0.1);
+  let newTopP = Number((Math.min(1.0, Math.max(0.5, oldTopP + topPShift))).toFixed(2));
+  if (newTopP !== oldTopP) {
+    mutatedGenes.topP = newTopP;
+    mutationsApplied.push({ gene: 'topP', from: oldTopP, to: newTopP, reason: 'stochastic_breadth' });
+  }
+
+  // 3. Diversify tools
+  const ADAPTIVE_EXPLORATION_TOOLS = ['genos_inspect', 'genos_patch', 'genos_test', 'genos_storage', 'genos_ais_prr_scan', 'genos_snapshot'];
+  const missingTools = ADAPTIVE_EXPLORATION_TOOLS.filter(t => !mutatedGenes.tools.includes(t));
+  if (missingTools.length > 0 && deterministicUnit(`${seed}:hyper:tool`) < effectiveRate) {
+    const chosenTool = missingTools[Math.floor(deterministicUnit(`${seed}:hyper:tool_pick`) * missingTools.length)];
+    mutatedGenes.tools.push(chosenTool);
+    mutationsApplied.push({ gene: 'tools', action: 'add', tool: chosenTool, reason: 'repertoire_expansion' });
+  }
+
+  // 4. Strategy mutation (exploration mode)
+  if (deterministicUnit(`${seed}:hyper:strat`) < effectiveRate * 0.6) {
+    const STRATEGY_POOL = ['tree-search', 'dialectic-exploration', 'adversarial-falsification', 'invariant-verification'];
+    const candidates = STRATEGY_POOL.filter(s => s !== mutatedGenes.strategy);
+    const chosenStrat = candidates[Math.floor(deterministicUnit(`${seed}:hyper:strat_pick`) * candidates.length)];
+    if (chosenStrat) {
+      const oldStrat = mutatedGenes.strategy;
+      mutatedGenes.strategy = chosenStrat;
+      mutationsApplied.push({ gene: 'strategy', from: oldStrat, to: chosenStrat, reason: 'mode_shift' });
+    }
+  }
+
+  const hypermutationScore = Number((mutationsApplied.length * 0.25 * stressLevel).toFixed(2));
+
+  return {
+    originalGenes: genes,
+    mutatedGenes,
+    mutationsApplied,
+    stressLevel,
+    effectiveRate,
+    hypermutationScore,
+    isHypermutated: mutationsApplied.length > 0
   };
 }
 
 module.exports = {
   getPhylogeneticTree,
   analyzeAlleles,
-  crossoverGenome
-  ,validateCognitiveGenes
+  crossoverGenome,
+  somaticHypermutate,
+  validateCognitiveGenes
 };
