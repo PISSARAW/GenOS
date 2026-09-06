@@ -5,11 +5,14 @@ const { withTransaction } = require('../db');
 
 function strategySignature(contract = {}) {
   return JSON.stringify({
-    primary: contract.selected_strategy?.primary,
-    portfolio: (contract.strategy_portfolio || []).map((strategy) => strategy.id),
-    allocation: contract.selected_strategy?.allocation,
-    evaluation: contract.selected_strategy?.evaluation,
-    merge: contract.selected_strategy?.merge
+    selected: contract.selected_strategy || {},
+    portfolio: (contract.strategy_portfolio || []).map((strategy) => ({ id: strategy.id, primitives: strategy.primitives || [] })),
+    profile: contract.problem_profile || {},
+    pipeline: contract.execution_pipeline || [],
+    branches: contract.branches || [],
+    stopConditions: contract.stop_conditions || [],
+    promotion: contract.promotion || {},
+    selectionPolicy: contract.selection_policy || {}
   });
 }
 
@@ -23,6 +26,26 @@ function remainingBudget(run, now = Date.now()) {
     remaining[key] = Math.max(0, Number(run.budget?.[key] || 0) - consumed);
   }
   return remaining;
+}
+
+async function useFallbackStrategyIfPrimaryFailed(db, orchestratorId) {
+  // Detect if the primary strategy has failed and switch to fallback if available.
+  const currentContract = await strategyContracts.getLatestContract(db, orchestratorId);
+  if (!currentContract) return null;
+  const fallback = currentContract.contract.selected_strategy?.fallback;
+  if (!fallback) return null;
+  const activeRun = await strategyExecution.getLatestRun(db, orchestratorId);
+  const hasFailed = activeRun && activeRun.status === 'cancelled'
+    && activeRun.guardrailReason
+    && activeRun.guardrailReason.includes('Primary strategy failed or produced insufficient evidence');
+  if (!hasFailed) return null;
+  return changeStrategy(db, {
+    orchestratorId,
+    need: fallback.requested,
+    reason: `Primary strategy '${currentContract.primaryStrategy}' failed: ${fallback.reason}. Switching to fallback '${fallback.selected}'.`,
+    problemProfile: currentContract.contract.problem_profile,
+    executionBudget: remainingBudget(activeRun)
+  });
 }
 
 function planAdaptation(currentContract, input = {}) {
@@ -132,4 +155,4 @@ async function changeStrategy(db, input = {}) {
   };
 }
 
-module.exports = { strategySignature, remainingBudget, planAdaptation, changeStrategy };
+module.exports = { strategySignature, remainingBudget, planAdaptation, changeStrategy, useFallbackStrategyIfPrimaryFailed };
