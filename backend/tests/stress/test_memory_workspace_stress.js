@@ -168,7 +168,7 @@ async function testGeneticsAndAlleles() {
 
   const alleles = await analyzeAlleles();
   assert(alleles.totalAllelesTracked >= 6, 'Tracks standard gene alleles');
-  assert(alleles.dominantBeneficialGenes.length > 0, 'Identifies dominant beneficial alleles');
+  assert(alleles.unclassifiedAlleles.length > 0, 'Keeps recorded alleles unclassified without fitness evidence');
 
   // Crossover recombination with 15% mutation rate
   const crossover = crossoverGenome(null, null, { strategy: 'uniform', mutationRate: 0.15 });

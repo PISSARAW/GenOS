@@ -195,7 +195,7 @@ async function runTests() {
     assert(phyloRes.status === 200 && phyloRes.body.nodes.length >= 3, 'GET /api/genome/phylogeny returned evolutionary mutation DAG');
 
     const allelesRes = await request({ method: 'GET', path: '/api/genome/alleles' });
-    assert(allelesRes.status === 200 && allelesRes.body.dominantBeneficialGenes.length > 0, 'GET /api/genome/alleles identified beneficial vs lethal alleles');
+    assert(allelesRes.status === 200 && allelesRes.body.unclassifiedAlleles.length > 0 && allelesRes.body.dominantBeneficialGenes.length === 0, 'GET /api/genome/alleles refuses unsupported beneficial classifications');
 
     const crossRes = await request({
       method: 'POST',
