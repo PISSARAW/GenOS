@@ -14,7 +14,7 @@ const { getDatabase } = require('../db');
  * @returns {Promise<object>}
  */
 async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
-  const searchRes = await vectorMemory.searchMemory(task, { limit: options.limit || 5 });
+  const searchRes = await vectorMemory.searchMemory(task, { ...options, limit: options.limit || 5, ownerId: agentId });
   const allScored = searchRes.allScoredExperiences || [];
 
   const experiences = allScored.filter(e => e.id !== 'signal_ignorance' && e.status !== 'FAILURE').slice(0, 4);
@@ -26,7 +26,8 @@ async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
   try {
     const db = await getDatabase();
     const rows = await db.all(
-      "SELECT title, content FROM genome_decisions WHERE category = 'Failure' ORDER BY created_at DESC LIMIT 3"
+      "SELECT title, content FROM genome_decisions WHERE category = 'Failure' AND created_by = ? ORDER BY created_at DESC LIMIT 3",
+      agentId
     );
     additionalFailures = rows.map(r => ({ summary: `${r.title}: ${r.content}` }));
   } catch {}

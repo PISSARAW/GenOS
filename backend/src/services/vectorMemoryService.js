@@ -59,8 +59,11 @@ class VectorMemoryService {
     await db.run('DELETE FROM genome_decisions WHERE id = ?', memoryId);
   }
 
-  async fetchCorpus(db, query, queryVec) {
+  async fetchCorpus(db, query, queryVec, options = {}) {
     if (!db) return [];
+    const ownerId = String(options.ownerId || '').trim();
+    const ownerFilter = ownerId ? ' AND t.created_by = ?' : '';
+    const ownerParams = ownerId ? [ownerId] : [];
     const queryVecJson = JSON.stringify(Array.from(queryVec));
     const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
     const ftsMatch = cleanQuery.length > 0
@@ -88,9 +91,10 @@ class VectorMemoryService {
         FROM trajectories t
         LEFT JOIN vector_matches v ON t.rowid = v.rowid
         LEFT JOIN fts_matches f ON t.rowid = f.rowid
-        WHERE v.rowid IS NOT NULL OR f.rowid IS NOT NULL
+        WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)
+          ${ownerId ? 'AND t.author_id = ?' : ''}
         ORDER BY rrf_score DESC LIMIT 50
-      `, [queryVecJson, ftsMatch]);
+      `, [queryVecJson, ftsMatch, ...ownerParams]);
 
       const decisions = await db.all(`
         WITH 
@@ -112,9 +116,9 @@ class VectorMemoryService {
         FROM genome_decisions t
         LEFT JOIN vector_matches v ON t.rowid = v.rowid
         LEFT JOIN fts_matches f ON t.rowid = f.rowid
-        WHERE v.rowid IS NOT NULL OR f.rowid IS NOT NULL
+        WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}
         ORDER BY rrf_score DESC LIMIT 50
-      `, [queryVecJson, ftsMatch]);
+      `, [queryVecJson, ftsMatch, ...ownerParams]);
 
       const items = [];
       for (const item of trajectories) {
@@ -156,8 +160,8 @@ class VectorMemoryService {
 
     // Fallback: standard SQL table scan
     try {
-      const trajectories = await db.all('SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at FROM trajectories ORDER BY created_at DESC LIMIT 50');
-      const decisions = await db.all('SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions ORDER BY created_at DESC LIMIT 50');
+      const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at FROM trajectories${ownerId ? ' WHERE author_id = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
+      const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions${ownerFilter ? ' WHERE created_by = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
       return [
         ...trajectories.map(item => {
           let diffLines = [];
@@ -212,7 +216,7 @@ class VectorMemoryService {
     const limit = options.limit || 5;
     const queryVec = options.vector || (await embed(query)) || textToVector(query);
 
-    const fetchedCorpus = await this.fetchCorpus(db, query, queryVec);
+    const fetchedCorpus = await this.fetchCorpus(db, query, queryVec, options);
     const existingIds = new Set(fetchedCorpus.map(i => i.id));
     const mergedSeed = SEED_EXPERIENCES.filter(s => !existingIds.has(s.id));
     const corpus = [...mergedSeed, ...fetchedCorpus];
@@ -235,8 +239,11 @@ class VectorMemoryService {
       try {
         const placeholders = topIds.map(() => '?').join(',');
         const inhibitions = await db.all(
-          `SELECT target_id FROM memory_synapses WHERE target_id IN (${placeholders}) AND weight < 0`,
-          topIds
+          `SELECT s.target_id FROM memory_synapses s
+             JOIN genome_decisions source_node ON source_node.id = s.source_id
+            WHERE s.target_id IN (${placeholders}) AND s.weight < 0
+              ${options.ownerId ? 'AND source_node.created_by = ?' : ''}`,
+          options.ownerId ? [...topIds, options.ownerId] : topIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
         if (inhibitedIds.size > 0) {

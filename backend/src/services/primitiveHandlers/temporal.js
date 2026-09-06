@@ -104,7 +104,13 @@ async function dependencyMatrix(context) {
 
   // On lit les memory_synapses pour les agents de cet orchestrateur
   const rows = await db.all(
-    `SELECT source_id, target_id, weight FROM memory_synapses LIMIT 100`
+    `SELECT s.source_id, s.target_id, s.weight
+       FROM memory_synapses s
+       JOIN genome_decisions source_node ON source_node.id = s.source_id
+       JOIN genome_decisions target_node ON target_node.id = s.target_id
+      WHERE source_node.created_by = ? OR target_node.created_by = ?
+      ORDER BY s.last_updated_at DESC LIMIT 100`,
+    orchestratorId, orchestratorId
   );
   
   const matrix = {};
