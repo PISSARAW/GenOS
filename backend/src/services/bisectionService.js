@@ -3,6 +3,8 @@
  * Multi-branch temporal diffing, O(log N) causal bisection, and atomic invariant-preserving rollback.
  */
 
+const MAX_BISECTION_SNAPSHOTS = 10000;
+
 /**
  * Computes multi-branch temporal tree diff across workspaces or snapshots
  */
@@ -178,13 +180,23 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
   if (!history && db && workspaceId) {
     try {
       history = await db.all(
-        'SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC',
-        workspaceId
+        'SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC LIMIT ?',
+        workspaceId,
+        MAX_BISECTION_SNAPSHOTS + 1
       );
       workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', workspaceId);
     } catch (_) {
       history = [];
     }
+  }
+
+  if (history && history.length > MAX_BISECTION_SNAPSHOTS) {
+    return {
+      bisectionComplete: false,
+      anomalyFound: false,
+      totalSnapshotsSearched: history.length,
+      reason: `Snapshot history exceeds the ${MAX_BISECTION_SNAPSHOTS}-snapshot bisection limit.`
+    };
   }
 
   if (!history || history.length < 2) {
@@ -254,6 +266,7 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
 }
 
 module.exports = {
+  MAX_BISECTION_SNAPSHOTS,
   diffWorkspaces,
   bisectAnomaly,
   bisectAnomalyAsync,
