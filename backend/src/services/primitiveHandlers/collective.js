@@ -54,6 +54,8 @@ async function trailSelection(context) {
     if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
       return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
     }
+    const suppliedReferenceTime = context.referenceTime == null ? Date.now() : new Date(context.referenceTime).getTime();
+    const referenceTime = Number.isFinite(suppliedReferenceTime) ? suppliedReferenceTime : Date.now();
     const rows = await db.all(
       `SELECT payload_json, created_at FROM agent_organization_messages 
        WHERE orchestrator_id = ? AND kind = 'trace' ORDER BY id DESC LIMIT 100`,
@@ -65,7 +67,7 @@ async function trailSelection(context) {
       try {
         const payload = JSON.parse(row.payload_json);
         if (payload.type === 'pheromone' && payload.path) {
-          const ageMs = Math.max(0, Date.now() - new Date(row.created_at || Date.now()).getTime());
+          const ageMs = Math.max(0, referenceTime - new Date(row.created_at || referenceTime).getTime());
           const evaporation = Math.pow(0.5, ageMs / evaporationHalfLifeMs);
           trailStrengths[payload.path] = (trailStrengths[payload.path] || 0) + ((payload.strength || 0) * evaporation);
         }
@@ -81,7 +83,7 @@ async function trailSelection(context) {
       action: 'TRAIL_SELECTION',
       detail: `Selected trail ${selectedTrail || 'none'} from ${sortedTrails.length} options.`,
       severity: 'info',
-      payload: { selectedTrail, trailStrengths }
+      payload: { selectedTrail, trailStrengths, referenceTime: new Date(referenceTime).toISOString() }
     });
     return { success: true, selectedTrail, trailStrengths };
   } catch (err) {
