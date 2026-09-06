@@ -235,7 +235,7 @@ async function superviseMission(options) {
     await updateAgent(agentId, 'error', error.message);
     emitTracked('AGENT_RUNTIME_ERROR', 'ERROR', error.message, {}, 'error', 'error');
   });
-  child.on('close', async (code, signal) => { require('fs').writeFileSync('close.log', `closed with ${code}`);
+  child.on('close', async (code, signal) => {
     clearTerminationTimer(child);
     await executionQueue;
     // Keep the process visible to the orchestration barrier until every final
