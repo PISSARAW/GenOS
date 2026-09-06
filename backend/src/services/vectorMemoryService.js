@@ -461,7 +461,8 @@ class VectorMemoryService {
           SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
               receptor_density = MIN(3.0, receptor_density + 0.05),
               c3_opsonization = 0.0,
-              cd47_expression = MIN(2.0, cd47_expression + 0.1)
+              cd47_expression = MIN(2.0, cd47_expression + 0.1),
+              spine_morphology = CASE WHEN receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END
           WHERE activity_history > 0
         `);
 
@@ -471,7 +472,8 @@ class VectorMemoryService {
           SET weight = ROUND(weight * 0.95, 4),
               receptor_density = MAX(0.0, receptor_density - 0.05),
               c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
-              cd47_expression = MAX(0.0, cd47_expression - 0.05)
+              cd47_expression = MAX(0.0, cd47_expression - 0.05),
+              spine_morphology = CASE WHEN receptor_density - 0.05 < 0.6 THEN 'filopodia' WHEN receptor_density - 0.05 < 1.3 THEN 'stubby' ELSE spine_morphology END
           WHERE activity_history IS NULL OR activity_history = 0
         `);
 
