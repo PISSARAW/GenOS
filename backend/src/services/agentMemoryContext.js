@@ -67,13 +67,21 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     } catch {}
 
     let epistemicShield = null;
+function truncateWords(text = '', maxLen = 250) {
+  const str = String(text || '').trim();
+  if (str.length <= maxLen) return str;
+  const cut = str.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.7 ? cut.slice(0, lastSpace) : cut) + '...';
+}
+
     if (vesicleEngrams.length > 0) {
       const regularVesicles = [];
       for (const v of vesicleEngrams) {
         if (v.content && v.content.includes('[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD]')) {
           epistemicShield = v.content;
         } else if (v.content) {
-          regularVesicles.push(`  * ⚡ ${v.content.slice(0, 250)}`);
+          regularVesicles.push(`  * ⚡ ${truncateWords(v.content, 250)}`);
         }
       }
       if (regularVesicles.length > 0) {
@@ -84,7 +92,7 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     if (experiences.length > 0) {
       const expLines = experiences.map(e => {
         const title = e.title ? `[${e.title}] ` : '';
-        const summary = (e.summary || e.content || '').slice(0, 250);
+        const summary = truncateWords(e.summary || e.content || '', 250);
         const weight = e.weight !== undefined ? ` (force: ${Number(e.weight).toFixed(1)})` : '';
         return `  * ${title}${summary}${weight}`;
       });
@@ -93,7 +101,7 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
 
     if (pitfalls.length > 0) {
       const pitLines = pitfalls.map(p => {
-        const desc = (p.summary || p.content || p.title || '').slice(0, 200);
+        const desc = truncateWords(p.summary || p.content || p.title || '', 200);
         return `  * ⚠️ ${desc}`;
       });
       sections.push(`- Pièges & Échecs à Éviter Absolument (Anti-Trauma) :\n${pitLines.join('\n')}`);

@@ -157,7 +157,7 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   // Continuous temporal recency & Ebbinghaus decay
   const tauMs = 7 * 24 * 3600 * 1000; // 7-day half-life decay
   const temporalDecay = Math.max(0.4, 0.4 + 0.6 * Math.exp(-Math.max(0, ageMs) / tauMs));
-  const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000) ? 1.3 : 1.0;
+  const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000 && ageMs >= 0) ? 1.15 : 1.0;
   const recencyFactor = item.createdAt ? (temporalDecay * neurogenesisBonus) : 1.0;
 
   // Sensitive synaptic weight scaling: attenuated connections yield significantly lower retrieval scores
