@@ -192,6 +192,7 @@ class StrategyExecutionAdapter {
   }
 
   async executePipeline(primitives, context = {}) {
+    await logPrimitiveExecutionAudit(context.agentId, primitives, context);
     const results = [];
     let pipelineSuccess = true;
     for (const p of primitives) {
@@ -238,8 +239,6 @@ class StrategyExecutionAdapter {
   }
 
   async executePipelineWithFeedback(primitives, context = {}) {
-    // Log the executed primitives for audit trail before executing
-    await logPrimitiveExecutionAudit(context.agentId, primitives, context);
     return this.executePipeline(primitives, context);
   }
 
