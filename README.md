@@ -100,8 +100,8 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 | **Mitosis** | Symmetric duplication with chromosomal spindle alignment | Attested counterfactual fork. Creates twin clones with identical state and budget to explore parallel hypotheses and neutralize LLM stochasticity. |
 | **Binary Fission** | Fast prokaryotic division without heavy nucleus | Lightweight scale-out for Map-Reduce tasks. Divides the remaining parent budget equally among workers without heavy metadata. |
 | **Budding** | Asymmetric division leaving a scar on the mother cell | Safe delegation to ephemeral workers. Strictly constrained by the **Hayflick Limit** (max buds per agent) to prevent recursive spawn storms. |
-| **Schizogonie** | Multiple internal nuclear divisions before synchronous burst release | Atomic speculative fan-out for Monte Carlo Tree Search (MCTS). Multiple hypothesis branches evaluate in memory and commit in a single atomic transaction. |
-| **Meiosis** | Diploid genome recombination with crossing-over and segregation | Sexual genetic breeding (`breed_genomes`) between two successful agent parents, filtered by speciation barriers (`speciation_threshold`). |
+| **Schizogony** | Multiple internal nuclear divisions before synchronous burst release | Atomic speculative fan-out for Monte Carlo Tree Search (MCTS). Multiple hypothesis branches evaluate in memory and commit in a single atomic transaction. |
+| **Meiosis** | Two-step reductional division with crossing-over (chiasmata), gametic epigenetic reprogramming, and Mendelian segregation | Cellular gametogenesis via `genos evolution division --mode meiosis` generating 4 recombinant haploid gametes (quarter budget, epigenetic demethylation), and sexual amphimixis via `genos evolution crossover` / primitive `breed` between two agent parents, gated by phylogenetic speciation barriers (`--speciation-threshold`). |
 
 > **Anti-Pattern Banned:** **Amitosis** (uncontrolled, non-attested splitting) is rejected by design because it lacks cryptographic replayability and provenance.
 
