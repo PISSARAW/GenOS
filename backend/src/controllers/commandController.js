@@ -5,6 +5,29 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const circuitBreaker = require('../services/circuitBreaker');
+const lineageController = require('./lineageController');
+const snapshotStore = require('../services/workspaceSnapshotStore');
+const { stopMission, stopAllMissions } = require('../services/agentRuntimeAdapter');
+
+async function findCommandWorkspace(db, req, workspaceId) {
+  if (!workspaceId) return null;
+  if (req.tenant) {
+    return db.get(
+      'SELECT * FROM workspaces WHERE id = ? AND organization_id = ? AND project_id = ?',
+      workspaceId,
+      req.tenant.organizationId,
+      req.tenant.projectId
+    );
+  }
+  return db.get('SELECT * FROM workspaces WHERE id = ? AND organization_id IS NULL AND project_id IS NULL', workspaceId);
+}
+
+function controllerResponse(resolve) {
+  return {
+    status(code) { this.statusCode = code; return this; },
+    json(payload) { resolve({ status: this.statusCode || 200, payload }); }
+  };
+}
 
 async function handleCommand(req, res) {
   const { action, agentId, workspaceId, params } = req.body || {};
@@ -21,11 +44,21 @@ async function handleCommand(req, res) {
 
   switch (action) {
     case 'fork_agent': {
-      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette agent forking is unavailable. Use a scoped Agent Profile clone instead.' } });
+      const parentId = agentId || params?.agentId;
+      if (!parentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+      const result = await new Promise((resolve, reject) => {
+        const forkResponse = controllerResponse(resolve);
+        Promise.resolve(lineageController.cloneNode({ body: { nodeId: parentId } }, forkResponse)).catch(reject);
+      });
+      return res.status(result.status).json(result.payload);
     }
 
     case 'kill_agent': {
-      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette agent termination is unavailable because it cannot stop a runtime process safely.' } });
+      const targetId = agentId || params?.agentId;
+      if (!targetId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+      const stopped = stopMission(targetId);
+      await updateAgentStatus(db, targetId, 'terminated', 'Terminated by command palette');
+      return res.json({ success: true, agentId: targetId, stopped, status: 'terminated' });
     }
 
     case 'inspect_state': {
@@ -34,16 +67,39 @@ async function handleCommand(req, res) {
     }
 
     case 'reboot_studio': {
-      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Studio reboot is not implemented by the backend.' } });
+      const stoppedMissions = stopAllMissions().length;
+      circuitBreaker.resetHalt('studio_reboot');
+      telemetry.emitEvent({ eventType: 'STUDIO_REBOOT_REQUESTED', agentId: 'command_palette', action: 'REBOOT', detail: 'Studio restart requested by command palette', severity: 'warning', payload: { stoppedMissions } });
+      return res.status(202).json({ success: true, action: 'reboot_studio', stoppedMissions, restartRequired: true, message: 'Managed missions stopped. Restart the backend process through its supervisor.' });
     }
 
     case 'snapshot_workspace': {
-      return res.status(501).json({ error: { code: 'UNAVAILABLE', message: 'Command-palette snapshots are unavailable because this command cannot capture workspace state. Use the Workspace Timeline snapshot flow.' } });
+      const targetWorkspaceId = workspaceId || params?.workspaceId;
+      const workspace = await findCommandWorkspace(db, req, targetWorkspaceId);
+      if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace not found: ${targetWorkspaceId || '<missing>'}` } });
+      const snapshot = await snapshotStore.capture({
+        db,
+        workspace,
+        label: params?.label || 'Command palette snapshot',
+        reason: params?.reason || 'Manual command palette snapshot',
+        author: req.user?.username || 'studio'
+      });
+      telemetry.emitEvent({ eventType: 'WORKSPACE_SNAPSHOT_CREATED', agentId: req.user?.username || 'studio', action: 'SNAPSHOT', detail: `Command palette captured ${snapshot.id}`, payload: snapshot });
+      return res.status(201).json({ success: true, snapshot });
     }
 
     default:
       return res.status(400).json({ error: { code: 'UNSUPPORTED_COMMAND', message: `Unsupported command action: ${action}` } });
   }
+}
+
+async function updateAgentStatus(db, agentId, status, currentTask) {
+  await db.run(
+    'UPDATE agents SET status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    status,
+    currentTask,
+    agentId
+  );
 }
 
 async function handleTerminal(req, res) {
