@@ -119,7 +119,9 @@ async function budgetLimit(context) {
   const db = await getDatabase();
   const orchestratorId = context.orchestratorId;
   const limitType = context.limitType || 'token'; // 'token' ou 'time'
-  const maxLimit = context.maxLimit || (limitType === 'token' ? 200000 : 3600000); // 200k tokens ou 1h
+  if (!['token', 'time'].includes(limitType)) return { success: false, error: 'limitType must be token or time.' };
+  const maxLimit = context.maxLimit === undefined ? (limitType === 'token' ? 200000 : 3600000) : Number(context.maxLimit);
+  if (!Number.isSafeInteger(maxLimit) || maxLimit < 0) return { success: false, error: 'maxLimit must be a non-negative safe integer.' };
   
   let currentUsage = 0;
   if (limitType === 'time') {
@@ -133,7 +135,8 @@ async function budgetLimit(context) {
     return { success: false, error: 'currentUsage required for token budget checks.' };
   }
   
-  const exceeded = currentUsage > maxLimit;
+  if (!Number.isFinite(currentUsage) || currentUsage < 0) return { success: false, error: 'currentUsage must be a non-negative finite number.' };
+  const exceeded = currentUsage >= maxLimit;
   
   if (exceeded) {
     telemetry.emitEvent({
