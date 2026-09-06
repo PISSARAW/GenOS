@@ -454,13 +454,32 @@ class VectorMemoryService {
           'UPDATE genome_decisions SET synaptic_weight = ROUND(synaptic_weight * 0.9, 4)'
         );
 
-        // 2. Synaptic connection decay: unused connections attenuate over time, receptors retract, C3 marks increase
-        await tx.run(
-          'UPDATE memory_synapses SET weight = ROUND(weight * 0.95, 4), receptor_density = MAX(0.0, receptor_density - 0.05), c3_opsonization = MIN(2.0, c3_opsonization + 0.05), cd47_expression = MAX(0.0, cd47_expression - 0.05)'
-        );
+        // 2. Differential synaptic consolidation:
+        // Active synapses (activity_history > 0): LTP reinforcement, receptor insertion, CD47 "don't eat me" protection, C3 clearance
+        await tx.run(`
+          UPDATE memory_synapses
+          SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
+              receptor_density = MIN(3.0, receptor_density + 0.05),
+              c3_opsonization = 0.0,
+              cd47_expression = MIN(2.0, cd47_expression + 0.1)
+          WHERE activity_history > 0
+        `);
+
+        // Inactive synapses (activity_history = 0 or NULL): LTD depression, receptor internalization, CD47 down-regulation, C3 opsonization
+        await tx.run(`
+          UPDATE memory_synapses
+          SET weight = ROUND(weight * 0.95, 4),
+              receptor_density = MAX(0.0, receptor_density - 0.05),
+              c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
+              cd47_expression = MAX(0.0, cd47_expression - 0.05)
+          WHERE activity_history IS NULL OR activity_history = 0
+        `);
 
         // 3. Prune dead synapses below transmission threshold OR tagged for microglial elimination (C3 > 0.5 & CD47 < 0.5)
         await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.05 OR (c3_opsonization > 0.5 AND cd47_expression < 0.5)');
+
+        // Reset activity history across all remaining synapses for the next wake cycle
+        await tx.run('UPDATE memory_synapses SET activity_history = 0');
 
         // 4. Select orphaned weak memories (< 0.1) with no remaining active synapses
         const doomed = await tx.all(`
