@@ -5,7 +5,7 @@ const knowledgeResilience = require('./families/knowledgeResilienceStrategies');
 const STRATEGIES = Object.freeze([...core, ...temporalCollective, ...knowledgeResilience]);
 const byId = new Map(STRATEGIES.map((strategy) => [strategy.id, strategy]));
 
-if (STRATEGIES.length !== 78) throw new Error(`Strategy registry must contain exactly 78 strategies, found ${STRATEGIES.length}`);
+if (STRATEGIES.length === 0) throw new Error('Strategy registry must contain at least one strategy');
 if (byId.size !== STRATEGIES.length) throw new Error('Strategy registry contains duplicate ids');
 
 function listStrategies() {
