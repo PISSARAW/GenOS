@@ -40,6 +40,7 @@ const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
 const { terminateChild, terminatePid, processMatches } = require('./processTermination');
+const { validateBudgetCoherence, normalizeMissionBudget } = require('./budgetCoherenceService');
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
@@ -79,6 +80,19 @@ async function startMissionInternal(mission) {
     normalizedMission.localRoutingCriteria = route.criteria;
   }
   const runtimeEnvironment = bundledRuntimeEnvironment();
+  const normalizedExecutionBudget = normalizeMissionBudget(normalizedMission.executionBudget || {});
+  const budgetCoherence = validateBudgetCoherence({
+    executionBudget: normalizedExecutionBudget,
+    autonomyPlan: { tokenPolicy: { total: normalizedExecutionBudget.tokens, workerShare: normalizedExecutionBudget.workerShare, orchestratorReserve: normalizedExecutionBudget.orchestratorReserve } }
+  });
+  if (!budgetCoherence.valid) {
+    throw Object.assign(new Error(`Budget coherence validation failed: ${budgetCoherence.reason}`), { code: 'BUDGET_COHERENCE_FAILURE' });
+  }
+  const normalizedRuntimeBudget = {
+    ...normalizedExecutionBudget,
+    workerShare: normalizedExecutionBudget.workerShare,
+    orchestratorReserve: normalizedExecutionBudget.orchestratorReserve
+  };
   console.log("adapter: provision"); const genosCapsule = await agentCapsules.provision({
     executable: runtimeEnvironment.GENOS_BIN,
     workspaceRoot: normalizedMission.workspaceRoot,
@@ -118,10 +132,14 @@ async function startMissionInternal(mission) {
   }
   const runtimeBudget = autonomyPlan
     ? {
-      ...normalizedMission.executionBudget,
+      ...normalizedRuntimeBudget,
       tokens: Math.max(1, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
     }
-    : normalizedMission.executionBudget;
+    : normalizedRuntimeBudget;
+  const budgetCheck = validateBudgetCoherence({ executionBudget: runtimeBudget, autonomyPlan: autonomyPlan || { tokenPolicy: { total: runtimeBudget.tokens, workerShare: runtimeBudget.workerShare || 0.6, orchestratorReserve: runtimeBudget.orchestratorReserve || 0.4 } } });
+  if (!budgetCheck.valid) {
+    throw Object.assign(new Error(`Runtime budget coherence check failed: ${budgetCheck.reason}`), { code: 'BUDGET_COHERENCE_FAILURE' });
+  }
   console.log("adapter: executionRun"); const executionRun = await strategyExecution.createExecutionRun(db, {
     agentId,
     budget: runtimeBudget,
@@ -212,7 +230,7 @@ function startMission(mission) {
   return start;
 }
 
-function stopMission(agentId) {
+async function stopMission(agentId) {
   const child = activeProcesses.get(agentId);
   if (!child && missionStarts.has(agentId)) {
     cancelledStarts.add(agentId);
@@ -222,19 +240,18 @@ function stopMission(agentId) {
     const barrier = activeWorkerBarriers.get(agentId);
     if (barrier) {
       barrier.cancelled = true;
-      for (const workerId of barrier.workerIds) stopMission(workerId);
+      await Promise.all([...barrier.workerIds].map((workerId) => stopMission(workerId)));
       return true;
     }
   }
   if (!child) {
-    getDatabase().then(async (db) => {
-      const agent = await db.get('SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?', agentId);
-      if (agent?.runtime_pid) {
-        const matches = processMatches(agent.runtime_pid, agent.runtime_executable);
-        if (matches) terminatePid(agent.runtime_pid);
-        await db.run("UPDATE agents SET status = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", matches ? 'blocked' : 'error', matches ? 'Stopped from Studio' : 'Persisted runtime PID did not match its executable.', agentId);
-      }
-    }).catch(() => {});
+    const db = await getDatabase();
+    const agent = await db.get('SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?', agentId);
+    if (agent?.runtime_pid) {
+      const matches = processMatches(agent.runtime_pid, agent.runtime_executable);
+      if (matches) terminatePid(agent.runtime_pid);
+      await db.run("UPDATE agents SET status = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", matches ? 'blocked' : 'error', matches ? 'Stopped from Studio' : 'Persisted runtime PID did not match its executable.', agentId);
+    }
     return false;
   }
   // The close handler recognizes this marker as an operator-requested halt,
