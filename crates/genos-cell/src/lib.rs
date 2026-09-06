@@ -55,6 +55,10 @@ pub struct AgentCell {
     pub is_ephemeral: bool,
     #[serde(default)]
     pub ephemeral_ttl: Option<u32>,
+    #[serde(default)]
+    pub chromatin_state: Option<String>,
+    #[serde(default)]
+    pub genome_id: Option<Uuid>,
 }
 
 impl Default for AgentCell {
@@ -88,6 +92,8 @@ impl Default for AgentCell {
             is_senescent: false,
             is_ephemeral: false,
             ephemeral_ttl: None,
+            chromatin_state: None,
+            genome_id: None,
         }
     }
 }
@@ -108,6 +114,8 @@ impl AgentCell {
             is_senescent: false,
             is_ephemeral: false,
             ephemeral_ttl: None,
+            chromatin_state: None,
+            genome_id: None,
         }
     }
 
@@ -482,5 +490,20 @@ mod tests {
             }
         }
     }
-}
 
+    #[test]
+    fn test_agent_cell_chromatin_state_fields() {
+        let mut cell = AgentCell::new("TestCell", "Meaning", "Worker");
+        assert!(cell.chromatin_state.is_none());
+        assert!(cell.genome_id.is_none());
+
+        let gid = Uuid::new_v4();
+        cell.chromatin_state = Some("Euchromatin".into());
+        cell.genome_id = Some(gid);
+
+        let serialized = serde_json::to_string(&cell).unwrap();
+        let deserialized: AgentCell = serde_json::from_str(&serialized).unwrap();
+        assert_eq!(deserialized.chromatin_state, Some("Euchromatin".into()));
+        assert_eq!(deserialized.genome_id, Some(gid));
+    }
+}

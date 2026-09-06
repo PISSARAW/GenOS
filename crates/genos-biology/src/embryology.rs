@@ -50,7 +50,8 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
         } else {
             cell.role = "HOX-3_DATA_STORAGE".to_string();
         }
-
+        cell.chromatin_state = Some("Differentiated".to_string());
+        cell.genome_id = Some(genome.genome_id());
     }
 
     let active_axes: HashSet<u8> = swarm.iter().filter_map(|cell| hox_axis(&cell.role)).collect();
@@ -92,6 +93,12 @@ pub fn differentiate_cell_chromatin(role: &str, genome: &mut Genome) {
             }
         }
     }
+}
+
+pub fn differentiate_cell(cell: &mut AgentCell, genome: &mut Genome) {
+    differentiate_cell_chromatin(&cell.role, genome);
+    cell.chromatin_state = Some("Differentiated".to_string());
+    cell.genome_id = Some(genome.genome_id());
 }
 
 fn hox_axis(value: &str) -> Option<u8> {
@@ -245,5 +252,18 @@ mod tests {
         assert_eq!(hox3.chromatin_state, ChromatinState::HeterochromatinFacultative);
         assert!(hox3.developmentally_locked);
         assert!(hox3.is_methylated);
+    }
+
+    #[test]
+    fn test_differentiate_cell_updates_agent_cell_metadata() {
+        let mut cell = AgentCell::new("CellX", "Desc", "HOX-2_LOGIC_BACKEND");
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "PROMPT"));
+        assert!(cell.chromatin_state.is_none());
+        assert!(cell.genome_id.is_none());
+
+        differentiate_cell(&mut cell, &mut genome);
+        assert_eq!(cell.chromatin_state, Some("Differentiated".to_string()));
+        assert_eq!(cell.genome_id, Some(genome.genome_id()));
     }
 }
