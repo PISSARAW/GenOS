@@ -33,6 +33,7 @@ const HANDLERS = {
   persist: fundamentals.cryptobiosisFreeze,
   vitrify: fundamentals.cryptobiosisFreeze,
   fork: fundamentals.fork,
+  recursive_fork: fundamentals.recursiveFork,
   slm_route: fundamentals.slmRoute,
   provider_route: fundamentals.slmRoute,
   bisect_agent: fundamentals.bisectAgent,
@@ -122,6 +123,10 @@ const HANDLERS = {
   // Lot 7 — Recherche Profonde & Budget
   mcts_select: search.mctsSelect,
   expand: search.mctsSelect,
+  schizogony: search.schizogonyBurst,
+  schizogony_burst: search.schizogonyBurst,
+  schizont_burst: search.schizogonyBurst,
+  speculative_fanout: search.schizogonyBurst,
   prune: search.prune,
   retain_top_k: search.prune,
   reallocate: search.reallocate,

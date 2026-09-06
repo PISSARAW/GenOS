@@ -84,6 +84,78 @@ async function fork(context) {
   }
 }
 
+const DEFAULT_HAYFLICK_MAX_DEPTH = 5;
+const DEFAULT_HAYFLICK_MAX_BUDS = 50;
+
+async function getLineageDepth(db, agentId) {
+  let depth = 0;
+  let currentId = agentId;
+  const visited = new Set();
+  while (currentId && !visited.has(currentId) && depth < 100) {
+    visited.add(currentId);
+    const row = await db.get('SELECT parent_agent_id FROM agents WHERE id = ?', currentId);
+    if (!row || !row.parent_agent_id) break;
+    depth++;
+    currentId = row.parent_agent_id;
+  }
+  return depth;
+}
+
+async function recursiveFork(context = {}) {
+  const orchestratorId = context.orchestratorId || context.agentId;
+  if (!orchestratorId) {
+    return { success: false, error: 'orchestratorId or agentId required for recursive_fork.' };
+  }
+  try {
+    const db = await getDatabase();
+    const maxDepth = Number(context.maxDepth || context.max_depth || DEFAULT_HAYFLICK_MAX_DEPTH);
+    const maxBuds = Number(context.maxBuds || context.max_buds || context.hayflickLimit || DEFAULT_HAYFLICK_MAX_BUDS);
+
+    // Check lineage depth (Hayflick generational limit)
+    const currentDepth = await getLineageDepth(db, orchestratorId);
+    if (currentDepth >= maxDepth) {
+      return {
+        success: false,
+        blockedByHayflick: true,
+        error: `Hayflick limit reached: lineage depth ${currentDepth} reaches or exceeds maximum allowed depth ${maxDepth}. Recursive fork blocked to prevent spawn storms.`,
+        currentDepth,
+        maxDepth
+      };
+    }
+
+    // Check total bud count for this parent agent (Hayflick scar limit)
+    const childCountRow = await db.get('SELECT COUNT(*) as count FROM agents WHERE parent_agent_id = ?', orchestratorId);
+    const currentBuds = childCountRow ? childCountRow.count : 0;
+    if (currentBuds >= maxBuds) {
+      return {
+        success: false,
+        blockedByHayflick: true,
+        error: `Hayflick limit reached: parent agent '${orchestratorId}' has accumulated ${currentBuds} buds (limit: ${maxBuds}). Recursive fork blocked.`,
+        currentBuds,
+        maxBuds
+      };
+    }
+
+    // Delegate to standard fork
+    const forkResult = await fork({ ...context, orchestratorId });
+    if (!forkResult.success) {
+      return forkResult;
+    }
+
+    return {
+      ...forkResult,
+      recursiveFork: true,
+      lineageDepth: currentDepth + 1,
+      maxDepth,
+      budScars: currentBuds + 1,
+      maxBuds,
+      remainingBuds: maxBuds - (currentBuds + 1)
+    };
+  } catch (error) {
+    return { success: false, error: 'Recursive fork failed: ' + error.message };
+  }
+}
+
 async function slmRoute(context = {}) {
   const model = String(context.model || context.modelUri || '').trim();
   if (!model) return { success: false, error: 'model or modelUri required for provider routing.' };
@@ -252,6 +324,7 @@ async function cryptobiosisThaw(context) {
 module.exports = {
   snapshot,
   fork,
+  recursiveFork,
   slmRoute,
   bisectAgent,
   entropyCheck,
