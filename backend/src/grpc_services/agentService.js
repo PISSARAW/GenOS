@@ -1,5 +1,6 @@
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const { getDatabase } = require('../db');
+const agentAuthority = require('../services/agentAuthorityService');
 const grpc = require('@grpc/grpc-js');
 
 async function resolveWorkspace(request) {
@@ -22,6 +23,10 @@ module.exports = {
     try {
       const mission = call.request || {};
       const workspace = await resolveWorkspace(mission);
+      const db = await getDatabase();
+      const agent = await db.get('SELECT id, execution_mode, parent_agent_id FROM agents WHERE id = ? AND workspace_id = ?', mission.agent_id, workspace.id);
+      if (!agent) throw Object.assign(new Error('Agent is not part of the requested workspace.'), { code: 'INVALID_MISSION_SCOPE' });
+      await agentAuthority.authorizeMission(db, agent.id, mission.orchestrator_agent_id);
       const startPromise = runtimeAdapter.startMission({
         agentId: mission.agent_id,
         name: mission.name,

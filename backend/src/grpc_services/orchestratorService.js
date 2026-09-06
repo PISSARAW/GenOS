@@ -1,4 +1,6 @@
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const { getDatabase } = require('../db');
+const agentAuthority = require('../services/agentAuthorityService');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Orchestrator is alive via gRPC!" }),
@@ -9,6 +11,16 @@ module.exports = {
       if (!orchestrator_id || !worker_id || !prompt) {
         return callback(null, { success: false, status: 'orchestrator_id, worker_id, and prompt are required.', garage_slot: 0 });
       }
+      const db = await getDatabase();
+      const pair = await db.get(`SELECT worker.id
+        FROM agents worker
+        JOIN agents orchestrator ON orchestrator.id = worker.parent_agent_id
+        JOIN workspaces ww ON ww.id = worker.workspace_id
+        JOIN workspaces wo ON wo.id = orchestrator.workspace_id
+        WHERE worker.id = ? AND orchestrator.id = ? AND worker.execution_mode = 'worker'
+          AND ww.organization_id = wo.organization_id AND ww.project_id = wo.project_id`, worker_id, orchestrator_id);
+      if (!pair) throw Object.assign(new Error('Worker and orchestrator are not in the same tenant.'), { code: 'INVALID_MISSION_SCOPE' });
+      await agentAuthority.authorizeMission(db, worker_id, orchestrator_id);
       const startPromise = runtimeAdapter.startMission({
         agentId: worker_id,
         orchestratorAgentId: orchestrator_id,
