@@ -69,7 +69,7 @@ function forgetWorkspace(agentId) {
   activeWorktrees.delete(agentId);
 }
 
-async function cleanupWorkspace(workspaceRoot) {
+async function cleanupWorkspace(workspaceRoot, agentId = null) {
   const marker = path.join(workspaceRoot, '.git');
   let removedVia = 'removed';
   try {
@@ -81,6 +81,9 @@ async function cleanupWorkspace(workspaceRoot) {
     }
   } catch (_) { /* fall through to the filesystem removal */ }
   await fs.rm(workspaceRoot, { recursive: true, force: true });
+  if (agentId && path.basename(agentId) === agentId && !agentId.includes(path.sep)) {
+    await fs.rm(path.join(path.dirname(workspaceRoot), '.genos-runtime', agentId), { recursive: true, force: true });
+  }
   return removedVia;
 }
 
@@ -93,7 +96,7 @@ function scheduleWorkspaceCleanup(agentId) {
   const reclaim = async () => {
     activeWorktrees.delete(agentId);
     try {
-      const via = await cleanupWorkspace(tracked.workspaceRoot);
+      const via = await cleanupWorkspace(tracked.workspaceRoot, agentId);
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };
     } catch (_) {
       return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'failed' };
