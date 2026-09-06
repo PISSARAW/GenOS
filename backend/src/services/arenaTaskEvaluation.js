@@ -11,6 +11,11 @@ function nonNegativeNumber(value, fallback) {
   return Number.isFinite(number) && number >= 0 ? number : fallback;
 }
 
+function boundedPercentage(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
+}
+
 function extractDossierReport(dossier) {
   if (!dossier) return {};
   const events = Array.isArray(dossier.events) ? dossier.events : [];
@@ -51,9 +56,11 @@ function dossierToCandidate(dossier, options = {}) {
   }
 
   // Compute fitness score based on verified claims and penalty on uncertainties
-  const claimScore = claims.reduce((acc, c) => acc + (Array.isArray(c.evidence) && c.evidence.length > 0 ? 15 : 5), 0);
+  const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
+  const claimScore = Math.min(40, claims.reduce((acc, c) => acc + (Array.isArray(c.evidence) && c.evidence.length > 0 ? 15 : 5), 0));
   const uncertaintyPenalty = uncertainties.length * 3;
-  const rawFitness = Math.max(10, Math.min(100, 50 + claimScore - uncertaintyPenalty));
+  const calculatedFitness = Math.max(0, Math.min(100, 50 + claimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  const rawFitness = suppliedFitness === null ? calculatedFitness : suppliedFitness;
 
   const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
   const tokens = nonNegativeNumber(options.tokens ?? dossier.tokens, 1500);
@@ -101,8 +108,8 @@ function evaluateTaskBenchmark(taskSpec, solutions = []) {
     name: sol.name || `Solution ${idx + 1}`,
     executionTimeMs: nonNegativeNumber(sol.executionTimeMs, 10),
     tokenCostUSD: nonNegativeNumber(sol.tokenCostUSD, 0.001),
-    fitnessScore: Number.isFinite(Number(sol.fitnessScore)) ? Number(sol.fitnessScore) : 80,
-    adversarialPassRate: Number.isFinite(Number(sol.passRate)) ? Number(sol.passRate) : (sol.passed ? 100 : 0)
+    fitnessScore: boundedPercentage(sol.fitnessScore) ?? 80,
+    adversarialPassRate: boundedPercentage(sol.passRate) ?? (sol.passed ? 100 : 0)
   }));
 
   const pareto = calculateParetoFront(candidates);

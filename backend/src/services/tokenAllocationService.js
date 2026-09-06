@@ -3,6 +3,11 @@ function whole(value) {
   return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
 }
 
+function boundedScore(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : null;
+}
+
 function splitPool(pool, workerCount) {
   const perWorkerTokens = workerCount ? Math.floor(pool / workerCount) : 0;
   return { perWorkerTokens, remainderTokens: pool - (perWorkerTokens * workerCount) };
@@ -56,7 +61,7 @@ function selectSurvivors(candidates = [], survivorCount = 1, preferredAgentIds =
   const preferred = preferredAgentIds instanceof Set ? preferredAgentIds : new Set(preferredAgentIds || []);
   const ranked = [...candidates]
     .filter((candidate) => candidate && (candidate.status === 'completed' || candidate.status === 'idle'))
-    .map((candidate) => ({ candidate, score: Number(candidate.evidenceScore) }))
+    .map((candidate) => ({ candidate, score: boundedScore(candidate.evidenceScore) }))
     .filter(({ candidate, score }) => candidate.agentId && Number.isFinite(score))
     .sort((left, right) => Number(preferred.has(right.candidate.agentId)) - Number(preferred.has(left.candidate.agentId))
       || right.score - left.score
