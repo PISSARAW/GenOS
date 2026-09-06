@@ -1,11 +1,35 @@
 const inferenceGateway = require('./inferenceGatewayService');
+const fs = require('fs');
+const path = require('path');
+
+function loadEnvironmentFile() {
+  const filePath = path.resolve(__dirname, '../../../.env');
+  if (!fs.existsSync(filePath)) return;
+  for (const line of fs.readFileSync(filePath, 'utf8').split(/\r?\n/)) {
+    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match || match[1] in process.env) continue;
+    process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
+  }
+}
+
+function applyLegacyModelConfiguration() {
+  if (!process.env.GENOS_DEFAULT_MODEL && process.env.LLM_PROVIDER && process.env.OLLAMA_MODEL) {
+    process.env.GENOS_DEFAULT_MODEL = `${process.env.LLM_PROVIDER}://${process.env.OLLAMA_MODEL}`;
+  }
+  if (!process.env.GENOS_OLLAMA_ENDPOINT && process.env.OLLAMA_API_URL) {
+    process.env.GENOS_OLLAMA_ENDPOINT = `${process.env.OLLAMA_API_URL.replace(/\/$/, '')}/v1/chat/completions`;
+  }
+}
+
+loadEnvironmentFile();
+applyLegacyModelConfiguration();
 
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
 function configuredModel(model) {
   const value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
-  if (!value) throw new Error('No model provider is configured. Set GENOS_DEFAULT_MODEL or provide an openai://, anthropic://, or gemini:// model URI.');
-  if (!/^(openai|anthropic|gemini|mistral|ollama|lmstudio|vllm|openai-compatible):\/\//.test(value)) throw new Error(`Unsupported model URI '${value}'. Use an OpenAI-compatible, Anthropic, Gemini, Mistral, Ollama, LM Studio, or vLLM URI.`);
+  if (!value) throw new Error('No model provider is configured. Set GENOS_DEFAULT_MODEL or LLM_PROVIDER plus its model variable.');
+  if (!/^(openai|anthropic|gemini|mistral|ollama|lmstudio|vllm|openai-compatible):\/\//.test(value)) throw new Error(`Unsupported model URI '${value}'. Use OpenAI, Anthropic, Gemini, Mistral, Ollama, LM Studio, vLLM, or OpenAI-compatible syntax.`);
   return value;
 }
 
