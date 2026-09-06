@@ -30,6 +30,18 @@ async function runTests() {
   assert.strictEqual(state.dissonanceLevel, 0.0);
   assert.strictEqual(state.eurekaMoments, 0);
   assert.strictEqual(state.isApoptotic, false);
+  assert.strictEqual(state.baselineBudget, 100.0);
+
+  const normalized = agentConscience.createConscienceState({
+    currentBudget: -10,
+    dissonanceLevel: Number.NaN,
+    eurekaMoments: -2,
+    maxDissonanceThreshold: 0
+  });
+  assert.strictEqual(normalized.currentBudget, 0);
+  assert.strictEqual(normalized.dissonanceLevel, 0);
+  assert.strictEqual(normalized.eurekaMoments, 0);
+  assert.ok(normalized.maxDissonanceThreshold > 0);
 
   // Erreurs en boucle augmentent la dissonance
   const step1 = agentConscience.evaluateBranch(state, { errorsInLoop: 4 });
@@ -50,6 +62,12 @@ async function runTests() {
   assert.strictEqual(state.isApoptotic, true);
   assert.strictEqual(state.currentBudget, 0.0);
   console.log(`   [OK] Seuil franchi -> Apoptose cognitive déclenchée (isApoptotic: true, budget: 0)`);
+
+  const apoptoticEurekaCount = state.eurekaMoments;
+  agentConscience.triggerEureka(state);
+  assert.strictEqual(state.eurekaMoments, apoptoticEurekaCount);
+  assert.strictEqual(state.currentBudget, 0.0);
+  console.log(`   [OK] Eurêka ignoré après apoptose.`);
 
   // Prompt d'introspection
   const healthyState = agentConscience.createConscienceState();
