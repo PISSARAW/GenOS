@@ -18,6 +18,11 @@ pub struct AntibodyDetector {
 
 impl AntibodyDetector {
     pub fn new(id: &str, paratope: &str, affinity_threshold: f64) -> Self {
+        let affinity_threshold = if affinity_threshold.is_finite() {
+            affinity_threshold.clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
         Self {
             id: id.to_string(),
             paratope: paratope.to_string(),
