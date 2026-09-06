@@ -112,4 +112,100 @@ impl ClonalSelection {
         }
         false
     }
+
+    /// Maturation d'affinité par expansion clonale et hypermutation somatique stochastique
+    pub fn clonal_expansion_and_hypermutate(
+        &mut self,
+        antigen: &Antigen,
+        clone_count: usize,
+        mutation_rate: f64,
+    ) -> ClonalExpansionResult {
+        let mutation_rate = mutation_rate.clamp(0.0, 1.0);
+        let clone_count = clone_count.clamp(1, 256);
+
+        // Récupérer les paratopes de départ depuis les détecteurs actuels, la mémoire ou l'antigène
+        let base_paratopes: Vec<String> = if !self.detectors.is_empty() {
+            self.detectors.iter().map(|d| d.paratope.clone()).collect()
+        } else if !self.memory_pool.is_empty() {
+            self.memory_pool.iter().map(|m| m.paratope.clone()).collect()
+        } else {
+            vec![antigen.epitope.clone()]
+        };
+
+        use rand::RngExt;
+        let mut rng = rand::rng();
+        let charset = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+        let mut clones: Vec<AntibodyDetector> = Vec::with_capacity(clone_count);
+
+        for i in 0..clone_count {
+            let seed_paratope = &base_paratopes[i % base_paratopes.len()];
+            let mut paratope_bytes = seed_paratope.as_bytes().to_vec();
+            if paratope_bytes.is_empty() {
+                paratope_bytes = b"GENOS".to_vec();
+            }
+
+            if mutation_rate > 0.0 {
+                for b in &mut paratope_bytes {
+                    if rng.random_bool(mutation_rate) {
+                        let rand_idx = rng.random_range(0..charset.len());
+                        *b = charset[rand_idx];
+                    }
+                }
+            }
+
+            let mutated_paratope = String::from_utf8_lossy(&paratope_bytes).to_string();
+            let mut detector = AntibodyDetector::new(
+                &format!("clone-hypermut-{}-{}", uuid::Uuid::new_v4().simple(), i),
+                &mutated_paratope,
+                0.5,
+            );
+            let aff = detector.compute_affinity(antigen);
+            detector.affinity_threshold = (aff * 0.8).clamp(0.2, 0.9);
+            clones.push(detector);
+        }
+
+        // Tri par affinité décroissante avec l'antigène
+        clones.sort_by(|a, b| {
+            let aff_b = b.compute_affinity(antigen);
+            let aff_a = a.compute_affinity(antigen);
+            aff_b.partial_cmp(&aff_a).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let best_affinity = clones.first().map(|d| d.compute_affinity(antigen)).unwrap_or(0.0);
+
+        // Intégrer les meilleurs clones matures dans le pool de détecteurs
+        for top_clone in clones.iter().take(clone_count.min(10)) {
+            if !self.detectors.iter().any(|d| d.paratope == top_clone.paratope) {
+                self.detectors.push(top_clone.clone());
+            }
+        }
+
+        // Si le niveau de danger est critique et qu'un clone mûr a une affinité significative, intégrer en mémoire
+        if antigen.danger_level > 0.5 && best_affinity >= 0.2 {
+            if let Some(best_clone) = clones.first() {
+                if !self.memory_pool.iter().any(|m| m.paratope == best_clone.paratope) {
+                    if self.memory_pool.len() >= MAX_MEMORY_DETECTORS {
+                        self.memory_pool.remove(0);
+                    }
+                    self.memory_pool.push(best_clone.clone());
+                }
+            }
+        }
+
+        ClonalExpansionResult {
+            clones_generated: clone_count,
+            matured_detectors: clones,
+            best_affinity,
+            memory_pool_size: self.memory_pool.len(),
+        }
+    }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ClonalExpansionResult {
+    pub clones_generated: usize,
+    pub matured_detectors: Vec<AntibodyDetector>,
+    pub best_affinity: f64,
+    pub memory_pool_size: usize,
+}
+

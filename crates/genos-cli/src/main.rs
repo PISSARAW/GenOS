@@ -131,12 +131,20 @@ fn main() {
             args::AisSubcommands::ClonalHypermutate { agent_id, mutation_rate, clone_count } => {
                 let antigen = Antigen { id: agent_id.clone(), epitope: "CLONAL_SIGNAL".to_string(), danger_level: 0.9 };
                 let (mut selection, memory_path) = load_immune_selection(&agent_id)?;
-                for clone_index in 0..clone_count {
-                    selection.detectors.push(AntibodyDetector::new(&format!("clone-{}", clone_index), "CLONAL_SIGNAL", mutation_rate.clamp(0.0, 1.0)));
-                }
+                let expansion = selection.clonal_expansion_and_hypermutate(&antigen, clone_count as usize, mutation_rate);
                 let recognized = selection.recognize(&antigen);
                 selection.save(memory_path).map_err(|error| format!("Failed to save immune memory: {}", error))?;
-                println!("{}", serde_json::json!({ "success": recognized, "operation": "clonal_hypermutate", "agent_id": agent_id, "mutation_rate": mutation_rate, "clone_count": selection.detectors.len(), "recognized": recognized, "memory_pool_size": selection.memory_pool.len() }));
+                println!("{}", serde_json::json!({
+                    "success": true,
+                    "operation": "clonal_hypermutate",
+                    "agent_id": agent_id,
+                    "mutation_rate": mutation_rate,
+                    "clones_generated": expansion.clones_generated,
+                    "best_affinity": expansion.best_affinity,
+                    "detectors_count": selection.detectors.len(),
+                    "recognized": recognized,
+                    "memory_pool_size": selection.memory_pool.len()
+                }));
                 Ok(())
             }
             args::AisSubcommands::PrrScan { agent_id, patterns } => {
