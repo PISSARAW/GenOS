@@ -4,6 +4,12 @@
  */
 
 const { getDatabase } = require('../db');
+const crypto = require('crypto');
+
+function deterministicUnit(seed) {
+  const digest = crypto.createHash('sha256').update(String(seed)).digest();
+  return digest.readUInt32BE(0) / 0x100000000;
+}
 
 // Baseline evolutionary tree so fresh installs still render a meaningful DAG.
 const SEED_TREE_NODES = [
@@ -153,14 +159,16 @@ function crossoverGenome(parentA, parentB, options = {}) {
     } else if (strategy === 'multi_point') {
       pickA = i % 2 === 0;
     } else {
-      // uniform
-      pickA = Math.random() >= 0.5;
+      // uniform, but reproducible for the same parent genomes
+      pickA = deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:${strategy}:${i}`) >= 0.5;
     }
 
     if (key === 'tools') {
       const toolSet = new Set(pickA ? pA.genes.tools : pB.genes.tools);
       // Horizontal gene transfer
-      if (Math.random() < 0.5) toolSet.add(pB.genes.tools[0] || 'genos_inspect');
+      if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:tools`) < 0.5) {
+        toolSet.add(pB.genes.tools[0] || 'genos_inspect');
+      }
       childGenes.tools = Array.from(toolSet);
     } else {
       childGenes[key] = pickA ? pA.genes[key] : pB.genes[key];
@@ -169,7 +177,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   // Apply mutation if triggered
   let mutatedGene = null;
-  if (Math.random() < mutationRate * 5) {
+  if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:mutation`) < mutationRate * 5) {
     mutatedGene = 'temp';
     childGenes.temp = Number((Math.min(0.8, childGenes.temp + 0.05)).toFixed(2));
   }
