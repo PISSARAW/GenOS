@@ -13,5 +13,6 @@ router.post('/counterfactual', memoryController.counterfactual);
 router.post('/vesicle', memoryController.generateVesicle);
 router.post('/ingest', memoryController.ingestMemory);
 router.post('/sleep', memoryController.sleepCycle);
+router.post('/prune', memoryController.pruneSynapses);
 
 module.exports = router;

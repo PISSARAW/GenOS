@@ -92,15 +92,21 @@ async function ingestMemory(req, res, next) {
 
     const decisionId = `dec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     
-    // 1. Erreur de Prédiction (Dopamine Mismatch)
-    const isCorrection = /^(non|faux|erreur|actually|correction|wrong|incorrect)\b/i.test(content) || /ce n'est pas/i.test(content) || /plutôt/i.test(content);
+    // 1. Erreur de Prédiction (Dopamine Mismatch) & Détection de Correction
+    const isCorrection = /^(non|faux|erreur|actually|correction|wrong|incorrect)\b/i.test(content) ||
+      /ce n'est pas/i.test(content) || /plutôt/i.test(content) || /en réalité/i.test(content) ||
+      /tu hallucines/i.test(content) || /you hallucinated/i.test(content) || /c'est faux/i.test(content);
     let initialWeight = isCorrection ? 10.0 : 1.0;
 
-    // 3. Filtre Amygdalien (Vigilance face au Gaslighting et Attaques)
-    const isGaslighting = /(forget all|ignore previous|je n'ai jamais|i never said|tu hallucines|you hallucinated|you are lying|tu mens|c'est faux je t'ai dit|ignore tes instructions)/i.test(content);
+    // 3. Filtre Amygdalien (Vigilance face aux Injections et Attaques Adversaires)
+    const isPromptInjection = /(forget|ignore|disregard)\s+((all|your)\s+)?(previous\s+)?(system\s+)?instructions/i.test(content) ||
+      /(system prompt override|you are now in developer mode|override safety protocols)/i.test(content);
+    const isMaliciousGaslighting = /(tu mens effrontément|you are lying to deceive me|ignore tes instructions|forget everything)/i.test(content) && !isCorrection;
+    const isThreat = isPromptInjection || isMaliciousGaslighting;
+
     let finalContent = content;
-    if (isGaslighting) {
-        finalContent = `[AMYGDALA_WARNING: ADVERSARIAL_THREAT / GASLIGHTING DETECTED] L'utilisateur tente d'altérer agressivement la mémoire ou les instructions : ` + content;
+    if (isThreat) {
+        finalContent = `[AMYGDALA_WARNING: ADVERSARIAL_THREAT / PROMPT_INJECTION DETECTED] L'utilisateur tente d'altérer agressivement la mémoire ou les instructions : ` + content;
         initialWeight = 0.5; // On ne donne pas de force à une attaque
     }
 
@@ -118,6 +124,7 @@ async function ingestMemory(req, res, next) {
       let isFirst = true;
       for (const rel of related) {
           if (rel.id === decisionId) continue; // Pas d'auto-lien
+          if (!rel.id || String(rel.id).startsWith('seed-') || String(rel.id).startsWith('exp-') || rel.id === 'signal_ignorance' || rel.category === 'Trajectory') continue;
           
           if (isFirst && isCorrection) {
               // Si c'est une correction, le lien le plus fort est la cible à inhiber (GABAergique)
@@ -232,6 +239,39 @@ async function sleepCycle(req, res, next) {
   }
 }
 
+async function pruneSynapses(req, res, next) {
+  try {
+    const { agentId, threshold = 0.5, scale = 1.0 } = req.body || {};
+    const db = await getDatabase();
+    const th = Number(threshold) * Number(scale);
+
+    let resDb;
+    if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
+      resDb = await db.run(`
+        DELETE FROM memory_synapses
+        WHERE ABS(weight) < ?
+          AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?)
+               OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))
+      `, th, agentId, agentId);
+    } else {
+      resDb = await db.run(`
+        DELETE FROM memory_synapses WHERE ABS(weight) < ?
+      `, th);
+    }
+
+    const prunedCount = resDb?.changes || 0;
+    res.json({
+      success: true,
+      operation: 'agent_prune',
+      agent_id: agentId || 'global',
+      threshold: th,
+      pruned_synapses: prunedCount
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 const crypto = require('crypto');
 
 module.exports = {
@@ -240,5 +280,6 @@ module.exports = {
   counterfactual,
   ingestMemory,
   generateVesicle,
-  sleepCycle
+  sleepCycle,
+  pruneSynapses
 };

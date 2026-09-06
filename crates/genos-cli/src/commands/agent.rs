@@ -70,12 +70,36 @@ fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), S
 }
 
 fn handle_prune(agent_id: &str, threshold: f64) -> Result<(), String> {
+    let api_url = std::env::var("GENOS_API_URL")
+        .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(2000))
+        .build()
+        .unwrap_or_default();
+
+    let body = json!({
+        "agentId": agent_id,
+        "threshold": threshold
+    });
+
+    let (pruned_count, live_synced) = match client.post(format!("{}/api/memory/prune", api_url)).json(&body).send() {
+        Ok(res) if res.status().is_success() => {
+            if let Ok(data) = res.json::<serde_json::Value>() {
+                (data.get("pruned_synapses").and_then(|v| v.as_u64()).unwrap_or(0) as usize, true)
+            } else {
+                (0, false)
+            }
+        }
+        _ => (0, false)
+    };
+
     let output = json!({
         "success": true,
         "operation": "agent_prune",
         "agent_id": agent_id,
         "threshold": threshold,
-        "pruned_synapses": 2
+        "pruned_synapses": pruned_count,
+        "live_synced": live_synced
     });
     println!("{}", serde_json::to_string(&output).unwrap());
     Ok(())
