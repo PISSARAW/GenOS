@@ -1,4 +1,5 @@
 const strategyContracts = require('./strategyContractService');
+const MAX_AGENT_FAMILY_DEPTH = 32;
 
 function parseJson(value, fallback = {}) {
   try { return JSON.parse(value || ''); } catch { return fallback; }
@@ -35,11 +36,12 @@ async function agentFamily(db, agentId, tenant) {
       SELECT child.*, family.depth + 1 FROM agents child
       LEFT JOIN workspaces w ON w.id = child.workspace_id
       JOIN family ON child.parent_agent_id = family.id
-      WHERE ${scope.clause}
+      WHERE family.depth < ? AND ${scope.clause}
      )
      SELECT * FROM family ORDER BY depth, created_at, id`,
     agentId,
     ...scope.params,
+    MAX_AGENT_FAMILY_DEPTH,
     ...scope.params
   );
 }
@@ -147,4 +149,4 @@ async function loadAgentDossier(db, agentId, tenant) {
   };
 }
 
-module.exports = { loadAgentDossier, agentFamily, memoryRecords, mutationRecords, runtimeOrganizations };
+module.exports = { MAX_AGENT_FAMILY_DEPTH, loadAgentDossier, agentFamily, memoryRecords, mutationRecords, runtimeOrganizations };
