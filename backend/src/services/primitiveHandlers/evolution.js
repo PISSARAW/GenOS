@@ -4,7 +4,9 @@
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
 const geneticsService = require('../geneticsService');
+const agentEvolutionService = require('../agentEvolutionService');
 const genosCli = require('../genosCli');
+const crypto = require('crypto');
 
 async function mutate(context) {
   const db = await getDatabase();
@@ -16,12 +18,23 @@ async function mutate(context) {
   if (!parent) {
     return { success: false, error: 'Parent agent not found: ' + agentId };
   }
-  const mutations = context.mutations || ['Explore an alternative approach.'];
+  const mutations = Array.isArray(context.mutations) ? context.mutations : [];
+  if (mutations.length === 0) return { success: false, error: 'At least one mutation descriptor is required.' };
+  const evolved = agentEvolutionService.evolveWorkerGenome(parent, { role: context.role || 'mutant' }, {
+    strategy: context.strategy,
+    crossoverStrategy: context.crossoverStrategy,
+    mutationRate: context.mutationRate
+  });
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
-  const mutantId = 'mutant_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  const mutantId = 'mutant_' + crypto.randomUUID();
   await db.run(
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
     mutantId, 'Mutant of ' + agentId, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
+  );
+  await agentEvolutionService.recordWorkerLineage(
+    db,
+    { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
+    { parentId: agentId, genes: evolved.genes, mutations: [...mutations, ...evolved.mutations], predictedFitness: evolved.predictedFitness }
   );
   telemetry.emitEvent({
     eventType: 'EVOLUTION_MUTATION',
@@ -29,9 +42,9 @@ async function mutate(context) {
     action: 'MUTATE',
     detail: 'Created mutant ' + mutantId + ' with perturbation: ' + mutations.join('; '),
     severity: 'info',
-    payload: { mutantId, mutations }
+    payload: { mutantId, mutations, genes: evolved.genes, predictedFitness: evolved.predictedFitness }
   });
-  return { success: true, mutantId, mutatedTask };
+  return { success: true, mutantId, mutatedTask, genes: evolved.genes, predictedFitness: evolved.predictedFitness };
 }
 
 async function breed(context) {
