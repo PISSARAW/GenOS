@@ -125,7 +125,9 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   const baseScore = Number((hybridScore + termBonus + survivalBonus).toFixed(4));
   const credibility = computeCredibilityMultiplier(item);
 
-  const ageMs = Date.now() - new Date(item.createdAt || 0).getTime();
+  const referenceTime = options.referenceTime == null ? Date.now() : new Date(options.referenceTime).getTime();
+  const now = Number.isFinite(referenceTime) ? referenceTime : Date.now();
+  const ageMs = now - new Date(item.createdAt || 0).getTime();
   const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000) ? 1.5 : 1.0;
 
   let finalScore = baseScore * (0.8 + 0.2 * weight) * credibility * neurogenesisBonus;
