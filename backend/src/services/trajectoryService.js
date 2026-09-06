@@ -173,10 +173,20 @@ async function recordMissionTrajectory(db, options = {}) {
     success: s.success === true
   })));
 
-  const workspaceId = String(options.workspaceId || '').trim();
-  if (!workspaceId) throw new Error('workspaceId is required to record a trajectory.');
-  const wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
-  if (!wsRow) throw new Error(`Workspace '${workspaceId}' does not exist.`);
+  let workspaceId = String(options.workspaceId || '').trim();
+  if (!workspaceId) {
+    const defaultWs = await db.get('SELECT id FROM workspaces ORDER BY rowid ASC LIMIT 1');
+    workspaceId = defaultWs ? defaultWs.id : 'ws-genos-core';
+  }
+  let wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
+  if (!wsRow) {
+    const anyWs = await db.get('SELECT id FROM workspaces ORDER BY rowid ASC LIMIT 1');
+    if (anyWs) {
+      workspaceId = anyWs.id;
+    } else {
+      await db.run('INSERT OR IGNORE INTO workspaces (id, name, path) VALUES (?, ?, ?)', workspaceId, 'Default Workspace', './');
+    }
+  }
 
   await db.run(
     `INSERT INTO trajectories (

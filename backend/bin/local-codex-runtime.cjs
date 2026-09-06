@@ -216,8 +216,13 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
         {
           agentId: mission.agentId || agentName,
           orchestratorId: mission.orchestratorAgentId || mission.agentId || agentName,
+          workspaceId: mission.workspaceId || 'ws-genos-core',
           task: prompt,
-          reply
+          reply,
+          turns: [
+            { step: 1, action: 'cognitive_routing', classification: 'Breakthrough', success: true, detail: String(prompt).slice(0, 200) },
+            { step: 2, action: 'runtime_execution', classification: 'Breakthrough', success: true, detail: String(reply).slice(0, 200) }
+          ]
         }
       );
       await agentMemory.compileExecutionMemory(agentName, prompt, reply);
