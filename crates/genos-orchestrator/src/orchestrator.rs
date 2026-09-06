@@ -103,10 +103,9 @@ impl BiomimeticOrchestrator {
             .ok_or_else(|| format!("Cellule {} non trouvée", worker_id))?;
         let genome = Genome::new(&worker.role);
         let spore = match spore_type {
-            SporeType::BacterialEndospore => Spore::create_bacterial_endospore(&genome),
+            SporeType::BacterialEndospore => Spore::from_cell(spore_type.clone(), &worker, genome, 9999),
             SporeType::FungalReproductive => {
-                let mut spores = Spore::create_fungal_spores(&genome, 1);
-                spores.pop().unwrap()
+                Spore::from_cell(spore_type.clone(), &worker, genome, 0)
             }
         };
         self.dormant_spores.push(spore);

@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use crate::cell::AgentCell;
+use crate::cell::ConscienceState;
 use crate::genome::Genome;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SporeType {
@@ -12,6 +14,8 @@ pub enum SporeType {
 pub struct Spore {
     pub spore_type: SporeType,
     pub genome: Genome,
+    pub parent_cell_id: Uuid,
+    pub conscience: ConscienceState,
     pub bunker_armor: u32,
 }
 
@@ -20,6 +24,18 @@ impl Spore {
         Self {
             spore_type,
             genome,
+            parent_cell_id: Uuid::new_v4(),
+            conscience: ConscienceState::default(),
+            bunker_armor,
+        }
+    }
+
+    pub fn from_cell(spore_type: SporeType, cell: &AgentCell, genome: Genome, bunker_armor: u32) -> Self {
+        Self {
+            spore_type,
+            genome,
+            parent_cell_id: cell.cell_id,
+            conscience: cell.conscience.clone(),
             bunker_armor,
         }
     }
@@ -39,11 +55,12 @@ impl Spore {
         }
 
         let mut new_cell = AgentCell::default();
+        new_cell.cell_id = self.parent_cell_id;
         new_cell.role = match self.spore_type {
             SporeType::FungalReproductive => "Fungal Colony Cell".to_string(),
             SporeType::BacterialEndospore => "Bacterial Vegetative Cell".to_string(),
         };
-        new_cell.conscience.current_budget = 10.0;
+        new_cell.conscience = self.conscience;
         Ok(new_cell)
     }
 
@@ -83,5 +100,6 @@ mod tests {
 
         let revived = bunker.germinate(true, true).unwrap();
         assert_eq!(revived.role, "Bacterial Vegetative Cell");
+        assert_eq!(revived.conscience.current_budget, 100.0);
     }
 }
