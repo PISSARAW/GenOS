@@ -24,7 +24,7 @@ module.exports = {
       });
       const results = (searchRes.allScoredExperiences || []).map((e) => ({
         id: e.id || 'mem-1',
-        content: e.content || e.title || '',
+        content: e.summary || e.content || e.title || '',
         embedding: e.vector || []
       }));
       callback(null, { results });
