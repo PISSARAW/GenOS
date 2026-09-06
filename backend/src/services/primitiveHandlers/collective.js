@@ -50,9 +50,12 @@ async function trailSelection(context) {
   }
   
   try {
-    // On requête les traces récentes
+    const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || 3600000);
+    if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
+      return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
+    }
     const rows = await db.all(
-      `SELECT payload_json FROM agent_organization_messages 
+      `SELECT payload_json, created_at FROM agent_organization_messages 
        WHERE orchestrator_id = ? AND kind = 'trace' ORDER BY id DESC LIMIT 100`,
       orchestratorId
     );
@@ -62,12 +65,13 @@ async function trailSelection(context) {
       try {
         const payload = JSON.parse(row.payload_json);
         if (payload.type === 'pheromone' && payload.path) {
-          trailStrengths[payload.path] = (trailStrengths[payload.path] || 0) + (payload.strength || 0);
+          const ageMs = Math.max(0, Date.now() - new Date(row.created_at || Date.now()).getTime());
+          const evaporation = Math.pow(0.5, ageMs / evaporationHalfLifeMs);
+          trailStrengths[payload.path] = (trailStrengths[payload.path] || 0) + ((payload.strength || 0) * evaporation);
         }
       } catch (e) {}
     }
     
-    // Evaporation (factor de décroissance simple simulé par la limite des 100 derniers messages)
     const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a]);
     const selectedTrail = sortedTrails.length > 0 ? sortedTrails[0] : null;
     

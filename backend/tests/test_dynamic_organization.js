@@ -2,10 +2,10 @@ const assert = require('assert');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const organization = require('./src/services/dynamicOrganizationService');
-const { decideFromEvent } = require('./src/services/orchestrationDecisionService');
-const runtime = require('./src/services/agentRuntimeAdapter');
-const { getDatabase, closeDatabase } = require('./src/db');
+const organization = require('../src/services/dynamicOrganizationService');
+const { decideFromEvent } = require('../src/services/orchestrationDecisionService');
+const runtime = require('../src/services/agentRuntimeAdapter');
+const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
   assert.equal(Object.keys(organization.ORGANIZATIONS).length, 19);
@@ -85,7 +85,7 @@ async function run() {
 
     await closeDatabase();
     const bridgeOutput = execFileSync(process.execPath, [
-      path.resolve(__dirname, 'bin/genos-orchestrate.cjs'),
+      path.resolve(__dirname, '../bin/genos-orchestrate.cjs'),
       JSON.stringify({
         action: 'organization_publish', background: false,
         orchestratorId: 'org-root', kind: 'evidence', content: 'bridge telemetry check'
