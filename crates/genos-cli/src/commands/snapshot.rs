@@ -86,22 +86,87 @@ fn handle_create(agent_path: &str, out: &str) -> Result<(), String> {
     Ok(())
 }
 
+fn normalize_to_agent_genome(val: Value) -> Value {
+    if val.get("kind").and_then(|k| k.as_str()) == Some("AgentGenome") && val.get("apiVersion").is_some() {
+        return val;
+    }
+    let name = val.get("name").and_then(|v| v.as_str()).unwrap_or("Griot").to_string();
+    let role = val.get("role").and_then(|v| v.as_str()).unwrap_or("Autonomous Node").to_string();
+    let meaning = val.get("name_meaning").and_then(|v| v.as_str()).unwrap_or("Agent autonome résilient de l'écosystème GenOS").to_string();
+    let cell_id = val.get("cell_id")
+        .or_else(|| val.get("identity").and_then(|i| i.get("cell_id")))
+        .and_then(|v| v.as_str())
+        .unwrap_or("agent-default")
+        .to_string();
+
+    json!({
+        "apiVersion": "v0alpha1",
+        "kind": "AgentGenome",
+        "metadata": {
+            "name": name,
+            "version": "0.1.0"
+        },
+        "identity": {
+            "role": role,
+            "name": name,
+            "name_meaning": meaning,
+            "cell_id": cell_id
+        },
+        "cognition": val.get("cognition").cloned().unwrap_or_else(|| json!({
+            "conscience": val.get("conscience").cloned().unwrap_or_else(|| json!({})),
+            "organelles": val.get("organelles").cloned().unwrap_or_else(|| json!([]))
+        })),
+        "objectives": val.get("objectives").cloned().unwrap_or_else(|| json!({
+            "primary": role,
+            "operational_mode": "autonomous"
+        })),
+        "policies": val.get("policies").cloned().unwrap_or_else(|| json!({
+            "hayflick_limit": val.get("hayflick_limit").cloned().unwrap_or(json!(50)),
+            "is_senescent": val.get("is_senescent").cloned().unwrap_or(json!(false))
+        })),
+        "capabilities": val.get("capabilities").cloned().unwrap_or_else(|| json!(["inspect", "reason", "mutate"])),
+        "memory_policy": val.get("memory_policy").cloned().unwrap_or_else(|| json!({
+            "ltd_decay": true,
+            "consolidation": true
+        })),
+        "model_policy": val.get("model_policy").cloned().unwrap_or_else(|| json!({
+            "preferred": "default"
+        })),
+        "tool_policy": val.get("tool_policy").cloned().unwrap_or_else(|| json!({
+            "allowed_tools": ["genos_inspect"]
+        })),
+        "cell_id": cell_id,
+        "name": name,
+        "role": role,
+        "conscience": val.get("conscience").cloned().unwrap_or_else(|| json!({}))
+    })
+}
+
 fn load_or_create_genome(agent_path: &str) -> (String, Value) {
     if let Ok(content) = fs::read_to_string(agent_path) {
         if agent_path.ends_with(".yaml") || agent_path.ends_with(".yml") {
             if let Ok(val) = serde_yaml::from_str::<Value>(&content) {
-                let id = val.get("cell_id").and_then(|v| v.as_str()).unwrap_or("agent-default").to_string();
-                return (id, val);
+                let id = val.get("cell_id")
+                    .or_else(|| val.get("identity").and_then(|i| i.get("cell_id")))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("agent-default")
+                    .to_string();
+                return (id, normalize_to_agent_genome(val));
             }
         } else if let Ok(val) = serde_json::from_str::<Value>(&content) {
-            let id = val.get("cell_id").and_then(|v| v.as_str()).unwrap_or("agent-default").to_string();
-            return (id, val);
+            let id = val.get("cell_id")
+                .or_else(|| val.get("identity").and_then(|i| i.get("cell_id")))
+                .and_then(|v| v.as_str())
+                .unwrap_or("agent-default")
+                .to_string();
+            return (id, normalize_to_agent_genome(val));
         }
     }
 
     let cell = AgentCell::default();
+    let id = cell.cell_id.to_string();
     let val = serde_json::to_value(&cell).unwrap_or(json!({ "name": "Griot" }));
-    (cell.cell_id.to_string(), val)
+    (id, normalize_to_agent_genome(val))
 }
 
 fn handle_list() -> Result<(), String> {
