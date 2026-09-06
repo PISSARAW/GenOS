@@ -5,13 +5,21 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 
+function workspaceScope(req, alias = 'w') {
+  const prefix = alias ? `${alias}.` : '';
+  return req.tenant
+    ? { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] }
+    : { clause: `${prefix}organization_id IS NULL AND ${prefix}project_id IS NULL`, params: [] };
+}
+
 async function listExperiments(req, res) {
   const db = await getDatabase();
   const workspaceId = String(req.query.workspaceId || '').trim();
-  const workspace = workspaceId ? await db.get('SELECT id FROM workspaces WHERE id = ? OR name = ?', workspaceId, workspaceId) : null;
+  const scope = workspaceScope(req);
+  const workspace = workspaceId ? await db.get(`SELECT id FROM workspaces WHERE (id = ? OR name = ?) AND ${scope.clause}`, workspaceId, workspaceId, ...scope.params) : null;
   const list = workspaceId
-    ? await db.all('SELECT * FROM experiments WHERE workspace_id = ? ORDER BY created_at DESC', workspace?.id || workspaceId)
-    : await db.all('SELECT * FROM experiments ORDER BY created_at DESC');
+    ? await db.all(`SELECT e.* FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE e.workspace_id = ? AND ${scope.clause} ORDER BY e.created_at DESC`, workspace?.id || workspaceId, ...scope.params)
+    : await db.all(`SELECT e.* FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE ${scope.clause} ORDER BY e.created_at DESC`, ...scope.params);
 
   const formatted = list.map(e => ({
     id: e.id,
@@ -46,6 +54,9 @@ async function launchExperiment(req, res) {
   const color = experimentType === 'security_coevolution' ? '#cf222e' : (experimentType === 'incident_experiment' ? '#8250df' : '#0969da');
 
   const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const workspace = await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${scope.clause}`, workspaceId, ...scope.params);
+  if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace '${workspaceId}' is not available in this project.` } });
   await db.run(
     `INSERT INTO experiments (id, workspace_id, title, experiment_type, status, chaos_level, color, results_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     expId, workspaceId, title, experimentType, 'Setup', chaosLevel, color, 'Protocol registered; awaiting recorded observations.'
@@ -68,9 +79,10 @@ async function launchExperiment(req, res) {
 
 async function getAnalysis(req, res) {
   const db = await getDatabase();
+  const scope = workspaceScope(req);
   const exp = req.query.experimentId
-    ? await db.get('SELECT * FROM experiments WHERE id = ?', req.query.experimentId)
-    : await db.get('SELECT * FROM experiments ORDER BY updated_at DESC, created_at DESC LIMIT 1');
+    ? await db.get(`SELECT e.* FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE e.id = ? AND ${scope.clause}`, req.query.experimentId, ...scope.params)
+    : await db.get(`SELECT e.* FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE ${scope.clause} ORDER BY e.updated_at DESC, e.created_at DESC LIMIT 1`, ...scope.params);
 
   let mindMapNodes = [];
   if (exp && exp.mind_map_nodes) {
@@ -90,8 +102,9 @@ async function getAnalysis(req, res) {
 
 async function getThoughts(req, res) {
   const db = await getDatabase();
+  const scope = workspaceScope(req);
   const thoughts = req.query.experimentId
-    ? await db.all('SELECT * FROM experiment_thoughts WHERE experiment_id = ? ORDER BY id ASC', req.query.experimentId)
+    ? await db.all(`SELECT t.* FROM experiment_thoughts t JOIN experiments e ON e.id = t.experiment_id JOIN workspaces w ON w.id = e.workspace_id WHERE t.experiment_id = ? AND ${scope.clause} ORDER BY t.id ASC`, req.query.experimentId, ...scope.params)
     : [];
   const formatted = thoughts.map(t => ({
     id: t.id,
@@ -104,8 +117,9 @@ async function getThoughts(req, res) {
 
 async function getCoevolution(req, res) {
   const db = await getDatabase();
+  const scope = workspaceScope(req);
   const arena = req.query.experimentId
-    ? await db.get('SELECT * FROM coevolution_arenas WHERE experiment_id = ?', req.query.experimentId)
+    ? await db.get(`SELECT c.* FROM coevolution_arenas c JOIN experiments e ON e.id = c.experiment_id JOIN workspaces w ON w.id = e.workspace_id WHERE c.experiment_id = ? AND ${scope.clause}`, req.query.experimentId, ...scope.params)
     : null;
 
   if (!arena) {
@@ -133,9 +147,11 @@ async function getCoevolution(req, res) {
 
 async function getWaves(req, res) {
   const db = await getDatabase();
+  const scope = workspaceScope(req);
   const waves = await db.all(
-    'SELECT time_step AS time, success_rate AS successRate, stress_level AS stressLevel, created_at AS createdAt FROM experiment_waves WHERE experiment_id = ? ORDER BY time_step ASC',
-    req.params.experimentId
+    `SELECT wv.time_step AS time, wv.success_rate AS successRate, wv.stress_level AS stressLevel, wv.created_at AS createdAt FROM experiment_waves wv JOIN experiments e ON e.id = wv.experiment_id JOIN workspaces w ON w.id = e.workspace_id WHERE wv.experiment_id = ? AND ${scope.clause} ORDER BY wv.time_step ASC`,
+    req.params.experimentId,
+    ...scope.params
   );
   res.json(waves);
 }
