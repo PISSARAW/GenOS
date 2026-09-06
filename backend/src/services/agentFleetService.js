@@ -153,7 +153,11 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   const plan = options.plan || options;
   const mission = options.mission || (arguments[3] || {});
   const assignments = plan.dispatchWorkers || [];
+  const MAX_AUTONOMOUS_WORKERS = 3;
   if (!assignments.length) return [];
+  if (assignments.length > MAX_AUTONOMOUS_WORKERS) {
+    throw Object.assign(new Error(`Autonomous worker fan-out exceeds the ${MAX_AUTONOMOUS_WORKERS}-worker limit.`), { code: 'WORKER_FANOUT_LIMIT' });
+  }
   const parent = await db.get(
         `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
           w.path AS workspace_path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
