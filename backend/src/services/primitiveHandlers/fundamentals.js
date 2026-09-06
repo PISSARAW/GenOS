@@ -11,6 +11,9 @@ const { getDatabase } = require('../../db');
 const modelProvider = require('../modelProvider');
 const localModelDiscovery = require('../localModelDiscovery');
 const workspaceSnapshotStore = require('../workspaceSnapshotStore');
+const runtimeAdapter = require('../agentRuntimeAdapter');
+const workerGarage = require('../workerGarageService');
+const agentAuthority = require('../agentAuthorityService');
 
 async function scopedWorkspace(db, workspaceId) {
   return db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId);
@@ -39,12 +42,43 @@ async function fork(context) {
   }
   try {
     const db = await getDatabase();
+    const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
+      a.language, a.isolation_mode, a.current_task, w.path AS workspace_root
+      FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
+    if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found or has no workspace.` };
+    await agentAuthority.requireOrchestrator(db, parent.id);
     const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     await db.run(
-      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', 'GenOS', 'worker', ?, ?)",
-      id, 'Forked Worker of ' + context.orchestratorId, context.orchestratorId, context.mission || 'strategy_fork'
+      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, current_task) VALUES (?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, ?)",
+      id, 'Forked Worker of ' + context.orchestratorId, parent.agent_type || 'GenOS', parent.workspace_id, parent.fleet_id,
+      parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId,
+      context.mission || 'strategy_fork'
     );
-    return { success: true, forkedWorkerId: id };
+    const slot = await workerGarage.reserveSlot(db, {
+      orchestratorId: context.orchestratorId,
+      workerId: id,
+      name: 'Forked Worker of ' + context.orchestratorId,
+      role: context.role || 'worker',
+      mission: context.mission || 'strategy_fork'
+    });
+    const startPromise = runtimeAdapter.startMission({
+      agentId: id,
+      name: 'Forked Worker of ' + context.orchestratorId,
+      role: context.role || 'worker',
+      prompt: context.mission || 'strategy_fork',
+      modelTier: parent.model_tier || 'standard',
+      executionMode: 'worker',
+      agentType: parent.agent_type || 'GenOS',
+      workspaceId: parent.workspace_id,
+      workspaceRoot: parent.workspace_root,
+      workspaceIsolation: parent.isolation_mode || 'Branch',
+      orchestratorAgentId: context.orchestratorId,
+      executionBudget: context.executionBudget || {}
+    });
+    startPromise.catch(async (error) => {
+      await db.run("UPDATE agents SET status='error', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", error.message, id).catch(() => {});
+    });
+    return { success: true, forkedWorkerId: id, slot: slot.slot, status: 'queued' };
   } catch (error) {
     return { success: false, error: 'Fork failed: ' + error.message };
   }
