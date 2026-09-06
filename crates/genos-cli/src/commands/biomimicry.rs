@@ -72,7 +72,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
         BiomimicrySubcommands::TheoryAutopoiesis { agent_id, target_gene, new_value } => {
             let mut cell = AgentCell::new(&agent_id, "Autopoïèse régénératrice", "Worker");
             let initial_dissonance = cell.conscience.dissonance_level;
-            cell.conscience.dissonance_level = (initial_dissonance - new_value.min(50.0)).max(0.0);
+            cell.conscience.reduce_dissonance(new_value.min(50.0));
             let membrane_integrity = (1.0 - (cell.conscience.dissonance_level / 100.0)).clamp(0.0, 1.0);
             print_json(json!({
                 "success": true, "operation": "theory_autopoiesis",
