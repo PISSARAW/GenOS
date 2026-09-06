@@ -1,4 +1,4 @@
-const { listStrategies } = require('../strategies/strategyRegistry');
+const { listStrategies, registryHealth } = require('../strategies/strategyRegistry');
 const { buildStrategyContract } = require('../services/strategyContractService');
 const { auditMission } = require('../services/orchestrationCoverageService');
 const { getDatabase } = require('../db');
@@ -6,12 +6,14 @@ const { getDatabase } = require('../db');
 function list(req, res) {
   const family = String(req.query.family || '').trim();
   const maturity = String(req.query.maturity || '').trim();
+  const executableOnly = req.query.executable === '1' || req.query.executable === 'true';
   const strategies = listStrategies().filter((strategy) => {
     if (family && strategy.family !== family) return false;
     if (maturity && strategy.maturity !== maturity) return false;
+    if (executableOnly && strategy.executionStatus !== 'ready') return false;
     return true;
   });
-  res.json({ total: strategies.length, registryTotal: listStrategies().length, strategies });
+  res.json({ total: strategies.length, registryTotal: listStrategies().length, health: registryHealth(), strategies });
 }
 
 function preview(req, res) {
