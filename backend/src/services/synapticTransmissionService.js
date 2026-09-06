@@ -44,20 +44,21 @@ async function releaseVesicles(engrams = [], options = {}) {
   return filePath;
 }
 
-async function uptakeVesicles(targetAgentId = null) {
+async function uptakeVesicles(targetAgentId = null, options = {}) {
   const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
   if (!fs.existsSync(cleftDir)) return [];
 
   const { Vesicle } = await getProtoTypes();
   const files = fs.readdirSync(cleftDir);
   const collectedEngrams = [];
+  const shouldPeek = Boolean(options.peek);
 
   for (const file of files) {
     if (file.startsWith('vesicle_') && file.endsWith('.vesicle')) {
+      const isBroadcast = /^vesicle_[0-9a-f]{8}-[0-9a-f]{4}/i.test(file);
       if (targetAgentId) {
         const cleanTarget = String(targetAgentId).replace(/[^a-zA-Z0-9_-]/g, '');
         const targetPrefix = `vesicle_${cleanTarget}_`;
-        const isBroadcast = /^vesicle_[0-9a-f]{8}-[0-9a-f]{4}/i.test(file);
         if (!file.startsWith(targetPrefix) && !isBroadcast) continue;
       }
       const fullPath = path.join(cleftDir, file);
@@ -69,7 +70,9 @@ async function uptakeVesicles(targetAgentId = null) {
         if (Array.isArray(obj.engrams)) {
           collectedEngrams.push(...obj.engrams);
         }
-        fs.unlinkSync(fullPath);
+        if (!shouldPeek && !isBroadcast) {
+          fs.unlinkSync(fullPath);
+        }
       } catch (err) {
         console.error(`[SynapticTransmission] Failed to uptake vesicle ${file}:`, err.message);
       }
