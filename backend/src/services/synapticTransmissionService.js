@@ -111,6 +111,7 @@ async function absorbExosomes(db = null) {
   const errors = [];
 
   for (const exo of exosomes) {
+    const errorsBefore = errors.length;
     const engrams = exo.new_engrams || exo.newEngrams || [];
     if (Array.isArray(engrams)) {
       for (const engram of engrams) {
@@ -154,6 +155,9 @@ async function absorbExosomes(db = null) {
       } catch (error) {
         errors.push(`Plasmid insertion failed: ${error.message}`);
       }
+    }
+    if (errors.length === errorsBefore && exo.__sourcePath) {
+      try { fs.unlinkSync(exo.__sourcePath); } catch (error) { errors.push(`Exosome cleanup failed: ${error.message}`); }
     }
   }
 
