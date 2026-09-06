@@ -119,6 +119,10 @@ async function changeStrategy(db, input = {}) {
   }
 
   const { selected, nextRun } = await withTransaction(db, async (tx) => {
+    const lockedCurrent = await strategyContracts.getLatestContract(tx, orchestratorId);
+    if (!lockedCurrent || lockedCurrent.id !== current.id || lockedCurrent.version !== current.version) {
+      throw Object.assign(new Error('The strategy contract changed while adaptation was being planned.'), { code: 'STRATEGY_CONCURRENT_CHANGE' });
+    }
     const nextContract = await strategyContracts.saveContract(tx, {
       agentId: orchestratorId,
       workspaceId: agent.workspace_id,
