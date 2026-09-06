@@ -1,4 +1,5 @@
 use genos_genome::Genome;
+use uuid::Uuid;
 
 pub struct MeioticCrossover;
 
@@ -13,6 +14,8 @@ impl MeioticCrossover {
         child_a.chromosome_paternal.sequence = b_gamete_1;
         child_b.chromosome_maternal.sequence = a_gamete_2;
         child_b.chromosome_paternal.sequence = b_gamete_2;
+        child_a.genome_id = Uuid::new_v4();
+        child_b.genome_id = Uuid::new_v4();
 
         (child_a, child_b)
     }
@@ -29,6 +32,7 @@ impl MeioticCrossover {
 
     pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
         let mut child = parent_a.clone();
+        child.genome_id = Uuid::new_v4();
         let swap_prob = swap_prob.clamp(0.0, 1.0);
         for (index, (a, b)) in child
             .chromosome_maternal

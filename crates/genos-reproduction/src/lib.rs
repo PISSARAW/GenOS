@@ -29,6 +29,7 @@ mod tests {
         let parent1 = Genome::new("PARENT_AAA");
         let parent2 = Genome::new("PARENT_BBB");
         let child = MeioticCrossover::uniform_crossover(&parent1, &parent2, 0.5);
-        assert_eq!(child.genome_id, parent1.genome_id);
+        assert_ne!(child.genome_id, parent1.genome_id);
+        assert_eq!(child.lineage_id, parent1.lineage_id);
     }
 }
