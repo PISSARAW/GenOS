@@ -103,8 +103,18 @@ function validateContract(contract) {
   return contract;
 }
 
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableValue(value[key])]));
+  return value;
+}
+
+function digestContract(contract, canonical = true) {
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonical ? stableValue(contract) : contract)).digest('hex')}`;
+}
+
 function hashContract(contract) {
-  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(contract)).digest('hex')}`;
+  return digestContract(contract, true);
 }
 
 function parseRow(row) {
@@ -120,7 +130,15 @@ function parseRow(row) {
     decisionReason: row.decision_reason,
     createdBy: row.created_by,
     createdAt: row.created_at,
-    contract: JSON.parse(row.contract_json)
+    contract: (() => {
+      const contract = JSON.parse(row.contract_json);
+      const canonicalHash = digestContract(contract, true);
+      const legacyHash = digestContract(contract, false);
+      if (row.contract_hash !== canonicalHash && row.contract_hash !== legacyHash) {
+        throw Object.assign(new Error(`Strategy contract '${row.id}' failed integrity verification.`), { code: 'STRATEGY_CONTRACT_CORRUPTED' });
+      }
+      return contract;
+    })()
   };
 }
 
@@ -166,4 +184,8 @@ async function listContracts(db, agentId) {
   return rows.map(parseRow);
 }
 
-module.exports = { CONTRACT_SCHEMA, buildStrategyContract, validateContract, saveContract, getLatestContract, listContracts };
+async function getContractById(db, id) {
+  return parseRow(await db.get('SELECT * FROM strategy_contracts WHERE id = ?', id));
+}
+
+module.exports = { CONTRACT_SCHEMA, buildStrategyContract, validateContract, hashContract, saveContract, getLatestContract, getContractById, listContracts };
