@@ -1,5 +1,10 @@
 const MAX_ACTIVE_WORKERS = 3;
 
+function projectCapacity() {
+  const configured = Number(process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 12;
+}
+
 const MISSION_STOP_WORDS = new Set([
   'agent', 'worker', 'scope', 'mission', 'task', 'work', 'assigned', 'delegated',
   'the', 'and', 'for', 'from', 'with', 'into', 'this', 'that', 'une', 'des',
@@ -137,6 +142,19 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
     error.garage = garage;
     throw error;
   }
+  const project = await db.get('SELECT w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', orchestratorId);
+  if (project?.project_id) {
+    const activeProject = await db.get(`SELECT COUNT(*) AS count
+      FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+      WHERE a.execution_mode = 'worker' AND a.status IN ('running', 'blocked')
+        AND w.organization_id = ? AND w.project_id = ?`, project.organization_id, project.project_id);
+    if (!alreadyActive && Number(activeProject?.count || 0) >= projectCapacity()) {
+      const error = new Error(`Project '${project.project_id}' already has ${projectCapacity()} active workers.`);
+      error.code = 'PROJECT_WORKER_CAPACITY_FULL';
+      error.garage = { ...garage, projectCapacity: projectCapacity(), projectOccupied: Number(activeProject?.count || 0), available: 0 };
+      throw error;
+    }
+  }
   return { ...garage, slot: alreadyActive ? garage.activeWorkers.find((worker) => worker.id === workerId).slot : garage.occupied + 1 };
 }
 
@@ -183,6 +201,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
 
 module.exports = {
   MAX_ACTIVE_WORKERS,
+  projectCapacity,
   workerName,
   missionTokens,
   missionAffinity,
