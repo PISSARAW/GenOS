@@ -109,37 +109,21 @@ async function searchFailures(context) {
 
 async function stdpUpdate(context) {
   const db = await getDatabase();
-  let sourceId = context.sourceId || context.causeId;
-  let targetId = context.targetId || context.effectId;
-  const delta = Number.isFinite(context.delta) ? context.delta : 1.0;
+  const sourceId = context.sourceId || context.causeId;
+  const targetId = context.targetId || context.effectId;
+  const preSpikeAt = Number(context.preSpikeAt ?? context.preTimestamp);
+  const postSpikeAt = Number(context.postSpikeAt ?? context.postTimestamp);
+  const tauMs = Number(context.tauMs ?? 20);
+  const learningRate = Number(context.learningRate ?? context.delta ?? 1);
+  const transmitterType = String(context.transmitterType || 'glutamate').toLowerCase();
 
-  if (!sourceId) {
-    const recentDecision = await db.get(
-      "SELECT id FROM genome_decisions WHERE created_by = ? OR category IN ('Experience', 'Decision') ORDER BY created_at DESC LIMIT 1",
-      context.agentId || context.orchestratorId || ''
-    );
-    sourceId = recentDecision ? recentDecision.id : null;
-  }
-  if (!targetId) {
-    const recentGolden = await db.get(
-      "SELECT id FROM genome_decisions WHERE category = 'GoldenPath' ORDER BY created_at DESC LIMIT 1"
-    );
-    targetId = recentGolden ? recentGolden.id : null;
-  }
-
-  if (!sourceId || !targetId || sourceId === targetId) {
-    const agentNode = `node_cause_${context.agentId || 'agent'}`;
-    const targetNode = `node_effect_${Date.now()}`;
-    const float32 = new Float32Array(768);
-    const buf = Buffer.from(float32.buffer);
-    await db.run("INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, 'ConnectomeNode', ?)",
-      agentNode, 'Synaptic Cause Node', `Agent root ${context.agentId}`, context.agentId || 'stdp', buf);
-    await db.run("INSERT OR IGNORE INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, 'ConnectomeNode', ?)",
-      targetNode, 'Synaptic Effect Node', `Outcome for ${context.task || 'mission'}`, context.agentId || 'stdp', buf);
-    sourceId = sourceId || agentNode;
-    targetId = targetId || targetNode;
-    if (sourceId === targetId) targetId = targetNode;
-  }
+  if (!sourceId || !targetId || sourceId === targetId) return { success: false, error: 'Distinct sourceId and targetId required for STDP.' };
+  if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt)) return { success: false, error: 'preSpikeAt and postSpikeAt are required for STDP.' };
+  if (!Number.isFinite(tauMs) || tauMs <= 0 || !Number.isFinite(learningRate) || learningRate <= 0) return { success: false, error: 'Positive tauMs and learningRate required for STDP.' };
+  if (!['glutamate', 'gaba', 'dopamine', 'serotonin'].includes(transmitterType)) return { success: false, error: 'Unsupported transmitterType.' };
+  const deltaT = postSpikeAt - preSpikeAt;
+  if (deltaT === 0) return { success: false, error: 'preSpikeAt and postSpikeAt must differ for STDP.' };
+  const update = Math.sign(deltaT) * learningRate * Math.exp(-Math.abs(deltaT) / tauMs);
 
   const [sRow, tRow] = await Promise.all([
     db.get('SELECT id FROM genome_decisions WHERE id = ?', sourceId),
@@ -150,8 +134,17 @@ async function stdpUpdate(context) {
   }
 
   await db.run(
-    'INSERT INTO memory_synapses (source_id, target_id, weight) VALUES (?, ?, ?) ON CONFLICT(source_id, target_id) DO UPDATE SET weight = MIN(20.0, MAX(-20.0, weight + ?))',
-    sourceId, targetId, delta, delta
+    `INSERT INTO memory_synapses
+      (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, last_updated_at)
+      VALUES (?, ?, MIN(20.0, MAX(-20.0, ?)), ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(source_id, target_id) DO UPDATE SET
+        weight = MIN(20.0, MAX(-20.0, memory_synapses.weight + excluded.weight)),
+        transmitter_type = excluded.transmitter_type,
+        pre_spike_at = excluded.pre_spike_at,
+        post_spike_at = excluded.post_spike_at,
+        delta_t_ms = excluded.delta_t_ms,
+        last_updated_at = CURRENT_TIMESTAMP`,
+    sourceId, targetId, update, transmitterType, preSpikeAt, postSpikeAt, deltaT
   );
   const row = await db.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', sourceId, targetId);
   telemetry.emitEvent({
@@ -160,9 +153,9 @@ async function stdpUpdate(context) {
     action: 'STDP',
     detail: 'Synapse ' + sourceId + ' -> ' + targetId + ' updated to weight ' + (row ? row.weight : delta),
     severity: 'info',
-    payload: { sourceId, targetId, newWeight: row ? row.weight : delta }
+    payload: { sourceId, targetId, deltaT, update, transmitterType, newWeight: row ? row.weight : update }
   });
-  return { success: true, sourceId, targetId, newWeight: row ? row.weight : delta };
+  return { success: true, sourceId, targetId, deltaT, update, transmitterType, newWeight: row ? row.weight : update };
 }
 
 module.exports = { compileMemory, cherryPickGoldenPath, searchMemory, searchFailures, stdpUpdate };
