@@ -97,6 +97,14 @@ impl BiomimeticOrchestrator {
         Ok(worker.conscience.clone())
     }
 
+    pub fn evaluate_orchestrator(&mut self, loop_metrics: (u32, f64)) -> ConscienceState {
+        let root = self.active_cells.get_mut(&self.orchestrator_id)
+            .expect("orchestrator root cell must remain active");
+        self.conscience.evaluate_branch(&mut root.conscience, loop_metrics.0, loop_metrics.1);
+        self.conscience_state = root.conscience.clone();
+        self.conscience_state.clone()
+    }
+
     /// Sporulation : cryoconserve une cellule sous forme d'endospore résistante
     pub fn sporulate_cell(&mut self, worker_id: Uuid, spore_type: SporeType) -> Result<usize, String> {
         let worker = self.active_cells.remove(&worker_id)
