@@ -27,15 +27,26 @@ async function ensureConfiguredWorkspace(db) {
   const workspaceRoot = String(process.env.GENOS_WORKSPACE_ROOT || '').trim();
   if (!workspaceRoot) return;
 
-  const name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
-  await db.run(
-    `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
-     VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]')
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path`,
-    name,
-    workspaceRoot,
-    'Workspace mounted through GENOS_WORKSPACE_ROOT.'
-  );
+  let name = String(process.env.GENOS_WORKSPACE_NAME || path.basename(workspaceRoot) || 'workspace').trim();
+  try {
+    await db.run(
+      `INSERT INTO workspaces (id, name, path, visibility, language, description, tags)
+       VALUES ('ws-local', ?, ?, 'Private', 'Mixed', ?, '[]')
+       ON CONFLICT(id) DO UPDATE SET name = excluded.name, path = excluded.path`,
+      name,
+      workspaceRoot,
+      'Workspace mounted through GENOS_WORKSPACE_ROOT.'
+    );
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE constraint failed')) {
+      await db.run(
+        `UPDATE workspaces SET path = ? WHERE id = 'ws-local'`,
+        workspaceRoot
+      ).catch(() => {});
+    } else {
+      throw err;
+    }
+  }
 }
 
 async function ensureWorkspaceDashboardData(db) {

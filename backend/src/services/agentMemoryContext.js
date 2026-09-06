@@ -29,15 +29,16 @@ async function retrieveAgentMemories(agentId = '', task = '', options = {}) {
   const pitfalls = searchRes.pitfallsToAvoid || [];
   const goldenPaths = searchRes.topSuccessfulGoldenPaths || [];
 
-  // Also query recent failures from genome_decisions if pitfalls are empty
+  // Also query relevant failures from genome_decisions if pitfalls are empty
   let additionalFailures = [];
   try {
-    const db = await getDatabase();
-    const rows = await db.all(
-      "SELECT title, content FROM genome_decisions WHERE category = 'Failure' AND created_by = ? ORDER BY created_at DESC LIMIT 3",
-      agentId
-    );
-    additionalFailures = rows.map(r => ({ summary: `${r.title}: ${r.content}` }));
+    const memoryPrimitives = require('./primitiveHandlers/memory');
+    const failRes = await memoryPrimitives.searchFailures({ query: task, limit: 3, organizationId: options.organizationId });
+    if (failRes && Array.isArray(failRes.failures)) {
+      additionalFailures = failRes.failures
+        .filter(r => !r.similarity || r.similarity >= 0.35)
+        .map(r => ({ summary: `${r.title}: ${r.content}`, status: 'FAILURE', category: 'Failure' }));
+    }
   } catch {}
 
   const combinedPitfalls = pitfalls.length > 0 ? pitfalls : additionalFailures;
