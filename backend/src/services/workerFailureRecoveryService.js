@@ -11,8 +11,8 @@ function classifyFailure(event = {}) {
   if (declared) return declared;
   const text = `${event.detail || ''} ${payload.failure?.reason || ''} ${payload.stderr || ''}`.toLowerCase();
   if (/permission|forbidden|policy|not allowed|unauthori/.test(text)) return 'capability_mismatch';
-  if (/mutat|malform|apoptos|syntax|chaperon/.test(text)) return 'mutated_output';
   if (/test failure|failed test|assertion|invariant|regression|exit code [1-9]|npm test|cargo test|pytest/.test(text)) return 'test_failure';
+  if (/\b(?:mutated output|mutation|apoptosis|chaperone repair|malformed json)\b/.test(text)) return 'mutated_output';
   if (/contradict|counterexample|falsif|invalid hypothesis|wrong assumption/.test(text)) return 'falsified_hypothesis';
   if (/timeout|temporar|rate limit|connection|unavailable|econn|deadlock/.test(text)) return 'transient_runtime';
   if (/missing (tool|dependency)|unsupported|cannot execute|command not found/.test(text)) return 'capability_mismatch';
