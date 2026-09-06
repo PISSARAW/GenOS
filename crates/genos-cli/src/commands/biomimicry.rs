@@ -136,7 +136,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::CerebellumCoprocessor { agent_id, target_value, expected_latency, current_value, actual_latency } => {
-            let mut tree = DendriticTree { branches: Vec::new() };
+            let mut tree = DendriticTree::new();
             let error = (target_value - current_value).abs();
             let latency_diff = (expected_latency - actual_latency).abs();
             let feedforward_gain = 1.0 + (latency_diff / expected_latency.max(1.0));
@@ -148,7 +148,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "agent_id": agent_id, "error": error, "latency_diff": latency_diff,
                 "feedforward_gain": (feedforward_gain * 100.0).round() / 100.0,
                 "feedforward_amplification": (amplified * 100.0).round() / 100.0,
-                "dendritic_branches": tree.branches.len(),
+                "dendritic_branches": tree.total_spines(),
                 "smith_predictor_converged": true
             }));
         }
