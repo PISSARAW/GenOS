@@ -153,18 +153,22 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
     const fallbackMessage = `### Synthèse Cognitive Locale (${agentName})\nMission: ${prompt}\n- Statut: Analyse cognitive locale exécutée.\n- Recommandation: Exécution des primitives stratégiques et persistance synaptique terminées.`;
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
     let fallbackUsed = false;
+    const generationAbort = new AbortController();
     const generation = withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
         agentId: agentName,
-        modelRouting: { model: mission.localModel || undefined, policy: localRoutingPolicy },
+        modelRouting: { model: mission.localModel || undefined, policy: localRoutingPolicy, signal: generationAbort.signal },
       stemCellFallback: fallbackMessage,
       onFallback: () => { fallbackUsed = true; }
     });
     const timeoutMs = budgetLimit('latencyMs');
     const timeout = Number.isFinite(timeoutMs)
       ? new Promise((_, reject) => {
-        const timer = setTimeout(() => reject(new Error(`Local generation exceeded latency budget (${timeoutMs}ms).`)), timeoutMs);
+        const timer = setTimeout(() => {
+          generationAbort.abort();
+          reject(new Error(`Local generation exceeded latency budget (${timeoutMs}ms).`));
+        }, timeoutMs);
         if (typeof timer.unref === 'function') timer.unref();
       })
       : null;
