@@ -175,6 +175,216 @@ async function permissionCheck(context) {
   return { success: allowed, allowed, isDestructive, circuitState: circuit };
 }
 
+/**
+ * Construit le graphe de communication orienté entre agents/outils
+ */
+async function messageGraph(context = {}) {
+  const rawMessages = context.messages || context.turns || context.history || [];
+  const nodes = new Map();
+  const edges = new Map();
+
+  for (const msg of rawMessages) {
+    const from = String(msg.from || msg.sender || msg.agentId || msg.source || 'agent').trim();
+    const to = String(msg.to || msg.recipient || msg.receiver || msg.target || msg.tool || 'system').trim();
+    if (!nodes.has(from)) nodes.set(from, { id: from, sent: 0, received: 0 });
+    if (!nodes.has(to)) nodes.set(to, { id: to, sent: 0, received: 0 });
+    nodes.get(from).sent++;
+    nodes.get(to).received++;
+
+    const edgeKey = `${from}->${to}`;
+    if (!edges.has(edgeKey)) {
+      edges.set(edgeKey, { source: from, target: to, count: 0 });
+    }
+    edges.get(edgeKey).count++;
+  }
+
+  return {
+    success: true,
+    nodes: Array.from(nodes.values()),
+    edges: Array.from(edges.values()),
+    totalMessages: rawMessages.length
+  };
+}
+
+/**
+ * Détecte les cycles d'échange (ping-pong entre agents ou boucle répétitive d'outils)
+ */
+async function cycleDetection(context = {}) {
+  const rawMessages = context.messages || context.turns || context.history || [];
+  const maxRepeats = Number.isInteger(context.maxRepeats) ? context.maxRepeats : 2;
+
+  let hasCycle = false;
+  let cycleParticipants = [];
+  let loopType = 'none';
+  let detectedCycle = null;
+
+  // 1. Détection séquentielle temporelle
+  const sequence = rawMessages.map(m => {
+    if (typeof m === 'string') return m;
+    const actor = m.from || m.sender || m.agentId || m.action || m.tool || 'unknown';
+    const target = m.to || m.recipient || m.tool || '';
+    return target ? `${actor}->${target}` : actor;
+  });
+
+  if (sequence.length >= 2) {
+    for (let period = 1; period <= Math.min(4, Math.floor(sequence.length / 2)); period++) {
+      let repeated = 0;
+      for (let i = sequence.length - 1; i >= period; i -= period) {
+        let match = true;
+        for (let k = 0; k < period; k++) {
+          if (sequence[i - k] !== sequence[i - k - period]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) repeated++;
+        else break;
+      }
+      if (repeated >= maxRepeats) {
+        hasCycle = true;
+        detectedCycle = sequence.slice(sequence.length - period);
+        cycleParticipants = [...new Set(detectedCycle)];
+        loopType = period === 1 ? 'repetitive_action' : 'agent_ping_pong';
+        break;
+      }
+    }
+  }
+
+  // 2. Détection par graphe d'adjacence orienté (DFS)
+  if (!hasCycle && rawMessages.length >= 2) {
+    const adj = new Map();
+    for (const msg of rawMessages) {
+      const from = String(msg.from || msg.sender || msg.agentId || 'A').trim();
+      const to = String(msg.to || msg.recipient || msg.target || 'B').trim();
+      if (from && to && from !== to) {
+        if (!adj.has(from)) adj.set(from, new Set());
+        adj.get(from).add(to);
+      }
+    }
+
+    const visited = new Set();
+    const recStack = new Set();
+
+    function dfs(node, path = []) {
+      visited.add(node);
+      recStack.add(node);
+      path.push(node);
+
+      const neighbors = adj.get(node) || new Set();
+      for (const neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          if (dfs(neighbor, [...path])) return true;
+        } else if (recStack.has(neighbor)) {
+          hasCycle = true;
+          loopType = 'agent_ping_pong';
+          const cycleStart = path.indexOf(neighbor);
+          cycleParticipants = cycleStart >= 0 ? path.slice(cycleStart) : [neighbor, node];
+          return true;
+        }
+      }
+
+      recStack.delete(node);
+      return false;
+    }
+
+    for (const node of adj.keys()) {
+      if (!visited.has(node)) {
+        if (dfs(node, [])) break;
+      }
+    }
+  }
+
+  if (hasCycle) {
+    telemetry.emitEvent({
+      eventType: 'COMMUNICATION_CYCLE_DETECTED',
+      agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
+      action: 'CYCLE_DETECTION',
+      detail: `Cycle detected in agent communication (${loopType}): ${cycleParticipants.join(' <-> ')}`,
+      severity: 'warning',
+      payload: { loopType, cycleParticipants, detectedCycle }
+    });
+  }
+
+  return {
+    success: true,
+    hasCycle,
+    loopType,
+    cycleParticipants,
+    detectedCycle,
+    recommendation: hasCycle ? 'Break communication loop: mandate external decision or inject novel evidence' : 'No cycle detected'
+  };
+}
+
+/**
+ * Diagnostic de cause racine générant des hypothèses falsifiables
+ */
+async function diagnose(context = {}) {
+  const task = context.task || context.incident || context.prompt || 'System incident';
+  const error = context.error || context.failure || context.detail || '';
+  const hypotheses = Array.isArray(context.hypotheses) ? context.hypotheses : [
+    { id: 'hyp-1', statement: `Issue caused by state invalidation during "${String(task).slice(0, 50)}"`, falsified: false, confidence: 0.7 },
+    { id: 'hyp-2', statement: `Resource exhaustion or concurrency collision: ${String(error).slice(0, 50)}`, falsified: false, confidence: 0.5 },
+    { id: 'hyp-3', statement: 'Contract precondition or boundary violation', falsified: false, confidence: 0.4 }
+  ];
+
+  telemetry.emitEvent({
+    eventType: 'INCIDENT_DIAGNOSIS_GENERATED',
+    agentId: context.agentId || 'strategy_adapter',
+    action: 'DIAGNOSE',
+    detail: `Generated ${hypotheses.length} falsifiable hypotheses for: ${String(task).slice(0, 60)}`,
+    severity: 'info',
+    payload: { task, error, hypotheses }
+  });
+
+  return {
+    success: true,
+    task,
+    error,
+    hypothesisCount: hypotheses.length,
+    hypotheses
+  };
+}
+
+/**
+ * Confrontation des hypothèses aux preuves empiriques et falsification
+ */
+async function hypothesisEvidence(context = {}) {
+  const rawHypotheses = context.hypotheses || [];
+  const evidence = context.evidence || context.testResults || context.tests || [];
+
+  const evaluated = rawHypotheses.map(hyp => {
+    const item = typeof hyp === 'string' ? { id: `hyp_${Math.random()}`, statement: hyp, confidence: 0.5 } : { ...hyp };
+    const contradicts = evidence.some(e => {
+      const text = String(e.statement || e.detail || e.output || e).toLowerCase();
+      const hypText = (item.statement || '').toLowerCase();
+      const explicitFalsified = e.falsifies === item.id || e.refutes === item.id || (e.status === 'success' && e.provesNot === item.id);
+      if (explicitFalsified) return true;
+      const words = hypText.split(/\s+/).filter(w => w.length > 3 && !['issue', 'caused', 'error', 'failed', 'during'].includes(w));
+      const mentionsComponent = words.some(w => text.includes(w));
+      const confirmsHealthy = text.includes('passed') || text.includes('no error') || text.includes('success') || text.includes('healthy') || text.includes('clean');
+      return mentionsComponent && confirmsHealthy;
+    });
+
+    return {
+      ...item,
+      falsified: item.falsified === true || contradicts,
+      confidence: (item.falsified === true || contradicts) ? 0.0 : (item.confidence || 0.6)
+    };
+  });
+
+  const retained = evaluated.filter(h => !h.falsified);
+  const falsified = evaluated.filter(h => h.falsified);
+
+  return {
+    success: true,
+    totalHypotheses: evaluated.length,
+    retainedCount: retained.length,
+    falsifiedCount: falsified.length,
+    retainedHypotheses: retained,
+    falsifiedHypotheses: falsified
+  };
+}
+
 module.exports = {
   circuitBreakerOpen,
   circuitBreakerHalfOpen,
@@ -183,5 +393,9 @@ module.exports = {
   sandbox,
   permissionCheck,
   fossilize,
-  listFossils
+  listFossils,
+  messageGraph,
+  cycleDetection,
+  diagnose,
+  hypothesisEvidence
 };

@@ -104,6 +104,10 @@ const HANDLERS = {
   execution_receipt: safety.permissionCheck,
   artifact_hash: safety.permissionCheck,
   artifact_gate: safety.permissionCheck,
+  message_graph: safety.messageGraph,
+  cycle_detection: safety.cycleDetection,
+  diagnose: safety.diagnose,
+  hypothesis_evidence: safety.hypothesisEvidence,
 
   // Lot 5 — Collectif & Swarm Intelligence
   pheromone_deposit: collective.pheromoneDeposit,
