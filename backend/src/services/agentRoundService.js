@@ -32,6 +32,16 @@ async function advanceAutonomousRound(mission, event) {
   if (state.results.size < state.workerIds.size) return;
   state.advanced = true;
   const continuation = state.plan.tokenPolicy.rounds?.continuation;
+  if (!continuation || !Number.isInteger(Number(continuation.survivorCount)) || !Number.isInteger(Number(continuation.perWorkerTokens))) {
+    emit(round.orchestratorId, 'TOKEN_ROUND_INVALID', 'SUCCESSIVE_HALVING', 'Continuation policy is missing or malformed; no workers were dispatched.', { continuation }, 'error');
+    autonomousRounds.delete(round.orchestratorId);
+    return;
+  }
+  if (continuation.survivorCount <= 0 || continuation.perWorkerTokens <= 0) {
+    emit(round.orchestratorId, 'TOKEN_ROUND_SKIPPED', 'SUCCESSIVE_HALVING', 'Continuation round skipped because its budget policy selected no survivors.', { continuation }, 'info');
+    autonomousRounds.delete(round.orchestratorId);
+    return;
+  }
   const completed = [...state.results.values()].filter((result) => result.status === 'completed');
   const arenaTask = require('./arenaTaskEvaluation');
   const paretoResult = arenaTask.evaluateDossiersPareto(completed.map(r => ({
