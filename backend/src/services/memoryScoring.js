@@ -132,7 +132,8 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
 
   const hormone = options.hormone || 'normal';
   if (hormone === 'dopamine') {
-    finalScore += Math.random() * 0.3;
+    const dopamineSignal = Math.max(0, Math.min(1, Number(options.dopamineSignal || 0)));
+    finalScore += dopamineSignal * 0.3;
   } else if (hormone === 'adrenaline') {
     if (cosScore < 0.75) finalScore = 0;
   }
