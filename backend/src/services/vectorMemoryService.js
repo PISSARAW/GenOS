@@ -36,26 +36,27 @@ class VectorMemoryService {
 
   async storeMemory(agentId, content, embedding = null) {
     const db = await this.initDb();
-    await db.exec('CREATE TABLE IF NOT EXISTS memory_entries (id TEXT PRIMARY KEY, agent_id TEXT, content TEXT)');
-    const id = `mem_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    await db.run('INSERT INTO memory_entries (id, agent_id, content) VALUES (?, ?, ?)', id, agentId, content);
+    const normalizedContent = String(content || '').trim();
+    if (!normalizedContent) throw new Error('Memory content is required.');
+    const id = `mem_${crypto.createHash('sha256').update(`${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
+    const existing = await db.get('SELECT id FROM genome_decisions WHERE id = ?', id);
+    if (existing) return existing.id;
 
     const vec = (embedding && embedding.length === 768)
       ? embedding
-      : ((await embed(content)) || textToVector(content));
+      : ((await embed(normalizedContent)) || textToVector(normalizedContent));
     const float32 = new Float32Array(vec);
     const buffer = Buffer.from(float32.buffer);
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      id, 'Agent Experience', content, buffer, agentId, 'Experience', 1.0
+      id, 'Agent Experience', normalizedContent, buffer, agentId, 'Experience', 1.0
     );
     return id;
   }
 
   async deleteMemory(memoryId) {
     const db = await this.initDb();
-    await db.run('DELETE FROM memory_entries WHERE id = ?', memoryId);
     await db.run('DELETE FROM genome_decisions WHERE id = ?', memoryId);
   }
 
