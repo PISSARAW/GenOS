@@ -162,20 +162,14 @@ impl BiomimeticOrchestrator {
 
     /// Symbiogenèse Eucaryote : un agent (host) phagocyte un autre agent (symbiont)
     pub fn trigger_endosymbiosis(&mut self, host_id: Uuid, symbiont_id: Uuid) -> Result<(), String> {
-        // 1. Extraire le symbionte (il n'est plus un acteur autonome)
+        let host = self.active_cells.get(&host_id)
+            .ok_or_else(|| format!("Hôte {} introuvable", host_id))?;
+        host.can_phagocytize(symbiont_id)?;
+        // Extraire le symbionte après validation atomique de l'hôte.
         let symbiont = self.active_cells.remove(&symbiont_id)
             .ok_or_else(|| format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id))?;
-            
-        // 2. Récupérer l'hôte
-        if !self.active_cells.contains_key(&host_id) {
-            self.active_cells.insert(symbiont_id, symbiont);
-            return Err(format!("Hôte {} introuvable", host_id));
-        }
-        
         let host = self.active_cells.get_mut(&host_id).unwrap();
-            
-        // 3. L'hôte phagocyte le symbionte
-        host.phagocytize(symbiont);
+        host.phagocytize(symbiont)?;
         
         // 4. Émettre un signal bioluminescent pour marquer l'événement
         self.emit_bioluminescence(
