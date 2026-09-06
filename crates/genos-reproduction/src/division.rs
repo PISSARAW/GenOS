@@ -1,6 +1,7 @@
 use genos_genome::Genome;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
+use crate::seed::{default_seed, rng_from_seed};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DivisionMode {
@@ -14,12 +15,16 @@ pub struct CellDivision;
 
 impl CellDivision {
     pub fn binary_fission(genome: &Genome, mutation_rate: f64) -> Result<(Genome, Genome), String> {
+        Self::binary_fission_with_seed(genome, mutation_rate, &default_seed(&genome.genome_id().to_string(), "binary_fission"))
+    }
+
+    pub fn binary_fission_with_seed(genome: &Genome, mutation_rate: f64, seed: &str) -> Result<(Genome, Genome), String> {
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
         }
             let parent = genome.clone();
             let mut child = genome.derive_child();
-        let mut rng = rand::rng();
+        let mut rng = rng_from_seed(seed);
             let mut maternal = child.chromosome_maternal.as_slice().to_vec();
             let mut paternal = child.chromosome_paternal.as_slice().to_vec();
             for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {

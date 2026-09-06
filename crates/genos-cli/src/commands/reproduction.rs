@@ -12,11 +12,11 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
         EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name } => {
             handle_assimilate_plasmid(agent_id, source_agent_id, plasmid_name);
         }
-        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point } => {
-            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point);
+        EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, seed } => {
+            handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, seed.as_deref());
         }
-        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count } => {
-            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count);
+        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, seed } => {
+            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, seed.as_deref());
         }
         EvolutionSubcommands::Phylogeny { action, genome_a, genome_b, mutation_rate, is_plant } => {
             handle_phylogeny(&action, &genome_a, genome_b.as_deref(), mutation_rate, is_plant);
@@ -38,7 +38,7 @@ fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<S
     }));
 }
 
-fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_point: Option<usize>) {
+fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_point: Option<usize>, seed: Option<&str>) {
     let mut g_a = Genome::new(parent_a);
     let mut g_b = Genome::new(parent_b);
 
@@ -56,7 +56,8 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
             format!("single_point@{}", pt),
         )
     } else {
-        let res = MeioticCrossover::uniform_crossover(&g_a, &g_b, swap_prob);
+        let resolved_seed = seed.unwrap_or("genos-default-crossover");
+        let res = MeioticCrossover::uniform_crossover_with_seed(&g_a, &g_b, swap_prob, resolved_seed);
         (
             res.genome_id().to_string(),
             res.chromosome_maternal.len(),
@@ -73,17 +74,18 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
         "parent_b_genome_id": g_b.genome_id().to_string(),
         "child_genome_id": child_a_id,
         "crossover_strategy": strategy_name,
+        "seed": seed.unwrap_or("genos-default-crossover"),
         "maternal_sequence_length": child_a_mat_len,
         "status": "recombined"
     }));
 }
 
-fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volume: f64, merozoite_count: usize) {
+fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volume: f64, merozoite_count: usize, seed: Option<&str>) {
     let parent = Genome::new(agent_id);
 
     match mode.to_lowercase().as_str() {
         "binary_fission" | "fission" => {
-            match CellDivision::binary_fission(&parent, mutation_rate) {
+            match CellDivision::binary_fission_with_seed(&parent, mutation_rate, seed.unwrap_or("genos-default-fission")) {
                 Ok((p, c)) => {
                     print_json(json!({
                         "success": true,
@@ -92,6 +94,7 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
                         "parent_genome_id": p.genome_id().to_string(),
                         "child_genome_id": c.genome_id().to_string(),
                         "mutation_rate_applied": mutation_rate,
+                        "seed": seed.unwrap_or("genos-default-fission"),
                         "progeny_count": 1,
                         "status": "fission_completed"
                     }));

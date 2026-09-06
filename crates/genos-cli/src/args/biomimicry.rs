@@ -223,6 +223,8 @@ pub enum EvolutionSubcommands {
         swap_prob: f64,
         #[arg(long)]
         crossover_point: Option<usize>,
+        #[arg(long)]
+        seed: Option<String>,
     },
     Division {
         #[arg(long)]
@@ -235,6 +237,8 @@ pub enum EvolutionSubcommands {
         daughter_volume: f64,
         #[arg(long, default_value_t = 2)]
         merozoite_count: usize,
+        #[arg(long)]
+        seed: Option<String>,
     },
     Phylogeny {
         #[arg(long, default_value = "divergence")]

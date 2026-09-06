@@ -1,5 +1,6 @@
 use genos_genome::Genome;
 use rand::RngExt;
+use crate::seed::{default_seed, rng_from_seed};
 
 pub struct MeioticCrossover;
 
@@ -28,9 +29,16 @@ impl MeioticCrossover {
     }
 
     pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
+        Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, &default_seed(
+            &parent_a.genome_id().to_string(),
+            &parent_b.genome_id().to_string(),
+        ))
+    }
+
+    pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, swap_prob: f64, seed: &str) -> Genome {
         let mut child = parent_a.derive_child();
         let swap_prob = swap_prob.clamp(0.0, 1.0);
-        let mut rng = rand::rng();
+        let mut rng = rng_from_seed(seed);
         let mut maternal = child.chromosome_maternal.as_slice().to_vec();
         let mut paternal = child.chromosome_paternal.as_slice().to_vec();
         for (a, b) in maternal.iter_mut().zip(parent_b.chromosome_maternal.as_slice().iter()) {

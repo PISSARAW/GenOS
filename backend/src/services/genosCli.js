@@ -193,6 +193,7 @@ async function runCrossover(options = {}) {
   if (options.crossoverPoint !== undefined) {
     args.push('--crossover-point', String(options.crossoverPoint));
   }
+  if (options.seed !== undefined) args.push('--seed', String(options.seed));
   return runGenos(args);
 }
 
@@ -203,6 +204,7 @@ async function runCellDivision(options = {}) {
   if (options.mutationRate !== undefined) args.push('--mutation-rate', String(options.mutationRate));
   if (options.daughterVolume !== undefined) args.push('--daughter-volume', String(options.daughterVolume));
   if (options.merozoiteCount !== undefined) args.push('--merozoite-count', String(options.merozoiteCount));
+  if (options.seed !== undefined) args.push('--seed', String(options.seed));
   return runGenos(args);
 }
 
