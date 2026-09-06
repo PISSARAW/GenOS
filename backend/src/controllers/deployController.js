@@ -251,13 +251,13 @@ async function dispatchWorker(req, res) {
       orchestratorId,
       workerId,
       name: req.body.name || workerGarage.workerName(req.body),
-      role: req.body.role || 'implementer',
+      role: scopedPair.role,
       mission: req.body.mission || 'Assigned mission'
     });
     const startPromise = runtimeAdapter.startMission({
       agentId: workerId,
       name: req.body.name || scopedPair.name,
-      role: req.body.role || scopedPair.role,
+      role: scopedPair.role,
       prompt: req.body.mission || 'Assigned mission',
       modelTier: scopedPair.model_tier,
       executionMode: 'worker',
