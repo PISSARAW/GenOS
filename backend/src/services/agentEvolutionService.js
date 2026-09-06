@@ -105,17 +105,22 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
   }
 }
 
-async function recordGenomicOutcome(agentId, outcome, score = 0) {
+async function recordGenomicOutcome(agentId, outcome, score = 0, scope = {}) {
   const db = await getDatabase();
   try {
-    await db.run(
-      `UPDATE lineage_nodes SET score = ?, state_summary = ? WHERE id = ?`,
-      Number((score / 100).toFixed(2)),
-      `Completed mission outcome: ${outcome}`,
-      agentId
-    );
+    const result = scope.organizationId && scope.projectId
+      ? await db.run(
+        `UPDATE lineage_nodes SET score = ?, state_summary = ? WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)`,
+        Number((score / 100).toFixed(2)), `Completed mission outcome: ${outcome}`, agentId, scope.organizationId, scope.projectId
+      )
+      : await db.run(
+        `UPDATE lineage_nodes SET score = ?, state_summary = ? WHERE id = ?`,
+        Number((score / 100).toFixed(2)), `Completed mission outcome: ${outcome}`, agentId
+      );
+    return { updated: result.changes === 1 };
   } catch (err) {
     console.error('Failed to record genomic outcome:', err.message);
+    return { updated: false, error: err.message };
   }
 }
 
