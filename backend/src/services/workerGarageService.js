@@ -142,20 +142,29 @@ async function requireAvailableSlot(db, orchestratorId, workerId = null) {
 
 async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }) {
   const worker = await db.get('SELECT status FROM agents WHERE id = ?', workerId);
-  if (worker?.status === 'blocked') {
-    const error = new Error(`Worker '${workerId}' is stopping or blocked and cannot be dispatched until its runtime has exited.`);
+  if (!worker) {
+    const error = new Error(`Worker '${workerId}' was not found.`);
+    error.code = 'AGENT_NOT_FOUND';
+    throw error;
+  }
+  if (worker.status === 'running') {
+    const error = new Error(`Worker '${workerId}' is already running.`);
+    error.code = 'WORKER_ALREADY_RUNNING';
+    throw error;
+  }
+  if (worker.status !== 'idle') {
+    const error = new Error(`Worker '${workerId}' is ${worker.status} and cannot be dispatched until it returns to idle.`);
     error.code = 'WORKER_NOT_IDLE';
     throw error;
   }
-  const wasAlreadyActive = worker?.status === 'running';
   await requireAvailableSlot(db, orchestratorId, workerId);
   const reservation = await db.run(
     `UPDATE agents SET name = ?, role = ?, current_task = ?, status = 'running', updated_at = CURRENT_TIMESTAMP
-     WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND (status = 'running' OR (
+    WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle' AND (
        SELECT COUNT(*) FROM agents active
        WHERE active.parent_agent_id = ? AND active.execution_mode = 'worker'
          AND (active.status = 'running' OR (active.status = 'blocked' AND active.current_task = 'Stopping on operator request'))
-     ) < ?)`,
+    ) < ?`,
     name, role, mission, workerId, orchestratorId, orchestratorId, MAX_ACTIVE_WORKERS
   );
   if (!reservation.changes) {
@@ -168,7 +177,7 @@ async function reserveSlot(db, { orchestratorId, workerId, name, role, mission }
   return {
     ...garage,
     slot: garage.activeWorkers.find((active) => active.id === workerId)?.slot,
-    reserved: !wasAlreadyActive
+    reserved: true
   };
 }
 
