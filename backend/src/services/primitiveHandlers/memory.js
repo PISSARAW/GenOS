@@ -169,7 +169,7 @@ async function stdpUpdate(context) {
     eventType: 'STDP_SYNAPSE_UPDATED',
     agentId: context.agentId || 'strategy_adapter',
     action: 'STDP',
-    detail: 'Synapse ' + sourceId + ' -> ' + targetId + ' updated to weight ' + (row ? row.weight : delta),
+    detail: 'Synapse ' + sourceId + ' -> ' + targetId + ' updated to weight ' + (row ? row.weight : (context.delta ?? update)),
     severity: 'info',
     payload: { sourceId, targetId, deltaT, update, transmitterType, newWeight: row ? row.weight : update }
   });
