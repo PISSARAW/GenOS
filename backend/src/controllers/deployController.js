@@ -192,7 +192,7 @@ async function startAgent(req, res) {
     const scope = workspaceScope(req, 'w');
     const agent = await db.get(`SELECT a.*, w.path AS workspace_root FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, req.params.id, ...scope.params);
     if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
-    await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId);
+    await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId, agent.workspace_id);
     const contract = await strategyContracts.getLatestContract(db, agent.id);
     if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
     const startPromise = runtimeAdapter.startMission({
@@ -236,7 +236,7 @@ async function dispatchWorker(req, res) {
     const orchestratorId = req.params.id;
     const workerId = req.params.workerId || req.body.workerId;
     const scope = workspaceScope(req, 'ww');
-    const scopedPair = await db.get(`SELECT worker.id
+    const scopedPair = await db.get(`SELECT worker.id, ww.id AS workspace_id
       FROM agents worker
       JOIN workspaces ww ON ww.id = worker.workspace_id
       JOIN agents orchestrator ON orchestrator.id = worker.parent_agent_id
@@ -245,7 +245,7 @@ async function dispatchWorker(req, res) {
         AND ${scope.clause}
         AND wo.organization_id = ww.organization_id AND wo.project_id = ww.project_id`, workerId, orchestratorId, ...scope.params);
     if (!scopedPair) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Worker and orchestrator must belong to the selected project.' } });
-    await agentAuthority.authorizeMission(db, workerId, orchestratorId);
+    await agentAuthority.authorizeMission(db, workerId, orchestratorId, scopedPair.workspace_id || null);
     
     const slot = await workerGarage.reserveSlot(db, {
       orchestratorId,
