@@ -125,6 +125,8 @@ impl DendriticCompartment {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DendriticTree {
     pub compartments: Vec<DendriticCompartment>,
+    pub max_spines_per_compartment: usize,
+    pub sprout_atp_cost: f64,
 }
 
 impl Default for DendriticTree {
@@ -134,6 +136,9 @@ impl Default for DendriticTree {
 }
 
 impl DendriticTree {
+    pub const DEFAULT_MAX_SPINES: usize = 32;
+    pub const DEFAULT_SPROUT_ATP_COST: f64 = 2.0;
+
     pub fn new() -> Self {
         Self {
             compartments: vec![
@@ -142,6 +147,8 @@ impl DendriticTree {
                 DendriticCompartment::new("basal_arbor", CompartmentType::BasalDendrite, None, 0.40, 1.0),
                 DendriticCompartment::new("distal_tuft", CompartmentType::DistalTuft, Some("apical_oblique".into()), 1.40, 1.0),
             ],
+            max_spines_per_compartment: Self::DEFAULT_MAX_SPINES,
+            sprout_atp_cost: Self::DEFAULT_SPROUT_ATP_COST,
         }
     }
 
@@ -208,6 +215,73 @@ impl DendriticTree {
         local_epsp * attenuation
     }
 
+    pub fn process_signal_with_metabolism(
+        &mut self,
+        source_id: &str,
+        amount: f64,
+        target_compartment_id: &str,
+        atp_budget: &mut f64,
+    ) -> Result<f64, String> {
+        // Recherche si une épine existe déjà sur n'importe quel compartiment
+        for comp in self.compartments.iter_mut() {
+            if let Some(spine) = comp.spines.iter_mut().find(|s| s.source_id == source_id) {
+                spine.activity_history += 1;
+                let mut local_epsp = amount * (spine.ampa_receptors * 0.7 + spine.receptor_density * 0.3);
+                if local_epsp >= comp.nmda_threshold {
+                    local_epsp *= 1.35;
+                }
+                return Ok(local_epsp * comp.cable_attenuation());
+            }
+        }
+
+        // Aucune épine existante : bourgeonnement soumis au budget métabolique
+        let target_comp_idx = self
+            .compartments
+            .iter()
+            .position(|c| c.id == target_compartment_id)
+            .unwrap_or(0);
+
+        if self.compartments[target_comp_idx].spines.len() >= self.max_spines_per_compartment {
+            return Err(format!(
+                "Saturation du compartiment {} : limite de {} épines atteinte",
+                target_compartment_id, self.max_spines_per_compartment
+            ));
+        }
+
+        if *atp_budget < self.sprout_atp_cost {
+            return Err(format!(
+                "Budget ATP insuffisant pour le bourgeonnement d'une épine (requis: {}, disponible: {})",
+                self.sprout_atp_cost, atp_budget
+            ));
+        }
+
+        *atp_budget -= self.sprout_atp_cost;
+        let new_spine = DendriticSpine::new(source_id, SpineMorphology::Filopodia);
+        self.compartments[target_comp_idx].spines.push(new_spine);
+
+        let comp = &mut self.compartments[target_comp_idx];
+        let spine = comp.spines.last_mut().unwrap();
+        spine.activity_history += 1;
+        let mut local_epsp = amount * (spine.ampa_receptors * 0.7 + spine.receptor_density * 0.3);
+        if local_epsp >= comp.nmda_threshold {
+            local_epsp *= 1.35;
+        }
+        Ok(local_epsp * comp.cable_attenuation())
+    }
+
+    pub fn prune_inactive_spines(&mut self, minimum_density: f64) -> usize {
+        let mut pruned_count = 0;
+        for compartment in self.compartments.iter_mut() {
+            let initial_len = compartment.spines.len();
+            compartment.spines.retain(|s| {
+                s.receptor_density > minimum_density
+                    && !(s.c3_opsonization > 0.8 && s.cd47_expression < 0.2)
+            });
+            pruned_count += initial_len - compartment.spines.len();
+        }
+        pruned_count
+    }
+
     pub fn apply_structural_plasticity(&mut self) {
         for compartment in self.compartments.iter_mut() {
             for spine in compartment.spines.iter_mut() {
@@ -271,13 +345,10 @@ impl DendriticTree {
                     }
                 }
             }
-
-            // Élagage (Pruning) : disparition des épines dont la densité tombe à 0
-            // ou fortement opsonisées par C3 avec protection CD47 affaiblie
-            compartment.spines.retain(|s| {
-                s.receptor_density > 0.0 && !(s.c3_opsonization > 0.8 && s.cd47_expression < 0.2)
-            });
         }
+
+        // Élagage (Pruning) : disparition des épines éteintes ou ciblées par C3/CD47
+        self.prune_inactive_spines(0.0);
     }
 }
 
