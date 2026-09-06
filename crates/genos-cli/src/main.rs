@@ -17,6 +17,21 @@ fn main() {
     let cli = Cli::parse();
 
     let result = match cli.command {
+        Some(Commands::Init) => {
+            let initialized = ["snapshots", "capsules"]
+                .into_iter()
+                .try_for_each(|directory| {
+                    std::fs::create_dir_all(directory)
+                        .map_err(|error| format!("Failed to initialize '{}': {}", directory, error))
+                });
+            initialized.map(|()| {
+                println!("{}", serde_json::json!({
+                    "success": true,
+                    "operation": "init",
+                    "directories": ["snapshots", "capsules"]
+                }));
+            })
+        }
         None => {
             println!("GenOS CLI v3.0.0 - Système d'Exploitation Autonome & Biologique");
             Ok(())

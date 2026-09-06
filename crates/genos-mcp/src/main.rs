@@ -71,13 +71,9 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
 fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
     match name {
         "genos_snapshot" => {
-            let msg = args.get("message").and_then(Value::as_str).unwrap_or("MCP snapshot");
-            let mut v = vec!["snapshot".into(), "create".into(), "--message".into(), msg.into()];
-            if let Some(b) = args.get("branch_id").and_then(Value::as_str) {
-                v.push("--branch-id".into());
-                v.push(b.into());
-            }
-            v
+            let agent = args.get("agent").and_then(Value::as_str).unwrap_or("default-agent");
+            let out = args.get("out").and_then(Value::as_str).unwrap_or("snapshots/mcp-snapshot.json");
+            vec!["snapshot".into(), "create".into(), "--agent".into(), agent.into(), "--out".into(), out.into()]
         }
         "genos_capsule_create" => {
             let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("ROOT");
@@ -110,7 +106,7 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
         "genos_v2_init" => vec!["init".into()],
         "genos_v2_fork" => {
             let p = args.get("parent_id").and_then(Value::as_str).unwrap_or("ROOT");
-            vec!["fork".into(), "--parent-id".into(), p.into()]
+            vec!["agent".into(), "fork".into(), "--parent-id".into(), p.into()]
         }
         _ => vec!["--help".into()],
     }

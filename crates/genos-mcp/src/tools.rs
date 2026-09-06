@@ -46,10 +46,10 @@ pub fn public_tool_specs() -> Vec<Value> {
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "message": { "type": "string", "description": "Snapshot commit/audit message." },
-                    "branch_id": { "type": "string", "description": "Optional branch identifier." }
+                    "agent": { "type": "string", "description": "Path to the agent genome input." },
+                    "out": { "type": "string", "description": "Output path for the snapshot JSON." }
                 },
-                "required": ["message"]
+                "required": ["agent", "out"]
             }
         }),
         json!({
