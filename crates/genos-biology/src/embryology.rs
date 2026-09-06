@@ -60,6 +60,7 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
                 if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
                     gene.chromatin_state = ChromatinState::Euchromatin;
                     gene.developmentally_locked = false;
+                    gene.is_methylated = false;
                 }
             } else {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
@@ -141,6 +142,25 @@ mod tests {
         genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
         differentiate_swarm(&mut swarm, 1.0, &mut genome);
         assert!(genome.genes.values().all(|gene| !gene.developmentally_locked));
+    }
+
+    #[test]
+    fn test_reactivated_hox_axis_is_demethylated() {
+        let zygote = AgentCell::new("Zygote", "Origin", "Stem");
+        let mut swarm = cleave_zygote(zygote, 1);
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        let mut gene = Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT");
+        gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
+        gene.developmentally_locked = true;
+        gene.is_methylated = true;
+        genome.insert_gene(gene);
+
+        differentiate_swarm(&mut swarm, 1.0, &mut genome);
+
+        let reactivated = genome.genes.get("HOX-1_UI_FRONTEND").unwrap();
+        assert_eq!(reactivated.chromatin_state, ChromatinState::Euchromatin);
+        assert!(!reactivated.developmentally_locked);
+        assert!(!reactivated.is_methylated);
     }
 
     #[test]
