@@ -12,19 +12,26 @@ async function mctsSelect(context) {
   const candidates = context.candidates || []; // tableau d'IDs (states/agents)
   if (candidates.length === 0) return { success: false, error: 'No candidates for MCTS.' };
   
-  const cParam = context.explorationParam || 1.414;
+  const cParam = context.explorationParam === undefined ? Math.SQRT2 : Number(context.explorationParam);
+  if (!Number.isFinite(cParam) || cParam < 0) return { success: false, error: 'explorationParam must be a non-negative finite number.' };
+  const parentVisits = Number(context.parentVisits);
+  if (context.parentVisits !== undefined && (!Number.isFinite(parentVisits) || parentVisits < 1)) {
+    return { success: false, error: 'parentVisits must be a positive finite number.' };
+  }
+  const inferredParentVisits = parentVisits || Math.max(1, candidates.length);
+  const scope = context.workspaceId ? ' JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.id = ?' : ' WHERE n.id = ?';
   const scored = [];
   
   for (const cId of candidates) {
-    const node = await db.get('SELECT id, score, visits FROM lineage_nodes WHERE id = ?', cId);
+    const node = context.workspaceId
+      ? await db.get(`SELECT n.id, n.score, n.visits FROM lineage_nodes n${scope}`, cId, context.workspaceId)
+      : await db.get(`SELECT id, score, visits FROM lineage_nodes${scope}`, cId);
     if (!node) continue;
 
     const visits = Number(node.visits);
     const value = Number(node.score);
-    if (!Number.isFinite(visits) || visits < 1 || !Number.isFinite(value)) continue;
-    const parentVisits = Math.max(visits, Number(context.parentVisits || visits * 3));
-    
-    const ucb1 = value + cParam * Math.sqrt(Math.log(parentVisits) / visits);
+    if (!Number.isFinite(visits) || visits < 0 || !Number.isFinite(value)) continue;
+    const ucb1 = visits === 0 ? Infinity : value + cParam * Math.sqrt(Math.log(Math.max(inferredParentVisits, visits)) / visits);
     scored.push({ id: cId, ucb1, value, visits });
   }
   
