@@ -5,7 +5,7 @@ pub mod translation;
 
 pub use dna::{DnaNucleotide, DnaStrand, Mutagen, RnaNucleotide, RnaPolymerase, RnaStrand};
 pub use gene::{ChromatinState, ExpressionContext, Gene, Plasmid, Spliceosome};
-pub use genome::Genome;
+pub use genome::{DEFAULT_HAYFLICK_LIMIT, Genome};
 pub use translation::{AminoAcidToken, Codon, Ribosome, UnfoldedProtein};
 
 #[cfg(test)]

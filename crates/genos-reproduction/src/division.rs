@@ -214,7 +214,12 @@ impl CellDivision {
     pub const DEFAULT_HAYFLICK_LIMIT: u32 = 50;
 
     pub fn budding(mother: &Genome, daughter_volume: f64) -> Result<(Genome, Genome), String> {
-        let result = Self::budding_with_limit(mother, daughter_volume, 0, Self::DEFAULT_HAYFLICK_LIMIT)?;
+        let result = Self::budding_with_limit(
+            mother,
+            daughter_volume,
+            mother.bud_scars.len() as u32,
+            mother.hayflick_limit,
+        )?;
         Ok((result.mother, result.daughter))
     }
 
