@@ -45,10 +45,16 @@ pub struct AgentCell {
     pub organelles: Vec<Organelle>,
     #[serde(default)]
     pub bud_scars: u32,
+    #[serde(default)]
+    pub bud_scar_ids: Vec<Uuid>,
     #[serde(default = "default_hayflick_limit")]
     pub hayflick_limit: u32,
     #[serde(default)]
     pub is_senescent: bool,
+    #[serde(default)]
+    pub is_ephemeral: bool,
+    #[serde(default)]
+    pub ephemeral_ttl: Option<u32>,
 }
 
 impl Default for AgentCell {
@@ -77,8 +83,11 @@ impl Default for AgentCell {
             conscience: ConscienceState::default(),
             organelles: Vec::new(),
             bud_scars: 0,
+            bud_scar_ids: Vec::new(),
             hayflick_limit: DEFAULT_HAYFLICK_LIMIT,
             is_senescent: false,
+            is_ephemeral: false,
+            ephemeral_ttl: None,
         }
     }
 }
@@ -94,8 +103,11 @@ impl AgentCell {
             conscience: ConscienceState::default(),
             organelles: Vec::new(),
             bud_scars: 0,
+            bud_scar_ids: Vec::new(),
             hayflick_limit: DEFAULT_HAYFLICK_LIMIT,
             is_senescent: false,
+            is_ephemeral: false,
+            ephemeral_ttl: None,
         }
     }
 
