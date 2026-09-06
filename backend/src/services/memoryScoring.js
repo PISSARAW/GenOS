@@ -10,25 +10,53 @@ const VOCABULARY = [
   'bisection', 'crossover', 'mutation', 'tree', 'pareto', 'elo'
 ];
 
+const VECTOR_DIM = 768;
+
+function hashTokenIntoVector(term, vec, dim, weight = 1.0) {
+  let h1 = 0x811c9dc5;
+  for (let i = 0; i < term.length; i++) {
+    h1 ^= term.charCodeAt(i);
+    h1 = Math.imul(h1, 0x01000193);
+  }
+  const idx = Math.abs(h1) % dim;
+  const sign = (h1 & 0x10000) ? 1 : -1;
+  vec[idx] += sign * weight;
+}
+
 /**
- * Computes deterministic vector representation over vocabulary
+ * Computes deterministic vector representation with 768 dimensions compatible with sqlite-vec
  * @param {string} text
+ * @param {number} [dim=768]
  * @returns {number[]}
  */
-function textToVector(text = '') {
-  const words = String(text || '').toLowerCase().split(/[\s,._\-\(\)]+/);
-  const counts = {};
-  for (const w of words) {
-    if (w) counts[w] = (counts[w] || 0) + 1;
+function textToVector(text = '', dim = VECTOR_DIM) {
+  const vec = new Float64Array(dim);
+  const normalized = String(text || '').toLowerCase().trim();
+  if (!normalized) return Array.from(vec);
+
+  const tokens = normalized.split(/[\s,._\-\(\)]+/).filter(Boolean);
+  if (tokens.length === 0) return Array.from(vec);
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    hashTokenIntoVector(token, vec, dim, 1.0);
+    if (i < tokens.length - 1) {
+      hashTokenIntoVector(`${token}_${tokens[i + 1]}`, vec, dim, 1.5);
+    }
   }
 
-  const vec = VOCABULARY.map(term => counts[term] || 0);
-  let hashVal = 0;
-  for (let i = 0; i < (text || '').length; i++) {
-    hashVal = (hashVal + text.charCodeAt(i)) % 10;
+  // L2 normalize
+  let sumSq = 0;
+  for (let i = 0; i < dim; i++) {
+    sumSq += vec[i] * vec[i];
   }
-  vec.push(hashVal / 10);
-  return vec;
+  const norm = Math.sqrt(sumSq);
+  if (norm > 0) {
+    for (let i = 0; i < dim; i++) {
+      vec[i] = Number((vec[i] / norm).toFixed(6));
+    }
+  }
+  return Array.from(vec);
 }
 
 /**
