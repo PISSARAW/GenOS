@@ -15,7 +15,14 @@ const {
   runProactiveCycle
 } = require('../src/services/daemonAgentAutostart');
 
-function printBanner(config) {
+function printBanner(config, useColor) {
+  if (!useColor) {
+    console.log('GENOS AUTONOMOUS SENTINEL');
+    console.log(`Agent: ${config.name}`);
+    console.log(`Role: ${config.role || 'Sentinel'}`);
+    console.log(`Voice: ${config.personality}`);
+    return;
+  }
   const line = '═'.repeat(64);
   console.log('\x1b[36m╔' + line + '╗\x1b[0m');
   console.log(`\x1b[36m║\x1b[1m\x1b[33m                   🛡️  GENOS AUTONOMOUS SENTINEL                \x1b[0m\x1b[36m║\x1b[0m`);
@@ -25,7 +32,8 @@ function printBanner(config) {
   console.log(`\x1b[35m💭 Voix & Philosophie :\x1b[0m\n   \x1b[3m"${config.personality}"\x1b[0m\n`);
 }
 
-function formatReportForTerminal(report) {
+function formatReportForTerminal(report, useColor) {
+  if (!useColor) return report;
   return report
     .replace(/^# (.*$)/gim, '\x1b[1m\x1b[33m$1\x1b[0m')
     .replace(/^## (.*$)/gim, '\x1b[1m\x1b[36m$1\x1b[0m')
@@ -41,7 +49,8 @@ async function main() {
   const isEnable = args.includes('--enable-autostart') || args.includes('--enable');
   const isDisable = args.includes('--disable-autostart') || args.includes('--disable');
   const isScanOnly = args.includes('--scan-only') || args.includes('--quiet');
-  const isInteractive = args.includes('--interactive') || (!isStatus && !isEnable && !isDisable && !isScanOnly);
+  const useColor = !args.includes('--no-color') && process.stdout.isTTY;
+  const isInteractive = args.includes('--interactive') || (!isStatus && !isEnable && !isDisable && !isScanOnly && process.stdin.isTTY && process.stdout.isTTY);
 
   if (isStatus) {
     const status = getAutostartStatus();
@@ -64,8 +73,9 @@ async function main() {
   const config = getDaemonConfig();
 
   if (!isScanOnly) {
-    printBanner(config);
-    console.log(`\x1b[34m🔍 [${config.name}] Analyse proactive de vos projets GitHub en cours...\x1b[0m\n`);
+    printBanner(config, useColor);
+    const scanMessage = `🔍 [${config.name}] Analyse proactive de vos projets GitHub en cours...`;
+    console.log(useColor ? `\x1b[34m${scanMessage}\x1b[0m\n` : scanMessage);
   }
 
   const result = runProactiveCycle();
@@ -80,8 +90,9 @@ async function main() {
   }
 
   // Affichage du rapport stylisé dans le terminal
-  console.log(formatReportForTerminal(result.audit.report));
-  console.log(`\n\x1b[90m📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}\x1b[0m\n`);
+  console.log(formatReportForTerminal(result.audit.report, useColor));
+  const reportMessage = `📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}`;
+  console.log(useColor ? `\n\x1b[90m${reportMessage}\x1b[0m\n` : `\n${reportMessage}\n`);
 
   if (isInteractive) {
     console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');
