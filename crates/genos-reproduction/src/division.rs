@@ -1,7 +1,6 @@
 use genos_genome::Genome;
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DivisionMode {
@@ -18,9 +17,8 @@ impl CellDivision {
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
         }
-        let parent = genome.clone();
-        let mut child = genome.clone();
-        child.genome_id = Uuid::new_v4();
+            let parent = genome.clone();
+            let mut child = genome.derive_child();
         let mut rng = rand::rng();
         for nucleotide in child
             .chromosome_maternal
@@ -42,8 +40,7 @@ impl CellDivision {
 
     pub fn mitosis(genome: &Genome) -> Result<(Genome, Genome), String> {
         let parent = genome.clone();
-        let mut child = genome.clone();
-        child.genome_id = Uuid::new_v4();
+        let child = genome.derive_child();
         Ok((parent, child))
     }
 
@@ -51,9 +48,8 @@ impl CellDivision {
         if daughter_volume <= 0.0 || daughter_volume >= 1.0 {
             return Err("Daughter volume must be between 0 and 1".to_string());
         }
-        let parent = mother.clone();
-        let mut daughter = mother.clone();
-        daughter.genome_id = Uuid::new_v4();
+            let parent = mother.clone();
+            let daughter = mother.derive_child();
         Ok((parent, daughter))
     }
 
@@ -63,8 +59,7 @@ impl CellDivision {
         }
         let mut daughters = Vec::with_capacity(merozoite_count);
         for _ in 0..merozoite_count {
-            let mut daughter = mother.clone();
-            daughter.genome_id = Uuid::new_v4();
+                let daughter = mother.derive_child();
             daughters.push(daughter);
         }
         Ok(daughters)

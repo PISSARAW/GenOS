@@ -231,14 +231,14 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             print_json(json!({
                 "success": true, "operation": "epigenetic_chromatin",
                 "agent_id": agent_id, "locus": locus, "state": state,
-                "methylation_applied": is_locked, "genome_id": genome.genome_id.to_string()
+                "methylation_applied": is_locked, "genome_id": genome.genome_id().to_string()
             }));
         }
         BiomimicrySubcommands::SpeciationCheck { agent_id, threshold } => {
             let t = threshold.unwrap_or(0.35);
             let g1 = Genome::new(&agent_id);
             let g2 = Genome::new(&format!("{}_divergent", agent_id));
-            let divergence = if g1.genome_id != g2.genome_id { 0.12 } else { 0.0 };
+            let divergence = if g1.genome_id() != g2.genome_id() { 0.12 } else { 0.0 };
             print_json(json!({
                 "success": true, "operation": "speciation_check",
                 "agent_id": agent_id, "threshold": t, "divergence": divergence,

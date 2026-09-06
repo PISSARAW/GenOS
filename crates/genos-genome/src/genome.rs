@@ -8,8 +8,8 @@ use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
-    pub genome_id: Uuid,
-    pub lineage_id: Uuid,
+    genome_id: Uuid,
+    lineage_id: Uuid,
     pub chromosome_maternal: DnaStrand,
     pub chromosome_paternal: DnaStrand,
     pub genes: BTreeMap<String, Gene>,
@@ -27,6 +27,16 @@ pub struct YamanakaCocktail {
 }
 
 impl Genome {
+    pub fn genome_id(&self) -> Uuid { self.genome_id }
+
+    pub fn lineage_id(&self) -> Uuid { self.lineage_id }
+
+    pub fn derive_child(&self) -> Self {
+        let mut child = self.clone();
+        child.genome_id = Uuid::new_v4();
+        child
+    }
+
     pub fn new(base_instruction: &str) -> Self {
         let id = Uuid::new_v4();
         let strand = DnaStrand::synthesize(base_instruction);

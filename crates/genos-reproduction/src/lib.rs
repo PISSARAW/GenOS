@@ -20,9 +20,9 @@ mod tests {
     fn test_cell_division_mitosis() {
         let g = Genome::new("INITIAL_STEM_CELL");
         let (p, c) = CellDivision::mitosis(&g).unwrap();
-        assert_eq!(p.genome_id, g.genome_id);
-        assert_ne!(c.genome_id, g.genome_id);
-        assert_eq!(c.lineage_id, g.lineage_id);
+            assert_eq!(p.genome_id(), g.genome_id());
+            assert_ne!(c.genome_id(), g.genome_id());
+            assert_eq!(c.lineage_id(), g.lineage_id());
     }
 
     #[test]
@@ -30,8 +30,8 @@ mod tests {
         let parent1 = Genome::new("PARENT_AAA");
         let parent2 = Genome::new("PARENT_BBB");
         let child = MeioticCrossover::uniform_crossover(&parent1, &parent2, 0.5);
-        assert_ne!(child.genome_id, parent1.genome_id);
-        assert_eq!(child.lineage_id, parent1.lineage_id);
+            assert_ne!(child.genome_id(), parent1.genome_id());
+            assert_eq!(child.lineage_id(), parent1.lineage_id());
     }
 
     #[test]
@@ -40,10 +40,10 @@ mod tests {
         let (_, fission_child) = CellDivision::binary_fission(&genome, 0.0).unwrap();
         let (_, budding_child) = CellDivision::budding(&genome, 0.4).unwrap();
         let schizonts = CellDivision::schizogony(&genome, 3).unwrap();
-        assert_ne!(fission_child.genome_id, genome.genome_id);
-        assert_ne!(budding_child.genome_id, genome.genome_id);
-        assert_eq!(schizonts.len(), 3);
-        assert_eq!(schizonts.iter().map(|child| child.genome_id).collect::<std::collections::HashSet<_>>().len(), 3);
+            assert_ne!(fission_child.genome_id(), genome.genome_id());
+            assert_ne!(budding_child.genome_id(), genome.genome_id());
+            assert_eq!(schizonts.len(), 3);
+            assert_eq!(schizonts.iter().map(|child| child.genome_id()).collect::<std::collections::HashSet<_>>().len(), 3);
     }
 
     #[test]
@@ -55,8 +55,8 @@ mod tests {
             HybridizationResult::Introgression(genome) | HybridizationResult::SterileHybrid(genome) => genome,
             _ => panic!("test genomes should produce a hybrid"),
         };
-        assert_ne!(child.genome_id, parent_a.genome_id);
-        assert_ne!(child.genome_id, parent_b.genome_id);
-        assert_eq!(child.lineage_id, parent_a.lineage_id);
+            assert_ne!(child.genome_id(), parent_a.genome_id());
+            assert_ne!(child.genome_id(), parent_b.genome_id());
+            assert_eq!(child.lineage_id(), parent_a.lineage_id());
     }
 }
