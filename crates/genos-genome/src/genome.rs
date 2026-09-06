@@ -285,6 +285,10 @@ mod tests {
         assert_eq!(g1.chromatin_state, ChromatinState::Euchromatin);
         assert_eq!(g1.developmentally_locked, false);
         assert_eq!(g1.is_methylated, false);
+
+        let g1 = genome.genes.get("HOX_A1").unwrap();
+        assert_eq!(g1.bound_repressor, None);
+        assert_eq!(g1.expression_volume, 1.0);
         
         // gene2 (Euchromatin) should be untouched
         let g2 = genome.genes.get("HOUSEKEEPING_1").unwrap();
@@ -341,5 +345,29 @@ mod tests {
         let child = genome.derive_child();
         assert_eq!(genome.content_hash(), child.content_hash());
         assert_ne!(genome.genome_id(), child.genome_id());
+    }
+
+    #[test]
+    fn reproductive_child_partially_resets_facultative_epigenetics() {
+        let mut genome = Genome::new("EPIGENETIC");
+        let mut facultative = Gene::new("FACULTATIVE", "ATGC");
+        facultative.chromatin_state = ChromatinState::HeterochromatinFacultative;
+        facultative.is_methylated = true;
+        facultative.developmentally_locked = true;
+        facultative.bound_repressor = Some("REPRESSOR".to_string());
+        facultative.expression_volume = 0.2;
+        let mut constitutive = Gene::new("CONSTITUTIVE", "ATGC");
+        constitutive.chromatin_state = ChromatinState::HeterochromatinConstitutive;
+        constitutive.is_methylated = true;
+        genome.insert_gene(facultative);
+        genome.insert_gene(constitutive);
+
+        let child = genome.derive_reproductive_child();
+        let facultative = child.genes.get("FACULTATIVE").unwrap();
+        assert!(!facultative.is_methylated);
+        assert!(!facultative.developmentally_locked);
+        assert_eq!(facultative.bound_repressor, None);
+        assert_eq!(facultative.expression_volume, 1.0);
+        assert!(child.genes.get("CONSTITUTIVE").unwrap().is_methylated);
     }
 }
