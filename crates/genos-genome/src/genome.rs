@@ -6,6 +6,12 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 use uuid::Uuid;
 
+pub const DEFAULT_HAYFLICK_LIMIT: u32 = 5;
+
+fn default_hayflick_limit() -> u32 {
+    DEFAULT_HAYFLICK_LIMIT
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
     genome_id: Uuid,
@@ -17,6 +23,10 @@ pub struct Genome {
     pub endogenous_retroviruses: Vec<Gene>,
     pub regulatory_enhancers: Vec<String>,
     pub extra_chromosomes: Vec<DnaStrand>,
+    #[serde(default)]
+    pub bud_scars: Vec<Uuid>,
+    #[serde(default = "default_hayflick_limit")]
+    pub hayflick_limit: u32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -39,9 +49,26 @@ impl Genome {
 
     pub fn lineage_id(&self) -> Uuid { self.lineage_id }
 
+    pub fn can_bud(&self) -> bool {
+        (self.bud_scars.len() as u32) < self.hayflick_limit
+    }
+
+    pub fn add_bud_scar(&mut self, daughter_id: Uuid) -> Result<(), String> {
+        if !self.can_bud() {
+            return Err(format!(
+                "Hayflick limit reached: mother cell is senescent ({} >= {})",
+                self.bud_scars.len(),
+                self.hayflick_limit
+            ));
+        }
+        self.bud_scars.push(daughter_id);
+        Ok(())
+    }
+
     pub fn derive_child(&self) -> Self {
         let mut child = self.clone();
         child.genome_id = Uuid::new_v4();
+        child.bud_scars.clear();
         child
     }
 
@@ -94,6 +121,8 @@ impl Genome {
             endogenous_retroviruses: Vec::new(),
             regulatory_enhancers: Vec::new(),
             extra_chromosomes: Vec::new(),
+            bud_scars: Vec::new(),
+            hayflick_limit: DEFAULT_HAYFLICK_LIMIT,
         }
     }
 
