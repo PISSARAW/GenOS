@@ -5,6 +5,9 @@
 const express = require('express');
 const router = express.Router();
 const memoryController = require('../controllers/memoryController');
+const { attachTenant } = require('../middleware/tenant');
+
+router.use(attachTenant);
 
 router.get('/search', memoryController.search);
 router.post('/search', memoryController.search);
