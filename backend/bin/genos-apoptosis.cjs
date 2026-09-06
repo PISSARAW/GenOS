@@ -2,6 +2,8 @@ const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 const path = require('path');
 const fs = require('fs');
+const { terminatePid, processMatches } = require('../src/services/processTermination');
+const { cleanupWorkspace } = require('../src/services/agentWorkspaceLifecycleService');
 
 async function apoptosis(customDbPath = null) {
   let db;
@@ -13,10 +15,23 @@ async function apoptosis(customDbPath = null) {
     }
 
     db = await open({ filename: dbPath, driver: sqlite3.Database });
+    const activeAgents = await db.all("SELECT id, runtime_pid, runtime_executable FROM agents WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')");
+    const terminationResults = activeAgents.map((agent) => {
+      if (!agent.runtime_pid) return { id: agent.id, terminated: false, reason: 'NO_PID' };
+      if (!processMatches(agent.runtime_pid, agent.runtime_executable)) return { id: agent.id, terminated: false, reason: 'PID_EXECUTABLE_MISMATCH' };
+      return { id: agent.id, terminated: terminatePid(agent.runtime_pid), reason: 'TERMINATION_REQUESTED' };
+    });
     const res = await db.run(
-      "UPDATE agents SET status = 'apoptosis', current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
+      "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = 'Emergency apoptosis triggered', updated_at = CURRENT_TIMESTAMP WHERE status IN ('idle', 'running', 'active', 'paused', 'queued')"
     );
     const stopped = res.changes || 0;
+    const cleanups = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup').catch(() => []);
+    for (const cleanup of cleanups) {
+      try {
+        await cleanupWorkspace(cleanup.workspace_root, cleanup.agent_id);
+        await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', cleanup.agent_id);
+      } catch (_) {}
+    }
 
     // Inscription télémétrique de l'apoptose si la table est présente
     await db.run(
@@ -26,7 +41,7 @@ async function apoptosis(customDbPath = null) {
     ).catch(() => {});
 
     console.log(`[Apoptose d'Urgence] Exécutée avec succès. ${stopped} agent(s) stoppé(s).`);
-    return { success: true, stoppedAgents: stopped, dbPath };
+    return { success: true, stoppedAgents: stopped, terminationResults, dbPath };
   } catch (err) {
     console.error(`[Apoptose d'Urgence] Erreur : ${err.message}`);
     if (require.main === module) process.exit(1);
