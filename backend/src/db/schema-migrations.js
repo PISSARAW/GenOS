@@ -78,7 +78,8 @@ async function applyVersionedMigrations(db) {
     ['006-agent-blocked-status', 'Allow guarded agent missions to persist a blocked status'],
     ['007-durable-cryptobiosis', 'Persist cryptobiosis state across backend restarts'],
     ['008-tenant-workspace-names', 'Scope workspace name uniqueness to organization and project'],
-    ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination']
+    ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination'],
+    ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity']
   ];
   await migrateAgentStatusConstraint(db);
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
@@ -102,6 +103,12 @@ async function applyVersionedMigrations(db) {
   if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
   if (!evaluationNames.has('attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
+  const synapseColumns = new Set((await db.all('PRAGMA table_info(memory_synapses)')).map(column => column.name));
+  if (!synapseColumns.has('transmitter_type')) await db.exec("ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'");
+  if (!synapseColumns.has('pre_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN pre_spike_at INTEGER');
+  if (!synapseColumns.has('post_spike_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN post_spike_at INTEGER');
+  if (!synapseColumns.has('delta_t_ms')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN delta_t_ms REAL');
+  if (!synapseColumns.has('last_updated_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME');
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
   }

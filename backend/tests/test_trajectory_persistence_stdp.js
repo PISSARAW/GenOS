@@ -63,14 +63,23 @@ async function runTests() {
   console.log('-> Cas 2.1 Validé : Persistance double confirmée (genome_decisions + trajectories).');
 
   console.log('=== TEST 3 : Renforcement Synaptique Hebbien (STDP Update) ===');
-  // Cas 3.1 : STDP avec auto-résolution des clés
+  const stdpTargetId = `dec-stdp-target-${Date.now()}`;
+  const stdpBuffer = Buffer.from(new Float32Array(768).buffer);
+  await db.run(
+    'INSERT INTO genome_decisions (id, title, content, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?)',
+    stdpTargetId, 'STDP target', 'Post-synaptic outcome', 'test_agent_omega', 'Experience', stdpBuffer
+  );
+
+  // Cas 3.1 : potentiation lorsque le spike pré-synaptique précède le post-synaptique
   const stdpAuto = await memoryPrimitives.stdpUpdate({
-    agentId: 'test_agent_omega',
-    orchestratorId: 'orch_prime',
-    task: 'Optimisation MCTS',
-    delta: 1.5
+    sourceId: decRow.id,
+    targetId: stdpTargetId,
+    preSpikeAt: 1000,
+    postSpikeAt: 1010,
+    learningRate: 1.5,
+    transmitterType: 'glutamate'
   });
-  assert.ok(stdpAuto.success, 'STDP avec auto-résolution doit réussir sans erreur de clé étrangère');
+  assert.ok(stdpAuto.success, 'STDP pré-post doit réussir avec des clés et timestamps valides');
   assert.ok(stdpAuto.sourceId && stdpAuto.targetId, 'Des IDs source et cible valides doivent être liés');
   
   // Vérifier dans memory_synapses
@@ -79,18 +88,21 @@ async function runTests() {
     stdpAuto.sourceId, stdpAuto.targetId
   );
   assert.ok(synRow, 'La synapse doit exister dans la table memory_synapses');
-  assert.ok(synRow.weight >= 1.5, 'Le poids de la synapse doit refléter l incrément delta');
+  assert.ok(synRow.weight > 0 && synRow.delta_t_ms === 10, 'Le poids et le timing pré/post doivent être persistés');
   console.log(`-> Cas 3.1 Validé : Synapse créée avec poids ${synRow.weight} dans memory_synapses.`);
 
-  // Cas 3.2 : Renforcement cumulatif (Loi de Hebb : ce qui s active ensemble se câble ensemble)
+  // Cas 3.2 : dépression lorsque le spike post-synaptique précède le pré-synaptique
   const stdpReinforce = await memoryPrimitives.stdpUpdate({
     sourceId: stdpAuto.sourceId,
     targetId: stdpAuto.targetId,
-    delta: 2.0
+    preSpikeAt: 1010,
+    postSpikeAt: 1000,
+    learningRate: 2.0,
+    transmitterType: 'gaba'
   });
   assert.ok(stdpReinforce.success);
-  assert.strictEqual(stdpReinforce.newWeight, synRow.weight + 2.0, 'Le poids synaptique doit s additionner');
-  console.log(`-> Cas 3.2 Validé : Renforcement Hebbien cumulatif (${synRow.weight} -> ${stdpReinforce.newWeight}).`);
+  assert.ok(stdpReinforce.newWeight < synRow.weight, 'Le poids synaptique doit diminuer en LTD');
+  console.log(`-> Cas 3.2 Validé : Dépression temporelle (${synRow.weight} -> ${stdpReinforce.newWeight}).`);
 
   console.log('=== TOUS LES TESTS DE PERSISTANCE DE TRAJECTOIRE ET STDP ONT RÉUSSI ===');
 }
