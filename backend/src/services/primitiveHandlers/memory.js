@@ -41,7 +41,11 @@ async function cherryPickGoldenPath(context) {
   const result = vectorMemory.cherryPickGoldenPath(turns);
   const db = await getDatabase();
   const decisionId = 'dec-gp-' + crypto.createHash('sha256').update(JSON.stringify({ agentId: context.agentId || 'strategy_adapter', label: context.label || 'Golden Path', turns })).digest('hex').slice(0, 32);
-  const float32 = new Float32Array(new Array(768).fill(0.0));
+  const { embed } = require('../embeddingProvider');
+  const { textToVector } = require('../memoryScoring');
+  const summaryText = `${context.label || 'Golden Path'} ${result.goldenPathSteps.map(s => s.id || s.step || s.action || '').join(' ')}`.trim();
+  const vec = (await embed(summaryText)) || textToVector(summaryText);
+  const float32 = new Float32Array(vec);
   const buffer = Buffer.from(float32.buffer);
   let trajRecord = null;
   await withTransaction(db, async (tx) => {
