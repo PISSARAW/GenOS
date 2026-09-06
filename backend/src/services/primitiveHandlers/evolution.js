@@ -155,10 +155,15 @@ async function paretoSelect(context) {
   if (candidates.length === 0) {
     return { success: false, error: 'No candidates for Pareto selection.' };
   }
-  const points = candidates.map(c => ({
-    id: c.id || c,
-    scores: objectives.map(obj => c[obj] || Math.random())
-  }));
+  const points = [];
+  for (const candidate of candidates) {
+    const id = candidate.id || candidate;
+    const scores = objectives.map((objective) => Number(candidate[objective]));
+    if (scores.some((score) => !Number.isFinite(score))) {
+      return { success: false, error: `Candidate '${id}' is missing a numeric Pareto score.` };
+    }
+    points.push({ id, scores });
+  }
   const paretoFront = points.filter((point) => {
     return !points.some(other => {
       if (other.id === point.id) return false;
