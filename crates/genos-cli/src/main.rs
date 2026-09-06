@@ -3,7 +3,7 @@ mod commands;
 #[cfg(test)]
 mod tests;
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use args::{
     CausalitySubcommands, Cli, Commands, ExperimentSubcommands, FossilSubcommands,
     PhenotypeSubcommands, TrinitySubcommands, SwarmSubcommands, ComplianceSubcommands,
@@ -33,8 +33,11 @@ fn main() {
             })
         }
         None => {
-            println!("GenOS CLI v3.0.0 - Système d'Exploitation Autonome & Biologique");
-            Ok(())
+            let mut command = args::Cli::command();
+            match command.print_help() {
+                Ok(()) => Ok(()),
+                Err(error) => Err(format!("Failed to render help: {}", error)),
+            }
         }
         Some(Commands::Agent(cmd)) => agent::execute(cmd.subcommand),
         Some(Commands::Snapshot(cmd)) => snapshot::execute(cmd.subcommand),
