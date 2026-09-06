@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io;
+use std::path::Path;
 
 const MAX_MEMORY_DETECTORS: usize = 256;
 
@@ -54,6 +57,7 @@ impl AntibodyDetector {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ClonalSelection {
     pub detectors: Vec<AntibodyDetector>,
     pub memory_pool: Vec<AntibodyDetector>,
@@ -71,6 +75,20 @@ impl ClonalSelection {
             detectors: Vec::new(),
             memory_pool: Vec::new(),
         }
+    }
+
+    pub fn load(path: impl AsRef<Path>) -> io::Result<Self> {
+        let content = fs::read_to_string(path)?;
+        serde_json::from_str(&content).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+    }
+
+    pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
+        let path = path.as_ref();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let content = serde_json::to_string(self).map_err(io::Error::other)?;
+        fs::write(path, content)
     }
 
     pub fn recognize(&mut self, antigen: &Antigen) -> bool {

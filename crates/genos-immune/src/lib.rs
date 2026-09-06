@@ -64,4 +64,16 @@ mod tests {
         breaker.record_success();
         assert_eq!(breaker.state, CircuitState::Closed);
     }
+
+    #[test]
+    fn test_clonal_memory_persists() {
+        let path = std::env::temp_dir().join(format!("genos-immune-{}.json", uuid::Uuid::new_v4()));
+        let mut selection = ClonalSelection::new();
+        selection.detectors.push(AntibodyDetector::new("DET_1", "SQL", 0.8));
+        assert!(selection.recognize(&Antigen { id: "AG_1".into(), epitope: "SQL".into(), danger_level: 0.9 }));
+        selection.save(&path).unwrap();
+        let restored = ClonalSelection::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        assert_eq!(restored.memory_pool.len(), 1);
+    }
 }
