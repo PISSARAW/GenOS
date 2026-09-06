@@ -86,6 +86,13 @@ function forgetWorkspace(agentId) {
 }
 
 async function cleanupWorkspace(workspaceRoot, agentId = null) {
+  const resolvedRoot = path.resolve(workspaceRoot || '');
+  const filesystemRoot = path.parse(resolvedRoot).root;
+  if (!workspaceRoot || resolvedRoot === filesystemRoot) throw new Error('Refusing to clean a filesystem root.');
+  if (agentId && (path.basename(agentId) !== agentId || path.basename(resolvedRoot) !== agentId)) {
+    throw new Error(`Refusing to clean workspace '${resolvedRoot}' for agent '${agentId}'.`);
+  }
+  workspaceRoot = resolvedRoot;
   const marker = path.join(workspaceRoot, '.git');
   let removedVia = 'removed';
   try {
