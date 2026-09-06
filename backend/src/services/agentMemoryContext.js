@@ -6,6 +6,14 @@
 const vectorMemory = require('./vectorMemoryService');
 const { getDatabase } = require('../db');
 
+function truncateWords(text = '', maxLen = 250) {
+  const str = String(text || '').trim();
+  if (str.length <= maxLen) return str;
+  const cut = str.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.7 ? cut.slice(0, lastSpace) : cut) + '...';
+}
+
 /**
  * Retrieves relevant experiences, pitfalls, and golden paths for a given task
  * @param {string} agentId
@@ -63,17 +71,10 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     // Uptake synaptic vesicles from the synaptic cleft
     let vesicleEngrams = [];
     try {
-      vesicleEngrams = await vectorMemory.uptakeVesicles();
+      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId);
     } catch {}
 
     let epistemicShield = null;
-function truncateWords(text = '', maxLen = 250) {
-  const str = String(text || '').trim();
-  if (str.length <= maxLen) return str;
-  const cut = str.slice(0, maxLen);
-  const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace > maxLen * 0.7 ? cut.slice(0, lastSpace) : cut) + '...';
-}
 
     if (vesicleEngrams.length > 0) {
       const regularVesicles = [];

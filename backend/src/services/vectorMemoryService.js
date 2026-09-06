@@ -510,12 +510,12 @@ class VectorMemoryService {
     }
   }
 
-  async releaseVesicles(engrams = []) {
-    return synapticTransmission.releaseVesicles(engrams);
+  async releaseVesicles(engrams = [], options = {}) {
+    return synapticTransmission.releaseVesicles(engrams, options);
   }
 
-  async uptakeVesicles() {
-    return synapticTransmission.uptakeVesicles();
+  async uptakeVesicles(targetAgentId = null) {
+    return synapticTransmission.uptakeVesicles(targetAgentId);
   }
 
   async depositExosome(params = {}) {
