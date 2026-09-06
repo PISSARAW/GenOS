@@ -8,7 +8,7 @@ const telemetryController = require('../controllers/telemetryController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 
-router.use(attachTenant);
+router.use(requireTenantScope());
 
 router.get('/telemetry', requirePermission('telemetry:read'), telemetryController.streamSSE);
 router.get('/telemetry/stream', requirePermission('telemetry:read'), telemetryController.streamSSE);

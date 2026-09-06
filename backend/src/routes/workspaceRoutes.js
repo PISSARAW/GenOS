@@ -9,7 +9,7 @@ const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
 const { paginateList } = require('../controllers/listPagination');
 
-router.use(attachTenant);
+router.use(requireTenantScope());
 
 router.get('/', paginateList(workspaceController.listWorkspaces));
 router.post('/', requirePermission('workspace:write'), requireTenantScope({ write: true }), workspaceController.createWorkspace);
