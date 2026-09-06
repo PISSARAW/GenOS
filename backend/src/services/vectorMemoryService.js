@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
+const { withTransaction } = require('../db');
 const { embed } = require('./embeddingProvider');
 const synapticTransmission = require('./synapticTransmissionService');
 const {
@@ -297,11 +298,14 @@ class VectorMemoryService {
     if (!database) return { success: false, consolidated: false, memoriesDecayed: false, apoptosisCount: 0, error: 'Database unavailable.' };
 
     try {
-      await database.run(
-        'UPDATE genome_decisions SET synaptic_weight = CASE WHEN synaptic_weight >= 0.15 THEN MAX(0.15, synaptic_weight * 0.9) ELSE synaptic_weight * 0.9 END'
-      );
+      let doomedIds = [];
+      let exosomeStats;
+      await withTransaction(database, async (tx) => {
+        await tx.run(
+          'UPDATE genome_decisions SET synaptic_weight = CASE WHEN synaptic_weight >= 0.15 THEN MAX(0.15, synaptic_weight * 0.9) ELSE synaptic_weight * 0.9 END'
+        );
 
-      const doomed = await database.all(`
+        const doomed = await tx.all(`
         SELECT g.id 
         FROM genome_decisions g
         LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
@@ -309,16 +313,17 @@ class VectorMemoryService {
         GROUP BY g.id
         HAVING COUNT(s.source_id) = 0
       `);
-      const doomedIds = doomed.map(d => d.id);
+        doomedIds = doomed.map(d => d.id);
 
-      if (doomedIds.length > 0) {
-        const placeholders = doomedIds.map(() => '?').join(',');
-        await database.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
-      }
+        if (doomedIds.length > 0) {
+          const placeholders = doomedIds.map(() => '?').join(',');
+          await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
+        }
 
-      await database.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
+        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
 
-      const exosomeStats = await synapticTransmission.absorbExosomes(database);
+        exosomeStats = await synapticTransmission.absorbExosomes(tx);
+      });
 
       return {
         success: exosomeStats.success !== false,
