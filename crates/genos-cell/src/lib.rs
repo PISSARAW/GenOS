@@ -69,6 +69,7 @@ impl Default for AgentCell {
 }
 
 impl AgentCell {
+    pub const MAX_ORGANELLES: usize = 16;
     pub fn new(name: impl Into<String>, name_meaning: impl Into<String>, role: impl Into<String>) -> Self {
         Self {
             cell_id: Uuid::new_v4(),
@@ -87,13 +88,34 @@ impl AgentCell {
         )
     }
 
-    pub fn phagocytize(&mut self, symbiont: AgentCell) {
+    pub fn can_phagocytize(&self, symbiont_id: Uuid) -> Result<(), String> {
+        if self.cell_id == symbiont_id {
+            return Err("A cell cannot phagocytize itself".to_string());
+        }
+        if self.organelles.len() >= Self::MAX_ORGANELLES {
+            return Err("Organelle capacity exhausted".to_string());
+        }
+        if self.organelles.iter().any(|organelle| match organelle {
+            Organelle::Endosymbiont { original_id, .. } => *original_id == symbiont_id,
+            Organelle::Mitochondrion { id, .. }
+            | Organelle::Ribosome { id, .. }
+            | Organelle::Chloroplast { id, .. }
+            | Organelle::Lysosome { id, .. } => *id == symbiont_id,
+        }) {
+            return Err("Symbiont is already integrated".to_string());
+        }
+        Ok(())
+    }
+
+    pub fn phagocytize(&mut self, symbiont: AgentCell) -> Result<(), String> {
+        self.can_phagocytize(symbiont.cell_id)?;
         let organelle = Organelle::Endosymbiont {
             original_id: symbiont.cell_id,
             role: symbiont.role.clone(),
             internal_state: Box::new(symbiont),
         };
         self.organelles.push(organelle);
+        Ok(())
     }
 
     pub fn organelle_count(&self) -> usize {
