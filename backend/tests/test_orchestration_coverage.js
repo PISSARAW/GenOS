@@ -1,12 +1,13 @@
 const assert = require('assert');
 const { MCP_TOOL_COUNT, observedTools, auditMission } = require('../src/services/orchestrationCoverageService');
+const { MCP_TOOLS_LIST } = require('../src/db/seedTools');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyController = require('../src/controllers/strategyController');
 const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
   console.log('=== TEST 1: Constantes et extraction observedTools ===');
-  assert.equal(MCP_TOOL_COUNT, 65, 'MCP_TOOL_COUNT doit valoir 65');
+  assert.equal(MCP_TOOL_COUNT, MCP_TOOLS_LIST.length, 'MCP_TOOL_COUNT doit suivre le registre MCP');
   const extracted = observedTools([
     { action: 'genos_snapshot', detail: 'then genos_replay', payload_json: '{"tool":"genos_merge"}' },
     { action: 'other_action', detail: 'calling genos_diagnose now', payload_json: '' }
@@ -34,7 +35,7 @@ async function run() {
   // 2. Audit initial avant événements : couverture incomplète
   const initialAudit = await auditMission(db, testOrchId);
   assert.equal(initialAudit.orchestratorId, testOrchId);
-  assert.equal(initialAudit.protocol.advertisedTools, 65);
+  assert.equal(initialAudit.protocol.advertisedTools, MCP_TOOLS_LIST.length);
   assert.equal(initialAudit.protocol.observedCount, 0);
   assert(initialAudit.orchestration.requiredTools.length > 0, 'Des outils doivent être requis par le plan');
   assert.equal(initialAudit.verdict, 'required-coverage-incomplete');

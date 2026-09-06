@@ -1,8 +1,8 @@
 const strategyContracts = require('./strategyContractService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
+const { MCP_TOOLS_LIST } = require('../db/seedTools');
 
-// Must match genos_protocol::tool_specs. Update this with its cross-crate test.
-const MCP_TOOL_COUNT = 65;
+const MCP_TOOL_COUNT = MCP_TOOLS_LIST.length;
 
 function observedTools(events) {
   const found = new Set();
