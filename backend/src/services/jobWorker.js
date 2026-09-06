@@ -20,7 +20,14 @@ function selectFairWorkflow(rows = []) {
 }
 
 async function recoverInterruptedJobs(db) {
-  await db.run("UPDATE workflow_runs SET status = 'queued', started_at = NULL WHERE status = 'running'");
+  await db.run(
+    `UPDATE workflow_runs
+        SET status = 'failed',
+            error_json = COALESCE(error_json, ?),
+            completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
+      WHERE status = 'running'`,
+    JSON.stringify({ message: 'Worker interrupted; explicit retry required because workflow effects are not replay-safe.' })
+  );
   for (const table of ['evaluation_jobs', 'model_jobs']) {
     await db.run(`UPDATE ${table} SET status = 'queued' WHERE status = 'running' AND attempts < max_attempts`);
     await db.run(`UPDATE ${table} SET status = 'failed', error_json = COALESCE(error_json, '{"message":"Worker stopped after exhausting attempts"}'), completed_at = CURRENT_TIMESTAMP WHERE status = 'running' AND attempts >= max_attempts`);
