@@ -8,6 +8,8 @@ const path = require('path');
 const grpc = require('@grpc/grpc-js');
 const loadAllProtos = require('../proto/index');
 const registerAllServices = require('../src/grpc_services/index');
+const { getDatabase } = require('../src/db');
+const swarmMetrics = require('../src/services/swarmMetricsService');
 
 const TEST_PORT = 50059;
 
@@ -126,10 +128,23 @@ async function runGrpcSuite() {
     const swarmMetricsRes = await callRpc(swarmClient, 'GetSwarmMetrics');
     assert(typeof swarmMetricsRes.entropy === 'number', 'Entropy must be numeric');
     assert(swarmMetricsRes.state, 'State must be present');
+    const db = await getDatabase();
+    const metricEvents = await db.all('SELECT action as type, event_type as action, agent_id FROM telemetry_events ORDER BY id DESC LIMIT 50');
+    const expectedMetrics = swarmMetrics.calculateShannonEntropy(metricEvents);
+    assert(Math.abs(swarmMetricsRes.entropy - expectedMetrics.rawEntropy) < 0.0001, 'Swarm gRPC entropy must match persisted telemetry');
+    assert.strictEqual(swarmMetricsRes.state, expectedMetrics.cognitiveDriftState, 'Swarm gRPC state must match persisted telemetry');
     console.log(`  ✅ PASS: SwarmService GetSwarmMetrics -> state: ${swarmMetricsRes.state}, entropy: ${swarmMetricsRes.entropy}`);
 
     const swarmTopologyRes = await callRpc(swarmClient, 'GetSwarmTopology');
     assert(swarmTopologyRes.topology_json, 'Topology JSON must be returned');
+    const topologyAgents = await db.all(`
+      SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
+        fleet_id as fleetId, parent_agent_id as parentAgentId
+      FROM agents WHERE status != 'terminated'
+    `);
+    const topologyEvents = await db.all('SELECT id, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100');
+    const expectedTopology = swarmMetrics.getSwarmTopology(topologyAgents, topologyEvents);
+    assert.deepStrictEqual(swarmTopologyRes.node_ids.sort(), expectedTopology.nodes.map((node) => node.id).sort(), 'Swarm gRPC topology must contain persisted agent nodes');
     console.log(`  ✅ PASS: SwarmService GetSwarmTopology -> nodes: ${swarmTopologyRes.node_ids.length}`);
 
     // --- 5. ResilienceService ---
