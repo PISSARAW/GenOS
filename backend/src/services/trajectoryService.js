@@ -138,7 +138,16 @@ const crypto = require('crypto');
 
 async function recordMissionTrajectory(db, options = {}) {
   if (!db) return null;
-  const turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
+  let turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
+  if (turns.length === 0) {
+    turns = [{
+      step: 1,
+      action: 'mission_execution',
+      classification: options.status === 'rejected' ? 'Dead-End' : 'Exploration',
+      detail: options.task || 'Autonomous execution step',
+      error: options.status === 'rejected' ? 'Mission execution failed or rejected' : null
+    }];
+  }
   const goldenPath = cherryPickGoldenPath(turns);
   const trajId = options.id || `traj_${crypto.randomUUID()}`;
   const agentId = options.agentId || options.authorName || 'GenOS Agent';

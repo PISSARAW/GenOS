@@ -15,6 +15,8 @@ const agentIdentity = require('../src/services/agentIdentityService');
 const agentConscience = require('../src/services/agentConscienceService');
 const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
+const trajectoryService = require('../src/services/trajectoryService');
+const { getDatabase } = require('../src/db');
 const immune = require('../src/services/immuneSystem');
 
 function compactStrategyContract(contract = {}, worker = false) {
@@ -358,7 +360,7 @@ process.stdin.on('end', async () => {
     cleanup();
     process.exit(1);
   });
-  child.on('close', (code, signal) => {
+  child.on('close', async (code, signal) => {
     const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
     if (budgetStopped) {
       emit({ eventType: 'AGENT_HALTED', action: 'BUDGET_GUARD', detail: 'Runtime stopped at the active execution budget boundary.', severity: 'warning', status: 'blocked', currentTask: 'Budget exhausted', payload: { code, signal, budget: budgetStopped } });
@@ -403,25 +405,64 @@ process.stdin.on('end', async () => {
         emit({ eventType: 'WORKER_NO_ANSWER_PROVEN', action: 'REPORT_NO_ANSWER', detail: 'Worker returned an evidence-backed proof that no answer exists in the stated scope.', status: 'completed', currentTask: 'No answer proven', payload: { code, observedTools: [...observedTools], evidenceReport: report, noAnswerProof: classified.noAnswerProof } });
       } else if (classified.outcome === 'failed') {
         emit({ eventType: 'WORKER_TASK_FAILED', action: 'REPORT_FAILURE', detail: classified.failure.reason || 'Worker did not complete the assigned task.', severity: 'warning', status: 'error', currentTask: 'Task failed; awaiting orchestrator decision', payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof } });
+        try {
+          const failureSummary = classified.failure?.reason || report?.claims?.map(c => c.statement).join('\n') || finalReportText || 'Worker task execution failed';
+          await agentMemory.compileExecutionMemory(
+            agentName,
+            mission.prompt,
+            failureSummary,
+            { isFailure: true, outcome: 'failed', organizationId: mission.organizationId, projectId: mission.projectId }
+          );
+          const db = await getDatabase();
+          await trajectoryService.recordMissionTrajectory(db, {
+            agentId: mission.agentId,
+            workspaceId: mission.workspaceId || 'ws-genos-core',
+            task: mission.prompt,
+            report,
+            turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: false, error: 'failed' })),
+            status: 'rejected'
+          });
+        } catch (_) {}
       } else {
         emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
         if (strategyContract.promotion?.require_human_approval === true) {
           emit({ eventType: 'AGENT_AWAITING_APPROVAL', action: 'PROMOTION_GATE', detail: 'Human approval is required before strategy promotion.', status: 'blocked', currentTask: 'Awaiting human approval', payload: { evidenceReport: report } });
         } else {
-          strategyAdapter.executePipelineWithFeedback(
-            ['stdp_update', 'cherry_pick_golden_path'],
-            { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
-          ).catch(() => {});
-          agentMemory.compileExecutionMemory(
-            agentName,
-            mission.prompt,
-            report?.claims?.map(c => c.statement).join('\n') || finalReportText,
-            { outcome: report?.outcome || 'success', organizationId: mission.organizationId, projectId: mission.projectId }
-          ).catch(() => {});
+          try {
+            await strategyAdapter.executePipelineWithFeedback(
+              ['stdp_update', 'cherry_pick_golden_path'],
+              { agentId: mission.agentId, orchestratorId: orchestratorAgentId, workspaceId: mission.workspaceId || 'ws-genos-core', task: mission.prompt, report, turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })), sourceId: mission.agentId, targetId: orchestratorAgentId }
+            );
+            await agentMemory.compileExecutionMemory(
+              agentName,
+              mission.prompt,
+              report?.claims?.map(c => c.statement).join('\n') || finalReportText,
+              { outcome: report?.outcome || 'success', organizationId: mission.organizationId, projectId: mission.projectId }
+            );
+          } catch (_) {}
         }
       }
     }
-    else emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
+    else {
+      emit({ eventType: 'AGENT_FAILED', action: 'ERROR', detail: `Codex runtime exited with code ${code ?? 'unknown'}${stderr.trim() ? `: ${stderr.trim()}` : '.'}`, severity: 'error', status: 'error', payload: { code, signal, stderr: stderr.trim() } });
+      try {
+        await agentMemory.compileExecutionMemory(
+          agentName,
+          mission.prompt,
+          `Runtime failed with code ${code}: ${stderr.trim() || 'Process terminated with failure'}`,
+          { isFailure: true, outcome: 'failed', organizationId: mission.organizationId, projectId: mission.projectId }
+        );
+        const db = await getDatabase();
+        await trajectoryService.recordMissionTrajectory(db, {
+          agentId: mission.agentId,
+          workspaceId: mission.workspaceId || 'ws-genos-core',
+          task: mission.prompt,
+          report: { outcome: 'failed', reason: stderr.trim() },
+          turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: false, error: stderr.trim() || 'runtime_error' })),
+          status: 'rejected'
+        });
+      } catch (_) {}
+    }
     if (process.exitCode === undefined) process.exitCode = code || 0;
     cleanup();
     process.exit(process.exitCode || 0);
