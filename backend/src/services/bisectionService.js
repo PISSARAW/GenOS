@@ -113,6 +113,7 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null)
 // bisection uses bisectAnomalyAsync because its predicate runs a real command.
 function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
   if (snapshotHistory.length === 0) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
+  if (failurePredicate && failurePredicate.constructor?.name === 'AsyncFunction') throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
   let low = 0; let high = snapshotHistory.length - 1; let culpritIdx = -1; const steps = [];
   while (low <= high) {
     const mid = Math.floor((low + high) / 2); const snapshot = snapshotHistory[mid];
