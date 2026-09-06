@@ -305,7 +305,7 @@ class VectorMemoryService {
 
   async sleepCycle(db = null) {
     const database = db || (await this.initDb());
-    if (!database) return { consolidated: true, memoriesDecayed: false, apoptosisCount: 0 };
+    if (!database) return { success: false, consolidated: false, memoriesDecayed: false, apoptosisCount: 0, error: 'Database unavailable.' };
 
     try {
       await database.run(
@@ -332,15 +332,17 @@ class VectorMemoryService {
       const exosomeStats = await synapticTransmission.absorbExosomes(database);
 
       return {
+        success: exosomeStats.success !== false,
         consolidated: true,
         memoriesDecayed: true,
         apoptosisCount: doomedIds.length,
         exosomesAbsorbed: exosomeStats.absorbedCount,
         engramsStored: exosomeStats.engramsStored,
-        plasmidsAssimilated: exosomeStats.plasmidsAssimilated
+        plasmidsAssimilated: exosomeStats.plasmidsAssimilated,
+        errors: exosomeStats.errors || []
       };
-    } catch {
-      return { consolidated: true, memoriesDecayed: false, apoptosisCount: 0 };
+    } catch (error) {
+      return { success: false, consolidated: false, memoriesDecayed: false, apoptosisCount: 0, error: error.message };
     }
   }
 
