@@ -91,7 +91,13 @@ function parseSize(name) {
   return value * multiplier;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
+  const timeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : 30000;
+  const deadline = deadlineAt != null
+    ? Number(deadlineAt)
+    : (Number.isFinite(Number(deadlineMs)) ? Date.now() + Math.max(1, Number(deadlineMs)) : null);
+  const remainingTimeout = () => deadline == null ? timeout : Math.min(timeout, deadline - Date.now());
+  if (remainingTimeout() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   const configuredCandidates = candidateModels(model, policy);
   
@@ -124,10 +130,12 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     const configuration = modelProvider.modelConfiguration(uri);
     const discoveredEndpoint = localModelDiscovery.endpointForModel(uri);
     const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
+    const attemptTimeout = remainingTimeout();
+    if (attemptTimeout <= 0) throw new Error('Model routing deadline exhausted before attempting provider ' + uri + '.');
     const result = await modelProvider.generate({
       model: uri,
       prompt,
-      timeoutMs,
+      timeoutMs: attemptTimeout,
       maxTokens,
       endpoint: discoveredEndpoint || registered?.endpoint || undefined,
       priority,
