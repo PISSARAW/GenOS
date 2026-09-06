@@ -19,6 +19,44 @@ function scopedInputPath(inputFile, workspaceRoot) {
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
   const agentId = context.agentId || context.orchestratorId;
+
+  if (context.trajectory || context.turns || context.trajectoryId) {
+    const trajectoryService = require('../trajectoryService');
+    let traj = context.trajectory;
+    if (!traj && context.trajectoryId) {
+      try {
+        const db = await getDatabase();
+        const row = await db.get('SELECT * FROM trajectories WHERE id = ?', context.trajectoryId);
+        if (row) {
+          let diffLines = [];
+          try { diffLines = JSON.parse(row.diff_lines || '[]'); } catch (_) {}
+          traj = { id: row.id, status: row.status, turns: diffLines };
+        }
+      } catch (_) {}
+    }
+    if (!traj) {
+      traj = {
+        id: context.trajectoryId || `traj_${Date.now()}`,
+        status: context.status || 'SUCCESS',
+        turns: context.turns || []
+      };
+    }
+    const stepIndex = context.stepIndex ?? context.branchingPoint ?? 1;
+    const alterations = context.alterations || context.intervention || {};
+    const replayResult = trajectoryService.counterfactualReplay(traj, stepIndex, alterations);
+
+    telemetry.emitEvent({
+      eventType: 'TEMPORAL_CAUSAL_REPLAY',
+      agentId: agentId || 'strategy_adapter',
+      action: 'CAUSAL_REPLAY',
+      detail: `Executed trajectory counterfactual replay for ${traj.id}`,
+      severity: 'info',
+      payload: replayResult
+    });
+
+    return { success: true, ...replayResult };
+  }
+
   const inputFile = scopedInputPath(context.inputFile, context.workspaceRoot);
   const outputFile = context.outputFile || `/tmp/causal_report_${Date.now()}.json`;
 
