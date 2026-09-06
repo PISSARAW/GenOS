@@ -177,12 +177,29 @@ async function executeModelJob(db, job) {
   await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs }), job.id);
 }
 
+function isRetryableJobError(error = {}) {
+  const text = `${error.code || ''} ${error.message || ''}`.toLowerCase();
+  return error.retryable === true
+    || /timeout|timed out|rate limit|429|econn|etimedout|socket|network|temporar|5\d\d/.test(text);
+}
+
 async function withRetry(db, table, job, executor) {
   const configuredMax = Number(job.max_attempts || 3);
   const max = Number.isFinite(configuredMax) ? Math.max(1, Math.min(Math.floor(configuredMax), 10)) : 3;
   for (let attempt = 1; attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
-    try { await executor(); return; } catch (error) { if (attempt === max) { await db.run(`UPDATE ${table} SET status = 'failed', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`, JSON.stringify({ message: error.message, attempts: attempt }), job.id); } else { await new Promise((resolve) => setTimeout(resolve, Math.min(1000, 50 * (2 ** (attempt - 1))))); } }
+    try {
+      await executor();
+      return;
+    } catch (error) {
+      if (attempt === max || !isRetryableJobError(error)) {
+        await db.run(`UPDATE ${table} SET status = 'failed', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error) }), job.id);
+      } else {
+        const baseDelay = Math.min(1000, 50 * (2 ** (attempt - 1)));
+        const jitter = Math.floor(Math.random() * Math.max(1, Math.floor(baseDelay / 2)));
+        await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
+      }
+    }
   }
 }
 
