@@ -82,10 +82,12 @@ impl PhenotypeRegistry {
         let mut phenotype = Phenotype::default();
         phenotype.cellular_shape = "Round (Normal)".to_string();
 
+        let mut regulated_genome = genome.clone();
+        self.apply_epigenetic_regulation(&mut regulated_genome, env);
         let mut expressed_proteins = Vec::new();
         let active_tfs = Vec::new();
         let micro_rnas = Vec::new();
-        for gene in genome.genes.values() {
+        for gene in regulated_genome.genes.values() {
             let context = genos_genome::ExpressionContext {
                 active_tfs: &active_tfs,
                 alternative_splicing: None,
