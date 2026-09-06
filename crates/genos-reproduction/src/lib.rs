@@ -54,11 +54,23 @@ mod tests {
 
     #[test]
     fn test_meiotic_crossover() {
-        let parent1 = Genome::new("PARENT_AAA");
-        let parent2 = Genome::new("PARENT_BBB");
+        let mut parent1 = Genome::new("PARENT_AAA");
+        let mut parent2 = Genome::new("PARENT_BBB");
+        parent1.insert_gene(genos_genome::Gene::new("strategy", "depth_first_search"));
+        parent2.insert_gene(genos_genome::Gene::new("memory_tier", "vector_synapse"));
+
         let child = MeioticCrossover::uniform_crossover(&parent1, &parent2, 0.5);
-            assert_ne!(child.genome_id(), parent1.genome_id());
-            assert_eq!(child.lineage_id(), parent1.lineage_id());
+        assert_ne!(child.genome_id(), parent1.genome_id());
+        assert_eq!(child.lineage_id(), parent1.lineage_id());
+        assert_eq!(child.chromosome_maternal.len(), parent1.chromosome_maternal.len());
+        assert_eq!(child.chromosome_paternal.len(), parent2.chromosome_paternal.len());
+
+        // Test single point crossover gene exchange
+        let (child_a, child_b) = MeioticCrossover::single_point_crossover(&parent1, &parent2, 8);
+        assert_ne!(child_a.genome_id(), child_b.genome_id());
+        // Both children must have access to genes from parents
+        assert!(child_a.genes.contains_key("strategy") || child_a.genes.contains_key("memory_tier"));
+        assert!(child_b.genes.contains_key("strategy") || child_b.genes.contains_key("memory_tier"));
     }
 
     #[test]
