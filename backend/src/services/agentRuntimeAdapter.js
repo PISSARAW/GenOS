@@ -24,7 +24,7 @@ const agentAuthority = require('./agentAuthorityService');
 const agentCapsules = require('./agentCapsuleService');
 const userProgress = require('./userProgressService');
 const {
-  activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries,
+  activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers, pendingWorkerRecoveries, pendingContinuations,
   emit, updateAgent, orchestratorToolLease
 } = require('./agentOrchestrationState');
 const { localWorkerRoute } = require('./agentModelRoutingService');
@@ -231,6 +231,9 @@ function startMission(mission) {
 }
 
 async function stopMission(agentId) {
+  pendingContinuations.delete(agentId);
+  pendingWorkerRecoveries.delete(agentId);
+  autonomousRounds.delete(agentId);
   const child = activeProcesses.get(agentId);
   if (!child && missionStarts.has(agentId)) {
     cancelledStarts.add(agentId);
