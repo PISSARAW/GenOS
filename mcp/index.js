@@ -40,11 +40,12 @@ function runExecutable(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: false });
     let out = "";
+    let err = "";
     child.stdout.on("data", (d) => (out += d.toString()));
-    child.stderr.on("data", (d) => (out += d.toString()));
+    child.stderr.on("data", (d) => (err += d.toString()));
     child.on("close", (code) => {
       if (code === 0) resolve(out);
-      else reject(new Error(`Process exited with code ${code}: ${out}`));
+      else reject(new Error(`Process exited with code ${code}: ${err || out}`));
     });
     child.on("error", (err) => reject(err));
   });
