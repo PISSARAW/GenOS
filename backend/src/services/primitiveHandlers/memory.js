@@ -74,7 +74,7 @@ async function cherryPickGoldenPath(context) {
     eventType: 'GOLDEN_PATH_SYNTHESIZED',
     agentId: context.agentId || 'strategy_adapter',
     action: 'CHERRY_PICK',
-    detail: 'Synthesized golden path: ' + result.prunedStepCount + ' steps, ' + result.noiseReductionPercent + '% noise reduction.',
+    detail: 'Synthesized golden path: ' + result.goldenPathSteps.length + ' steps, ' + result.noiseReductionPercent + '% noise reduction (' + result.prunedStepCount + ' pruned).',
     severity: 'info',
     payload: { ...result, decisionId, trajectoryId: trajRecord?.trajectoryId }
   });
@@ -127,9 +127,18 @@ async function stdpUpdate(context) {
   if (!['glutamate', 'gaba', 'dopamine', 'serotonin'].includes(transmitterType)) return { success: false, error: 'Unsupported transmitterType.' };
   const deltaT = postSpikeAt - preSpikeAt;
   if (deltaT === 0) return { success: false, error: 'preSpikeAt and postSpikeAt must differ for STDP.' };
-  const update = deltaT > 0
+  let neuromodulationFactor = 1.0;
+  if (transmitterType === 'dopamine') {
+    const rewardSignal = Number(context.rewardSignal ?? context.reward ?? 1.5);
+    neuromodulationFactor = Number.isFinite(rewardSignal) && rewardSignal > 0 ? rewardSignal : 1.5;
+  } else if (transmitterType === 'serotonin') {
+    neuromodulationFactor = 0.8;
+  }
+
+  const baseUpdate = deltaT > 0
     ? learningRate * Math.exp(-Math.abs(deltaT) / tauPlus)
     : -learningRate * Math.exp(-Math.abs(deltaT) / tauMinus);
+  const update = Number((baseUpdate * neuromodulationFactor).toFixed(6));
 
   const [sRow, tRow] = await Promise.all([
     db.get('SELECT id FROM genome_decisions WHERE id = ?', sourceId),
@@ -141,18 +150,19 @@ async function stdpUpdate(context) {
 
   let row;
   await withTransaction(db, async (tx) => {
+    const initialWeight = Math.max(0.01, Math.min(20.0, update > 0 ? update : 0.5 + update));
     await tx.run(
       `INSERT INTO memory_synapses
       (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, last_updated_at)
-      VALUES (?, ?, MIN(20.0, MAX(-20.0, ?)), ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(source_id, target_id) DO UPDATE SET
-        weight = MIN(20.0, MAX(-20.0, memory_synapses.weight + excluded.weight)),
-        transmitter_type = excluded.transmitter_type,
+        weight = MIN(20.0, MAX(0.01, memory_synapses.weight + excluded.weight)),
+        transmitter_type = COALESCE(memory_synapses.transmitter_type, excluded.transmitter_type),
         pre_spike_at = excluded.pre_spike_at,
         post_spike_at = excluded.post_spike_at,
         delta_t_ms = excluded.delta_t_ms,
         last_updated_at = CURRENT_TIMESTAMP`,
-      sourceId, targetId, update, transmitterType, preSpikeAt, postSpikeAt, deltaT
+      sourceId, targetId, initialWeight, transmitterType, preSpikeAt, postSpikeAt, deltaT
     );
     await tx.run(
       `UPDATE memory_synapses SET

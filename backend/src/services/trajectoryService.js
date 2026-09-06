@@ -20,19 +20,28 @@ const SEED_TRAJECTORY = Object.freeze({
  * @returns {object}
  */
 function classifyTurn(turn) {
+  const isFailed = Boolean(
+    turn.error ||
+    turn.failed ||
+    turn.success === false ||
+    turn.status === 'error' ||
+    turn.status === 'failed' ||
+    turn.status === 'failure' ||
+    (typeof turn.exitCode === 'number' && turn.exitCode !== 0) ||
+    (typeof turn.code === 'number' && turn.code !== 0)
+  );
+
   let category = turn.classification || turn.type;
-  if (!category) {
-    if (turn.error || turn.failed) {
-      category = 'Dead-End';
-    } else if (turn.cmd && turn.pass) {
+  if (isFailed) {
+    category = 'Dead-End';
+  } else if (!category) {
+    if (turn.cmd && (turn.pass || turn.success)) {
       category = 'Verification';
-    } else if (turn.success && (turn.action?.includes('replace') || turn.action?.includes('patch'))) {
+    } else if (turn.success && (turn.action?.includes('replace') || turn.action?.includes('patch') || turn.action?.includes('write'))) {
       category = 'Breakthrough';
     } else {
       category = 'Exploration';
     }
-  } else if (turn.error || turn.failed) {
-    category = 'Dead-End';
   }
   return { ...turn, classification: category };
 }
@@ -48,6 +57,7 @@ function cherryPickGoldenPath(rawTurns = []) {
   const classifiedSteps = turns.map(classifyTurn);
   const goldenPath = classifiedSteps.filter(s => s.classification !== 'Dead-End');
   const deadEndCount = turns.length - goldenPath.length;
+  const allPruned = turns.length > 0 && goldenPath.length === 0;
 
   return {
     synthesisId: `golden-path-${Date.now()}`,
@@ -56,6 +66,8 @@ function cherryPickGoldenPath(rawTurns = []) {
     noiseReductionPercent: Number((((deadEndCount) / (turns.length || 1)) * 100).toFixed(1)),
     goldenPathSteps: goldenPath,
     goldenPath: goldenPath,
+    allPruned,
+    warning: allPruned ? 'All trajectory turns were pruned as dead-ends; no golden path steps synthesized.' : null,
     classificationSummary: {
       exploration: classifiedSteps.filter(s => s.classification === 'Exploration').length,
       breakthrough: classifiedSteps.filter(s => s.classification === 'Breakthrough').length,
