@@ -116,9 +116,25 @@ async function cloneNode(req, res) {
   if (!sourceNode?.workspace_id) {
     return res.status(404).json({ error: { code: 'LINEAGE_NODE_NOT_FOUND', message: `Lineage node '${parentId}' is not available in this project.` } });
   }
+
+  const agentId = `agent_${clonedId}`;
+  const orchestrator = await db.get(`SELECT id, fleet_id, model_tier, language FROM agents WHERE workspace_id = ? AND execution_mode = 'orchestrator' LIMIT 1`, sourceNode.workspace_id);
   await db.run(
-    `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, pos_x, pos_y, state_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    clonedId, sourceNode.workspace_id, `Clone of ${parentId || 'Root'}`, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node'
+    `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, current_task)
+     VALUES (?, ?, 'worker', 'idle', 'GenOS', 'worker', ?, ?, ?, ?, 'Branch', ?, 'clone', 'Cloned node worker')`,
+    agentId, `Clone of ${sourceNode.label || parentId}`, sourceNode.workspace_id, orchestrator?.fleet_id || null, orchestrator?.model_tier || 'standard', orchestrator?.language || 'TypeScript', orchestrator?.id || null
+  );
+
+  await db.run(
+    `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, score, visits, pos_x, pos_y, state_summary) VALUES (?, ?, ?, ?, 'fork', 0.95, 1, 300, 300, 'Cloned branch agent node')`,
+    clonedId, sourceNode.workspace_id, agentId, `Clone of ${sourceNode.label || parentId || 'Root'}`
+  );
+
+  await db.run(
+    `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
+     VALUES (?, ?, ?, ?, 'clone')
+     ON CONFLICT(id) DO NOTHING`,
+    `edge_${parentId}_${clonedId}`, sourceNode.workspace_id, parentId, clonedId
   );
 
   telemetry.emitEvent({
@@ -126,28 +142,55 @@ async function cloneNode(req, res) {
     agentId: 'lineage_controller',
     action: 'CLONE',
     detail: `Cloned lineage node ${parentId} into ${clonedId}`,
-    severity: 'info'
+    severity: 'info',
+    payload: { clonedAgentId: agentId }
   });
 
-  res.status(201).json({ success: true, clonedNodeId: clonedId });
+  res.status(201).json({ success: true, clonedNodeId: clonedId, clonedAgentId: agentId });
 }
 
 async function killNode(req, res) {
-  const { nodeId } = req.body || {};
+  const { nodeId, cascade = false } = req.body || {};
   const db = await getDatabase();
   const scope = workspaceScope(req);
   const result = await db.run(`UPDATE lineage_nodes SET state_summary = 'Apoptosis Terminated' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces w WHERE ${scope.clause})`, nodeId, ...scope.params);
   if (!result.changes) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Node ${nodeId} not found in this project.` } });
 
+  // Terminate actual agent in agents table
+  await db.run(
+    `UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = 'Apoptosis Terminated via Lineage Controller', updated_at = CURRENT_TIMESTAMP
+     WHERE (id = ? OR id = (SELECT agent_id FROM lineage_nodes WHERE id = ?))
+       AND workspace_id IN (SELECT id FROM workspaces w WHERE ${scope.clause})`,
+    nodeId, nodeId, ...scope.params
+  );
+
+  let cascadeCount = 0;
+  if (cascade) {
+    const childEdges = await db.all(`SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?`, nodeId);
+    for (const edge of childEdges) {
+      await db.run(
+        `UPDATE lineage_nodes SET state_summary = 'Cascaded Apoptosis Terminated' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces w WHERE ${scope.clause})`,
+        edge.target_node_id, ...scope.params
+      );
+      await db.run(
+        `UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = 'Cascaded Apoptosis Terminated', updated_at = CURRENT_TIMESTAMP
+         WHERE (id = ? OR id = (SELECT agent_id FROM lineage_nodes WHERE id = ?))
+           AND workspace_id IN (SELECT id FROM workspaces w WHERE ${scope.clause})`,
+        edge.target_node_id, edge.target_node_id, ...scope.params
+      );
+      cascadeCount++;
+    }
+  }
+
   telemetry.emitEvent({
     eventType: 'NODE_TERMINATED',
     agentId: 'lineage_controller',
     action: 'KILL',
-    detail: `Terminated lineage node: ${nodeId}`,
+    detail: `Terminated lineage node: ${nodeId}${cascade ? ` (cascaded to ${cascadeCount} children)` : ''}`,
     severity: 'warning'
   });
 
-  res.json({ success: true, message: `Node ${nodeId} terminated successfully.` });
+  res.json({ success: true, message: `Node ${nodeId} terminated successfully.`, cascaded: cascadeCount });
 }
 
 async function getGenomeGraph(req, res) {
