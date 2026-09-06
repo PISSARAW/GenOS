@@ -53,12 +53,16 @@ async function prune(context) {
   // Beam Search / Pruning : Conserve uniquement le Top K, tue les autres.
   const db = await getDatabase();
   const candidates = context.candidates || [];
-  const k = context.k || context.retainTopK || 3;
+  const rawK = context.k !== undefined ? context.k : context.retainTopK;
+  const k = rawK === undefined ? 3 : Number(rawK);
+  if (!Number.isInteger(k) || k < 0) return { success: false, error: 'k must be a non-negative integer.' };
   if (candidates.length === 0) return { success: false, error: 'No candidates to prune.' };
   
   const scored = [];
   for (const cId of candidates) {
-    const row = await db.get("SELECT id, status, current_task FROM agents WHERE id = ?", cId);
+    const row = context.workspaceId
+      ? await db.get('SELECT a.id, a.status, a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.id = ?', cId, context.workspaceId)
+      : await db.get("SELECT id, status, current_task FROM agents WHERE id = ?", cId);
     if (!row) continue;
     const score = Number.isFinite(Number(context.scores?.[cId]))
       ? Number(context.scores[cId])
@@ -69,8 +73,9 @@ async function prune(context) {
   scored.sort((a, b) => b.score - a.score);
   const retained = scored.slice(0, k).map(s => s.id);
   const pruned = scored.slice(k).map(s => s.id);
-  
+  const runtimeAdapter = require('../agentRuntimeAdapter');
   for (const pid of pruned) {
+    runtimeAdapter.stopMission(pid);
     await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
   }
   
