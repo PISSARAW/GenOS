@@ -182,44 +182,71 @@ async function run(context) {
 }
 
 async function cryptobiosisFreeze(context) {
-  const agentId = context.agentId || context.targetId || ('dormant_' + Date.now());
-  const state = context.state || context.snapshot || { agentId, frozenAt: Date.now() };
+  const agentId = context.agentId || context.targetId;
+  if (!agentId) return { success: false, error: 'agentId required for cryptobiosis freeze.' };
+  const db = await getDatabase();
+  const agent = await db.get('SELECT id, workspace_id, status FROM agents WHERE id = ?', agentId);
+  if (!agent) return { success: false, error: `Agent '${agentId}' not found.` };
+  const state = context.state || context.snapshot || { agentId, workspaceId: agent.workspace_id, frozenAt: Date.now() };
+  const runtimeStopped = runtimeAdapter.stopMission(agentId);
   try {
     const res = await genosCli.runCryptobiosisFreeze(agentId, { state });
-    if (res.ok && res.data) {
+    const data = res.data;
+    if (res.ok && data && data.agent_id === agentId && typeof data.capsule_hash === 'string' && data.capsule_hash.length >= 32) {
+      const snapshotId = data.capsule_id || `${agentId}:${data.capsule_hash}`;
+      await db.run(
+        `INSERT INTO cryptobiosis_snapshots (snapshot_id, agent_id, workspace_id, capsule_hash, status, metadata_json)
+         VALUES (?, ?, ?, ?, 'frozen', ?)`,
+        snapshotId, agentId, agent.workspace_id || null, data.capsule_hash,
+        JSON.stringify({ status: data.status, bunkerArmor: data.bunker_armor, runtimeStopped })
+      );
+      await db.run("UPDATE agents SET current_task = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", '[CRYPTOBIOSIS] Frozen capsule', agentId);
       return {
         success: true,
-        cryptobiosis: res.data,
+        cryptobiosis: data,
         agentId,
-        bunkerArmor: res.data.bunker_armor,
-        capsuleHash: res.data.capsule_hash,
-        status: res.data.status || 'FROZEN_VITRIFIED'
+        bunkerArmor: data.bunker_armor,
+        capsuleHash: data.capsule_hash,
+        status: data.status || 'FROZEN_VITRIFIED',
+        runtimeStopped,
+        durable: true
       };
     }
+    return { success: false, agentId, runtimeStopped, error: res.error || 'Cryptobiosis freeze returned an invalid capsule.' };
   } catch (error) {
     return { success: false, agentId, error: 'Cryptobiosis freeze failed: ' + error.message };
   }
-  return { success: false, agentId, error: 'Cryptobiosis freeze returned no capsule.' };
 }
 
 async function cryptobiosisThaw(context) {
   const agentId = context.agentId || context.targetId;
   if (!agentId) return { success: false, error: 'agentId required' };
+  const db = await getDatabase();
+  const snapshot = await db.get("SELECT * FROM cryptobiosis_snapshots WHERE agent_id = ? AND status = 'frozen' ORDER BY frozen_at DESC LIMIT 1", agentId);
+  if (!snapshot) return { success: false, agentId, error: 'No frozen durable capsule found for agent.' };
+  await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawing' WHERE snapshot_id = ? AND status = 'frozen'", snapshot.snapshot_id);
   try {
     const res = await genosCli.runCryptobiosisThaw(agentId);
-    if (res.ok && res.data) {
+    const data = res.data;
+    if (res.ok && data && (data.agent_id === undefined || data.agent_id === agentId) && data.status === 'RESUSCITATED') {
+      await db.run("UPDATE cryptobiosis_snapshots SET status = 'thawed', thawed_at = CURRENT_TIMESTAMP WHERE snapshot_id = ?", snapshot.snapshot_id);
+      await db.run("UPDATE agents SET current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", '[CRYPTOBIOSIS] Resuscitated', agentId);
       return {
-        success: res.data.success !== false,
-        thawed: res.data,
+        success: true,
+        thawed: data,
         agentId,
-        hydrationLevel: res.data.hydration_level,
-        status: res.data.status
+        hydrationLevel: data.hydration_level,
+        status: data.status,
+        snapshotId: snapshot.snapshot_id,
+        durable: true
       };
     }
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'failed' WHERE snapshot_id = ?", snapshot.snapshot_id);
+    return { success: false, agentId, snapshotId: snapshot.snapshot_id, error: res.error || 'Cryptobiosis thaw returned invalid identity or status.' };
   } catch (error) {
+    await db.run("UPDATE cryptobiosis_snapshots SET status = 'failed' WHERE snapshot_id = ?", snapshot.snapshot_id).catch(() => {});
     return { success: false, agentId, error: 'Cryptobiosis thaw failed: ' + error.message };
   }
-  return { success: false, agentId, error: 'Cryptobiosis thaw returned no state.' };
 }
 
 module.exports = {

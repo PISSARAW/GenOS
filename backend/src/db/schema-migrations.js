@@ -81,13 +81,44 @@ async function applyVersionedMigrations(db) {
     ['009-agent-completed-status', 'Distinguish successful completion from idle availability and blocked termination'],
     ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity'],
     ['011-project-lifecycle', 'Persist active and archived project lifecycle state'],
-    ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers']
+    ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers'],
+    ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references']
   ];
   await migrateAgentStatusConstraint(db);
   const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
   if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
   if (!agentRuntimeColumns.has('runtime_started_at')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_started_at DATETIME');
   if (!agentRuntimeColumns.has('runtime_executable')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_executable TEXT');
+  const cryptobiosisColumns = new Set((await db.all('PRAGMA table_info(cryptobiosis_snapshots)')).map((column) => column.name));
+  if (cryptobiosisColumns.size && !cryptobiosisColumns.has('snapshot_id')) {
+    await db.exec('ALTER TABLE cryptobiosis_snapshots RENAME TO cryptobiosis_snapshots_legacy');
+  }
+  await db.exec(`CREATE TABLE IF NOT EXISTS cryptobiosis_snapshots (
+    snapshot_id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    workspace_id TEXT,
+    capsule_hash TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('freezing', 'frozen', 'thawing', 'thawed', 'failed')),
+    metadata_json TEXT NOT NULL DEFAULT '{}',
+    frozen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    thawed_at DATETIME,
+    FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE,
+    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
+  )`);
+  if (cryptobiosisColumns.size && !cryptobiosisColumns.has('snapshot_id')) {
+    await db.exec(`INSERT OR IGNORE INTO cryptobiosis_snapshots
+      (snapshot_id, agent_id, workspace_id, capsule_hash, status, metadata_json, frozen_at, thawed_at)
+      SELECT id,
+        COALESCE(json_extract(state_json, '$.agentId'), id),
+        workspace_id,
+        'legacy:' || id,
+        CASE WHEN thawed_at IS NULL THEN 'frozen' ELSE 'thawed' END,
+        json_object('legacy', 1, 'reason', reason, 'state_json', state_json),
+        frozen_at,
+        thawed_at
+      FROM cryptobiosis_snapshots_legacy`);
+    await db.exec('DROP TABLE cryptobiosis_snapshots_legacy');
+  }
   const workspaceColumns = await db.all('PRAGMA table_info(workspaces)');
   const names = new Set(workspaceColumns.map(column => column.name));
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');

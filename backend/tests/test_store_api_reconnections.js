@@ -74,7 +74,12 @@ async function runTests() {
 
   // 3. Primitive Handlers Fundamentals (cryptobiosisFreeze & cryptobiosisThaw)
   console.log('\n3. Testing primitiveHandlers fundamentals (cryptobiosisFreeze/Thaw)...');
+  const db = await getDatabase();
   const primAgentId = 'prim_agent_' + Date.now();
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Cryptobiosis Worker', 'worker', 'idle', 'worker')",
+    primAgentId
+  );
   const primFreeze = await fundamentals.cryptobiosisFreeze({
     agentId: primAgentId,
     state: { cortex: 'dormant_mode' }
@@ -90,7 +95,6 @@ async function runTests() {
 
   // 4. Primitive Handlers Safety (apoptosis with stratigraphic fossil record)
   console.log('\n4. Testing primitiveHandlers safety (apoptosis -> stratigraphic fossil)...');
-  const db = await getDatabase();
   const apoptoticAgentId = 'apoptotic_' + Date.now();
   await db.run(
     "INSERT INTO agents (id, name, role, status) VALUES (?, 'Doomed Worker', 'worker', 'idle')",
@@ -108,8 +112,13 @@ async function runTests() {
 
   // 5. Strategy Execution Adapter Dispatch
   console.log('\n5. Testing strategyExecutionAdapter dispatch...');
+  const adapterAgentId = 'adapter_agent_' + Date.now();
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, execution_mode) VALUES (?, 'Adapter Worker', 'worker', 'idle', 'worker')",
+    adapterAgentId
+  );
   const stratFreeze = await strategyAdapter.executePrimitive('cryptobiosis_freeze', {
-    agentId: 'adapter_agent_' + Date.now(),
+    agentId: adapterAgentId,
     state: { strategy: 'hibernation' }
   });
   assert(stratFreeze.success, 'Strategy adapter failed to execute cryptobiosis_freeze');
