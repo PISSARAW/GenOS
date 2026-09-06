@@ -24,7 +24,7 @@ const agentAuthority = require('./agentAuthorityService');
 const agentCapsules = require('./agentCapsuleService');
 const userProgress = require('./userProgressService');
 const {
-  activeProcesses, missionStarts, autonomousRounds, activeWorkerBarriers,
+  activeProcesses, missionStarts, cancelledStarts, autonomousRounds, activeWorkerBarriers,
   emit, updateAgent, orchestratorToolLease
 } = require('./agentOrchestrationState');
 const { localWorkerRoute } = require('./agentModelRoutingService');
@@ -43,10 +43,19 @@ const { terminateChild } = require('./processTermination');
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
+  const assertNotCancelled = () => {
+    if (cancelledStarts.has(agentId)) {
+      const error = new Error(`Mission '${agentId}' was stopped before its runtime started.`);
+      error.code = 'MISSION_CANCELLED';
+      throw error;
+    }
+  };
+  assertNotCancelled();
   const normalizedMission = { ...mission, agentId };
   const { strategy_decisions: _decisionLedger, ...runtimeStrategyContract } = normalizedMission.strategyContract || {};
   const executable = configuredExecutable(normalizedMission);
   const db = await getDatabase();
+  assertNotCancelled();
   const dispatchedAgent = await agentAuthority.authorizeMission(db, agentId, normalizedMission.orchestratorAgentId);
   normalizedMission.name = normalizedMission.name || dispatchedAgent.name;
   normalizedMission.nameMeaning = normalizedMission.nameMeaning || dispatchedAgent.name_meaning;
@@ -58,6 +67,7 @@ async function startMissionInternal(mission) {
   }
   if (!contractRecord) throw new Error(`No strategy contract available for agent ${agentId}`);
   Object.assign(normalizedMission, await provisionMissionWorkspace(normalizedMission, dispatchedAgent.execution_mode));
+  assertNotCancelled();
   if (dispatchedAgent.execution_mode === 'worker' && !normalizedMission.localModel && normalizedMission.disableLocalModel !== true) {
     const workerTenant = normalizedMission.workspaceId
       ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
@@ -89,6 +99,7 @@ async function startMissionInternal(mission) {
   await db.run('UPDATE agents SET hallucination_monitoring = 1, hallucination_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', agentId);
   emit(agentId, 'HALLUCINATION_MONITORING_ENABLED', 'MONITOR', 'Evidence-bound hallucination monitoring enabled for this mission.', {}, 'info');
   console.log("adapter: plan"); const autonomyPlan = await buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord });
+  assertNotCancelled();
   const silentUpdates = userProgress.silenceRequested(
     normalizedMission.prompt || normalizedMission.currentTask || '',
     normalizedMission.silentUpdates === true || normalizedMission.executionPolicy?.silentUpdates === true
@@ -125,7 +136,7 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  console.log("adapter: localModel"); if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
+  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
 
   // The orchestrator creates and dispatches its own bounded worker fleet. A worker
   // never recurses here: authority is deliberately one-way.
@@ -173,6 +184,7 @@ async function startMissionInternal(mission) {
     await runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan, contractRecord, autonomousWorkers });
   }
 
+  assertNotCancelled();
   console.log("adapter: superviseMission"); return superviseMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord, executionRun, autonomyPlan, runtimeBudget, runtimeEnvironment, silentUpdates, genosCapsule, executable });
 }
 function startMission(mission) {
@@ -181,6 +193,7 @@ function startMission(mission) {
   if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
   const start = startMissionInternal(mission).finally(async () => {
     missionStarts.delete(agentId);
+    cancelledStarts.delete(agentId);
     await dispatchWorkerRecovery(agentId);
     dispatchPendingContinuation(agentId);
   });
@@ -190,6 +203,10 @@ function startMission(mission) {
 
 function stopMission(agentId) {
   const child = activeProcesses.get(agentId);
+  if (!child && missionStarts.has(agentId)) {
+    cancelledStarts.add(agentId);
+    return true;
+  }
   if (!child) {
     const barrier = activeWorkerBarriers.get(agentId);
     if (!barrier) return false;
