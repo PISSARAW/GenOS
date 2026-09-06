@@ -98,13 +98,14 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
   }
   await migrateDatasetNameConstraint(db);
+  await migrateNotificationPreferenceScope(db);
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
   const evaluationNames = new Set(evaluationColumns.map(column => column.name));
   if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
@@ -140,6 +141,30 @@ async function migrateDatasetNameConstraint(db) {
       SELECT id, name, description, metadata_json, organization_id, project_id, created_at, updated_at FROM datasets;
     DROP TABLE datasets;
     ALTER TABLE datasets_tenant_scoped RENAME TO datasets;`);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
+async function migrateNotificationPreferenceScope(db) {
+  const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'notification_preferences'");
+  if (!table?.sql || !/event_type\s+TEXT\s+PRIMARY\s+KEY/i.test(table.sql)) return;
+  await db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.exec('BEGIN IMMEDIATE;');
+    await db.exec(`CREATE TABLE notification_preferences_scoped (
+      event_type TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, channels_json TEXT NOT NULL DEFAULT '["studio"]',
+      threshold REAL, organization_id TEXT, project_id TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (event_type, organization_id, project_id)
+    );
+    INSERT INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, updated_at)
+      SELECT event_type, enabled, channels_json, threshold, updated_at FROM notification_preferences;
+    DROP TABLE notification_preferences;
+    ALTER TABLE notification_preferences_scoped RENAME TO notification_preferences;`);
     await db.exec('COMMIT;');
   } catch (error) {
     try { await db.exec('ROLLBACK;'); } catch (_) {}
