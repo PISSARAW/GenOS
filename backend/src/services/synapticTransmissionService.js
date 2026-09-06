@@ -130,9 +130,11 @@ async function absorbExosomes(db = null) {
 
         try {
           await database.run(
-            `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            id, 'Exosome Absorbed Engram', engram.content, buffer, 'exosome_phagocytosis', 'Exosome', 1.5
+            `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            id, 'Exosome Absorbed Engram', engram.content, buffer, 'exosome_phagocytosis', 'Exosome', 1.5,
+            exo.organization_id || exo.organizationId || null,
+            exo.project_id || exo.projectId || null
           );
           engramsStored += 1;
         } catch (error) {
@@ -147,9 +149,11 @@ async function absorbExosomes(db = null) {
       const plasmidId = `plasmid_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
       try {
         await database.run(
-          `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', 'exosome_matrix', 'Plasmid', 2.0
+          `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, organization_id, project_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', 'exosome_matrix', 'Plasmid', 2.0,
+          exo.organization_id || exo.organizationId || null,
+          exo.project_id || exo.projectId || null
         );
         plasmidsAssimilated += 1;
       } catch (error) {
