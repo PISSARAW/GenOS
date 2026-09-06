@@ -341,7 +341,7 @@ mod tests {
     fn test_molecular_clock_diploid_both_strands() {
         use crate::phylogeny::molecular_clock;
 
-        let mut g1 = Genome::new("BASE_GENOME_12345");
+        let g1 = Genome::new("BASE_GENOME_12345");
         let mut g2 = g1.clone();
 
         // Mutate paternal strand only on g2
