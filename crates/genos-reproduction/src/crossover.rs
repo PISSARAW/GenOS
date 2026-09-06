@@ -1,8 +1,22 @@
 use genos_genome::Genome;
 use rand::RngExt;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use crate::seed::{default_seed, rng_from_seed};
 
 pub struct MeioticCrossover;
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Parentage {
+    pub parent_a: Uuid,
+    pub parent_b: Uuid,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct CrossoverResult {
+    pub child: Genome,
+    pub parentage: Parentage,
+}
 
 impl MeioticCrossover {
     pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
@@ -58,6 +72,23 @@ impl MeioticCrossover {
                 child.genes.insert(locus.clone(), gene_b.clone());
             }
         }
+        for plasmid in &parent_b.plasmids {
+            if rng.random_bool(swap_prob) && !child.plasmids.contains(plasmid) {
+                child.plasmids.push(plasmid.clone());
+            }
+        }
+        for enhancer in &parent_b.regulatory_enhancers {
+            if rng.random_bool(swap_prob) && !child.regulatory_enhancers.contains(enhancer) {
+                child.regulatory_enhancers.push(enhancer.clone());
+            }
+        }
         child
+    }
+
+    pub fn uniform_crossover_with_parentage(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> CrossoverResult {
+        CrossoverResult {
+            child: Self::uniform_crossover(parent_a, parent_b, swap_prob),
+            parentage: Parentage { parent_a: parent_a.genome_id(), parent_b: parent_b.genome_id() },
+        }
     }
 }
