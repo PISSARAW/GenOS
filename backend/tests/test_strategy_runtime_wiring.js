@@ -13,6 +13,9 @@ async function runTests() {
   const primRes = await adapter.executePrimitive('mcts_select', { candidates: ['node-1', 'node-2'] });
   assert(primRes !== undefined, 'executePrimitive must return a result');
   console.log('  ✅ executePrimitive(mcts_select):', primRes.success);
+  const missingRes = await adapter.executePrimitive('primitive_not_registered', { agentId: 'wiring-agent' });
+  assert.equal(missingRes.success, false, 'unregistered primitives must fail instead of returning a mock success');
+  assert.equal(missingRes.code, 'STRATEGY_PRIMITIVE_UNIMPLEMENTED', 'unregistered primitives expose a stable error code');
 
   const pipelineRes = await adapter.executePipelineWithFeedback(['snapshot', 'fork'], {
     agentId: 'test-agent',
