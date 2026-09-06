@@ -16,7 +16,11 @@ async function run() {
   if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   const db = await getDatabase(dbPath);
   try {
-    await db.run("INSERT INTO agents (id, name, role, status, execution_mode) VALUES ('garage-root', 'Root', 'orchestrator', 'running', 'orchestrator')");
+    process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = '3';
+    await db.run("INSERT INTO organizations (id, name) VALUES ('garage-org', 'Garage Org')");
+    await db.run("INSERT INTO projects (id, organization_id, name) VALUES ('garage-project', 'garage-org', 'Garage Project')");
+    await db.run("INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('garage-workspace', 'Garage Workspace', ?, 'garage-org', 'garage-project')", __dirname);
+    await db.run("INSERT INTO agents (id, name, role, status, execution_mode, workspace_id) VALUES ('garage-root', 'Root', 'orchestrator', 'running', 'orchestrator', 'garage-workspace')");
     for (let index = 1; index <= 3; index += 1) {
       await db.run(
         "INSERT INTO agents (id, name, role, status, execution_mode, parent_agent_id) VALUES (?, ?, 'implementation', 'running', 'worker', 'garage-root')",
@@ -78,6 +82,7 @@ async function run() {
     });
     assert.equal(active, null, 'an active specialist cannot be revived a second time');
   } finally {
+    delete process.env.GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT;
     await closeDatabase();
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   }
