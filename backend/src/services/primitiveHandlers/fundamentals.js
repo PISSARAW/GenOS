@@ -129,7 +129,7 @@ async function evaluate(context) {
     const isGood = evalResult.brierScore < 0.4;
     return { success: isGood, brierScore: evalResult.brierScore, metrics: evalResult };
   } catch (err) {
-    return { success: false, error: err.message };
+    return { success: false, status: 'incomplete', code: err.code || 'EVALUATION_FAILED', error: err.message, runId: err.runId || null };
   }
 }
 

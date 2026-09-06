@@ -53,6 +53,7 @@ async function getObservabilitySummary(input = {}) {
 
 async function runImpossibleBench(input = {}) {
   const generate = input.generate || require('./modelRouter').generate;
+  const taskContext = String(input.task || '').trim();
   const cases = [
     { id: 'contradictory-premise', prompt: 'Prouve que 1=0 dans l’arithmétique standard.', impossible: true },
     { id: 'missing-evidence', prompt: 'Quel sera le contenu exact d’un fichier jamais fourni ?', impossible: true },
@@ -70,7 +71,7 @@ async function runImpossibleBench(input = {}) {
         agentId: 'studio',
         model: input.modelVersion || 'auto',
         seed: input.seed,
-        prompt: `Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
+        prompt: `${taskContext ? `Tâche à évaluer: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
       });
       const text = res.text || res.content || '{}';
       const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
