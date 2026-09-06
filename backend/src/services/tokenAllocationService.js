@@ -1,5 +1,11 @@
 function whole(value) {
-  return Math.max(0, Math.floor(Number(value) || 0));
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.floor(number)) : 0;
+}
+
+function splitPool(pool, workerCount) {
+  const perWorkerTokens = workerCount ? Math.floor(pool / workerCount) : 0;
+  return { perWorkerTokens, remainderTokens: pool - (perWorkerTokens * workerCount) };
 }
 
 // This is intentionally deterministic.  The runtime can persist and replay the
@@ -8,16 +14,18 @@ function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerT
   const total = whole(totalTokens);
   const workers = whole(workerCount);
   const minimum = Math.max(1, whole(minimumWorkerTokens));
-  const workerPool = whole(total * Number(workerShare || 0));
-  if (!workers || workerPool < minimum) {
-    return { mode, workerPool, initial: { workerCount: 0, pool: 0, perWorkerTokens: 0 }, continuation: { survivorCount: 0, pool: workerPool, perWorkerTokens: 0 } };
+  const share = Number(workerShare);
+  const workerPool = whole(total * (Number.isFinite(share) ? Math.max(0, Math.min(1, share)) : 0));
+  if (!workers || workerPool < minimum * workers) {
+    return { mode, workerPool, initial: { workerCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0 }, continuation: { survivorCount: 0, pool: workerPool, perWorkerTokens: 0, remainderTokens: workerPool } };
   }
 
   if (mode !== 'successive_halving_with_reallocation') {
+    const initialSplit = splitPool(workerPool, workers);
     return {
       mode, workerPool,
-      initial: { workerCount: workers, pool: workerPool, perWorkerTokens: Math.floor(workerPool / workers) },
-      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0 }
+      initial: { workerCount: workers, pool: workerPool, ...initialSplit },
+      continuation: { survivorCount: 0, pool: 0, perWorkerTokens: 0, remainderTokens: 0 }
     };
   }
 
@@ -35,18 +43,30 @@ function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerT
     continuationPool = 0;
     effectiveSurvivorCount = 0;
   }
+  const initialSplit = splitPool(effectiveInitialPool, workers);
+  const continuationSplit = splitPool(continuationPool, effectiveSurvivorCount);
   return {
     mode, workerPool,
-    initial: { workerCount: workers, pool: effectiveInitialPool, perWorkerTokens: Math.floor(effectiveInitialPool / workers) },
-    continuation: { survivorCount: effectiveSurvivorCount, pool: continuationPool, perWorkerTokens: effectiveSurvivorCount ? Math.floor(continuationPool / effectiveSurvivorCount) : 0 }
+    initial: { workerCount: workers, pool: effectiveInitialPool, ...initialSplit },
+    continuation: { survivorCount: effectiveSurvivorCount, pool: continuationPool, ...continuationSplit }
   };
 }
 
 function selectSurvivors(candidates = [], survivorCount = 1) {
-  return [...candidates]
-    .filter((candidate) => candidate.status === 'completed' || candidate.status === 'idle')
-    .sort((left, right) => Number(right.evidenceScore || 0) - Number(left.evidenceScore || 0) || String(left.agentId).localeCompare(String(right.agentId)))
-    .slice(0, Math.max(0, whole(survivorCount)));
+  const ranked = [...candidates]
+    .filter((candidate) => candidate && (candidate.status === 'completed' || candidate.status === 'idle'))
+    .map((candidate) => ({ candidate, score: Number(candidate.evidenceScore) }))
+    .filter(({ candidate, score }) => candidate.agentId && Number.isFinite(score))
+    .sort((left, right) => right.score - left.score || String(left.candidate.agentId).localeCompare(String(right.candidate.agentId)));
+  const seen = new Set();
+  return ranked
+    .filter(({ candidate }) => {
+      if (seen.has(candidate.agentId)) return false;
+      seen.add(candidate.agentId);
+      return true;
+    })
+    .slice(0, Math.max(0, whole(survivorCount)))
+    .map(({ candidate }) => candidate);
 }
 
 module.exports = { buildAllocation, selectSurvivors };
