@@ -90,14 +90,27 @@ async function runCognitiveMemorySuite() {
   const preCheck = await db.get('SELECT synaptic_weight FROM genome_decisions WHERE id = ?', doomedId);
   assert(preCheck && preCheck.synaptic_weight > 0.1, 'Memory starts above apoptosis threshold');
 
+  // Synapse de test pour l'élagage microglial C3 / CD47
+  const idC3Source = `dec-c3-src-${Date.now()}`;
+  const idC3Target = `dec-c3-tgt-${Date.now()}`;
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?)', idC3Source, 'C3 Src', 'C3 test', 'system', 'Test', 1.0);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?)', idC3Target, 'C3 Tgt', 'C3 test', 'system', 'Test', 1.0);
+  await db.run('INSERT INTO memory_synapses (source_id, target_id, weight, c3_opsonization, cd47_expression) VALUES (?, ?, 0.8, 0.9, 0.1)', idC3Source, idC3Target);
+
   const sleepResult = await vectorMemory.sleepCycle(db);
   assert(sleepResult.consolidated === true && sleepResult.memoriesDecayed === true, 'Sleep cycle completed LTD synaptic decay');
   const doomedCheck = await db.get('SELECT id FROM genome_decisions WHERE id = ?', doomedId);
   assert(!doomedCheck, 'Orphaned weak memory decayed below survival threshold and was pruned via apoptosis');
 
+  const decayedSyn = await db.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', idB, idA);
+  assert(decayedSyn && decayedSyn.weight < 1.0, 'Le poids de la synapse excitée doit avoir décru durant le cycle de sommeil');
+
+  const c3Check = await db.get('SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?', idC3Source, idC3Target);
+  assert(!c3Check, 'La synapse marquée C3 > 0.5 et CD47 < 0.5 doit avoir été élaguée par la microglie');
+
   // Clean up test decisions
-  await db.run('DELETE FROM genome_decisions WHERE id IN (?, ?, ?, ?)', idA, idB, idCorrection, doomedId);
-  await db.run('DELETE FROM memory_synapses WHERE source_id IN (?, ?) OR target_id IN (?, ?)', idB, idCorrection, idA, idA);
+  await db.run('DELETE FROM genome_decisions WHERE id IN (?, ?, ?, ?, ?, ?)', idA, idB, idCorrection, doomedId, idC3Source, idC3Target);
+  await db.run('DELETE FROM memory_synapses WHERE source_id IN (?, ?, ?) OR target_id IN (?, ?, ?)', idB, idCorrection, idC3Source, idA, idA, idC3Target);
 
   // Test 5: Agent Prompt Context Injection
   console.log('\n--- Test 5: Agent Cognitive Memory Prompt Injection ---');
