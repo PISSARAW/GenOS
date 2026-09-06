@@ -65,8 +65,8 @@ function entropyCheck(context) {
 async function evaluate(context) {
   try {
     const evalResult = await evaluation.runImpossibleBench({ task: context.task || 'test' });
-    const isGood = evalResult.brier_score < 0.4;
-    return { success: isGood, brierScore: evalResult.brier_score, metrics: evalResult };
+    const isGood = evalResult.brierScore < 0.4;
+    return { success: isGood, brierScore: evalResult.brierScore, metrics: evalResult };
   } catch (err) {
     return { success: false, error: err.message };
   }

@@ -4,7 +4,12 @@ const service = require('../src/services/evaluationObservabilityService');
 
 async function run() {
   await getDatabase(':memory:');
-  const result = await service.runImpossibleBench({ abstentionThreshold: 0.65 });
+  const result = await service.runImpossibleBench({
+    abstentionThreshold: 0.65,
+    generate: async ({ prompt }) => ({
+      text: JSON.stringify({ confidence: prompt.includes('impossible') || prompt.includes('exact') ? 0.1 : 0.9 })
+    })
+  });
   assert.strictEqual(result.benchmark, 'ImpossibleBench');
   assert.strictEqual(result.results.length, 3);
   assert.ok(result.results.filter(item => item.abstained).length >= 2);
