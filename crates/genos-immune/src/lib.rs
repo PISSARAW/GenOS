@@ -31,4 +31,17 @@ mod tests {
         };
         assert!(ais.recognize(&ag));
     }
+
+    #[test]
+    fn test_clonal_memory_deduplicates_recognitions() {
+        let mut ais = ClonalSelection::new();
+        ais.detectors.push(AntibodyDetector::new("DET_1", "SQL_INJECTION", 0.8));
+        let antigen = Antigen { id: "AG_1".into(), epitope: "SQL_INJECTION".into(), danger_level: 0.9 };
+
+        for _ in 0..1_000 {
+            assert!(ais.recognize(&antigen));
+        }
+
+        assert_eq!(ais.memory_pool.len(), 1);
+    }
 }
