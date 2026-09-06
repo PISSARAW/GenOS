@@ -9,10 +9,17 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 
+function scopedInputPath(inputFile, workspaceRoot) {
+  if (!workspaceRoot || !inputFile) return null;
+  const root = path.resolve(workspaceRoot);
+  const resolved = path.resolve(root, inputFile);
+  return resolved === root || resolved.startsWith(`${root}${path.sep}`) ? resolved : null;
+}
+
 async function causalReplay(context) {
   // Rejoue une séquence d'événements passés avec une intervention pour observer la divergence causale.
   const agentId = context.agentId || context.orchestratorId;
-  const inputFile = context.inputFile;
+  const inputFile = scopedInputPath(context.inputFile, context.workspaceRoot);
   const outputFile = context.outputFile || `/tmp/causal_report_${Date.now()}.json`;
 
   if (!inputFile || !fs.existsSync(inputFile)) {
@@ -69,7 +76,7 @@ async function mutatedUniverses(context) {
 async function causalRebase(context) {
   // Injecte un changement dans le passé et re-calcule le plan d'exécution futur.
   const agentId = context.agentId || context.orchestratorId;
-  const graphFile = context.graphFile;
+  const graphFile = scopedInputPath(context.graphFile, context.workspaceRoot);
   const injectionStep = context.injectionStep || 'step_1';
   const injectedKeys = context.injectedKeys || ['altered_state'];
 
@@ -92,6 +99,10 @@ async function causalRebase(context) {
     payload: { graphFile, injectionStep, injectedKeys, success: res.success }
   });
   return { success: res.success, mcpResult: res };
+}
+
+async function causalMerge() {
+  return { success: false, error: 'Causal merge is unavailable: a verified three-way merge engine is not implemented.' };
 }
 
 async function dependencyMatrix(context) {
@@ -173,4 +184,4 @@ async function provenance(context) {
   return { success: true, lineage, rootId: lineage[lineage.length - 1]?.id, truncated };
 }
 
-module.exports = { causalReplay, mutatedUniverses, causalRebase, dependencyMatrix, provenance };
+module.exports = { causalReplay, mutatedUniverses, causalRebase, causalMerge, dependencyMatrix, provenance };

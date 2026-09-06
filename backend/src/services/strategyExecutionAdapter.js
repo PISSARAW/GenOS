@@ -113,6 +113,7 @@ const HANDLERS = {
   alternative_future: temporal.mutatedUniverses,
   causal_rebase: temporal.causalRebase,
   inject_change: temporal.causalRebase,
+  merge: temporal.causalMerge,
   dependency_matrix: temporal.dependencyMatrix,
   lineage: temporal.provenance,
   provenance: temporal.provenance,
