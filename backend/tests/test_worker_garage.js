@@ -1,8 +1,8 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const garage = require('./src/services/workerGarageService');
-const { getDatabase, closeDatabase } = require('./src/db');
+const garage = require('../src/services/workerGarageService');
+const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
   assert.equal(garage.MAX_ACTIVE_WORKERS, 3);
