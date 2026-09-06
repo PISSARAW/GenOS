@@ -98,6 +98,7 @@ async function runTests() {
   );
   const apopRes = await safety.apoptosis({
     targetId: apoptoticAgentId,
+    actorId: apoptoticAgentId,
     reason: 'Irreversible catastrophic divergence'
   });
   assert(apopRes.success, 'Apoptosis failed');
