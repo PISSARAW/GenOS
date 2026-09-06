@@ -104,7 +104,8 @@ enum Commands {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
-    Squeaze {
+    #[command(alias = "squeaze")]
+    Squeeze {
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
     },
@@ -547,7 +548,7 @@ async fn main() {
             if !args.is_empty() { cmd.args(args); }
             exit_on_command_failure(cmd.status());
         }
-        Commands::Squeaze { args } => {
+        Commands::Squeeze { args } => {
             println!("Condensation de l'agent (Prune)...");
             let mut cmd = std::process::Command::new("cargo");
             if args.is_empty() {
