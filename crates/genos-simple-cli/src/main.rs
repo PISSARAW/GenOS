@@ -1,5 +1,16 @@
 use clap::{Parser, Subcommand};
 
+fn exit_on_command_failure(status: std::io::Result<std::process::ExitStatus>) {
+    match status {
+        Ok(status) if status.success() => {}
+        Ok(status) => std::process::exit(status.code().unwrap_or(1)),
+        Err(error) => {
+            eprintln!("Échec de l'exécution de la commande: {}", error);
+            std::process::exit(1);
+        }
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "g", about = "GenOS Simple CLI", version = "1.0")]
 struct Cli {
@@ -331,7 +342,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Diff { args } => {
             let mut cmd = std::process::Command::new("cargo");
@@ -342,7 +353,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "diff"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Blame { args } => {
             println!("Analyse de la source de l'hallucination / Blame...");
@@ -354,7 +365,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "analyze"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Trace { args } => {
             println!("Traçage de la causalité / Trace...");
@@ -366,7 +377,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Clone { args } => {
             println!("Clonage de l'agent...");
@@ -378,7 +389,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "fork"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Mutate { args } => {
             println!("Mutation de l'agent...");
@@ -390,7 +401,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "mutate"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Elevate { args } => {
             println!("Élévation de l'agent / Adapt...");
@@ -402,7 +413,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Rest { args } => {
             println!("Mise en repos de l'agent (Cryptobiosis)...");
@@ -414,7 +425,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "resilience", "cryptobiosis"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Check { args } => {
             println!("Vérification / Audit...");
@@ -426,7 +437,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Compare { args } => {
             println!("Comparaison des phénotypes...");
@@ -438,7 +449,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "phenotype", "measure-divergence"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Retrace { args } => {
             println!("Retraçage / Incident...");
@@ -450,7 +461,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "incident"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Restore { args } => {
             println!("Restauration depuis un snapshot (Capsule Create)...");
@@ -462,7 +473,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "capsule", "create"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Recover { args } => {
             println!("Récupération (Causal Replay)...");
@@ -474,7 +485,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "causal-replay"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Retrieve { args } => {
             println!("Recherche RAG / Retrieve...");
@@ -486,7 +497,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Filter { args } => {
             println!("Filtrage des impasses (Loop Detection)...");
@@ -498,7 +509,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "loop-detection"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Merge { args } => {
             println!("Fusion de branches (Capsule Merge)...");
@@ -510,7 +521,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Parent { args } => {
             println!("Analyse de la généalogie (Swarm Allele)...");
@@ -522,14 +533,14 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm", "allele-analyzer"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Lineage { args } => {
             println!("Historique des fossiles (Lineage)...");
             let mut cmd = std::process::Command::new("cargo");
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
             if !args.is_empty() { cmd.args(args); }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Squeaze { args } => {
             println!("Condensation de l'agent (Prune)...");
@@ -541,7 +552,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Think { args } => {
             println!("Évaluation du chemin neuronal (Think)...");
@@ -553,7 +564,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Trio { args } => {
             println!("Déploiement en trio (Trinity)...");
@@ -565,7 +576,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Multi { args } => {
             println!("Exécution multi-agents (World Run)...");
@@ -584,7 +595,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Broad { args } => {
             println!("Expansion des connaissances (Platform Ingest)...");
@@ -597,7 +608,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "ingest"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Swarm { args } => {
             println!("Gestion de l'essaim (Swarm)...");
@@ -609,7 +620,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "swarm"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Debug { args } => {
             println!("Débogage (Bug Investigation)...");
@@ -621,7 +632,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Destroy { args } => {
             println!("Destruction / Prune...");
@@ -634,7 +645,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "record"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Close { args } => {
             println!("Fermeture (World Run Stop)...");
@@ -646,7 +657,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Order { args } => {
             println!("Ordre / Conformité (Compliance Generate)...");
@@ -658,7 +669,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "compliance", "generate"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Auto { args } => {
             println!("Mode Automatique (Trinity Deploy / Auto-start)...");
@@ -670,7 +681,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Fast { args } => {
             println!("Mode Rapide (Strategy Adapt / Time Constraint)...");
@@ -682,7 +693,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "strategy", "adapt"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Copy { args } => {
             println!("Copie / Sauvegarde (Snapshot Create)...");
@@ -694,7 +705,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "create"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Hub { args } => {
             println!("Hub / Création de monde (World Create)...");
@@ -706,7 +717,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "create"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Wisdom { args } => {
             println!("Sagesse / Base de connaissances (Platform Search)...");
@@ -718,7 +729,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Synapse { args } => {
             println!("Synapse / Réseau Neuronal (Synaptic)...");
@@ -730,7 +741,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Wipe { args } => {
             println!("Nettoyage / Effacement (Agent Prune Maximum)...");
@@ -742,7 +753,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "prune"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Operate { args } => {
             println!("Opération (World Run)...");
@@ -754,7 +765,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Dissect { args } => {
             println!("Dissection / Extraction (Hallucination Extract)...");
@@ -766,7 +777,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "extract"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Unveil { args } => {
             println!("Dévoilement (Hallucination Detect)...");
@@ -778,7 +789,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "hallucination", "detect"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Root { args } => {
             println!("Ancrage Racine (Causality Fork)...");
@@ -790,7 +801,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "causality", "fork"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Keep { args } => {
             println!("Conservation (Capsule Merge)...");
@@ -802,7 +813,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "merge"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Quantum { args } => {
             println!("Mode Quantique (World Run - Sandbox Quantum)...");
@@ -814,7 +825,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Store { args } => {
             println!("Stockage (Snapshot List)...");
@@ -826,7 +837,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "snapshot", "list"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Piece { args } => {
             println!("Ajustement d'un fragment (Synaptic Prune Scale)...");
@@ -838,7 +849,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "prune-scale"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Daemon { args } => {
             println!("Lancement du Démon (Serve)...");
@@ -850,7 +861,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "serve"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Preagi { args } => {
             println!("Création de l'entité Pre-AGI (Agent Create)...");
@@ -862,7 +873,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "agent", "create"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Civilization { args } => {
             println!("Simulation de civilisation (World Run)...");
@@ -874,7 +885,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Explore { args } => {
             println!("Exploration des strates (Fossil List)...");
@@ -886,7 +897,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Research { args } => {
             println!("Recherche approfondie (Experiment Bug Investigation)...");
@@ -898,7 +909,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "experiment", "bug-investigation"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Search { args } => {
             println!("Recherche globale (Platform Search)...");
@@ -910,7 +921,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "platform", "search"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::TwoParallel { args } => {
             println!("Double exécution parallèle (Trinity Deploy / Duo)...");
@@ -922,7 +933,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::TriParallel { args } => {
             println!("Triple exécution parallèle (Trinity Deploy)...");
@@ -934,7 +945,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "trinity", "deploy"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::MultiParallel { args } => {
             println!("Exécution massivement parallèle (Swarm / World Run)...");
@@ -946,7 +957,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "world", "run"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Ruins { args } => {
             println!("Exploration des ruines (Fossil List Extinct)...");
@@ -958,7 +969,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Id { args } => {
             println!("Identification (Audit de l'ID)...");
@@ -970,7 +981,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "audit"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Mind { args } => {
             println!("Analyse de l'esprit (Synaptic Path Evaluate)...");
@@ -982,7 +993,7 @@ async fn main() {
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "synaptic", "path-evaluate"]);
                 cmd.args(args);
             }
-            let _ = cmd.status();
+            exit_on_command_failure(cmd.status());
         }
         Commands::Generate { args } => {
             if args.is_empty() {
