@@ -5,6 +5,9 @@
 const express = require('express');
 const router = express.Router();
 const arenaController = require('../controllers/arenaController');
+const { requireTenantScope } = require('../middleware/tenant');
+
+router.use(requireTenantScope());
 
 router.get('/tournament', arenaController.getTournament);
 router.post('/tournament', arenaController.runTournament);
