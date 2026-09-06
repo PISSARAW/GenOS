@@ -102,6 +102,14 @@ async function callStdio(transport, toolName, options = {}) {
     clearTimeout(timer);
     reject(error);
   });
+  child.once('close', (code, signal) => {
+    if (!pending) return;
+    const { reject, timer } = pending;
+    pending = null;
+    clearTimeout(timer);
+    const diagnostics = stderr ? `: ${stderr}` : '';
+    reject(new Error(`MCP STDIO process exited before response (code=${code}, signal=${signal || 'none'})${diagnostics}`));
+  });
   try {
     child.stdin.write(`${JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } }))}\n`);
     const initialized = await waitFor(1);
@@ -111,7 +119,13 @@ async function callStdio(transport, toolName, options = {}) {
     const response = await waitFor(2);
     if (response.error) throw new Error(response.error.message || 'MCP STDIO tools/call failed.');
     return response.result || response;
-  } finally { child.kill('SIGTERM'); if (stderr) {} }
+  } finally {
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending = null;
+    }
+    if (!child.killed) child.kill('SIGTERM');
+  }
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
