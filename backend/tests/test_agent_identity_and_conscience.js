@@ -56,6 +56,11 @@ async function runTests() {
   assert.strictEqual(state.dissonanceLevel, 5.0);
   console.log(`   [OK] Eurêka ! Dissonance réduite à = ${state.dissonanceLevel}, Eurêkas = ${state.eurekaMoments}`);
 
+  const rateLimited = agentConscience.createConscienceState({ dissonanceLevel: 32 });
+  for (let index = 0; index < 4; index += 1) agentConscience.triggerEureka(rateLimited, { now: 1000 + index, limit: 3, windowMs: 60000 });
+  assert.strictEqual(rateLimited.eurekaMoments, 3);
+  console.log(`   [OK] Limite Eureka par fenêtre respectée (${rateLimited.eurekaMoments}/3).`);
+
   // Dépassement du seuil de dissonance -> Apoptose cognitive
   const step3 = agentConscience.evaluateBranch(state, { errorsInLoop: 20 });
   assert.strictEqual(step3.apoptoticTriggered, true);
