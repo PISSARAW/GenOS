@@ -75,21 +75,40 @@ impl Genome {
     pub fn validate(&self) -> Result<(), String> {
         if self.genome_id == Uuid::nil() { return Err("genome_id must not be nil".into()); }
         if self.lineage_id == Uuid::nil() { return Err("lineage_id must not be nil".into()); }
+        if self.chromosome_maternal.is_empty() || self.chromosome_paternal.is_empty() {
+            return Err("chromosomes must not be empty".into());
+        }
         for (key, gene) in &self.genes {
+            if key.trim().is_empty() || gene.locus.trim().is_empty() || gene.dna.is_empty() {
+                return Err(format!("gene '{key}' has an invalid locus or empty DNA"));
+            }
             if key != &gene.locus { return Err(format!("gene map key does not match locus '{key}'")); }
+            for &(start, end) in &gene.default_exons {
+                if start >= end || end > gene.dna.len() {
+                    return Err(format!("gene '{key}' has an invalid exon range"));
+                }
+            }
+        }
+        for plasmid in &self.plasmids {
+            if plasmid.id == Uuid::nil() || plasmid.instruction.trim().is_empty() {
+                return Err("plasmids must have a non-nil id and non-empty instruction".into());
+            }
+        }
+        for chromosome in &self.extra_chromosomes {
+            if chromosome.is_empty() { return Err("extra chromosomes must not be empty".into()); }
         }
         Ok(())
     }
 
     pub fn fingerprint(&self) -> Result<GenomeFingerprint, String> {
         self.validate()?;
-        Ok(GenomeFingerprint { genome_id: self.genome_id, lineage_id: self.lineage_id, hash: self.hash_library(), content_hash: self.content_hash() })
+        Ok(GenomeFingerprint { genome_id: self.genome_id, lineage_id: self.lineage_id, hash: self.try_hash_library()?, content_hash: self.content_hash() })
     }
 
     pub fn verify_fingerprint(&self, fingerprint: &GenomeFingerprint) -> bool {
         self.genome_id == fingerprint.genome_id
             && self.lineage_id == fingerprint.lineage_id
-            && self.hash_library() == fingerprint.hash
+            && self.try_hash_library().map(|hash| hash == fingerprint.hash).unwrap_or(false)
             && self.content_hash() == fingerprint.content_hash
     }
 
@@ -197,14 +216,18 @@ impl Genome {
     }
 
     pub fn hash_library(&self) -> String {
-        let serialized = serde_json::to_string(self).unwrap_or_default();
+        self.try_hash_library().expect("Genome serialization must be infallible for a valid Genome")
+    }
+
+    pub fn try_hash_library(&self) -> Result<String, String> {
+        let serialized = serde_json::to_string(self).map_err(|error| format!("Genome serialization failed: {error}"))?;
         let mut hasher = Sha256::new();
         hasher.update(serialized.as_bytes());
         let mut hex = String::with_capacity(64);
         for byte in hasher.finalize() {
             write!(&mut hex, "{:02x}", byte).unwrap();
         }
-        hex
+        Ok(hex)
     }
 }
 
