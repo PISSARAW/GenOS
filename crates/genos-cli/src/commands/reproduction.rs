@@ -108,7 +108,7 @@ fn handle_division(
                         "daughter_b_id": c.genome_id().to_string(),
                         "mutation_rate_applied": mutation_rate,
                         "seed": seed.unwrap_or("genos-default-fission"),
-                        "progeny_count": 1,
+                        "progeny_count": 2,
                         "status": "fission_completed"
                     }));
                 }
