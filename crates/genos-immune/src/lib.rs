@@ -44,4 +44,11 @@ mod tests {
 
         assert_eq!(ais.memory_pool.len(), 1);
     }
+
+    #[test]
+    fn test_affinity_threshold_is_bounded() {
+        assert_eq!(AntibodyDetector::new("low", "x", -1.0).affinity_threshold, 0.0);
+        assert_eq!(AntibodyDetector::new("high", "x", 2.0).affinity_threshold, 1.0);
+        assert_eq!(AntibodyDetector::new("nan", "x", f64::NAN).affinity_threshold, 1.0);
+    }
 }
