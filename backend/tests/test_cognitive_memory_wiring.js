@@ -81,15 +81,19 @@ async function runCognitiveMemorySuite() {
   // Test 4: Sleep Cycle & Apoptosis
   console.log('\n--- Test 4: Sleep Cycle, LTD Decay & Apoptosis ---');
   const doomedId = `dec-doomed-${Date.now()}`;
+  // Insert with weight 0.105 (above 0.1 survival threshold)
   await db.run(
     'INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    doomedId, 'Temporary Trivia', 'Transient log noise without synapses', buffer, 'temp', 'Trivia', 0.08
+    doomedId, 'Temporary Trivia', 'Transient log noise without synapses', buffer, 'temp', 'Trivia', 0.105
   );
+
+  const preCheck = await db.get('SELECT synaptic_weight FROM genome_decisions WHERE id = ?', doomedId);
+  assert(preCheck && preCheck.synaptic_weight > 0.1, 'Memory starts above apoptosis threshold');
 
   const sleepResult = await vectorMemory.sleepCycle(db);
   assert(sleepResult.consolidated === true && sleepResult.memoriesDecayed === true, 'Sleep cycle completed LTD synaptic decay');
   const doomedCheck = await db.get('SELECT id FROM genome_decisions WHERE id = ?', doomedId);
-  assert(!doomedCheck, 'Orphaned weak memory below survival threshold was pruned via apoptosis');
+  assert(!doomedCheck, 'Orphaned weak memory decayed below survival threshold and was pruned via apoptosis');
 
   // Clean up test decisions
   await db.run('DELETE FROM genome_decisions WHERE id IN (?, ?, ?, ?)', idA, idB, idCorrection, doomedId);

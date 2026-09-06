@@ -249,10 +249,10 @@ class VectorMemoryService {
         const inhibitions = await db.all(
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
-            WHERE s.target_id IN (${placeholders}) AND s.weight < 0
+            WHERE s.target_id IN (${placeholders}) AND (s.weight < 0 OR s.transmitter_type = 'gaba')
               ${options.ownerId ? 'AND source_node.created_by = ?' : ''}
             GROUP BY s.target_id
-            HAVING SUM(s.weight) < 0`,
+            HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
           options.ownerId ? [...topIds, options.ownerId] : topIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
@@ -307,26 +307,34 @@ class VectorMemoryService {
       let doomedIds = [];
       let exosomeStats;
       await withTransaction(database, async (tx) => {
+        // 1. Natural asymptotic decay on decisions without artificial 0.15 clamp
         await tx.run(
-          'UPDATE genome_decisions SET synaptic_weight = CASE WHEN synaptic_weight >= 0.15 THEN MAX(0.15, synaptic_weight * 0.9) ELSE synaptic_weight * 0.9 END'
+          'UPDATE genome_decisions SET synaptic_weight = ROUND(synaptic_weight * 0.9, 4)'
         );
 
+        // 2. Synaptic connection decay: unused connections attenuate over time
+        await tx.run(
+          'UPDATE memory_synapses SET weight = ROUND(weight * 0.95, 4), c3_opsonization = MIN(2.0, c3_opsonization + 0.05), cd47_expression = MAX(0.0, cd47_expression - 0.05)'
+        );
+
+        // 3. Prune dead synapses below transmission threshold first
+        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
+
+        // 4. Select orphaned weak memories (< 0.1) with no remaining active synapses
         const doomed = await tx.all(`
-        SELECT g.id 
-        FROM genome_decisions g
-        LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
-        WHERE g.synaptic_weight < 0.1 
-        GROUP BY g.id
-        HAVING COUNT(s.source_id) = 0
-      `);
+          SELECT g.id 
+          FROM genome_decisions g
+          LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+          WHERE g.synaptic_weight < 0.1 
+          GROUP BY g.id
+          HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
+        `);
         doomedIds = doomed.map(d => d.id);
 
         if (doomedIds.length > 0) {
           const placeholders = doomedIds.map(() => '?').join(',');
           await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
         }
-
-        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
 
         exosomeStats = await synapticTransmission.absorbExosomes(tx);
       });
