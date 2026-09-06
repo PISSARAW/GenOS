@@ -11,6 +11,8 @@ pub fn execute(cmd: AgentSubcommands) -> Result<(), String> {
         AgentSubcommands::Mutate { agent_id, r#trait, outcome } => handle_mutate(&agent_id, &r#trait, outcome),
         AgentSubcommands::Prune { agent_id, threshold } => handle_prune(&agent_id, threshold),
         AgentSubcommands::Fork { parent_id } => handle_fork(parent_id.as_deref()),
+        AgentSubcommands::Validate { file } => handle_validate(&file),
+        AgentSubcommands::Ping { id } => handle_ping(&id),
     }
 }
 
@@ -66,6 +68,18 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
         "tool_policy": {
             "allowed_tools": ["genos_inspect", "genos_test"]
         },
+        "memory": {
+            "type": "cognitive",
+            "ltd_decay": true,
+            "consolidation": true,
+            "synaptic_pruning": true
+        },
+        "models": {
+            "preferred": "default"
+        },
+        "tools": {
+            "allowed_tools": ["genos_inspect", "genos_test"]
+        },
         "cell_id": cell.cell_id.to_string(),
         "name": cell.name,
         "name_meaning": cell.name_meaning,
@@ -106,13 +120,50 @@ fn handle_create(name: &str, role: &str, out: &str) -> Result<(), String> {
 }
 
 fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), String> {
+    let candidate_paths = [
+        std::path::PathBuf::from(agent_id),
+        std::path::PathBuf::from(format!("{}.json", agent_id)),
+        std::path::PathBuf::from(format!("{}.yaml", agent_id)),
+        std::path::PathBuf::from(format!(".genos/agents/{}.json", agent_id)),
+    ];
+    let mut modified_file = None;
+    for path in &candidate_paths {
+        if path.exists() {
+            if let Ok(content) = fs::read_to_string(path) {
+                if let Ok(mut val) = serde_json::from_str::<serde_json::Value>(&content) {
+                    if let Some(obj) = val.as_object_mut() {
+                        obj.insert(format!("trait_{}", trait_name), json!(outcome));
+                        if let Some(meta) = obj.get_mut("metadata").and_then(|m| m.as_object_mut()) {
+                            meta.insert("last_mutation".to_string(), json!({ "trait": trait_name, "outcome": outcome }));
+                        }
+                    }
+                    if let Ok(saved) = serde_json::to_string_pretty(&val) {
+                        let _ = fs::write(path, saved);
+                        modified_file = Some(path.to_string_lossy().to_string());
+                    }
+                    break;
+                } else if let Ok(mut val) = serde_yaml::from_str::<serde_json::Value>(&content) {
+                    if let Some(obj) = val.as_object_mut() {
+                        obj.insert(format!("trait_{}", trait_name), json!(outcome));
+                    }
+                    if let Ok(saved) = serde_yaml::to_string(&val) {
+                        let _ = fs::write(path, saved);
+                        modified_file = Some(path.to_string_lossy().to_string());
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     let output = json!({
         "success": true,
         "operation": "agent_mutate",
         "agent_id": agent_id,
         "trait": trait_name,
         "outcome": outcome,
-        "mutation_score": outcome * 1.05
+        "mutation_score": outcome * 1.05,
+        "persisted_file": modified_file
     });
     println!("{}", serde_json::to_string(&output).unwrap());
     Ok(())
@@ -167,3 +218,103 @@ fn handle_fork(parent_id: Option<&str>) -> Result<(), String> {
     println!("{}", serde_json::to_string(&output).unwrap());
     Ok(())
 }
+
+fn handle_validate(file_path: &str) -> Result<(), String> {
+    let path = Path::new(file_path);
+    if !path.exists() {
+        return Err(format!("Genome file not found: {}", file_path));
+    }
+
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read genome file '{}': {}", file_path, e))?;
+
+    let val: serde_json::Value = if file_path.ends_with(".yaml") || file_path.ends_with(".yml") {
+        serde_yaml::from_str(&content)
+            .map_err(|e| format!("Invalid YAML format in '{}': {}", file_path, e))?
+    } else {
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Invalid JSON format in '{}': {}", file_path, e))?
+    };
+
+    let mut errors = Vec::new();
+
+    if val.get("apiVersion").and_then(|v| v.as_str()).is_none() {
+        errors.push("Missing required field 'apiVersion'".to_string());
+    }
+
+    match val.get("kind").and_then(|v| v.as_str()) {
+        Some("AgentGenome") => {},
+        Some(other) => errors.push(format!("Field 'kind' must equal 'AgentGenome', found '{}'", other)),
+        None => errors.push("Missing required field 'kind'".to_string()),
+    }
+
+    if let Some(metadata) = val.get("metadata").and_then(|v| v.as_object()) {
+        if metadata.get("name").and_then(|v| v.as_str()).is_none() {
+            errors.push("Missing required field 'metadata.name'".to_string());
+        }
+        if metadata.get("version").and_then(|v| v.as_str()).is_none() {
+            errors.push("Missing required field 'metadata.version'".to_string());
+        }
+    } else {
+        errors.push("Missing required object 'metadata'".to_string());
+    }
+
+    if let Some(identity) = val.get("identity").and_then(|v| v.as_object()) {
+        if identity.get("role").and_then(|v| v.as_str()).is_none() {
+            errors.push("Missing required field 'identity.role'".to_string());
+        }
+    } else {
+        errors.push("Missing required object 'identity'".to_string());
+    }
+
+    for section in ["cognition", "objectives", "policies", "memory_policy", "model_policy", "tool_policy"] {
+        if val.get(section).and_then(|v| v.as_object()).is_none() {
+            errors.push(format!("Missing required object '{}'", section));
+        }
+    }
+
+    if val.get("capabilities").and_then(|v| v.as_array()).is_none() {
+        errors.push("Missing required array 'capabilities'".to_string());
+    }
+
+    if !errors.is_empty() {
+        let output = json!({
+            "success": false,
+            "operation": "genome_validate",
+            "file": file_path,
+            "schema": "genome.schema.json",
+            "status": "INVALID",
+            "errors": errors
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        return Err(format!("Genome validation failed: {}", errors.join(", ")));
+    }
+
+    let output = json!({
+        "success": true,
+        "operation": "genome_validate",
+        "file": file_path,
+        "schema": "genome.schema.json",
+        "status": "VALID",
+        "genome": {
+            "name": val.get("metadata").and_then(|m| m.get("name")).and_then(|n| n.as_str()),
+            "role": val.get("identity").and_then(|i| i.get("role")).and_then(|r| r.as_str()),
+            "apiVersion": val.get("apiVersion").and_then(|a| a.as_str())
+        }
+    });
+
+    println!("{}", serde_json::to_string_pretty(&output).unwrap());
+    Ok(())
+}
+
+fn handle_ping(id: &str) -> Result<(), String> {
+    let output = json!({
+        "status": "pong",
+        "agent_id": id,
+        "synaptic_transmission": "active",
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+    println!("{}", output);
+    Ok(())
+}
+
