@@ -1,5 +1,9 @@
 const { listStrategies, getStrategy } = require('./strategyRegistry');
 
+function getStrategyHandlers() {
+  return require('../services/strategyExecutionAdapter').getHandlers();
+}
+
 const PREFERRED_PRIMARY = {
   incident: 'mutated_incident_universes',
   unknown_cause_bug: 'falsification_forks',
@@ -72,6 +76,8 @@ function profileProblem(problem = '', overrides = {}) {
 function eligibility(strategy, profile, options) {
   const compatible = strategy.problemTypes.includes('all') || strategy.problemTypes.includes(profile.type);
   if (!compatible) return { eligible: false, reason: `not compatible with ${profile.type}` };
+  const missingPrimitives = strategy.primitives.filter((primitive) => !getStrategyHandlers()[primitive]);
+  if (missingPrimitives.length) return { eligible: false, reason: `unimplemented primitives: ${missingPrimitives.join(', ')}` };
   if (strategy.costLevel > options.maxCostLevel) return { eligible: false, reason: `cost level ${strategy.costLevel} exceeds ${options.maxCostLevel}` };
   if (strategy.maturity === 'prototype' && !options.allowPrototype) return { eligible: false, reason: 'prototype disabled by policy' };
   if (strategy.maturity === 'experimental' && !options.allowExperimental) return { eligible: false, reason: 'experimental strategy disabled by policy' };

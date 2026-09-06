@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const { selectStrategyPortfolio } = require('../strategies/strategySelector');
 const { listStrategies } = require('../strategies/strategyRegistry');
 
+function getStrategyHandlers() {
+  return require('./strategyExecutionAdapter').getHandlers();
+}
+
 const CONTRACT_SCHEMA = 'genos.strategy-contract/v1alpha1';
 
 function buildStrategyContract(input = {}) {
@@ -70,6 +74,16 @@ function validateContract(contract) {
   if (!contract.problem_profile?.type) throw new Error('problem_profile.type is required');
   if (!contract.selected_strategy?.primary) throw new Error('selected_strategy.primary is required');
   const registryIds = new Set(listStrategies().map((strategy) => strategy.id));
+  if (!registryIds.has(contract.selected_strategy.primary)) throw new Error(`Unknown primary strategy '${contract.selected_strategy.primary}'`);
+  if (!Array.isArray(contract.strategy_portfolio)) throw new Error('strategy_portfolio must be an array');
+  const portfolioIds = new Set(contract.strategy_portfolio.map((strategy) => strategy.id));
+  for (const id of portfolioIds) {
+    if (!registryIds.has(id)) throw new Error(`Unknown portfolio strategy '${id}'`);
+    const definition = listStrategies().find((strategy) => strategy.id === id);
+    const missing = definition.primitives.filter((primitive) => !getStrategyHandlers()[primitive]);
+    if (missing.length) throw new Error(`Strategy '${id}' has unimplemented primitives: ${missing.join(', ')}`);
+  }
+  if (!portfolioIds.has(contract.selected_strategy.primary)) throw new Error('Primary strategy must be present in strategy_portfolio');
   const decisionIds = new Set((contract.strategy_decisions || []).map((decision) => decision.id));
   if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
     throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
