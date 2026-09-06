@@ -66,7 +66,13 @@ async function compileMemory(context) {
   ];
   const ids = [];
   for (const item of items) {
-    const id = await vectorMemory.storeMemory(agentId, item.content, null);
+    const id = await vectorMemory.storeMemory(agentId, item.content, null, {
+      category: item.category,
+      title: `${item.category}: ${(item.content || '').slice(0, 60)}`,
+      synapticWeight: item.category === 'Failure' ? 1.5 : 1.0,
+      organizationId: context.organizationId,
+      projectId: context.projectId
+    });
     ids.push(id);
   }
   telemetry.emitEvent({
@@ -104,14 +110,16 @@ async function cherryPickGoldenPath(context) {
   let trajRecord = null;
   await withTransaction(db, async (tx) => {
     await tx.run(
-      'INSERT OR IGNORE INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT OR IGNORE INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       decisionId,
       context.label || 'Golden Path',
       JSON.stringify(result.goldenPathSteps),
       JSON.stringify(result.goldenPathSteps.map(s => s.id || s.step || s.action)),
       context.agentId || 'strategy_adapter',
       'GoldenPath',
-      buffer
+      buffer,
+      context.organizationId || null,
+      context.projectId || null
     );
     let workspaceId = String(context.workspaceId || '').trim();
     if (!workspaceId) {
@@ -133,7 +141,7 @@ async function cherryPickGoldenPath(context) {
     eventType: 'GOLDEN_PATH_SYNTHESIZED',
     agentId: context.agentId || 'strategy_adapter',
     action: 'CHERRY_PICK',
-    detail: 'Synthesized golden path: ' + result.goldenPathSteps.length + ' steps, ' + result.noiseReductionPercent + '% noise reduction (' + result.prunedStepCount + ' pruned).',
+    detail: 'Synthesized golden path: ' + result.prunedStepCount + ' steps, ' + result.noiseReductionPercent + '% noise reduction.',
     severity: 'info',
     payload: { ...result, decisionId, trajectoryId: trajRecord?.trajectoryId }
   });
@@ -144,7 +152,12 @@ async function searchMemory(context) {
   const db = await getDatabase();
   const query = context.query || context.task || '';
   const limit = context.limit || 5;
-  const results = await vectorMemory.searchMemory(query, { limit }, db);
+  const results = await vectorMemory.searchMemory(query, {
+    limit,
+    organizationId: context.organizationId,
+    projectId: context.projectId,
+    ownerId: context.agentId
+  }, db);
   const experiences = results.allScoredExperiences || [];
   const validatedExperiences = experiences.map((item) => {
     const epistemic = epistemics.validateMemoryPerception(item);
@@ -161,9 +174,11 @@ async function searchMemory(context) {
 
 async function searchFailures(context) {
   const db = await getDatabase();
+  const orgFilter = context.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : '';
+  const params = context.organizationId ? [context.organizationId, context.limit || 10] : [context.limit || 10];
   const rows = await db.all(
-    "SELECT id, title, content, created_at FROM genome_decisions WHERE category = 'Failure' ORDER BY created_at DESC LIMIT ?",
-    context.limit || 10
+    `SELECT id, title, content, created_at FROM genome_decisions WHERE category = 'Failure'${orgFilter} ORDER BY created_at DESC LIMIT ?`,
+    ...params
   );
   return { success: true, failureCount: rows.length, failures: rows };
 }

@@ -30,18 +30,35 @@ const SEED_EXPERIENCES = [
   { id: 'seed-pitfall-lock', title: 'Write lock contention under deferred transactions', category: 'Database', status: 'FAILURE', summary: 'Opening parallel write transactions caused immediate busy errors; serialize writers instead.', tags: ['sqlite', 'wal', 'timeout'], author: 'memory_seed', createdAt: '2026-09-05T16:45:00.000Z' }
 ];
 
+function decodeEmbeddingBlob(blob) {
+  if (!blob) return [];
+  try {
+    if (Buffer.isBuffer(blob)) {
+      const float32 = new Float32Array(blob.buffer, blob.byteOffset, Math.floor(blob.byteLength / 4));
+      return Array.from(float32);
+    }
+  } catch (_) {}
+  return [];
+}
+
 class VectorMemoryService {
   async initDb() {
     return getDatabase();
   }
 
-  async storeMemory(agentId, content, embedding = null, tenant = {}) {
+  async storeMemory(agentId, content, embedding = null, optionsOrTenant = {}) {
     const db = await this.initDb();
     const normalizedContent = String(content || '').trim();
     if (!normalizedContent) throw new Error('Memory content is required.');
-    const id = `mem_${crypto.createHash('sha256').update(`${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
+    const id = optionsOrTenant.id || `mem_${crypto.createHash('sha256').update(`${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
     const existing = await db.get('SELECT id FROM genome_decisions WHERE id = ?', id);
     if (existing) return existing.id;
+
+    const title = optionsOrTenant.title || 'Agent Experience';
+    const category = optionsOrTenant.category || 'Experience';
+    const synapticWeight = Number.isFinite(Number(optionsOrTenant.synapticWeight)) ? Number(optionsOrTenant.synapticWeight) : 1.0;
+    const orgId = optionsOrTenant.organizationId || optionsOrTenant.organization_id || null;
+    const projId = optionsOrTenant.projectId || optionsOrTenant.project_id || null;
 
     const vec = (embedding && embedding.length === 768)
       ? embedding
@@ -51,8 +68,8 @@ class VectorMemoryService {
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, 'Agent Experience', normalizedContent, buffer, agentId, 'Experience', 1.0,
-      tenant.organizationId || null, tenant.projectId || null
+      id, title, normalizedContent, buffer, agentId, category, synapticWeight,
+      orgId, projId
     );
     return id;
   }
@@ -159,7 +176,7 @@ class VectorMemoryService {
       try {
         const placeholders = trajRowIds.map(() => '?').join(',');
         const queryParams = [...trajRowIds];
-        let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at 
+        let sql = `SELECT rowid, id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob 
                    FROM trajectories t WHERE rowid IN (${placeholders})`;
         if (ownerId) {
           sql += ' AND t.author_id = ?';
@@ -186,6 +203,7 @@ class VectorMemoryService {
             tags: ['trajectory', item.status],
             author: item.author_name,
             createdAt: item.created_at,
+            vector: decodeEmbeddingBlob(item.embedding_blob),
             distance: v ? v.distance : null,
             f_score: f ? f.f_score : null,
             rrf_score: vRankScore + fRankScore
@@ -200,7 +218,7 @@ class VectorMemoryService {
       try {
         const placeholders = decRowIds.map(() => '?').join(',');
         const queryParams = [...decRowIds];
-        let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight 
+        let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
                    FROM genome_decisions t WHERE rowid IN (${placeholders})`;
         if (ownerId) {
           sql += ownerFilter;
@@ -226,6 +244,7 @@ class VectorMemoryService {
             author: item.created_by,
             createdAt: item.created_at,
             synaptic_weight: item.synaptic_weight,
+            vector: decodeEmbeddingBlob(item.embedding_blob),
             distance: v ? v.distance : null,
             f_score: f ? f.f_score : null,
             rrf_score: vRankScore + fRankScore
@@ -244,8 +263,8 @@ class VectorMemoryService {
     // Fallback: standard SQL table scan
     try {
       const ownerParams = ownerId ? [ownerId] : [];
-      const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at FROM trajectories${ownerId ? ' WHERE author_id = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
-      const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight FROM genome_decisions${ownerFilter ? ' WHERE created_by = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
+      const trajectories = await db.all(`SELECT id, title, status, author_name, semantic_summary, diff_lines, created_at, embedding_blob FROM trajectories${ownerId ? ' WHERE author_id = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
+      const decisions = await db.all(`SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions${ownerFilter ? ' WHERE created_by = ?' : ''} ORDER BY created_at DESC LIMIT 50`, ownerParams);
       return [
         ...trajectories.map(item => {
           let diffLines = [];
@@ -258,7 +277,8 @@ class VectorMemoryService {
             summary: item.semantic_summary || diffLines.map(l => l.content || l.text || l).join(' '),
             tags: ['trajectory', item.status],
             author: item.author_name,
-            createdAt: item.created_at
+            createdAt: item.created_at,
+            vector: decodeEmbeddingBlob(item.embedding_blob)
           };
         }),
         ...decisions.map(item => ({
@@ -270,7 +290,8 @@ class VectorMemoryService {
           tags: ['genome', item.category],
           author: item.created_by,
           createdAt: item.created_at,
-          synaptic_weight: item.synaptic_weight
+          synaptic_weight: item.synaptic_weight,
+          vector: decodeEmbeddingBlob(item.embedding_blob)
         }))
       ];
     } catch {
