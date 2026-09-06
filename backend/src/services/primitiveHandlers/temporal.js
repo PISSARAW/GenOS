@@ -427,30 +427,70 @@ async function provenance(context) {
   const targetId = context.targetId || context.agentId;
   if (!targetId) return { success: false, error: 'targetId required for provenance.' };
 
+  const maxDepth = Math.max(1, Math.min(Number(context.maxDepth || context.max_depth || 10), 100));
   const lineage = [];
   let currentId = targetId;
   const visited = new Set();
   let truncated = false;
 
-  // Remonte de parent en parent jusqu'à la racine (max depth 10)
-  for (let i = 0; i < 10; i++) {
+  // Remonte de parent en parent jusqu'à la racine (max depth configurable)
+  for (let i = 0; i < maxDepth; i++) {
     if (visited.has(currentId)) return { success: false, error: `Causal provenance cycle detected at '${currentId}'.`, lineage, cycleAt: currentId };
     visited.add(currentId);
-    const agent = context.workspaceId
-      ? await db.get(`SELECT a.id, a.parent_agent_id, a.lineage_relation, a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.id = ?`, currentId, context.workspaceId)
-      : await db.get(`SELECT id, parent_agent_id, lineage_relation, current_task FROM agents WHERE id = ?`, currentId);
-    if (!agent) break;
-    
+
+    const agent = await db.get(
+      `SELECT a.id, a.name, a.parent_agent_id, a.workspace_id, a.lineage_relation, a.current_task FROM agents a WHERE a.id = ?`,
+      currentId
+    );
+    if (!agent) {
+      // Check if node exists in lineage_nodes
+      const lNode = await db.get(`SELECT id, label, workspace_id, node_type, state_summary FROM lineage_nodes WHERE id = ?`, currentId);
+      if (lNode) {
+        const edge = await db.get(`SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?`, currentId);
+        lineage.push({
+          id: lNode.id,
+          name: lNode.label,
+          parent_agent_id: edge?.source_node_id || null,
+          parent_agent_ids: edge?.source_node_id ? [edge.source_node_id] : [],
+          workspace_id: lNode.workspace_id,
+          relation: edge?.edge_type || 'dag_node',
+          task: lNode.state_summary
+        });
+        if (!edge?.source_node_id || edge.source_node_id === currentId) break;
+        if (i === maxDepth - 1 && edge.source_node_id && !visited.has(edge.source_node_id)) {
+          truncated = true;
+        }
+        currentId = edge.source_node_id;
+        continue;
+      }
+      break;
+    }
+
+    // Lookup DAG parents if any
+    const edgeRows = await db.all(`SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?`, currentId).catch(() => []);
+    const parentIds = edgeRows.length > 0
+      ? edgeRows.map((e) => e.source_node_id)
+      : (agent.parent_agent_id ? [agent.parent_agent_id] : []);
+
     lineage.push({
       id: agent.id,
+      name: agent.name,
+      parent_agent_id: agent.parent_agent_id || parentIds[0] || null,
+      parent_agent_ids: parentIds,
+      workspace_id: agent.workspace_id,
       relation: agent.lineage_relation,
       task: agent.current_task
     });
-    
-    if (!agent.parent_agent_id || agent.parent_agent_id === agent.id) break;
-    currentId = agent.parent_agent_id;
+
+    const nextParentId = agent.parent_agent_id || parentIds[0];
+    if (!nextParentId || nextParentId === agent.id) break;
+
+    if (i === maxDepth - 1 && nextParentId && !visited.has(nextParentId)) {
+      truncated = true;
+    }
+
+    currentId = nextParentId;
   }
-  if (lineage.length === 10 && lineage[lineage.length - 1]?.parent_agent_id) truncated = true;
 
   telemetry.emitEvent({
     eventType: 'TEMPORAL_PROVENANCE',
@@ -458,9 +498,9 @@ async function provenance(context) {
     action: 'PROVENANCE',
     detail: `Traced provenance for ${targetId} back ${lineage.length} generations.`,
     severity: 'info',
-    payload: { targetId, lineageDepth: lineage.length, rootId: lineage[lineage.length - 1]?.id }
+    payload: { targetId, lineageDepth: lineage.length, rootId: lineage[lineage.length - 1]?.id, truncated }
   });
-  
+
   return { success: true, lineage, rootId: lineage[lineage.length - 1]?.id, truncated };
 }
 
