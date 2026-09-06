@@ -6,7 +6,12 @@ const { encodeMission, decodeEvents } = require('../src/services/runtimeProtocol
 const runtime = path.resolve(__dirname, '../bin/local-codex-runtime.cjs');
 const child = spawn(process.execPath, [runtime], {
   cwd: path.resolve(__dirname, '..'),
-  env: { ...process.env, GENOS_DEFAULT_MODEL: 'ollama://definitely-not-installed', GENOS_MODEL_FALLBACKS: '' },
+  env: {
+    ...process.env,
+    GENOS_DEFAULT_MODEL: 'ollama://definitely-not-installed',
+    GENOS_MODEL_FALLBACKS: '',
+    GENOS_OLLAMA_ENDPOINT: 'http://127.0.0.1:1/v1/chat/completions'
+  },
   stdio: ['pipe', 'pipe', 'pipe']
 });
 const events = [];
