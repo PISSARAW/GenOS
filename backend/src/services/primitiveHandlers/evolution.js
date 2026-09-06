@@ -472,6 +472,7 @@ async function plasmidDivergence(context) {
   let newPlasmidId = null;
   if (mutantPromoted) {
     newPlasmidId = `plasmid_v2_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newContent = context.candidatePlasmidCode || context.mutantSolution || `// Optimized mutant replacing ${plasmidId}\n// Goal: ${optimizationGoal}`;
     const { embed } = require('../embeddingProvider');
     const { textToVector } = require('../memoryScoring');
     const vec = (await embed(newContent)) || textToVector(newContent);
