@@ -26,6 +26,8 @@ pub mod glial_cell {
     pub struct NervousSystem {
         pub location: NervousSystemLocation,
         pub axon: Axon,
+        #[serde(default)]
+        pub dendritic_tree: Option<crate::neurobiology::DendriticTree>,
     }
 
     pub use crate::neurobiology::NervousSystemLocation;
@@ -161,9 +163,18 @@ impl GlialProcessor for AstrocyteProcessor {
     }
 
     fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
-        if agent.nervous_system.is_some() {
+        if let Some(ns) = &mut agent.nervous_system {
             let energy_support = if ctx.state.reactive_astrocytes.contains(&agent.cell_id) { 10.0 } else { 20.0 };
             agent.metabolism.atp_budget += energy_support;
+
+            // Synapse tripartite : les astrocytes protègent les épines dendritiques postsynaptiques
+            if let Some(tree) = &mut ns.dendritic_tree {
+                for comp in tree.compartments.iter_mut() {
+                    for spine in comp.spines.iter_mut() {
+                        spine.cd47_expression = (spine.cd47_expression + 0.1).min(2.0);
+                    }
+                }
+            }
         }
     }
 }
@@ -201,6 +212,18 @@ impl GlialProcessor for MicrogliaProcessor {
                         + if pro_inflam { 0.25 } else { 0.0 };
                     !(local_c3 > 0.5 && synapse.cd47_expression < 0.5)
                 });
+
+                // Trogocytose microgliale postsynaptique : élagage des épines opsonisées par C3
+                if let Some(tree) = &mut ns.dendritic_tree {
+                    for comp in tree.compartments.iter_mut() {
+                        comp.spines.retain(|spine| {
+                            let local_c3 = spine.c3_opsonization
+                                + if c4_over { 0.5 } else { 0.0 }
+                                + if pro_inflam { 0.25 } else { 0.0 };
+                            !(local_c3 > 0.5 && spine.cd47_expression < 0.5)
+                        });
+                    }
+                }
             }
         }
     }
@@ -375,6 +398,7 @@ mod tests {
                     is_severed: false,
                     nogo_inhibited: false,
                 },
+                dendritic_tree: Some(crate::neurobiology::DendriticTree::new()),
             }),
         }
     }
