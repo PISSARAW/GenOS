@@ -28,7 +28,7 @@ enum Commands {
     Status,
     /// Lance une tâche
     Run,
-    /// Liste les agents/tâches
+    /// Liste les fossiles stockés
     List,
     /// Initialise le projet
     Init,
@@ -327,12 +327,17 @@ async fn main() {
             }
         }
         Commands::List => {
-            println!("Liste des agents/fossiles actifs...");
-            let _ = std::process::Command::new("cargo")
-                .args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"])
-                .status();
+            println!("Liste des fossiles stockés...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
+            exit_on_command_failure(cmd.status());
         }
-        Commands::Init => println!("Initialisation de GenOS..."),
+        Commands::Init => {
+            println!("Initialisation de GenOS...");
+            let mut cmd = std::process::Command::new("cargo");
+            cmd.args(["run", "-q", "-p", "genos-cli", "--", "init"]);
+            exit_on_command_failure(cmd.status());
+        }
         Commands::Replay { args } => {
             let mut cmd = std::process::Command::new("cargo");
             if args.is_empty() {
