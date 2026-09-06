@@ -4,8 +4,8 @@
  */
 const assert = require('assert');
 const http = require('http');
-const modelProvider = require('./src/services/modelProvider');
-const gateway = require('./src/services/inferenceGatewayService');
+const modelProvider = require('../src/services/modelProvider');
+const gateway = require('../src/services/inferenceGatewayService');
 
 async function startFakeGpuServer() {
   let inFlight = 0;
