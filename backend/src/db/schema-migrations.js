@@ -82,8 +82,25 @@ async function applyVersionedMigrations(db) {
     ['010-temporal-synapses', 'Persist neurotransmitter and spike timing for synaptic plasticity'],
     ['011-project-lifecycle', 'Persist active and archived project lifecycle state'],
     ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers'],
-    ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references']
+    ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references'],
+    ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing']
   ];
+  await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    session_id TEXT,
+    task_id TEXT,
+    turn_number INTEGER DEFAULT 0,
+    action_type TEXT,
+    context_state TEXT DEFAULT '{}',
+    action_input TEXT,
+    observation_output TEXT,
+    reward_score REAL DEFAULT 0.0,
+    is_consolidated INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_episodic_agent_session ON episodic_memories (agent_id, session_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);`);
   await migrateAgentStatusConstraint(db);
   const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
   if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
