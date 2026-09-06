@@ -24,7 +24,16 @@ module.exports = {
   GetSwarmTopology: async (call, callback) => {
     try {
       const db = await getDatabase();
-      const topo = await swarmMetrics.getSwarmTopology(db);
+      const agents = await db.all(`
+        SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
+          fleet_id as fleetId, parent_agent_id as parentAgentId
+        FROM agents WHERE status != 'terminated'
+      `);
+      const events = await db.all(`
+        SELECT id, agent_id, payload_json, created_at
+        FROM telemetry_events ORDER BY created_at DESC LIMIT 100
+      `);
+      const topo = swarmMetrics.getSwarmTopology(agents, events);
       callback(null, {
         node_ids: (topo.nodes || []).map((n) => n.id),
         topology_json: JSON.stringify(topo)
