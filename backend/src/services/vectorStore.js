@@ -11,6 +11,7 @@ class QdrantVectorStore {
     this.apiKey = apiKey;
     this.collection = collection;
     this.fetch = fetchFn;
+    this.ensuredCollections = new Set();
   }
 
   headers() {
@@ -24,8 +25,9 @@ class QdrantVectorStore {
   }
 
   async ensureCollection(dimensions) {
-    if (!dimensions) return;
+    if (!dimensions || this.ensuredCollections.has(`${this.collection}_${dimensions}`)) return;
     await this.request(`/collections/${encodeURIComponent(this.collection)}`, { vectors: { size: dimensions, distance: 'Cosine' } }, 'PUT');
+    this.ensuredCollections.add(`${this.collection}_${dimensions}`);
   }
 
   async upsert({ organizationId, projectId, chunk, vector }) {
@@ -34,6 +36,27 @@ class QdrantVectorStore {
     await this.request(`/collections/${encodeURIComponent(this.collection)}/points`, {
       points: [{ id: pointId(chunk.id), vector, payload: { chunkId: chunk.id, documentId: chunk.document_id, content: chunk.content, chunkIndex: chunk.chunk_index, organizationId, projectId } }]
     }, 'PUT');
+  }
+
+  async upsertBatch({ organizationId, projectId, items = [] }) {
+    if (!Array.isArray(items) || !items.length) return;
+    const validItems = items.filter(i => Array.isArray(i.vector) && i.vector.length && i.chunk);
+    if (!validItems.length) return;
+    const dim = validItems[0].vector.length;
+    await this.ensureCollection(dim);
+    const points = validItems.map(({ chunk, vector }) => ({
+      id: pointId(chunk.id),
+      vector,
+      payload: {
+        chunkId: chunk.id,
+        documentId: chunk.document_id,
+        content: chunk.content,
+        chunkIndex: chunk.chunk_index,
+        organizationId,
+        projectId
+      }
+    }));
+    await this.request(`/collections/${encodeURIComponent(this.collection)}/points`, { points }, 'PUT');
   }
 
   async search({ organizationId, projectId, vector, limit = 20 }) {
