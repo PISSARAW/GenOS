@@ -179,6 +179,8 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   const childGenes = {};
   const geneKeys = ['role', 'strategy', 'tools', 'temp', 'topP'];
+  const childId = `agent-crossover-${crypto.randomUUID()}`;
+  const mutationSeed = options.seed === undefined ? childId : String(options.seed);
 
   // Crossover recombine logic
   for (let i = 0; i < geneKeys.length; i++) {
@@ -208,7 +210,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   // Apply mutation if triggered
   let mutatedGene = null;
-  if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:mutation`) < mutationRate) {
+  if (deterministicUnit(`${mutationSeed}:mutation`) < mutationRate) {
     mutatedGene = 'temp';
     childGenes.temp = Number((Math.min(0.8, childGenes.temp + 0.05)).toFixed(2));
   }
@@ -216,7 +218,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
   const predictedFitness = Number(Math.min(99.0, 88.0 + (1 - childGenes.temp) * 8 + (childGenes.tools.length >= 3 ? 3 : 0)).toFixed(1));
 
   return {
-    childId: `agent-crossover-${crypto.randomUUID()}`,
+    childId,
     crossoverStrategy: strategy,
     mutationRateApplied: mutationRate,
     parents: {
