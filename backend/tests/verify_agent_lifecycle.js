@@ -10,9 +10,9 @@ process.env.GENOS_DB_PATH = path.join(root, 'genos.db');
 process.env.GENOS_ADMIN_TOKEN = 'genos-agent-lifecycle-admin';
 process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
 
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const runtime = require('./src/services/agentRuntimeAdapter');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const runtime = require('../src/services/agentRuntimeAdapter');
 
 function request(port, method, route, body) {
   return new Promise((resolve, reject) => {
