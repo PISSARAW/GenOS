@@ -31,6 +31,21 @@ function isLocal(uri) {
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
 
+function responseScore(result) {
+  for (const key of ['score', 'qualityScore', 'confidence']) {
+    const value = Number(result?.[key]);
+    if (Number.isFinite(value)) return value;
+  }
+  try {
+    const parsed = JSON.parse(String(result?.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
+    for (const key of ['score', 'qualityScore', 'confidence']) {
+      const value = Number(parsed?.[key]);
+      if (Number.isFinite(value)) return value;
+    }
+  } catch (_) {}
+  return null;
+}
+
 function candidateModels(explicitModel, policy) {
   const primary = String(explicitModel || policy.primary || '').trim();
   const ordered = [primary, ...policy.fallbacks, ...(policy.mode === 'parallel' ? policy.parallelReview : [])].filter(Boolean);
@@ -128,10 +143,13 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       const reasons = settled.map((result, index) => `${candidates[index]}: ${result.reason?.message || 'failed'}`).join('; ');
       throw new Error(`Every parallel model route failed. ${reasons}`);
     }
-    const selected = successes.sort((left, right) => left.index - right.index)[0];
+    const scored = successes.filter((result) => responseScore(result) !== null);
+    const selected = scored.length
+      ? [...scored].sort((left, right) => responseScore(right) - responseScore(left) || left.index - right.index)[0]
+      : successes.sort((left, right) => left.index - right.index)[0];
     return {
       ...selected,
-      route: { mode: 'parallel', selectedModel: selected.model, attempts: settled.map((result, index) => ({ model: candidates[index], status: result.status, error: result.status === 'rejected' ? result.reason?.message : null })), reviews: successes.map(({ index, ...result }) => result) }
+      route: { mode: 'parallel', selectedModel: selected.model, selectionScore: responseScore(selected), attempts: settled.map((result, index) => ({ model: candidates[index], status: result.status, error: result.status === 'rejected' ? result.reason?.message : null })), reviews: successes.map(({ index, ...result }) => result) }
     };
   }
 
@@ -147,4 +165,4 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
 }
 
-module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal };
+module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore };
