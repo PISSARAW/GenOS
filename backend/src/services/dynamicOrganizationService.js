@@ -155,8 +155,8 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
     );
     if (organization !== 'network_silence') {
       await transaction.run(
-        "UPDATE agent_organization_messages SET delivery = 'delivered' WHERE orchestrator_id = ? AND delivery = 'buffered'",
-        orchestratorId
+        "UPDATE agent_organization_messages SET delivery = 'delivered', organization = ?, organization_version = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
+        organization, version, orchestratorId
       );
     }
   });
@@ -216,10 +216,10 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
             recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
             delivery, created_at as createdAt
      FROM agent_organization_messages
-     WHERE orchestrator_id = ? AND id > ? AND sender_agent_id <> ?
+    WHERE orchestrator_id = ? AND organization_version = ? AND id > ? AND sender_agent_id <> ?
        AND (? = 1 OR (delivery = 'delivered' AND (recipient_agent_id IS NULL OR recipient_agent_id = ?)))
      ORDER BY id LIMIT ?`,
-    orchestratorId, Math.max(0, Number(afterId || 0)), requesterAgentId, orchestrator ? 1 : 0,
+    orchestratorId, state.version, Math.max(0, Number(afterId || 0)), requesterAgentId, orchestrator ? 1 : 0,
     requesterAgentId, Math.min(50, Math.max(1, Number(limit || 20)))
   );
   return {
