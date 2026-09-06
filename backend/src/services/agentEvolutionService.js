@@ -62,7 +62,21 @@ function evolveWorkerGenome(parentAgent, assignment, options = {}) {
 
 async function recordWorkerLineage(db, workerInfo, options = {}) {
   if (!db || !workerInfo?.agentId) return { success: false, error: 'Database and agentId are required.' };
-  const workspaceId = workerInfo.workspaceId || 'workspace-default';
+  const workspaceId = workerInfo.workspaceId;
+  if (!workspaceId) return { success: false, error: 'workspaceId is required for lineage persistence.' };
+  const parentIds = [...new Set(options.parentIds || (options.parentId ? [options.parentId] : []))].filter(Boolean);
+  for (const parentId of parentIds) {
+    if (parentId === workerInfo.agentId) return { success: false, error: 'A lineage node cannot be its own parent.' };
+    const parent = await db.get('SELECT id, workspace_id FROM lineage_nodes WHERE id = ?', parentId);
+    if (!parent) return { success: false, error: `Lineage parent '${parentId}' does not exist.` };
+    if (parent.workspace_id !== workspaceId) return { success: false, error: `Lineage parent '${parentId}' belongs to another workspace.` };
+    const cycle = await db.get(`WITH RECURSIVE ancestors(id) AS (
+      SELECT source_node_id FROM lineage_edges WHERE target_node_id = ?
+      UNION
+      SELECT e.source_node_id FROM lineage_edges e JOIN ancestors a ON e.target_node_id = a.id
+    ) SELECT id FROM ancestors WHERE id = ? LIMIT 1`, parentId, workerInfo.agentId);
+    if (cycle) return { success: false, error: `Lineage cycle detected through parent '${parentId}'.` };
+  }
   const metadata = JSON.stringify({
     genes: options.genes || {},
     parents: options.parents || {},
@@ -88,19 +102,7 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
       metadata
     );
 
-    const parentIds = [...new Set(options.parentIds || (options.parentId ? [options.parentId] : []))].filter(Boolean);
     for (const parentId of parentIds) {
-      const parentExists = await db.get('SELECT id FROM lineage_nodes WHERE id = ?', parentId);
-      if (!parentExists) {
-        await db.run(
-          `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary)
-           VALUES (?, ?, ?, 'core', 1.0, 'Parent orchestrator')
-           ON CONFLICT(id) DO NOTHING`,
-          parentId,
-          workspaceId,
-          parentId
-        );
-      }
       const edgeId = `edge_${parentId}_${workerInfo.agentId}`;
       await db.run(
         `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
