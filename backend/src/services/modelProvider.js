@@ -37,7 +37,8 @@ function modelConfiguration(model) {
   const uri = configuredModel(model);
   const match = uri.match(/^([\w-]+):\/\/(.+)$/);
   const provider = match[1]; const modelName = match[2];
-  const local = ['ollama', 'lmstudio', 'vllm'].includes(provider);
+  const explicitEndpoint = provider === 'openai-compatible' && (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT);
+  const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && !/^https:\/\/api\.openai\.com\//.test(explicitEndpoint));
   const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
   const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages')
     : provider === 'gemini' ? (process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`)
@@ -45,26 +46,56 @@ function modelConfiguration(model) {
         : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions')
           : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
             : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
-              : (process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
+              : (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
   return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, stream = true }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model);
   // Local inference goes through the gateway's bounded queue: concurrent
   // agents must queue for the GPU instead of stampeding it. Cloud providers
   // have their own rate limits and bypass the queue.
-  if (inferenceGateway.isLocalProvider(configuration.provider) && configuration.provider !== 'openai-compatible') {
+  if (inferenceGateway.isLocalProvider(configuration.provider)) {
     return inferenceGateway.schedule(
-      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId }),
+      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream }),
       { provider: configuration.provider, priority, agentId }
     );
   }
-  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId });
+  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream });
 }
 
-async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride }) {
+async function readStreamingResponse(response, onToken) {
+  const reader = response.body?.getReader ? response.body.getReader() : null;
+  if (!reader) return null;
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let usage = {};
+  const consume = async (chunk) => {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (!data || data === '[DONE]') continue;
+      const payload = JSON.parse(data);
+      const delta = payload.choices?.[0]?.delta?.content || payload.response || '';
+      if (delta) { text += delta; await onToken(delta); }
+      if (payload.usage) usage = payload.usage;
+    }
+  };
+  while (true) {
+    const next = await reader.read();
+    if (next.done) break;
+    await consume(next.value);
+  }
+  if (buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${buffer}\n`));
+  return { text, usage };
+}
+
+async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, stream = true }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -72,7 +103,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
     const endpoint = endpointOverride || configuredEndpoint;
     const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
-    if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
+    if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
     const endpointWithKey = provider === 'gemini' && !endpoint.includes('key=') ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}` : endpoint;
     const headers = provider === 'anthropic' ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' } : { 'Content-Type': 'application/json', ...(provider === 'gemini' ? {} : (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})) };
     const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
@@ -80,9 +111,14 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       ? { model: modelName, max_tokens: outputLimit || 2048, messages: [{ role: 'user', content: prompt }] }
       : provider === 'gemini'
         ? { contents: [{ parts: [{ text: prompt }] }], ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {}) }
-        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream: false, ...(outputLimit ? { max_tokens: outputLimit } : {}) };
+        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}) };
     const response = await fetch(endpointWithKey, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
     if (!response.ok) throw new Error(`Model provider returned HTTP ${response.status}.`);
+    const contentType = response.headers?.get?.('content-type') || '';
+    if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
+      const streamed = await readStreamingResponse(response, onToken);
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(prompt).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
+    }
     const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.text || '').join('') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : (payload.choices?.[0]?.message?.content || '');
     for (const token of tokenize(text)) await onToken(token);
     return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || tokenize(prompt).length, outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || tokenize(text).length, provider };
@@ -95,7 +131,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
 function getModelStatus(model) {
   try {
     const configuration = modelConfiguration(model);
-    return { ...configuration, apiKeyConfigured: configuration.configured && (['ollama', 'lmstudio', 'vllm'].includes(configuration.provider) || Boolean(configuration.keySource)) };
+    return { ...configuration, apiKeyConfigured: configuration.configured && (['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(configuration.provider) || Boolean(configuration.keySource)) };
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
