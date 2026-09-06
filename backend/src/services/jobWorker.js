@@ -29,8 +29,8 @@ async function recoverInterruptedJobs(db) {
     JSON.stringify({ message: 'Worker interrupted; explicit retry required because workflow effects are not replay-safe.' })
   );
   for (const table of ['evaluation_jobs', 'model_jobs']) {
-    await db.run(`UPDATE ${table} SET status = 'queued' WHERE status = 'running' AND attempts < max_attempts`);
-    await db.run(`UPDATE ${table} SET status = 'failed', error_json = COALESCE(error_json, '{"message":"Worker stopped after exhausting attempts"}'), completed_at = CURRENT_TIMESTAMP WHERE status = 'running' AND attempts >= max_attempts`);
+    await db.run(`UPDATE ${table} SET status = 'failed', attempts = max_attempts, error_json = COALESCE(error_json, ?), completed_at = CURRENT_TIMESTAMP WHERE status = 'running' AND attempts + 1 >= max_attempts`, JSON.stringify({ message: 'Worker interrupted and retry budget exhausted.', retryable: false }));
+    await db.run(`UPDATE ${table} SET status = 'queued', attempts = attempts + 1 WHERE status = 'running' AND attempts + 1 < max_attempts`);
   }
 }
 
