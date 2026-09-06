@@ -43,6 +43,7 @@ async function executeWorkflow(db, run) {
   const edges = graph.edges || [];
   const output = {};
   const visited = new Set();
+  const skipped = new Set();
   const shouldRun = (node) => {
     const condition = node.when || node.data?.when;
     if (!condition) return true;
@@ -54,7 +55,12 @@ async function executeWorkflow(db, run) {
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
   const runNode = async (node) => {
-    if (!node || visited.has(node.id) || !shouldRun(node)) return;
+    if (!node || visited.has(node.id) || skipped.has(node.id)) return;
+    if (!shouldRun(node)) {
+      skipped.add(node.id);
+      output[node.id] = { status: 'skipped', reason: 'condition_not_satisfied' };
+      return;
+    }
     visited.add(node.id);
     const spanId = `span-${crypto.randomUUID()}`;
     const spanStart = Date.now();
@@ -94,7 +100,9 @@ async function executeWorkflow(db, run) {
   };
   const roots = (graph.nodes || []).filter((node) => !edges.some((edge) => edge.target === node.id));
   for (const root of roots.length ? roots : (graph.nodes || []).slice(0, 1)) await runNode(root);
-  await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, output }), run.id);
+  const unvisited = (graph.nodes || []).filter((node) => !visited.has(node.id) && !skipped.has(node.id)).map((node) => node.id);
+  if (unvisited.length > 0) throw new Error(`Workflow contains unreachable nodes: ${unvisited.join(', ')}`);
+  await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, skippedNodes: [...skipped], output }), run.id);
 }
 
 async function executeEvaluation(db, job) {
