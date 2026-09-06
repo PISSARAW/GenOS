@@ -27,11 +27,42 @@ const TYPE_CHECKS = {
 function validateAgainstSchema(value, schema, pathSoFar, errors) {
   if (!schema || typeof schema !== 'object') return;
 
+  if ('const' in schema && value !== schema.const) {
+    errors.push(`${pathSoFar || '(root)'} must equal ${JSON.stringify(schema.const)}`);
+  }
+
   if (schema.type) {
-    const check = TYPE_CHECKS[schema.type];
-    if (check && !check(value)) {
-      errors.push(`${pathSoFar || '(root)'} must be of type ${schema.type}`);
-      return;
+    if (Array.isArray(schema.type)) {
+      const matched = schema.type.some((t) => {
+        const check = TYPE_CHECKS[t];
+        return check && check(value);
+      });
+      if (!matched) {
+        errors.push(`${pathSoFar || '(root)'} must be one of types: ${schema.type.join(', ')}`);
+        return;
+      }
+    } else {
+      const check = TYPE_CHECKS[schema.type];
+      if (check && !check(value)) {
+        errors.push(`${pathSoFar || '(root)'} must be of type ${schema.type}`);
+        return;
+      }
+    }
+  }
+
+  if (typeof value === 'number') {
+    if (typeof schema.minimum === 'number' && value < schema.minimum) {
+      errors.push(`${pathSoFar || '(root)'} must be >= ${schema.minimum}`);
+    }
+    if (typeof schema.maximum === 'number' && value > schema.maximum) {
+      errors.push(`${pathSoFar || '(root)'} must be <= ${schema.maximum}`);
+    }
+  }
+
+  if (typeof value === 'string' && schema.format === 'date-time') {
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed)) {
+      errors.push(`${pathSoFar || '(root)'} must be a valid ISO 8601 date-time`);
     }
   }
 
@@ -39,15 +70,26 @@ function validateAgainstSchema(value, schema, pathSoFar, errors) {
     errors.push(`${pathSoFar || '(root)'} must be one of ${schema.enum.join(', ')}`);
   }
 
-  if (TYPE_CHECKS.object(value) && schema.properties) {
-    for (const key of schema.required || []) {
-      if (!(key in value)) {
-        errors.push(`${pathSoFar ? `${pathSoFar}.` : ''}${key} is required`);
+  if (TYPE_CHECKS.object(value)) {
+    if (schema.additionalProperties === false && schema.properties) {
+      const allowed = new Set(Object.keys(schema.properties));
+      for (const key of Object.keys(value)) {
+        if (!allowed.has(key)) {
+          errors.push(`${pathSoFar ? `${pathSoFar}.` : ''}${key} is not an allowed property`);
+        }
       }
     }
-    for (const [key, childSchema] of Object.entries(schema.properties)) {
-      if (key in value) {
-        validateAgainstSchema(value[key], childSchema, pathSoFar ? `${pathSoFar}.${key}` : key, errors);
+
+    if (schema.properties) {
+      for (const key of schema.required || []) {
+        if (!(key in value)) {
+          errors.push(`${pathSoFar ? `${pathSoFar}.` : ''}${key} is required`);
+        }
+      }
+      for (const [key, childSchema] of Object.entries(schema.properties)) {
+        if (key in value) {
+          validateAgainstSchema(value[key], childSchema, pathSoFar ? `${pathSoFar}.${key}` : key, errors);
+        }
       }
     }
   }

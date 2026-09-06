@@ -1,4 +1,9 @@
+const fs = require('fs');
+const path = require('path');
 const specValidator = require('../services/specValidator');
+
+const repositoryRoot = path.resolve(__dirname, '../../..');
+const SPEC_DIR = path.join(repositoryRoot, 'spec');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Schema is alive via gRPC!" }),
@@ -16,7 +21,17 @@ module.exports = {
 
   GetSchemaSpec: (call, callback) => {
     const schemaName = call.request?.schema_name || 'default';
-    const result = specValidator.validateSpec(schemaName, {});
+    const schemaFile = schemaName.endsWith('.schema.json') ? schemaName : `${schemaName}.schema.json`;
+    const schemaPath = path.join(SPEC_DIR, schemaFile);
+    if (fs.existsSync(schemaPath)) {
+      try {
+        const content = fs.readFileSync(schemaPath, 'utf8');
+        return callback(null, { json_schema: content });
+      } catch (err) {
+        return callback(null, { json_schema: JSON.stringify({ error: err.message, available: false }) });
+      }
+    }
+    const result = specValidator.validateSpec(schemaFile, {});
     callback(null, { json_schema: JSON.stringify({ schema: result.schema, title: result.title, available: result.available }) });
   }
 };
