@@ -147,6 +147,7 @@ class VectorMemoryService {
         });
       } catch (err) {
         console.warn('[VectorMemory] genome_decisions_fts query failed:', err.message);
+      }
     }
 
     // 3. Hydrate matching rows and compute RRF
@@ -365,6 +366,24 @@ class VectorMemoryService {
     });
     const allScored = [...topItems, ...connectedItems];
 
+    // Reconsolidation par le rappel (Active Retrieval Potentiation)
+    if (db && topItems.length > 0) {
+      const recalledIds = topItems
+        .filter(i => i.id && !String(i.id).startsWith('seed-') && i.id !== 'signal_ignorance' && i.category !== 'Trajectory')
+        .map(i => i.id);
+      if (recalledIds.length > 0) {
+        try {
+          const placeholders = recalledIds.map(() => '?').join(',');
+          await db.run(
+            `UPDATE genome_decisions 
+             SET synaptic_weight = MIN(20.0, COALESCE(synaptic_weight, 1.0) + 0.05)
+             WHERE id IN (${placeholders})`,
+            ...recalledIds
+          );
+        } catch {}
+      }
+    }
+
     // Explicit Golden Path matching: prioritize records categorized or tagged as GoldenPath/Trajectory
     const isExplicitGolden = (item) => Boolean(
       item && (
@@ -414,13 +433,13 @@ class VectorMemoryService {
           'UPDATE genome_decisions SET synaptic_weight = ROUND(synaptic_weight * 0.9, 4)'
         );
 
-        // 2. Synaptic connection decay: unused connections attenuate over time
+        // 2. Synaptic connection decay: unused connections attenuate over time, receptors retract, C3 marks increase
         await tx.run(
-          'UPDATE memory_synapses SET weight = ROUND(weight * 0.95, 4), c3_opsonization = MIN(2.0, c3_opsonization + 0.05), cd47_expression = MAX(0.0, cd47_expression - 0.05)'
+          'UPDATE memory_synapses SET weight = ROUND(weight * 0.95, 4), receptor_density = MAX(0.0, receptor_density - 0.05), c3_opsonization = MIN(2.0, c3_opsonization + 0.05), cd47_expression = MAX(0.0, cd47_expression - 0.05)'
         );
 
-        // 3. Prune dead synapses below transmission threshold first
-        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.1');
+        // 3. Prune dead synapses below transmission threshold OR tagged for microglial elimination (C3 > 0.5 & CD47 < 0.5)
+        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.05 OR (c3_opsonization > 0.5 AND cd47_expression < 0.5)');
 
         // 4. Select orphaned weak memories (< 0.1) with no remaining active synapses
         const doomed = await tx.all(`
