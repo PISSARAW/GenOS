@@ -148,11 +148,15 @@ async function recordMissionTrajectory(db, options = {}) {
   const float32 = new Float32Array(vec);
   const buffer = Buffer.from(float32.buffer);
 
-  const diffLinesJson = JSON.stringify(goldenPath.goldenPathSteps.map(s => ({
+  const classifiedTurns = turns.map(classifyTurn);
+  const diffLinesJson = JSON.stringify(classifiedTurns.map(s => ({
     step: s.step,
     type: s.classification || s.type,
     action: s.action,
-    detail: s.detail || s.cmd
+    detail: s.detail || s.cmd,
+    error: s.error || null,
+    pass: s.pass === true,
+    success: s.success === true
   })));
 
   const workspaceId = String(options.workspaceId || '').trim();
