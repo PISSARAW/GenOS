@@ -244,9 +244,15 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   // Apply mutation if triggered
   let mutatedGene = null;
+  let mutationFrom = null;
+  let mutationTo = null;
   if (deterministicUnit(`${reproducibilitySeed}:mutation`) < mutationRate) {
-    mutatedGene = 'temp';
-    childGenes.temp = Number((Math.min(0.8, childGenes.temp + 0.05)).toFixed(2));
+    mutationFrom = Number(childGenes.temp);
+    mutationTo = Number((Math.min(0.8, mutationFrom + 0.05)).toFixed(2));
+    if (mutationTo !== mutationFrom) {
+      mutatedGene = 'temp';
+      childGenes.temp = mutationTo;
+    }
   }
 
   const predictedFitness = Number(Math.min(99.0, 88.0 + (1 - childGenes.temp) * 8 + (childGenes.tools.length >= 3 ? 3 : 0)).toFixed(1));
@@ -263,7 +269,7 @@ function crossoverGenome(parentA, parentB, options = {}) {
       parentB: pB.name || 'Parent B'
     },
     childGenes,
-    mutations: mutatedGene ? [{ gene: mutatedGene, delta: '+0.05' }] : [],
+    mutations: mutatedGene ? [{ gene: mutatedGene, from: mutationFrom, to: mutationTo, delta: `+${(mutationTo - mutationFrom).toFixed(2)}` }] : [],
     predictedFitnessScore: predictedFitness,
     // The score above is a heuristic formula over temperature and tool count;
     // no proving ground has evaluated this genome, so the honest status is
