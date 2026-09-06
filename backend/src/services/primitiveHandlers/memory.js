@@ -3,10 +3,54 @@
  */
 const vectorMemory = require('../vectorMemoryService');
 const trajectoryService = require('../trajectoryService');
+const episodicMemory = require('../episodicMemoryService');
 const telemetry = require('../telemetryObserver');
 const epistemics = require('../epistemics');
 const { getDatabase, withTransaction } = require('../../db');
 const crypto = require('crypto');
+
+async function recordExperience(context = {}) {
+  const agentId = context.agentId || context.agent_id || context.orchestratorId || context.orchestrator_id || 'strategy_adapter';
+  const sessionId = context.sessionId || context.session_id || context.source_branch || context.branchId || null;
+  const taskId = context.taskId || context.task_id || context.task || context.strategy || null;
+  const turnNumber = context.turnNumber ?? context.turn_number ?? 0;
+  const actionType = context.actionType || context.action_type || context.strategy || 'experience';
+  const actionInput = context.actionInput || context.action_input || context.action || context.input || context.context || '';
+  const observationOutput = context.observationOutput || context.observation_output || context.observation || context.output || context.outcome || '';
+  const rewardScore = typeof context.rewardScore === 'number'
+    ? context.rewardScore
+    : (typeof context.reward_score === 'number'
+      ? context.reward_score
+      : (typeof context.successful === 'boolean' ? (context.successful ? 1.0 : 0.0) : 0.5));
+  const contextState = context.contextState || context.context_state || context.context || { evidence: context.evidence || [] };
+
+  const episode = await episodicMemory.recordEpisode({
+    agentId,
+    sessionId,
+    taskId,
+    turnNumber,
+    actionType,
+    contextState,
+    actionInput,
+    observationOutput,
+    rewardScore
+  });
+
+  telemetry.emitEvent({
+    eventType: 'EXPERIENCE_RECORDED',
+    agentId,
+    action: 'RECORD_EXPERIENCE',
+    detail: `Recorded episodic experience ${episode.id} (${actionType}, reward ${rewardScore})`,
+    severity: 'info',
+    payload: { episodeId: episode.id, taskId, rewardScore, successful: rewardScore >= 0.7 }
+  });
+
+  return {
+    success: true,
+    episodeId: episode.id,
+    episode
+  };
+}
 
 async function compileMemory(context) {
   const db = await getDatabase();
@@ -150,19 +194,19 @@ async function stdpUpdate(context) {
 
   let row;
   await withTransaction(db, async (tx) => {
-    const initialWeight = Math.max(0.01, Math.min(20.0, update > 0 ? update : 0.5 + update));
+    const initialWeight = Math.max(0.01, Math.min(20.0, update > 0 ? update : 1.0 + update));
     await tx.run(
       `INSERT INTO memory_synapses
       (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, last_updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(source_id, target_id) DO UPDATE SET
-        weight = MIN(20.0, MAX(0.01, memory_synapses.weight + excluded.weight)),
+        weight = MIN(20.0, MAX(0.01, memory_synapses.weight + ?)),
         transmitter_type = COALESCE(memory_synapses.transmitter_type, excluded.transmitter_type),
         pre_spike_at = excluded.pre_spike_at,
         post_spike_at = excluded.post_spike_at,
         delta_t_ms = excluded.delta_t_ms,
         last_updated_at = CURRENT_TIMESTAMP`,
-      sourceId, targetId, initialWeight, transmitterType, preSpikeAt, postSpikeAt, deltaT
+      sourceId, targetId, initialWeight, transmitterType, preSpikeAt, postSpikeAt, deltaT, update
     );
     await tx.run(
       `UPDATE memory_synapses SET
@@ -186,4 +230,4 @@ async function stdpUpdate(context) {
   return { success: true, sourceId, targetId, deltaT, update, transmitterType, newWeight: row ? row.weight : update };
 }
 
-module.exports = { compileMemory, cherryPickGoldenPath, searchMemory, searchFailures, stdpUpdate };
+module.exports = { recordExperience, compileMemory, cherryPickGoldenPath, searchMemory, searchFailures, stdpUpdate };
