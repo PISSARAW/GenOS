@@ -11,6 +11,11 @@ fn exit_on_command_failure(status: std::io::Result<std::process::ExitStatus>) {
     }
 }
 
+fn command_error(message: impl std::fmt::Display) -> ! {
+    eprintln!("Erreur: {}", message);
+    std::process::exit(1);
+}
+
 #[derive(Parser)]
 #[command(name = "g", about = "GenOS Simple CLI", version = "1.0")]
 struct Cli {
@@ -266,42 +271,60 @@ async fn main() {
     match cli.command {
         Commands::Start => {
             println!("Démarrage du serveur GenOS API...");
-            
-            // Redirect output to a log file
-            let log_file = std::fs::File::create("genos_server.log").expect("Failed to create log file");
-            let err_file = log_file.try_clone().expect("Failed to clone log file");
-            
+            if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
+                command_error("le serveur GenOS est déjà en ligne sur le port 8085");
+            }
+
+            let log_file = std::fs::File::create("genos_server.log")
+                .unwrap_or_else(|error| command_error(format!("impossible de créer genos_server.log: {}", error)));
+            let err_file = log_file
+                .try_clone()
+                .unwrap_or_else(|error| command_error(format!("impossible de préparer le journal d'erreurs: {}", error)));
+
             let child = std::process::Command::new("cargo")
                 .args(["run", "-q", "-p", "genos-cli", "--", "serve"])
                 .stdout(std::process::Stdio::from(log_file))
                 .stderr(std::process::Stdio::from(err_file))
                 .spawn()
-                .expect("Failed to start GenOS server");
-                
+                .unwrap_or_else(|error| command_error(format!("impossible de démarrer le serveur: {}", error)));
+
             println!("Serveur démarré en arrière-plan avec le PID: {} (Logs dans genos_server.log)", child.id());
-            let _ = std::fs::write(".genos_server.pid", child.id().to_string());
+            std::fs::write(".genos_server.pid", child.id().to_string())
+                .unwrap_or_else(|error| command_error(format!("impossible d'écrire .genos_server.pid: {}", error)));
         }
         Commands::Stop => {
             println!("Arrêt du serveur GenOS...");
             if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
-                if let Ok(pid) = pid_str.trim().parse::<u32>() {
-                    #[cfg(windows)]
-                    {
-                        let _ = std::process::Command::new("taskkill")
-                            .args(["/F", "/T", "/PID", &pid.to_string()])
-                            .status();
-                    }
-                    #[cfg(not(windows))]
-                    {
-                        let _ = std::process::Command::new("kill")
-                            .arg(pid.to_string())
-                            .status();
-                    }
-                    println!("Serveur arrêté (PID: {}).", pid);
+                let pid = pid_str
+                    .trim()
+                    .parse::<u32>()
+                    .unwrap_or_else(|error| command_error(format!("PID invalide dans .genos_server.pid: {}", error)));
+                if std::net::TcpStream::connect("127.0.0.1:8085").is_err() {
                     let _ = std::fs::remove_file(".genos_server.pid");
+                    command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
                 }
+                let status = {
+                    #[cfg(windows)]
+                    { std::process::Command::new("taskkill")
+                            .args(["/F", "/T", "/PID", &pid.to_string()])
+                            .status() }
+                    #[cfg(not(windows))]
+                    { std::process::Command::new("kill").arg(pid.to_string()).status() }
+                };
+                match status {
+                    Ok(status) if status.success() => {
+                        println!("Serveur arrêté (PID: {}).", pid);
+                    }
+                    Ok(status) => command_error(format!("impossible d'arrêter le serveur (code {})", status.code().unwrap_or(1))),
+                    Err(error) => command_error(format!("impossible d'arrêter le serveur: {}", error)),
+                }
+                if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
+                    command_error("le port 8085 est encore ouvert après l'arrêt");
+                }
+                    let _ = std::fs::remove_file(".genos_server.pid");
             } else {
                 println!("Aucun serveur GenOS en cours d'exécution (pid file introuvable).");
+                std::process::exit(1);
             }
         }
         Commands::Status => {
@@ -312,9 +335,12 @@ async fn main() {
                     println!("Statut: EN LIGNE (Port 8085 ouvert)");
                 } else {
                     println!("Statut: HORS LIGNE (Port 8085 inaccessible)");
+                    let _ = std::fs::remove_file(".genos_server.pid");
+                    std::process::exit(1);
                 }
             } else {
                 println!("Statut: ARRÊTÉ");
+                std::process::exit(1);
             }
         }
         Commands::Run => {
