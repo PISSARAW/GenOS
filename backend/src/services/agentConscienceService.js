@@ -40,14 +40,12 @@ function evaluateBranch(state, metrics = {}) {
   const relief = progressScore * 3.0;
 
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel + penalty - relief);
+  state.currentBudget = Math.max(0, state.currentBudget - 1.0 - errorsInLoop);
 
   let apoptoticTriggered = false;
-  if (state.dissonanceLevel >= state.maxDissonanceThreshold) {
+  if (state.dissonanceLevel >= state.maxDissonanceThreshold || state.currentBudget <= 0) {
     markApoptotic(state);
     apoptoticTriggered = true;
-  } else {
-    const harmony = Math.max(0, state.maxDissonanceThreshold - state.dissonanceLevel);
-    state.currentBudget = state.baselineBudget + (harmony * 5.0) + (state.eurekaMoments * 50.0);
   }
 
   const harmonyPercentage = Math.max(0, Math.min(100, Math.round(((state.maxDissonanceThreshold - state.dissonanceLevel) / state.maxDissonanceThreshold) * 100)));
@@ -66,7 +64,7 @@ function triggerEureka(state) {
   if (state.isApoptotic) return state;
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
-  state.currentBudget += 50.0;
+  state.currentBudget = Math.min(state.baselineBudget, state.currentBudget + 50.0);
   return state;
 }
 
