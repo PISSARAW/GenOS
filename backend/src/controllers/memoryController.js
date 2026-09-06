@@ -154,13 +154,15 @@ async function ingestMemory(req, res, next) {
               await db.run(
                 `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
                  VALUES (?, ?, 1.0, 'glutamate', 1, CURRENT_TIMESTAMP, ?, ?)
-                 ON CONFLICT(source_id, target_id) DO UPDATE SET
-                   weight = MIN(20.0, memory_synapses.weight + 0.5),
-                   activity_history = memory_synapses.activity_history + 1,
-                   c3_opsonization = 0.0,
-                   cd47_expression = MIN(2.0, memory_synapses.cd47_expression + 0.1),
-                   receptor_density = MIN(3.0, memory_synapses.receptor_density + 0.05),
-                   last_updated_at = CURRENT_TIMESTAMP`,
+                  ON CONFLICT(source_id, target_id) DO UPDATE SET
+                    weight = MIN(20.0, memory_synapses.weight + 0.5),
+                    activity_history = memory_synapses.activity_history + 1,
+                    c3_opsonization = 0.0,
+                    cd47_expression = MIN(2.0, memory_synapses.cd47_expression + 0.1),
+                    receptor_density = MIN(3.0, memory_synapses.receptor_density + 0.05),
+                    nmda_receptors = MIN(2.5, memory_synapses.nmda_receptors + 0.05),
+                    spine_morphology = CASE WHEN memory_synapses.receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END,
+                    last_updated_at = CURRENT_TIMESTAMP`,
                 decisionId, rel.id, orgId, projId
               );
           }

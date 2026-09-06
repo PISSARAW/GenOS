@@ -185,6 +185,10 @@ async function applyVersionedMigrations(db) {
     ['activity_history', 'ALTER TABLE memory_synapses ADD COLUMN activity_history INTEGER NOT NULL DEFAULT 0'],
     ['c3_opsonization', 'ALTER TABLE memory_synapses ADD COLUMN c3_opsonization REAL NOT NULL DEFAULT 0.0'],
     ['cd47_expression', 'ALTER TABLE memory_synapses ADD COLUMN cd47_expression REAL NOT NULL DEFAULT 1.0'],
+    ['spine_morphology', "ALTER TABLE memory_synapses ADD COLUMN spine_morphology TEXT NOT NULL DEFAULT 'thin'"],
+    ['compartment_type', "ALTER TABLE memory_synapses ADD COLUMN compartment_type TEXT NOT NULL DEFAULT 'apical'"],
+    ['electrotonic_dist', 'ALTER TABLE memory_synapses ADD COLUMN electrotonic_dist REAL NOT NULL DEFAULT 0.75'],
+    ['nmda_receptors', 'ALTER TABLE memory_synapses ADD COLUMN nmda_receptors REAL NOT NULL DEFAULT 1.0'],
     ['last_updated_at', 'ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME']
   ].filter(([column]) => !synapseColumns.has(column));
   if (synapseAlterations.length) {
