@@ -89,14 +89,25 @@ async function brierScores(context) {
   // Récupère les scores de Brier historiques d'une liste d'agents pour évaluer leur fiabilité.
   const agentIds = context.agentIds || [];
   if (agentIds.length === 0) return { success: true, scores: {} };
+  const observations = context.calibrationObservations || [];
   const suppliedScores = context.calibrationScores || {};
   const scores = {};
   for (const id of agentIds) {
-    const score = Number(suppliedScores[id]);
+    const agentObservations = observations.filter((item) => item.agentId === id);
+    const score = agentObservations.length > 0
+      ? agentObservations.reduce((sum, item) => {
+        const prediction = Number(item.prediction);
+        const outcome = Number(item.outcome);
+        if (!Number.isFinite(prediction) || prediction < 0 || prediction > 1 || !Number.isFinite(outcome) || (outcome !== 0 && outcome !== 1)) {
+          return NaN;
+        }
+        return sum + (prediction - outcome) ** 2;
+      }, 0) / agentObservations.length
+      : Number(suppliedScores[id]);
     if (!Number.isFinite(score) || score < 0 || score > 1) {
-      return { success: false, error: 'calibrationScores required for every agent.' };
+      return { success: false, error: 'Calibration observations or scores required for every agent.' };
     }
-    scores[id] = score;
+    scores[id] = Number(score.toFixed(6));
   }
   
   telemetry.emitEvent({
@@ -172,7 +183,12 @@ async function weightedQuorum(context) {
     );
     
     const agentIds = [...new Set(rows.map(r => r.sender_agent_id))];
-    const brierRes = await brierScores({ agentIds });
+    const brierRes = await brierScores({
+      agentIds,
+      calibrationScores: context.calibrationScores,
+      calibrationObservations: context.calibrationObservations
+    });
+    if (!brierRes.success) return brierRes;
     const bScores = brierRes.scores || {};
     
     const weightedVotes = {};
