@@ -3,9 +3,9 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { getDatabase, closeDatabase } = require('./src/db');
-const evals = require('./src/controllers/evalController');
-const prompts = require('./src/controllers/promptController');
+const { getDatabase, closeDatabase } = require('../src/db');
+const evals = require('../src/controllers/evalController');
+const prompts = require('../src/controllers/promptController');
 
 function response() {
   return {
@@ -45,8 +45,13 @@ async function main() {
   assert.equal(job.code, 202);
   const visible = await call(evals.listJobs, { tenant: tenantA });
   assert.equal(visible.body.some(item => item.id === job.body.id), true);
+  const detail = await call(evals.getJob, { params: { id: job.body.id }, tenant: tenantA });
+  assert.equal(detail.code, 200);
+  assert.equal(detail.body.config.graders[0], 'exact_match');
   const hidden = await call(evals.listJobs, { tenant: tenantB });
   assert.equal(hidden.body.some(item => item.id === job.body.id), false);
+  const hiddenDetail = await call(evals.getJob, { params: { id: job.body.id }, tenant: tenantB });
+  assert.equal(hiddenDetail.code, 404);
   await db.run('INSERT INTO model_jobs(id,prompt,models_json,organization_id,project_id) VALUES(?,?,?,?,?)', 'job-private', 'secret', '[]', org, projectA);
   const stream = await call(prompts.streamJob, { params: { id: 'job-private' }, tenant: tenantB, on() {} });
   assert.equal(stream.code, 404);
