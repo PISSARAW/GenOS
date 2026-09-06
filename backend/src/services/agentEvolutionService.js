@@ -75,26 +75,27 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
       metadata
     );
 
-    if (options.parentId) {
-      const parentExists = await db.get('SELECT id FROM lineage_nodes WHERE id = ?', options.parentId);
+    const parentIds = [...new Set(options.parentIds || (options.parentId ? [options.parentId] : []))].filter(Boolean);
+    for (const parentId of parentIds) {
+      const parentExists = await db.get('SELECT id FROM lineage_nodes WHERE id = ?', parentId);
       if (!parentExists) {
         await db.run(
           `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary)
            VALUES (?, ?, ?, 'core', 1.0, 'Parent orchestrator')
            ON CONFLICT(id) DO NOTHING`,
-          options.parentId,
+          parentId,
           workspaceId,
-          options.parentId
+          parentId
         );
       }
-      const edgeId = `edge_${options.parentId}_${workerInfo.agentId}`;
+      const edgeId = `edge_${parentId}_${workerInfo.agentId}`;
       await db.run(
         `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type)
          VALUES (?, ?, ?, ?, 'crossover_lineage')
          ON CONFLICT(id) DO NOTHING`,
         edgeId,
         workspaceId,
-        options.parentId,
+        parentId,
         workerInfo.agentId
       );
     }

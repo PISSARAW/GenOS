@@ -94,7 +94,14 @@ async function breed(context) {
   }
 
   // 1. Recombinaison méiotique des gènes cognitifs (stratégie, outils, hyperparamètres)
-  const genomeForAgent = (row) => ({
+  const persistedGenes = async (row) => {
+    const lineage = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', row.id);
+    try {
+      const genes = lineage?.metadata ? JSON.parse(lineage.metadata).genes : null;
+      return genes && typeof genes === 'object' ? genes : {};
+    } catch (_) { return {}; }
+  };
+  const genomeForAgent = (row, genes) => ({
     id: row.id,
     name: row.name,
     genes: {
@@ -102,10 +109,12 @@ async function breed(context) {
       strategy: row.role || 'adaptive-hybrid',
       tools: ['genos_inspect'],
       temp: 0.5,
-      topP: 0.9
+      topP: 0.9,
+      ...genes,
+      tools: Array.isArray(genes.tools) ? genes.tools : ['genos_inspect']
     }
   });
-  const childRecomb = geneticsService.crossoverGenome(genomeForAgent(rowA), genomeForAgent(rowB), {
+  const childRecomb = geneticsService.crossoverGenome(genomeForAgent(rowA, await persistedGenes(rowA)), genomeForAgent(rowB, await persistedGenes(rowB)), {
     strategy: context.strategy || 'uniform',
     mutationRate: context.mutationRate ?? 0.05
   });
@@ -138,6 +147,17 @@ async function breed(context) {
     "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
     childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
   );
+  await agentEvolutionService.recordWorkerLineage(db, {
+    agentId: childId,
+    workspaceId: rowA.workspace_id,
+    name: 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB),
+    role: 'offspring'
+  }, {
+    parentIds: [parentA, parentB],
+    genes: childRecomb.childGenes,
+    mutations: childRecomb.mutations,
+    predictedFitness: childRecomb.predictedFitnessScore
+  });
 
   telemetry.emitEvent({
     eventType: 'EVOLUTION_BREED',
