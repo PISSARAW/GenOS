@@ -10,6 +10,11 @@ const crypto = require('crypto');
 
 const MUTABLE_GENES = new Set(['role', 'strategy', 'tools', 'temp', 'topP']);
 
+function boundedPercentage(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : 0;
+}
+
 function applyMutationDescriptors(genes, descriptors) {
   const nextGenes = { ...genes, tools: [...(genes.tools || [])] };
   const applied = [];
@@ -40,9 +45,18 @@ async function mutate(context) {
   if (!agentId) {
     return { success: false, error: 'agentId required for mutation.' };
   }
-  const parent = await db.get('SELECT id, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
+  const parent = await db.get('SELECT id, name, role, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
   if (!parent) {
     return { success: false, error: 'Parent agent not found: ' + agentId };
+  }
+  const lineage = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ? AND workspace_id = ?', agentId, parent.workspace_id);
+  if (lineage?.metadata) {
+    try {
+      const metadata = JSON.parse(lineage.metadata);
+      if (metadata.genes && typeof metadata.genes === 'object') parent.genes = metadata.genes;
+    } catch (_) {
+      return { success: false, error: `Parent genome metadata is invalid: ${agentId}` };
+    }
   }
   const mutations = Array.isArray(context.mutations) ? context.mutations : [];
   if (mutations.length === 0) return { success: false, error: 'At least one mutation descriptor is required.' };
@@ -123,9 +137,17 @@ async function breed(context) {
       tools: Array.isArray(genes.tools) ? genes.tools : ['genos_inspect']
     }
   });
+  const crossoverStrategy = context.strategy || 'uniform';
+  const mutationRate = context.mutationRate ?? 0.05;
+  const swapProb = context.swapProb ?? 0.5;
+  const crossoverPoint = context.crossoverPoint;
+  const crossoverSeed = context.seed === undefined
+    ? `${parentA}:${parentB}:${crossoverStrategy}:${mutationRate}:${swapProb}:${crossoverPoint ?? 'uniform'}`
+    : String(context.seed);
   const childRecomb = geneticsService.crossoverGenome(genomeForAgent(rowA, await persistedGenes(rowA)), genomeForAgent(rowB, await persistedGenes(rowB)), {
-    strategy: context.strategy || 'uniform',
-    mutationRate: context.mutationRate ?? 0.05
+    strategy: crossoverStrategy,
+    mutationRate,
+    seed: crossoverSeed
   });
 
   // 2. Recombinaison native méiotique Rust via crates/genos-reproduction
@@ -134,8 +156,9 @@ async function breed(context) {
     const cliRun = await genosCli.runCrossover({
       parentA: rowA.id,
       parentB: rowB.id,
-      swapProb: context.swapProb || 0.5,
-      crossoverPoint: context.crossoverPoint
+      swapProb,
+      crossoverPoint,
+      seed: crossoverSeed
     });
     if (cliRun.ok && cliRun.json) {
       nativeRecomb = cliRun.json;
@@ -165,7 +188,18 @@ async function breed(context) {
     parentIds: [parentA, parentB],
     genes: childRecomb.childGenes,
     mutations: childRecomb.mutations,
-    predictedFitness: childRecomb.predictedFitnessScore
+    predictedFitness: childRecomb.predictedFitnessScore,
+    reproduction: {
+      engine: 'javascript_genome_authority',
+      strategy: crossoverStrategy,
+      mutationRate,
+      swapProb,
+      crossoverPoint: crossoverPoint ?? null,
+      seed: crossoverSeed,
+      parentFingerprint: childRecomb.parentFingerprint,
+      genomeHash: childRecomb.genomeHash,
+      nativeRecombination: nativeRecomb
+    }
   });
   if (!lineageResult.success) {
     await db.run('DELETE FROM agents WHERE id = ?', childId);
@@ -181,7 +215,8 @@ async function breed(context) {
     payload: {
       childId, parentA, parentB,
       childGenes: childRecomb.childGenes,
-      fitnessScore: childRecomb.predictedFitnessScore,
+      predictedFitnessScore: childRecomb.predictedFitnessScore,
+      fitnessStatus: 'unvalidated',
       nativeRecombination: nativeRecomb
     }
   });
@@ -193,17 +228,24 @@ async function breed(context) {
     parentB,
     crossoverTask,
     childGenes: childRecomb.childGenes,
-    fitnessScore: childRecomb.predictedFitnessScore,
-    nativeRecombination: nativeRecomb
+    predictedFitnessScore: childRecomb.predictedFitnessScore,
+    fitnessStatus: 'unvalidated',
+    nativeRecombination: nativeRecomb,
+      reproducibility: {
+        seed: crossoverSeed,
+        parentFingerprint: childRecomb.parentFingerprint,
+        genomeHash: childRecomb.genomeHash,
+        engine: 'javascript_genome_authority'
+      },
   };
 }
 
 async function select(context) {
   const db = await getDatabase();
-  const candidates = [...new Map((context.candidates || []).map((candidate) => {
+  const candidates = (context.candidates || []).map((candidate) => {
     const id = typeof candidate === 'string' ? candidate : candidate?.id;
-    return [id, { id, input: candidate }];
-  }).filter(([id]) => id)).values()];
+    return { id, input: candidate };
+  }).filter((candidate) => candidate.id);
   if (candidates.length === 0) {
     return { success: false, error: 'No candidates provided for selection.' };
   }
@@ -214,24 +256,29 @@ async function select(context) {
       : await db.get('SELECT a.id, a.status, a.current_task, l.score AS lineage_score FROM agents a LEFT JOIN lineage_nodes l ON l.id = a.id WHERE a.id = ?', candidate.id);
     if (!row) continue;
     const inputFitness = Number(candidate.input?.fitnessScore ?? candidate.input?.score);
-    const fitnessScore = Number.isFinite(inputFitness) ? inputFitness : Number(row.lineage_score || 0) * 100;
-    const evidenceScore = Number(candidate.input?.evidenceScore);
+    const fitnessScore = boundedPercentage(Number.isFinite(inputFitness) ? inputFitness : Number(row.lineage_score || 0) * 100);
+    const evidenceScore = boundedPercentage(candidate.input?.evidenceScore);
     const statusScore = row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : 0);
-    const score = statusScore + fitnessScore + (Number.isFinite(evidenceScore) ? evidenceScore : 0);
-    scored.push({ id: candidate.id, status: row.status, fitnessScore, evidenceScore: Number.isFinite(evidenceScore) ? evidenceScore : null, score });
+    const score = statusScore + (fitnessScore * 0.7) + (evidenceScore * 0.3);
+    scored.push({ id: candidate.id, status: row.status, fitnessScore, evidenceScore, score });
   }
-  scored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
-  const winner = scored[0] || null;
-  const losers = scored.slice(1).map(s => s.id);
+  const uniqueScored = [...scored.reduce((byId, candidate) => {
+    const previous = byId.get(candidate.id);
+    if (!previous || candidate.score > previous.score) byId.set(candidate.id, candidate);
+    return byId;
+  }, new Map()).values()];
+  uniqueScored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
+  const winner = uniqueScored[0] || null;
+  const losers = uniqueScored.slice(1).map(s => s.id);
   telemetry.emitEvent({
     eventType: 'EVOLUTION_SELECTION',
     agentId: context.orchestratorId || 'strategy_adapter',
     action: 'SELECT',
     detail: 'Selected winner ' + (winner ? winner.id : 'none') + ' from ' + candidates.length + ' candidates.',
     severity: 'info',
-    payload: { winner, losers, scored }
+    payload: { winner, losers, scored: uniqueScored }
   });
-  return { success: !!winner, winner, losers, scored };
+  return { success: !!winner, winner, losers, scored: uniqueScored };
 }
 
 async function paretoSelect(context) {

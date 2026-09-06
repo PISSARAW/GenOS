@@ -21,15 +21,22 @@ function resolveArchetypeGenes(role = 'worker') {
 }
 
 function evolveWorkerGenome(parentAgent, assignment, options = {}) {
+  const inheritedGenes = parentAgent?.genes && typeof parentAgent.genes === 'object' ? parentAgent.genes : {};
   const parentA = {
     id: parentAgent?.id || 'root-orchestrator',
     name: parentAgent?.name || 'Orchestrator',
     genes: {
       role: parentAgent?.role || 'orchestrator',
-      strategy: options.strategy || 'chain-of-thought',
+      strategy: options.strategy || inheritedGenes.strategy || 'chain-of-thought',
       tools: ['genos_snapshot', 'genos_capsule_create', 'genos_orchestrate'],
       temp: 0.4,
-      topP: 0.9
+      topP: 0.9,
+      ...inheritedGenes,
+      role: inheritedGenes.role || parentAgent?.role || 'orchestrator',
+      strategy: options.strategy || inheritedGenes.strategy || 'chain-of-thought',
+      tools: Array.isArray(inheritedGenes.tools) && inheritedGenes.tools.length
+        ? inheritedGenes.tools
+        : ['genos_snapshot', 'genos_capsule_create', 'genos_orchestrate']
     }
   };
 
@@ -60,6 +67,7 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
     genes: options.genes || {},
     parents: options.parents || {},
     mutations: options.mutations || [],
+    reproduction: options.reproduction || null,
     predictedFitness: Number.isFinite(Number(options.predictedFitness)) ? Number(options.predictedFitness) : null,
     fitnessStatus: Number.isFinite(Number(options.validatedFitness)) ? 'validated' : 'unvalidated'
   });

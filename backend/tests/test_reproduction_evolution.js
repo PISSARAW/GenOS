@@ -6,7 +6,7 @@ const geneticsService = require('../src/services/geneticsService');
 
 async function runTests() {
   console.log('=== Test Suite : Reconnexion de genos-reproduction & Moteur Génétique ===\n');
-  assert.strictEqual(geneticsService.crossoverGenome({ genes: { role: 'a', strategy: 'a', tools: [], temp: 0.1, topP: 0.9 } }, { genes: { role: 'b', strategy: 'b', tools: [], temp: 0.2, topP: 0.8 } }, { mutationRate: 0 }).mutationRateApplied, 0);
+  assert.strictEqual(geneticsService.crossoverGenome({ genes: { role: 'a', strategy: 'a', tools: ['genos_inspect'], temp: 0.1, topP: 0.9 } }, { genes: { role: 'b', strategy: 'b', tools: ['genos_test'], temp: 0.2, topP: 0.8 } }, { mutationRate: 0 }).mutationRateApplied, 0);
   assert.throws(() => geneticsService.crossoverGenome({}, {}, { mutationRate: 1.01 }), /mutationRate must be between 0 and 1/);
 
   // --- 1. Test CLI Rust : Meiotic Crossover ---
@@ -103,8 +103,11 @@ async function runTests() {
   assert(breedRes.childId, 'Offspring child ID must exist');
   assert(breedRes.childGenes, 'Inherited child genes must exist');
   assert(breedRes.childGenes.tools && breedRes.childGenes.tools.length > 0, 'Inherited tools must be non-empty');
-  assert(breedRes.fitnessScore > 0, 'Predicted fitness score must be calculated');
+  assert(breedRes.predictedFitnessScore > 0, 'Predicted fitness score must be calculated');
+  assert.strictEqual(breedRes.fitnessStatus, 'unvalidated');
   assert(breedRes.nativeRecombination, 'Rust native meiotic crossover must be recorded in breed result');
+    assert(breedRes.reproducibility?.seed, 'Breed must expose a replay seed');
+    assert(breedRes.reproducibility?.genomeHash, 'Breed must expose a reproducible genome hash');
 
   // Verify DB insertion
   const childRow = await db.get("SELECT * FROM agents WHERE id = ?", breedRes.childId);
