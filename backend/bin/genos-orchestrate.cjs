@@ -81,9 +81,11 @@ async function main() {
         await closeDatabase();
       }
     }
+    const detachedProcessId = `orchestrator-runner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const runnerRequest = {
       ...request,
       background: false,
+      detachedProcessId,
       orchestratorId,
       workerId: action === 'dispatch_worker' ? id : request.workerId,
       ...(action === 'dispatch_worker' ? {
@@ -97,8 +99,17 @@ async function main() {
       stdio: 'ignore'
     });
     runner.unref();
+    const trackingDb = await getDatabase();
+    await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (
+      id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT,
+      command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', orchestratorId, process.execPath);
+    await closeDatabase();
     process.stdout.write(JSON.stringify({
       orchestratorId,
+      detachedProcessId,
+      runnerPid: runner.pid,
       ...(action === 'dispatch_worker' ? {
         workerId: id,
         reusedWorker: Boolean(reusableWorker),
@@ -346,7 +357,10 @@ async function main() {
       await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", delegatedWorkerId).catch(() => {});
     }
     throw error;
-  } finally { await closeDatabase(); }
+  } finally {
+    if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
+    await closeDatabase();
+  }
 }
 
 main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
