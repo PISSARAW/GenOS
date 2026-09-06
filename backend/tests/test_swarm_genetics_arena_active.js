@@ -59,6 +59,10 @@ async function testGeneticEvolution() {
     label: 'Security Branch',
     strategy: 'adversarial-falsification'
   };
+  await db.run(
+    "INSERT OR IGNORE INTO lineage_nodes (id, workspace_id, label, node_type) VALUES (?, ?, 'Prime Orchestrator', 'core')",
+    orchestrator.id, orchestrator.workspace_id
+  );
 
   // 1. Genetic Crossover for real worker
   const evolution = agentEvolution.evolveWorkerGenome(orchestrator, assignment, {
