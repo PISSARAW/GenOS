@@ -1,4 +1,5 @@
 use genos_genome::Genome;
+use rand::RngExt;
 use uuid::Uuid;
 
 pub struct MeioticCrossover;
@@ -34,21 +35,21 @@ impl MeioticCrossover {
         let mut child = parent_a.clone();
         child.genome_id = Uuid::new_v4();
         let swap_prob = swap_prob.clamp(0.0, 1.0);
-        for (index, (a, b)) in child
+        let mut rng = rand::rng();
+        for (a, b) in child
             .chromosome_maternal
             .sequence
             .iter_mut()
             .zip(parent_b.chromosome_maternal.sequence.iter())
-            .enumerate()
+            
         {
-            if ((index * 37) % 100) as f64 / 100.0 < swap_prob {
+            if rng.random_bool(swap_prob) {
                 *a = b.clone();
             }
         }
-        for (i, gene_b) in parent_b.genes.iter().enumerate() {
-            let roll = ((i * 37) % 100) as f64 / 100.0;
-            if roll < swap_prob {
-                child.genes.insert(gene_b.0.clone(), gene_b.1.clone());
+        for (locus, gene_b) in &parent_b.genes {
+            if rng.random_bool(swap_prob) {
+                child.genes.insert(locus.clone(), gene_b.clone());
             }
         }
         child
