@@ -40,7 +40,12 @@ async function getPhylogeneticTree(workspaceId) {
   const sourceRows = rows.length > 0 ? rows : SEED_TREE_NODES;
   const nodes = sourceRows.map((row) => {
     let metadata = {};
-    try { metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata || '{}') : (row.metadata || {}); } catch {}
+    let metadataCorrupt = false;
+    try {
+      metadata = typeof row.metadata === 'string' ? JSON.parse(row.metadata || '{}') : (row.metadata || {});
+    } catch {
+      metadataCorrupt = true;
+    }
     return {
       id: row.id,
       parentId: null,
@@ -51,7 +56,8 @@ async function getPhylogeneticTree(workspaceId) {
       status: metadata.status || row.node_type,
       mutationType: metadata.mutationType,
       geneDiff: row.state_summary || '',
-      color: metadata.color
+      color: metadata.color,
+      metadataCorrupt
     };
   });
   const edges = edgeRows.map((row) => ({
