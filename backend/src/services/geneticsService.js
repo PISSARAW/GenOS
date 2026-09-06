@@ -130,6 +130,9 @@ function crossoverGenome(parentA, parentB, options = {}) {
   const resolvedA = parentA;
   const resolvedB = parentB;
   const strategy = options.strategy || 'uniform'; // single_point, multi_point, uniform
+  if (!['single_point', 'multi_point', 'uniform'].includes(strategy)) {
+    throw new RangeError(`Unsupported crossover strategy '${strategy}'.`);
+  }
   const mutationRate = options.mutationRate === undefined ? 0.05 : Number(options.mutationRate);
   if (!Number.isFinite(mutationRate) || mutationRate < 0 || mutationRate > 1) {
     throw new RangeError('mutationRate must be between 0 and 1');
@@ -140,6 +143,8 @@ function crossoverGenome(parentA, parentB, options = {}) {
   }
   const pA = resolvedA;
   const pB = resolvedB;
+  const toolsA = Array.isArray(pA.genes.tools) ? pA.genes.tools : [];
+  const toolsB = Array.isArray(pB.genes.tools) ? pB.genes.tools : [];
 
   const childGenes = {};
   const geneKeys = ['role', 'strategy', 'tools', 'temp', 'topP'];
@@ -159,10 +164,10 @@ function crossoverGenome(parentA, parentB, options = {}) {
     }
 
     if (key === 'tools') {
-      const toolSet = new Set(pickA ? pA.genes.tools : pB.genes.tools);
+      const toolSet = new Set(pickA ? toolsA : toolsB);
       // Horizontal gene transfer
       if (deterministicUnit(`${pA.name || 'A'}:${pB.name || 'B'}:tools`) < 0.5) {
-        toolSet.add(pB.genes.tools[0] || 'genos_inspect');
+        toolSet.add(toolsB[0] || 'genos_inspect');
       }
       childGenes.tools = Array.from(toolSet);
     } else {
