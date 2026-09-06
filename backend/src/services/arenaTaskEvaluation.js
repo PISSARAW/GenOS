@@ -6,6 +6,11 @@
 
 const { calculateParetoFront, calculateElo } = require('./arenaService');
 
+function nonNegativeNumber(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : fallback;
+}
+
 function extractDossierReport(dossier) {
   if (!dossier) return {};
   const events = Array.isArray(dossier.events) ? dossier.events : [];
@@ -50,9 +55,9 @@ function dossierToCandidate(dossier, options = {}) {
   const uncertaintyPenalty = uncertainties.length * 3;
   const rawFitness = Math.max(10, Math.min(100, 50 + claimScore - uncertaintyPenalty));
 
-  const latencyMs = Number(options.executionTimeMs || dossier.executionTimeMs || 25);
-  const tokens = Number(options.tokens || dossier.tokens || 1500);
-  const costUSD = Number(options.tokenCostUSD || (tokens * 0.000003).toFixed(5));
+  const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
+  const tokens = nonNegativeNumber(options.tokens ?? dossier.tokens, 1500);
+  const costUSD = nonNegativeNumber(options.tokenCostUSD ?? dossier.tokenCostUSD, Number((tokens * 0.000003).toFixed(5)));
 
   return {
     candidateId: dossier.workerId || dossier.id || `candidate-${Date.now()}`,
@@ -94,10 +99,10 @@ function evaluateTaskBenchmark(taskSpec, solutions = []) {
   const candidates = solutions.map((sol, idx) => ({
     candidateId: sol.id || `sol-${idx + 1}`,
     name: sol.name || `Solution ${idx + 1}`,
-    executionTimeMs: Number(sol.executionTimeMs || 10),
-    tokenCostUSD: Number(sol.tokenCostUSD || 0.001),
-    fitnessScore: Number(sol.fitnessScore || 80),
-    adversarialPassRate: Number(sol.passRate || (sol.passed ? 100 : 0))
+    executionTimeMs: nonNegativeNumber(sol.executionTimeMs, 10),
+    tokenCostUSD: nonNegativeNumber(sol.tokenCostUSD, 0.001),
+    fitnessScore: Number.isFinite(Number(sol.fitnessScore)) ? Number(sol.fitnessScore) : 80,
+    adversarialPassRate: Number.isFinite(Number(sol.passRate)) ? Number(sol.passRate) : (sol.passed ? 100 : 0)
   }));
 
   const pareto = calculateParetoFront(candidates);
