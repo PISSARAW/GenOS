@@ -69,7 +69,7 @@ const TABLES_CORE = [
 "    fleet_id TEXT,",
 "    hallucination_monitoring INTEGER NOT NULL DEFAULT 0, hallucination_count INTEGER NOT NULL DEFAULT 0,",
 "    dissonance_level REAL DEFAULT 0.0, eureka_count INTEGER DEFAULT 0,",
-"    cognitive_budget REAL DEFAULT 100.0, cognitive_baseline_budget REAL DEFAULT 100.0, conscience_revision INTEGER NOT NULL DEFAULT 0, is_apoptotic INTEGER DEFAULT 0,",
+"    cognitive_budget REAL DEFAULT 100.0, cognitive_baseline_budget REAL DEFAULT 100.0, cognitive_max_dissonance REAL DEFAULT 50.0, conscience_revision INTEGER NOT NULL DEFAULT 0, is_apoptotic INTEGER DEFAULT 0,",
 "    model_tier TEXT DEFAULT 'Flash',",
 "    language TEXT DEFAULT 'TypeScript',",
 "    isolation_mode TEXT DEFAULT 'Branch',",
