@@ -20,7 +20,7 @@ module.exports = {
         JOIN workspaces ww ON ww.id = worker.workspace_id
         JOIN workspaces wo ON wo.id = orchestrator.workspace_id
         WHERE worker.id = ? AND orchestrator.id = ? AND worker.execution_mode = 'worker'
-          AND ww.organization_id = wo.organization_id AND ww.project_id = wo.project_id`, worker_id, orchestrator_id);
+          AND ww.organization_id IS wo.organization_id AND ww.project_id IS wo.project_id`, worker_id, orchestrator_id);
       if (!pair) throw Object.assign(new Error('Worker and orchestrator are not in the same tenant.'), { code: 'INVALID_MISSION_SCOPE' });
       const workspace = await db.get('SELECT workspace_id FROM agents WHERE id = ?', worker_id);
       await agentAuthority.authorizeMission(db, worker_id, orchestrator_id, workspace?.workspace_id || null);
