@@ -18,25 +18,42 @@ function boundedPercentage(value) {
 function applyMutationDescriptors(genes, descriptors) {
   const nextGenes = { ...genes, tools: [...(genes.tools || [])] };
   const applied = [];
+  const rejected = [];
   for (const descriptor of descriptors) {
-    const gene = typeof descriptor === 'object' ? descriptor.gene : String(descriptor).match(/^([A-Za-z][\w]*)\s*=\s*(.+)$/)?.[1];
-    const rawValue = typeof descriptor === 'object' ? (descriptor.value ?? descriptor.newValue) : String(descriptor).match(/^([A-Za-z][\w]*)\s*=\s*(.+)$/)?.[2];
-    if (!MUTABLE_GENES.has(gene) || rawValue === undefined) continue;
+    const match = typeof descriptor === 'object' ? null : String(descriptor).match(/^([A-Za-z][\w]*)\s*=\s*(.+)$/);
+    const gene = typeof descriptor === 'object' ? descriptor?.gene : match?.[1];
+    const rawValue = typeof descriptor === 'object' ? (descriptor?.value ?? descriptor?.newValue) : match?.[2];
+    if (!MUTABLE_GENES.has(gene) || rawValue === undefined) {
+      rejected.push(String(descriptor));
+      continue;
+    }
+    const previousValue = nextGenes[gene];
     if (gene === 'tools') {
       nextGenes.tools = Array.isArray(rawValue) ? rawValue.map(String) : String(rawValue).split(',').map((tool) => tool.trim()).filter(Boolean);
-      if (!nextGenes.tools.length) continue;
+      if (!nextGenes.tools.length) {
+        rejected.push(String(descriptor));
+        continue;
+      }
     } else if (gene === 'temp' || gene === 'topP') {
       const value = Number(rawValue);
-      if (!Number.isFinite(value) || value < 0 || value > 1) continue;
+      if (!Number.isFinite(value) || value < 0 || value > 1) {
+        rejected.push(String(descriptor));
+        continue;
+      }
       nextGenes[gene] = value;
     } else if (String(rawValue).trim()) {
       nextGenes[gene] = String(rawValue).trim();
     } else {
+      rejected.push(String(descriptor));
+      continue;
+    }
+    if (JSON.stringify(previousValue) === JSON.stringify(nextGenes[gene])) {
+      rejected.push(String(descriptor));
       continue;
     }
     applied.push({ gene, value: nextGenes[gene] });
   }
-  return { genes: nextGenes, applied };
+  return { genes: nextGenes, applied, rejected };
 }
 
 async function mutate(context) {
@@ -66,6 +83,13 @@ async function mutate(context) {
     mutationRate: context.mutationRate
   });
   const descriptorResult = applyMutationDescriptors(evolved.genes, mutations);
+  if (descriptorResult.rejected.length > 0 || descriptorResult.applied.length === 0) {
+    return {
+      success: false,
+      error: 'Mutation descriptors were invalid or produced no change.',
+      rejectedMutations: descriptorResult.rejected
+    };
+  }
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
   const mutantId = 'mutant_' + crypto.randomUUID();
   await db.run('BEGIN');
