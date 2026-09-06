@@ -264,15 +264,29 @@ impl AgentCell {
         daughter_b.is_senescent = daughter_a.is_senescent;
         daughter_b.regenerate_organelle_ids();
 
+        if mutation_rate > 0.0 {
+            for organelle in &mut daughter_b.organelles {
+                if let Organelle::Mitochondrion { efficiency, .. } = organelle {
+                    *efficiency = (*efficiency * (1.0 + mutation_rate * 0.1)).clamp(0.1, 2.0);
+                }
+            }
+            if mutation_rate >= 0.1 {
+                daughter_b.role = format!("{} (mutant)", daughter_b.role);
+            }
+        }
+
         Ok((daughter_a, daughter_b))
     }
 
-    pub fn schizogony(&mut self, merozoite_count: usize, _mutation_rate: f64) -> Result<Vec<AgentCell>, String> {
+    pub fn schizogony(&mut self, merozoite_count: usize, mutation_rate: f64) -> Result<Vec<AgentCell>, String> {
         if merozoite_count < 2 || merozoite_count > 128 {
             return Err(format!(
                 "Merozoite count must be between 2 and 128, got {}",
                 merozoite_count
             ));
+        }
+        if !(0.0..=1.0).contains(&mutation_rate) {
+            return Err("Mutation rate must be between 0 and 1".to_string());
         }
         self.can_divide()?;
 
@@ -282,8 +296,9 @@ impl AgentCell {
         for idx in 0..merozoite_count {
             let mut merozoite = self.clone();
             merozoite.cell_id = Uuid::new_v4();
-            merozoite.name = format!("{}_merozoite_{}", self.name, idx + 1);
-            merozoite.role = format!("Merozoite Branch of {}", self.role);
+            let mutant_tag = if mutation_rate > 0.0 { format!(" [mutated:{:.2}]", mutation_rate) } else { "".to_string() };
+            merozoite.name = format!("{}_merozoite_{}{}", self.name, idx + 1, mutant_tag);
+            merozoite.role = format!("Merozoite Branch of {}{}", self.role, mutant_tag);
             merozoite.conscience.current_budget = per_merozoite_budget;
             merozoite.conscience.baseline_budget = per_merozoite_budget;
             merozoite.bud_scars = 0;
@@ -293,6 +308,13 @@ impl AgentCell {
             merozoite.ephemeral_ttl = Some(5);
             merozoite.hayflick_limit = (self.hayflick_limit / 2).max(1);
             merozoite.regenerate_organelle_ids();
+            if mutation_rate > 0.0 {
+                for organelle in &mut merozoite.organelles {
+                    if let Organelle::Mitochondrion { efficiency, .. } = organelle {
+                        *efficiency = (*efficiency * (1.0 + mutation_rate * 0.05 * (idx as f64 + 1.0))).clamp(0.1, 2.0);
+                    }
+                }
+            }
             merozoites.push(merozoite);
         }
 
