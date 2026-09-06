@@ -162,6 +162,10 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
   const initialRound = plan.tokenPolicy?.rounds?.initial;
+  const initialWorkerTokens = initialRound?.workerTokens;
+  if (initialWorkerTokens && initialWorkerTokens.length !== assignments.length) {
+    throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
+  }
   const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
   const workers = [];
   const sourceWorkspace = parent.workspace_path;
@@ -171,6 +175,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   }
   const usedNames = [];
   for (const [index, assignment] of assignments.entries()) {
+    const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
     const id = autonomousWorkerId(orchestrator.id, index + 1);
     const identity = agentIdentity.generateAgentIdentity({
       preferredName: assignment.preferredName || assignment.name,
@@ -202,8 +207,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
         : `Budget allocation: ${perWorkerTokens} tokens.`
     ].filter(Boolean).join('\n');
     const promptTokenEstimate = Math.ceil(Buffer.byteLength(prompt, 'utf8') / 4);
-    if (perWorkerTokens > 0 && promptTokenEstimate >= perWorkerTokens) {
-      throw Object.assign(new Error(`Worker '${assignment.label || id}' prompt consumes its token budget before generation (${promptTokenEstimate} >= ${perWorkerTokens}).`), { code: 'WORKER_PROMPT_BUDGET_EXCEEDED' });
+    if (assignedTokens > 0 && promptTokenEstimate >= assignedTokens) {
+      throw Object.assign(new Error(`Worker '${assignment.label || id}' prompt consumes its token budget before generation (${promptTokenEstimate} >= ${assignedTokens}).`), { code: 'WORKER_PROMPT_BUDGET_EXCEEDED' });
     }
     await agentEvolution.recordWorkerLineage(db, {
       agentId: id, name, role: assignment.role, workspaceId: parent.workspace_id
@@ -220,7 +225,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
       id, name, nameMeaning, assignment.role, parent.agent_type || 'GenOS',
       parent.workspace_id || null, parent.fleet_id || null, localRoute.selectedModel || assignment.modelTier || parent.model_tier || 'standard',
       parent.language || 'TypeScript', parent.isolation_mode || 'Branch', parent.id,
-      `${identity.introduction} Budget round: initial; allocation: ${perWorkerTokens} tokens.`, prompt,
+      `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt,
       initialConscience.dissonanceLevel, initialConscience.eurekaMoments, initialConscience.currentBudget, initialConscience.isApoptotic ? 1 : 0
     );
     workers.push({
@@ -233,7 +238,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
       workspaceId: parent.workspace_id, fleetId: parent.fleet_id, agentType: parent.agent_type,
       workspaceRoot, workspaceProvisioned: true, localModel: localRoute.selectedModel, localRoutingPolicy: localRoute.policy, localRoutingCriteria: localRoute.criteria, toolLease: workerToolLease(assignment.role),
       executionPolicy: mission.executionPolicy,
-      executionBudget: { ...mission.executionBudget, tokens: perWorkerTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
+      executionBudget: { ...mission.executionBudget, tokens: assignedTokens }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
       genome: evolution.genes, predictedFitness: evolution.predictedFitness
     });
   }

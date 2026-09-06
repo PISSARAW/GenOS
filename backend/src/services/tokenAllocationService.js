@@ -10,7 +10,12 @@ function boundedScore(value) {
 
 function splitPool(pool, workerCount) {
   const perWorkerTokens = workerCount ? Math.floor(pool / workerCount) : 0;
-  return { perWorkerTokens, remainderTokens: pool - (perWorkerTokens * workerCount) };
+  const remainderTokens = pool - (perWorkerTokens * workerCount);
+  return {
+    perWorkerTokens,
+    remainderTokens,
+    workerTokens: Array.from({ length: workerCount }, (_, index) => perWorkerTokens + (index < remainderTokens ? 1 : 0))
+  };
 }
 
 // This is intentionally deterministic.  The runtime can persist and replay the
