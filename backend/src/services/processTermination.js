@@ -31,6 +31,10 @@ function terminatePid(pid) {
   const numericPid = Number(pid);
   if (!Number.isInteger(numericPid) || numericPid <= 0 || numericPid === process.pid) return false;
   try {
+    if (process.platform === 'win32') {
+      execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+      return true;
+    }
     process.kill(numericPid, 'SIGTERM');
     return true;
   } catch (_) {
