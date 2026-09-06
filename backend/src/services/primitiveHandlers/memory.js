@@ -146,6 +146,15 @@ async function stdpUpdate(context) {
         last_updated_at = CURRENT_TIMESTAMP`,
     sourceId, targetId, update, transmitterType, preSpikeAt, postSpikeAt, deltaT
   );
+    await db.run(
+      `UPDATE memory_synapses SET
+         receptor_density = CASE WHEN ? > 0 THEN MIN(3.0, receptor_density + 0.05) ELSE MAX(0.0, receptor_density - 0.05) END,
+         activity_history = activity_history + 1,
+         c3_opsonization = CASE WHEN ? > 0 THEN 0.0 ELSE c3_opsonization + 0.1 END,
+         cd47_expression = CASE WHEN ? > 0 THEN MIN(2.0, cd47_expression + 0.2) ELSE MAX(0.0, cd47_expression - 0.1) END
+       WHERE source_id = ? AND target_id = ?`,
+      update, update, update, sourceId, targetId
+    );
   const row = await db.get('SELECT weight FROM memory_synapses WHERE source_id = ? AND target_id = ?', sourceId, targetId);
   telemetry.emitEvent({
     eventType: 'STDP_SYNAPSE_UPDATED',

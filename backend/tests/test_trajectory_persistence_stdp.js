@@ -89,6 +89,7 @@ async function runTests() {
   );
   assert.ok(synRow, 'La synapse doit exister dans la table memory_synapses');
   assert.ok(synRow.weight > 0 && synRow.delta_t_ms === 10, 'Le poids et le timing pré/post doivent être persistés');
+  assert.ok(synRow.receptor_density > 1 && synRow.c3_opsonization === 0, 'La LTP doit renforcer les récepteurs et effacer C3');
   console.log(`-> Cas 3.1 Validé : Synapse créée avec poids ${synRow.weight} dans memory_synapses.`);
 
   // Cas 3.2 : dépression lorsque le spike post-synaptique précède le pré-synaptique
@@ -102,6 +103,8 @@ async function runTests() {
   });
   assert.ok(stdpReinforce.success);
   assert.ok(stdpReinforce.newWeight < synRow.weight, 'Le poids synaptique doit diminuer en LTD');
+  const ltdRow = await db.get('SELECT receptor_density, c3_opsonization FROM memory_synapses WHERE source_id = ? AND target_id = ?', stdpAuto.sourceId, stdpAuto.targetId);
+  assert.ok(ltdRow.receptor_density < synRow.receptor_density && ltdRow.c3_opsonization > 0, 'La LTD doit rétracter les récepteurs et marquer C3');
   console.log(`-> Cas 3.2 Validé : Dépression temporelle (${synRow.weight} -> ${stdpReinforce.newWeight}).`);
 
   console.log('=== TOUS LES TESTS DE PERSISTANCE DE TRAJECTOIRE ET STDP ONT RÉUSSI ===');
