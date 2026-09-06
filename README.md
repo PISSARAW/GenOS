@@ -107,8 +107,10 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 
 ### 3. Neurobiology & Synaptic Growth
 - **Structural Plasticity:** Axonal terminals and dendritic spines (`DendriticTree`) physically grow (`spine.receptor_density += 0.05`) when repeatedly exercised by successful problem-solving paths.
-- **Synaptic Pruning:** Inactive connections are marked by C3 opsonization ("eat-me" signals) and engulfed by microglia processors, freeing working memory.
-- **Spike-Timing-Dependent Plasticity (STDP):** Causal pathways that precede positive test resolutions are reinforced; retrograde errors weaken connections.
+- **Synaptic Pruning & Sleep Cycles:** Inactive connections are marked by C3 opsonization ("eat-me" signals) and CD47 markers, then engulfed by microglial processors during automated sleep cycles (`sleepCycle.js`), freeing working memory.
+- **3-Factor Spike-Timing-Dependent Plasticity (STDP):** Causal pathways are reinforced or depressed in Rust (`crates/genos-biology/src/neurobiology.rs`) and persisted to the SQLite connectome (`synaptic_receptors`, `synaptic_edges`) based on dopaminergic outcome rewards, LTP (long-term potentiation), and LTD (long-term depression).
+- **Time Cells & Ebbinghaus Curve:** Chronological memory ordering with contextual workspace isolation and continuous temporal decay modeled by the Ebbinghaus forgetting curve.
+- **Unified 768-D Multi-Model Embeddings:** Hybrid vector/BM25 retrieval engine (`embeddingProvider.js`) supporting local Xenova Transformers (`all-MiniLM-L6-v2`), local Ollama (`nomic-embed-text`), and OpenAI (`text-embedding-3-small`), rejecting degenerate zero-vectors and powering Reciprocal Rank Fusion (RRF) with accent-preserving FTS5 tokenization.
 
 ### 4. Epistemic Stigmergy & Swarm Intelligence
 - **Digital Pheromones (`pheromoneDeposit`, `trailSelection`):** Agents mark code artifacts with digital scents (recruitment, alert, verified). Pheromones experience temporal evaporation, letting the swarm self-organize on hot paths without conversational overhead.
@@ -130,8 +132,8 @@ GenOS ships with a strategy registry and an execution dispatcher (`backend/src/s
 3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`, `plasmid_divergent_fork`.
 4. **Safety & Resilience:** `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
 5. **Collective Swarm:** `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
-6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`.
-7. **Deep Search & Budget:** `mcts_select` (UCB1), `prune` (Beam Search), `reallocate`, `budget_limit`, `prm_evaluate`.
+6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`, 3-way merge.
+7. **Deep Search & Budget:** `mcts_select` (UCB1), `prune` (recursive Beam Search), `reallocate`, `budget_limit`, `prm_evaluate`.
 
 ---
 
@@ -139,8 +141,8 @@ GenOS ships with a strategy registry and an execution dispatcher (`backend/src/s
 
 ```text
 GenOS/
-├── crates/                    # Core Rust Biomimetic Engine
-│   ├── genos-biology/         # Embryology, HOX differentiation, glial, neurobiology, tissue
+├── crates/                    # Core Rust Biomimetic Engine (13 Crates)
+│   ├── genos-biology/         # Embryology, HOX differentiation, glial, neurobiology (STDP), tissue
 │   ├── genos-cell/            # Cellular agent definitions, metabolism, organelles
 │   ├── genos-genome/          # Epigenetics, chromatin states, loci, crossover
 │   ├── genos-reproduction/    # Mitosis, binary fission, budding, schizogony, meiosis
@@ -150,21 +152,29 @@ GenOS/
 │   ├── genos-store/           # Merkle snapshots, versioned world capsules
 │   ├── genos-common/          # Shared traits, errors, and biological interfaces
 │   ├── genos-api/             # Native API endpoints
-│   └── genos-cli/             # Native CLI binary
+│   ├── genos-cli/             # Native CLI binary (genos)
+│   ├── genos-mcp/             # Native biological Model Context Protocol server
+│   └── genos-simple-cli/      # User-friendly quick command CLI (g)
 ├── backend/                   # Node.js Control Plane & Runtime API
-│   ├── bin/                   # Runtime binaries (genos-orchestrate, genos-apoptosis, etc.)
-│   ├── proto/                 # Protocol Buffers definitions (agent, memory, workspace)
+│   ├── bin/                   # Runtime binaries (genos-orchestrate, genos-agent-runtime, etc.)
+│   ├── proto/                 # Protocol Buffers definitions (lineage.proto)
 │   ├── src/
-│   │   ├── controllers/       # HTTP/gRPC controllers
-│   │   ├── db/                # SQLite database interface & migrations
-│   │   ├── services/          # Core services (genetics, swarm metrics, immune, fleet)
-│   │   │   ├── primitiveHandlers/  # 7 Lots of real executable primitives
+│   │   ├── controllers/       # HTTP REST controllers (memory, tools, arena, genome, workspaces)
+│   │   ├── grpc_services/     # gRPC microservices (lineageService.js)
+│   │   ├── db/                # SQLite WAL, sqlite-vec 768-D, FTS5 triggers, 67+ tables
+│   │   ├── services/          # Memory, embeddings, STDP connectome, sleep cycles, fleet
+│   │   │   ├── primitiveHandlers/      # Concrete handlers for all 7 lots
 │   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 78 strategies
-│   │   │   └── mcpBioTools.js      # Biomimicry MCP tools executor
-│   │   └── strategies/        # Strategy registry and classification
-│   └── tests/                 # Comprehensive test suite (unit, integration, adversarial)
+│   │   │   ├── embeddingProvider.js    # Unified 768-D multi-backend embeddings
+│   │   │   ├── budgetCoherenceService.js # 60/40 budget validation & envelope checks
+│   │   │   ├── mcpToolRegistry.js      # 239 tools typed dispatcher
+│   │   │   └── sleepCycle.js           # Hippocampal consolidation & microglial pruning
+│   │   └── strategies/        # Strategy catalog and classification families
+│   └── tests/                 # Comprehensive test suite (unit, integration, budget, human gate)
 ├── mcp/                       # Model Context Protocol server bridge for IDEs & agents
 ├── integrations/              # IDE extension contracts and integration schemas
+├── examples/                  # Standalone executable scenarios
+│   └── safe-debugging-demo/   # Zero-token parallel debugging benchmark
 ├── scripts/                   # Orchestration, code analysis, and maintenance scripts
 ├── strategies.md              # Detailed catalog of all 78 implemented & experimental strategies
 ├── runtime_arbiter.js         # The Thermodynamic Reality Arbiter
@@ -193,14 +203,14 @@ cargo build --workspace
 cargo test --workspace
 ```
 
-### 2. Start the Backend Runtime
+### 2. Start the Backend Control Plane
 
 ```bash
 cd backend
 npm install
 npm start
 ```
-The runtime initializes SQLite, loads vector and graph capabilities, and exposes the HTTP and gRPC control plane.
+The runtime initializes SQLite in WAL mode with `sqlite-vec`, sets up FTS5 BM25 search with triggers, and exposes both the HTTP REST API (port 4000) and the gRPC Lineage service (port 50051).
 
 The `g.cmd` and `g.ps1` wrappers intentionally target the user-friendly
 `genos-simple-cli` binary (`g`). The native `genos-cli` binary (`genos`) is
@@ -209,7 +219,7 @@ building the workspace; the two CLIs expose different command surfaces.
 
 ### 3. Connect via MCP (Model Context Protocol)
 
-GenOS provides an integrated MCP server allowing Claude, Cursor, or any compatible AI agent to invoke biological primitives:
+GenOS provides an integrated MCP server and tool dispatcher exposing 239 tools to Claude, Cursor, or external agent runtimes:
 
 ```bash
 cd mcp
@@ -217,12 +227,10 @@ npm install
 node index.js
 ```
 
-Available tools include:
-- `genos_biomimicry_stigmergy_deposit`: Leave digital pheromones on files.
-- `genos_resilience_cryptobiosis`: Enter deep hibernation to survive token famine.
-- `genos_biomimicry_epigenetic_chromatin`: Lock or unlock tool access via chromatin state.
-- `genos_evolution_assimilate_plasmid`: Horizontal skill transfer between agents.
-- `genos_biomimicry_telomere_fork`: Replicate agents with telomeric lifespan bounds.
+Available tool types:
+- **Strategy Tools:** `genos_strategy_*` (MCTS pruning, 3-way merge, causal rebase, PRM evaluation).
+- **Biomimicry Tools:** `genos_biomimicry_*` (stigmergy pheromones, cryptobiosis stasis, chromatin tool locking).
+- **CLI Wrappers:** `genos_*` (native rust execution transport).
 
 ### 4. Run an Autonomous Orchestration Mission
 
@@ -230,17 +238,31 @@ Available tools include:
 node backend/bin/genos-orchestrate.cjs '{"mission": "Refactor authorization layer with zero-downtime canary fork", "background": true}'
 ```
 
+### 5. Run the Safe Parallel Debugging Demo (Zero Tokens)
+
+```bash
+# On Linux / macOS (Bash)
+./examples/safe-debugging-demo/run-demo.sh
+
+# On Windows / Cross-Platform (Node.js)
+cargo build -p genos-cli
+node examples/safe-debugging-demo/run-demo.mjs target/debug/genos
+```
+
 ---
 
-## Code Governance: The Evidence Arbiter
+## Code Governance: The Evidence Arbiter & Promotion Gates
 
-To ensure that autonomous agents do not produce unmaintainable spaghetti code or collude in hallucinations, GenOS enforces rules encoded in [`.genos.md`](.genos.md) and checked by [`runtime_arbiter.js`](runtime_arbiter.js):
+To ensure that autonomous agents do not produce unmaintainable code or collude in hallucinations, GenOS enforces rules checked by [`runtime_arbiter.js`](runtime_arbiter.js) and the backend security services:
 
 1. **Low Cyclomatic Complexity:** Code must remain readable, direct, and testable.
 2. **Strict Parameter Limits:** Maximum 3 parameters per function.
 3. **SOLID Principles:** Rigid separation of concerns across cellular modules.
 4. **Line Bounds:** Source files must not exceed 400 lines without an explicit exemption.
 5. **No Architectural Deviations:** Any fundamental pattern change requires an Architecture Decision Record (ADR).
+6. **Costly Signaling (Handicap de Zahavi):** Gated by actual runtime compute and token expenditure (minimum 500 tokens for critical evaluations in [`ecology.rs`](crates/genos-biology/src/ecology.rs)), strictly rejecting zero-cost collusion.
+7. **Budget Coherence:** Validates mission envelopes and enforces a 60% worker / 40% orchestrator reserve split via [`budgetCoherenceService.js`](backend/src/services/budgetCoherenceService.js).
+8. **Human Approval Promotion Gate:** Autonomous Codex deployments and high-impact mutations require explicit, authenticated human approval before branch promotion.
 
 Any generated patch failing these conditions is rejected by the Evidence Arbiter and discarded by the runtime recovery path.
 
