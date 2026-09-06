@@ -39,7 +39,7 @@ const {
 const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
 const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
-const { terminateChild } = require('./processTermination');
+const { terminateChild, terminatePid } = require('./processTermination');
 
 async function startMissionInternal(mission) {
   const agentId = mission.agentId || mission.id;
@@ -208,6 +208,16 @@ function stopMission(agentId) {
     return true;
   }
   if (!child) {
+    getDatabase().then(async (db) => {
+      const agent = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', agentId);
+      if (agent?.runtime_pid) {
+        terminatePid(agent.runtime_pid);
+        await db.run("UPDATE agents SET status = 'blocked', runtime_pid = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
+      }
+    }).catch(() => {});
+    return false;
+  }
+  if (!child) {
     const barrier = activeWorkerBarriers.get(agentId);
     if (!barrier) return false;
     barrier.cancelled = true;
@@ -225,10 +235,25 @@ function stopAllMissions() {
   return [...new Set([...activeProcesses.keys(), ...activeWorkerBarriers.keys()])].filter(stopMission);
 }
 
+async function reconcilePersistedRuntimes(db) {
+  const rows = await db.all("SELECT id, runtime_pid FROM agents WHERE status = 'running' AND runtime_pid IS NOT NULL");
+  let reconciled = 0;
+  for (const row of rows) {
+    let alive = true;
+    try { process.kill(Number(row.runtime_pid), 0); } catch (_) { alive = false; }
+    if (!alive) {
+      await db.run("UPDATE agents SET status = 'error', runtime_pid = NULL, current_task = 'Runtime disappeared before shutdown reconciliation', updated_at = CURRENT_TIMESTAMP WHERE id = ?", row.id);
+      reconciled += 1;
+    }
+  }
+  return reconciled;
+}
+
 module.exports = {
   startMission,
   stopMission,
   stopAllMissions,
+  reconcilePersistedRuntimes,
   configuredExecutable,
   bundledRuntimeEnvironment,
   runtimeAvailability,

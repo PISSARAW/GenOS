@@ -11,6 +11,7 @@ const { getDatabase, closeDatabase } = require('./src/db');
 const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
+const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 
 const PORT = process.env.PORT || 4000;
 
@@ -38,6 +39,7 @@ async function startServer() {
     // 1. Initialize SQLite Database & Schema (WAL mode allows concurrent processes!)
     console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
     const db = await getDatabase();
+    await runtimeAdapter.reconcilePersistedRuntimes(db);
     if (cluster.worker.id === 1) { // Only worker 1 processes background jobs to prevent duplicate jobs
         jobWorker.startJobWorker();
     }
