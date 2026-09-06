@@ -358,3 +358,79 @@ impl GlialPipeline {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn neuron(id: &str, atp_budget: f64) -> GlialCell {
+        GlialCell {
+            cell_id: id.to_string(),
+            metabolism: glial_cell::Metabolism { atp_budget },
+            astrocyte: None,
+            myelinator: None,
+            microglia: None,
+            ependymal: None,
+            nervous_system: Some(glial_cell::NervousSystem {
+                location: NervousSystemLocation::Central,
+                axon: glial_cell::Axon {
+                    terminals: vec![glial_cell::Synapse { c3_opsonization: 0.0, cd47_expression: 1.0 }],
+                    myelination_level: 0.5,
+                    is_severed: false,
+                    nogo_inhibited: false,
+                },
+            }),
+        }
+    }
+
+    #[test]
+    fn reactive_astrocytes_support_neurons_without_deleting_synapses() {
+        let mut agent = neuron("neuron-1", 10.0);
+        agent.astrocyte = Some(Astrocyte {
+            glycogen_reserve: 1.0,
+            is_reactive: true,
+            protected_neurons: vec!["neuron-1".to_string()],
+        });
+        let mut bhe = 1.0;
+        let mut plaques = 0.0;
+        let mut volume = 0.0;
+        let mut pressure = 10.0;
+        let mut agents = vec![agent];
+        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
+            bhe_integrity: &mut bhe,
+            amyloid_plaques: &mut plaques,
+            csf_volume: &mut volume,
+            csf_pressure: &mut pressure,
+            is_sleeping: false,
+            drainage_blocked: false,
+        });
+        assert_eq!(agents[0].nervous_system.as_ref().unwrap().axon.terminals.len(), 1);
+    }
+
+    #[test]
+    fn ependymal_pressure_and_microglial_inflammation_remain_bounded() {
+        let mut agent = neuron("neuron-2", 100.0);
+        agent.ependymal = Some(EpendymalCell { is_producing_csf: true, cilia_beating: false });
+        agent.microglia = Some(Microglia {
+            state: MicrogliaState::Amoeboid,
+            plaque_accumulation: 20.0,
+            inflammatory_cytokines: 99.0,
+            c4_overexpression: true,
+            is_pro_inflammatory: true,
+        });
+        let mut plaques = 50.0;
+        let mut volume = 0.0;
+        let mut pressure = 19.9;
+        let mut agents = vec![agent];
+        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
+            bhe_integrity: &mut 1.0,
+            amyloid_plaques: &mut plaques,
+            csf_volume: &mut volume,
+            csf_pressure: &mut pressure,
+            is_sleeping: false,
+            drainage_blocked: true,
+        });
+        assert!(pressure <= 20.0);
+        assert!(agents[0].microglia.as_ref().unwrap().inflammatory_cytokines <= 100.0);
+    }
+}
