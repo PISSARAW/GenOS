@@ -5,6 +5,7 @@
 
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 
 // Security & Error Middlewares
 const { securityHeaders, originCheck, csrfCheck, xssSanitizer, ALLOWED_ORIGINS } = require('./middleware/security');
@@ -60,7 +61,9 @@ function createApp() {
   const { asyncLocalStorage } = require('./services/asyncContext');
   app.use((req, res, next) => {
       const traceId = req.headers['x-trace-id'] || `trace-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      asyncLocalStorage.run(new Map([['traceId', traceId], ['requestId', req.id]]), () => {
+      const requestId = req.id || req.headers['x-request-id'] || `req-${crypto.randomUUID()}`;
+      req.id = requestId;
+      asyncLocalStorage.run(new Map([['traceId', traceId], ['requestId', requestId]]), () => {
           next();
       });
   });
