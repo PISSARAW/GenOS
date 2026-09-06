@@ -282,6 +282,52 @@ impl DendriticTree {
         pruned_count
     }
 
+    /// STDP Postsynaptique : ajuste la morphologie et la conductance de l'épine dendritique
+    pub fn apply_postsynaptic_stdp(&mut self, source_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
+        let tau_plus = 20.0;
+        let tau_minus = 20.0;
+
+        for comp in self.compartments.iter_mut() {
+            if let Some(spine) = comp.spines.iter_mut().find(|s| s.source_id == source_id) {
+                let delta_dw = if delta_t > 0.0 {
+                    learning_rate * (-delta_t.abs() / tau_plus).exp()
+                } else if delta_t < 0.0 {
+                    -learning_rate * (-delta_t.abs() / tau_minus).exp()
+                } else {
+                    0.0
+                };
+
+                if delta_dw > 0.0 {
+                    // LTP postsynaptique : croissance de l'épine et accumulation d'AMPA
+                    spine.receptor_density = (spine.receptor_density + delta_dw * 2.0).min(3.5);
+                    spine.ampa_receptors = (spine.ampa_receptors + delta_dw * 2.5).min(3.0);
+                    spine.cd47_expression = (spine.cd47_expression + delta_dw * 1.5).min(2.0);
+                    spine.c3_opsonization = 0.0;
+
+                    if spine.receptor_density > 1.8 && spine.morphology != SpineMorphology::Mushroom {
+                        spine.morphology = SpineMorphology::Mushroom;
+                    } else if spine.morphology == SpineMorphology::Filopodia {
+                        spine.morphology = SpineMorphology::Thin;
+                    }
+                } else if delta_dw < 0.0 {
+                    // LTD postsynaptique : rétractation et marquage C3
+                    spine.receptor_density = (spine.receptor_density + delta_dw).max(0.1);
+                    spine.ampa_receptors = (spine.ampa_receptors + delta_dw * 1.5).max(0.05);
+                    spine.cd47_expression = (spine.cd47_expression + delta_dw).max(0.0);
+                    spine.c3_opsonization = (spine.c3_opsonization - delta_dw * 1.5).min(2.0);
+
+                    if spine.receptor_density < 0.8 && spine.morphology == SpineMorphology::Mushroom {
+                        spine.morphology = SpineMorphology::Stubby;
+                    }
+                }
+
+                spine.activity_history += 1;
+                return Some(spine.receptor_density);
+            }
+        }
+        None
+    }
+
     pub fn apply_structural_plasticity(&mut self) {
         for compartment in self.compartments.iter_mut() {
             for spine in compartment.spines.iter_mut() {
@@ -609,8 +655,50 @@ impl NervousSystem {
 }
 
 impl NervousSystem {
+    /// Établit une connexion synaptique complète entre ce neurone (axone présynaptique)
+    /// et le neurone cible (épine postsynaptique dans le compartiment sélectionné)
+    pub fn form_synaptic_connection(
+        &mut self,
+        target: &mut NervousSystem,
+        weight: f64,
+        transmitter: Neurotransmitter,
+        target_compartment: Option<&str>,
+    ) {
+        // Bouton présynaptique sur l'axone
+        self.axon.terminals.push(Synapse::new(target.node_id.clone(), weight, transmitter));
+
+        // Épine dendritique postsynaptique sur le compartiment cible
+        let comp_id = target_compartment.unwrap_or("apical_oblique");
+        if let Some(comp) = target.dendritic_tree.get_compartment_mut(comp_id) {
+            let mut spine = DendriticSpine::new(&self.node_id, SpineMorphology::Thin);
+            spine.receptor_density = (weight * 2.0).clamp(0.5, 2.5);
+            comp.spines.push(spine);
+        }
+    }
+
+    /// Transmet un train de potentiel d'action du soma présynaptique vers le récepteur
+    pub fn transmit_signal(sender: &mut NervousSystem, receiver: &mut NervousSystem) -> usize {
+        let mut delivered_count = 0;
+        if let Some(signals) = sender.process_soma() {
+            for (target_id, transmitter, amount) in signals {
+                if target_id == receiver.node_id {
+                    receiver.receive_neurotransmitter(
+                        &sender.node_id,
+                        &NeuroSignal { transmitter, amount },
+                    );
+                    delivered_count += 1;
+                }
+            }
+        }
+        delivered_count
+    }
+
     pub fn apply_stdp(&mut self, target_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
         self.axon.apply_stdp(target_id, delta_t, learning_rate)
+    }
+
+    pub fn apply_postsynaptic_stdp(&mut self, source_id: &str, delta_t: f64, learning_rate: f64) -> Option<f64> {
+        self.dendritic_tree.apply_postsynaptic_stdp(source_id, delta_t, learning_rate)
     }
 }
 
