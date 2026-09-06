@@ -128,17 +128,15 @@ async function approveTrajectory(req, res) {
   const trajectory = await findScopedTrajectory(db, req, id);
   if (!trajectory) return res.status(404).json({ error: { code: 'TRAJECTORY_NOT_FOUND', message: `Trajectory '${id}' was not found in this project.` } });
   if (!['pending', 'active'].includes(trajectory.status)) return res.status(409).json({ error: { code: 'INVALID_TRAJECTORY_STATE', message: `Trajectory '${id}' cannot be approved from '${trajectory.status}'.` } });
-  await db.run("UPDATE trajectories SET status = 'approved', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?", id, trajectory.status);
-
-  telemetry.emitEvent({
-    eventType: 'TRAJECTORY_APPROVED',
-    agentId: 'operator',
-    action: 'APPROVE',
-    detail: `Trajectory ${id} approved and merged into workspace master`,
-    severity: 'info'
+  return res.status(501).json({
+    error: {
+      code: 'TRAJECTORY_MERGE_NOT_IMPLEMENTED',
+      message: 'Approval is disabled until an authenticated validation and repository merge executor is available.'
+    },
+    trajectoryId: id,
+    status: trajectory.status,
+    mutated: false
   });
-
-  res.json({ success: true, message: `Trajectory ${id} status changed to approved. Repository merge was not executed.` });
 }
 
 async function rejectTrajectory(req, res) {
