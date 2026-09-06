@@ -141,6 +141,7 @@ mod tests {
             mutation_rate: 0.0,
             daughter_volume: 0.5,
             merozoite_count: 2,
+            hayflick_limit: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_mitosis.is_ok());
@@ -151,9 +152,43 @@ mod tests {
             mutation_rate: 0.05,
             daughter_volume: 0.5,
             merozoite_count: 2,
+            hayflick_limit: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_fission.is_ok());
+
+        let res_meiosis = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_meiosis_01".to_string(),
+            mode: "meiosis".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 0.5,
+            merozoite_count: 4,
+            hayflick_limit: None,
+            seed: Some("test-seed".to_string()),
+        });
+        assert!(res_meiosis.is_ok());
+
+        let res_budding = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_budding_01".to_string(),
+            mode: "budding".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 0.3,
+            merozoite_count: 4,
+            hayflick_limit: Some(10),
+            seed: Some("test-seed".to_string()),
+        });
+        assert!(res_budding.is_ok());
+
+        let res_schizogony = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_schizogony_01".to_string(),
+            mode: "schizogony".to_string(),
+            mutation_rate: 0.05,
+            daughter_volume: 0.5,
+            merozoite_count: 4,
+            hayflick_limit: None,
+            seed: Some("test-schizogony-seed".to_string()),
+        });
+        assert!(res_schizogony.is_ok());
 
         // 3. Phylogeny (Divergence, Hybridization, Molecular Clock, Tree)
         let res_div = reproduction::execute(EvolutionSubcommands::Phylogeny {
