@@ -23,3 +23,11 @@ impl Default for ConscienceState {
         }
     }
 }
+
+impl ConscienceState {
+    pub fn reduce_dissonance(&mut self, amount: f64) {
+        if amount.is_finite() && amount > 0.0 {
+            self.dissonance_level = (self.dissonance_level - amount).max(0.0);
+        }
+    }
+}
