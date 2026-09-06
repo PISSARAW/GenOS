@@ -36,8 +36,15 @@ function evaluateBranch(state, metrics = {}) {
 
   const errorsInLoop = Math.max(0, Number(metrics.errorsInLoop) || 0);
   const progressScore = Math.max(0, Number(metrics.progressScore) || 0);
+  const cognitiveHealth = metrics.cognitiveHealth || {};
+  const repetitionScore = Math.max(0, Number(cognitiveHealth.repetition_score) || 0);
+  const semanticDrift = Math.max(0, Number(cognitiveHealth.semantic_drift) || 0);
+  const healthScore = Math.max(0, Math.min(1, Number(cognitiveHealth.health_score ?? 1)));
 
-  const penalty = errorsInLoop * 2.5;
+  const penalty = errorsInLoop * 2.5
+    + (repetitionScore > 0.15 ? 5.0 : 0)
+    + (semanticDrift > 0 ? 6.0 : 0)
+    + ((0.5 - healthScore) * 10.0 > 0 ? (0.5 - healthScore) * 10.0 : 0);
   const relief = progressScore * 3.0;
 
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel + penalty - relief);
@@ -88,7 +95,7 @@ function formatConsciencePrompt(state) {
     `- Harmonie interne : ${harmony}%`,
     `- Événements Eurêka validés : ${safeState.eurekaMoments}`,
     `- Capital cognitif restant : ${safeState.currentBudget.toFixed(0)} unités`,
-    `Avertissement de conscience : Tu perçois ta propre cohérence. Si ta dissonance cognitive dépasse ${safeState.maxDissonanceThreshold.toFixed(1)} (erreurs persistantes, répétition en boucle, dérive sémantique), l'apoptose cognitive s'enclenchera immédiatement pour élaguer ta branche. Maintiens une haute rigueur logique et vérifie tes actions.`
+    `État de contrôle runtime : ces métriques décrivent la cohérence observée de cette branche. Si la dissonance dépasse ${safeState.maxDissonanceThreshold.toFixed(1)} (erreurs persistantes, répétition ou dérive sémantique), le runtime peut arrêter la branche. Vérifie les actions et leurs preuves; cet état ne constitue pas une conscience subjective.`
   ].join('\n');
 }
 
