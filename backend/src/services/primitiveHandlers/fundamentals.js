@@ -110,8 +110,21 @@ async function vfsDryRun(context) {
 
 async function safeRevert(context) {
   if (context.workspaceId && context.snapshotId) {
-    await agentRecovery.restoreSnapshot(await getDatabase(), context.workspaceId, context.snapshotId);
-    return { success: true, revertedTo: context.snapshotId };
+    const db = await getDatabase();
+    const workspace = await scopedWorkspace(db, context.workspaceId);
+    if (!workspace) return { success: false, error: `Workspace '${context.workspaceId}' not found.` };
+    const result = await workspaceSnapshotStore.restore({
+      db,
+      workspace,
+      reference: context.snapshotId,
+      author: context.agentId || context.orchestratorId || 'strategy_adapter'
+    });
+    return {
+      success: true,
+      revertedTo: result.restoredSnapshot.id,
+      safetySnapshotId: result.safetySnapshot.id,
+      strategy: result.strategy
+    };
   }
   return { success: false, error: 'workspaceId and snapshotId required for revert.' };
 }
