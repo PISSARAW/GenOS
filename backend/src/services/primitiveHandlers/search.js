@@ -25,9 +25,25 @@ async function mctsSelect(context) {
   
   for (const cId of candidates) {
     const node = context.workspaceId
-      ? await db.get(`SELECT n.id, n.score, n.visits FROM lineage_nodes n${scope}`, cId, context.workspaceId)
-      : await db.get(`SELECT id, score, visits FROM lineage_nodes${scope}`, cId);
+      ? await db.get(`SELECT n.id, n.score, n.visits, n.metadata FROM lineage_nodes n${scope}`, cId, context.workspaceId)
+      : await db.get(`SELECT id, score, visits, metadata FROM lineage_nodes${scope}`, cId);
     if (!node) continue;
+
+    let isPruned = false;
+    if (context.prunedIds && Array.isArray(context.prunedIds) && context.prunedIds.includes(cId)) {
+      isPruned = true;
+    }
+    if (node.metadata) {
+      try {
+        const meta = typeof node.metadata === 'string' ? JSON.parse(node.metadata) : node.metadata;
+        if (meta && (meta.pruned === true || meta.isDeadEnd === true || meta.dead_end === true)) {
+          isPruned = true;
+        }
+      } catch (_) {}
+    }
+    if (isPruned) {
+      continue;
+    }
 
     const visits = Number(node.visits);
     const value = Number(node.score);
@@ -289,4 +305,86 @@ async function pruneAndScale(context) {
   };
 }
 
-module.exports = { mctsSelect, prune, pruneAndScale, reallocate, budgetLimit, prmEvaluate, schizogonyBurst };
+async function backpropagate(context = {}) {
+  const db = await getDatabase();
+  const nodeId = context.nodeId || context.node_id || context.selectedNode?.id || context.candidateId;
+  if (!nodeId) return { success: false, error: 'nodeId is required for backpropagate.' };
+
+  const rewardScore = typeof context.rewardScore === 'number'
+    ? context.rewardScore
+    : (typeof context.reward === 'number' ? context.reward : (context.isFailure ? -1.0 : 1.0));
+  const isFailure = context.isFailure === true || rewardScore < 0;
+  const maxDepth = Number.isInteger(context.maxDepth) ? context.maxDepth : 10;
+
+  const updatedNodes = [];
+  let currentId = nodeId;
+  let depth = 0;
+
+  while (currentId && depth < maxDepth) {
+    const nodeRow = await db.get('SELECT id, score, visits, metadata FROM lineage_nodes WHERE id = ?', currentId);
+    if (!nodeRow) break;
+
+    const oldVisits = Number(nodeRow.visits) || 0;
+    const oldScore = Number(nodeRow.score) || 0;
+    const newVisits = oldVisits + 1;
+
+    let newScore;
+    if (isFailure) {
+      const penalty = Math.abs(rewardScore);
+      newScore = Math.max(-10.0, ((oldScore * oldVisits) - penalty) / newVisits);
+    } else {
+      newScore = ((oldScore * oldVisits) + rewardScore) / newVisits;
+    }
+    newScore = Number(newScore.toFixed(4));
+
+    let meta = {};
+    try {
+      meta = typeof nodeRow.metadata === 'string' ? JSON.parse(nodeRow.metadata || '{}') : (nodeRow.metadata || {});
+    } catch (_) {}
+
+    if (isFailure) {
+      meta.failureCount = (meta.failureCount || 0) + 1;
+      if (meta.failureCount >= (context.pruneThreshold || 2)) {
+        meta.pruned = true;
+        meta.prunedReason = 'Dead end threshold reached in backpropagate';
+      }
+    }
+
+    await db.run(
+      'UPDATE lineage_nodes SET visits = ?, score = ?, metadata = ? WHERE id = ?',
+      newVisits,
+      newScore,
+      JSON.stringify(meta),
+      currentId
+    );
+
+    updatedNodes.push({ id: currentId, visits: newVisits, score: newScore, depth, pruned: !!meta.pruned });
+
+    const edge = await db.get(
+      'SELECT source_node_id FROM lineage_edges WHERE target_node_id = ? ORDER BY created_at DESC LIMIT 1',
+      currentId
+    );
+    currentId = edge ? edge.source_node_id : null;
+    depth++;
+  }
+
+  telemetry.emitEvent({
+    eventType: 'SEARCH_BACKPROPAGATE',
+    agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
+    action: 'BACKPROPAGATE',
+    detail: `Backpropagated reward ${rewardScore} across ${updatedNodes.length} lineage node(s).`,
+    severity: isFailure ? 'warning' : 'info',
+    payload: { nodeId, rewardScore, isFailure, updatedNodes }
+  });
+
+  return {
+    success: true,
+    nodeId,
+    rewardScore,
+    isFailure,
+    updatedCount: updatedNodes.length,
+    updatedNodes
+  };
+}
+
+module.exports = { mctsSelect, prune, pruneAndScale, reallocate, budgetLimit, prmEvaluate, schizogonyBurst, backpropagate };

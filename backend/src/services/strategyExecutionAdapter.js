@@ -156,7 +156,9 @@ const HANDLERS = {
   time_limit: search.budgetLimit,
   iteration_limit: search.budgetLimit,
   prm_evaluate: search.prmEvaluate,
-  score_partial_repro: search.prmEvaluate
+  score_partial_repro: search.prmEvaluate,
+  backpropagate: search.backpropagate,
+  back_propagate: search.backpropagate
 };
 
 /**
