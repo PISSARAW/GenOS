@@ -7,7 +7,15 @@ function strategySignature(contract = {}) {
   return JSON.stringify({
     selected: contract.selected_strategy || {},
     portfolio: (contract.strategy_portfolio || []).map((strategy) => ({ id: strategy.id, primitives: strategy.primitives || [] })),
-    profile: contract.problem_profile || {},
+    profile: {
+      type: contract.problem_profile?.type,
+      risk: contract.problem_profile?.risk,
+      evaluability: contract.problem_profile?.evaluability,
+      reversibility: contract.problem_profile?.reversibility,
+      requires_reproducibility: contract.problem_profile?.requires_reproducibility,
+      objectives_conflict: contract.problem_profile?.objectives_conflict,
+      temporal_dependency: contract.problem_profile?.temporal_dependency
+    },
     pipeline: contract.execution_pipeline || [],
     branches: contract.branches || [],
     stopConditions: contract.stop_conditions || [],
