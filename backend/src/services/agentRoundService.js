@@ -46,6 +46,14 @@ async function advanceAutonomousRound(mission, event) {
     return;
   }
   const completed = [...state.results.values()].filter((result) => result.status === 'completed');
+  if (!completed.length) {
+    emit(round.orchestratorId, 'TOKEN_ROUND_FAILED', 'SUCCESSIVE_HALVING', 'Initial screening produced no completed worker evidence; continuation was not dispatched.', {
+      workerCount: state.workerIds.size,
+      failedWorkerCount: state.results.size
+    }, 'error');
+    autonomousRounds.delete(round.orchestratorId);
+    return;
+  }
   const arenaTask = require('./arenaTaskEvaluation');
   const paretoResult = arenaTask.evaluateDossiersPareto(completed.map(r => ({
     workerId: r.agentId,
