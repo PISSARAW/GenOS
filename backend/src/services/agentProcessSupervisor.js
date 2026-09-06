@@ -19,7 +19,7 @@ const workerGarage = require('./workerGarageService');
 const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
 } = require('./agentOrchestrationState');
-const { recordWorkerEvidence } = require('./agentEvidenceService');
+const { recordWorkerEvidence, validateDossierInfluence } = require('./agentEvidenceService');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
@@ -147,6 +147,15 @@ async function superviseMission(options) {
         const eventType = currentEvent.eventType;
         const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || currentEvent.action === 'VERIFY';
         const observation = await hallucinationMonitor.recordObservation(db, currentEvent);
+        if (eventType === 'EVIDENCE_REPORT' && dispatchedAgent.execution_mode === 'orchestrator' && autonomyPlan?.synthesisOnly) {
+          try {
+            validateDossierInfluence(currentEvent.payload?.evidenceReport || currentEvent.payload?.report, autonomyPlan.completedWorkerIds || []);
+          } catch (error) {
+            emit(agentId, 'DOSSIER_INFLUENCE_INVALID', 'EVIDENCE_GATE', error.message, { error: error.code }, 'critical', 'error');
+            haltRuntime('evidence_gate', error.message, 'Runtime halted because the final synthesis did not account for every worker dossier.', { error: error.code });
+            continue;
+          }
+        }
         if (observation.monitored && observation.detected) {
           emit(agentId, 'HALLUCINATION_DETECTED', 'EVIDENCE_GATE', observation.reasons.join('; '), {
             sourceEventId: currentEvent.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons

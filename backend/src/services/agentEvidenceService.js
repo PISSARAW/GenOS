@@ -69,6 +69,22 @@ function validateWorkerDossiers(dossiers, workers) {
   return true;
 }
 
+function validateDossierInfluence(report, workerIds) {
+  const entries = Array.isArray(report?.dossierInfluence) ? report.dossierInfluence : [];
+  const byWorker = new Map(entries.map((entry) => [entry.workerId, entry]));
+  const missing = workerIds.filter((workerId) => !byWorker.has(workerId));
+  const invalid = workerIds.filter((workerId) => {
+    const entry = byWorker.get(workerId);
+    return !entry || typeof entry.influence !== 'string' || !entry.influence.trim() || !Array.isArray(entry.usedClaims);
+  });
+  if (missing.length || invalid.length || entries.length !== workerIds.length) {
+    const error = new Error(`Synthesis dossier influence is incomplete. Missing: ${missing.join(', ') || 'none'}; invalid: ${invalid.join(', ') || 'none'}.`);
+    error.code = 'INVALID_DOSSIER_INFLUENCE';
+    throw error;
+  }
+  return true;
+}
+
 function buildWorkerSynthesisPrompt(originalPrompt, dossiers) {
   return [
     originalPrompt,
@@ -124,6 +140,7 @@ module.exports = {
   recordWorkerEvidence,
   workerEvidenceDossiers,
   validateWorkerDossiers,
+  validateDossierInfluence,
   buildWorkerSynthesisPrompt,
   dossierDigest,
   boundedScore,
