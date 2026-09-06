@@ -164,7 +164,7 @@ async function processOnce() {
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
     const workflow = selectFairWorkflow(queuedWorkflows);
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
-      try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
+      try { await executeWorkflow(db, workflow); } catch (error) { await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'failed', JSON.stringify({ message: error.message }), workflow.id); }
     }
     const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
     const evaluation = selectFairWorkflow(queuedEvaluations);
