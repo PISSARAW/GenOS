@@ -38,6 +38,9 @@ function modelConfiguration(model) {
   const match = uri.match(/^([\w-]+):\/\/(.+)$/);
   const provider = match[1]; const modelName = match[2];
   const explicitEndpoint = provider === 'openai-compatible' && (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT);
+  if (provider === 'openai-compatible' && !explicitEndpoint) {
+    throw new Error('GENOS_OPENAI_COMPATIBLE_ENDPOINT or GENOS_MODEL_ENDPOINT is required for openai-compatible models.');
+  }
   const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && !/^https:\/\/api\.openai\.com\//.test(explicitEndpoint));
   const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
   const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages')
