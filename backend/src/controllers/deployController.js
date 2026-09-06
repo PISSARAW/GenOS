@@ -139,10 +139,31 @@ async function ingestAgentEvent(req, res) { res.json({ success: true }); }
 async function startAgent(req, res) {
   const db = await getDatabase();
   try {
-    await agentAuthority.authorizeMission(db, req.params.id, req.body.orchestratorAgentId);
-    res.json({ success: true });
+    const scope = workspaceScope(req, 'w');
+    const agent = await db.get(`SELECT a.*, w.path AS workspace_root FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, req.params.id, ...scope.params);
+    if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
+    await agentAuthority.authorizeMission(db, agent.id, req.body?.orchestratorAgentId);
+    const contract = await strategyContracts.getLatestContract(db, agent.id);
+    if (!contract) return res.status(409).json({ error: { code: 'STRATEGY_CONTRACT_REQUIRED', message: 'No strategy contract is available for this agent.' } });
+    const result = await runtimeAdapter.startMission({
+      agentId: agent.id,
+      name: agent.name,
+      role: agent.role,
+      prompt: req.body?.prompt || agent.current_task || agent.about || '',
+      modelTier: agent.model_tier,
+      executionMode: agent.execution_mode,
+      workspaceId: agent.workspace_id,
+      workspaceRoot: agent.workspace_root,
+      workspaceIsolation: agent.isolation_mode,
+      agentType: agent.agent_type,
+      orchestratorAgentId: req.body?.orchestratorAgentId,
+      strategyContract: contract.contract,
+      executionBudget: req.body?.executionBudget || {}
+    });
+    res.status(result?.duplicate ? 200 : 202).json({ success: true, started: !result?.duplicate, duplicate: Boolean(result?.duplicate), status: result?.duplicate ? 'already_running' : 'queued' });
   } catch (err) {
-    res.status(409).json({ error: { code: err.code || 'AUTHORITY_ERROR', message: err.message } });
+    const status = err.code === 'AGENT_EXECUTOR_UNAVAILABLE' ? 503 : 409;
+    res.status(status).json({ error: { code: err.code || 'START_FAILED', message: err.message } });
   }
 }
 async function getWorkerGarage(req, res) {
