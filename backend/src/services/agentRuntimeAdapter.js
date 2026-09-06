@@ -208,39 +208,6 @@ function stopAllMissions() {
   return [...new Set([...activeProcesses.keys(), ...activeWorkerBarriers.keys()])].filter(stopMission);
 }
 
-function startMission(mission) {
-  const agentId = mission.agentId || mission.id;
-  if (!agentId) return Promise.reject(new Error('agentId is required'));
-  if (activeProcesses.has(agentId) || missionStarts.has(agentId)) return Promise.resolve({ started: true, duplicate: true });
-  const start = startMissionInternal(mission).finally(async () => {
-    missionStarts.delete(agentId);
-    await dispatchWorkerRecovery(agentId);
-    dispatchPendingContinuation(agentId);
-  });
-  missionStarts.set(agentId, start);
-  return start;
-}
-
-function stopMission(agentId) {
-  const child = activeProcesses.get(agentId);
-  if (!child) {
-    const barrier = activeWorkerBarriers.get(agentId);
-    if (!barrier) return false;
-    barrier.cancelled = true;
-    for (const workerId of barrier.workerIds) stopMission(workerId);
-    return true;
-  }
-  // The close handler recognizes this marker as an operator-requested halt,
-  // rather than reporting SIGTERM as a runtime failure.
-  child.genosStopRequested = true;
-  child.kill('SIGTERM');
-  return true;
-}
-
-function stopAllMissions() {
-  return [...new Set([...activeProcesses.keys(), ...activeWorkerBarriers.keys()])].filter(stopMission);
-}
-
 module.exports = {
   startMission,
   stopMission,
