@@ -164,7 +164,7 @@ async function migrateNotificationPreferenceScope(db) {
       threshold REAL, organization_id TEXT NOT NULL DEFAULT '', project_id TEXT NOT NULL DEFAULT '', updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (event_type, organization_id, project_id)
     );
-    INSERT INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, updated_at)
+    INSERT INTO notification_preferences_scoped (event_type, enabled, channels_json, threshold, organization_id, project_id, updated_at)
       SELECT event_type, enabled, channels_json, threshold, COALESCE(organization_id, ''), COALESCE(project_id, ''), updated_at FROM notification_preferences;
     DROP TABLE notification_preferences;
     ALTER TABLE notification_preferences_scoped RENAME TO notification_preferences;`);
@@ -253,4 +253,4 @@ async function migrateAgentStatusConstraint(db) {
 }
 
 
-module.exports = { migrateLegacySchema, applyVersionedMigrations };
+module.exports = { migrateLegacySchema, applyVersionedMigrations, migrateNotificationPreferenceScope };
