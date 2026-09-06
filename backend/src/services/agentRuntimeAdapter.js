@@ -212,6 +212,14 @@ function stopMission(agentId) {
     return true;
   }
   if (!child) {
+    const barrier = activeWorkerBarriers.get(agentId);
+    if (barrier) {
+      barrier.cancelled = true;
+      for (const workerId of barrier.workerIds) stopMission(workerId);
+      return true;
+    }
+  }
+  if (!child) {
     getDatabase().then(async (db) => {
       const agent = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', agentId);
       if (agent?.runtime_pid) {
@@ -220,13 +228,6 @@ function stopMission(agentId) {
       }
     }).catch(() => {});
     return false;
-  }
-  if (!child) {
-    const barrier = activeWorkerBarriers.get(agentId);
-    if (!barrier) return false;
-    barrier.cancelled = true;
-    for (const workerId of barrier.workerIds) stopMission(workerId);
-    return true;
   }
   // The close handler recognizes this marker as an operator-requested halt,
   // rather than reporting SIGTERM as a runtime failure.
