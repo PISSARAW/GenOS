@@ -7,6 +7,10 @@ async function runTests() {
   console.log('=== TEST 1 : Enregistrement de Trajectoire & Indexation FTS5/vec0 ===');
   const db = await getDatabase();
   const testTrajId = `traj_test_${Date.now()}`;
+  await db.run(
+    "INSERT OR IGNORE INTO workspaces (id, name, path, language) VALUES (?, ?, ?, 'JavaScript')",
+    'ws-test-stdp', 'STDP test workspace', process.cwd()
+  );
   const mockTurns = [
     { step: 1, action: 'view_file', detail: 'Exploration du code source', pass: true },
     { step: 2, action: 'run_command', detail: 'SyntaxError dans le script', error: 'SyntaxError', pass: false },
@@ -36,7 +40,7 @@ async function runTests() {
   // Vérifier la présence dans la table trajectories
   const trajRow = await db.get('SELECT * FROM trajectories WHERE id = ?', testTrajId);
   assert.ok(trajRow, 'La trajectoire doit être présente dans la table SQLite trajectories');
-  assert.strictEqual(trajRow.status, 'approved');
+  assert.strictEqual(trajRow.status, 'pending');
   assert.ok(trajRow.embedding_blob && trajRow.embedding_blob.length > 0, 'L embedding_blob 768-dim doit être stocké');
   console.log('-> Cas 1.2 Validé : Ligne insérée dans la table trajectories avec embedding blob.');
 

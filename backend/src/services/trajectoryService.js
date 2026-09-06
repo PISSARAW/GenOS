@@ -113,16 +113,19 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
 const telemetry = require('./telemetryObserver');
 const { embed } = require('./embeddingProvider');
 const { textToVector } = require('./memoryScoring');
+const crypto = require('crypto');
 
 async function recordMissionTrajectory(db, options = {}) {
   if (!db) return null;
   const turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
   const goldenPath = cherryPickGoldenPath(turns);
-  const trajId = options.id || `traj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const trajId = options.id || `traj_${crypto.randomUUID()}`;
   const agentId = options.agentId || options.authorName || 'GenOS Agent';
   const task = options.task || options.mission || 'Autonomous Task';
   const report = options.report || {};
-  const status = options.status || (report.outcome === 'failed' ? 'rejected' : 'approved');
+  const status = ['pending', 'active', 'rejected', 'revising'].includes(options.status) ? options.status : 'pending';
+  const requestedConfidence = Number(options.confidence);
+  const confidence = Number.isFinite(requestedConfidence) ? Math.max(0, Math.min(100, requestedConfidence)) : 0;
 
   const claimStatements = Array.isArray(report.claims)
     ? report.claims.map(c => c.statement || String(c)).join('; ')
@@ -152,17 +155,10 @@ async function recordMissionTrajectory(db, options = {}) {
     detail: s.detail || s.cmd
   })));
 
-  let workspaceId = options.workspaceId || null;
-  if (workspaceId) {
-    const wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
-    if (!wsRow) {
-      const fallbackWs = await db.get('SELECT id FROM workspaces LIMIT 1');
-      workspaceId = fallbackWs ? fallbackWs.id : null;
-    }
-  } else {
-    const fallbackWs = await db.get('SELECT id FROM workspaces LIMIT 1');
-    workspaceId = fallbackWs ? fallbackWs.id : null;
-  }
+  const workspaceId = String(options.workspaceId || '').trim();
+  if (!workspaceId) throw new Error('workspaceId is required to record a trajectory.');
+  const wsRow = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
+  if (!wsRow) throw new Error(`Workspace '${workspaceId}' does not exist.`);
 
   await db.run(
     `INSERT INTO trajectories (
@@ -178,7 +174,7 @@ async function recordMissionTrajectory(db, options = {}) {
     semanticSummary,
     options.diffFile || 'src/agent.ts',
     diffLinesJson,
-    options.confidence || 95,
+    confidence,
     buffer
   );
 
