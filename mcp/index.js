@@ -1,6 +1,7 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { filterLeasedTools, toolIsLeased } from "./lease.js";
 import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -210,18 +211,7 @@ const ALL_TOOLS = [
 ];
 
 function getFilteredTools() {
-  const lease = process.env.GENOS_MCP_LEASE
-    ? process.env.GENOS_MCP_LEASE.split(",").map((s) => s.trim()).filter(Boolean)
-    : null;
-  const exposeAll = /^(1|true)$/i.test(process.env.GENOS_MCP_EXPOSE_ALL || "");
-
-  if (lease && lease.length > 0) {
-    return ALL_TOOLS.filter((t) =>
-      lease.some((l) => l === t.name || t.name === `genos_${l}`)
-    );
-  }
-  if (exposeAll) return ALL_TOOLS;
-  return [ALL_TOOLS[0]];
+  return filterLeasedTools(ALL_TOOLS);
 }
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -230,6 +220,12 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
+  if (!toolIsLeased(name, ALL_TOOLS)) {
+    return {
+      content: [{ type: "text", text: `Tool '${name}' is outside the active GenOS MCP lease.` }],
+      isError: true,
+    };
+  }
   try {
     let result = "";
     switch (name) {

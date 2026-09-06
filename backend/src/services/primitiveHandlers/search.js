@@ -16,14 +16,13 @@ async function mctsSelect(context) {
   const scored = [];
   
   for (const cId of candidates) {
-    // Dans une DB réelle, on aurait une table mcts_nodes. On simule avec des stats d'agent.
-    const node = await db.get(`SELECT id, status FROM agents WHERE id = ?`, cId);
+    const node = await db.get('SELECT id, score, visits FROM lineage_nodes WHERE id = ?', cId);
     if (!node) continue;
-    
-    // Valeurs simulées pour l'exemple (en production, issues de telemetry/mcts)
-    const visits = Math.max(1, Math.floor(Math.random() * 20));
-    const value = Math.random(); 
-    const parentVisits = visits * 3;
+
+    const visits = Number(node.visits);
+    const value = Number(node.score);
+    if (!Number.isFinite(visits) || visits < 1 || !Number.isFinite(value)) continue;
+    const parentVisits = Math.max(visits, Number(context.parentVisits || visits * 3));
     
     const ucb1 = value + cParam * Math.sqrt(Math.log(parentVisits) / visits);
     scored.push({ id: cId, ucb1, value, visits });
@@ -54,8 +53,9 @@ async function prune(context) {
   for (const cId of candidates) {
     const row = await db.get("SELECT id, status, current_task FROM agents WHERE id = ?", cId);
     if (!row) continue;
-    // Score basique (en prod, score Brier ou PRM)
-    const score = row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : Math.random() * 4);
+    const score = Number.isFinite(Number(context.scores?.[cId]))
+      ? Number(context.scores[cId])
+      : (row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : 0));
     scored.push({ id: cId, score });
   }
   
@@ -113,9 +113,10 @@ async function budgetLimit(context) {
     if (row && row.created_at) {
       currentUsage = Date.now() - new Date(row.created_at).getTime();
     }
+  } else if (Number.isFinite(Number(context.currentUsage))) {
+    currentUsage = Number(context.currentUsage);
   } else {
-    // Simuler consommation de tokens
-    currentUsage = Math.floor(Math.random() * (maxLimit * 1.2)); // Peut dépasser pour le test
+    return { success: false, error: 'currentUsage required for token budget checks.' };
   }
   
   const exceeded = currentUsage > maxLimit;
