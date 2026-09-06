@@ -59,7 +59,7 @@ async function launchExperiment(req, res) {
   if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace '${workspaceId}' is not available in this project.` } });
   await db.run(
     `INSERT INTO experiments (id, workspace_id, title, experiment_type, status, chaos_level, color, results_summary) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    expId, workspaceId, title, experimentType, 'Setup', chaosLevel, color, 'Protocol registered; awaiting recorded observations.'
+    expId, workspace.id, title, experimentType, 'Setup', chaosLevel, color, 'Protocol registered; awaiting recorded observations.'
   );
 
   telemetry.emitEvent({
