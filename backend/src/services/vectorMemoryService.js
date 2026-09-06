@@ -248,9 +248,9 @@ class VectorMemoryService {
           options.ownerId ? [...topIds, options.ownerId] : topIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
-        if (inhibitedIds.size > 0) {
-          topItems = topItems.filter(item => !inhibitedIds.has(item.id));
-        }
+        topItems = topItems.map(item => inhibitedIds.has(item.id)
+          ? { ...item, inhibitorySignal: 'active' }
+          : item);
       } catch {}
     }
 
