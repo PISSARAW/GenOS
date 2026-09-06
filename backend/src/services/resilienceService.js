@@ -4,30 +4,50 @@
  */
 
 /**
- * Calculates normalized Levenshtein distance between two strings
+ * Calculates normalized Levenshtein distance between two strings with O(min(M, N)) space
  */
 function calculateLevenshtein(strA = '', strB = '') {
-  const m = strA.length;
-  const n = strB.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
+  const sA = String(strA || '');
+  const sB = String(strB || '');
+  let m = sA.length;
+  let n = sB.length;
+  if (m === 0) return n === 0 ? 0 : 1.0;
+  if (n === 0) return 1.0;
 
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      const cost = strA[i - 1] === strB[j - 1] ? 0 : 1;
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + cost
-      );
-    }
+  // Ensure sB is the shorter string to minimize rolling buffer size
+  let a = sA;
+  let b = sB;
+  if (m < n) {
+    a = sB;
+    b = sA;
+    m = a.length;
+    n = b.length;
   }
 
-  const rawDist = dp[m][n];
+  // O(N) space rolling buffers
+  let prevRow = new Int32Array(n + 1);
+  let currRow = new Int32Array(n + 1);
+
+  for (let j = 0; j <= n; j++) prevRow[j] = j;
+
+  for (let i = 1; i <= m; i++) {
+    currRow[0] = i;
+    const charA = a.charCodeAt(i - 1);
+    for (let j = 1; j <= n; j++) {
+      const cost = charA === b.charCodeAt(j - 1) ? 0 : 1;
+      currRow[j] = Math.min(
+        prevRow[j] + 1,       // deletion
+        currRow[j - 1] + 1,   // insertion
+        prevRow[j - 1] + cost // substitution
+      );
+    }
+    // Swap rows
+    const temp = prevRow;
+    prevRow = currRow;
+    currRow = temp;
+  }
+
+  const rawDist = prevRow[n];
   const maxLen = Math.max(m, n);
   return Number((rawDist / maxLen).toFixed(4));
 }
@@ -48,6 +68,68 @@ function trackHypermutationDrift(ancestorPrompt, currentPrompt) {
     isSafe,
     status: isSafe ? 'STABLE' : 'MUTATION_DRIFT_EXCEEDED',
     actionRequired: isSafe ? 'NONE' : 'ROLLBACK_GENOME_MUTATION'
+  };
+}
+
+/**
+ * Applies controlled somatic hypermutation to an agent's working prompt
+ * to break reasoning loops or test alternative exploratory paradigms.
+ */
+function somaticHypermutationPrompt(prompt = '', mutationRate = 0.2, options = {}) {
+  const text = String(prompt || '');
+  if (!text.trim()) return { originalLength: 0, mutatedLength: 0, mutatedPrompt: text, mutatedCount: 0, drift: 0 };
+  const rate = Math.max(0.01, Math.min(0.8, Number(mutationRate || 0.2)));
+  const seed = options.seed ? String(options.seed) : `mut_${Date.now()}`;
+
+  const words = text.split(/(\s+)/);
+  let mutatedCount = 0;
+
+  const MUTATION_SYNONYMS = {
+    'always': ['strictly', 'consistently', 'systematically'],
+    'never': ['under no circumstance', 'avoid', 'prohibit'],
+    'verify': ['falsify', 'cross-examine', 'validate thoroughly'],
+    'analyze': ['decompose', 'dissect', 'scrutinize'],
+    'execute': ['run cautiously', 'enact with verification', 'dispatch'],
+    'fast': ['deliberate', 'optimized', 'budget-conscious'],
+    'safe': ['adversarial-hardened', 'resilient', 'fail-safe'],
+    'explore': ['broaden search', 'branch out', 'diverge']
+  };
+
+  const mutatedWords = words.map((w, idx) => {
+    const clean = w.toLowerCase().replace(/[^a-z]/g, '');
+    if (MUTATION_SYNONYMS[clean]) {
+      let hash = 0;
+      const key = `${seed}:${idx}:${clean}`;
+      for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      if ((hash / 0xffffffff) < rate) {
+        const alternatives = MUTATION_SYNONYMS[clean];
+        const alt = alternatives[hash % alternatives.length];
+        mutatedCount++;
+        return w.replace(new RegExp(clean, 'i'), alt);
+      }
+    }
+    return w;
+  });
+
+  let result = mutatedWords.join('');
+  if (mutatedCount === 0 || options.forcePerturbation) {
+    const directives = [
+      '\n[Somatic Hypermutation Directive: Favor exploratory alternatives and verify assumptions before committing.]',
+      '\n[Somatic Hypermutation Directive: Test edge-case hypotheses and avoid repetitive tool loops.]',
+      '\n[Somatic Hypermutation Directive: Re-evaluate constraints from an adversarial perspective.]'
+    ];
+    let dirHash = 0;
+    for (let i = 0; i < seed.length; i++) dirHash = (dirHash * 31 + seed.charCodeAt(i)) >>> 0;
+    result += directives[dirHash % directives.length];
+    mutatedCount++;
+  }
+
+  return {
+    originalLength: text.length,
+    mutatedLength: result.length,
+    mutatedPrompt: result,
+    mutatedCount,
+    drift: calculateLevenshtein(text, result)
   };
 }
 
@@ -247,6 +329,7 @@ async function restoreIntermediateState(db, agentId) {
 module.exports = {
   calculateLevenshtein,
   trackHypermutationDrift,
+  somaticHypermutationPrompt,
   evaluateApoptosis,
   freezeCryptobiosis,
   thawCryptobiosis,
