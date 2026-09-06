@@ -8,6 +8,32 @@ const agentEvolutionService = require('../agentEvolutionService');
 const genosCli = require('../genosCli');
 const crypto = require('crypto');
 
+const MUTABLE_GENES = new Set(['role', 'strategy', 'tools', 'temp', 'topP']);
+
+function applyMutationDescriptors(genes, descriptors) {
+  const nextGenes = { ...genes, tools: [...(genes.tools || [])] };
+  const applied = [];
+  for (const descriptor of descriptors) {
+    const gene = typeof descriptor === 'object' ? descriptor.gene : String(descriptor).match(/^([A-Za-z][\w]*)\s*=\s*(.+)$/)?.[1];
+    const rawValue = typeof descriptor === 'object' ? (descriptor.value ?? descriptor.newValue) : String(descriptor).match(/^([A-Za-z][\w]*)\s*=\s*(.+)$/)?.[2];
+    if (!MUTABLE_GENES.has(gene) || rawValue === undefined) continue;
+    if (gene === 'tools') {
+      nextGenes.tools = Array.isArray(rawValue) ? rawValue.map(String) : String(rawValue).split(',').map((tool) => tool.trim()).filter(Boolean);
+      if (!nextGenes.tools.length) continue;
+    } else if (gene === 'temp' || gene === 'topP') {
+      const value = Number(rawValue);
+      if (!Number.isFinite(value) || value < 0 || value > 1) continue;
+      nextGenes[gene] = value;
+    } else if (String(rawValue).trim()) {
+      nextGenes[gene] = String(rawValue).trim();
+    } else {
+      continue;
+    }
+    applied.push({ gene, value: nextGenes[gene] });
+  }
+  return { genes: nextGenes, applied };
+}
+
 async function mutate(context) {
   const db = await getDatabase();
   const agentId = context.agentId || context.orchestratorId;
@@ -25,6 +51,7 @@ async function mutate(context) {
     crossoverStrategy: context.crossoverStrategy,
     mutationRate: context.mutationRate
   });
+  const descriptorResult = applyMutationDescriptors(evolved.genes, mutations);
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
   const mutantId = 'mutant_' + crypto.randomUUID();
   await db.run(
@@ -34,7 +61,7 @@ async function mutate(context) {
   await agentEvolutionService.recordWorkerLineage(
     db,
     { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
-    { parentId: agentId, genes: evolved.genes, mutations: [...mutations, ...evolved.mutations], predictedFitness: evolved.predictedFitness }
+    { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
   );
   telemetry.emitEvent({
     eventType: 'EVOLUTION_MUTATION',
@@ -42,9 +69,9 @@ async function mutate(context) {
     action: 'MUTATE',
     detail: 'Created mutant ' + mutantId + ' with perturbation: ' + mutations.join('; '),
     severity: 'info',
-    payload: { mutantId, mutations, genes: evolved.genes, predictedFitness: evolved.predictedFitness }
+    payload: { mutantId, mutations, appliedMutations: descriptorResult.applied, genes: descriptorResult.genes, predictedFitness: evolved.predictedFitness }
   });
-  return { success: true, mutantId, mutatedTask, genes: evolved.genes, predictedFitness: evolved.predictedFitness };
+  return { success: true, mutantId, mutatedTask, genes: descriptorResult.genes, appliedMutations: descriptorResult.applied, predictedFitness: evolved.predictedFitness };
 }
 
 async function breed(context) {
