@@ -17,8 +17,11 @@ module.exports = {
   SearchMemory: async (call, callback) => {
     try {
       const { text, vector, limit } = call.request || {};
-      const query = (vector && vector.length > 0) ? vector : (text || '');
-      const searchRes = await vectorMemory.searchMemory('grpc-client', query, limit || 5);
+      const query = text || '';
+      const searchRes = await vectorMemory.searchMemory(query, {
+        vector: vector && vector.length > 0 ? vector : undefined,
+        limit: Number.isInteger(limit) && limit > 0 ? limit : 5
+      });
       const results = (searchRes.allScoredExperiences || []).map((e) => ({
         id: e.id || 'mem-1',
         content: e.content || e.title || '',
