@@ -286,7 +286,6 @@ async function superviseMission(options) {
     executionBudgetJson: JSON.stringify(runtimeBudget || {})
   }));
   return { started: true, executionRun };
-  return { started: true, executionRun };
 }
 
 module.exports = { superviseMission, runtimeExitOutcome };
