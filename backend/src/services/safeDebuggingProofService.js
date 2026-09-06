@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
+const { terminateChild } = require('./processTermination');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const runner = path.join(repositoryRoot, 'examples/safe-debugging-demo/run-demo.mjs');
@@ -26,10 +27,10 @@ async function readLatest() {
 function executeProof() {
   if (activeRun) return activeRun;
   activeRun = new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [runner], { cwd: repositoryRoot, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [runner], { cwd: repositoryRoot, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     let output = '';
     let stderr = '';
-    const timer = setTimeout(() => child.kill('SIGTERM'), 120000);
+    const timer = setTimeout(() => terminateChild(child), 120000);
     child.stdout.on('data', (chunk) => { output = `${output}${chunk}`.slice(-12000); });
     child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-12000); });
     child.on('error', (error) => { clearTimeout(timer); reject(error); });
