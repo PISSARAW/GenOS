@@ -154,6 +154,11 @@ async function castVote(req, res) {
     return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
   }
 
+  const existingVote = await db.get('SELECT id FROM swarm_votes WHERE proposal_id = ? AND agent_id = ?', safeProposalId, agentId);
+  if (existingVote) {
+    return res.status(409).json({ error: { code: 'VOTE_ALREADY_CAST', message: 'This participant has already voted on the proposal.' } });
+  }
+
   const id = `${safeProposalId}-${agentId}-${Date.now()}`;
   await db.run(
     `INSERT OR REPLACE INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote, reason) VALUES (?, ?, ?, ?, ?, ?)`,
