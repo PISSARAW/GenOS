@@ -113,6 +113,11 @@ function boundedScore(value) {
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
 }
 
+function boundedEvidenceScore(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : 0;
+}
+
 function evidenceScore(payload = {}, context = {}) {
   const report = payload.evidenceReport || payload.report || {};
   const claims = Array.isArray(report.claims) ? report.claims : [];
@@ -120,9 +125,10 @@ function evidenceScore(payload = {}, context = {}) {
     || context.artifact === 'creative'
     || /author|literary|dramaturg|creative/i.test(context.role || '');
   if (!creative) {
-    return claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0)
+    const score = claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0)
       + claims.length * 2
       - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
+    return boundedEvidenceScore(score);
   }
   const evaluation = report.creativeEvaluation || {};
   const rubric = evaluation.rubric || report.rubric || {};
@@ -132,8 +138,8 @@ function evidenceScore(payload = {}, context = {}) {
   const revisionEvidence = Array.isArray(evaluation.revisions) ? Math.min(10, evaluation.revisions.length * 2) : 0;
   const independentCritique = Array.isArray(evaluation.criticEvidence) ? Math.min(10, evaluation.criticEvidence.length * 2) : 0;
   const artifactPresent = typeof report.artifactText === 'string' && report.artifactText.trim() ? 10 : 0;
-  return rubricScore + constraintCoverage + revisionEvidence + independentCritique + artifactPresent
-    - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 2 : 0);
+  return boundedEvidenceScore(rubricScore + constraintCoverage + revisionEvidence + independentCritique + artifactPresent
+    - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 2 : 0));
 }
 
 module.exports = {

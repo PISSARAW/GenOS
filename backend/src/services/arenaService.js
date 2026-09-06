@@ -295,7 +295,11 @@ function calculateParetoFront(candidateSolutions = []) {
     && [solution.executionTimeMs, solution.tokenCostUSD, solution.fitnessScore, solution.adversarialPassRate]
       .every((value) => Number.isFinite(Number(value)))
     && Number(solution.executionTimeMs) >= 0
-    && Number(solution.tokenCostUSD) >= 0;
+    && Number(solution.tokenCostUSD) >= 0
+    && Number(solution.fitnessScore) >= 0
+    && Number(solution.fitnessScore) <= 100
+    && Number(solution.adversarialPassRate) >= 0
+    && Number(solution.adversarialPassRate) <= 100;
   const validSolutions = solutions.filter(isValidSolution);
   const invalidSolutions = solutions.filter((solution) => !isValidSolution(solution));
 
