@@ -54,18 +54,23 @@ async function mutate(context) {
   const descriptorResult = applyMutationDescriptors(evolved.genes, mutations);
   const mutatedTask = (parent.current_task || 'task') + ' [MUTATION: ' + mutations.join('; ') + ']';
   const mutantId = 'mutant_' + crypto.randomUUID();
-  await db.run(
-    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
-    mutantId, 'Mutant of ' + agentId, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
-  );
-  const lineageResult = await agentEvolutionService.recordWorkerLineage(
-    db,
-    { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
-    { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
-  );
-  if (!lineageResult.success) {
-    await db.run('DELETE FROM agents WHERE id = ?', mutantId);
-    return { success: false, error: `Mutation lineage persistence failed: ${lineageResult.error}` };
+  await db.run('BEGIN');
+  let lineageResult;
+  try {
+    await db.run(
+      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
+      mutantId, 'Mutant of ' + agentId, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
+    );
+    lineageResult = await agentEvolutionService.recordWorkerLineage(
+      db,
+      { agentId: mutantId, workspaceId: parent.workspace_id, name: 'Mutant of ' + agentId, role: 'mutant' },
+      { parentId: agentId, genes: descriptorResult.genes, mutations: [...mutations, ...evolved.mutations, ...descriptorResult.applied], predictedFitness: evolved.predictedFitness }
+    );
+    if (!lineageResult.success) throw new Error(`Mutation lineage persistence failed: ${lineageResult.error}`);
+    await db.run('COMMIT');
+  } catch (error) {
+    await db.run('ROLLBACK').catch(() => {});
+    return { success: false, error: error.message };
   }
   telemetry.emitEvent({
     eventType: 'EVOLUTION_MUTATION',
