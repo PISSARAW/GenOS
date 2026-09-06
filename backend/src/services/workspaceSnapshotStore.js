@@ -8,6 +8,7 @@
  */
 
 const crypto = require('crypto');
+const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const fsp = fs.promises;
 const os = require('os');
@@ -135,7 +136,7 @@ async function resolveGitCommit(workspacePath) {
   return new Promise((resolve) => {
     const child = spawn('git', ['-C', workspacePath, 'rev-parse', 'HEAD'], { stdio: ['ignore', 'pipe', 'ignore'] });
     let stdout = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
+    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
     child.on('close', (code) => resolve(code === 0 ? stdout.trim() : null));
     child.on('error', () => resolve(null));
   });
@@ -156,7 +157,7 @@ function spawnGit(workspacePath, args) {
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['-C', workspacePath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
   });

@@ -2,6 +2,10 @@ const crypto = require('crypto');
 const dns = require('dns').promises;
 const { getDatabase } = require('../db');
 
+const pendingEvents = [];
+const MAX_PENDING_EVENTS = Math.max(1, Number(process.env.GENOS_WEBHOOK_QUEUE_CAPACITY) || 1024);
+let draining = false;
+
 function accepts(hook, event) { try { const events = JSON.parse(hook.events || '["*"]'); return Array.isArray(events) && (events.includes('*') || events.includes(event.eventType)); } catch (_) { return false; } }
 
 // Webhook targets are fetched server-side on every matching event, so each
@@ -48,7 +52,7 @@ async function assertPublicWebhookUrl(rawUrl) {
   return parsed.toString();
 }
 
-async function dispatch(event) {
+async function dispatchEvent(event) {
   try {
     const db = await getDatabase();
     const hooks = await db.all('SELECT * FROM webhook_subscriptions WHERE enabled = 1');
@@ -61,9 +65,32 @@ async function dispatch(event) {
       if (!secret) continue;
       const body = JSON.stringify({ event, sentAt: new Date().toISOString() });
       const signature = crypto.createHmac('sha256', secret).update(body).digest('hex');
-      fetch(hook.url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-genos-signature': signature }, body }).catch(() => {});
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      try {
+        await fetch(hook.url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-genos-signature': signature }, body, signal: controller.signal });
+      } catch (_) {
+        // A failed delivery must not retain the event or block later events.
+      } finally {
+        clearTimeout(timer);
+      }
     }
   } catch (_) {}
+}
+
+function dispatch(event) {
+  if (pendingEvents.length >= MAX_PENDING_EVENTS) pendingEvents.shift();
+  pendingEvents.push(event);
+  if (draining) return;
+  draining = true;
+  (async () => {
+    try {
+      while (pendingEvents.length) await dispatchEvent(pendingEvents.shift());
+    } finally {
+      draining = false;
+      if (pendingEvents.length) dispatch(pendingEvents.shift());
+    }
+  })().catch(() => { draining = false; });
 }
 
 module.exports = { dispatch, accepts, assertPublicWebhookUrl };

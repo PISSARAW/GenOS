@@ -1,14 +1,15 @@
 const { spawn } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
+const { appendBounded } = require('./boundedOutput');
 
 function run(command, args) {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
+    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
     child.on('error', reject);
     child.on('close', (code) => {
       if (code === 0) resolve(stdout);

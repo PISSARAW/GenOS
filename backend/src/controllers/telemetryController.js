@@ -36,6 +36,7 @@ function streamSSE(req, res) {
 
 async function getEvents(req, res) {
   const { limit = 50, event_type, severity, agent_id } = req.query;
+  const boundedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 500);
   const db = await getDatabase();
 
   let query = 'SELECT * FROM telemetry_events WHERE 1=1';
@@ -55,7 +56,7 @@ async function getEvents(req, res) {
   }
 
   query += ' ORDER BY created_at DESC LIMIT ?';
-  params.push(parseInt(limit, 10) || 50);
+  params.push(boundedLimit);
 
   const dbEvents = await db.all(query, ...params);
   res.json({
