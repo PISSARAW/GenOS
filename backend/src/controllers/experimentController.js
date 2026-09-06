@@ -179,6 +179,34 @@ async function updateStatus(req, res, next) {
   } catch (error) { next(error); }
 }
 
+async function recordWave(req, res, next) {
+  try {
+    const timeStep = Number(req.body?.timeStep);
+    const successRate = Number(req.body?.successRate);
+    const stressLevel = Number(req.body?.stressLevel);
+    if (!Number.isInteger(timeStep) || timeStep < 0 || ![successRate, stressLevel].every((value) => Number.isFinite(value) && value >= 0 && value <= 1)) return res.status(400).json({ error: { code: 'INVALID_WAVE', message: 'timeStep must be a non-negative integer and rates must be between 0 and 1.' } });
+    const db = await getDatabase(); const scope = workspaceScope(req);
+    const experiment = await db.get(`SELECT e.id, e.status FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE e.id = ? AND ${scope.clause}`, req.params.experimentId, ...scope.params);
+    if (!experiment) return res.status(404).json({ error: { code: 'EXPERIMENT_NOT_FOUND', message: 'Experiment not found.' } });
+    if (experiment.status !== 'Running') return res.status(409).json({ error: { code: 'EXPERIMENT_NOT_RUNNING', message: 'Observations require a running experiment.' } });
+    await db.run('INSERT INTO experiment_waves (experiment_id, time_step, success_rate, stress_level) VALUES (?, ?, ?, ?)', experiment.id, timeStep, successRate, stressLevel);
+    res.status(201).json({ success: true, experimentId: experiment.id, timeStep, successRate, stressLevel });
+  } catch (error) { next(error); }
+}
+
+async function recordThought(req, res, next) {
+  try {
+    const text = String(req.body?.text || '').trim();
+    if (!text) return res.status(400).json({ error: { code: 'INVALID_THOUGHT', message: 'Thought text is required.' } });
+    const db = await getDatabase(); const scope = workspaceScope(req);
+    const experiment = await db.get(`SELECT e.id, e.status FROM experiments e JOIN workspaces w ON w.id = e.workspace_id WHERE e.id = ? AND ${scope.clause}`, req.params.experimentId, ...scope.params);
+    if (!experiment) return res.status(404).json({ error: { code: 'EXPERIMENT_NOT_FOUND', message: 'Experiment not found.' } });
+    if (experiment.status !== 'Running') return res.status(409).json({ error: { code: 'EXPERIMENT_NOT_RUNNING', message: 'Thoughts require a running experiment.' } });
+    const result = await db.run('INSERT INTO experiment_thoughts (experiment_id, agent_id, text, is_highlight) VALUES (?, ?, ?, ?)', experiment.id, req.body?.agentId || null, text, req.body?.highlight ? 1 : 0);
+    res.status(201).json({ success: true, id: result.lastID, experimentId: experiment.id, text });
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   listExperiments,
   getRecentExperiments,
@@ -187,5 +215,7 @@ module.exports = {
   getThoughts,
   getCoevolution,
   getWaves,
-  updateStatus
+  updateStatus,
+  recordWave,
+  recordThought
 };
