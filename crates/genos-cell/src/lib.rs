@@ -90,6 +90,9 @@ impl AgentCell {
     }
 
     pub fn trigger_apoptosis(&mut self) {
+        if self.conscience.is_apoptotic {
+            return;
+        }
         self.conscience.is_apoptotic = true;
         self.conscience.current_budget = 0.0;
     }

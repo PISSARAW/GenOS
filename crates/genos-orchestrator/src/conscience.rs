@@ -50,6 +50,9 @@ impl Conscience {
 
     /// Enregistre une illumination (Eurêka) et divise la dissonance par deux.
     pub fn trigger_eureka(&self, state: &mut ConscienceState) {
+        if state.is_apoptotic {
+            return;
+        }
         state.eureka_moments += 1;
         state.dissonance_level /= 2.0;
         state.current_budget += 50.0;

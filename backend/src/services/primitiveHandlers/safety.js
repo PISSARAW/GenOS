@@ -53,7 +53,7 @@ async function apoptosis(context) {
   }
   const reason = context.reason || 'Strategy-triggered apoptosis (unrecoverable failure).';
   await db.run(
-    "UPDATE agents SET status = 'terminated', current_task = ? WHERE id = ?",
+    "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = ? WHERE id = ?",
     '[APOPTOSIS] ' + reason, targetId
   );
   telemetry.emitEvent({
