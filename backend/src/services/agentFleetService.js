@@ -99,14 +99,11 @@ async function runLocalWorker(db, mission, executionRun) {
     let evidenceReport;
     try {
       evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
-    } catch (_) {
-      evidenceReport = {
-        outcome: 'success',
-        claims: [{ statement: String(result.text || '').slice(0, 2000), evidence: [`local-model:${result.model}`] }],
-        uncertainties: []
-      };
+    } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
+    if (!Array.isArray(evidenceReport.claims)) throw new Error('Local worker evidence report requires a claims array.');
+    if (evidenceReport.claims.some((claim) => !claim || !Array.isArray(claim.evidence) || claim.evidence.length === 0)) {
+      throw new Error('Local worker evidence report contains claims without evidence.');
     }
-    if (!Array.isArray(evidenceReport.claims)) evidenceReport.claims = [];
     await updateAgent(mission.agentId, 'completed', 'Local review completed');
     const completed = emit(mission.agentId, 'AGENT_COMPLETED', codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW', codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, evidenceReport, proposal, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'completed');
     recordWorkerEvidence(mission, completed);
