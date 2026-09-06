@@ -283,10 +283,31 @@ class VectorMemoryService {
     // GraphRAG: Spreading activation and time cells
     const connectedItems = await expandGraphRag(topItems, db, { hormone: options.hormone, corpus: scoredItems, ownerId: options.ownerId });
     const allScored = [...topItems, ...connectedItems];
-    const isGolden = (item) => item.category !== 'Conversation' && item.category !== 'SystemSignal';
-    const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && isGolden(i));
-    const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS');
-    const topSuccessful = (candidateGolden.length > 0 ? candidateGolden : fallbackGolden).slice(0, 3);
+
+    // Explicit Golden Path matching: prioritize records categorized or tagged as GoldenPath/Trajectory
+    const isExplicitGolden = (item) => Boolean(
+      item && (
+        item.category === 'GoldenPath' ||
+        item.category === 'Trajectory' ||
+        (Array.isArray(item.tags) && (item.tags.includes('golden_path') || item.tags.includes('trajectory')))
+      )
+    );
+    const explicitCandidates = allScored.filter(i => (i.status === 'SUCCESS' || !i.status || i.status === 'approved') && isExplicitGolden(i));
+
+    let topSuccessful;
+    if (explicitCandidates.length > 0) {
+      const seen = new Set();
+      topSuccessful = explicitCandidates.filter(i => {
+        if (!i.id || seen.has(i.id)) return false;
+        seen.add(i.id);
+        return true;
+      }).slice(0, 3);
+    } else {
+      const isExecution = (i) => i.category !== 'Conversation' && i.category !== 'SystemSignal' && i.category !== 'Fact' && i.category !== 'Preference';
+      const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && isExecution(i));
+      const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS' && i.category !== 'Conversation' && i.category !== 'SystemSignal');
+      topSuccessful = (candidateGolden.length > 0 ? candidateGolden : fallbackGolden).slice(0, 3);
+    }
     const topPitfalls = topItems.filter(i => i.status === 'FAILURE').slice(0, 2);
 
     return {
@@ -331,12 +352,20 @@ class VectorMemoryService {
         `);
         doomedIds = doomed.map(d => d.id);
 
-        if (doomedIds.length > 0) {
-          const placeholders = doomedIds.map(() => '?').join(',');
-          await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
-        }
+        // 5. Trajectory retention & pruning: remove stale rejected non-exceptional trajectories
+        let prunedTrajectories = 0;
+        try {
+          const res = await tx.run(`
+            DELETE FROM trajectories 
+            WHERE is_exceptional = 0 
+              AND status = 'rejected' 
+              AND datetime(created_at) < datetime('now', '-7 days')
+          `);
+          prunedTrajectories = res?.changes || 0;
+        } catch (_) {}
 
         exosomeStats = await synapticTransmission.absorbExosomes(tx);
+        exosomeStats.prunedTrajectories = prunedTrajectories;
       });
 
       return {
@@ -344,6 +373,7 @@ class VectorMemoryService {
         consolidated: true,
         memoriesDecayed: true,
         apoptosisCount: doomedIds.length,
+        prunedTrajectories: exosomeStats.prunedTrajectories || 0,
         exosomesAbsorbed: exosomeStats.absorbedCount,
         engramsStored: exosomeStats.engramsStored,
         plasmidsAssimilated: exosomeStats.plasmidsAssimilated,
