@@ -5,7 +5,7 @@ use genos_biology::ecology::{CollusionCheck, EvolutionaryEcology};
 use genos_biology::embryology::{cleave_zygote, differentiate_swarm, sculpt_architecture_via_apoptosis, seed_hox_genome};
 use genos_biology::glial::{glial_cell, Astrocyte, GlialEnvironment, GlialPipeline, Microglia, MicrogliaState};
 use genos_biology::neurobiology::{DendriticTree, Neurotransmitter};
-use genos_biology::phenotype::EnvironmentalFactors;
+use genos_biology::phenotype::{create_default_registry, EnvironmentalFactors};
 use genos_biology::redundancy::RedundancySystem;
 use genos_biology::signaling::{ExtracellularMatrix, TerritoryClaim};
 use genos_biology::tissue::{TaskDelegation, Tissue};
@@ -233,6 +233,22 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             let dead_cells = if agent.metabolism.atp_budget <= 0.0 { 1 } else { 0 };
             let debris_cleared_pct = ((terminal_count.saturating_sub(remaining_synapses)) as f64 / terminal_count as f64) * 100.0;
             let inflammatory_cytokines = agent.microglia.as_ref().map(|m| m.inflammatory_cytokines).unwrap_or(0.0);
+            // Nettoyage synaptique effectif en base via l'API locale si active
+            let api_url = std::env::var("GENOS_API_URL")
+                .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_millis(1500))
+                .build()
+                .unwrap_or_default();
+            let live_pruned = match client.post(format!("{}/api/memory/prune", api_url))
+                .json(&json!({ "agentId": agent_id, "threshold": severity }))
+                .send() {
+                Ok(res) if res.status().is_success() => {
+                    res.json::<serde_json::Value>().ok().and_then(|v| v.get("pruned_synapses").and_then(|c| c.as_u64())).unwrap_or(0) as usize
+                }
+                _ => 0
+            };
+
             print_json(json!({
                 "success": true, "operation": "glial_cleanup",
                 "agent_id": agent_id, "intensity": mode,
@@ -240,7 +256,8 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "debris_cleared_percent": debris_cleared_pct,
                 "inflammatory_cytokines": inflammatory_cytokines,
                 "bhe_integrity_restored": bhe_integrity,
-                "synaptic_debris_cleared": true
+                "synaptic_debris_cleared": true,
+                "live_synapses_phagocytized": live_pruned
             }));
         }
         BiomimicrySubcommands::GeneRegulatoryNetwork { agent_id, condition, action_script } => {
@@ -448,15 +465,23 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             }));
         }
         BiomimicrySubcommands::Phenotype { agent_id, uv_exposure, temperature } => {
-            let _factors = EnvironmentalFactors {
+            let factors = EnvironmentalFactors {
                 sun_uv_exposure: uv_exposure,
                 temperature,
                 ..Default::default()
             };
+            let mut genome = Genome::new(&agent_id);
+            genome.insert_gene(Gene::new("FUR_COLOR", "BROWN_COLORS"));
+            let registry = create_default_registry();
+            registry.apply_epigenetic_regulation(&mut genome, &factors);
+            let phenotype = registry.compute(&genome, &factors);
             print_json(json!({
                 "success": true, "operation": "phenotype",
                 "agent_id": agent_id, "uv_exposure": uv_exposure,
-                "temperature": temperature, "status": "computed"
+                "temperature": temperature, "status": "computed",
+                "traits": phenotype.macroscopic_traits,
+                "cellular_shape": phenotype.cellular_shape,
+                "molecular_markers": phenotype.molecular_markers
             }));
         }
         BiomimicrySubcommands::BioFeature { feature, action, param } => {

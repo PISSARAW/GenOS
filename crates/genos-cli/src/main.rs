@@ -154,7 +154,35 @@ fn main() {
         },
         Some(Commands::Synaptic(cmd)) => match cmd.subcommand {
             args::SynapticSubcommands::PruneScale { agent_id, scale } => {
-                println!("{}", serde_json::json!({ "success": true, "operation": "prune_scale", "agent_id": agent_id, "scale": scale }));
+                let api_url = std::env::var("GENOS_API_URL")
+                    .unwrap_or_else(|_| format!("http://127.0.0.1:{}", std::env::var("GENOS_PORT").unwrap_or_else(|_| "4000".to_string())));
+                let client = reqwest::blocking::Client::builder()
+                    .timeout(std::time::Duration::from_millis(2000))
+                    .build()
+                    .unwrap_or_default();
+                let body = serde_json::json!({
+                    "agentId": agent_id,
+                    "threshold": 0.5,
+                    "scale": scale
+                });
+                let (pruned_count, live_synced) = match client.post(format!("{}/api/memory/prune", api_url)).json(&body).send() {
+                    Ok(res) if res.status().is_success() => {
+                        if let Ok(data) = res.json::<serde_json::Value>() {
+                            (data.get("pruned_synapses").and_then(|v| v.as_u64()).unwrap_or(0) as usize, true)
+                        } else {
+                            (0, false)
+                        }
+                    }
+                    _ => (0, false)
+                };
+                println!("{}", serde_json::json!({
+                    "success": true,
+                    "operation": "prune_scale",
+                    "agent_id": agent_id,
+                    "scale": scale,
+                    "pruned_synapses": pruned_count,
+                    "live_synced": live_synced
+                }));
                 Ok(())
             }
             args::SynapticSubcommands::PathEvaluate { agent_id, pre_node, post_node } => {
