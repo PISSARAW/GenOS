@@ -151,14 +151,18 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   if (!assignments.length) return [];
   const parent = await db.get(
         `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
-          w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
+          w.path AS workspace_path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
     orchestrator.id
   );
   if (!parent) throw new Error(`Orchestrator '${orchestrator.id}' disappeared before worker creation`);
   const initialRound = plan.tokenPolicy?.rounds?.initial;
   const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
   const workers = [];
-  const sourceWorkspace = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+  const sourceWorkspace = parent.workspace_path;
+  if (!sourceWorkspace) throw new Error(`Workspace '${parent.workspace_id}' has no filesystem path.`);
+  if (mission.workspaceRoot && path.resolve(mission.workspaceRoot) !== path.resolve(sourceWorkspace)) {
+    throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
+  }
   const usedNames = [];
   for (const [index, assignment] of assignments.entries()) {
     const id = autonomousWorkerId(orchestrator.id, index + 1);
