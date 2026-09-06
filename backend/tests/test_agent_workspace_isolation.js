@@ -3,7 +3,7 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { createIsolatedWorkspace } = require('./src/services/agentRuntimeAdapter');
+const { createIsolatedWorkspace } = require('../src/services/agentRuntimeAdapter');
 
 async function run() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-isolation-'));

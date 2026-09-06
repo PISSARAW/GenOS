@@ -7,7 +7,7 @@ const {
   isPathWithinRoot,
   syncWorkspaceRegistry,
   workspaceIdForPath
-} = require('./src/services/workspaceRegistry');
+} = require('../src/services/workspaceRegistry');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-workspaces-'));
 
