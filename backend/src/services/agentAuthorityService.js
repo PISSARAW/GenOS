@@ -42,4 +42,16 @@ async function authorizeMission(db, agentId, orchestratorAgentId, workspaceId = 
   return agent;
 }
 
-module.exports = { EXECUTION_MODES, normalizeExecutionMode, requireOrchestrator, authorizeMission };
+async function authorizeAgentControl(db, targetId, actorId, workspaceId = null) {
+  const target = await db.get('SELECT id, parent_agent_id, execution_mode, workspace_id FROM agents WHERE id = ?', targetId);
+  if (!target) throw authorityError('AGENT_NOT_FOUND', `Agent '${targetId}' was not found.`);
+  if (workspaceId && target.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${targetId}' is outside the requested workspace.`);
+  const actor = await db.get('SELECT id, execution_mode, workspace_id FROM agents WHERE id = ?', actorId || '');
+  if (!actor || actor.workspace_id !== target.workspace_id) throw authorityError('AGENT_CONTROL_FORBIDDEN', 'The acting agent cannot control this target.');
+  if (actor.id !== target.id && actor.execution_mode !== 'orchestrator' && actor.id !== target.parent_agent_id) {
+    throw authorityError('AGENT_CONTROL_FORBIDDEN', 'Only the target or its orchestrator may control this agent.');
+  }
+  return target;
+}
+
+module.exports = { EXECUTION_MODES, normalizeExecutionMode, requireOrchestrator, authorizeMission, authorizeAgentControl };

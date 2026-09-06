@@ -47,10 +47,10 @@ async function apoptosis(context) {
   if (!targetId) {
     return { success: false, error: 'targetId required for apoptosis.' };
   }
-  const agent = await db.get('SELECT id, status, current_task FROM agents WHERE id = ?', targetId);
-  if (!agent) {
-    return { success: false, error: 'Agent not found: ' + targetId };
-  }
+  const authority = require('../agentAuthorityService');
+  let agent;
+  try { agent = await authority.authorizeAgentControl(db, targetId, context.actorId || context.orchestratorId || context.agentId, context.workspaceId || null); }
+  catch (error) { return { success: false, code: error.code, error: error.message }; }
   const reason = context.reason || 'Strategy-triggered apoptosis (unrecoverable failure).';
   await db.run(
     "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = ? WHERE id = ?",
@@ -72,9 +72,8 @@ async function apoptosis(context) {
       fossilRecord = fossilRes.data;
     }
   } catch (err) {
-    // Non-blocking fossil registration
+    return { success: false, terminated: targetId, reason, error: `Fossilization failed: ${err.message}` };
   }
-
   return { success: true, terminated: targetId, reason, fossilRecord };
 }
 
@@ -111,10 +110,10 @@ async function quarantine(context) {
   if (!targetId) {
     return { success: false, error: 'targetId required for quarantine.' };
   }
-  const agent = await db.get('SELECT id, status, isolation_mode FROM agents WHERE id = ?', targetId);
-  if (!agent) {
-    return { success: false, error: 'Agent not found: ' + targetId };
-  }
+  const authority = require('../agentAuthorityService');
+  let agent;
+  try { agent = await authority.authorizeAgentControl(db, targetId, context.actorId || context.orchestratorId || context.agentId, context.workspaceId || null); }
+  catch (error) { return { success: false, code: error.code, error: error.message }; }
   const reason = context.reason || 'Suspicious behavior detected.';
   await db.run(
     "UPDATE agents SET status = 'quarantined', isolation_mode = 'Quarantine' WHERE id = ?",
@@ -161,7 +160,7 @@ async function permissionCheck(context) {
   const toolName = context.tool || context.action || '';
   const isDestructive = circuitBreaker.isDestructive(toolName);
   const circuit = circuitBreaker.canExecute(context.scope || 'default', context.agentType || 'GenOS');
-  const allowed = circuit.allowed && (!isDestructive || context.forceAllow === true);
+  const allowed = circuit.allowed && !isDestructive;
   telemetry.emitEvent({
     eventType: allowed ? 'PERMISSION_GRANTED' : 'PERMISSION_DENIED',
     agentId: context.agentId || 'strategy_adapter',
