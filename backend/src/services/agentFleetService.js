@@ -292,6 +292,8 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
       });
     } catch (error) {
       const cancelled = error.code === 'WORKER_BARRIER_CANCELLED';
+      const { stopMission } = require('./agentRuntimeAdapter');
+      for (const worker of autonomousWorkers) stopMission(worker.agentId);
       await updateAgent(agentId, cancelled ? 'blocked' : 'error', error.message);
       emit(agentId, cancelled ? 'WORKER_EVIDENCE_BARRIER_HALTED' : 'WORKER_EVIDENCE_BARRIER_FAILED', cancelled ? 'STOP' : 'WAIT_FOR_WORKERS', error.message, {
         workerIds: autonomousWorkers.map((worker) => worker.agentId)

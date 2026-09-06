@@ -3,7 +3,7 @@ const assert = require('assert');
 const {
   buildWorkerSynthesisPrompt,
   waitForAutonomousWorkerQuiescence
-} = require('./src/services/agentRuntimeAdapter');
+} = require('../src/services/agentRuntimeAdapter');
 
 async function main() {
   const dossiers = [
