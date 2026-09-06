@@ -20,10 +20,21 @@ const fsSync = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
+const { getDatabase } = require('../db');
 
 const activeWorktrees = new Map();
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
 const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
+
+async function ensureCleanupTable(db) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS agent_capsule_cleanup (
+      agent_id TEXT PRIMARY KEY,
+      workspace_root TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+}
 
 function gcDelayMs() {
   const configured = Number(process.env.GENOS_WORKTREE_GC_DELAY_MS);
@@ -61,9 +72,16 @@ async function availableBytes(directory) {
  * `workspaceRoot`. Only capsules created by createIsolatedWorkspace() may be
  * tracked — never a caller's real workspace.
  */
-function trackWorkspace(agentId, workspaceRoot) {
+async function trackWorkspace(agentId, workspaceRoot) {
   if (!agentId || !workspaceRoot) return;
-  activeWorktrees.set(agentId, { workspaceRoot: path.resolve(workspaceRoot) });
+  const resolvedWorkspaceRoot = path.resolve(workspaceRoot);
+  activeWorktrees.set(agentId, { workspaceRoot: resolvedWorkspaceRoot });
+  const db = await getDatabase();
+  await ensureCleanupTable(db);
+  await db.run(
+    'INSERT INTO agent_capsule_cleanup(agent_id, workspace_root) VALUES (?, ?) ON CONFLICT(agent_id) DO UPDATE SET workspace_root = excluded.workspace_root',
+    agentId, resolvedWorkspaceRoot
+  );
 }
 
 function forgetWorkspace(agentId) {
@@ -88,7 +106,7 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   return removedVia;
 }
 
-function scheduleWorkspaceCleanup(agentId) {
+async function scheduleWorkspaceCleanup(agentId) {
   const tracked = activeWorktrees.get(agentId);
   if (!tracked || tracked.scheduled) return false;
   tracked.scheduled = true;
@@ -98,6 +116,9 @@ function scheduleWorkspaceCleanup(agentId) {
     try {
       const via = await cleanupWorkspace(tracked.workspaceRoot, agentId);
       activeWorktrees.delete(agentId);
+      const db = await getDatabase();
+      await ensureCleanupTable(db);
+      await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId);
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };
     } catch (_) {
       tracked.scheduled = false;
@@ -111,6 +132,16 @@ function scheduleWorkspaceCleanup(agentId) {
     setTimeout(reclaim, delay).unref();
   }
   return true;
+}
+
+async function reconcileWorkspaceCleanup(db) {
+  await ensureCleanupTable(db);
+  const rows = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup');
+  for (const row of rows) {
+    activeWorktrees.set(row.agent_id, { workspaceRoot: row.workspace_root });
+    await scheduleWorkspaceCleanup(row.agent_id);
+  }
+  return rows.length;
 }
 
 /** Diagnostics: every capsule currently tracked for eventual reclamation. */
@@ -191,6 +222,7 @@ async function provisionMissionWorkspace(mission, executionMode) {
 module.exports = {
   availableBytes,
   cleanupWorkspace,
+  reconcileWorkspaceCleanup,
   createIsolatedWorkspace,
   forgetWorkspace,
   provisionMissionWorkspace,

@@ -40,6 +40,7 @@ async function startServer() {
     console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
     const db = await getDatabase();
     await runtimeAdapter.reconcilePersistedRuntimes(db);
+    await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
     if (cluster.worker.id === 1) { // Only worker 1 processes background jobs to prevent duplicate jobs
         jobWorker.startJobWorker();
     }
