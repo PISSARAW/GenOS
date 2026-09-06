@@ -129,13 +129,22 @@ async function superviseMission(options) {
       }).catch(() => {});
     }
     eventQueue.push(event);
-    if (eventQueue.length > maxEventQueue) eventQueue.shift();
+    if (eventQueue.length > maxEventQueue) {
+      eventQueue.shift();
+      droppedEventCount += 1;
+      emit(agentId, 'RUNTIME_EVENT_QUEUE_OVERFLOW', 'QUEUE_DROP', `Runtime event queue dropped ${droppedEventCount} event(s) after reaching capacity ${maxEventQueue}.`, {
+        droppedEventCount,
+        capacity: maxEventQueue,
+        droppedEventType: event.eventType
+      }, 'critical', 'error');
+    }
     processEventQueue();
     return event;
   };
 
   const eventQueue = [];
   const maxEventQueue = Math.max(1, Number(process.env.GENOS_RUNTIME_EVENT_QUEUE_CAPACITY) || 2048);
+  let droppedEventCount = 0;
   let isProcessingEvents = false;
   const processEventQueue = async () => {
     if (isProcessingEvents) return;
