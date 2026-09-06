@@ -16,11 +16,10 @@ const TOOL_SCHEMAS = {
   },
   genos_snapshot: {
     type: 'object',
-    required: ['workspace_id', 'label'],
+    required: ['agent', 'out'],
     properties: {
-      workspace_id: { type: 'string', description: 'Workspace ID to capture' },
-      label: { type: 'string', description: 'Human-readable checkpoint label' },
-      reason: { type: 'string', description: 'Reason for creating snapshot' }
+      agent: { type: 'string', description: 'Path to the agent genome input' },
+      out: { type: 'string', description: 'Output path for the snapshot JSON' }
     }
   },
   genos_restore: {
