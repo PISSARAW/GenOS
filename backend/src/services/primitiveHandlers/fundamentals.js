@@ -192,7 +192,7 @@ async function cryptobiosisFreeze(context) {
   try {
     const res = await genosCli.runCryptobiosisFreeze(agentId, { state });
     const data = res.data;
-    if (res.ok && data && data.agent_id === agentId && typeof data.capsule_hash === 'string' && data.capsule_hash.length >= 32) {
+    if (res.ok && data && data.agent_id === agentId && typeof data.capsule_hash === 'string' && /^[a-f0-9]{64}$/i.test(data.capsule_hash)) {
       const snapshotId = data.capsule_id || `${agentId}:${data.capsule_hash}`;
       await db.run(
         `INSERT INTO cryptobiosis_snapshots (snapshot_id, agent_id, workspace_id, capsule_hash, status, metadata_json)
