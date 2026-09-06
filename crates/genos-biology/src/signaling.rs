@@ -18,8 +18,7 @@ impl CellularMessenger {
 
     pub fn transmit_to(&self, recipient: &mut AgentCell) -> bool {
         if recipient.is_alive() {
-            recipient.conscience.dissonance_level =
-                (recipient.conscience.dissonance_level - 0.1).max(0.0);
+            recipient.conscience.reduce_dissonance(0.1);
             true
         } else {
             false
