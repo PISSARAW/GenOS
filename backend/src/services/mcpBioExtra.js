@@ -81,6 +81,12 @@ function executeBioExtra(toolName, args = {}) {
     if (args.hayflick_limit !== undefined || args.hayflickLimit !== undefined) {
       params.push(`--hayflick-limit ${args.hayflick_limit ?? args.hayflickLimit}`);
     }
+    if (args.merozoite_count !== undefined || args.merozoiteCount !== undefined) {
+      params.push(`--merozoite-count ${args.merozoite_count ?? args.merozoiteCount}`);
+    }
+    if (args.seed !== undefined) {
+      params.push(`--seed ${args.seed}`);
+    }
     return handleBioCall(`genos evolution division ${params.join(' ')}`);
   }
 
