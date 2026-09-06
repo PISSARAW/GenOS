@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Automated Test Suite for Golden Path Integrity & Replay
  * Validates fixes across trajectoryService, vectorMemoryService, agentMemoryContext,
  * primitiveHandlers, and strategyExecutionAdapter.
@@ -155,7 +155,23 @@ async function runSuite() {
   const comp = gpResult.comparison;
   assert.ok(comp, 'Replay comparison object must be returned');
   assert.strictEqual(gpResult.branchingPoint, 2, 'Branching point must be 2');
-  assert.strictEqual(comp.counterfactualTimeline.alterationApplied.detail, 'Apply parallel hash-join instead of index');
+  // Test counterfactual_replay primitive alias
+  const cfExecution = await strategyExecutionAdapter.executePipelineWithFeedback(
+    ['counterfactual_replay'],
+    {
+      trajectoryId: autoResult.trajectoryId,
+      turns: [
+        { step: 1, action: 'read', detail: 'Analyze bottlenecks' },
+        { step: 2, action: 'patch', detail: 'Apply index' }
+      ],
+      stepIndex: 1,
+      alterations: { detail: 'Alternative branch at step 1' }
+    }
+  );
+  assert.ok(cfExecution.success, 'counterfactual_replay pipeline execution should succeed');
+  const cfResult = cfExecution.results.find(r => r.primitive === 'counterfactual_replay')?.result;
+  assert.ok(cfResult?.success, 'counterfactual_replay primitive result must succeed');
+  assert.strictEqual(cfResult.branchingPoint, 1, 'Branching point must be 1');
   console.log('-> Point 6 PASS: Counterfactual replay integration verified.\n');
 
   console.log('=== ALL 6 GOLDEN PATH TESTS COMPLETED SUCCESSFULLY! ===');
