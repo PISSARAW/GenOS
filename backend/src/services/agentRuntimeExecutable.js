@@ -44,7 +44,7 @@ function configuredExecutable(mission = {}) {
 
   if (candidate) return candidate;
 
-  return LOCAL_RUNTIME_PATH;
+  return CODEX_RUNTIME_PATH;
 }
 
 function runtimeAvailability(executable) {
