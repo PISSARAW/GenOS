@@ -76,6 +76,7 @@ impl Genome {
         let mut child = self.derive_child();
         for gene in child.genes.values_mut() {
             if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+                gene.chromatin_state = ChromatinState::Euchromatin;
                 gene.is_methylated = false;
                 gene.developmentally_locked = false;
                 gene.bound_repressor = None;
@@ -380,10 +381,12 @@ mod tests {
 
         let child = genome.derive_reproductive_child();
         let facultative = child.genes.get("FACULTATIVE").unwrap();
+        assert_eq!(facultative.chromatin_state, ChromatinState::Euchromatin);
         assert!(!facultative.is_methylated);
         assert!(!facultative.developmentally_locked);
         assert_eq!(facultative.bound_repressor, None);
         assert_eq!(facultative.expression_volume, 1.0);
         assert!(child.genes.get("CONSTITUTIVE").unwrap().is_methylated);
+        assert_eq!(child.genes.get("CONSTITUTIVE").unwrap().chromatin_state, ChromatinState::HeterochromatinConstitutive);
     }
 }
