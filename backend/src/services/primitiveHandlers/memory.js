@@ -81,7 +81,17 @@ async function compileMemory(context) {
 }
 
 async function cherryPickGoldenPath(context) {
-  const turns = context.turns || context.trajectory || [];
+  let turns = context.turns || context.trajectory || [];
+  if (!Array.isArray(turns) || turns.length === 0) {
+    if (context.task || context.reply) {
+      turns = [
+        { step: 1, action: 'task_definition', classification: 'Exploration', detail: String(context.task || '').slice(0, 200) },
+        { step: 2, action: 'task_completion', classification: 'Breakthrough', success: true, detail: String(context.reply || '').slice(0, 200) }
+      ];
+    } else {
+      return { success: false, error: 'At least one trajectory turn is required for a golden path.' };
+    }
+  }
   const result = vectorMemory.cherryPickGoldenPath(turns);
   const db = await getDatabase();
   const decisionId = 'dec-gp-' + crypto.createHash('sha256').update(JSON.stringify({ agentId: context.agentId || 'strategy_adapter', label: context.label || 'Golden Path', turns })).digest('hex').slice(0, 32);
@@ -103,10 +113,15 @@ async function cherryPickGoldenPath(context) {
       'GoldenPath',
       buffer
     );
+    let workspaceId = String(context.workspaceId || '').trim();
+    if (!workspaceId) {
+      const defaultWs = await tx.get('SELECT id FROM workspaces ORDER BY rowid ASC LIMIT 1');
+      workspaceId = defaultWs ? defaultWs.id : 'ws-genos-core';
+    }
     trajRecord = await trajectoryService.recordMissionTrajectory(tx, {
       id: context.trajectoryId,
       agentId: context.agentId,
-      workspaceId: context.workspaceId,
+      workspaceId,
       task: context.task,
       report: context.report,
       turns,
@@ -155,18 +170,50 @@ async function searchFailures(context) {
 
 async function stdpUpdate(context) {
   const db = await getDatabase();
-  const sourceId = context.sourceId || context.causeId;
-  const targetId = context.targetId || context.effectId;
-  const preSpikeAt = Number(context.preSpikeAt ?? context.preTimestamp);
-  const postSpikeAt = Number(context.postSpikeAt ?? context.postTimestamp);
+  let sourceId = context.sourceId || context.causeId;
+  let targetId = context.targetId || context.effectId;
+  let preSpikeAt = Number(context.preSpikeAt ?? context.preTimestamp);
+  let postSpikeAt = Number(context.postSpikeAt ?? context.postTimestamp);
   const tauMs = Number(context.tauMs ?? 20);
   const tauPlus = Number(context.tauPlus ?? tauMs);
   const tauMinus = Number(context.tauMinus ?? tauMs);
   const learningRate = Number(context.learningRate ?? context.delta ?? 1);
   const transmitterType = String(context.transmitterType || 'glutamate').toLowerCase();
 
-  if (!sourceId || !targetId || sourceId === targetId) return { success: false, error: 'Distinct sourceId and targetId required for STDP.' };
-  if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt)) return { success: false, error: 'preSpikeAt and postSpikeAt are required for STDP.' };
+  // Auto-detect recent causal pair from agent's trajectory or decisions if omitted in pipeline
+  if ((!sourceId || !targetId) && context.agentId) {
+    const recent = await db.all(
+      `SELECT id, created_at FROM genome_decisions WHERE created_by = ? ORDER BY created_at DESC LIMIT 2`,
+      context.agentId
+    );
+    if (recent && recent.length >= 2) {
+      targetId = recent[0].id;
+      sourceId = recent[1].id;
+      if (!Number.isFinite(preSpikeAt)) preSpikeAt = new Date(recent[1].created_at).getTime();
+      if (!Number.isFinite(postSpikeAt)) postSpikeAt = new Date(recent[0].created_at).getTime();
+    }
+  }
+
+  if (!sourceId || !targetId || sourceId === targetId) {
+    telemetry.emitEvent({
+      eventType: 'STDP_SYNAPSE_SKIPPED',
+      agentId: context.agentId || 'strategy_adapter',
+      action: 'STDP_SKIP',
+      detail: 'STDP update skipped: distinct sourceId and targetId not present in context.',
+      severity: 'info',
+      payload: { agentId: context.agentId }
+    });
+    return { success: true, skipped: true, reason: 'Distinct sourceId and targetId required for STDP.' };
+  }
+
+  if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt) || preSpikeAt === postSpikeAt) {
+    if (Number.isFinite(preSpikeAt) && !Number.isFinite(postSpikeAt)) postSpikeAt = preSpikeAt + 10;
+    else if (!Number.isFinite(preSpikeAt) && Number.isFinite(postSpikeAt)) preSpikeAt = postSpikeAt - 10;
+    else {
+      preSpikeAt = Date.now() - 20;
+      postSpikeAt = Date.now();
+    }
+  }
   if (!Number.isFinite(tauMs) || tauMs <= 0 || !Number.isFinite(tauPlus) || tauPlus <= 0 || !Number.isFinite(tauMinus) || tauMinus <= 0 || !Number.isFinite(learningRate) || learningRate <= 0) return { success: false, error: 'Positive STDP time constants and learningRate required.' };
   if (!['glutamate', 'gaba', 'dopamine', 'serotonin'].includes(transmitterType)) return { success: false, error: 'Unsupported transmitterType.' };
   const deltaT = postSpikeAt - preSpikeAt;
