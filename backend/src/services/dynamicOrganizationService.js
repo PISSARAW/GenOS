@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { withTransaction } = require('../db');
 
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
@@ -129,25 +130,27 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
   const version = Number(current?.version || 0) + 1;
   const actor = changedBy || orchestratorId;
   if (actor !== orchestratorId) throw organizationError('ORCHESTRATOR_AUTHORITY_REQUIRED', 'Only the owning orchestrator may change the organization.');
-  await db.run(
-    `INSERT INTO agent_organization_state(orchestrator_id, organization, version, policy_json, reason, changed_by, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-     ON CONFLICT(orchestrator_id) DO UPDATE SET organization = excluded.organization, version = excluded.version,
-       policy_json = excluded.policy_json, reason = excluded.reason, changed_by = excluded.changed_by, updated_at = CURRENT_TIMESTAMP`,
-    orchestratorId, organization, version, JSON.stringify(profile), String(reason || 'Runtime need changed.'), actor
-  );
-  await db.run(
-    `INSERT INTO agent_organization_transitions(id, orchestrator_id, from_organization, to_organization, version, reason, changed_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    `org-transition-${crypto.randomUUID()}`, orchestratorId, current?.organization || null, organization, version,
-    String(reason || 'Runtime need changed.'), actor
-  );
-  if (organization !== 'network_silence') {
-    await db.run(
-      "UPDATE agent_organization_messages SET delivery = 'delivered' WHERE orchestrator_id = ? AND delivery = 'buffered'",
-      orchestratorId
+  await withTransaction(db, async (transaction) => {
+    await transaction.run(
+      `INSERT INTO agent_organization_state(orchestrator_id, organization, version, policy_json, reason, changed_by, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(orchestrator_id) DO UPDATE SET organization = excluded.organization, version = excluded.version,
+         policy_json = excluded.policy_json, reason = excluded.reason, changed_by = excluded.changed_by, updated_at = CURRENT_TIMESTAMP`,
+      orchestratorId, organization, version, JSON.stringify(profile), String(reason || 'Runtime need changed.'), actor
     );
-  }
+    await transaction.run(
+      `INSERT INTO agent_organization_transitions(id, orchestrator_id, from_organization, to_organization, version, reason, changed_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `org-transition-${crypto.randomUUID()}`, orchestratorId, current?.organization || null, organization, version,
+      String(reason || 'Runtime need changed.'), actor
+    );
+    if (organization !== 'network_silence') {
+      await transaction.run(
+        "UPDATE agent_organization_messages SET delivery = 'delivered' WHERE orchestrator_id = ? AND delivery = 'buffered'",
+        orchestratorId
+      );
+    }
+  });
   return { orchestratorId, previous: current?.organization || null, organization, version, policy: profile, reason: String(reason || 'Runtime need changed.'), changed: true };
 }
 
