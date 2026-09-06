@@ -241,6 +241,13 @@ async function executeWorkerPipeline({ db, orchestratorId, workers, contract, ba
         stage, workerIds: stageWorkers.map((worker) => worker.agentId), sourceDossierCount: handoff.length
       }, 'info');
     }
+    await Promise.all(stageWorkers.map((worker) => workerGarage.reserveSlot(db, {
+      orchestratorId,
+      workerId: worker.agentId,
+      name: worker.name,
+      role: worker.role,
+      mission: worker.prompt
+    })));
     const dispatches = await Promise.allSettled(stageWorkers.map((worker) =>
       startMission({ ...worker, strategyContract: contract, autonomousOrchestration: false })
     ));
