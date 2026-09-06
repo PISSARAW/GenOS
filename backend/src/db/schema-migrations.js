@@ -105,6 +105,7 @@ async function applyVersionedMigrations(db) {
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
+    if (table === 'trace_spans' && !columnNames.has('workspace_id')) await db.exec('ALTER TABLE trace_spans ADD COLUMN workspace_id TEXT');
   }
   await migrateDatasetNameConstraint(db);
   await migrateNotificationPreferenceScope(db);
