@@ -52,6 +52,9 @@ async function runTests() {
   assert.equal(mcpExecPipeline.configured, true);
   assert.equal(mcpExecPipeline.output.results.length, 1);
   console.log('  ✅ MCP genos_execute_strategy_pipeline routed:', mcpExecPipeline.status);
+  const replayAlias = await adapter.executePrimitive('replay', {});
+  assert.equal(replayAlias.success, false, 'replay alias must invoke the real causal replay handler');
+  assert.match(replayAlias.error, /inputFile/);
 
   const mcpDirect = await mcpExecutor.executeConfiguredTransport({
     toolName: 'genos_strat_compile_memory',

@@ -137,7 +137,7 @@ const STAGE_PRIMITIVE_MAP = {
   isolated_forks: ['fork', 'mcts_select'],
   instrumented_run: ['vfs_dry_run', 'run'],
   adaptive_evaluation: ['evaluate', 'verify'],
-  diff_and_replay: ['diff', 'safe_revert'],
+  diff_and_replay: ['safe_revert'],
   audit: ['provenance', 'dependency_matrix'],
   conditional_promotion: ['select_winner', 'stdp_update', 'cherry_pick_golden_path']
 };

@@ -24,9 +24,13 @@ const search = require('./primitiveHandlers/search');
 const HANDLERS = {
   // Lot 1 — Fondamentales
   snapshot: fundamentals.snapshot,
+  checkpoint: fundamentals.snapshot,
   cryptobiosis_freeze: fundamentals.cryptobiosisFreeze,
+  freeze_spore: fundamentals.cryptobiosisFreeze,
   cryptobiosis_thaw: fundamentals.cryptobiosisThaw,
+  rehydrate: fundamentals.cryptobiosisThaw,
   cryptobiosis: fundamentals.cryptobiosisFreeze,
+  persist: fundamentals.cryptobiosisFreeze,
   vitrify: fundamentals.cryptobiosisFreeze,
   fork: fundamentals.fork,
   slm_route: fundamentals.slmRoute,
@@ -104,6 +108,7 @@ const HANDLERS = {
   // Lot 6 — Temporel & Causal
   causal_replay_intervention: temporal.causalReplay,
   causal_replay: temporal.causalReplay,
+  replay: temporal.causalReplay,
   mutated_universes: temporal.mutatedUniverses,
   alternative_future: temporal.mutatedUniverses,
   causal_rebase: temporal.causalRebase,
