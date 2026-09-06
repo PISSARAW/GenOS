@@ -1,4 +1,4 @@
-use genos_genome::Genome;
+use genos_genome::{ChromatinState, Gene, Genome};
 use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -19,6 +19,22 @@ pub struct CrossoverResult {
 }
 
 impl MeioticCrossover {
+    fn reprogram_inherited_gene(mut gene: Gene) -> Gene {
+        // Epigenetic reprogramming: somatic facultative heterochromatin and somatic marks are reset to euchromatin,
+        // while constitutive heterochromatin (centromeres, retrotransposons) is preserved.
+        if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+            gene.chromatin_state = ChromatinState::Euchromatin;
+            gene.is_methylated = false;
+            gene.developmentally_locked = false;
+            gene.bound_repressor = None;
+            gene.expression_volume = 1.0;
+        } else if gene.chromatin_state == ChromatinState::Euchromatin {
+            gene.is_methylated = false;
+            gene.developmentally_locked = false;
+        }
+        gene
+    }
+
     pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
         let mut child_a = parent_a.derive_reproductive_child();
         let mut child_b = parent_b.derive_reproductive_child();
@@ -30,7 +46,7 @@ impl MeioticCrossover {
         child_b.chromosome_maternal.replace_sequence(a_gamete_2);
         child_b.chromosome_paternal.replace_sequence(b_gamete_2);
 
-        // Recombinaison réciproque des gènes selon le point de coupure
+        // Recombinaison réciproque des gènes selon le point de coupure avec reprogrammation épigénétique méiotique
         let mut all_loci: Vec<String> = parent_a.genes.keys().chain(parent_b.genes.keys()).cloned().collect();
         all_loci.sort();
         all_loci.dedup();
@@ -45,17 +61,17 @@ impl MeioticCrossover {
 
             if idx < gene_split {
                 if let Some(g) = from_a.or(from_b) {
-                    genes_a.insert(locus.clone(), g.clone());
+                    genes_a.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
                 if let Some(g) = from_b.or(from_a) {
-                    genes_b.insert(locus.clone(), g.clone());
+                    genes_b.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
             } else {
                 if let Some(g) = from_b.or(from_a) {
-                    genes_a.insert(locus.clone(), g.clone());
+                    genes_a.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
                 if let Some(g) = from_a.or(from_b) {
-                    genes_b.insert(locus.clone(), g.clone());
+                    genes_b.insert(locus.clone(), Self::reprogram_inherited_gene(g.clone()));
                 }
             }
         }
@@ -180,5 +196,64 @@ impl MeioticCrossover {
         }
 
         Ok(Self::uniform_crossover_with_seed(parent_a, parent_b, swap_prob, seed))
+    }
+
+    fn reprogram_inherited_gene(mut gene: Gene) -> Gene {
+        if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+            gene.chromatin_state = ChromatinState::Euchromatin;
+            gene.is_methylated = false;
+            gene.developmentally_locked = false;
+            gene.bound_repressor = None;
+            gene.expression_volume = 1.0;
+        }
+        gene
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_meiotic_crossover_epigenetic_reprogramming() {
+        let mut parent_a = Genome::new("PARENT_A");
+        let mut gene_a = Gene::new("defense_mechanism", "CRISPR_CAS9");
+        gene_a.chromatin_state = ChromatinState::HeterochromatinFacultative;
+        gene_a.is_methylated = true;
+        gene_a.developmentally_locked = true;
+        gene_a.bound_repressor = Some("HISTONE_H3K27ME3".into());
+        gene_a.expression_volume = 0.05;
+        parent_a.insert_gene(gene_a);
+
+        let mut parent_b = Genome::new("PARENT_B");
+        let mut gene_b = Gene::new("metabolic_pathway", "GLYCOLYSIS");
+        gene_b.chromatin_state = ChromatinState::HeterochromatinConstitutive; // Constitutive remains locked
+        gene_b.is_methylated = true;
+        gene_b.developmentally_locked = true;
+        parent_b.insert_gene(gene_b);
+
+        // 1. Single point crossover
+        let (child_1, child_2) = MeioticCrossover::single_point_crossover(&parent_a, &parent_b, 10);
+        for child in [&child_1, &child_2] {
+            if let Some(g) = child.genes.get("defense_mechanism") {
+                assert_eq!(g.chromatin_state, ChromatinState::Euchromatin);
+                assert!(!g.is_methylated);
+                assert!(!g.developmentally_locked);
+                assert!(g.bound_repressor.is_none());
+                assert_eq!(g.expression_volume, 1.0);
+            }
+            if let Some(g) = child.genes.get("metabolic_pathway") {
+                assert_eq!(g.chromatin_state, ChromatinState::HeterochromatinConstitutive);
+                assert!(g.developmentally_locked);
+            }
+        }
+
+        // 2. Uniform crossover
+        let child_u = MeioticCrossover::uniform_crossover(&parent_a, &parent_b, 0.5);
+        if let Some(g) = child_u.genes.get("defense_mechanism") {
+            assert_eq!(g.chromatin_state, ChromatinState::Euchromatin);
+            assert!(!g.is_methylated);
+            assert!(!g.developmentally_locked);
+        }
     }
 }
