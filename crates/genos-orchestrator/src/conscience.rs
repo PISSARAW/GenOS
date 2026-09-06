@@ -36,15 +36,11 @@ impl Conscience {
         let relief = progress_score * 3.0;
 
         state.dissonance_level = (state.dissonance_level + penalty - relief).max(0.0);
+        state.current_budget = (state.current_budget - 1.0 - errors_in_loop as f64).max(0.0);
 
-        if state.dissonance_level >= self.max_dissonance_threshold {
+        if state.dissonance_level >= self.max_dissonance_threshold || state.current_budget <= 0.0 {
             state.is_apoptotic = true;
             state.current_budget = 0.0;
-        } else {
-            let harmony = (self.max_dissonance_threshold - state.dissonance_level).max(0.0);
-            state.current_budget = state.baseline_budget
-                + (harmony * 5.0) 
-                + (state.eureka_moments as f64 * 50.0);
         }
     }
 
@@ -55,7 +51,7 @@ impl Conscience {
         }
         state.eureka_moments += 1;
         state.dissonance_level /= 2.0;
-        state.current_budget += 50.0;
+        state.current_budget = (state.current_budget + 50.0).min(state.baseline_budget);
     }
 }
 
