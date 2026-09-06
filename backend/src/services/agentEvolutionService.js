@@ -59,8 +59,13 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
   const metadata = JSON.stringify({
     genes: options.genes || {},
     parents: options.parents || {},
-    mutations: options.mutations || []
+    mutations: options.mutations || [],
+    predictedFitness: Number.isFinite(Number(options.predictedFitness)) ? Number(options.predictedFitness) : null,
+    fitnessStatus: Number.isFinite(Number(options.validatedFitness)) ? 'validated' : 'unvalidated'
   });
+  const validatedScore = Number.isFinite(Number(options.validatedFitness))
+    ? Number((Number(options.validatedFitness) / 100).toFixed(2))
+    : null;
 
   try {
     await db.run(
@@ -70,7 +75,7 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
       workerInfo.agentId,
       workspaceId,
       workerInfo.name || workerInfo.agentId,
-      Number(((options.predictedFitness || 80) / 100).toFixed(2)),
+      validatedScore,
       `Evolved worker: ${workerInfo.role || 'specialist'}`,
       metadata
     );
