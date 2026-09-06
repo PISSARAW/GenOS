@@ -130,8 +130,8 @@ class TelemetryObserver extends EventEmitter {
         try {
           const db = await getDatabase();
           await db.run(
-          `INSERT INTO telemetry_events (session_id, agent_id, event_type, action, detail, payload_json, severity) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
+          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            queuedEvent.id, queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
             queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity
           );
           this.persistedEvents += 1;

@@ -260,6 +260,7 @@ const TABLES_CORE = [
 "-- 16. Telemetry Events (Observer Stream & Historical Audit)",
 "CREATE TABLE IF NOT EXISTS telemetry_events (",
 "    id INTEGER PRIMARY KEY AUTOINCREMENT,",
+"    event_id TEXT,",
 "    session_id TEXT,",
 "    agent_id TEXT,",
 "    event_type TEXT NOT NULL,",
