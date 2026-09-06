@@ -221,10 +221,11 @@ function stopMission(agentId) {
   }
   if (!child) {
     getDatabase().then(async (db) => {
-      const agent = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', agentId);
+      const agent = await db.get('SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?', agentId);
       if (agent?.runtime_pid) {
-        terminatePid(agent.runtime_pid);
-        await db.run("UPDATE agents SET status = 'blocked', runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", agentId);
+        const matches = processMatches(agent.runtime_pid, agent.runtime_executable);
+        if (matches) terminatePid(agent.runtime_pid);
+        await db.run("UPDATE agents SET status = ?, runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", matches ? 'blocked' : 'error', matches ? 'Stopped from Studio' : 'Persisted runtime PID did not match its executable.', agentId);
       }
     }).catch(() => {});
     return false;
