@@ -51,14 +51,14 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
     let (child_a_id, child_a_mat_len, strategy_name) = if let Some(pt) = crossover_point {
         let (res_a, _res_b) = MeioticCrossover::single_point_crossover(&g_a, &g_b, pt);
         (
-            res_a.genome_id.to_string(),
+            res_a.genome_id().to_string(),
             res_a.chromosome_maternal.sequence.len(),
             format!("single_point@{}", pt),
         )
     } else {
         let res = MeioticCrossover::uniform_crossover(&g_a, &g_b, swap_prob);
         (
-            res.genome_id.to_string(),
+            res.genome_id().to_string(),
             res.chromosome_maternal.sequence.len(),
             format!("uniform_p{:.2}", swap_prob),
         )
@@ -69,8 +69,8 @@ fn handle_crossover(parent_a: &str, parent_b: &str, swap_prob: f64, crossover_po
         "operation": "meiotic_crossover",
         "parent_a": parent_a,
         "parent_b": parent_b,
-        "parent_a_genome_id": g_a.genome_id.to_string(),
-        "parent_b_genome_id": g_b.genome_id.to_string(),
+        "parent_a_genome_id": g_a.genome_id().to_string(),
+        "parent_b_genome_id": g_b.genome_id().to_string(),
         "child_genome_id": child_a_id,
         "crossover_strategy": strategy_name,
         "maternal_sequence_length": child_a_mat_len,
@@ -89,8 +89,8 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "binary_fission",
-                        "parent_genome_id": p.genome_id.to_string(),
-                        "child_genome_id": c.genome_id.to_string(),
+                        "parent_genome_id": p.genome_id().to_string(),
+                        "child_genome_id": c.genome_id().to_string(),
                         "mutation_rate_applied": mutation_rate,
                         "progeny_count": 1,
                         "status": "fission_completed"
@@ -106,8 +106,8 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "budding",
-                        "mother_genome_id": m.genome_id.to_string(),
-                        "daughter_genome_id": d.genome_id.to_string(),
+                        "mother_genome_id": m.genome_id().to_string(),
+                        "daughter_genome_id": d.genome_id().to_string(),
                         "daughter_volume": daughter_volume,
                         "progeny_count": 1,
                         "status": "budding_completed"
@@ -119,12 +119,12 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
         "schizogony" => {
             match CellDivision::schizogony(&parent, merozoite_count) {
                 Ok(daughters) => {
-                    let ids: Vec<String> = daughters.iter().map(|d| d.genome_id.to_string()).collect();
+                    let ids: Vec<String> = daughters.iter().map(|d| d.genome_id().to_string()).collect();
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "schizogony",
-                        "mother_genome_id": parent.genome_id.to_string(),
+                        "mother_genome_id": parent.genome_id().to_string(),
                         "progeny_count": ids.len(),
                         "progeny_genome_ids": ids,
                         "status": "schizogony_completed"
@@ -141,8 +141,8 @@ fn handle_division(agent_id: &str, mode: &str, mutation_rate: f64, daughter_volu
                         "success": true,
                         "operation": "cell_division",
                         "division_mode": "mitosis",
-                        "parent_genome_id": p.genome_id.to_string(),
-                        "clone_genome_id": c.genome_id.to_string(),
+                        "parent_genome_id": p.genome_id().to_string(),
+                        "clone_genome_id": c.genome_id().to_string(),
                         "progeny_count": 1,
                         "status": "mitosis_completed"
                     }));
@@ -171,7 +171,7 @@ fn handle_phylogeny(action: &str, genome_a: &str, genome_b: Option<&str>, mutati
                 "operation": "phylogeny",
                 "action": "hybridization",
                 "genome_a": genome_a,
-                "genome_b": g_b.genome_id.to_string(),
+                "genome_b": g_b.genome_id().to_string(),
                 "hybridization_result": classification,
                 "is_fertile": fertile,
                 "is_plant_mode": is_plant,
@@ -185,7 +185,7 @@ fn handle_phylogeny(action: &str, genome_a: &str, genome_b: Option<&str>, mutati
                 "operation": "phylogeny",
                 "action": "interbreed_check",
                 "genome_a": genome_a,
-                "genome_b": g_b.genome_id.to_string(),
+                "genome_b": g_b.genome_id().to_string(),
                 "can_interbreed": can_breed,
                 "status": "checked"
             }));
@@ -197,7 +197,7 @@ fn handle_phylogeny(action: &str, genome_a: &str, genome_b: Option<&str>, mutati
                     "operation": "phylogeny",
                     "action": "molecular_clock",
                     "genome_a": genome_a,
-                    "genome_b": g_b.genome_id.to_string(),
+                    "genome_b": g_b.genome_id().to_string(),
                     "mutation_rate_per_generation": mutation_rate,
                     "estimated_generations_divergence": generations,
                     "status": "calculated"
@@ -226,7 +226,7 @@ fn handle_phylogeny(action: &str, genome_a: &str, genome_b: Option<&str>, mutati
                 "operation": "phylogeny",
                 "action": "divergence",
                 "genome_a": genome_a,
-                "genome_b": g_b.genome_id.to_string(),
+                "genome_b": g_b.genome_id().to_string(),
                 "divergence_million_years": divergence_mya,
                 "status": "estimated"
             }));

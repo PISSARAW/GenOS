@@ -1,13 +1,12 @@
 use genos_genome::Genome;
 use rand::RngExt;
-use uuid::Uuid;
 
 pub struct MeioticCrossover;
 
 impl MeioticCrossover {
     pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
-        let mut child_a = parent_a.clone();
-        let mut child_b = parent_b.clone();
+        let mut child_a = parent_a.derive_child();
+        let mut child_b = parent_b.derive_child();
 
         let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
         let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
@@ -15,8 +14,6 @@ impl MeioticCrossover {
         child_a.chromosome_paternal.sequence = b_gamete_1;
         child_b.chromosome_maternal.sequence = a_gamete_2;
         child_b.chromosome_paternal.sequence = b_gamete_2;
-        child_a.genome_id = Uuid::new_v4();
-        child_b.genome_id = Uuid::new_v4();
 
         (child_a, child_b)
     }
@@ -32,8 +29,7 @@ impl MeioticCrossover {
     }
 
     pub fn uniform_crossover(parent_a: &Genome, parent_b: &Genome, swap_prob: f64) -> Genome {
-        let mut child = parent_a.clone();
-        child.genome_id = Uuid::new_v4();
+        let mut child = parent_a.derive_child();
         let swap_prob = swap_prob.clamp(0.0, 1.0);
         let mut rng = rand::rng();
         for (a, b) in child

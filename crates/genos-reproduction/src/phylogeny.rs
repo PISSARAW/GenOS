@@ -1,7 +1,6 @@
 
 use serde::{Deserialize, Serialize};
 use crate::genome::Genome;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum HybridizationResult {
@@ -73,7 +72,7 @@ impl PhylogeneticTree {
         }
 
         let mut child_genome = genome_a.clone();
-        child_genome.genome_id = Uuid::new_v4();
+        child_genome = child_genome.derive_child();
         child_genome.chromosome_maternal = genome_a.chromosome_maternal.clone();
         child_genome.chromosome_paternal = genome_b.chromosome_paternal.clone();
 
