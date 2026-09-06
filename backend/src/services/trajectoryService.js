@@ -71,9 +71,8 @@ function cherryPickGoldenPath(rawTurns = []) {
  * @returns {object}
  */
 function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alterations = {}) {
-  const source = (originalTrajectory && (originalTrajectory.turns || originalTrajectory.diffLines))
-    ? originalTrajectory
-    : SEED_TRAJECTORY;
+  const source = originalTrajectory;
+  if (!source || !source.id) throw new Error('A persisted trajectory id is required for counterfactual replay.');
   const turns = source.turns || source.diffLines || [];
   if (!Array.isArray(turns) || turns.length === 0) {
     throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
@@ -94,7 +93,7 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
     alterationApplied: alt,
     totalSteps: turns.length,
     steps: [...turns.slice(0, step), { type: 'Counterfactual Override', ...alt }, ...turns.slice(step)],
-    finalStatus: 'SUCCESS'
+    finalStatus: 'PENDING_VALIDATION'
   };
 
   return {
@@ -105,7 +104,8 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
       mode: 'recorded-trajectory-branch',
       originalTimeline,
       counterfactualTimeline,
-      outcome: 'Branch prepared from persisted steps; execution evidence is required before comparing results.'
+      outcome: 'INCONCLUSIVE_PENDING_EXECUTION',
+      validationRequired: true
     }
   };
 }
