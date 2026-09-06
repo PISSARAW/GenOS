@@ -102,11 +102,17 @@ impl Genome {
     }
 
     pub fn reprogram_epigenetics(&mut self, _cocktail: &YamanakaCocktail) {
+        let cocktail = _cocktail;
+        let decondensation = cocktail.chromatin_decondensation_rate.clamp(0.0, 1.0);
         for gene in self.genes.values_mut() {
             if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
-                gene.chromatin_state = ChromatinState::Euchromatin;
-                gene.developmentally_locked = false;
-                gene.is_methylated = false;
+                if decondensation > 0.0 {
+                    gene.chromatin_state = ChromatinState::Euchromatin;
+                    gene.developmentally_locked = false;
+                    gene.is_methylated = false;
+                    gene.bound_repressor = None;
+                    gene.expression_volume = decondensation;
+                }
             }
         }
     }
