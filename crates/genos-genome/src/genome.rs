@@ -31,6 +31,7 @@ pub struct GenomeFingerprint {
     pub genome_id: Uuid,
     pub lineage_id: Uuid,
     pub hash: String,
+    pub content_hash: String,
 }
 
 impl Genome {
@@ -55,13 +56,29 @@ impl Genome {
 
     pub fn fingerprint(&self) -> Result<GenomeFingerprint, String> {
         self.validate()?;
-        Ok(GenomeFingerprint { genome_id: self.genome_id, lineage_id: self.lineage_id, hash: self.hash_library() })
+        Ok(GenomeFingerprint { genome_id: self.genome_id, lineage_id: self.lineage_id, hash: self.hash_library(), content_hash: self.content_hash() })
     }
 
     pub fn verify_fingerprint(&self, fingerprint: &GenomeFingerprint) -> bool {
         self.genome_id == fingerprint.genome_id
             && self.lineage_id == fingerprint.lineage_id
             && self.hash_library() == fingerprint.hash
+            && self.content_hash() == fingerprint.content_hash
+    }
+
+    pub fn content_hash(&self) -> String {
+        let content = serde_json::json!({
+            "chromosome_maternal": &self.chromosome_maternal,
+            "chromosome_paternal": &self.chromosome_paternal,
+            "genes": &self.genes,
+            "plasmids": &self.plasmids,
+            "endogenous_retroviruses": &self.endogenous_retroviruses,
+            "regulatory_enhancers": &self.regulatory_enhancers,
+            "extra_chromosomes": &self.extra_chromosomes
+        });
+        let mut hasher = Sha256::new();
+        hasher.update(serde_json::to_vec(&content).unwrap_or_default());
+        hasher.finalize().iter().map(|byte| format!("{byte:02x}")).collect()
     }
 
     pub fn new(base_instruction: &str) -> Self {
@@ -245,5 +262,13 @@ mod tests {
         assert!(genome.verify_fingerprint(&fingerprint));
         genome.insert_gene(Gene::new("MUTATED", "ATGC"));
         assert!(!genome.verify_fingerprint(&fingerprint));
+    }
+
+    #[test]
+    fn test_content_hash_ignores_identity_but_detects_content() {
+        let genome = Genome::new("CONTENT");
+        let child = genome.derive_child();
+        assert_eq!(genome.content_hash(), child.content_hash());
+        assert_ne!(genome.genome_id(), child.genome_id());
     }
 }
