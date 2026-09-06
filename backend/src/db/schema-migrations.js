@@ -35,6 +35,9 @@ async function migrateLegacySchema(db) {
       if (!colNames.includes('cognitive_budget')) {
         await db.exec('ALTER TABLE agents ADD COLUMN cognitive_budget REAL DEFAULT 100.0;');
       }
+      if (!colNames.includes('cognitive_baseline_budget')) {
+        await db.exec('ALTER TABLE agents ADD COLUMN cognitive_baseline_budget REAL DEFAULT 100.0;');
+      }
       if (!colNames.includes('is_apoptotic')) {
         await db.exec('ALTER TABLE agents ADD COLUMN is_apoptotic INTEGER DEFAULT 0;');
       }

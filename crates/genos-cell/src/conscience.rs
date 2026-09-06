@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConscienceState {
     pub current_budget: f64,
+    pub baseline_budget: f64,
     pub dissonance_level: f64,
     pub eureka_moments: u32,
     pub is_apoptotic: bool,
@@ -14,6 +15,7 @@ impl Default for ConscienceState {
     fn default() -> Self {
         Self {
             current_budget: 100.0,
+            baseline_budget: 100.0,
             dissonance_level: 0.0,
             eureka_moments: 0,
             is_apoptotic: false,

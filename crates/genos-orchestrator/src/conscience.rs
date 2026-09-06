@@ -29,6 +29,9 @@ impl Conscience {
             return;
         }
 
+        state.max_dissonance_threshold = self.max_dissonance_threshold;
+        state.baseline_budget = self.baseline_budget;
+
         let penalty = (errors_in_loop as f64) * 2.5;
         let relief = progress_score * 3.0;
 
@@ -39,7 +42,7 @@ impl Conscience {
             state.current_budget = 0.0;
         } else {
             let harmony = (self.max_dissonance_threshold - state.dissonance_level).max(0.0);
-            state.current_budget = self.baseline_budget 
+            state.current_budget = state.baseline_budget
                 + (harmony * 5.0) 
                 + (state.eureka_moments as f64 * 50.0);
         }
