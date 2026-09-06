@@ -14,7 +14,7 @@ module.exports = {
         claims: cand.claimsCount || 0
       });
     } catch (err) {
-      callback(null, { fitness_score: 50, pass_rate: 50, claims: 0 });
+      callback({ code: 3, message: `Invalid dossier evaluation: ${err.message}` });
     }
   },
 
@@ -28,7 +28,7 @@ module.exports = {
         leaderboard_json: JSON.stringify(res.leaderboard || [])
       });
     } catch (err) {
-      callback(null, { pareto_count: 0, knee_candidate_id: '', leaderboard_json: '[]' });
+      callback({ code: 3, message: `Invalid Pareto evaluation: ${err.message}` });
     }
   }
 };
