@@ -92,11 +92,52 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
       sections.push(`- Pièges & Échecs à Éviter Absolument (Anti-Trauma) :\n${pitLines.join('\n')}`);
     }
 
+/**
+ * Parses and formats a golden path into a clean step flow for the prompt
+ * @param {object} g
+ * @returns {string}
+ */
+function formatGoldenPath(g) {
+  const title = g.title ? `[${g.title}]` : '';
+  const rawData = g.content || g.summary || '';
+  let steps = [];
+
+  if (Array.isArray(g.turns)) {
+    steps = g.turns;
+  } else if (Array.isArray(g.goldenPathSteps)) {
+    steps = g.goldenPathSteps;
+  } else if (typeof rawData === 'string' && (rawData.trim().startsWith('[') || rawData.trim().startsWith('{'))) {
+    try {
+      const parsed = JSON.parse(rawData);
+      if (Array.isArray(parsed)) {
+        steps = parsed;
+      } else if (parsed && Array.isArray(parsed.goldenPathSteps)) {
+        steps = parsed.goldenPathSteps;
+      } else if (parsed && Array.isArray(parsed.turns)) {
+        steps = parsed.turns;
+      }
+    } catch {
+      // not JSON, fallback below
+    }
+  }
+
+  if (steps.length > 0) {
+    const formattedSteps = steps.map((s, idx) => {
+      const num = s.step || idx + 1;
+      const action = s.action || s.type || s.classification || 'step';
+      const detail = s.detail || s.thought || s.cmd || s.action || '';
+      return `${num}. [${action}] ${detail}`.trim();
+    }).slice(0, 6).join(' -> ');
+
+    return `${title} ${formattedSteps}`.trim();
+  }
+
+  const fallbackText = (g.summary && !g.summary.startsWith('[') ? g.summary : g.title || g.summary || '').slice(0, 300);
+  return `${title} ${fallbackText}`.trim();
+}
+
     if (goldenPaths.length > 0) {
-      const gpLines = goldenPaths.map(g => {
-        const summary = (g.summary || g.title || '').slice(0, 200);
-        return `  * 🎯 ${summary}`;
-      });
+      const gpLines = goldenPaths.map(g => `  * 🎯 ${formatGoldenPath(g)}`);
       sections.push(`- Golden Paths Connus :\n${gpLines.join('\n')}`);
     }
 
@@ -151,5 +192,6 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
 module.exports = {
   retrieveAgentMemories,
   formatCognitiveMemoryPrompt,
-  compileExecutionMemory
+  compileExecutionMemory,
+  formatGoldenPath
 };
