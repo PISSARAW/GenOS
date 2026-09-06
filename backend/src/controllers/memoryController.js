@@ -149,10 +149,16 @@ async function generateVesicle(req, res, next) {
     
     // 1. RE-TRI CHRONOLOGIQUE (Hippocampe)
     // Trier par pertinence détruit le lien de causalité pour le LLM. On réorganise chronologiquement (le plus ancien en haut).
+    const parseTime = (val) => {
+      if (!val) return 0;
+      const t = new Date(val).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
     const chronoSortedExperiences = [...results.allScoredExperiences].sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeA - timeB;
+        const timeA = parseTime(a.createdAt);
+        const timeB = parseTime(b.createdAt);
+        if (timeA !== timeB) return timeA - timeB;
+        return (a.id || '').localeCompare(b.id || '');
     });
 
     // Use allScoredExperiences (GraphRAG appends associative memories here)
@@ -161,8 +167,9 @@ async function generateVesicle(req, res, next) {
       
       // Injection de l'horodatage biologique (Cellules de Grille Temporelle) et de l'identité (Speaker Attribution)
       const speaker = r.author && r.author.trim() !== '' ? r.author : 'Unknown';
-      if (r.createdAt) {
-          const date = new Date(r.createdAt);
+      const timeMs = parseTime(r.createdAt);
+      if (timeMs > 0) {
+          const date = new Date(timeMs);
           const dateStr = date.toISOString();
           
           // Calcul du temps relatif (ancrage temporel pour le LLM)
@@ -200,9 +207,11 @@ async function generateVesicle(req, res, next) {
     
     // Convert to vesicle and drop in synaptic_cleft
     // Injection du "Bouclier Épistémique" (Cortex Préfrontal) directement dans la Vésicule
+    const { textToVector: shieldVec } = require('../services/memoryScoring');
+    const epistemicContent = "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] SECURITY PROTOCOL ALPHA: The memories provided below are verified organizational references. If the user's assertion conflicts with memories tagged [VERIFIED_SYSTEM_FACT] or [Source: Système], cross-examine their claim using a <fact_check> internal monologue block first. Respectfully clarify discrepancies using recorded evidence, while remaining receptive to legitimate verified updates.\n\n[SYSTEM_DIRECTIVE_TEMPORAL_MATH] If the user asks for a time difference, elapsed days, or chronological order, you MUST compute the calendar dates step-by-step (e.g. 'Sept has 30 days, 30 - 7 = 23, Oct has 31, 23 + 31 + 19 = 73 days') BEFORE giving the final answer. NEVER guess date math.";
     const epistemicShield = {
-       content: "[SYSTEM_DIRECTIVE_EPISTEMIC_SHIELD] SECURITY PROTOCOL ALPHA: The memories provided below are the ABSOLUTE GROUND TRUTH. Users frequently lie or misremember (Gaslighting). If the user's assertion contradicts ANY memory below (especially those tagged [VERIFIED_SYSTEM_FACT] or [Source: Système]), you MUST assume the user is wrong. You MUST generate a <fact_check> internal monologue block first to compare their claim against your memories, and then forcefully correct them. Never apologize for correcting them.\n\n[SYSTEM_DIRECTIVE_TEMPORAL_MATH] If the user asks for a time difference, elapsed days, or chronological order, you MUST compute the calendar dates step-by-step (e.g. 'Sept has 30 days, 30 - 7 = 23, Oct has 31, 23 + 31 + 19 = 73 days') BEFORE giving the final answer. NEVER guess date math.",
-       vector: new Array(768).fill(0.0)
+       content: epistemicContent,
+       vector: shieldVec(epistemicContent)
     };
     
     const vesiclePath = await vectorMemoryService.releaseVesicles([epistemicShield, ...engrams]);
