@@ -8,9 +8,19 @@ const { spawnSync } = require('child_process');
 
 function bundledRuntimeEnvironment() {
   const repositoryRoot = path.resolve(__dirname, '../../..');
+  const bundledGenos = path.join(repositoryRoot, 'target/debug/genos');
+  const bundledMcp = path.join(repositoryRoot, 'target/debug/genos-mcp');
+  const configuredGenos = String(process.env.GENOS_BIN || '').trim();
+  const configuredMcp = String(process.env.GENOS_MCP_BIN || '').trim();
+  const useConfigured = (configured, bundled) => {
+    if (!configured) return bundled;
+    const bundledExists = fsSync.existsSync(bundled) || (process.platform === 'win32' && fsSync.existsSync(`${bundled}.exe`));
+    if (bundledExists && /program files/i.test(configured)) return bundled;
+    return configured;
+  };
   return {
-    GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
-    GENOS_MCP_BIN: process.env.GENOS_MCP_BIN || path.join(repositoryRoot, 'target/debug/genos-mcp'),
+    GENOS_BIN: useConfigured(configuredGenos, bundledGenos),
+    GENOS_MCP_BIN: useConfigured(configuredMcp, bundledMcp),
     GENOS_ORCHESTRATOR_BRIDGE: process.env.GENOS_ORCHESTRATOR_BRIDGE || path.join(repositoryRoot, 'backend/bin/genos-orchestrate.cjs')
   };
 }
