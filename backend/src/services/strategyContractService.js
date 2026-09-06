@@ -89,6 +89,10 @@ function validateContract(contract) {
     throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
   }
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
+  if (!contract.branches.length) throw new Error('branches must contain at least one hypothesis');
+  const budgetShare = contract.branches.reduce((sum, branch) => sum + Number(branch.budget_share || 0), 0);
+  if (!Number.isFinite(budgetShare) || Math.abs(budgetShare - 1) > 0.01) throw new Error('branch budget_share values must total approximately 1');
+  if (contract.branches.some((branch) => !branch.label || !branch.hypothesis)) throw new Error('every branch requires a label and hypothesis');
   if (!Array.isArray(contract.stop_conditions)) throw new Error('stop_conditions must be an array');
   if (!contract.promotion) throw new Error('promotion policy is required');
   return contract;
