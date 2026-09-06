@@ -22,6 +22,18 @@ async function findCommandWorkspace(db, req, workspaceId) {
   return db.get('SELECT * FROM workspaces WHERE id = ? AND organization_id IS NULL AND project_id IS NULL', workspaceId);
 }
 
+async function findCommandAgent(db, req, agentId) {
+  if (req.tenant) {
+    return db.get(
+      'SELECT a.* FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?',
+      agentId,
+      req.tenant.organizationId,
+      req.tenant.projectId
+    );
+  }
+  return db.get('SELECT * FROM agents WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL)', agentId);
+}
+
 function controllerResponse(resolve) {
   return {
     status(code) { this.statusCode = code; return this; },
@@ -46,6 +58,7 @@ async function handleCommand(req, res) {
     case 'fork_agent': {
       const parentId = agentId || params?.agentId;
       if (!parentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+      if (!await findCommandAgent(db, req, parentId)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${parentId}' is not available in this project.` } });
       const result = await new Promise((resolve, reject) => {
         const forkResponse = controllerResponse(resolve);
         Promise.resolve(lineageController.cloneNode({ body: { nodeId: parentId } }, forkResponse)).catch(reject);
@@ -56,8 +69,10 @@ async function handleCommand(req, res) {
     case 'kill_agent': {
       const targetId = agentId || params?.agentId;
       if (!targetId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+      const targetAgent = await findCommandAgent(db, req, targetId);
+      if (!targetAgent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${targetId}' is not available in this project.` } });
       const stopped = stopMission(targetId);
-      await updateAgentStatus(db, targetId, 'terminated', 'Terminated by command palette');
+      await updateAgentStatus(db, targetId, 'terminated', 'Terminated by command palette', req);
       return res.json({ success: true, agentId: targetId, stopped, status: 'terminated' });
     }
 
@@ -93,12 +108,16 @@ async function handleCommand(req, res) {
   }
 }
 
-async function updateAgentStatus(db, agentId, status, currentTask) {
+async function updateAgentStatus(db, agentId, status, currentTask, req) {
+  const scope = req?.tenant
+    ? { clause: 'AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)', params: [req.tenant.organizationId, req.tenant.projectId] }
+    : { clause: 'AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL)', params: [] };
   await db.run(
-    'UPDATE agents SET status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    `UPDATE agents SET status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? ${scope.clause}`,
     status,
     currentTask,
-    agentId
+    agentId,
+    ...scope.params
   );
 }
 
