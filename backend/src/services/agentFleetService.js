@@ -17,7 +17,7 @@ const {
   pendingContinuations, pendingWorkerRecoveries, activeWorkerRecoveryDispatches
 } = require('./agentOrchestrationState');
 const {
-  recordWorkerEvidence, workerEvidenceDossiers, buildWorkerSynthesisPrompt
+  recordWorkerEvidence, workerEvidenceDossiers, validateWorkerDossiers, buildWorkerSynthesisPrompt
 } = require('./agentEvidenceService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundService');
@@ -334,6 +334,7 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
       throw error;
     }
     const dossiers = workerEvidenceDossiers(agentId, autonomousWorkers);
+    validateWorkerDossiers(dossiers, autonomousWorkers);
     normalizedMission.prompt = buildWorkerSynthesisPrompt(
       normalizedMission.prompt || normalizedMission.currentTask || '',
       dossiers

@@ -51,6 +51,24 @@ function workerEvidenceDossiers(orchestratorId, workers) {
   }));
 }
 
+function validateWorkerDossiers(dossiers, workers) {
+  const expected = new Set(workers.map((worker) => worker.agentId));
+  const actual = new Set(dossiers.map((dossier) => dossier.workerId));
+  const missing = [...expected].filter((workerId) => !actual.has(workerId));
+  const empty = dossiers
+    .filter((dossier) => expected.has(dossier.workerId))
+    .filter((dossier) => !dossier.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof))
+    .map((dossier) => dossier.workerId);
+  if (missing.length || empty.length) {
+    const error = new Error(`Worker evidence is incomplete. Missing: ${missing.join(', ') || 'none'}; unusable: ${empty.join(', ') || 'none'}.`);
+    error.code = 'INCOMPLETE_WORKER_EVIDENCE';
+    error.missingWorkerIds = missing;
+    error.emptyWorkerIds = empty;
+    throw error;
+  }
+  return true;
+}
+
 function buildWorkerSynthesisPrompt(originalPrompt, dossiers) {
   return [
     originalPrompt,
@@ -105,6 +123,7 @@ function evidenceScore(payload = {}, context = {}) {
 module.exports = {
   recordWorkerEvidence,
   workerEvidenceDossiers,
+  validateWorkerDossiers,
   buildWorkerSynthesisPrompt,
   dossierDigest,
   boundedScore,
