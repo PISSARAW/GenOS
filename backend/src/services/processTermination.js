@@ -35,7 +35,8 @@ function terminatePid(pid) {
       execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
       return true;
     }
-    process.kill(numericPid, 'SIGTERM');
+    try { process.kill(-numericPid, 'SIGTERM'); }
+    catch (_) { process.kill(numericPid, 'SIGTERM'); }
     return true;
   } catch (_) {
     return false;
