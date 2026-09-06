@@ -12,6 +12,7 @@ const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
+const { terminatePid, processMatches } = require('./src/services/processTermination');
 
 const PORT = process.env.PORT || 4000;
 
@@ -40,6 +41,16 @@ async function startServer() {
     console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
     const db = await getDatabase();
     await runtimeAdapter.reconcilePersistedRuntimes(db);
+    const detachedTable = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'detached_processes'");
+    if (detachedTable) {
+      const detached = await db.all('SELECT id, pid, command FROM detached_processes');
+      for (const row of detached) {
+        let alive = true;
+        try { process.kill(Number(row.pid), 0); } catch (_) { alive = false; }
+        if (alive && processMatches(row.pid, row.command)) terminatePid(row.pid);
+        await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+      }
+    }
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
     if (cluster.worker.id === 1) { // Only worker 1 processes background jobs to prevent duplicate jobs
         jobWorker.startJobWorker();
