@@ -2,16 +2,22 @@ const { spawn } = require('child_process');
 const fs = require('fs/promises');
 const path = require('path');
 const { appendBounded } = require('./boundedOutput');
+const { terminateChild } = require('./processTermination');
 
-function run(command, args) {
+function run(command, args, timeoutMs = 120000) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    const timer = setTimeout(() => {
+      terminateChild(child);
+      reject(new Error(`GenOS capsule bootstrap timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
     child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', reject);
+    child.on('error', (error) => { clearTimeout(timer); reject(error); });
     child.on('close', (code) => {
+      clearTimeout(timer);
       if (code === 0) resolve(stdout);
       else reject(new Error(`GenOS capsule bootstrap failed (${code}): ${stderr.trim() || stdout.trim()}`));
     });

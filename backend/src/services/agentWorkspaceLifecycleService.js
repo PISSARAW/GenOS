@@ -21,6 +21,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const { getDatabase } = require('../db');
+const { terminateChild } = require('./processTermination');
 
 const activeWorktrees = new Map();
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
@@ -42,13 +43,7 @@ function gcDelayMs() {
 }
 
 function spawnGit(cwd, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
-  });
+  return runCommand('git', ['-C', cwd, ...args], { timeoutMs: 120000 });
 }
 
 /**
@@ -153,15 +148,19 @@ function trackedWorkspaces() {
 // Mission capsule provisioning
 // ---------------------------------------------------------------------------
 
-function runCommand(command, args, { cwd, input } = {}) {
+function runCommand(command, args, { cwd, input, timeoutMs = 120000 } = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    const timer = setTimeout(() => {
+      terminateChild(child);
+      reject(new Error(`${command} ${args.join(' ')} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
     child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
     child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
-    child.on('error', reject);
-    child.on('close', (code) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`)));
+    child.on('error', (error) => { clearTimeout(timer); reject(error); });
+    child.on('close', (code) => { clearTimeout(timer); code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`)); });
     child.stdin.end(input || '');
   });
 }
