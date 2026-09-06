@@ -21,6 +21,8 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Initialize the GenOS workspace directories
+    Init,
     /// Agent genome lifecycle operations
     Agent(AgentCmd),
     /// Snapshot lifecycle operations
