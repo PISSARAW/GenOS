@@ -1,5 +1,6 @@
 use crate::cell::AgentCell;
 use crate::genome::{ChromatinState, Gene, Genome};
+use std::collections::HashSet;
 
 pub fn seed_hox_genome(base_instruction: &str) -> Genome {
     let mut genome = Genome::new(base_instruction);
@@ -48,13 +49,30 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
             cell.role = "HOX-3_DATA_STORAGE".to_string();
         }
 
-        for (locus, gene) in genome.genes.iter_mut() {
-            if locus.contains("HOX") && !locus.contains(&cell.role) {
+    }
+
+    let active_axes: HashSet<u8> = swarm.iter().filter_map(|cell| hox_axis(&cell.role)).collect();
+    for (locus, gene) in genome.genes.iter_mut() {
+        if let Some(axis) = hox_axis(locus) {
+            if active_axes.contains(&axis) {
+                if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+                    gene.chromatin_state = ChromatinState::Euchromatin;
+                    gene.developmentally_locked = false;
+                }
+            } else {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
                 gene.developmentally_locked = true;
             }
         }
     }
+}
+
+fn hox_axis(value: &str) -> Option<u8> {
+    let normalized = value.to_ascii_uppercase();
+    if normalized.contains("HOX-1") || normalized.contains("HOX_A1") { return Some(1); }
+    if normalized.contains("HOX-2") || normalized.contains("HOX_A2") { return Some(2); }
+    if normalized.contains("HOX-3") || normalized.contains("HOX_A3") { return Some(3); }
+    None
 }
 
 /// ACTE 4 : Le Sculpteur (Apoptose)
@@ -101,5 +119,17 @@ mod tests {
 
         differentiate_swarm(&mut swarm, f64::NAN, &mut genome);
         assert!(swarm.iter().all(|cell| cell.role == "HOX-3_DATA_STORAGE"));
+    }
+
+    #[test]
+    fn test_hox_locus_aliases_follow_active_axes() {
+        let zygote = AgentCell::new("Zygote", "Origin", "Stem");
+        let mut swarm = cleave_zygote(zygote, 2);
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        genome.insert_gene(Gene::new("HOX_A1", "UI_PROMPT"));
+        genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
+        genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
+        differentiate_swarm(&mut swarm, 1.0, &mut genome);
+        assert!(genome.genes.values().all(|gene| !gene.developmentally_locked));
     }
 }
