@@ -11,7 +11,7 @@ const {
   pendingWorkerRecoveries, activeWorkerRecoveryDispatches, pendingContinuations,
   activeWorkerBarriers, emit, updateAgent, workerToolLease
 } = require('./agentOrchestrationState');
-const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const { createIsolatedWorkspace, cleanupWorkspace } = require('./agentWorkspaceLifecycleService');
 const { getDatabase } = require('../db');
 
 async function applyOrganizationDecision(orchestratorId, organization, reason) {
@@ -75,7 +75,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     source = await db.get(
             `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
               a.isolation_mode, a.parent_agent_id
-             FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+             , w.path AS workspace_root FROM agents a JOIN workspaces w ON w.id = a.workspace_id
              WHERE a.id = ? AND a.execution_mode = 'worker'`,
       sourceAgentId
     );
@@ -129,13 +129,6 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
   let workspaceRoot;
   try {
-    await workerGarage.requireAvailableSlot(db, orchestratorId);
-    const sourceRoot = mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    workspaceRoot = await createIsolatedWorkspace(
-      sourceRoot,
-      `${targetId}_${decision.action}_${report.attempt + 1}`,
-      path.dirname(sourceRoot)
-    );
     if (sameIdentity) {
       await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ?", targetId);
     } else {
@@ -149,6 +142,12 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       );
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
+    const sourceRoot = source.workspace_root;
+    workspaceRoot = await createIsolatedWorkspace(
+      sourceRoot,
+      `${targetId}_${decision.action}_${report.attempt + 1}`,
+      path.dirname(sourceRoot)
+    );
     const previousVariant = Number(mission.variantIndex || 0);
     const nextVariant = previousVariant + 1;
     emit(orchestratorId, 'COGNITIVE_MOLTING_TRIGGERED', 'MUE_COGNITIVE', `Mue cognitive déclenchée : passage au variant de modèle index ${previousVariant} -> ${nextVariant}.`, {
@@ -189,6 +188,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return true;
   } catch (error) {
+    if (workspaceRoot) await cleanupWorkspace(workspaceRoot, targetId).catch(() => {});
     await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, targetId).catch(() => {});
     emit(orchestratorId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
       sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1
