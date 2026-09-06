@@ -5,10 +5,10 @@ module.exports = {
 
   EvaluatePromptDrift: (call, callback) => {
     const { base_prompt, current_prompt } = call.request || {};
-    const drift = resilience.evaluatePromptDrift(base_prompt || '', current_prompt || '');
+    const drift = resilience.trackHypermutationDrift(base_prompt || '', current_prompt || '');
     callback(null, {
-      levenshtein_ratio: drift.ratio || 1.0,
-      drift_status: drift.status || 'NORMAL'
+      levenshtein_ratio: drift.driftScore,
+      drift_status: drift.status
     });
   },
 
