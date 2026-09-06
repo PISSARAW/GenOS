@@ -3,7 +3,7 @@
  * Stress-tests Pareto frontier calculation, Knee-point detection, and collinear/extreme candidate sets.
  */
 
-const { calculateParetoFront, runTournament, calculateElo } = require('./src/services/arenaService');
+const { calculateParetoFront, runTournament, calculateElo } = require('../../src/services/arenaService');
 
 let passedTests = 0;
 let failedTests = 0;
