@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
+const { runGenosSync } = require('./genosCli');
 
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
@@ -32,6 +33,10 @@ function parseArgs(value) {
 
 function rpcRequest(id, method, params = {}) {
   return { jsonrpc: '2.0', id, method, params };
+}
+
+function runSafeSync(commandLine) {
+  return runGenosSync(commandLine);
 }
 
 async function callHttp(url, toolName, options = {}) {

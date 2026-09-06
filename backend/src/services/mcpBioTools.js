@@ -1,5 +1,5 @@
 const cp = require('child_process');
-const genosCli = require('./genosCli');
+const { runGenosSync } = require('./genosCli');
 let echolocationProcess = null;
 
 function stopEcholocation() {
@@ -7,14 +7,6 @@ function stopEcholocation() {
   echolocationProcess.kill();
   echolocationProcess = null;
   return true;
-}
-
-function runGenosSync(cmdString) {
-  const bin = genosCli.resolveGenosBin();
-  const actualCmd = cmdString.startsWith('genos ')
-    ? `"${bin}" ${cmdString.slice(6)}`
-    : cmdString;
-  return cp.execSync(actualCmd);
 }
 
 function executeBioTool(toolName, args) {
