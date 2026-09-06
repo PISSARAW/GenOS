@@ -101,6 +101,7 @@ async function applyVersionedMigrations(db) {
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
   }
+  await migrateDatasetNameConstraint(db);
   const evaluationColumns = await db.all('PRAGMA table_info(evaluation_jobs)');
   const evaluationNames = new Set(evaluationColumns.map(column => column.name));
   if (!evaluationNames.has('error_json')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN error_json TEXT');
@@ -118,6 +119,30 @@ async function applyVersionedMigrations(db) {
   if (!synapseColumns.has('last_updated_at')) await db.exec('ALTER TABLE memory_synapses ADD COLUMN last_updated_at DATETIME');
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
+  }
+}
+
+async function migrateDatasetNameConstraint(db) {
+  const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'datasets'");
+  if (!table?.sql || !/name\s+TEXT\s+NOT\s+NULL\s+UNIQUE/i.test(table.sql)) return;
+  await db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.exec('BEGIN IMMEDIATE;');
+    await db.exec(`CREATE TABLE datasets_tenant_scoped (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT DEFAULT '', metadata_json TEXT NOT NULL DEFAULT '{}',
+      organization_id TEXT, project_id TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(organization_id, project_id, name)
+    );
+    INSERT INTO datasets_tenant_scoped (id, name, description, metadata_json, organization_id, project_id, created_at, updated_at)
+      SELECT id, name, description, metadata_json, organization_id, project_id, created_at, updated_at FROM datasets;
+    DROP TABLE datasets;
+    ALTER TABLE datasets_tenant_scoped RENAME TO datasets;`);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON;');
   }
 }
 
