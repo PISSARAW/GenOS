@@ -72,6 +72,19 @@ impl Genome {
         child
     }
 
+    pub fn derive_reproductive_child(&self) -> Self {
+        let mut child = self.derive_child();
+        for gene in child.genes.values_mut() {
+            if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+                gene.is_methylated = false;
+                gene.developmentally_locked = false;
+                gene.bound_repressor = None;
+                gene.expression_volume = 1.0;
+            }
+        }
+        child
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         if self.genome_id == Uuid::nil() { return Err("genome_id must not be nil".into()); }
         if self.lineage_id == Uuid::nil() { return Err("lineage_id must not be nil".into()); }
