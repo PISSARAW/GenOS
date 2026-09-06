@@ -229,10 +229,18 @@ impl AgentCell {
 
     pub fn mitosis(&self) -> Result<(Self, Self), String> {
         self.can_divide()?;
+        let mut parent = self.clone();
+        parent.bud_scars += 1;
+        if parent.bud_scars >= parent.hayflick_limit {
+            parent.is_senescent = true;
+        }
+
         let mut clone = self.clone();
         clone.cell_id = Uuid::new_v4();
+        clone.bud_scars = parent.bud_scars;
+        clone.is_senescent = parent.is_senescent;
         clone.regenerate_organelle_ids();
-        Ok((self.clone(), clone))
+        Ok((parent, clone))
     }
 
     pub fn binary_fission(&self, mutation_rate: f64) -> Result<(Self, Self), String> {
@@ -410,6 +418,47 @@ mod tests {
         assert!(!mother.is_senescent);
         assert_eq!(mother.remaining_divisions(), 3);
         assert!(mother.budding(0.2).is_ok());
+    }
+
+    #[test]
+    fn test_agent_cell_schizogony_burst_and_lysis() {
+        let mut mother = AgentCell::new("MotherSchizont", "Source", "Orchestrator");
+        mother.conscience.current_budget = 100.0;
+        mother.organelles.push(Organelle::Mitochondrion {
+            id: Uuid::new_v4(),
+            atp_budget: 36,
+            efficiency: 0.95,
+        });
+
+        // 1. Invalid counts rejected
+        assert!(mother.schizogony(1, 0.0).is_err());
+        assert!(mother.schizogony(200, 0.0).is_err());
+
+        // 2. Successful schizogonic burst into 4 merozoites
+        let merozoites = mother.schizogony(4, 0.05).expect("schizogony must succeed");
+        assert_eq!(merozoites.len(), 4);
+
+        // Mother is lysed / apoptotic with zero remaining budget
+        assert!(!mother.is_alive());
+        assert!(mother.conscience.is_apoptotic);
+        assert_eq!(mother.conscience.current_budget, 0.0);
+
+        // Merozoites have partitioned budget and unique identities
+        for (i, m) in merozoites.iter().enumerate() {
+            assert!(m.is_alive());
+            assert_ne!(m.cell_id, mother.cell_id);
+            assert_eq!(m.conscience.current_budget, 25.0);
+            assert!(m.name.contains(&format!("merozoite_{}", i + 1)));
+            assert_eq!(m.organelle_count(), 1);
+            // Organelle IDs are refreshed
+            match &m.organelles[0] {
+                Organelle::Mitochondrion { id, atp_budget, .. } => {
+                    assert_ne!(*id, match &mother.organelles[0] { Organelle::Mitochondrion { id, .. } => *id, _ => unreachable!() });
+                    assert_eq!(*atp_budget, 36);
+                }
+                _ => panic!("Expected mitochondrion"),
+            }
+        }
     }
 }
 
