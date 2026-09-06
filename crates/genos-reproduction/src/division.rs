@@ -20,12 +20,9 @@ impl CellDivision {
             let parent = genome.clone();
             let mut child = genome.derive_child();
         let mut rng = rand::rng();
-        for nucleotide in child
-            .chromosome_maternal
-            .sequence
-            .iter_mut()
-            .chain(child.chromosome_paternal.sequence.iter_mut())
-        {
+            let mut maternal = child.chromosome_maternal.as_slice().to_vec();
+            let mut paternal = child.chromosome_paternal.as_slice().to_vec();
+            for nucleotide in maternal.iter_mut().chain(paternal.iter_mut()) {
             if rng.random_bool(mutation_rate) {
                 *nucleotide = match nucleotide {
                     genos_genome::DnaNucleotide::A => genos_genome::DnaNucleotide::C,
@@ -35,6 +32,8 @@ impl CellDivision {
                 };
             }
         }
+        child.chromosome_maternal.replace_sequence(maternal);
+        child.chromosome_paternal.replace_sequence(paternal);
         Ok((parent, child))
     }
 

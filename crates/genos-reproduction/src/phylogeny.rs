@@ -109,8 +109,8 @@ impl PhylogeneticTree {
     }
 
     pub fn estimate_divergence_time(leaf1: &Genome, leaf2: &Genome) -> f64 {
-        let strands_a = [&leaf1.chromosome_maternal.sequence, &leaf1.chromosome_paternal.sequence];
-        let strands_b = [&leaf2.chromosome_maternal.sequence, &leaf2.chromosome_paternal.sequence];
+        let strands_a = [leaf1.chromosome_maternal.as_slice(), leaf1.chromosome_paternal.as_slice()];
+        let strands_b = [leaf2.chromosome_maternal.as_slice(), leaf2.chromosome_paternal.as_slice()];
         let mut diffs = 0;
         let mut total_len = 0;
         for (s1, s2) in strands_a.into_iter().zip(strands_b.into_iter()) {
@@ -136,8 +136,8 @@ impl PhylogeneticTree {
         if !mutation_rate_per_generation.is_finite() || mutation_rate_per_generation <= 0.0 {
             return Err("Mutation rate per generation must be finite and greater than zero".to_string());
         }
-        let seq_a = &genome_a.chromosome_maternal.sequence;
-        let seq_b = &genome_b.chromosome_maternal.sequence;
+        let seq_a = genome_a.chromosome_maternal.as_slice();
+        let seq_b = genome_b.chromosome_maternal.as_slice();
         
         let mut silent_mutations = 0;
         let min_len = seq_a.len().min(seq_b.len());

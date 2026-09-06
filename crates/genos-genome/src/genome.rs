@@ -129,15 +129,17 @@ impl Genome {
         } else {
             &self.chromosome_maternal
         };
-        if start + len <= source.sequence.len() {
-            let chunk = source.sequence[start..start + len].to_vec();
+        if start + len <= source.len() {
+            let chunk = source.as_slice()[start..start + len].to_vec();
             let target = if is_maternal_broken {
                 &mut self.chromosome_maternal
             } else {
                 &mut self.chromosome_paternal
             };
-            if start + len <= target.sequence.len() {
-                target.sequence.splice(start..start + len, chunk);
+            if start + len <= target.len() {
+                let mut sequence = target.as_slice().to_vec();
+                sequence.splice(start..start + len, chunk);
+                target.replace_sequence(sequence);
             }
         }
     }
@@ -212,21 +214,21 @@ mod tests {
     #[test]
     fn test_double_strand_repair_replaces_the_broken_region() {
         let mut genome = Genome::new("REPAIR");
-        genome.chromosome_maternal.sequence = vec![
+        genome.chromosome_maternal.replace_sequence(vec![
             crate::dna::DnaNucleotide::A,
             crate::dna::DnaNucleotide::A,
             crate::dna::DnaNucleotide::A,
             crate::dna::DnaNucleotide::A,
-        ];
-        genome.chromosome_paternal.sequence = vec![
+        ]);
+        genome.chromosome_paternal.replace_sequence(vec![
             crate::dna::DnaNucleotide::C,
             crate::dna::DnaNucleotide::G,
             crate::dna::DnaNucleotide::T,
             crate::dna::DnaNucleotide::C,
-        ];
+        ]);
         genome.repair_double_strand_break(true, 1..3);
         assert_eq!(
-            genome.chromosome_maternal.sequence,
+            genome.chromosome_maternal.as_slice(),
             vec![
                 crate::dna::DnaNucleotide::A,
                 crate::dna::DnaNucleotide::G,

@@ -10,21 +10,20 @@ impl MeioticCrossover {
 
         let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
         let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
-        child_a.chromosome_maternal.sequence = a_gamete_1;
-        child_a.chromosome_paternal.sequence = b_gamete_1;
-        child_b.chromosome_maternal.sequence = a_gamete_2;
-        child_b.chromosome_paternal.sequence = b_gamete_2;
+        child_a.chromosome_maternal.replace_sequence(a_gamete_1);
+        child_a.chromosome_paternal.replace_sequence(b_gamete_1);
+        child_b.chromosome_maternal.replace_sequence(a_gamete_2);
+        child_b.chromosome_paternal.replace_sequence(b_gamete_2);
 
         (child_a, child_b)
     }
 
     fn gametes(parent: &Genome, crossover_point: usize) -> (Vec<genos_genome::DnaNucleotide>, Vec<genos_genome::DnaNucleotide>) {
-        let point = crossover_point.min(parent.chromosome_maternal.sequence.len())
-            .min(parent.chromosome_paternal.sequence.len());
-        let mut first = parent.chromosome_maternal.sequence[..point].to_vec();
-        first.extend_from_slice(&parent.chromosome_paternal.sequence[point..]);
-        let mut second = parent.chromosome_paternal.sequence[..point].to_vec();
-        second.extend_from_slice(&parent.chromosome_maternal.sequence[point..]);
+        let point = crossover_point.min(parent.chromosome_maternal.len()).min(parent.chromosome_paternal.len());
+        let mut first = parent.chromosome_maternal.as_slice()[..point].to_vec();
+        first.extend_from_slice(&parent.chromosome_paternal.as_slice()[point..]);
+        let mut second = parent.chromosome_paternal.as_slice()[..point].to_vec();
+        second.extend_from_slice(&parent.chromosome_maternal.as_slice()[point..]);
         (first, second)
     }
 
@@ -32,26 +31,20 @@ impl MeioticCrossover {
         let mut child = parent_a.derive_child();
         let swap_prob = swap_prob.clamp(0.0, 1.0);
         let mut rng = rand::rng();
-        for (a, b) in child
-            .chromosome_maternal
-            .sequence
-            .iter_mut()
-            .zip(parent_b.chromosome_maternal.sequence.iter())
-        {
+        let mut maternal = child.chromosome_maternal.as_slice().to_vec();
+        let mut paternal = child.chromosome_paternal.as_slice().to_vec();
+        for (a, b) in maternal.iter_mut().zip(parent_b.chromosome_maternal.as_slice().iter()) {
             if rng.random_bool(swap_prob) {
                 *a = b.clone();
             }
         }
-        for (a, b) in child
-            .chromosome_paternal
-            .sequence
-            .iter_mut()
-            .zip(parent_b.chromosome_paternal.sequence.iter())
-        {
+        for (a, b) in paternal.iter_mut().zip(parent_b.chromosome_paternal.as_slice().iter()) {
             if rng.random_bool(swap_prob) {
                 *a = b.clone();
             }
         }
+        child.chromosome_maternal.replace_sequence(maternal);
+        child.chromosome_paternal.replace_sequence(paternal);
         for (locus, gene_b) in &parent_b.genes {
             if rng.random_bool(swap_prob) {
                 child.genes.insert(locus.clone(), gene_b.clone());
