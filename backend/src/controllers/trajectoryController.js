@@ -4,6 +4,8 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const crypto = require('crypto');
+const path = require('path');
 
 function workspaceScope(req, alias = 'w') {
   const prefix = alias ? `${alias}.` : '';
@@ -92,7 +94,13 @@ async function getActive(req, res) {
 
 async function createTrajectory(req, res) {
   const { title, summary, diffFile, diffLines, authorName = 'worker_backend', workspaceId = 'ws-genos-core' } = req.body || {};
-  const id = `traj-${Date.now()}`;
+  if (typeof title !== 'string' || !title.trim()) return res.status(400).json({ error: { code: 'INVALID_TITLE', message: 'A proposal title is required.' } });
+  if (typeof summary !== 'string' || !summary.trim()) return res.status(400).json({ error: { code: 'INVALID_SUMMARY', message: 'A proposal summary is required.' } });
+  if (!Array.isArray(diffLines) || diffLines.length === 0) return res.status(400).json({ error: { code: 'INVALID_DIFF', message: 'A non-empty diffLines array is required.' } });
+  if (typeof diffFile !== 'string' || !diffFile.trim() || path.isAbsolute(diffFile) || diffFile.split(/[\\/]/).includes('..')) {
+    return res.status(400).json({ error: { code: 'INVALID_DIFF_FILE', message: 'diffFile must be a relative path inside the workspace.' } });
+  }
+  const id = `traj-${crypto.randomUUID()}`;
 
   const db = await getDatabase();
   const scope = workspaceScope(req);
@@ -100,7 +108,7 @@ async function createTrajectory(req, res) {
   if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: `Workspace '${workspaceId}' is not available in this project.` } });
   await db.run(
     `INSERT INTO trajectories (id, workspace_id, author_name, title, status, semantic_summary, diff_file, diff_lines, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspaceId, authorName, title || 'Autonomous Code Proposal', 'pending', summary || '', diffFile || 'src/app.ts', JSON.stringify(diffLines || []), 95
+    id, workspaceId, authorName, title.trim(), 'pending', summary.trim(), diffFile.trim(), JSON.stringify(diffLines), 0
   );
 
   telemetry.emitEvent({
