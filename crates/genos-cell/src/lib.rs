@@ -5,6 +5,23 @@ pub use conscience::ConscienceState;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Organelle {
+    Mitochondrion {
+        id: Uuid,
+        atp_budget: u64,
+        efficiency: f64,
+    },
+    Ribosome {
+        id: Uuid,
+        translation_capacity: u32,
+    },
+    Chloroplast {
+        id: Uuid,
+        energy_yield: u64,
+    },
+    Lysosome {
+        id: Uuid,
+        digestion_capacity: u32,
+    },
     Endosymbiont {
         original_id: Uuid,
         role: String,
@@ -79,6 +96,10 @@ impl AgentCell {
         self.organelles.push(organelle);
     }
 
+    pub fn organelle_count(&self) -> usize {
+        self.organelles.len()
+    }
+
     pub fn is_alive(&self) -> bool {
         !self.conscience.is_apoptotic
     }
@@ -111,5 +132,22 @@ mod tests {
         assert!(agent.introduce_self().contains("Le planificateur méthodique"));
         assert!(agent.is_alive());
         assert_eq!(agent.conscience.dissonance_level, 0.0);
+    }
+
+    #[test]
+    fn test_typed_organelles_are_serializable_state() {
+        let mut agent = AgentCell::new("Host", "Host cell", "Worker");
+        agent.organelles.push(Organelle::Mitochondrion {
+            id: Uuid::new_v4(),
+            atp_budget: 36,
+            efficiency: 0.94,
+        });
+        agent.organelles.push(Organelle::Ribosome {
+            id: Uuid::new_v4(),
+            translation_capacity: 12,
+        });
+        let encoded = serde_json::to_string(&agent).expect("cell must serialize");
+        let decoded: AgentCell = serde_json::from_str(&encoded).expect("cell must deserialize");
+        assert_eq!(decoded.organelle_count(), 2);
     }
 }
