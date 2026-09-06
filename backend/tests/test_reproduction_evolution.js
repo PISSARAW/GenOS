@@ -300,6 +300,21 @@ async function runTests() {
   assert.strictEqual(bud3.blockedByHayflick, true, 'Rejection must indicate blockedByHayflick');
   console.log(`  ✅ PASS: Recursive fork spawn storm blocked by Hayflick guard: ${bud3.error}`);
 
+  // --- 8. Test Strategy Primitive : Schizogony MCTS Speculative Burst ---
+  console.log('\n--- 8. Testing Strategy Primitive "schizogony" (MCTS Speculative Burst) ---');
+  const schizogonyPrimRes = await strategyAdapter.executePrimitive('schizogony', {
+    agentId: `schizont_agent_${Date.now()}`,
+    count: 4,
+    mutationRate: 0.08,
+    seed: 'mcts_speculative_burst_test'
+  });
+  assert(schizogonyPrimRes.success, `Primitive schizogony failed: ${schizogonyPrimRes.error}`);
+  assert.strictEqual(schizogonyPrimRes.divisionMode, 'schizogony');
+  assert.strictEqual(schizogonyPrimRes.motherLysed, true);
+  assert.strictEqual(schizogonyPrimRes.progenyCount, 4);
+  assert(Array.isArray(schizogonyPrimRes.progenyGenomeIds) && schizogonyPrimRes.progenyGenomeIds.length === 4);
+  console.log(`  ✅ PASS: Schizogony primitive deployed ${schizogonyPrimRes.progenyCount} speculative MCTS branches with mother lysis: ${schizogonyPrimRes.progenyGenomeIds.join(', ')}`);
+
   console.log('\n======================================================');
   console.log('ALL REPRODUCTION & EVOLUTIONARY GENETICS TESTS PASSED!');
   console.log('======================================================\n');
