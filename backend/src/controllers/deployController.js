@@ -226,6 +226,7 @@ async function startAgent(req, res) {
 }
 async function getWorkerGarage(req, res) {
   const db = await getDatabase();
+  if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Orchestrator not found in the selected project.' } });
   const garage = await workerGarage.state(db, req.params.id);
   res.json(garage);
 }
