@@ -138,4 +138,30 @@ mod tests {
         assert_eq!(mutated_gene.chromatin_state, genos_genome::ChromatinState::Euchromatin);
         assert!(!mutated_gene.developmentally_locked);
     }
+
+    #[test]
+    fn test_budding_hayflick_limit_enforcement() {
+        let genome = Genome::new("MOTHER_BUD_GENOME");
+        let limit = 2;
+
+        // First bud
+        let res1 = CellDivision::budding_with_limit(&genome, 0.3, 0, limit).expect("bud 1 should succeed");
+        assert_eq!(res1.bud_scars, 1);
+        assert_eq!(res1.remaining_divisions, 1);
+        assert!(!res1.is_senescent);
+        assert_eq!(res1.daughter_volume, 0.3);
+        assert!(res1.daughter.genes.contains_key("lineage_mode"));
+
+        // Second bud (reaches limit)
+        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.4, res1.bud_scars, limit).expect("bud 2 should reach limit");
+        assert_eq!(res2.bud_scars, 2);
+        assert_eq!(res2.remaining_divisions, 0);
+        assert!(res2.is_senescent);
+
+        // Third bud (blocked)
+        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.4, res2.bud_scars, limit);
+        assert!(res3.is_err());
+        assert!(res3.unwrap_err().contains("Hayflick limit reached"));
+    }
 }
+
