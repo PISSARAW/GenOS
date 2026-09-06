@@ -101,8 +101,10 @@ pub enum BiomimicrySubcommands {
         param: Vec<String>,
     },
     TelomereFork {
-        #[arg(long)]
-        parent_id: String,
+        #[arg(long, alias = "parent-id")]
+        agent_id: String,
+        #[arg(long, default_value_t = false)]
+        force_telomerase: bool,
     },
     Apoptosis {
         #[arg(long)]
@@ -233,10 +235,12 @@ pub enum EvolutionSubcommands {
         mode: String,
         #[arg(long, default_value_t = 0.0)]
         mutation_rate: f64,
-        #[arg(long, default_value_t = 0.5)]
+        #[arg(long, default_value_t = 0.25)]
         daughter_volume: f64,
         #[arg(long, default_value_t = 2)]
         merozoite_count: usize,
+        #[arg(long)]
+        hayflick_limit: Option<u32>,
         #[arg(long)]
         seed: Option<String>,
     },
