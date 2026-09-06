@@ -52,8 +52,8 @@ async function readMcpHttpResponse(response) {
   return payloads[payloads.length - 1];
 }
 
-function runSafeSync(commandLine) {
-  return runGenosSync(commandLine);
+function runSafeSync(commandLine, options = {}) {
+  return runGenosSync(commandLine, options);
 }
 
 async function callHttp(url, toolName, options = {}) {
@@ -150,8 +150,8 @@ async function callStdio(transport, toolName, options = {}) {
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
   const runLocal = (cmd) => {
-    try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd).toString() }; }
-    catch (e) { return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
+    try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
+    catch (e) { return { configured: true, success: false, status: e.code === 'ETIMEDOUT' ? 'timeout' : 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
   };
   if (toolName === 'genos_agent_world_capsule') {
     return runLocal(`genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''));
