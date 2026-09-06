@@ -1,4 +1,5 @@
 use genos_genome::Genome;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -20,16 +21,14 @@ impl CellDivision {
         let parent = genome.clone();
         let mut child = genome.clone();
         child.genome_id = Uuid::new_v4();
-        let id_bytes = child.genome_id.as_bytes();
-        for (index, nucleotide) in child
+        let mut rng = rand::rng();
+        for nucleotide in child
             .chromosome_maternal
             .sequence
             .iter_mut()
             .chain(child.chromosome_paternal.sequence.iter_mut())
-            .enumerate()
         {
-            let score = id_bytes[index % id_bytes.len()] as f64 / 256.0;
-            if score < mutation_rate {
+            if rng.random_bool(mutation_rate) {
                 *nucleotide = match nucleotide {
                     genos_genome::DnaNucleotide::A => genos_genome::DnaNucleotide::C,
                     genos_genome::DnaNucleotide::C => genos_genome::DnaNucleotide::G,
