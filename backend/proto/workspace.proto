@@ -10,9 +10,9 @@ service WorkspaceService {
 
 message Empty {}
 message PingResponse { string status = 1; }
-message ProvisionRequest { string workspace_id = 1; string isolation_mode = 2; }
+message ProvisionRequest { string workspace_id = 1; string isolation_mode = 2; string organization_id = 3; string project_id = 4; }
 message ProvisionResponse { string workspace_root = 1; }
 message CleanRequest { string workspace_id = 1; }
 message CleanResponse { bool success = 1; }
-message WorkspaceDiffRequest { string workspace_id = 1; string base_ref = 2; string target_ref = 3; }
+message WorkspaceDiffRequest { string workspace_id = 1; string base_ref = 2; string target_ref = 3; string organization_id = 4; string project_id = 5; }
 message WorkspaceDiffResponse { string diff_text = 1; int32 files_changed = 2; }

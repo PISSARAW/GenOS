@@ -215,7 +215,7 @@ async function runGrpcSuite() {
     console.log(`  ✅ PASS: WorkspaceService Ping -> "${wsPing.status}"`);
 
     const provRes = await callRpc(wsClient, 'ProvisionWorkspace', {
-      workspace_id: 'ws-grpc-test',
+      workspace_id: 'ws-test-identity',
       isolation_mode: 'Branch'
     });
     assert(provRes.workspace_root, 'Must return workspace_root');
