@@ -4,6 +4,7 @@
  */
 
 const grpc = require('@grpc/grpc-js');
+const fs = require('fs');
 const loadAllProtos = require('./proto/index.js');
 const registerAllServices = require('./src/grpc_services/index.js');
 
@@ -16,10 +17,15 @@ async function startGrpcServer() {
   }
 
   const port = process.env.GRPC_PORT || '50051';
-  
+  const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
+  const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
+  const credentials = tlsKey && tlsCert
+    ? grpc.ServerCredentials.createSsl(null, [{ private_key: fs.readFileSync(tlsKey), cert_chain: fs.readFileSync(tlsCert) }], false)
+    : grpc.ServerCredentials.createInsecure();
+  const bindAddress = tlsKey && tlsCert ? (process.env.GRPC_BIND_ADDRESS || '0.0.0.0') : (process.env.GRPC_BIND_ADDRESS || '127.0.0.1');
   server.bindAsync(
-    `0.0.0.0:${port}`,
-    grpc.ServerCredentials.createInsecure(),
+    `${bindAddress}:${port}`,
+    credentials,
     (err, boundPort) => {
       if (err) {
         console.error('[gRPC] Failed to bind server:', err);
