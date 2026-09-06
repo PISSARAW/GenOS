@@ -70,27 +70,41 @@ async function initializeSchema(db) {
     CREATE VIRTUAL TABLE IF NOT EXISTS trajectories_vec USING vec0(
         embedding float[768]
     );
-    CREATE TRIGGER IF NOT EXISTS trajectories_vec_ai AFTER INSERT ON trajectories BEGIN
+    DROP TRIGGER IF EXISTS trajectories_vec_ai;
+    CREATE TRIGGER trajectories_vec_ai AFTER INSERT ON trajectories
+    WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
         INSERT INTO trajectories_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
     END;
-    CREATE TRIGGER IF NOT EXISTS trajectories_vec_ad AFTER DELETE ON trajectories BEGIN
+    DROP TRIGGER IF EXISTS trajectories_vec_ad;
+    CREATE TRIGGER trajectories_vec_ad AFTER DELETE ON trajectories BEGIN
         DELETE FROM trajectories_vec WHERE rowid = old.rowid;
     END;
-    CREATE TRIGGER IF NOT EXISTS trajectories_vec_au AFTER UPDATE ON trajectories BEGIN
-        UPDATE trajectories_vec SET embedding = new.embedding_blob WHERE rowid = old.rowid;
+    DROP TRIGGER IF EXISTS trajectories_vec_au;
+    CREATE TRIGGER trajectories_vec_au AFTER UPDATE ON trajectories BEGIN
+        DELETE FROM trajectories_vec WHERE rowid = old.rowid;
+        INSERT INTO trajectories_vec(rowid, embedding)
+        SELECT new.rowid, new.embedding_blob
+        WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
     END;
 
     CREATE VIRTUAL TABLE IF NOT EXISTS genome_decisions_vec USING vec0(
         embedding float[768]
     );
-    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_ai AFTER INSERT ON genome_decisions BEGIN
+    DROP TRIGGER IF EXISTS genome_decisions_vec_ai;
+    CREATE TRIGGER genome_decisions_vec_ai AFTER INSERT ON genome_decisions
+    WHEN new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072 BEGIN
         INSERT INTO genome_decisions_vec(rowid, embedding) VALUES (new.rowid, new.embedding_blob);
     END;
-    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_ad AFTER DELETE ON genome_decisions BEGIN
+    DROP TRIGGER IF EXISTS genome_decisions_vec_ad;
+    CREATE TRIGGER genome_decisions_vec_ad AFTER DELETE ON genome_decisions BEGIN
         DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
     END;
-    CREATE TRIGGER IF NOT EXISTS genome_decisions_vec_au AFTER UPDATE ON genome_decisions BEGIN
-        UPDATE genome_decisions_vec SET embedding = new.embedding_blob WHERE rowid = old.rowid;
+    DROP TRIGGER IF EXISTS genome_decisions_vec_au;
+    CREATE TRIGGER genome_decisions_vec_au AFTER UPDATE ON genome_decisions BEGIN
+        DELETE FROM genome_decisions_vec WHERE rowid = old.rowid;
+        INSERT INTO genome_decisions_vec(rowid, embedding)
+        SELECT new.rowid, new.embedding_blob
+        WHERE new.embedding_blob IS NOT NULL AND length(new.embedding_blob) = 3072;
     END;
   `);
 
