@@ -84,7 +84,12 @@ async function breed(context) {
     if (cliRun.ok && cliRun.json) {
       nativeRecomb = cliRun.json;
     }
-  } catch (_) {}
+  } catch (error) {
+    return { success: false, error: `Native crossover failed: ${error.message}` };
+  }
+  if (!nativeRecomb) {
+    return { success: false, error: 'Native crossover returned no result.' };
+  }
 
   const strategy = childRecomb.childGenes?.strategy || 'adaptive-hybrid';
   const tools = childRecomb.childGenes?.tools || ['genos_inspect'];
@@ -212,7 +217,12 @@ async function speciation(context) {
       if (phyloRun.ok && phyloRun.json) {
         phylogeneticDivergence = phyloRun.json;
       }
-    } catch (_) {}
+    } catch (error) {
+      return { success: false, error: `Phylogeny divergence failed: ${error.message}` };
+    }
+    if (!phylogeneticDivergence) {
+      return { success: false, error: 'Phylogeny divergence returned no result.' };
+    }
   }
 
   telemetry.emitEvent({
