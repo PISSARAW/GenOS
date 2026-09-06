@@ -25,9 +25,15 @@ async function getConsensus(req, res) {
   const proposals = await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
   const votes = await db.all('SELECT * FROM swarm_votes');
   const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
+  const votesByProposal = new Map();
+  for (const vote of votes) {
+    const proposalVotes = votesByProposal.get(vote.proposal_id) || [];
+    proposalVotes.push(vote);
+    votesByProposal.set(vote.proposal_id, proposalVotes);
+  }
 
   const formatted = proposals.map(p => {
-    const pVotes = votes.filter(v => v.proposal_id === p.id);
+    const pVotes = votesByProposal.get(p.id) || [];
     const yesCount = pVotes.filter(v => v.vote === 'yes').length;
     const noCount = pVotes.filter(v => v.vote === 'no').length;
     const totalVotes = pVotes.length;
