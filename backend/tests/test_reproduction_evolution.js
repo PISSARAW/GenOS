@@ -39,7 +39,19 @@ async function runTests() {
   assert.strictEqual(mitosisResult.json.division_mode, 'mitosis');
   assert.strictEqual(mitosisResult.json.status, 'mitosis_completed');
   assert.strictEqual(mitosisResult.json.progeny_count, 1);
-  console.log(`  ✅ PASS: Mitosis produced identical daughter clone: ${mitosisResult.json.clone_genome_id}`);
+  assert.strictEqual(mitosisResult.json.spindle_aligned, true);
+  assert.strictEqual(mitosisResult.json.amitosis_rejected, true);
+  assert(mitosisResult.json.attestation_hash && mitosisResult.json.attestation_hash.length === 64, 'Attestation hash must be valid SHA256');
+  assert(mitosisResult.json.spindle_alignment_hash && mitosisResult.json.spindle_alignment_hash.length === 64, 'Spindle alignment hash must be valid SHA256');
+  assert(Array.isArray(mitosisResult.json.twin_clones) && mitosisResult.json.twin_clones.length === 2, 'Mitosis must output twin clones');
+  console.log(`  ✅ PASS: Mitosis produced attested twin clones: ${mitosisResult.json.clone_genome_id} (attestation: ${mitosisResult.json.attestation_hash.slice(0, 12)}...)`);
+
+  const mcpBioExtra = require('../src/services/mcpBioExtra');
+  const mcpMitosisRes = await mcpBioExtra.executeBioExtra('genos_cell_division', { agent_id: 'mcp_stem_01' });
+  assert(mcpMitosisRes && mcpMitosisRes.success, `MCP cell division mitosis failed: ${mcpMitosisRes?.error}`);
+  assert.strictEqual(mcpMitosisRes.division_mode, 'mitosis');
+  assert.strictEqual(mcpMitosisRes.amitosis_rejected, true);
+  console.log(`  ✅ PASS: MCP genos_cell_division routed to mitosis with attestation: ${mcpMitosisRes.attestation_hash?.slice(0, 12)}...`);
 
   const fissionResult = await genosCli.runCellDivision({
     agentId: 'cell_fission_02',
@@ -49,7 +61,11 @@ async function runTests() {
   assert(fissionResult.ok, `CLI binary fission failed: ${fissionResult.stderr}`);
   assert.strictEqual(fissionResult.json.division_mode, 'binary_fission');
   assert.strictEqual(fissionResult.json.mutation_rate_applied, 0.08);
-  console.log(`  ✅ PASS: Binary fission with point mutation completed: ${fissionResult.json.child_genome_id}`);
+  assert.strictEqual(fissionResult.json.progeny_count, 2);
+  assert.strictEqual(fissionResult.json.status, 'fission_completed');
+  assert(fissionResult.json.daughter_a_id, 'Daughter A ID must exist');
+  assert(fissionResult.json.daughter_b_id, 'Daughter B ID must exist');
+  console.log(`  ✅ PASS: Binary fission completed with 2 daughter cells: ${fissionResult.json.daughter_a_id} and ${fissionResult.json.daughter_b_id}`);
 
   const buddingResult = await genosCli.runCellDivision({
     agentId: 'cell_budding_mother_01',
@@ -76,6 +92,35 @@ async function runTests() {
   assert.strictEqual(meiosisResult.json.progeny_count, 4);
   assert.strictEqual(meiosisResult.json.reduction_completed, true);
   console.log(`  ✅ PASS: Meiosis produced 4 recombinant haploid gametes: ${meiosisResult.json.gamete_genome_ids.join(', ')}`);
+
+  const schizogonyResult = await genosCli.runCellDivision({
+    agentId: 'cell_schizogony_mother_01',
+    mode: 'schizogony',
+    merozoiteCount: 4,
+    mutationRate: 0.05,
+    seed: 'backend_schizogony_test'
+  });
+  assert(schizogonyResult.ok, `CLI schizogony failed: ${schizogonyResult.stderr}`);
+  assert.strictEqual(schizogonyResult.json.division_mode, 'schizogony');
+  assert.strictEqual(schizogonyResult.json.status, 'schizogony_completed');
+  assert.strictEqual(schizogonyResult.json.progeny_count, 4);
+  assert.strictEqual(schizogonyResult.json.mother_lysed, true);
+  assert.strictEqual(schizogonyResult.json.mutation_rate_applied, 0.05);
+  assert(Array.isArray(schizogonyResult.json.progeny_genome_ids) && schizogonyResult.json.progeny_genome_ids.length === 4);
+  console.log(`  ✅ PASS: Schizogony burst produced 4 merozoite branches with mother lysis: ${schizogonyResult.json.progeny_genome_ids.join(', ')}`);
+
+  const mcpSchizogonyRes = await mcpBioExtra.executeBioExtra('genos_cell_division', {
+    agent_id: 'mcp_schizogony_01',
+    mode: 'schizogony',
+    merozoite_count: 4,
+    mutation_rate: 0.05
+  });
+  assert(mcpSchizogonyRes && mcpSchizogonyRes.success, 'MCP cell division schizogony must succeed');
+  const mcpSchizogonyJson = JSON.parse(mcpSchizogonyRes.output);
+  assert.strictEqual(mcpSchizogonyJson.division_mode, 'schizogony');
+  assert.strictEqual(mcpSchizogonyJson.mother_lysed, true);
+  assert.strictEqual(mcpSchizogonyJson.progeny_count, 4);
+  console.log(`  ✅ PASS: MCP genos_cell_division routed to schizogony burst successfully`);
 
   // --- 3. Test CLI Rust : Phylogenetic Tree & Molecular Clock ---
   console.log('\n--- 3. Testing Rust Native Phylogeny & Molecular Clock ---');
@@ -188,6 +233,72 @@ async function runTests() {
   assert(specRes.nicheCount >= 2, 'Should identify at least 2 niches');
   assert(specRes.phylogeneticDivergence, 'Phylogenetic divergence should be computed between niches');
   console.log(`  ✅ PASS: Speciation identified ${specRes.nicheCount} niches with phylogenetic divergence: ${specRes.phylogeneticDivergence?.divergence_million_years} My`);
+
+  // --- 6. Test CLI Rust : Telomere Fork with Division Decrement & Telomerase ---
+  console.log('\n--- 6. Testing Rust Native Telomere Fork & Replicative Lifespan ---');
+  const agentTeloId = `agent_telomere_${Date.now()}`;
+  const teloRes1 = await genosCli.runTelomereFork(agentTeloId);
+  assert(teloRes1.ok, `Telomere fork 1 failed: ${teloRes1.stderr}`);
+  assert.strictEqual(teloRes1.json.operation, 'telomere_fork');
+  assert.strictEqual(teloRes1.json.bud_scars, 1);
+  assert.strictEqual(teloRes1.json.remaining_divisions, 49);
+  assert.strictEqual(teloRes1.json.is_senescent, false);
+  console.log(`  ✅ PASS: Telomere fork 1 produced child ${teloRes1.json.child_id} (remaining: ${teloRes1.json.remaining_divisions})`);
+
+  const teloRes2 = await genosCli.runTelomereFork(agentTeloId);
+  assert(teloRes2.ok, `Telomere fork 2 failed: ${teloRes2.stderr}`);
+  assert.strictEqual(teloRes2.json.bud_scars, 2);
+  assert.strictEqual(teloRes2.json.remaining_divisions, 48);
+  console.log(`  ✅ PASS: Telomere fork 2 decremented remaining divisions: ${teloRes2.json.remaining_divisions}`);
+
+  const teloResTelomerase = await genosCli.runTelomereFork(agentTeloId, { forceTelomerase: true });
+  assert(teloResTelomerase.ok, `Telomere fork with telomerase failed: ${teloResTelomerase.stderr}`);
+  assert.strictEqual(teloResTelomerase.json.telomerase_active, true);
+  assert.strictEqual(teloResTelomerase.json.bud_scars, 1);
+  assert.strictEqual(teloResTelomerase.json.remaining_divisions, 49);
+  console.log(`  ✅ PASS: Telomerase reset telomere attrition: remaining ${teloResTelomerase.json.remaining_divisions}`);
+
+  // --- 7. Test Strategy Primitive : Recursive Fork with Hayflick Spawn Storm Protection ---
+  console.log('\n--- 7. Testing Strategy Primitive "recursive_fork" with Hayflick Limit Guard ---');
+  const orchHayflickId = `orch_hayflick_${Date.now()}`;
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, current_task, workspace_id) VALUES (?, 'Orchestrator Hayflick', 'orchestrator', 'running', 'GenOS', 'orchestrator', 'Orchestrate spawn guard', 'workspace-a')",
+    orchHayflickId
+  );
+
+  // Test bud limit (e.g. maxBuds: 2)
+  const bud1 = await strategyAdapter.executePrimitive('recursive_fork', {
+    orchestratorId: orchHayflickId,
+    maxBuds: 2,
+    mission: 'Sub-worker bud 1'
+  });
+  assert(bud1.success, `Recursive fork bud 1 failed: ${bud1.error}`);
+  assert.strictEqual(bud1.budScars, 1);
+  assert.strictEqual(bud1.remainingBuds, 1);
+  console.log(`  ✅ PASS: Recursive fork bud 1 created worker: ${bud1.forkedWorkerId}`);
+
+  // Second bud reaches limit
+  await db.run("UPDATE agents SET status='idle' WHERE id = ?", bud1.forkedWorkerId);
+  const bud2 = await strategyAdapter.executePrimitive('recursive_fork', {
+    orchestratorId: orchHayflickId,
+    maxBuds: 2,
+    mission: 'Sub-worker bud 2'
+  });
+  assert(bud2.success, `Recursive fork bud 2 failed: ${bud2.error}`);
+  assert.strictEqual(bud2.budScars, 2);
+  assert.strictEqual(bud2.remainingBuds, 0);
+  console.log(`  ✅ PASS: Recursive fork bud 2 reached max buds limit`);
+
+  // Third bud should be blocked by Hayflick guard
+  await db.run("UPDATE agents SET status='idle' WHERE id = ?", bud2.forkedWorkerId);
+  const bud3 = await strategyAdapter.executePrimitive('recursive_fork', {
+    orchestratorId: orchHayflickId,
+    maxBuds: 2,
+    mission: 'Sub-worker bud 3 should fail'
+  });
+  assert.strictEqual(bud3.success, false, 'Third recursive fork must be rejected by Hayflick limit');
+  assert.strictEqual(bud3.blockedByHayflick, true, 'Rejection must indicate blockedByHayflick');
+  console.log(`  ✅ PASS: Recursive fork spawn storm blocked by Hayflick guard: ${bud3.error}`);
 
   console.log('\n======================================================');
   console.log('ALL REPRODUCTION & EVOLUTIONARY GENETICS TESTS PASSED!');
