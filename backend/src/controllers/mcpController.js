@@ -69,6 +69,10 @@ async function toggleCircuitBreaker(req, res) {
   circuitBreaker.toggleToolLock(toolName, !!locked, reason);
 
   const db = await getDatabase();
+  const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+  if (!tool) {
+    return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
+  }
   await db.run('UPDATE mcp_tools SET is_locked = ? WHERE name = ?', locked ? 1 : 0, toolName);
 
   res.json({
@@ -81,7 +85,14 @@ async function toggleCircuitBreaker(req, res) {
 
 async function equipTool(req, res) {
   const { toolName, targetAgents = ['Global Fleet'] } = req.body || {};
+  if (!toolName) {
+    return res.status(400).json({ error: { code: 'INVALID_TOOL', message: 'toolName is required' } });
+  }
   const db = await getDatabase();
+  const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+  if (!tool) {
+    return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
+  }
   await db.run('UPDATE mcp_tools SET equipped_agents = ? WHERE name = ?', JSON.stringify(targetAgents), toolName);
 
   res.json({ success: true, toolName, equippedAgents: targetAgents });
