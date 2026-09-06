@@ -5,11 +5,10 @@ def translate(text):
     text = text.replace("Protocole de test empirique", "Empirical test protocol")
     text = text.replace("pour les Concepts", "for Concepts")
     text = text.replace("ajout du Lot", "Add Lot")
-    text = text.replace("concepts nouvellement impl??ment??s", "newly implemented concepts")
-    text = text.replace("concepts nouvellement implémentés", "newly implemented concepts")
+    text = text.replace("concepts nouvellement implementes", "newly implemented concepts")
     text = text.replace("ajout des explications sur", "Add explanations on")
     text = text.replace("Int??gration de la validation empirique", "Integrate empirical validation")
-    text = text.replace("Intégration de la validation empirique", "Integrate empirical validation")
+    text = text.replace("Intï¿½gration de la validation empirique", "Integrate empirical validation")
     text = text.replace("et du protocole de test pour Agent IA", "and test protocol for AI Agent")
     return text
 
