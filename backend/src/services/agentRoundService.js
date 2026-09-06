@@ -8,11 +8,12 @@ const {
   activeWorkerBarriers, emit
 } = require('./agentOrchestrationState');
 const { evidenceScore } = require('./agentEvidenceService');
+const crypto = require('crypto');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
 
 function autonomousWorkerId(orchestratorId, index) {
-  return `worker_${orchestratorId}_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 6)}`;
+  return `worker_${orchestratorId}_${index}_${crypto.randomUUID()}`;
 }
 function autonomousRoundOutcome(eventType) {
   if (eventType === 'AGENT_COMPLETED') return 'completed';
