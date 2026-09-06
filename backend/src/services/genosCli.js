@@ -255,6 +255,12 @@ async function runListFossils() {
   return runGenos(args);
 }
 
+async function runTelomereFork(agentId, options = {}) {
+  const args = ['biomimicry', 'telomere-fork', '--agent-id', String(agentId)];
+  if (options.forceTelomerase) args.push('--force-telomerase');
+  return runGenos(args);
+}
+
 module.exports = {
   runGenos,
   runGenosSync,
@@ -267,6 +273,7 @@ module.exports = {
   phagocytizeExosomes,
   runCrossover,
   runCellDivision,
+  runTelomereFork,
   runPhylogeny,
   runCryptobiosisFreeze,
   runCryptobiosisThaw,
