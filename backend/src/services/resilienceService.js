@@ -56,15 +56,16 @@ function trackHypermutationDrift(ancestorPrompt, currentPrompt) {
  */
 async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy = {}) {
   const agent = agentId || 'agent-unknown';
-  const consecutiveFailures = triggerMetrics.consecutiveFailures || 0;
-  const semanticDivergence = triggerMetrics.semanticDivergence !== undefined ? triggerMetrics.semanticDivergence : 0.8;
-  const hallucinations = triggerMetrics.hallucinations || 0;
-  const tokensBurned = Number(triggerMetrics.tokensBurned || 0);
-  const costUsd = Number(triggerMetrics.costUsd || 0);
+  const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+  const consecutiveFailures = Math.max(0, Math.floor(finite(triggerMetrics.consecutiveFailures, 0)));
+  const semanticDivergence = Math.max(0, Math.min(1, finite(triggerMetrics.semanticDivergence, 0.8)));
+  const hallucinations = Math.max(0, Math.floor(finite(triggerMetrics.hallucinations, 0)));
+  const tokensBurned = Math.max(0, finite(triggerMetrics.tokensBurned, 0));
+  const costUsd = Math.max(0, finite(triggerMetrics.costUsd, 0));
 
   // Multi-threshold criteria check
-  const maxFailures = policy.maxConsecutiveFailures || 3;
-  const divergenceThreshold = policy.divergenceThreshold || 0.55;
+  const maxFailures = Math.max(0, Math.floor(finite(policy.maxConsecutiveFailures, 3)));
+  const divergenceThreshold = Math.max(0, Math.min(1, finite(policy.divergenceThreshold, 0.55)));
   const failureTrigger = consecutiveFailures >= maxFailures;
   const semanticTrigger = semanticDivergence > divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
