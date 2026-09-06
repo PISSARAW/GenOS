@@ -26,8 +26,9 @@ async function requireOrchestrator(db, agentId) {
 }
 
 async function authorizeMission(db, agentId, orchestratorAgentId, workspaceId = null) {
-  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id FROM agents WHERE id = ?', agentId);
+  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status FROM agents WHERE id = ?', agentId);
   if (!agent) throw authorityError('AGENT_NOT_FOUND', `Agent '${agentId}' was not found.`);
+  if (agent.status === 'quarantined') throw authorityError('AGENT_QUARANTINED', `Agent '${agentId}' is quarantined and cannot execute.`);
   if (workspaceId && agent.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${agentId}' is not assigned to workspace '${workspaceId}'.`);
   if (agent.execution_mode === 'orchestrator') return agent;
   if (!orchestratorAgentId) {
