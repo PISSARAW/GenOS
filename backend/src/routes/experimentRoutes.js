@@ -14,6 +14,7 @@ router.get('/', experimentController.listExperiments);
 router.get('/recent', experimentController.getRecentExperiments);
 router.post('/', requirePermission('experiment:write'), requireTenantScope({ write: true }), experimentController.launchExperiment);
 router.post('/launch', requirePermission('experiment:write'), requireTenantScope({ write: true }), experimentController.launchExperiment);
+router.post('/:experimentId/status', requirePermission('experiment:write'), requireTenantScope({ write: true }), experimentController.updateStatus);
 router.get('/:experimentId/waves', experimentController.getWaves);
 router.get('/analysis', experimentController.getAnalysis);
 router.get('/thoughts', experimentController.getThoughts);
