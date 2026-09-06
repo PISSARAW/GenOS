@@ -1,5 +1,5 @@
 const assert = require('assert/strict');
-const { QdrantVectorStore, pointId } = require('./src/services/vectorStore');
+const { QdrantVectorStore, pointId } = require('../src/services/vectorStore');
 
 const calls = [];
 const store = new QdrantVectorStore({
