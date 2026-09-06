@@ -66,99 +66,105 @@ class VectorMemoryService {
     const ownerId = String(options.ownerId || '').trim();
     const ownerFilter = ownerId ? ' AND t.created_by = ?' : '';
     const ownerParams = ownerId ? [ownerId] : [];
-    const queryVecJson = JSON.stringify(Array.from(queryVec));
-    const cleanQuery = query.replace(/[^a-zA-Z0-9]/g, ' ').trim();
-    const ftsMatch = cleanQuery.length > 0
-      ? cleanQuery.split(/\s+/).map(w => `"${w}"`).join(' OR ')
+    const validVec = Array.isArray(queryVec) && queryVec.length === 768 ? queryVec : null;
+    const queryVecJson = validVec ? JSON.stringify(Array.from(validVec)) : null;
+    const cleanQuery = query.replace(/[^\p{L}\p{N}\s]/gu, ' ').trim();
+    const tokens = cleanQuery.split(/\s+/).filter(w => w.length > 0);
+    const ftsMatch = tokens.length > 0
+      ? tokens.map(w => `"${w.replace(/"/g, '""')}"`).join(' OR ')
       : '"nothing_will_match_this"';
 
-    try {
-      const trajectories = await db.all(`
-        WITH 
-          vector_raw AS (
-            SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 50
-          ),
-          vector_matches AS (
-            SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
-          ),
-          fts_raw AS (
-            SELECT rowid, -bm25(trajectories_fts) as f_score FROM trajectories_fts WHERE trajectories_fts MATCH ?
-          ),
-          fts_matches AS (
-            SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
-          )
-        SELECT t.id, t.title, t.status, t.author_name, t.semantic_summary, t.diff_lines, t.created_at, 
-               v.distance, f.f_score,
-               (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
-        FROM trajectories t
-        LEFT JOIN vector_matches v ON t.rowid = v.rowid
-        LEFT JOIN fts_matches f ON t.rowid = f.rowid
-        WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)
-          ${ownerId ? 'AND t.author_id = ?' : ''}
-        ORDER BY rrf_score DESC LIMIT 50
-      `, [queryVecJson, ftsMatch, ...ownerParams]);
+    if (queryVecJson) {
+      try {
+        const trajectories = await db.all(`
+          WITH 
+            vector_raw AS (
+              SELECT rowid, distance FROM trajectories_vec WHERE embedding MATCH ? AND k = 50
+            ),
+            vector_matches AS (
+              SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
+            ),
+            fts_raw AS (
+              SELECT rowid, -bm25(trajectories_fts) as f_score FROM trajectories_fts WHERE trajectories_fts MATCH ?
+            ),
+            fts_matches AS (
+              SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
+            )
+          SELECT t.id, t.title, t.status, t.author_name, t.semantic_summary, t.diff_lines, t.created_at, 
+                 v.distance, f.f_score,
+                 (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
+          FROM trajectories t
+          LEFT JOIN vector_matches v ON t.rowid = v.rowid
+          LEFT JOIN fts_matches f ON t.rowid = f.rowid
+          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)
+            ${ownerId ? 'AND t.author_id = ?' : ''}
+          ORDER BY rrf_score DESC LIMIT 50
+        `, [queryVecJson, ftsMatch, ...ownerParams]);
 
-      const decisions = await db.all(`
-        WITH 
-          vector_raw AS (
-            SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 50
-          ),
-          vector_matches AS (
-            SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
-          ),
-          fts_raw AS (
-            SELECT rowid, -bm25(genome_decisions_fts) as f_score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?
-          ),
-          fts_matches AS (
-            SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
-          )
-        SELECT t.id, t.title, t.category, t.content, t.created_by, t.created_at, t.synaptic_weight,
-               v.distance, f.f_score,
-               (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
-        FROM genome_decisions t
-        LEFT JOIN vector_matches v ON t.rowid = v.rowid
-        LEFT JOIN fts_matches f ON t.rowid = f.rowid
-        WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}
-        ORDER BY rrf_score DESC LIMIT 50
-      `, [queryVecJson, ftsMatch, ...ownerParams]);
+        const decisions = await db.all(`
+          WITH 
+            vector_raw AS (
+              SELECT rowid, distance FROM genome_decisions_vec WHERE embedding MATCH ? AND k = 50
+            ),
+            vector_matches AS (
+              SELECT rowid, distance, row_number() OVER (ORDER BY distance ASC) as v_rank FROM vector_raw
+            ),
+            fts_raw AS (
+              SELECT rowid, -bm25(genome_decisions_fts) as f_score FROM genome_decisions_fts WHERE genome_decisions_fts MATCH ?
+            ),
+            fts_matches AS (
+              SELECT rowid, f_score, row_number() OVER (ORDER BY f_score DESC) as f_rank FROM fts_raw
+            )
+          SELECT t.id, t.title, t.category, t.content, t.created_by, t.created_at, t.synaptic_weight,
+                 v.distance, f.f_score,
+                 (COALESCE(1.0 / (60 + v.v_rank), 0.0) + COALESCE(1.0 / (60 + f.f_rank), 0.0)) as rrf_score
+          FROM genome_decisions t
+          LEFT JOIN vector_matches v ON t.rowid = v.rowid
+          LEFT JOIN fts_matches f ON t.rowid = f.rowid
+          WHERE (v.rowid IS NOT NULL OR f.rowid IS NOT NULL)${ownerFilter}
+          ORDER BY rrf_score DESC LIMIT 50
+        `, [queryVecJson, ftsMatch, ...ownerParams]);
 
-      const items = [];
-      for (const item of trajectories) {
-        let diffLines = [];
-        try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
-        items.push({
-          id: item.id,
-          title: item.title,
-          category: 'Trajectory',
-          status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
-          summary: item.semantic_summary || diffLines.map(l => l.content || l.text || l).join(' '),
-          tags: ['trajectory', item.status],
-          author: item.author_name,
-          createdAt: item.created_at,
-          distance: item.distance,
-          f_score: item.f_score,
-          rrf_score: item.rrf_score
-        });
+        const items = [];
+        for (const item of trajectories) {
+          let diffLines = [];
+          try { diffLines = JSON.parse(item.diff_lines || '[]'); } catch {}
+          items.push({
+            id: item.id,
+            title: item.title,
+            category: 'Trajectory',
+            status: item.status === 'rejected' ? 'FAILURE' : 'SUCCESS',
+            summary: item.semantic_summary || diffLines.map(l => l.content || l.text || l).join(' '),
+            tags: ['trajectory', item.status],
+            author: item.author_name,
+            createdAt: item.created_at,
+            distance: item.distance,
+            f_score: item.f_score,
+            rrf_score: item.rrf_score
+          });
+        }
+
+        for (const item of decisions) {
+          items.push({
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
+            summary: item.content,
+            tags: ['genome', item.category],
+            author: item.created_by,
+            createdAt: item.created_at,
+            synaptic_weight: item.synaptic_weight,
+            distance: item.distance,
+            f_score: item.f_score,
+            rrf_score: item.rrf_score
+          });
+        }
+        if (items.length > 0) return items;
+      } catch (err) {
+        console.warn('[VectorMemory] Hybrid vector/FTS query failed, falling back to SQL table scan:', err.message);
       }
-
-      for (const item of decisions) {
-        items.push({
-          id: item.id,
-          title: item.title,
-          category: item.category,
-          status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-          summary: item.content,
-          tags: ['genome', item.category],
-          author: item.created_by,
-          createdAt: item.created_at,
-          synaptic_weight: item.synaptic_weight,
-          distance: item.distance,
-          f_score: item.f_score,
-          rrf_score: item.rrf_score
-        });
-      }
-      if (items.length > 0) return items;
-    } catch {}
+    }
 
     // Fallback: standard SQL table scan
     try {
