@@ -274,7 +274,7 @@ class VectorMemoryService {
     }
 
     // GraphRAG: Spreading activation and time cells
-    const connectedItems = await expandGraphRag(topItems, db, { hormone: options.hormone, corpus: scoredItems });
+    const connectedItems = await expandGraphRag(topItems, db, { hormone: options.hormone, corpus: scoredItems, ownerId: options.ownerId });
     const allScored = [...topItems, ...connectedItems];
     const isGolden = (item) => item.category !== 'Conversation' && item.category !== 'SystemSignal';
     const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && isGolden(i));
