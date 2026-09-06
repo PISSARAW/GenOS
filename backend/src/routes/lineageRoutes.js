@@ -6,6 +6,9 @@ const express = require('express');
 const router = express.Router();
 const lineageController = require('../controllers/lineageController');
 const { requirePermission } = require('../middleware/auth');
+const { requireTenantScope } = require('../middleware/tenant');
+
+router.use(requireTenantScope());
 
 router.get('/lineage', lineageController.getLineage);
 router.post('/nodes/inspect', lineageController.inspectNode);
