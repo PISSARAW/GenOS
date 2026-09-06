@@ -7,7 +7,7 @@ const {
   calculateShannonEntropy,
   detectDeadlocks,
   getSwarmTopology
-} = require('./src/services/swarmMetricsService');
+} = require('../../src/services/swarmMetricsService');
 
 const {
   calculateLevenshtein,
@@ -15,7 +15,7 @@ const {
   evaluateApoptosis,
   freezeCryptobiosis,
   thawCryptobiosis
-} = require('./src/services/resilienceService');
+} = require('../../src/services/resilienceService');
 
 let passedTests = 0;
 let failedTests = 0;
