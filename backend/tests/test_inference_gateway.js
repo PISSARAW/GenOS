@@ -95,9 +95,25 @@ async function main() {
   await Promise.all([first, aSecond, bFirst]);
   assert.deepEqual(fairnessOrder, ['tenant-a-1', 'tenant-b-1', 'tenant-a-2'], `bulk inference must rotate between tenants: ${JSON.stringify(fairnessOrder)}`);
   console.log('tenant round-robin OK:', fairnessOrder.join(' < '));
+  await new Promise((resolve) => setImmediate(resolve));
+  gateway.reset();
+  process.env.GENOS_INFERENCE_MAX_CONCURRENT = '1';
+  process.env.GENOS_INFERENCE_QUEUE_CAPACITY = '8';
+  process.env.GENOS_INFERENCE_MAX_INTERACTIVE_BURST = '2';
+  const burstGate = new Promise((resolve) => { global.__openGate = resolve; });
+  const burstOrder = [];
+  const heldBurst = gateway.schedule(() => burstGate.then(() => burstOrder.push('interactive-1')), { provider: 'vllm', priority: 'interactive', organizationId: 'org-a', projectId: 'project-a' });
+  const interactiveTasks = [2, 3, 4].map((index) => gateway.schedule(() => { burstOrder.push(`interactive-${index}`); }, { provider: 'vllm', priority: 'interactive', organizationId: 'org-a', projectId: 'project-a' }));
+  const bulkTask = gateway.schedule(() => { burstOrder.push('bulk'); }, { provider: 'vllm', priority: 'bulk', organizationId: 'org-b', projectId: 'project-b' });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  global.__openGate();
+  await Promise.all([heldBurst, ...interactiveTasks, bulkTask]);
+  assert.equal(burstOrder.indexOf('bulk'), 2, 'bulk inference must run after the configured interactive burst');
+  console.log('interactive burst cap OK:', burstOrder.join(' < '));
   delete process.env.GENOS_INFERENCE_QUEUE_CAPACITY;
   delete process.env.GENOS_INFERENCE_QUEUE_TIMEOUT_MS;
   delete process.env.GENOS_INFERENCE_MAX_CONCURRENT;
+  delete process.env.GENOS_INFERENCE_MAX_INTERACTIVE_BURST;
 
   server.close();
   console.log('Inference gateway: all assertions passed.');
