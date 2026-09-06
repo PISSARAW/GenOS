@@ -18,6 +18,10 @@ async function triggerApoptosis(req, res, next) {
   try {
     const { agentId = 'agent_worker_1', triggerMetrics = {} } = req.body || {};
     const db = await getDatabase();
+    const agent = req.tenant
+      ? await db.get('SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId)
+      : await db.get('SELECT id FROM agents WHERE id = ? AND workspace_id IS NULL', agentId);
+    if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: `Agent '${agentId}' was not found in this project.` } });
     const policy = await db.get('SELECT max_consecutive_failures as maxConsecutiveFailures, max_cost_usd as maxCostUsd, divergence_threshold as divergenceThreshold FROM resilience_policies WHERE id = 1');
     const autopsy = await resilienceService.evaluateApoptosis(agentId, triggerMetrics, db, policy || {});
     if (autopsy.apoptosisExecuted) runtimeAdapter.stopMission(agentId);
