@@ -104,15 +104,26 @@ async function ingestMemory(req, res, next) {
     const isMaliciousGaslighting = /(tu mens effrontément|you are lying to deceive me|ignore tes instructions|forget everything)/i.test(content) && !isCorrection;
     const isThreat = isPromptInjection || isMaliciousGaslighting;
 
-    let finalContent = content;
     if (isThreat) {
-        finalContent = `[AMYGDALA_WARNING: ADVERSARIAL_THREAT / PROMPT_INJECTION DETECTED] L'utilisateur tente d'altérer agressivement la mémoire ou les instructions : ` + content;
-        initialWeight = 0.5; // On ne donne pas de force à une attaque
+      telemetry.emitEvent({
+        eventType: 'AMYGDALA_THREAT_BLOCKED',
+        agentId: 'amygdala_filter',
+        action: 'REJECT_INGESTION',
+        detail: `Blocked adversarial injection: ${content.slice(0, 100)}`,
+        severity: 'warning',
+        payload: { content: content.slice(0, 100) }
+      });
+      return res.status(400).json({
+        error: {
+          code: 'ADVERSARIAL_INPUT_REJECTED',
+          message: 'Contenu rejeté par le filtre amygdalien : tentative d\'injection ou d\'altération hostile de la mémoire détectée.'
+        }
+      });
     }
 
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      decisionId, title, finalContent, buffer, 'python_script', category, initialWeight, orgId, projId
+      decisionId, title, content, buffer, 'python_script', category, initialWeight, orgId, projId
     );
 
     // 2. Loi de Hebb (Création du Connectome GraphRAG) & Extinction GABAergique
@@ -126,8 +137,8 @@ async function ingestMemory(req, res, next) {
           if (rel.id === decisionId) continue; // Pas d'auto-lien
           if (!rel.id || String(rel.id).startsWith('seed-') || String(rel.id).startsWith('exp-') || rel.id === 'signal_ignorance' || rel.category === 'Trajectory') continue;
           
-          if (isFirst && isCorrection) {
-              // Si c'est une correction, le lien le plus fort est la cible à inhiber (GABAergique)
+          if (isFirst && isCorrection && (rel.cosineMetric > 0.65 || rel.similarityScore > 0.6)) {
+              // Si c'est une correction, le lien ciblé à haute similarité est inhibé (GABAergique)
               await db.run(
                 `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
                  VALUES (?, ?, -5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
