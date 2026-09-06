@@ -190,12 +190,20 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
     hashAlgorithm: 'sha256',
     ...(gitCommit ? { gitCommit } : {})
   };
-  await db.run(
-    `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
-     SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
-    id, workspace.id, hash, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata), workspace.id
-  );
-  const inserted = await db.get('SELECT step_number FROM workspace_snapshots WHERE id = ?', id);
+  await db.exec('BEGIN IMMEDIATE;');
+  let inserted;
+  try {
+    await db.run(
+      `INSERT INTO workspace_snapshots (id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata)
+       SELECT ?, ?, ?, COALESCE(MAX(step_number), 0) + 1, ?, ?, ?, ?, ? FROM workspace_snapshots WHERE workspace_id = ?`,
+      id, workspace.id, hash, label, author, reason, JSON.stringify({ fileCount: files.length }), JSON.stringify(metadata), workspace.id
+    );
+    inserted = await db.get('SELECT step_number FROM workspace_snapshots WHERE id = ?', id);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  }
   const step = inserted.step_number;
   return { id, workspaceId: workspace.id, snapshotHash: hash, stepNumber: step, label, reason, metadata, fileCount: files.length };
 }
