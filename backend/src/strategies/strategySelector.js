@@ -157,7 +157,9 @@ function selectStrategyPortfolio(input = {}) {
     return { strategy, eligible: constraint.eligible, score: constraint.eligible ? scoreStrategy(strategy, profile) : null, reason: constraint.reason };
   });
   const portfolio = choosePortfolio(decisions, profile);
-  const primary = portfolio.find((strategy) => strategy.id === PREFERRED_PRIMARY[profile.type])
+  const requestedPrimary = PREFERRED_PRIMARY[profile.type];
+  const requestedDecision = decisions.find((item) => item.strategy.id === requestedPrimary);
+  const primary = portfolio.find((strategy) => strategy.id === requestedPrimary)
     || portfolio.slice().sort((left, right) => {
       const leftScore = decisions.find((item) => item.strategy.id === left.id)?.score ?? -Infinity;
       const rightScore = decisions.find((item) => item.strategy.id === right.id)?.score ?? -Infinity;
@@ -167,7 +169,13 @@ function selectStrategyPortfolio(input = {}) {
   const summary = summarizeDecisions(decisions, portfolio);
   const policies = planPolicies(profile);
   return {
-    problem, profile, options, primary, portfolio, policies,
+    problem, profile, options, primary, requestedPrimary,
+    primaryFallback: requestedPrimary !== primary.id ? {
+      requested: requestedPrimary,
+      selected: primary.id,
+      reason: requestedDecision?.reason || 'requested strategy was not eligible'
+    } : null,
+    portfolio, policies,
     branches: BRANCHES[profile.type],
     decisions: decisions.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity) || a.strategy.id.localeCompare(b.strategy.id)),
     summary
