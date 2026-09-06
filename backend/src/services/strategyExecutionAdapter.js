@@ -45,7 +45,10 @@ const HANDLERS = {
   run: fundamentals.run,
 
   // Lot 2 — Mémoire
+  record_experience: memory.recordExperience,
+  recordExperience: memory.recordExperience,
   compile_memory: memory.compileMemory,
+  compileMemory: memory.compileMemory,
   source_refs: memory.compileMemory,
   cherry_pick_golden_path: memory.cherryPickGoldenPath,
   cherry_pick_experience: memory.cherryPickGoldenPath,
