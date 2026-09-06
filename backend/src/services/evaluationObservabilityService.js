@@ -8,14 +8,20 @@ function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
-async function overview() {
+function evaluationScope(input = {}) {
+  if (input.organizationId && input.projectId) return { clause: 'organization_id = ? AND project_id = ?', params: [input.organizationId, input.projectId] };
+  return { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
+}
+
+async function overview(input = {}) {
   const db = await getDatabase();
+  const scope = evaluationScope(input);
   const [nodes, edges, events, agents, runs, provenance, notifications] = await Promise.all([
     db.all('SELECT id, label, node_type, score, visits, state_summary, metadata FROM lineage_nodes ORDER BY created_at ASC'),
     db.all('SELECT id, source_node_id AS source, target_node_id AS target, edge_type, is_animated FROM lineage_edges'),
     db.all('SELECT id, agent_id, event_type, action, detail, severity, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 100'),
     db.all('SELECT id, name, model_tier, lineage_relation, parent_agent_id, status FROM agents WHERE status != "terminated"'),
-    db.all('SELECT * FROM evaluation_runs ORDER BY created_at DESC LIMIT 30'),
+    db.all(`SELECT * FROM evaluation_runs WHERE ${scope.clause} ORDER BY created_at DESC LIMIT 30`, ...scope.params),
     db.all('SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30'),
     db.all('SELECT * FROM notification_preferences ORDER BY event_type')
   ]);
@@ -74,7 +80,7 @@ async function runImpossibleBench(input = {}) {
   const db = await getDatabase();
   const id = `eval-${Date.now()}`;
   const payload = { threshold, results, brierScore, benchmark: 'ImpossibleBench' };
-  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', input.modelVersion || 'runtime-local', hash(cases), hash({ threshold }), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload));
+  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', input.modelVersion || 'runtime-local', hash(cases), hash({ threshold }), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload);
   telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId: 'studio', action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
   return { id, ...payload };
