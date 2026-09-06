@@ -17,7 +17,12 @@ fn command_error(message: impl std::fmt::Display) -> ! {
 }
 
 #[derive(Parser)]
-#[command(name = "g", about = "GenOS Simple CLI", version = "1.0")]
+#[command(
+    name = "g",
+    about = "GenOS Simple CLI",
+    version = "1.0",
+    after_help = "Commands with [ARGS]... forward those arguments to the native GenOS CLI. Use `g <command> --help` for command-specific syntax."
+)]
 struct Cli {
     #[arg(long, global = true, help = "Confirm an operation with destructive side effects")]
     yes: bool,
