@@ -12,6 +12,7 @@ use args::{
 use commands::{
     agent, api_server, biomimicry, capsule, hallucination, platform, replay, snapshot, store_ops,
 };
+use genos_immune::{AntibodyDetector, Antigen, ClonalSelection};
 
 fn main() {
     let cli = Cli::parse();
@@ -101,15 +102,32 @@ fn main() {
         },
         Some(Commands::Ais(cmd)) => match cmd.subcommand {
             args::AisSubcommands::DangerTelemetry { agent_id, severity, threat_context } => {
-                println!("{}", serde_json::json!({ "success": true, "operation": "danger_telemetry", "agent_id": agent_id, "severity": severity, "threat_context": threat_context }));
+                let antigen = Antigen { id: agent_id.clone(), epitope: threat_context.clone(), danger_level: if severity == "high" { 0.9 } else { 0.5 } };
+                let mut selection = ClonalSelection::new();
+                selection.detectors.push(AntibodyDetector::new("danger-telemetry", &threat_context, 1.0));
+                let recognized = selection.recognize(&antigen);
+                println!("{}", serde_json::json!({ "success": recognized, "operation": "danger_telemetry", "agent_id": agent_id, "severity": severity, "threat_context": threat_context, "recognized": recognized, "memory_pool_size": selection.memory_pool.len() }));
                 Ok(())
             }
             args::AisSubcommands::ClonalHypermutate { agent_id, mutation_rate, clone_count } => {
-                println!("{}", serde_json::json!({ "success": true, "operation": "clonal_hypermutate", "agent_id": agent_id, "mutation_rate": mutation_rate, "clone_count": clone_count }));
+                let antigen = Antigen { id: agent_id.clone(), epitope: "CLONAL_SIGNAL".to_string(), danger_level: 0.9 };
+                let mut selection = ClonalSelection::new();
+                for clone_index in 0..clone_count {
+                    selection.detectors.push(AntibodyDetector::new(&format!("clone-{}", clone_index), "CLONAL_SIGNAL", mutation_rate.clamp(0.0, 1.0)));
+                }
+                let recognized = selection.recognize(&antigen);
+                println!("{}", serde_json::json!({ "success": recognized, "operation": "clonal_hypermutate", "agent_id": agent_id, "mutation_rate": mutation_rate, "clone_count": selection.detectors.len(), "recognized": recognized, "memory_pool_size": selection.memory_pool.len() }));
                 Ok(())
             }
             args::AisSubcommands::PrrScan { agent_id, patterns } => {
-                println!("{}", serde_json::json!({ "success": true, "operation": "prr_scan", "agent_id": agent_id, "patterns": patterns }));
+                let detector_patterns: Vec<String> = patterns.split(',').map(str::trim).filter(|pattern| !pattern.is_empty()).map(str::to_string).collect();
+                let antigen = Antigen { id: agent_id.clone(), epitope: patterns.clone(), danger_level: 0.8 };
+                let mut selection = ClonalSelection::new();
+                for pattern in &detector_patterns {
+                    selection.detectors.push(AntibodyDetector::new(pattern, pattern, 1.0));
+                }
+                let recognized = selection.recognize(&antigen);
+                println!("{}", serde_json::json!({ "success": recognized, "operation": "prr_scan", "agent_id": agent_id, "patterns": detector_patterns, "recognized": recognized }));
                 Ok(())
             }
         },

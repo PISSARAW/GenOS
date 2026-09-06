@@ -19,6 +19,7 @@ genos-cell = { path = "../genos-cell" }
 genos-orchestrator = { path = "../genos-orchestrator" }
 genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
+genos-immune = { path = "../genos-immune" }
 genos-signal = { path = "../genos-signal" }
 genos-reproduction = { path = "../genos-reproduction" }
 genos-store = { path = "../genos-store" }
