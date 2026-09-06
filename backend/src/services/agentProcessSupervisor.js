@@ -94,7 +94,13 @@ async function superviseMission(options) {
     return true;
   };
   const emitTracked = (eventType, action, detail, payload = {}, severity = 'info', status) => {
-    const event = emit(agentId, eventType, action, detail, payload, severity, status);
+    const eventPayload = {
+      ...payload,
+      executionRunId: payload.executionRunId || executionRun.id,
+      contractId: payload.contractId || contractRecord.id,
+      contractVersion: payload.contractVersion || contractRecord.version
+    };
+    const event = emit(agentId, eventType, action, detail, eventPayload, severity, status);
     recordWorkerEvidence(normalizedMission, event);
     const userMilestone = userProgress.milestoneFromEvent(event, {
       agentId,
