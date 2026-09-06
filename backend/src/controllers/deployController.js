@@ -127,8 +127,13 @@ async function deleteAgent(req, res, next) {
 }
 async function stopAgent(req, res, next) {
   const db = await getDatabase();
-  await db.run("UPDATE agents SET status = 'idle' WHERE id = ?", req.params.id);
-  res.json({ stopped: false, status: 'idle' });
+  try {
+    if (!await canAccessAgent(db, req, req.params.id)) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent not found in the selected project.' } });
+    const processStopped = runtimeAdapter.stopMission(req.params.id);
+    if (!processStopped) await db.run("UPDATE agents SET status = CASE WHEN status = 'running' THEN 'idle' ELSE status END, updated_at = CURRENT_TIMESTAMP WHERE id = ?", req.params.id);
+    const agent = await db.get('SELECT status FROM agents WHERE id = ?', req.params.id);
+    res.json({ stopped: processStopped, status: processStopped ? 'stopping' : (agent?.status || 'idle') });
+  } catch (error) { next(error); }
 }
 async function stopAgents(req, res, next) { res.json({ success: true }); }
 async function deleteAgents(req, res, next) { res.json({ success: true }); }
