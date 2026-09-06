@@ -74,8 +74,20 @@ process.stdin.on('end', async () => {
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
   let executionPolicy = {};
   try { executionPolicy = JSON.parse(mission.executionPolicyJson || '{}'); } catch {}
+  let executionBudget = {};
+  try { executionBudget = JSON.parse(mission.executionBudgetJson || '{}'); } catch {}
   const workspaceRoot = path.resolve(mission.workspaceRoot || process.cwd());
   const allowFileEdits = executionPolicy.allowFileEdits === true;
+  const budgetLimit = (key) => {
+    const value = Number(executionBudget[key]);
+    return Number.isFinite(value) && value > 0 ? value : Infinity;
+  };
+  const promptTokenEstimate = Math.ceil(Buffer.byteLength(String(prompt), 'utf8') / 4);
+  let eventCount = 0;
+  const emitEvent = (event) => {
+    eventCount += 1;
+    process.stdout.write(encodeEvent(event));
+  };
   const primaryStrategy = strategyContract.selected_strategy?.primary || 'deterministic_direct_path';
 
   let strategyContext = '';
@@ -107,13 +119,24 @@ PLANS D'ACTION: Lorsque tu proposes un plan d'action, tu dois SYSTÉMATIQUEMENT 
 
 ${contextStr}Requête de l'utilisateur : ${prompt}`;
 
-  process.stdout.write(encodeEvent({
+  emitEvent({
     eventType: 'AGENT_PLAN_CREATED',
     action: 'PLAN',
     detail: 'Local cognitive router runtime accepted the mission.',
     status: 'running',
     currentTask: prompt
-  }));
+  });
+  if (promptTokenEstimate >= budgetLimit('tokens')) {
+    emitEvent({
+      eventType: 'AGENT_HALTED',
+      action: 'BUDGET_GUARD',
+      detail: `Prompt consumes the local token budget (${promptTokenEstimate} >= ${budgetLimit('tokens')}).`,
+      severity: 'warning',
+      status: 'blocked'
+    });
+    process.exit(1);
+    return;
+  }
 
   try {
     const { withTextImmunity } = require('../src/services/immuneSystem.js');
@@ -127,15 +150,30 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
 
     const fallbackMessage = `### Synthèse Cognitive Locale (${agentName})\nMission: ${prompt}\n- Statut: Analyse cognitive locale exécutée.\n- Recommandation: Exécution des primitives stratégiques et persistance synaptique terminées.`;
     // On enveloppe l'agent dans le Système Immunitaire (Pléiotropie = maxRetries 3)
-    const reply = await withTextImmunity(framedPrompt, 'high', {
+    const generation = withTextImmunity(framedPrompt, 'high', {
         validatorFn: griotValidator,
         maxRetries: 3,
         agentId: agentName,
         stemCellFallback: fallbackMessage
     });
+    const timeoutMs = budgetLimit('latencyMs');
+    const timeout = Number.isFinite(timeoutMs)
+      ? new Promise((_, reject) => {
+        const timer = setTimeout(() => reject(new Error(`Local generation exceeded latency budget (${timeoutMs}ms).`)), timeoutMs);
+        if (typeof timer.unref === 'function') timer.unref();
+      })
+      : null;
+    const reply = await Promise.race(timeout ? [generation, timeout] : [generation]);
     
     if (!reply) {
         throw new Error("Échec critique de la génération (Apoptose).");
+    }
+    const observedTokens = promptTokenEstimate + Math.ceil(Buffer.byteLength(String(reply), 'utf8') / 4);
+    if (observedTokens > budgetLimit('tokens')) {
+      throw new Error(`Local generation exceeded token budget (${observedTokens} > ${budgetLimit('tokens')}).`);
+    }
+    if (eventCount + 1 > budgetLimit('events')) {
+      throw new Error(`Local runtime exceeded event budget (${eventCount + 1} > ${budgetLimit('events')}).`);
     }
     
     // Parse the reply to write files to disk
@@ -179,22 +217,23 @@ ${contextStr}Requête de l'utilisateur : ${prompt}`;
         author: { name: agentName, meaning: nameMeaning, role: mission.role || 'Assistant IA de développement' }
     };
     
-    process.stdout.write(encodeEvent({
+    emitEvent({
       eventType: 'AGENT_COMPLETED',
       action: 'COMPLETE',
       detail: 'Local cognitive router completed with Epigenetic Canalization.',
       status: 'completed',
       payload: { evidenceReport: report }
-    }));
+    });
     process.exit(0);
   } catch(e) {
-    process.stdout.write(encodeEvent({
-      eventType: 'AGENT_FAILED',
-      action: 'ERROR',
+    const budgetBlocked = /budget|latency/i.test(e.message);
+    emitEvent({
+      eventType: budgetBlocked ? 'AGENT_HALTED' : 'AGENT_FAILED',
+      action: budgetBlocked ? 'BUDGET_GUARD' : 'ERROR',
       detail: e.message,
-      severity: 'error',
-      status: 'error'
-    }));
+      severity: budgetBlocked ? 'warning' : 'error',
+      status: budgetBlocked ? 'blocked' : 'error'
+    });
     process.exit(1);
   }
 });
