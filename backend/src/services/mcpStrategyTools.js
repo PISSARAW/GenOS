@@ -30,7 +30,7 @@ async function executeStrategyTool(toolName, args = {}) {
     }
 
     if (toolName === 'genos_execute_primitive') {
-      const primitive = args.primitive || args.name || '';
+      const primitive = args.primitive || args.primitive_name || args.name || '';
       const context = args.context || args;
       const res = await strategyExecutionAdapter.executePrimitive(primitive, context);
       const ok = res && res.success !== false;
