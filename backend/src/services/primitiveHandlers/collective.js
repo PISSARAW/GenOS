@@ -87,16 +87,16 @@ async function trailSelection(context) {
 
 async function brierScores(context) {
   // Récupère les scores de Brier historiques d'une liste d'agents pour évaluer leur fiabilité.
-  const db = await getDatabase();
   const agentIds = context.agentIds || [];
   if (agentIds.length === 0) return { success: true, scores: {} };
-  
-  // Dans une vraie base, on aurait une table de calibration par agent.
-  // Ici on simule une récupération ou on se base sur les runs récents.
+  const suppliedScores = context.calibrationScores || {};
   const scores = {};
   for (const id of agentIds) {
-    // Mock dynamique : On assigne un Brier score entre 0.1 (excellent) et 0.6 (mauvais)
-    scores[id] = Number((0.1 + Math.random() * 0.5).toFixed(3));
+    const score = Number(suppliedScores[id]);
+    if (!Number.isFinite(score) || score < 0 || score > 1) {
+      return { success: false, error: 'calibrationScores required for every agent.' };
+    }
+    scores[id] = score;
   }
   
   telemetry.emitEvent({
