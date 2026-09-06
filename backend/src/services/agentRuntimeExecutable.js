@@ -66,6 +66,16 @@ function runtimeAvailability(executable) {
       reason: exists ? 'Local cognitive runtime ready.' : `Local runtime script not found at ${target}`
     };
   }
+  if (/\.c?js$/i.test(target) && !fsSync.existsSync(target)) {
+    return { available: false, reason: `Runtime script not found at ${target}` };
+  }
+  const command = target === CODEX_RUNTIME_PATH
+    ? (process.env.CODEX_EXECUTABLE || 'codex')
+    : target;
+  const probe = spawnSync(command, ['--version'], { stdio: 'ignore', timeout: 5000 });
+  if (probe.error || probe.status !== 0) {
+    return { available: false, reason: `Runtime executable is unavailable: ${command}` };
+  }
   return { available: true };
 }
 
