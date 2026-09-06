@@ -64,7 +64,7 @@ async function prune(context) {
   const pruned = scored.slice(k).map(s => s.id);
   
   for (const pid of pruned) {
-    await db.run("UPDATE agents SET status = 'terminated', current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
+    await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
   }
   
   telemetry.emitEvent({

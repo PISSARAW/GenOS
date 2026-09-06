@@ -43,8 +43,7 @@ function evaluateBranch(state, metrics = {}) {
 
   let apoptoticTriggered = false;
   if (state.dissonanceLevel >= state.maxDissonanceThreshold) {
-    state.isApoptotic = true;
-    state.currentBudget = 0.0;
+    markApoptotic(state);
     apoptoticTriggered = true;
   } else {
     const harmony = Math.max(0, state.maxDissonanceThreshold - state.dissonanceLevel);
@@ -64,10 +63,18 @@ function evaluateBranch(state, metrics = {}) {
  * Déclenche un moment Eurêka : divise la dissonance par deux et augmente le capital cognitif.
  */
 function triggerEureka(state) {
+  if (state.isApoptotic) return state;
   state.eurekaMoments += 1;
   state.dissonanceLevel = Math.max(0, state.dissonanceLevel / 2.0);
   state.currentBudget += 50.0;
   return state;
+}
+
+function markApoptotic(state) {
+  if (state.isApoptotic) return false;
+  state.isApoptotic = true;
+  state.currentBudget = 0.0;
+  return true;
 }
 
 /**
@@ -139,6 +146,7 @@ module.exports = {
   createConscienceState,
   evaluateBranch,
   triggerEureka,
+  markApoptotic,
   formatConsciencePrompt,
   persistConscienceState,
   loadConscienceState
