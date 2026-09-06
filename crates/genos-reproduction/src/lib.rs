@@ -8,7 +8,7 @@ mod seed;
 
 pub use crossover::MeioticCrossover;
 pub use division::{
-    BuddingResult, CellDivision, DivisionMode, MitosisAttestation, MitosisResult,
+    BuddingResult, CellDivision, DivisionMode, MeiosisResult, MitosisAttestation, MitosisResult,
     SchizogonyResult, MAX_MEROZOITES, MIN_MEROZOITES,
 };
 pub use phylogeny::{
@@ -67,10 +67,54 @@ mod tests {
         let (_, fission_child) = CellDivision::binary_fission(&genome, 0.0).unwrap();
         let (_, budding_child) = CellDivision::budding(&genome, 0.4).unwrap();
         let schizonts = CellDivision::schizogony(&genome, 3).unwrap();
-            assert_ne!(fission_child.genome_id(), genome.genome_id());
-            assert_ne!(budding_child.genome_id(), genome.genome_id());
-            assert_eq!(schizonts.len(), 3);
-            assert_eq!(schizonts.iter().map(|child| child.genome_id()).collect::<std::collections::HashSet<_>>().len(), 3);
+        assert_ne!(fission_child.genome_id(), genome.genome_id());
+        assert_ne!(budding_child.genome_id(), genome.genome_id());
+        assert_eq!(schizonts.len(), 3);
+        assert_eq!(schizonts.iter().map(|child| child.genome_id()).collect::<std::collections::HashSet<_>>().len(), 3);
+    }
+
+    #[test]
+    fn test_budding_hayflick_scars_and_asymmetry() {
+        let mut mother = Genome::new("MOTHER_YEAST_GENOME");
+        mother.hayflick_limit = 3;
+        let mut test_gene = genos_genome::Gene::new("worker_task", "EXECUTE_PIPELINE");
+        test_gene.expression_volume = 1.0;
+        mother.insert_gene(test_gene);
+
+        // 1. Premier bourgeonnement (daughter_volume = 0.25)
+        let res1 = CellDivision::budding_with_limit(&mother, 0.25, 0, 3).unwrap();
+        assert_eq!(res1.bud_scars, 1);
+        assert_eq!(res1.remaining_divisions, 2);
+        assert!(!res1.is_senescent);
+        assert_eq!(res1.daughter_volume, 0.25);
+        assert_eq!(res1.mother.bud_scars.len(), 1);
+        assert_eq!(res1.mother.bud_scars[0], res1.daughter.genome_id());
+
+        // Asymétrie d'expression
+        let child_gene = res1.daughter.genes.get("worker_task").unwrap();
+        assert!((child_gene.expression_volume - 0.25).abs() < 1e-6);
+        assert_eq!(res1.daughter.hayflick_limit, 1);
+
+        // 2. Deuxième bourgeonnement
+        let res2 = CellDivision::budding_with_limit(&res1.mother, 0.25, res1.bud_scars, 3).unwrap();
+        assert_eq!(res2.bud_scars, 2);
+        assert_eq!(res2.remaining_divisions, 1);
+        assert!(!res2.is_senescent);
+
+        // 3. Troisième bourgeonnement (atteinte de la limite de Hayflick)
+        let res3 = CellDivision::budding_with_limit(&res2.mother, 0.25, res2.bud_scars, 3).unwrap();
+        assert_eq!(res3.bud_scars, 3);
+        assert_eq!(res3.remaining_divisions, 0);
+        assert!(res3.is_senescent);
+
+        // 4. Quatrième bourgeonnement -> Doit échouer avec l'erreur Hayflick
+        let err = CellDivision::budding_with_limit(&res3.mother, 0.25, res3.bud_scars, 3);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("Hayflick limit reached"));
+
+        // 5. Volume invalide -> Doit échouer
+        assert!(CellDivision::budding(&mother, 0.0).is_err());
+        assert!(CellDivision::budding(&mother, 1.0).is_err());
     }
 
     #[test]
@@ -162,6 +206,24 @@ mod tests {
         let res3 = CellDivision::budding_with_limit(&res2.mother, 0.4, res2.bud_scars, limit);
         assert!(res3.is_err());
         assert!(res3.unwrap_err().contains("Hayflick limit reached"));
+    }
+
+    #[test]
+    fn test_meiosis_division_produces_four_gametes() {
+        let genome = Genome::new("DIPLOID_MOTHER_CELL");
+        let gametes = CellDivision::meiosis(&genome, Some(8)).expect("meiosis should succeed");
+        assert_eq!(gametes.len(), 4, "Meiosis must produce exactly 4 haploid gametes");
+        
+        let ids: std::collections::HashSet<_> = gametes.iter().map(|g| g.genome_id()).collect();
+        assert_eq!(ids.len(), 4, "All 4 gametes must have unique IDs");
+        
+        for (i, gamete) in gametes.iter().enumerate() {
+            assert_eq!(gamete.lineage_id(), genome.lineage_id());
+            assert_eq!(
+                gamete.genes.get("gamete_meiotic_index").unwrap().dna.as_slice(),
+                genos_genome::Gene::new("gamete_meiotic_index", &i.to_string()).dna.as_slice()
+            );
+        }
     }
 }
 

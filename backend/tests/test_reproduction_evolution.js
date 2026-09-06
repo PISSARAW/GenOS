@@ -66,6 +66,17 @@ async function runTests() {
   assert.strictEqual(buddingResult.json.is_ephemeral, true);
   console.log(`  ✅ PASS: Asymmetric budding produced ephemeral bud ${buddingResult.json.daughter_genome_id} (scars: ${buddingResult.json.mother_scars_count})`);
 
+  const meiosisResult = await genosCli.runCellDivision({
+    agentId: 'cell_meiosis_mother_01',
+    mode: 'meiosis'
+  });
+  assert(meiosisResult.ok, `CLI meiosis failed: ${meiosisResult.stderr}`);
+  assert.strictEqual(meiosisResult.json.division_mode, 'meiosis');
+  assert.strictEqual(meiosisResult.json.status, 'meiosis_completed');
+  assert.strictEqual(meiosisResult.json.progeny_count, 4);
+  assert.strictEqual(meiosisResult.json.reduction_completed, true);
+  console.log(`  ✅ PASS: Meiosis produced 4 recombinant haploid gametes: ${meiosisResult.json.gamete_genome_ids.join(', ')}`);
+
   // --- 3. Test CLI Rust : Phylogenetic Tree & Molecular Clock ---
   console.log('\n--- 3. Testing Rust Native Phylogeny & Molecular Clock ---');
   const divResult = await genosCli.runPhylogeny({

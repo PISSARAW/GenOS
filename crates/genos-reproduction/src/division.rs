@@ -12,6 +12,7 @@ pub enum DivisionMode {
     BinaryFission,
     Budding,
     Schizogony,
+    Meiosis,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -52,6 +53,14 @@ pub struct SchizogonyResult {
     pub mother_lysed: bool,
     pub merozoites: Vec<Genome>,
     pub mutation_rate_applied: f64,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MeiosisResult {
+    pub mother_genome_id: Uuid,
+    pub gametes: Vec<Genome>,
+    pub crossover_point: usize,
+    pub reduction_completed: bool,
 }
 
 pub struct CellDivision;
@@ -335,6 +344,75 @@ impl CellDivision {
             mother_lysed: true,
             merozoites: daughters,
             mutation_rate_applied: mutation_rate,
+        })
+    }
+
+    pub fn meiosis(genome: &Genome, crossover_point: Option<usize>) -> Result<Vec<Genome>, String> {
+        Self::meiosis_with_seed(genome, crossover_point, &default_seed(&genome.genome_id().to_string(), "meiosis"))
+            .map(|r| r.gametes)
+    }
+
+    pub fn meiosis_with_seed(genome: &Genome, crossover_point: Option<usize>, seed: &str) -> Result<MeiosisResult, String> {
+        let mat_len = genome.chromosome_maternal.len();
+        let pat_len = genome.chromosome_paternal.len();
+        let min_len = mat_len.min(pat_len);
+        if min_len == 0 {
+            return Err("Cannot perform meiosis on empty chromosomes".to_string());
+        }
+
+        let pt = match crossover_point {
+            Some(p) => p.min(min_len),
+            None => {
+                let mut rng = rng_from_seed(seed);
+                rng.random_range(0..min_len)
+            }
+        };
+
+        let mat_slice = genome.chromosome_maternal.as_slice();
+        let pat_slice = genome.chromosome_paternal.as_slice();
+
+        // 4 Chromatides produites lors de la réplication et du crossing-over en Prophase I :
+        // 1. Chromatide maternelle non recombinante
+        let chrom_1 = mat_slice.to_vec();
+        // 2. Chromatide recombinante : début maternel + fin paternelle
+        let mut chrom_2 = mat_slice[..pt].to_vec();
+        chrom_2.extend_from_slice(&pat_slice[pt..]);
+        // 3. Chromatide recombinante : début paternel + fin maternelle
+        let mut chrom_3 = pat_slice[..pt].to_vec();
+        chrom_3.extend_from_slice(&mat_slice[pt..]);
+        // 4. Chromatide paternelle non recombinante
+        let chrom_4 = pat_slice.to_vec();
+
+        let chromatids = [chrom_1, chrom_2, chrom_3, chrom_4];
+        let mut gametes = Vec::with_capacity(4);
+
+        for (i, chrom) in chromatids.into_iter().enumerate() {
+            let mut gamete = genome.derive_child();
+            gamete.chromosome_maternal.replace_sequence(chrom.clone());
+            gamete.chromosome_paternal.replace_sequence(chrom);
+            gamete.bud_scars.clear();
+            gamete.endogenous_retroviruses.clear();
+            gamete.extra_chromosomes.clear();
+
+            // Ségrégation et déméthylation méiotique (reprogrammation gamétique)
+            for gene in gamete.genes.values_mut() {
+                gene.is_methylated = false;
+                gene.developmentally_locked = false;
+                gene.chromatin_state = genos_genome::ChromatinState::Euchromatin;
+            }
+
+            gamete.insert_gene(genos_genome::Gene::new(
+                "gamete_meiotic_index",
+                &i.to_string(),
+            ));
+            gametes.push(gamete);
+        }
+
+        Ok(MeiosisResult {
+            mother_genome_id: genome.genome_id(),
+            gametes,
+            crossover_point: pt,
+            reduction_completed: true,
         })
     }
 }
