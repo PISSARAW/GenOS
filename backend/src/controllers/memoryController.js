@@ -128,11 +128,30 @@ async function ingestMemory(req, res, next) {
           
           if (isFirst && isCorrection) {
               // Si c'est une correction, le lien le plus fort est la cible à inhiber (GABAergique)
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type, organization_id, project_id) VALUES (?, ?, -5.0, 'gaba', ?, ?)`, decisionId, rel.id, orgId, projId);
+              await db.run(
+                `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
+                 VALUES (?, ?, -5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
+                 ON CONFLICT(source_id, target_id) DO UPDATE SET
+                   weight = MIN(-1.0, memory_synapses.weight - 2.0),
+                   transmitter_type = 'gaba',
+                   activity_history = memory_synapses.activity_history + 1,
+                   last_updated_at = CURRENT_TIMESTAMP`,
+                decisionId, rel.id, orgId, projId
+              );
           } else if (rel.cosineMetric > 0.55) {
-              // Sinon (ou pour les liens suivants), c'est une association d'idées classique (Hebbian Learning, Glutamatergique)
-              // Le seuil est abaissé (0.55) pour permettre de lier des faits indirects (ex: A->B et B->C)
-              await db.run(`INSERT OR IGNORE INTO memory_synapses (source_id, target_id, weight, transmitter_type, organization_id, project_id) VALUES (?, ?, 1.0, 'glutamate', ?, ?)`, decisionId, rel.id, orgId, projId);
+              // Association d'idées Hebbienne (renforcement cumulatif des synapses co-activées)
+              await db.run(
+                `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
+                 VALUES (?, ?, 1.0, 'glutamate', 1, CURRENT_TIMESTAMP, ?, ?)
+                 ON CONFLICT(source_id, target_id) DO UPDATE SET
+                   weight = MIN(20.0, memory_synapses.weight + 0.5),
+                   activity_history = memory_synapses.activity_history + 1,
+                   c3_opsonization = 0.0,
+                   cd47_expression = MIN(2.0, memory_synapses.cd47_expression + 0.1),
+                   receptor_density = MIN(3.0, memory_synapses.receptor_density + 0.05),
+                   last_updated_at = CURRENT_TIMESTAMP`,
+                decisionId, rel.id, orgId, projId
+              );
           }
           isFirst = false;
       }
