@@ -82,9 +82,18 @@ function cosineSimilarity(vecA = [], vecB = []) {
   return Number((dotProduct / (Math.sqrt(normA) * Math.sqrt(normB))).toFixed(4));
 }
 
+function isAuthenticSystemFact(item) {
+  if (!item) return false;
+  if (item.verified === true || item.is_verified === 1) return true;
+  if (item.category === 'SystemSignal') return true;
+  const id = String(item.id || '');
+  if (id.startsWith('seed-') || id === 'exp-001') return true;
+  return false;
+}
+
 function computeCredibilityMultiplier(item) {
   const authorLower = String(item?.author || '').toLowerCase();
-  if (authorLower === 'memory_seed' || authorLower === 'system') return 1.2;
+  if (isAuthenticSystemFact(item)) return 1.2;
   if (authorLower === 'user' || authorLower === 'human') return 0.95;
   return 1.0;
 }
@@ -92,7 +101,7 @@ function computeCredibilityMultiplier(item) {
 function enrichSummaryWithSourceMarker(item) {
   const authorLower = String(item?.author || '').toLowerCase();
   const rawSummary = String(item?.summary || '');
-  if ((authorLower === 'memory_seed' || authorLower === 'system') && rawSummary && !rawSummary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
+  if (isAuthenticSystemFact(item) && rawSummary && !rawSummary.startsWith('[VERIFIED_SYSTEM_FACT]')) {
     return `[VERIFIED_SYSTEM_FACT] ${rawSummary}`;
   }
   if ((authorLower === 'user' || authorLower === 'human') && rawSummary && !rawSummary.startsWith('[Source: Utilisateur]')) {

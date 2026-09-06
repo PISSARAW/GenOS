@@ -24,7 +24,7 @@ async function getProtoTypes() {
   };
 }
 
-async function releaseVesicles(engrams = []) {
+async function releaseVesicles(engrams = [], options = {}) {
   const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
   if (!fs.existsSync(cleftDir)) fs.mkdirSync(cleftDir, { recursive: true });
 
@@ -38,12 +38,13 @@ async function releaseVesicles(engrams = []) {
   const compressed = zlib.gzipSync(buffer);
 
   const id = crypto.randomUUID();
-  const filePath = path.join(cleftDir, `vesicle_${id}.vesicle`);
+  const targetAgent = options.targetAgentId || options.agentId ? `${String(options.targetAgentId || options.agentId).replace(/[^a-zA-Z0-9_-]/g, '')}_` : '';
+  const filePath = path.join(cleftDir, `vesicle_${targetAgent}${id}.vesicle`);
   fs.writeFileSync(filePath, compressed);
   return filePath;
 }
 
-async function uptakeVesicles() {
+async function uptakeVesicles(targetAgentId = null) {
   const cleftDir = path.join(studioBridgeRoot(), 'synaptic_cleft');
   if (!fs.existsSync(cleftDir)) return [];
 
@@ -53,6 +54,12 @@ async function uptakeVesicles() {
 
   for (const file of files) {
     if (file.startsWith('vesicle_') && file.endsWith('.vesicle')) {
+      if (targetAgentId) {
+        const cleanTarget = String(targetAgentId).replace(/[^a-zA-Z0-9_-]/g, '');
+        const targetPrefix = `vesicle_${cleanTarget}_`;
+        const isBroadcast = /^vesicle_[0-9a-f]{8}-[0-9a-f]{4}/i.test(file);
+        if (!file.startsWith(targetPrefix) && !isBroadcast) continue;
+      }
       const fullPath = path.join(cleftDir, file);
       try {
         const compressed = fs.readFileSync(fullPath);
