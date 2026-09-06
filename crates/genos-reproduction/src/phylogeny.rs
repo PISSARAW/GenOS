@@ -110,17 +110,20 @@ impl PhylogeneticTree {
     }
 
     pub fn estimate_divergence_time(leaf1: &Genome, leaf2: &Genome) -> f64 {
-        let s1 = &leaf1.chromosome_maternal.sequence;
-        let s2 = &leaf2.chromosome_maternal.sequence;
-        
+        let strands_a = [&leaf1.chromosome_maternal.sequence, &leaf1.chromosome_paternal.sequence];
+        let strands_b = [&leaf2.chromosome_maternal.sequence, &leaf2.chromosome_paternal.sequence];
         let mut diffs = 0;
-        let min_len = s1.len().min(s2.len());
-        for i in 0..min_len {
-            if s1[i] != s2[i] { diffs += 1; }
+        let mut total_len = 0;
+        for (s1, s2) in strands_a.into_iter().zip(strands_b.into_iter()) {
+            let min_len = s1.len().min(s2.len());
+            for i in 0..min_len {
+                if s1[i] != s2[i] { diffs += 1; }
+            }
+            diffs += s1.len().max(s2.len()) - min_len;
+            total_len += s1.len().max(s2.len());
         }
-        diffs += s1.len().max(s2.len()) - min_len;
-        
-        let max_len = s1.len().max(s2.len()) as f64;
+
+        let max_len = total_len as f64;
         let divergence_ratio = (diffs as f64) / max_len.max(1.0);
         
         divergence_ratio * DIVERGENCE_RATIO_MULTIPLIER
