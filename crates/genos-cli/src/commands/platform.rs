@@ -1,16 +1,19 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path, PathBuf};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use crate::args::PlatformSubcommands;
-
-fn read_dir_recursive(dir: &Path, content: &mut String) {
+use genos_orchestrator::BiomimeticOrchestrator;
+use genos_cell::AgentCell;
+fn read_dir_recursive(dir: &Path, root: &Path, content: &mut String) {
+    let Ok(canonical_dir) = dir.canonicalize() else { return; };
+    if !canonical_dir.starts_with(root) { return; }
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
                 if !path.ends_with(".git") && !path.ends_with("node_modules") && !path.ends_with("target") {
-                    read_dir_recursive(&path, content);
+                    read_dir_recursive(&path, root, content);
                 }
             } else if let Ok(text) = fs::read_to_string(&path) {
                 content.push_str(&format!("\n--- File: {} ---\n{}\n", path.display(), text));
@@ -31,12 +34,21 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
             let idx = index.unwrap_or_else(|| "default".to_string());
             
             // Actually search the repo
-            let target_dir = format!("../{}", query);
-            let path = Path::new(&target_dir);
+            let root = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            let query_path = Path::new(&query);
+            if query_path.is_absolute() || query_path.components().any(|component| matches!(component, Component::ParentDir)) {
+                return Err("platform search path must be relative and must not contain '..'".to_string());
+            }
+            let root = root.canonicalize().map_err(|error| format!("unable to resolve search root: {error}"))?;
+            let path = root.join(query_path);
+            let canonical_path = path.canonicalize().map_err(|error| format!("unable to resolve search path: {error}"))?;
+            if !canonical_path.starts_with(&root) {
+                return Err("platform search path escapes the workspace root".to_string());
+            }
             
             let mut context = String::new();
             if path.exists() && path.is_dir() {
-                read_dir_recursive(path, &mut context);
+                read_dir_recursive(&canonical_path, &root, &mut context);
             } else {
                 context = "No files found or directory doesn't exist.".to_string();
             }
@@ -219,10 +231,79 @@ pub fn handle_world_create(provider: &str, root: &str, params: WorldParams) -> R
     Ok(())
 }
 
-pub fn handle_world_run(world_id: &str, command: &str, sandbox: &str) -> Result<(), String> {
-    println!("{}", json!({
-        "operation": "world_run", "world_id": world_id, "command": command, "sandbox": sandbox, "exit_code": 0
-    }));
+fn ask_agent(prompt: &str, role: &str) -> String {
+    let client = reqwest::blocking::Client::new();
+    let body = json!({
+        "model": "genos-core-v3",
+        "messages": [
+            { "role": "system", "content": format!("Tu es un agent GenOS ayant le rôle de {}. Réponds de façon concise et technique.", role) },
+            { "role": "user", "content": prompt }
+        ]
+    });
+    
+    match client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body).send() {
+        Ok(res) => {
+            if let Ok(json_resp) = res.json::<serde_json::Value>() {
+                if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
+                    text.trim().to_string()
+                } else {
+                    "[ERREUR] Réponse inattendue de l'API.".to_string()
+                }
+            } else {
+                "[ERREUR] Impossible de parser le JSON.".to_string()
+            }
+        }
+        Err(e) => format!("[ERREUR RÉSEAU] Impossible de joindre le Thalamus. Est-ce que '.\\g start' tourne ? Détails: {}", e)
+    }
+}
+
+pub fn handle_world_run(world_id: &str, _command: &str, _sandbox: &str) -> Result<(), String> {
+    println!("\n🌍 INITIATING WORLD RUN: [{}]", world_id);
+    println!("--------------------------------------------------");
+    
+    // 1. Initialisation Biomimétique
+    let mut orchestrator = BiomimeticOrchestrator::new(world_id, 50.0, 100.0);
+    
+    let architect = AgentCell::new("Kwame", "Le Créateur", "Architecte Système");
+    let verifier = AgentCell::new("Chidi", "La Rigueur", "Vérificateur Sécurité");
+    
+    let arch_id = architect.cell_id;
+    let verif_id = verifier.cell_id;
+    
+    orchestrator.active_cells.insert(arch_id, architect.clone());
+    orchestrator.active_cells.insert(verif_id, verifier.clone());
+    
+    println!("🧬 Écosystème déployé avec 2 cellules :");
+    println!("  - {}", architect.introduce_self());
+    println!("  - {}", verifier.introduce_self());
+    println!("--------------------------------------------------\n");
+    
+    // 2. Boucle de Discussion (Thalamus/LLM)
+    let topic = "Propose une architecture haut-niveau (2 paragraphes) pour un serveur web ultra-rapide en Rust.";
+    println!("🎯 OBJECTIF DE LA MISSION : {}", topic);
+    
+    println!("\n🟡 [Architecte] réfléchit...");
+    let plan = ask_agent(topic, &architect.role);
+    println!("\n>>> ARCHITECTE :\n{}\n", plan);
+    
+    println!("--------------------------------------------------");
+    
+    let critique_prompt = format!("Voici une architecture proposée par l'architecte :\n{}\nFais une critique technique courte et incisive (1 paragraphe) en pointant une potentielle faille ou goulot d'étranglement.", plan);
+    
+    println!("\n🔴 [Vérificateur] examine le plan...");
+    let critique = ask_agent(&critique_prompt, &verifier.role);
+    println!("\n>>> VÉRIFICATEUR :\n{}\n", critique);
+    
+    println!("--------------------------------------------------");
+    
+    // 3. Fusion symbiotique (Endosymbiose) pour intégrer la vérification directement dans l'architecte
+    println!("\n🦠 DÉCLENCHEMENT DE L'ENDOSYMBIOSE (Zero-IPC)...");
+    match orchestrator.trigger_endosymbiosis(arch_id, verif_id) {
+        Ok(_) => println!("✅ Le Vérificateur a été phagocyté par l'Architecte pour des itérations futures ultra-rapides en mémoire partagée !"),
+        Err(e) => println!("❌ Échec de la symbiose : {}", e),
+    }
+
+    println!("\n🏁 WORLD RUN TERMINÉ.");
     Ok(())
 }
 
