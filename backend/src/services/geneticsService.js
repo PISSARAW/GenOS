@@ -208,7 +208,10 @@ function crossoverGenome(parentA, parentB, options = {}) {
 
   const childGenes = {};
   const geneKeys = ['role', 'strategy', 'tools', 'temp', 'topP'];
-  const childId = `agent-crossover-${crypto.randomUUID()}`;
+    const mutationSeed = options.seed === undefined
+      ? `${pA.name || 'A'}:${pB.name || 'B'}:${strategy}:${mutationRate}`
+      : String(options.seed);
+    const childId = `agent-crossover-${crypto.randomUUID()}`;
   const parentFingerprint = `${contentFingerprint(pA.genes)}:${contentFingerprint(pB.genes)}`;
   const reproducibilitySeed = options.seed === undefined
     ? contentFingerprint({ version: 'genos-crossover-v1', parentFingerprint, strategy })
