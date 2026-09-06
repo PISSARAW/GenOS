@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { guardService } = require('./grpcAuth');
 
 function findServices(obj) {
   const found = [];
@@ -38,7 +39,7 @@ function registerAllServices(grpcServer, protoDescriptor) {
     if (fs.existsSync(handlerPath)) {
       try {
         const handler = require(handlerPath);
-        grpcServer.addService(serviceDef, handler);
+        grpcServer.addService(serviceDef, guardService(handler));
         registeredServices.add(serviceDef);
       } catch (err) {
         console.error(`[gRPC] Error registering service ${name}:`, err.message);
