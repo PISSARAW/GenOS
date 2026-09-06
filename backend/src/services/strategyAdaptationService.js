@@ -79,6 +79,14 @@ async function changeStrategy(db, input = {}) {
     throw Object.assign(new Error('The strategy cannot change because at least one mission budget is exhausted.'), { code: 'STRATEGY_BUDGET_EXHAUSTED' });
   }
 
+  const autonomyPlan = buildAutonomyPlan(planned.candidate, budget);
+
+  let previousRuntimeStopped = false;
+  if (activeRun && ['planned', 'running'].includes(activeRun.status)) {
+    const { stopMission } = require('./agentRuntimeAdapter');
+    previousRuntimeStopped = stopMission(orchestratorId);
+  }
+
   const { selected, nextRun } = await withTransaction(db, async (tx) => {
     const nextContract = await strategyContracts.saveContract(tx, {
       agentId: orchestratorId,
@@ -105,7 +113,6 @@ async function changeStrategy(db, input = {}) {
     }
     return { selected: nextContract, nextRun: run };
   });
-  const autonomyPlan = buildAutonomyPlan(selected.contract, budget);
   return {
     changed: true,
     reason: planned.reason,
@@ -119,7 +126,7 @@ async function changeStrategy(db, input = {}) {
       portfolio: selected.contract.strategy_portfolio.map((strategy) => strategy.id),
       problemProfile: selected.contract.problem_profile
     },
-    executionRun: { previousRunId: activeRun?.id || null, runId: nextRun.id, remainingBudget: nextRun.budget },
+    executionRun: { previousRunId: activeRun?.id || null, runId: nextRun.id, remainingBudget: nextRun.budget, previousRuntimeStopped },
     recommendedOrganization: autonomyPlan.organization,
     decisionGates: autonomyPlan.decisionGates
   };
