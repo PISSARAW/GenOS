@@ -19,6 +19,7 @@ const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { appendBounded } = require('./boundedOutput');
 
 const activeWorktrees = new Map();
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
@@ -32,7 +33,7 @@ function spawnGit(cwd, args) {
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['-C', cwd, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
     let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
     child.on('error', reject);
     child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(stderr.trim() || `git ${args.join(' ')} exited with code ${code}`))));
   });
@@ -120,8 +121,8 @@ function runCommand(command, args, { cwd, input } = {}) {
     const child = spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
+    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
     child.on('error', reject);
     child.on('close', (code) => code === 0 ? resolve({ stdout, stderr }) : reject(new Error(`${command} ${args.join(' ')} failed: ${stderr.trim()}`)));
     child.stdin.end(input || '');

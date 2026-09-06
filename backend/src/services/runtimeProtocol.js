@@ -6,6 +6,7 @@ root.loadSync(path.resolve(__dirname, '../../proto/agent.proto'));
 root.loadSync(path.resolve(__dirname, '../../proto/telemetry.proto'));
 const Mission = root.lookupType('genos.agent.v1.AgentMission');
 const Event = root.lookupType('genos.telemetry.v1.AgentEvent');
+const MAX_FRAME_BYTES = 1024 * 1024;
 
 function frame(buffer) {
   const header = Buffer.alloc(4);
@@ -58,6 +59,7 @@ function decodeEvents(buffer, onEvent) {
   let remaining = buffer;
   while (remaining.length >= 4) {
     const size = remaining.readUInt32BE(0);
+    if (size > MAX_FRAME_BYTES) throw new RangeError(`Runtime event frame exceeds ${MAX_FRAME_BYTES} bytes.`);
     if (remaining.length < size + 4) break;
     const message = Event.decode(remaining.subarray(4, size + 4));
     onEvent(Event.toObject(message, { defaults: false }));
@@ -66,4 +68,4 @@ function decodeEvents(buffer, onEvent) {
   return remaining;
 }
 
-module.exports = { encodeMission, encodeEvent, decodeMission, decodeMissionInput, decodeEvents };
+module.exports = { encodeMission, encodeEvent, decodeMission, decodeMissionInput, decodeEvents, MAX_FRAME_BYTES };

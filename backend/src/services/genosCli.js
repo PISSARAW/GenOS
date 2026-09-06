@@ -8,6 +8,7 @@
  */
 
 const { spawn } = require('child_process');
+const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
 
@@ -74,8 +75,8 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
       }
     }, timeoutMs);
 
-    child.stdout.on('data', (chunk) => { stdout += chunk; });
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
+    child.stdout.on('data', (chunk) => { stdout = appendBounded(stdout, chunk); });
+    child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
 
     child.on('error', (err) => {
       if (!settled) {

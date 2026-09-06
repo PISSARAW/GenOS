@@ -49,7 +49,7 @@ async function replayIncident(req, res) {
     severity: 'info'
   });
 
-  const events = await db.all('SELECT * FROM telemetry_events ORDER BY created_at ASC');
+  const events = await db.all('SELECT * FROM telemetry_events ORDER BY created_at ASC LIMIT 10000');
   res.json({ success: true, ...platformSafety.buildReplay(incidentId, events, stepSpeed) });
 }
 

@@ -16,15 +16,12 @@ async function getConfig(req, res) {
   const db = await getDatabase();
   const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
   const wsCount = await db.get("SELECT COUNT(*) as count FROM workspaces");
-  const telemetryRows = await db.all('SELECT payload_json FROM telemetry_events');
-  const usedTokens = telemetryRows.reduce((total, row) => {
-    try {
-      const payload = JSON.parse(row.payload_json || '{}');
-      return total + Number(payload.tokens || payload.totalTokens || payload.usage?.total_tokens || 0);
-    } catch {
-      return total;
-    }
-  }, 0);
+  const usageRow = await db.get(`SELECT COALESCE(SUM(
+    COALESCE(json_extract(payload_json, '$.tokens'), 0) +
+    COALESCE(json_extract(payload_json, '$.totalTokens'), 0) +
+    COALESCE(json_extract(payload_json, '$.usage.total_tokens'), 0)
+  ), 0) AS usedTokens FROM telemetry_events`);
+  const usedTokens = Number(usageRow?.usedTokens || 0);
   const hasUsageTelemetry = usedTokens > 0;
 
   res.json({

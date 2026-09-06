@@ -74,7 +74,7 @@ async function loadAgentDossier(db, agentId) {
   const familyIds = family.map((agent) => agent.id);
   const placeholders = familyIds.map(() => '?').join(',');
   const events = (await db.all(
-    `SELECT * FROM telemetry_events WHERE agent_id IN (${placeholders}) ORDER BY created_at, id`,
+    `SELECT * FROM telemetry_events WHERE agent_id IN (${placeholders}) ORDER BY created_at, id LIMIT 10000`,
     ...familyIds
   )).map(mapEvent);
   const contracts = await strategyContracts.listContracts(db, agentId);

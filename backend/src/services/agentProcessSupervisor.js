@@ -5,7 +5,7 @@
  */
 const path = require('path');
 const { spawn } = require('child_process');
-const { encodeMission, decodeEvents } = require('./runtimeProtocol');
+const { encodeMission, decodeEvents, MAX_FRAME_BYTES } = require('./runtimeProtocol');
 const { resolveExecutable } = require('./agentRuntimeExecutable');
 const strategyExecution = require('./strategyExecutionService');
 const hallucinationMonitor = require('./hallucinationMonitoringService');
@@ -123,11 +123,13 @@ async function superviseMission(options) {
       }).catch(() => {});
     }
     eventQueue.push(event);
+    if (eventQueue.length > maxEventQueue) eventQueue.shift();
     processEventQueue();
     return event;
   };
 
   const eventQueue = [];
+  const maxEventQueue = Math.max(1, Number(process.env.GENOS_RUNTIME_EVENT_QUEUE_CAPACITY) || 2048);
   let isProcessingEvents = false;
   const processEventQueue = async () => {
     if (isProcessingEvents) return;
@@ -199,7 +201,12 @@ async function superviseMission(options) {
   let terminalEventSeen = false;
   child.stdout.on('data', (chunk) => {
     stdoutBuffer = Buffer.concat([stdoutBuffer, chunk]);
-    stdoutBuffer = decodeEvents(stdoutBuffer, (event) => {
+    if (stdoutBuffer.length > MAX_FRAME_BYTES + 4) {
+      haltRuntime('protocol', `Runtime event buffer exceeds ${MAX_FRAME_BYTES} bytes.`, 'Runtime halted after an oversized or incomplete event frame.');
+      stdoutBuffer = Buffer.alloc(0);
+      return;
+    }
+    try { stdoutBuffer = decodeEvents(stdoutBuffer, (event) => {
       let payload = {};
       try { payload = event.payloadJson ? JSON.parse(event.payloadJson) : {}; } catch { payload = { raw: event.payloadJson }; }
       const nextStatus = event.status || (event.eventType === 'AGENT_COMPLETED' ? 'completed' : undefined);
@@ -208,7 +215,10 @@ async function superviseMission(options) {
         executionQueue = executionQueue.then(() => updateAgent(agentId, nextStatus, event.currentTask));
       }
       emitTracked(event.eventType || 'AGENT_STEP', event.action || 'EXECUTE', event.detail || '', payload, event.severity || 'info', nextStatus);
-    });
+    }); } catch (error) {
+      haltRuntime('protocol', error.message, 'Runtime halted after an invalid event frame.');
+      stdoutBuffer = Buffer.alloc(0);
+    }
   });
   child.stderr.on('data', (chunk) => {
     const detail = chunk.toString();

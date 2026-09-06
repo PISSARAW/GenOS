@@ -7,8 +7,8 @@ const telemetry = require('../services/telemetryObserver');
 
 async function getLineage(req, res) {
   const db = await getDatabase();
-  const nodes = await db.all('SELECT * FROM lineage_nodes');
-  const edges = await db.all('SELECT * FROM lineage_edges');
+  const nodes = await db.all('SELECT * FROM lineage_nodes ORDER BY created_at LIMIT 2000');
+  const edges = await db.all('SELECT * FROM lineage_edges ORDER BY created_at LIMIT 4000');
 
   const formattedNodes = nodes.map(n => ({
     id: n.id,

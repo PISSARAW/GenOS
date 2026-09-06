@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const { appendBounded } = require('./boundedOutput');
 const ALLOWED_CAPABILITIES = new Set(['mcp', 'retrieval', 'webhook', 'grader', 'connector']);
 
 function validate(manifest) {
@@ -15,7 +16,7 @@ function run(manifest, payload = {}, timeoutMs = 15000) {
     const child = spawn('docker', ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--pids-limit', '64', '--memory', '256m', '--security-opt', 'no-new-privileges', plugin.image], { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH } });
     let output = ''; let errors = '';
     const timer = setTimeout(() => { child.kill('SIGKILL'); reject(new Error('Plugin sandbox timed out.')); }, Math.min(Math.max(Number(timeoutMs) || 15000, 1000), 60000));
-    child.stdout.on('data', (chunk) => { output += chunk.toString(); }); child.stderr.on('data', (chunk) => { errors += chunk.toString(); });
+    child.stdout.on('data', (chunk) => { output = appendBounded(output, chunk); }); child.stderr.on('data', (chunk) => { errors = appendBounded(errors, chunk); });
     child.on('error', (error) => { clearTimeout(timer); reject(error); }); child.on('close', (code) => { clearTimeout(timer); if (code === 0) resolve({ plugin: plugin.id, output: output.slice(0, 65536) }); else reject(new Error(`Plugin exited ${code}: ${errors.slice(-1000)}`)); });
     child.stdin.end(JSON.stringify(payload));
   });

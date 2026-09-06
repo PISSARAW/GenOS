@@ -1,5 +1,13 @@
 const cp = require('child_process');
 const genosCli = require('./genosCli');
+let echolocationProcess = null;
+
+function stopEcholocation() {
+  if (!echolocationProcess) return false;
+  echolocationProcess.kill();
+  echolocationProcess = null;
+  return true;
+}
 
 function runGenosSync(cmdString) {
   const bin = genosCli.resolveGenosBin();
@@ -373,9 +381,12 @@ function executeBioTool(toolName, args) {
       if (args.action === 'listen') {
         const path = require('path');
         const scriptPath = path.resolve(process.cwd(), 'examples/griot-daemon/griot_ear.py');
-        // Spawn le script d'écoute en tant que processus détaché
-        const child = cp.spawn('python', [scriptPath], { detached: true, stdio: 'ignore' });
-        child.unref();
+        if (echolocationProcess && !echolocationProcess.killed) {
+          return { configured: true, success: true, status: 'completed', transport: 'local', output: "Oreille de Griot déjà active." };
+        }
+        echolocationProcess = cp.spawn('python', [scriptPath], { detached: true, stdio: 'ignore' });
+        echolocationProcess.once('exit', () => { echolocationProcess = null; });
+        echolocationProcess.unref();
         return { configured: true, success: true, status: 'completed', transport: 'local', output: "Oreille de Griot activée. Mode écoute en arrière-plan (Autopoïèse complète)." };
       }
 
@@ -393,6 +404,6 @@ function executeBioTool(toolName, args) {
   return require('./mcpBioExtra').executeBioExtra(toolName, args);
 }
 
-module.exports = { executeBioTool };
+module.exports = { executeBioTool, stopEcholocation };
 
 

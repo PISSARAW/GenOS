@@ -23,6 +23,13 @@ class TelemetryObserver extends EventEmitter {
     super();
     this.ringBuffer = [];
     this.sseClients = new Set();
+    this.persistQueue = [];
+    this.persisting = false;
+    this.maxPersistQueue = Math.max(1, Number(process.env.GENOS_TELEMETRY_QUEUE_CAPACITY) || 4096);
+    this.persistedEvents = 0;
+    this.maxTelemetryRows = Math.max(1000, Number(process.env.GENOS_TELEMETRY_RETENTION_ROWS) || 100000);
+    this.maxTraceRows = Math.max(1000, Number(process.env.GENOS_TRACE_RETENTION_ROWS) || 100000);
+    this.maxTokenRows = Math.max(1000, Number(process.env.GENOS_TOKEN_RETENTION_ROWS) || 500000);
     this.loadInitialStream();
   }
 
@@ -108,34 +115,49 @@ class TelemetryObserver extends EventEmitter {
     });
   }
 
-  async persistAsync(event) {
-    setImmediate(async () => {
-      try {
-        const db = await getDatabase();
-        await db.run(
+  persistAsync(event) {
+    if (this.persistQueue.length >= this.maxPersistQueue) this.persistQueue.shift();
+    this.persistQueue.push(event);
+    if (this.persisting) return;
+    setImmediate(() => this.drainPersistQueue());
+  }
+
+  async drainPersistQueue() {
+    this.persisting = true;
+    try {
+      while (this.persistQueue.length) {
+        const queuedEvent = this.persistQueue.shift();
+        try {
+          const db = await getDatabase();
+          await db.run(
           `INSERT INTO telemetry_events (session_id, agent_id, event_type, action, detail, payload_json, severity) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          event.sessionId || 'session_live',
-          event.agentId,
-          event.eventType,
-          event.action,
-          event.detail,
-          JSON.stringify(event.payload),
-          event.severity
-        );
-        const provenanceTypes = new Set(['BELIEF_CREATED', 'BELIEF_UPDATED', 'AGENT_COMPLETED', 'AGENT_FAILED', 'TOOL_CALL_COMPLETED', 'MCTS_NODE_PRUNED', 'EVALUATION_COMPLETED']);
-        if (provenanceTypes.has(event.eventType)) {
-          const payloadJson = JSON.stringify({ eventId: event.id, eventType: event.eventType, agentId: event.agentId, action: event.action, detail: event.detail, payload: event.payload });
-          const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-          await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json) VALUES (?, ?, ?, ?, ?)', `prov-event-${event.id}`, event.eventType.toLowerCase(), event.id, payloadHash, payloadJson);
+            queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
+            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity
+          );
+          this.persistedEvents += 1;
+          if (this.persistedEvents % 1000 === 0) await this.pruneHistory(db);
+          const provenanceTypes = new Set(['BELIEF_CREATED', 'BELIEF_UPDATED', 'AGENT_COMPLETED', 'AGENT_FAILED', 'TOOL_CALL_COMPLETED', 'MCTS_NODE_PRUNED', 'EVALUATION_COMPLETED']);
+          if (provenanceTypes.has(queuedEvent.eventType)) {
+            const payloadJson = JSON.stringify({ eventId: queuedEvent.id, eventType: queuedEvent.eventType, agentId: queuedEvent.agentId, action: queuedEvent.action, detail: queuedEvent.detail, payload: queuedEvent.payload });
+            const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
+            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json) VALUES (?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson);
+          }
+          await this.persistWorkspaceMilestone(db, queuedEvent);
+          if (queuedEvent.eventType === 'AGENT_COMPLETED') await this.generateWorkspaceReadme(db, queuedEvent.agentId);
+        } catch (err) {
+          // Persistence must not block the live runtime.
         }
-        await this.persistWorkspaceMilestone(db, event);
-        if (event.eventType === 'AGENT_COMPLETED') {
-          await this.generateWorkspaceReadme(db, event.agentId);
-        }
-      } catch (err) {
-        // Silently catch in observer to never block runtime
       }
-    });
+    } finally {
+      this.persisting = false;
+      if (this.persistQueue.length) setImmediate(() => this.drainPersistQueue());
+    }
+  }
+
+  async pruneHistory(db) {
+    await db.run('DELETE FROM telemetry_events WHERE id NOT IN (SELECT id FROM telemetry_events ORDER BY id DESC LIMIT ?)', this.maxTelemetryRows);
+    await db.run('DELETE FROM trace_spans WHERE id NOT IN (SELECT id FROM trace_spans ORDER BY created_at DESC LIMIT ?)', this.maxTraceRows);
+    await db.run('DELETE FROM model_job_tokens WHERE id NOT IN (SELECT id FROM model_job_tokens ORDER BY id DESC LIMIT ?)', this.maxTokenRows);
   }
 
   async persistWorkspaceMilestone(db, event) {

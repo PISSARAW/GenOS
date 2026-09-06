@@ -3,6 +3,7 @@ const circuitBreaker = require('./circuitBreaker');
 const telemetry = require('./telemetryObserver');
 const platformSafety = require('./platformSafetyService');
 const { spawn } = require('child_process');
+const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
 
@@ -65,7 +66,7 @@ async function callStdio(transport, toolName, options = {}) {
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
   const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
   let buffer = ''; let stderr = ''; let pending = null;
-  child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+  child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
     buffer += chunk.toString();
     const lines = buffer.split(/\r?\n/);
