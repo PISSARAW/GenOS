@@ -1,15 +1,20 @@
 const cp = require('child_process');
 const { runGenosSync } = require('./genosCli');
+const { getDatabase } = require('../db');
+const { terminateChild } = require('./processTermination');
 let echolocationProcess = null;
+let echolocationProcessId = null;
 
 function stopEcholocation() {
   if (!echolocationProcess) return false;
-  echolocationProcess.kill();
+  terminateChild(echolocationProcess);
   echolocationProcess = null;
+  if (echolocationProcessId) getDatabase().then((db) => db.run('DELETE FROM detached_processes WHERE id = ?', echolocationProcessId)).catch(() => {});
+  echolocationProcessId = null;
   return true;
 }
 
-function executeBioTool(toolName, args) {
+async function executeBioTool(toolName, args) {
   if (toolName === 'genos_active_sensing') {
     try {
       let cmdParams = [`--param focus="${args.focus}"`, `--param ambiguity=${args.ambiguity}`];
@@ -377,7 +382,16 @@ function executeBioTool(toolName, args) {
           return { configured: true, success: true, status: 'completed', transport: 'local', output: "Oreille de Griot déjà active." };
         }
         echolocationProcess = cp.spawn('python', [scriptPath], { detached: true, stdio: 'ignore' });
-        echolocationProcess.once('exit', () => { echolocationProcess = null; });
+        echolocationProcessId = `echolocation-${echolocationProcess.pid}-${Date.now()}`;
+        const trackingDb = await getDatabase();
+        await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT, command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', echolocationProcessId, echolocationProcess.pid, 'echolocation', null, 'python');
+        echolocationProcess.once('exit', () => {
+          const completedId = echolocationProcessId;
+          echolocationProcess = null;
+          echolocationProcessId = null;
+          if (completedId) getDatabase().then((db) => db.run('DELETE FROM detached_processes WHERE id = ?', completedId)).catch(() => {});
+        });
         echolocationProcess.unref();
         return { configured: true, success: true, status: 'completed', transport: 'local', output: "Oreille de Griot activée. Mode écoute en arrière-plan (Autopoïèse complète)." };
       }
