@@ -69,7 +69,6 @@ module.exports = {
   missionStarts,
   cancelledStarts,
   pendingContinuations,
-  pendingContinuations,
   autonomousRounds,
   pendingWorkerRecoveries,
   workerEvidenceRounds,
