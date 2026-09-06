@@ -242,7 +242,9 @@ class VectorMemoryService {
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
             WHERE s.target_id IN (${placeholders}) AND s.weight < 0
-              ${options.ownerId ? 'AND source_node.created_by = ?' : ''}`,
+              ${options.ownerId ? 'AND source_node.created_by = ?' : ''}
+            GROUP BY s.target_id
+            HAVING SUM(s.weight) < 0`,
           options.ownerId ? [...topIds, options.ownerId] : topIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
@@ -268,20 +270,6 @@ class VectorMemoryService {
         similarityScore: 0.0,
         cosineMetric: 0.0
       });
-    }
-
-    // LTP: Strengthen accessed memories
-    const ltpIds = topItems
-      .filter(i => i.category !== 'Trajectory' && i.category !== undefined && !String(i.id).startsWith('seed-') && i.id !== 'exp-001')
-      .map(i => i.id);
-    if (ltpIds.length > 0 && db) {
-      try {
-        const placeholders = ltpIds.map(() => '?').join(',');
-        await db.run(
-          `UPDATE genome_decisions SET synaptic_weight = MIN(synaptic_weight + 0.1, 5.0), last_accessed_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
-          ltpIds
-        );
-      } catch {}
     }
 
     // GraphRAG: Spreading activation and time cells
