@@ -4,6 +4,7 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const agentEvolution = require('../services/agentEvolutionService');
 
 function workspaceScope(req, alias = 'w') {
   const prefix = alias ? `${alias}.` : '';
@@ -84,6 +85,22 @@ async function cloneNode(req, res) {
       `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       agentId, `Clone of ${parentAgent.name}`, parentAgent.role, 'idle', parentAgent.agent_type, 'worker', parentAgent.workspace_id, parentAgent.fleet_id, parentAgent.model_tier, parentAgent.language, 'Branch', orchestratorId, 'clone', parentAgent.about, `Clone ready for a mission from ${parentAgent.name}`
     );
+    await db.run(
+      `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
+       VALUES (?, ?, ?, ?, 'agent', ?)
+       ON CONFLICT(id) DO NOTHING`,
+      parentAgent.id, parentAgent.workspace_id, parentAgent.id, parentAgent.name, 'Source agent for clone'
+    );
+    const lineageResult = await agentEvolution.recordWorkerLineage(db, {
+      agentId,
+      workspaceId: parentAgent.workspace_id,
+      name: `Clone of ${parentAgent.name}`,
+      role: parentAgent.role
+    }, { parentId: parentAgent.id, genes: {}, reproduction: { engine: 'lineage_clone' } });
+    if (!lineageResult.success) {
+      await db.run('DELETE FROM agents WHERE id = ?', agentId);
+      return res.status(409).json({ error: { code: 'LINEAGE_PERSISTENCE_FAILED', message: lineageResult.error } });
+    }
     telemetry.emitEvent({
       eventType: 'AGENT_CLONED',
       agentId,
