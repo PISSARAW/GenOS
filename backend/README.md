@@ -59,5 +59,5 @@ The test suite is a set of plain Node scripts that spin up the server on an
 ephemeral port:
 
 ```bash
-node test_backend.js
+npm test
 ```
