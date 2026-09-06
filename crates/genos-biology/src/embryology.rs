@@ -65,6 +65,30 @@ pub fn differentiate_swarm(swarm: &mut [AgentCell], topology_gradient: f64, geno
             } else {
                 gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
                 gene.developmentally_locked = true;
+                gene.is_methylated = true;
+            }
+        }
+    }
+}
+
+/// ACTE 3b : Différenciation cellulaire individuelle
+/// Différencie le génome d'une cellule individuelle selon son rôle cellulaire spécifique.
+/// Les gènes de l'axe actif sont activés (Euchromatine), tandis que les gènes des autres axes
+/// sont verrouillés épigénétiquement (Hétérochromatine facultative + méthylation + verrou).
+pub fn differentiate_cell_chromatin(role: &str, genome: &mut Genome) {
+    let target_axis = hox_axis(role);
+    for (locus, gene) in genome.genes.iter_mut() {
+        if let Some(axis) = hox_axis(locus) {
+            if target_axis == Some(axis) {
+                if gene.chromatin_state == ChromatinState::HeterochromatinFacultative {
+                    gene.chromatin_state = ChromatinState::Euchromatin;
+                    gene.developmentally_locked = false;
+                    gene.is_methylated = false;
+                }
+            } else {
+                gene.chromatin_state = ChromatinState::HeterochromatinFacultative;
+                gene.developmentally_locked = true;
+                gene.is_methylated = true;
             }
         }
     }
@@ -181,5 +205,45 @@ mod tests {
         let zygote = AgentCell::new("Zygote", "Origin", "Stem");
         let swarm = cleave_zygote(zygote, MAX_ZYGOTE_DIVISIONS + 4);
         assert_eq!(swarm.len(), 1usize << MAX_ZYGOTE_DIVISIONS);
+    }
+
+    #[test]
+    fn test_differentiate_swarm_methylates_locked_genes() {
+        let mut swarm = vec![AgentCell::new("Cell1", "Cell1", "HOX-1_UI_FRONTEND")];
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        genome.insert_gene(Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT"));
+        genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
+
+        differentiate_swarm(&mut swarm, 0.0, &mut genome);
+
+        let locked_gene = genome.genes.get("HOX-2_LOGIC_BACKEND").unwrap();
+        assert_eq!(locked_gene.chromatin_state, ChromatinState::HeterochromatinFacultative);
+        assert!(locked_gene.developmentally_locked);
+        assert!(locked_gene.is_methylated);
+    }
+
+    #[test]
+    fn test_differentiate_cell_chromatin_individual() {
+        let mut genome = Genome::new("BASE_HOX_INSTRUCTIONS");
+        genome.insert_gene(Gene::new("HOX-1_UI_FRONTEND", "UI_PROMPT"));
+        genome.insert_gene(Gene::new("HOX-2_LOGIC_BACKEND", "BACKEND_PROMPT"));
+        genome.insert_gene(Gene::new("HOX-3_DATA_STORAGE", "STORAGE_PROMPT"));
+
+        differentiate_cell_chromatin("HOX-2_LOGIC_BACKEND", &mut genome);
+
+        let hox1 = genome.genes.get("HOX-1_UI_FRONTEND").unwrap();
+        assert_eq!(hox1.chromatin_state, ChromatinState::HeterochromatinFacultative);
+        assert!(hox1.developmentally_locked);
+        assert!(hox1.is_methylated);
+
+        let hox2 = genome.genes.get("HOX-2_LOGIC_BACKEND").unwrap();
+        assert_eq!(hox2.chromatin_state, ChromatinState::Euchromatin);
+        assert!(!hox2.developmentally_locked);
+        assert!(!hox2.is_methylated);
+
+        let hox3 = genome.genes.get("HOX-3_DATA_STORAGE").unwrap();
+        assert_eq!(hox3.chromatin_state, ChromatinState::HeterochromatinFacultative);
+        assert!(hox3.developmentally_locked);
+        assert!(hox3.is_methylated);
     }
 }
