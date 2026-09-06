@@ -126,6 +126,11 @@ function unfinishedPhaseReason(steps, index) {
     : null;
 }
 
+function primitiveFailureReason(step, result) {
+  if (!result || result.success !== false) return null;
+  return `Phase '${step.stage_key}' gate failed: ${result.error || 'strategy primitive failed'}.`;
+}
+
 function exceededGuardrail(metrics, budget) {
   for (const key of ['tokens', 'costUsd', 'latencyMs', 'events']) {
     if (metrics[key] > budget[key]) return `${key} budget exceeded (${metrics[key]} > ${budget[key]})`;
@@ -218,6 +223,7 @@ async function recordExecutionEvent(db, agentId, event) {
     let primitiveExec = null;
     if (!guardrailReason && step.status === 'planned') {
       primitiveExec = await executeStepPrimitives(db, agentId, { step, context: { ...event.payload, task: event.detail } });
+      if (!guardrailReason) guardrailReason = primitiveFailureReason(step, primitiveExec);
     }
     const evidence = json(step.evidence_json, []);
     evidence.push({ eventType: event.eventType, action: event.action, detail: event.detail, timestamp: now });
@@ -297,5 +303,6 @@ module.exports = {
   metricDelta,
   normalizedBudget,
   unfinishedPhaseReason,
+  primitiveFailureReason,
   get strategyExecutionAdapter() { return require('./strategyExecutionAdapter'); }
 };
