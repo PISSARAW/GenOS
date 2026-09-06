@@ -11,9 +11,9 @@ module.exports = {
       const metrics = swarmMetrics.calculateShannonEntropy(events);
       const activeCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
       callback(null, {
-        entropy: metrics.entropy || 0,
+        entropy: metrics.rawEntropy || 0,
         normalized_entropy: metrics.normalizedEntropy || 0,
-        state: metrics.state || 'IDLE',
+        state: metrics.cognitiveDriftState || 'IDLE',
         agent_count: activeCount?.count || 0
       });
     } catch (err) {
