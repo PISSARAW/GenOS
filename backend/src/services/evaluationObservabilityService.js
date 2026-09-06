@@ -85,8 +85,17 @@ async function runImpossibleBench(input = {}) {
   }
 
   if (errors.length > 0) {
+    const db = await getDatabase();
+    const id = `eval-${crypto.randomUUID()}`;
+    const modelVersion = input.modelVersion || 'runtime-local';
+    const seed = input.seed ?? null;
+    const config = { threshold, modelVersion, seed };
+    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete' };
+    await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
+    await recordProvenance('evaluation', id, payload, null, input);
     const error = new Error('ImpossibleBench could not evaluate every case.');
     error.code = 'BENCHMARK_INCOMPLETE';
+    error.runId = id;
     error.details = errors;
     throw error;
   }
