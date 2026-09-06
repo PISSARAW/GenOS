@@ -142,6 +142,12 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
     `org-transition-${crypto.randomUUID()}`, orchestratorId, current?.organization || null, organization, version,
     String(reason || 'Runtime need changed.'), actor
   );
+  if (organization !== 'network_silence') {
+    await db.run(
+      "UPDATE agent_organization_messages SET delivery = 'delivered' WHERE orchestrator_id = ? AND delivery = 'buffered'",
+      orchestratorId
+    );
+  }
   return { orchestratorId, previous: current?.organization || null, organization, version, policy: profile, reason: String(reason || 'Runtime need changed.'), changed: true };
 }
 

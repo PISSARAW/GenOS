@@ -65,6 +65,10 @@ async function run() {
     assert(silentInbox.messages.some((message) => message.kind === 'critical'));
     assert(!silentInbox.messages.some((message) => message.content === 'non-critical chatter'));
 
+    await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'red_blue_coevolution', reason: 'resume collaboration', changedBy: 'org-root' });
+    const releasedInbox = await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id });
+    assert(releasedInbox.messages.some((message) => message.content === 'non-critical chatter'), 'buffered messages must be released when network silence ends');
+
     await assert.rejects(
       () => organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'stigmergy', changedBy: 'org-a' }),
       (error) => error.code === 'ORCHESTRATOR_AUTHORITY_REQUIRED'
