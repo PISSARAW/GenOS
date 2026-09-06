@@ -140,7 +140,7 @@ function pump() {
  * whatever `fn` resolves with; rejects with INFERENCE_QUEUE_FULL when the
  * queue is saturated or INFERENCE_QUEUE_TIMEOUT after waiting too long.
  */
-function schedule(fn, { provider = 'local', priority = 'bulk', agentId } = {}) {
+function schedule(fn, { provider = 'local', priority = 'bulk', agentId, organizationId, projectId } = {}) {
   return new Promise((resolve, reject) => {
     let task;
     const timeout = queueTimeoutMs();
@@ -160,6 +160,7 @@ function schedule(fn, { provider = 'local', priority = 'bulk', agentId } = {}) {
 
     task = {
       provider, priority: PRIORITIES[priority] === 0 ? 'interactive' : 'bulk', agentId,
+      fairnessKey: organizationId && projectId ? `${organizationId}:${projectId}` : `agent:${agentId || 'anonymous'}`,
       queuedAt: Date.now(), queued: true,
       run: async () => {
         if (timer) clearTimeout(timer);

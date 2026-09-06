@@ -53,7 +53,7 @@ function modelConfiguration(model) {
   return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, stream = true, signal }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, stream = true, signal }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model);
   // Local inference goes through the gateway's bounded queue: concurrent
@@ -62,7 +62,7 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   if (inferenceGateway.isLocalProvider(configuration.provider)) {
     return inferenceGateway.schedule(
       () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream, signal }),
-      { provider: configuration.provider, priority, agentId }
+      { provider: configuration.provider, priority, agentId, organizationId, projectId }
     );
   }
   return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, stream, signal });

@@ -146,6 +146,8 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       endpoint: discoveredEndpoint || registered?.endpoint || undefined,
       priority,
       agentId,
+      organizationId,
+      projectId,
       onToken: (token) => onToken(token, uri)
     });
     return { ...result, model: uri };
