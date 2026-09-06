@@ -52,12 +52,15 @@ function buildAllocation({ totalTokens, workerShare, workerCount, minimumWorkerT
   };
 }
 
-function selectSurvivors(candidates = [], survivorCount = 1) {
+function selectSurvivors(candidates = [], survivorCount = 1, preferredAgentIds = null) {
+  const preferred = preferredAgentIds instanceof Set ? preferredAgentIds : new Set(preferredAgentIds || []);
   const ranked = [...candidates]
     .filter((candidate) => candidate && (candidate.status === 'completed' || candidate.status === 'idle'))
     .map((candidate) => ({ candidate, score: Number(candidate.evidenceScore) }))
     .filter(({ candidate, score }) => candidate.agentId && Number.isFinite(score))
-    .sort((left, right) => right.score - left.score || String(left.candidate.agentId).localeCompare(String(right.candidate.agentId)));
+    .sort((left, right) => Number(preferred.has(right.candidate.agentId)) - Number(preferred.has(left.candidate.agentId))
+      || right.score - left.score
+      || String(left.candidate.agentId).localeCompare(String(right.candidate.agentId)));
   const seen = new Set();
   return ranked
     .filter(({ candidate }) => {
