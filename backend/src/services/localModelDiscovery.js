@@ -32,7 +32,7 @@ async function discoverLocalModels({ force = false } = {}) {
   if (!force && cache.expiresAt > Date.now()) return cache.models;
   const targets = [
     { provider: 'lmstudio', endpoint: process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `lmstudio://${item.id}` })) },
-    { provider: 'ollama', endpoint: process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions', modelsPath: '/api/tags', map: (payload) => (payload.models || []).filter(item => item.name.endsWith(':cloud')).map((item) => ({ model: item.name, uri: `ollama://${item.name}`, size: item.size || null })) },
+    { provider: 'ollama', endpoint: process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions', modelsPath: '/api/tags', map: (payload) => (payload.models || []).filter(item => item.name && !/(embed|embedding|rerank)/i.test(item.name)).map((item) => ({ model: item.name, uri: `ollama://${item.name}`, size: item.size || null })) },
     { provider: 'vllm', endpoint: process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `vllm://${item.id}` })) }
   ];
   const models = (await Promise.all(targets.map(discoverProvider))).flat();
@@ -44,4 +44,8 @@ async function discoverChatModelUris(options) {
   return (await discoverLocalModels(options)).filter((model) => model.chatCapable).map((model) => model.uri);
 }
 
-module.exports = { discoverLocalModels, discoverChatModelUris };
+function endpointForModel(uri) {
+  return cache.models.find((model) => model.uri === uri)?.endpoint || null;
+}
+
+module.exports = { discoverLocalModels, discoverChatModelUris, endpointForModel };

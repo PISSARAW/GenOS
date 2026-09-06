@@ -106,13 +106,14 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
 
   const attempt = async (uri) => {
     const configuration = modelProvider.modelConfiguration(uri);
+    const discoveredEndpoint = localModelDiscovery.endpointForModel(uri);
     const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
     const result = await modelProvider.generate({
       model: uri,
       prompt,
       timeoutMs,
       maxTokens,
-      endpoint: registered?.endpoint || undefined,
+      endpoint: discoveredEndpoint || registered?.endpoint || undefined,
       priority,
       agentId,
       onToken: (token) => onToken(token, uri)
