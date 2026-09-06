@@ -14,6 +14,8 @@ const {
 const { createIsolatedWorkspace, cleanupWorkspace } = require('./agentWorkspaceLifecycleService');
 const { getDatabase } = require('../db');
 
+const MAX_RECOVERY_DISPATCH_ATTEMPTS = 3;
+
 async function applyOrganizationDecision(orchestratorId, organization, reason) {
   if (!orchestratorId || !dynamicOrganization.organizationProfile(organization)) return null;
   const db = await getDatabase();
@@ -190,12 +192,17 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   } catch (error) {
     if (workspaceRoot) await cleanupWorkspace(workspaceRoot, targetId).catch(() => {});
     await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, targetId).catch(() => {});
+    const dispatchAttempts = Number(recovery.dispatchAttempts || 0) + 1;
     emit(orchestratorId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
-      sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1
+      sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1, dispatchAttempts
     }, 'error');
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
+    if (dispatchAttempts < MAX_RECOVERY_DISPATCH_ATTEMPTS && !recoveryBarrier?.cancelled) {
+      pendingWorkerRecoveries.set(sourceAgentId, { ...recovery, dispatchAttempts });
+      setTimeout(() => dispatchWorkerRecovery(sourceAgentId), 50 * (2 ** (dispatchAttempts - 1))).unref();
+    }
     return false;
   }
 }
 
-module.exports = { applyOrganizationDecision, queueWorkerRecovery, dispatchWorkerRecovery };
+module.exports = { MAX_RECOVERY_DISPATCH_ATTEMPTS, applyOrganizationDecision, queueWorkerRecovery, dispatchWorkerRecovery };
