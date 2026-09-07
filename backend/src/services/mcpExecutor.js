@@ -9,6 +9,15 @@ const path = require('path');
 const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
+const DEFAULT_MCP_TIMEOUT_MS = 30000;
+const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
+
+function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return fallback;
+  return Math.min(Math.floor(numeric), MAX_MCP_TIMEOUT_MS);
+}
+
 function getToolRegistry() {
   return require('./mcpToolRegistry');
 }
@@ -66,7 +75,7 @@ function runWithTimeout(commandLine, timeoutMs) {
 }
 
 function withTimeout(promise, timeoutMs) {
-  const timeout = Math.max(1, Number(timeoutMs) || 30000);
+  const timeout = normalizeMcpTimeout(timeoutMs);
   return Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error(`MCP tool timed out after ${timeout}ms.`)), timeout))
@@ -74,7 +83,8 @@ function withTimeout(promise, timeoutMs) {
 }
 
 async function callHttp(url, toolName, options = {}) {
-  const { args = {}, timeoutMs = 30000 } = options;
+  const { args = {} } = options;
+  const timeoutMs = normalizeMcpTimeout(options.timeoutMs);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const auth = process.env.GENOS_MCP_TOKEN ? { authorization: `Bearer ${process.env.GENOS_MCP_TOKEN}` } : {};
@@ -97,8 +107,9 @@ async function callHttp(url, toolName, options = {}) {
 
 async function callStdio(transport, toolName, options = {}) {
   const { command: commandLine, args: cmdArgs = [] } = transport;
-  const { args: toolArgs = {}, timeoutMs = 30000 } = options;
-  const deadlineAt = Date.now() + Math.max(1, Number(timeoutMs) || 30000);
+  const { args: toolArgs = {} } = options;
+  const timeoutMs = normalizeMcpTimeout(options.timeoutMs);
+  const deadlineAt = Date.now() + timeoutMs;
   const tokens = parseArgs(commandLine);
   const executable = tokens.shift();
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
@@ -167,6 +178,7 @@ async function callStdio(transport, toolName, options = {}) {
 }
 
 async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 30000 }) {
+  timeoutMs = normalizeMcpTimeout(timeoutMs);
   const registry = getToolRegistry();
   const normalizedToolName = String(toolName || '').trim();
   const executionKind = registry.detectExecutionKind(normalizedToolName);
@@ -658,4 +670,4 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout };
