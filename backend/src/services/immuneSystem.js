@@ -160,8 +160,12 @@ async function withTextImmunity(basePrompt, complexity, opts = {}) {
                 }
                 return null;
             }
-            currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
-            CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée.`;
+            if (e.message && e.message.includes('Repetition excessive')) {
+                currentPrompt = `${basePrompt}\n\n[CONSIGNE COGNITIVE] Diversifie ton vocabulaire, évite les répétitions et fournis une réponse directe et concise.`;
+            } else {
+                currentPrompt = `${basePrompt}\n\n[ERREUR STRUCTURELLE] Ton texte n'a pas respecté l'architecture imposée : "${e.message}". 
+                CORRIGE TON ERREUR et renvoie tout le texte avec la structure exacte demandée.`;
+            }
         }
     }
     if (opts.stemCellFallback) opts.onFallback?.(new Error('No valid model response.'));

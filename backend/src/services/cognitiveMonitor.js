@@ -1,9 +1,14 @@
-const STOP_WORDS = ['le','la','les','un','une','des','du','de','et','ou','est','sont','a','à','en','dans','pour','que','qui','sur','ce','se','il','elle','pas','ne','plus','par'];
+const STOP_WORDS = new Set([
+    // Français
+    'le','la','les','un','une','des','du','de','et','ou','est','sont','a','à','en','dans','pour','que','qui','sur','ce','se','il','elle','pas','ne','plus','par','au','aux','avec','sans','sous','leur','leurs','son','sa','ses','mon','ma','mes','ton','ta','tes','nous','vous','ils','elles','on','y','en','mais','donc','car','ni','si',
+    // Anglais
+    'the','a','an','and','or','but','if','then','else','when','at','by','for','with','about','against','between','into','through','during','before','after','above','below','to','from','up','down','in','out','on','off','over','under','again','further','once','here','there','all','any','both','each','few','more','most','other','some','such','no','nor','not','only','own','same','so','than','too','very','can','will','just','should','now','is','are','was','were','be','been','being','have','has','had','having','do','does','did','doing','it','its','this','that','these','those','i','you','he','she','we','they','me','him','her','us','them','my','your','his','their'
+]);
 
 function countFrequencies(words) {
     let freqs = {};
     for (let w of words) {
-        if (!STOP_WORDS.includes(w) && w.length >= 2) {
+        if (!STOP_WORDS.has(w) && w.length >= 2) {
             freqs[w] = (freqs[w] || 0) + 1;
         }
     }
@@ -21,7 +26,7 @@ function calculateScores(textLower, expectedTerms, forbiddenTerms) {
         if (freqs[w] > maxCount) maxCount = freqs[w];
     }
     
-    const repetition = (total > 0 && maxCount > 1) ? (maxCount / total) : 0;
+    const repetition = (total >= 10 && maxCount > 1) ? (maxCount / total) : 0;
     
     let expectedCount = 0;
     for (let t of expectedTerms) {
