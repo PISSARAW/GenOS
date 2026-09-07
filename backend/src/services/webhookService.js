@@ -68,7 +68,8 @@ async function dispatchEvent(event) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 10000);
       try {
-        await fetch(hook.url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-genos-signature': signature }, body, signal: controller.signal });
+        const response = await fetch(hook.url, { method: 'POST', headers: { 'content-type': 'application/json', 'x-genos-signature': signature }, body, signal: controller.signal });
+        if (!response.ok) throw new Error(`Webhook returned HTTP ${response.status}.`);
       } catch (_) {
         // A failed delivery must not retain the event or block later events.
       } finally {
