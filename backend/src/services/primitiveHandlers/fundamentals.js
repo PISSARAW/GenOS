@@ -480,13 +480,11 @@ async function worktreeCleanup(context) {
 }
 
 async function casGc(context) {
-  // Content Addressable Storage GC stub
-  return { success: true, detail: 'CAS GC completed (stub).' };
+  return { success: false, code: 'PRIMITIVE_UNIMPLEMENTED', error: 'CAS garbage collection is not implemented.' };
 }
 
 async function dagMarkSweep(context) {
-  // DAG mark and sweep stub
-  return { success: true, detail: 'DAG mark and sweep completed (stub).' };
+  return { success: false, code: 'PRIMITIVE_UNIMPLEMENTED', error: 'DAG mark and sweep is not implemented.' };
 }
 
 module.exports = {
