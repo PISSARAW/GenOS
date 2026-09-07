@@ -152,10 +152,6 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
       const queryParams = [...decRowIds];
       let sql = `SELECT rowid, id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob 
                  FROM genome_decisions t WHERE rowid IN (${placeholders})`;
-      if (ownerId) {
-        sql += ownerFilter;
-        queryParams.push(ownerId);
-      }
       if (orgId) {
         sql += orgFilter;
         queryParams.push(orgId);

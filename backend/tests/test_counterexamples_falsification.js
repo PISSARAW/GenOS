@@ -134,8 +134,8 @@ async function testPoint3() {
     })
   };
   await memoryController.ingestMemory(req1, res1, (e) => { if (e) throw e; });
-  assert.ok(res1Data && res1Data.decisionId, 'Initial memory must be ingested');
-  const initialDecisionId = res1Data.decisionId;
+  assert.ok(res1Data && res1Data.id, 'Initial memory must be ingested');
+  const initialDecisionId = res1Data.id;
 
   // 2. Ingest counterexample
   const req2 = {
@@ -156,8 +156,8 @@ async function testPoint3() {
     })
   };
   await memoryController.ingestMemory(req2, res2, (e) => { if (e) throw e; });
-  assert.ok(res2Data && res2Data.decisionId, 'Counterexample must be ingested');
-  const counterexampleId = res2Data.decisionId;
+  assert.ok(res2Data && res2Data.id, 'Counterexample must be ingested');
+  const counterexampleId = res2Data.id;
 
   // 3. Verify GABAergic synapse with negative weight
   const synapse = await db.get(

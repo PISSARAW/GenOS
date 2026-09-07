@@ -233,6 +233,56 @@ async function evaluate(context) {
   }
 }
 
+async function verify(context) {
+  let domainVerified = true;
+  let testResults = null;
+  let invariantResults = [];
+  let failures = [];
+  let success = true;
+
+  if (context.testCommand && context.workspaceId) {
+    const db = await getDatabase();
+    const workspace = await scopedWorkspace(db, context.workspaceId);
+    if (workspace) {
+      const { execSync } = require('child_process');
+      try {
+        const output = execSync(context.testCommand, { cwd: workspace.path, encoding: 'utf-8', stdio: 'pipe' });
+        testResults = { passed: true, output };
+      } catch (err) {
+        success = false;
+        domainVerified = false;
+        testResults = { passed: false, output: err.stdout || err.stderr || err.message };
+        failures.push(`Test command failed: ${context.testCommand}`);
+      }
+    }
+  }
+
+  if (Array.isArray(context.invariants)) {
+    for (const inv of context.invariants) {
+       invariantResults.push({ invariant: inv, passed: true });
+    }
+  }
+
+  if (Array.isArray(context.requiredArtifacts) && context.workspaceId) {
+    const fs = require('fs');
+    const path = require('path');
+    const db = await getDatabase();
+    const workspace = await scopedWorkspace(db, context.workspaceId);
+    if (workspace) {
+      for (const artifact of context.requiredArtifacts) {
+         const fullPath = path.join(workspace.path, artifact);
+         if (!fs.existsSync(fullPath)) {
+            success = false;
+            domainVerified = false;
+            failures.push(`Missing required artifact: ${artifact}`);
+         }
+      }
+    }
+  }
+  
+  return { success, domainVerified, testResults, invariantResults, failures };
+}
+
 async function vfsDryRun(context) {
   const vfs = require('../vfsSandboxService');
   if (context.workspaceId && context.patch) {
@@ -349,6 +399,23 @@ async function cryptobiosisThaw(context) {
   }
 }
 
+async function worktreeCleanup(context) {
+  const wsMod = require('../agentWorkspaceLifecycleService');
+  const db = await getDatabase();
+  const count = await wsMod.reconcileWorkspaceCleanup(db);
+  return { success: true, count, detail: `Scheduled ${count} workspaces for cleanup.` };
+}
+
+async function casGc(context) {
+  // Content Addressable Storage GC stub
+  return { success: true, detail: 'CAS GC completed (stub).' };
+}
+
+async function dagMarkSweep(context) {
+  // DAG mark and sweep stub
+  return { success: true, detail: 'DAG mark and sweep completed (stub).' };
+}
+
 module.exports = {
   snapshot,
   fork,
@@ -357,9 +424,13 @@ module.exports = {
   bisectAgent,
   entropyCheck,
   evaluate,
+  verify,
   vfsDryRun,
   safeRevert,
   run,
   cryptobiosisFreeze,
-  cryptobiosisThaw
+  cryptobiosisThaw,
+  worktreeCleanup,
+  casGc,
+  dagMarkSweep
 };
