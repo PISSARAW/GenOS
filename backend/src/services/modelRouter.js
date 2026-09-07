@@ -26,7 +26,7 @@ function envPolicy() {
 }
 
 function isLocal(uri) {
-  return /^(ollama|lmstudio|vllm):\/\//.test(uri);
+  return /^(ollama|lmstudio|vllm|openai-compatible):\/\//.test(uri);
 }
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
@@ -127,6 +127,10 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       
       const others = sorted.filter(m => m.uri !== selectedModel.uri).map(m => m.uri);
       candidates = [selectedModel.uri, ...others];
+    } else {
+      const fallbackList = configuredCandidates.filter(c => c !== 'auto');
+      const fallbackDefault = process.env.GENOS_DEFAULT_MODEL || 'openai://gpt-4o-mini';
+      candidates = fallbackList.length > 0 ? fallbackList : [fallbackDefault];
     }
   }
   
@@ -136,7 +140,11 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     if (isLocal(uri)) {
       const discovered = await localModelDiscovery.discoverLocalModels();
       if (discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
-        throw new Error(`Local model '${uri}' is not present in the current chat-capable discovery set.`);
+        // If not found in cached discovery, try a force refresh before failing
+        const refreshed = await localModelDiscovery.discoverLocalModels({ force: true });
+        if (refreshed.length && !refreshed.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
+          throw new Error(`Local model '${uri}' is not present in the current chat-capable discovery set.`);
+        }
       }
     }
     const configuration = modelProvider.modelConfiguration(uri);
