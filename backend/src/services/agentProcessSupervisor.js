@@ -28,29 +28,45 @@ const cognitiveMonitor = require('./cognitiveMonitor');
 const swarmSentinel = require('./swarmSentinelService');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
-function runtimeExitOutcome(termination, code, options = {}) {
+function runtimeExitOutcome(termination, code, options = {}, domainState = {}) {
   const signal = typeof options === 'object' && options !== null ? options.signal : options;
   const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
+  const extra = (typeof options === 'object' && options !== null && options.domainVerdict) ? options : (arguments[4] || domainState || {});
+  
+  const hasDomainFailure = Boolean(extra.hasDomainFailure);
+  const unverified = Boolean(extra.unverified);
+  const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
+
   if (termination) {
     return {
       status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
       task: `Runtime halted: ${termination.reason}`,
       detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
-      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
+      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim(), executionStatus: 'halted', domainVerdict: 'failed' }
     };
   }
+
+  const executionStatus = code === 0 ? 'exit_zero' : 'exit_nonzero';
+  let domainVerdict = 'completed';
+  if (explicitFailed) domainVerdict = 'failed';
+  else if (unverified) domainVerdict = 'unverified';
+
   if (code === 0) {
+    const finalStatus = explicitFailed ? 'failed' : (unverified ? 'unverified' : 'completed');
+    const finalEventType = explicitFailed ? 'AGENT_FAILED' : 'AGENT_COMPLETED';
+    const severity = explicitFailed ? 'error' : (unverified ? 'warning' : 'info');
     return {
-      status: 'completed', eventType: 'AGENT_COMPLETED', action: 'COMPLETE', severity: 'info', task: 'Execution completed',
-      detail: 'Runtime completed successfully.', payload: { code }
+      status: finalStatus, eventType: finalEventType, action: 'COMPLETE', severity, task: 'Execution completed',
+      detail: `Runtime completed (process: success, domain: ${domainVerdict}).`, payload: { code, executionStatus, domainVerdict }
     };
   }
+
   const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
   return {
     status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
     task: `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`,
-    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
-    payload: { code, signal, stderr: String(stderr).trim() }
+    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'} (domain: failed)`,
+    payload: { code, signal, stderr: String(stderr).trim(), executionStatus, domainVerdict: 'failed' }
   };
 }
 
@@ -87,6 +103,7 @@ async function superviseMission(options) {
   // close handler must not turn our own guardrail into AGENT_FAILED.
   let termination = null;
   let executionQueue = Promise.resolve();
+  let missionDomainState = { hasDomainFailure: false, unverified: true, domainVerdict: 'unverified' };
   const haltRuntime = (kind, reason, detail, payload = {}) => {
     if (termination) return false;
     termination = { kind, reason };
@@ -162,6 +179,24 @@ async function superviseMission(options) {
         const decision = await strategyExecution.recordExecutionEvent(db, agentId, currentEvent);
         const eventType = currentEvent.eventType;
         const finalEvent = ['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType) || currentEvent.action === 'VERIFY';
+        if (eventType === 'EVIDENCE_REPORT') {
+          try {
+            const report = extractEvidenceReport(currentEvent.payload);
+            if (report) {
+              if (report.outcome === 'success') {
+                missionDomainState.unverified = false;
+                missionDomainState.domainVerdict = 'completed';
+              } else {
+                missionDomainState.hasDomainFailure = true;
+                missionDomainState.domainVerdict = 'failed';
+              }
+            }
+          } catch (_) {}
+        }
+        if (['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)) {
+          missionDomainState.hasDomainFailure = true;
+          missionDomainState.domainVerdict = 'failed';
+        }
         const observation = await hallucinationMonitor.recordObservation(db, currentEvent);
         if (eventType === 'EVIDENCE_REPORT' && dispatchedAgent.execution_mode === 'orchestrator' && autonomyPlan?.synthesisOnly) {
           try {
@@ -312,7 +347,7 @@ async function superviseMission(options) {
     // evidence-aware merging can finish reading it before reclamation.
     await workspaceLifecycle.scheduleWorkspaceCleanup(agentId);
     const operatorStop = child.genosStopRequested ? { kind: 'operator', reason: 'Stopped from Studio' } : null;
-    const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer);
+    const outcome = runtimeExitOutcome(termination || operatorStop, code, signal, stderrBuffer, missionDomainState);
     const persistedAgent = await db.get('SELECT status, is_apoptotic FROM agents WHERE id = ?', agentId);
     const apoptosisTerminal = persistedAgent?.status === 'apoptosis' || Boolean(persistedAgent?.is_apoptotic);
     if ((!terminalEventSeen || termination || operatorStop) && !apoptosisTerminal) {
