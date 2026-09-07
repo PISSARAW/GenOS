@@ -223,3 +223,9 @@ pub fn public_tool_specs() -> Vec<Value> {
         vec![all_tools[0].clone()] // Default to genos_orchestrate only
     }
 }
+
+pub fn is_tool_allowed(name: &str) -> bool {
+    public_tool_specs().iter().any(|tool| {
+        tool.get("name").and_then(Value::as_str) == Some(name)
+    })
+}
