@@ -166,10 +166,10 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
 
 function routeMessage({ state, sender, recipientAgentId, kind }) {
   const policy = state.policy;
-  if (policy.routing === 'critical_only' && !['critical', 'success'].includes(kind)) {
+  const isOrchestrator = sender.id === state.orchestratorId;
+  if (policy.routing === 'critical_only' && !['critical', 'success'].includes(kind) && !isOrchestrator) {
     return { recipientAgentId: recipientAgentId || null, channel: 'local_buffer', delivery: 'buffered' };
   }
-  const isOrchestrator = sender.id === state.orchestratorId;
   if (policy.routing === 'orchestrator') {
     return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : state.orchestratorId, channel: 'orchestrator_handoff', delivery: 'delivered' };
   }
