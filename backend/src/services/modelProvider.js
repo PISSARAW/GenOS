@@ -168,11 +168,12 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
     buffer += decoder.decode(chunk, { stream: true });
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
+    for (const event of lines.join('\n').split(/\n\n/)) {
+      const data = event.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).replace(/^ /, '')).join('\n').trim();
       if (!data || data === '[DONE]') continue;
-      const payload = JSON.parse(data);
+      let payload;
+      try { payload = JSON.parse(data); }
+      catch (_) { throw new Error('Model provider returned invalid streaming JSON.'); }
       if (payload.model) servedModel = payload.model;
       const delta = payload.choices?.[0]?.delta?.content || payload.response || '';
       if (delta) { text += delta; await onToken(delta); }
