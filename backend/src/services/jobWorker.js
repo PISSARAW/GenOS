@@ -383,6 +383,10 @@ async function withRetry(db, table, job, executor) {
   for (let attempt = Math.max(1, previousAttempts + 1); attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
     telemetry.emitEvent({ eventType: 'JOB_ATTEMPT_STARTED', action: 'JOB_ATTEMPT', detail: `Started attempt ${attempt}/${max} for ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt, maxAttempts: max } });
+    const heartbeat = setInterval(() => {
+      db.run(`UPDATE ${table} SET claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'`, job.id).catch(() => {});
+    }, 30_000);
+    heartbeat.unref?.();
     try {
       await executor();
       telemetry.emitEvent({ eventType: 'JOB_COMPLETED', action: 'JOB_COMPLETE', detail: `Completed ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt } });
@@ -408,6 +412,8 @@ async function withRetry(db, table, job, executor) {
         await db.run(`UPDATE ${table} SET status = 'queued', claimed_at = NULL, next_attempt_at = ? WHERE id = ? AND status = 'running'`, retryAt, job.id);
         return;
       }
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 }
