@@ -148,3 +148,17 @@ pub fn handle_network_quorum(agent_id: &str, threshold: f64, action_id: &str) ->
     print_json(payload);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_handle_network_quorum() {
+        let action = format!("test_act_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+        let res1 = handle_network_quorum("agent_alpha", 2.0, &action);
+        assert!(res1.is_ok());
+        let res2 = handle_network_quorum("agent_beta", 2.0, &action);
+        assert!(res2.is_ok());
+    }
+}

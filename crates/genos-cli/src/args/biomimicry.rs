@@ -101,6 +101,8 @@ pub enum BiomimicrySubcommands {
         locus: String,
         #[arg(long)]
         state: String,
+        #[arg(long, default_value_t = false)]
+        pioneer_factor: bool,
     },
     SpeciationCheck {
         #[arg(long)]

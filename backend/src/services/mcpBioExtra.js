@@ -156,7 +156,8 @@ function executeBioExtra(toolName, args = {}) {
     const agentId = args.agent_id || 'global';
     const locus = args.locus || args.gene || 'promoter_locus';
     const state = args.state || (args.methylated === false ? 'Euchromatin' : 'HeterochromatinFacultative');
-    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}`);
+    const pioneer = (args.pioneer_factor || args.pioneerFactor) ? ' --pioneer-factor' : '';
+    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`);
   }
 
   if (toolName === 'genos_grns') {

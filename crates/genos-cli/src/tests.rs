@@ -388,4 +388,38 @@ mod tests {
         });
         assert!(res.is_ok());
     }
+
+    #[test]
+    fn test_epigenetic_pioneer_factor_protection() {
+        use crate::args::BiomimicrySubcommands;
+        use crate::commands::biomimicry;
+
+        let agent = "agent_epigenetic_test";
+        // 1. Verrouillage en HeterochromatinConstitutive
+        let res_lock = biomimicry::execute(BiomimicrySubcommands::EpigeneticChromatin {
+            agent_id: agent.to_string(),
+            locus: "critical_safety_gene".to_string(),
+            state: "heterochromatin_constitutive".to_string(),
+            pioneer_factor: false,
+        });
+        assert!(res_lock.is_ok());
+
+        // 2. Tentative illégale d'ouverture en Euchromatin sans pioneer factor -> doit être rejetée
+        let res_illegal = biomimicry::execute(BiomimicrySubcommands::EpigeneticChromatin {
+            agent_id: agent.to_string(),
+            locus: "critical_safety_gene".to_string(),
+            state: "euchromatin".to_string(),
+            pioneer_factor: false,
+        });
+        assert!(res_illegal.is_err(), "L'ouverture d'un verrou constitutif sans pioneer_factor doit échouer");
+
+        // 3. Déverrouillage légitime avec pioneer factor
+        let res_legal = biomimicry::execute(BiomimicrySubcommands::EpigeneticChromatin {
+            agent_id: agent.to_string(),
+            locus: "critical_safety_gene".to_string(),
+            state: "euchromatin".to_string(),
+            pioneer_factor: true,
+        });
+        assert!(res_legal.is_ok(), "L'ouverture avec pioneer_factor doit réussir");
+    }
 }

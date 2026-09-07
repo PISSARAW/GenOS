@@ -9,6 +9,8 @@ pub use glial::{GlialEnvironment, GlialPipeline};
 pub use glial::glial_cell::GlialCell;
 pub mod neurobiology;
 pub mod phenotype;
+pub mod quorum;
+pub use quorum::{AutoinducerType, QuorumPhenotype, QuorumSensingSystem};
 pub mod redundancy;
 pub mod signaling;
 pub mod spore;
