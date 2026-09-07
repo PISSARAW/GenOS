@@ -5,6 +5,7 @@
  */
 
 const { calculateParetoFront, calculateElo } = require('./arenaService');
+const { evidencePresent } = require('./hallucinationMonitoringService');
 
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
@@ -64,11 +65,15 @@ function dossierToCandidate(dossier, options = {}) {
     passRate = 20;
   }
 
-  // Compute fitness score based on verified claims and penalty on uncertainties
+  // Compute fitness score based on verified claims and penalty on unverified claims / uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
-  const claimScore = Math.min(40, claims.reduce((acc, c) => acc + (Array.isArray(c.evidence) && c.evidence.length > 0 ? 15 : 5), 0));
+  const claimScore = claims.reduce((acc, c) => {
+    const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
+    return acc + (hasEvidence ? 15 : -10);
+  }, 0);
+  const boundedClaimScore = Math.max(-40, Math.min(40, claimScore));
   const uncertaintyPenalty = uncertainties.length * 3;
-  let calculatedFitness = Math.max(0, Math.min(100, 50 + claimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  let calculatedFitness = Math.max(0, Math.min(100, 50 + boundedClaimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
   const isFailed = report.outcome === 'failed'
     || Boolean(dossier?.failure)
     || Boolean(report.failure)
