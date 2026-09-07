@@ -58,6 +58,29 @@ pub fn public_tool_specs() -> Vec<Value> {
             }
         }),
         json!({
+            "name": "genos_replay",
+            "description": "Replay a validated snapshot and return its reproduction receipt.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "snapshot": { "type": "string", "description": "Snapshot path relative to the workspace root." }
+                },
+                "required": ["snapshot"]
+            }
+        }),
+        json!({
+            "name": "genos_execute_primitive",
+            "description": "Execute one registered GenOS strategy primitive.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "primitive_name": { "type": "string", "description": "Primitive identifier." },
+                    "args": { "type": "object", "description": "Primitive context." }
+                },
+                "required": ["primitive_name"]
+            }
+        }),
+        json!({
             "name": "genos_capsule_create",
             "description": "Provision an isolated copy-on-write execution capsule from a snapshot.",
             "inputSchema": {

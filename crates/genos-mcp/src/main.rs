@@ -131,6 +131,10 @@ fn build_cli_args(name: &str, args: &Value) -> Vec<String> {
             let out = args.get("out").and_then(Value::as_str).unwrap_or("snapshots/mcp-snapshot.json");
             vec!["snapshot".into(), "create".into(), "--agent".into(), agent.into(), "--out".into(), out.into()]
         }
+        "genos_replay" => {
+            let snapshot = args.get("snapshot").and_then(Value::as_str).unwrap_or("");
+            vec!["replay".into(), "basic".into(), "--snapshot".into(), snapshot.into()]
+        }
         "genos_capsule_create" => {
             let snap = args.get("snapshot_id").and_then(Value::as_str).unwrap_or("ROOT");
             let mut v = vec!["capsule".into(), "create".into(), "--snapshot".into(), snap.into()];
@@ -246,6 +250,16 @@ fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String)
             }
             execute_orchestrator(&bridge, &payload, workspace)
         }
+        "genos_execute_primitive" => {
+            let mut payload = args.clone();
+            if let Some(obj) = payload.as_object_mut() {
+                obj.insert("action".into(), json!("execute_primitive"));
+                if let Some(primitive) = obj.get("primitive_name").cloned() {
+                    obj.insert("primitive".into(), primitive);
+                }
+            }
+            execute_orchestrator(&bridge, &payload, workspace)
+        }
         "genos_trinity_launch" => {
             let mut payload = args.clone();
             if let Some(obj) = payload.as_object_mut() {
@@ -261,6 +275,7 @@ fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String)
             execute_orchestrator(&bridge, &payload, workspace)
         }
         "genos_snapshot"
+        | "genos_replay"
         | "genos_capsule_create"
         | "genos_merge"
         | "genos_audit"
