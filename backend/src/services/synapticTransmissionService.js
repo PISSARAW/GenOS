@@ -10,6 +10,7 @@ const zlib = require('zlib');
 const protobuf = require('protobufjs');
 const { studioBridgeRoot, phagocytizeExosomes } = require('./genosCli');
 const { getDatabase } = require('../db');
+const { textToVector } = require('./memoryScoring');
 
 let protoRoot = null;
 
@@ -157,11 +158,18 @@ async function absorbExosomes(db = null) {
     const pCode = exo.plasmid_code || exo.plasmidCode;
     if (pName || pCode) {
       const plasmidId = `plasmid_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+      const rawVec = (Array.isArray(exo.plasmid_vector) && exo.plasmid_vector.length === 768)
+        ? exo.plasmid_vector
+        : (Array.isArray(exo.vector) && exo.vector.length === 768)
+          ? exo.vector
+          : textToVector(`${pName || ''} ${pCode || ''}`);
+      const float32 = new Float32Array(rawVec);
+      const buffer = Buffer.from(float32.buffer);
       try {
         await database.run(
-          `INSERT INTO genome_decisions (id, title, content, created_by, category, synaptic_weight, organization_id, project_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', 'exosome_matrix', 'Plasmid', 2.0,
+          `INSERT INTO genome_decisions (id, title, content, embedding_blob, created_by, category, synaptic_weight, organization_id, project_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          plasmidId, `Plasmid: ${pName || 'Anonymous'}`, pCode || '', buffer, 'exosome_matrix', 'Plasmid', 2.0,
           exo.organization_id || exo.organizationId || null,
           exo.project_id || exo.projectId || null
         );
