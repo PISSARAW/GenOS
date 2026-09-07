@@ -4,7 +4,7 @@ const { withTransaction } = require('../db');
 const ORGANIZATIONS = Object.freeze({
   specialist_expert_committee: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
   blind_adversarial_review: { topology: 'isolated_critics', exchange: 'indirect', visibility: 'anonymous', routing: 'broadcast' },
-  red_blue_coevolution: { topology: 'adversarial_triangle', exchange: 'active', visibility: 'attributed', routing: 'broadcast' },
+  red_blue_coevolution: { topology: 'adversarial_triangle', exchange: 'active', visibility: 'attributed', routing: 'adversarial_pair' },
   brier_weighted_consensus: { topology: 'weighted_quorum', exchange: 'active', visibility: 'attributed', routing: 'broadcast' },
   quorum_with_abstention: { topology: 'quorum', exchange: 'active', visibility: 'attributed', routing: 'broadcast' },
   stigmergy: { topology: 'shared_environment', exchange: 'implicit', visibility: 'attributed', routing: 'shared_trail' },
@@ -181,6 +181,10 @@ function routeMessage({ state, sender, recipientAgentId, kind }) {
   }
   if (policy.routing === 'ranked') {
     return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : (recipientAgentId || state.orchestratorId), channel: 'ranked_handoff', delivery: 'delivered' };
+  }
+  if (policy.routing === 'adversarial_pair') {
+    // If orchestrator, allow directed messages. If worker, broadcast to counterpart via adversarial_pair channel
+    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : null, channel: 'adversarial_pair', delivery: 'delivered' };
   }
   return { recipientAgentId: recipientAgentId || null, channel: policy.topology, delivery: 'delivered' };
 }
