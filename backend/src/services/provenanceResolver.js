@@ -63,7 +63,7 @@ async function traceMerkleProvenance(db, initialRecord, maxDepth) {
 
     if (!parentRecord) break;
 
-    if (i === maxDepth - 1 && parentRecord.parent_hash && !visited.has(parentRecord.payload_hash)) {
+    if (i === maxDepth - 1 && parentRecord && !visited.has(parentRecord.payload_hash)) {
       truncated = true;
     }
 
