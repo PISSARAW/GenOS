@@ -133,6 +133,12 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {
+    if (isLocal(uri)) {
+      const discovered = await localModelDiscovery.discoverLocalModels();
+      if (discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
+        throw new Error(`Local model '${uri}' is not present in the current chat-capable discovery set.`);
+      }
+    }
     const configuration = modelProvider.modelConfiguration(uri);
     const discoveredEndpoint = localModelDiscovery.endpointForModel(uri);
     const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
