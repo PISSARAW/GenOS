@@ -162,6 +162,7 @@ async function applyVersionedMigrations(db) {
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
     if (!columnNames.has('project_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN project_id TEXT`);
     if (table === 'trace_spans' && !columnNames.has('workspace_id')) await db.exec('ALTER TABLE trace_spans ADD COLUMN workspace_id TEXT');
+    if (table === 'evaluation_runs' && !columnNames.has('agent_id')) await db.exec('ALTER TABLE evaluation_runs ADD COLUMN agent_id TEXT');
     if (table === 'telemetry_events' && !columnNames.has('event_id')) await db.exec('ALTER TABLE telemetry_events ADD COLUMN event_id TEXT');
   }
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry_events(event_id) WHERE event_id IS NOT NULL');

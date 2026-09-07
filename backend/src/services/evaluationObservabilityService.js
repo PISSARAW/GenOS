@@ -88,11 +88,12 @@ async function runImpossibleBench(input = {}) {
   if (errors.length > 0) {
     const db = await getDatabase();
     const id = `eval-${crypto.randomUUID()}`;
+    const agentId = input.agentId || 'studio';
     const modelVersion = input.modelVersion || 'runtime-local';
     const seed = input.seed ?? null;
     const config = { threshold, modelVersion, seed };
-    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete' };
-    await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
+    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId };
+    await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
     await recordProvenance('evaluation', id, payload, null, input);
     const error = new Error('ImpossibleBench could not evaluate every case.');
     error.code = 'BENCHMARK_INCOMPLETE';
@@ -104,13 +105,14 @@ async function runImpossibleBench(input = {}) {
   const brierScore = Number((results.reduce((sum, r) => sum + Math.pow(r.confidence - (r.impossible ? 0 : 1), 2), 0) / results.length).toFixed(4));
   const db = await getDatabase();
   const id = `eval-${crypto.randomUUID()}`;
+  const agentId = input.agentId || 'studio';
   const modelVersion = input.modelVersion || 'runtime-local';
   const seed = input.seed ?? null;
   const config = { threshold, modelVersion, seed };
-  const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench' };
-  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), input.organizationId || null, input.projectId || null);
+  const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId };
+  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload, null, input);
-  telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId: 'studio', action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
+  telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId, action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
   return { id, ...payload };
 }
 
