@@ -29,7 +29,7 @@ function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
   const uncertainty = bounded(request.uncertainty ?? 0.2, 0.2);
   const budget = request.maxCostUsd == null ? Infinity : Number(request.maxCostUsd);
   if (!Number.isFinite(budget) && budget !== Infinity || budget < 0) return { decision: 'invalid-request', candidates: [], reason: 'maxCostUsd must be a non-negative number.' };
-  if (request.requiredCapabilities !== undefined && (!Array.isArray(request.requiredCapabilities) || request.requiredCapabilities.some((capability) => typeof capability !== 'string' || !capability.trim()))) {
+  if (request.requiredCapabilities !== undefined && (!Array.isArray(request.requiredCapabilities) || request.requiredCapabilities.some((capability) => typeof capability !== 'string' || !capability.trim() || capability.trim().toLowerCase().startsWith('not:')))) {
     return { decision: 'invalid-request', candidates: [], reason: 'requiredCapabilities must be an array of non-empty strings.' };
   }
   const required = new Set((request.requiredCapabilities || []).map((capability) => capability.trim()));
