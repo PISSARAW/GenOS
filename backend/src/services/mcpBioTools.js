@@ -509,13 +509,17 @@ async function executeBioTool(toolName, args, options = {}) {
       if (!Number.isFinite(frequency) || !Number.isFinite(duration) || frequency <= 0 || duration <= 0) {
         throw new Error('Echolocation frequency and duration must be positive numbers.');
       }
+      const processEnvironment = {};
+      for (const name of ['PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE']) {
+        if (process.env[name]) processEnvironment[name] = process.env[name];
+      }
       cp.spawnSync('powershell.exe', [
         '-NoProfile',
         '-NonInteractive',
         '-Command',
         '[System.Console]::Beep([double]$env:GENOS_BEEP_FREQUENCY, [int]$env:GENOS_BEEP_DURATION)'
       ], {
-        env: { ...process.env, GENOS_BEEP_FREQUENCY: String(frequency), GENOS_BEEP_DURATION: String(duration) },
+        env: { ...processEnvironment, GENOS_BEEP_FREQUENCY: String(frequency), GENOS_BEEP_DURATION: String(duration) },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true
       });
