@@ -27,6 +27,11 @@ applyLegacyModelConfiguration();
 
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
+function estimateTokenCount(text = '') {
+  const value = String(text || '');
+  return value.length ? Math.max(1, Math.ceil(Buffer.byteLength(value, 'utf8') / 4)) : 0;
+}
+
 function configuredModel(model) {
   let value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
   if (value.startsWith('local://')) {
@@ -227,7 +232,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const contentType = response.headers?.get?.('content-type') || '';
     if (nativeOllama && stream) {
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
@@ -235,7 +240,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     }
     const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.type === 'tool_use' ? JSON.stringify(part) : (part.text || '')).join('\n') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : nativeOllama ? (payload.message?.content || payload.response || '') : (payload.choices?.[0]?.message?.content || '');
     for (const token of tokenize(text)) await onToken(token);
-    return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || tokenize(text).length, provider };
+    return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider };
   } catch (error) {
     controller.abort();
     if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
@@ -253,4 +258,4 @@ function getModelStatus(model) {
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
-module.exports = { generate, tokenize, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint };
+module.exports = { generate, tokenize, estimateTokenCount, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint };
