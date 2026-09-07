@@ -152,6 +152,29 @@ async function quorum(context = {}) {
       } catch (_) {}
     }
 
+    // Interoperabilite : integrer les votes de swarm_votes si la proposition correspondante existe
+    if (db) {
+      try {
+        const proposal = await db.get(
+          'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1',
+          issue, issue
+        );
+        if (proposal) {
+          const restVotes = await db.all(
+            'SELECT agent_id, vote FROM swarm_votes WHERE proposal_id = ?',
+            proposal.id
+          );
+          for (const rv of restVotes) {
+            if (hasVoted.has(rv.agent_id)) continue;
+            if (rv.vote && rv.vote !== 'abstain') {
+              votes[rv.vote] = (votes[rv.vote] || 0) + 1;
+            }
+            hasVoted.add(rv.agent_id);
+          }
+        }
+      } catch (_) {}
+    }
+
     const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
     const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
 
@@ -247,6 +270,35 @@ async function weightedQuorum(context = {}) {
             weightedVotes[payload.vote] = (weightedVotes[payload.vote] || 0) + weight;
           }
           hasVoted.add(row.sender_agent_id);
+        }
+      } catch (_) {}
+    }
+
+    // Interoperabilite : integrer les votes de swarm_votes si la proposition correspondante existe
+    if (db) {
+      try {
+        const proposal = await db.get(
+          'SELECT id FROM swarm_proposals WHERE id = ? OR title = ? ORDER BY created_at DESC LIMIT 1',
+          issue, issue
+        );
+        if (proposal) {
+          const restVotes = await db.all(
+            'SELECT agent_id, vote, weight, brier_score FROM swarm_votes WHERE proposal_id = ?',
+            proposal.id
+          );
+          for (const rv of restVotes) {
+            if (hasVoted.has(rv.agent_id)) continue;
+            if (rv.vote && rv.vote !== 'abstain') {
+              let weight = 1.0;
+              if (Number.isFinite(rv.brier_score)) {
+                weight = Math.max(0, 1 - 2 * rv.brier_score);
+              } else if (Number.isFinite(rv.weight)) {
+                weight = Number(rv.weight);
+              }
+              weightedVotes[rv.vote] = (weightedVotes[rv.vote] || 0) + weight;
+            }
+            hasVoted.add(rv.agent_id);
+          }
         }
       } catch (_) {}
     }

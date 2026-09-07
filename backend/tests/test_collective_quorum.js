@@ -101,4 +101,45 @@ test('collective quorum and weightedQuorum threshold verification', async (t) =>
     assert.strictEqual(res.decision, 'canary');
     assert.strictEqual(res.totalVotes, 3);
   });
+
+  await t.test('interoperability: quorum reconciles votes from swarm_votes', async () => {
+    const interopIssue = `interop-issue-${Date.now()}`;
+    const wsId = `ws-interop-${Date.now()}`;
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)", wsId, `name-${wsId}`, `/path/${wsId}`);
+
+    // Create a swarm proposal with title = interopIssue
+    const propId = `prop-interop-${Date.now()}`;
+    await db.run(
+      `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, title, status, quorum_threshold)
+       VALUES (?, ?, 'proposer-1', ?, 'open', 0.5)`,
+      propId, wsId, interopIssue
+    );
+
+    // Vote 1 in agent_organization_messages
+    await db.run(
+      `INSERT INTO agent_organization_messages (
+        orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json, delivery
+      ) VALUES (?, 'test_org', 1, 'worker-inbox-1', 'broadcast', 'general', 'vote', 'vote message', ?, 'delivered')`,
+      orchestratorId, JSON.stringify({ issue: interopIssue, vote: 'yes' })
+    );
+
+    // Vote 2 in swarm_votes
+    await db.run(
+      `INSERT INTO swarm_votes (id, proposal_id, agent_id, agent_name, vote)
+       VALUES (?, ?, 'worker-rest-1', 'Worker REST 1', 'yes')`,
+      `sv-${Date.now()}-1`, propId
+    );
+
+    const res = await quorum({
+      orchestratorId,
+      issue: interopIssue,
+      minVotes: 2,
+      threshold: 0.5
+    });
+
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.quorumReached, true);
+    assert.strictEqual(res.decision, 'yes');
+    assert.strictEqual(res.totalVotes, 2);
+  });
 });
