@@ -262,7 +262,8 @@ process.stdin.on('end', async () => {
       GENOS_ALLOW_FILE_EDITS: allowFileEdits ? 'true' : 'false',
       GENOS_SILENT_UPDATES: executionPolicy.silentUpdates === true ? 'true' : 'false'
     },
-    stdio: ['pipe', 'pipe', 'pipe']
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32'
   });
   let buffer = '';
   let stderr = '';
@@ -385,7 +386,7 @@ process.stdin.on('end', async () => {
             severity: 'error', status: 'blocked', currentTask: 'Cellular apoptosis triggered',
             payload: { conscienceState }
           });
-          child.kill('SIGTERM');
+          terminateChild(child);
         }
         if (db && hasAgentInDb) {
           pendingConscienceOp = pendingConscienceOp
