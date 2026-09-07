@@ -3,7 +3,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { decodeEvents } = require('./src/services/runtimeProtocol');
+const { decodeEvents } = require('../src/services/runtimeProtocol');
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-worker-failure-runtime-'));
 const fakeCodex = path.join(directory, 'fake-codex');
@@ -14,7 +14,7 @@ process.stdout.write(JSON.stringify({ type: 'turn.completed' }) + '\\n');
 `, { mode: 0o700 });
 
 function execute(report) {
-  const result = spawnSync(process.execPath, [path.resolve(__dirname, 'bin/genos-agent-runtime.cjs')], {
+  const result = spawnSync(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
     cwd: directory,
     input: JSON.stringify({
       agentId: 'worker-runtime-test', executionMode: 'worker', orchestratorAgentId: 'orchestrator-runtime-test',

@@ -27,12 +27,19 @@ function proofOfNoAnswer(payload = {}) {
 }
 
 function classifyFinalReport(report = {}, isWorker = true) {
-  if (!isWorker) return { outcome: 'success' };
   const noAnswerProof = proofOfNoAnswer(report);
   if (report.outcome === 'no_answer' && noAnswerProof) return { outcome: 'no_answer', noAnswerProof };
+  if (report.outcome === 'failed') {
+    return {
+      outcome: 'failed',
+      failure: report.failure && typeof report.failure === 'object'
+        ? report.failure
+        : { category: 'unresolved_task', reason: isWorker ? 'Worker reported mission failure.' : 'Orchestrator reported mission failure.', evidence: [] }
+    };
+  }
+  if (!isWorker) return { outcome: 'success' };
   if (
-    report.outcome === 'failed'
-    || report.outcome === 'no_answer'
+    report.outcome === 'no_answer'
     || (!report.outcome && (!Array.isArray(report.claims) || report.claims.length === 0))
   ) {
     return {

@@ -20,7 +20,8 @@ const activeWorkerBarriers = new Map();
 const TERMINAL_AGENT_STATUSES = new Set(['idle', 'completed', 'blocked', 'error', 'terminated', 'apoptosis', 'quarantined']);
 const WORKER_EVIDENCE_EVENTS = new Set([
   'EVIDENCE_REPORT', 'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED',
-  'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'
+  'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN',
+  'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'
 ]);
 
 function emit(agentId, eventType, action, detail, payload = {}, severity = 'info', status) {
