@@ -12,7 +12,7 @@ function declaredToolNames() {
 
 function isRegisteredTool(toolName) {
   const normalized = normalizeToolName(toolName);
-  return declaredToolNames().includes(normalized);
+  return declaredToolNames().includes(normalized) || mcpStrategyTools.isStrategyTool(normalized);
 }
 
 function detectExecutionKind(toolName) {
