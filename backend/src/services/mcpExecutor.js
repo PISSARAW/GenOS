@@ -141,7 +141,7 @@ async function callStdio(transport, toolName, options = {}) {
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
   const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
-  let buffer = ''; let stderr = ''; let pending = null;
+  let buffer = ''; let stderr = ''; let protocolErrors = ''; let pending = null; let closed = false;
   child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
     buffer = appendBounded(buffer, chunk, MAX_MCP_BUFFER_BYTES);
@@ -151,7 +151,7 @@ async function callStdio(transport, toolName, options = {}) {
       if (!line.trim()) continue;
       let payload;
       try { payload = JSON.parse(line); }
-      catch (_) { throw new Error(`MCP STDIO returned invalid JSON-RPC data: ${line.slice(0, 200)}`); }
+      catch (_) { protocolErrors = appendBounded(protocolErrors, `MCP STDIO returned invalid JSON-RPC data: ${line.slice(0, 200)}\n`); continue; }
       if (pending && payload.id === pending.id) {
         const { resolve, timer } = pending;
         pending = null;
@@ -161,16 +161,18 @@ async function callStdio(transport, toolName, options = {}) {
     }
   });
   const waitFor = (id) => new Promise((resolve, reject) => {
+    if (closed) return reject(new Error('MCP STDIO process closed before the request was sent.'));
     const remaining = deadlineAt - Date.now();
     if (remaining <= 0) return reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
     const timer = setTimeout(() => {
       pending = null;
       terminateChild(child);
-      reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
+      reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.${protocolErrors ? ` ${protocolErrors.trim()}` : ''}`));
     }, remaining);
     pending = { id, resolve, reject, timer };
   });
   child.once('error', (error) => {
+    closed = true;
     if (!pending) return;
     const { reject, timer } = pending;
     pending = null;
@@ -178,20 +180,23 @@ async function callStdio(transport, toolName, options = {}) {
     reject(error);
   });
   child.once('close', (code, signal) => {
+    closed = true;
     if (!pending) return;
     const { reject, timer } = pending;
     pending = null;
     clearTimeout(timer);
     const diagnostics = stderr ? `: ${stderr}` : '';
-    reject(new Error(`MCP STDIO process exited before response (code=${code}, signal=${signal || 'none'})${diagnostics}`));
+    reject(new Error(`MCP STDIO process exited before response (code=${code}, signal=${signal || 'none'})${diagnostics}${protocolErrors ? `: ${protocolErrors}` : ''}`));
   });
   try {
+    const initializedPromise = waitFor(1);
     child.stdin.write(`${JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } }))}\n`);
-    const initialized = await waitFor(1);
+    const initialized = await initializedPromise;
     if (initialized.error) throw new Error(initialized.error.message || 'MCP STDIO initialize failed.');
     child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {}})}\n`);
+    const responsePromise = waitFor(2);
     child.stdin.write(`${JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: toolArgs }))}\n`);
-    const response = await waitFor(2);
+    const response = await responsePromise;
     if (response.error) throw new Error(response.error.message || 'MCP STDIO tools/call failed.');
     return response.result || response;
   } finally {
@@ -199,6 +204,7 @@ async function callStdio(transport, toolName, options = {}) {
       clearTimeout(pending.timer);
       pending = null;
     }
+    if (!child.stdin.destroyed) child.stdin.end();
     if (!child.killed) terminateChild(child);
     clearTerminationTimer(child);
   }
