@@ -160,11 +160,15 @@ async function recordMissionTrajectory(db, options = {}) {
   const claimStatements = Array.isArray(report.claims)
     ? report.claims.map(c => c.statement || String(c)).join('; ')
     : '';
-  const title = (report.claims?.[0]?.statement || task || 'Autonomous Trajectory').slice(0, 100);
+  const proofStatement = report.noAnswerProof?.method
+    ? `Impossibility Proof (${report.noAnswerProof.method})`
+    : '';
+  const title = (report.claims?.[0]?.statement || proofStatement || task || 'Autonomous Trajectory').slice(0, 100);
   const semanticSummary = [
     `Task: ${task}`,
     `Outcome: ${report.outcome || 'success'}`,
     claimStatements ? `Claims: ${claimStatements}` : null,
+    proofStatement ? `Proof: ${proofStatement}` : null,
     `Golden Path: ${goldenPath.goldenPathSteps.length} steps (${goldenPath.noiseReductionPercent}% noise reduction)`
   ].filter(Boolean).join(' | ');
 
@@ -221,6 +225,27 @@ async function recordMissionTrajectory(db, options = {}) {
     confidence,
     buffer
   );
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const trajDir = path.resolve('.genos/trajectories');
+    if (!fs.existsSync(trajDir)) fs.mkdirSync(trajDir, { recursive: true });
+    const trajFilePath = path.join(trajDir, `${agentId}.json`);
+    const trajPayload = {
+      id: trajId,
+      agent_id: agentId,
+      workspace_id: workspaceId,
+      title,
+      status,
+      semantic_summary: semanticSummary,
+      turns: classifiedTurns,
+      golden_path: goldenPath,
+      usage: options.usage || report.usage || {},
+      created_at: new Date().toISOString()
+    };
+    fs.writeFileSync(trajFilePath, JSON.stringify(trajPayload, null, 2), 'utf8');
+  } catch (_) {}
 
   telemetry.emitEvent({
     eventType: 'TRAJECTORY_PERSISTED',
