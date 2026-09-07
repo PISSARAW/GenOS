@@ -219,7 +219,7 @@ building the workspace; the two CLIs expose different command surfaces.
 
 ### 3. Connect via MCP (Model Context Protocol)
 
-GenOS provides an integrated MCP server and tool dispatcher exposing 243 tools to Claude, Cursor, or external agent runtimes:
+GenOS provides an integrated MCP server and a 243-tool backend dispatcher. Public MCP clients receive only the leased server subset:
 
 ```bash
 cd mcp

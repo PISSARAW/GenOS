@@ -72,7 +72,7 @@ Normalizes all vector inputs to **768 dimensions** with automatic detection and 
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
 
 ### 5. Unified MCP Tool Registry (`src/services/mcpToolRegistry.js`)
-Exposes 243 tools to AI agent runtimes with typed execution routing:
+Maintains a 243-tool backend registry for typed execution routing. MCP stdio servers expose a leased public subset:
 - `strategy`: Handled by `mcpStrategyTools.js`.
 - `bio`: Handled by native biomimicry adapters `mcpBioTools.js`.
 - `cli`: Dispatched through the local transport layer to `genos` binaries.
