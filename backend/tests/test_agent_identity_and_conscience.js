@@ -119,6 +119,80 @@ async function runTests() {
   assert.strictEqual(detailedList[0].isApoptotic, 0);
   console.log(`   [OK] AgentRepository.listWithDetails retourne les attributs d'identité et de conscience.`);
 
+  // --- 4. Tests de Persistance SQLite et Concurrence Optimiste ---
+  console.log("\n4. Test de persistance avec révision optimiste et reason...");
+  const agentId = deployment.agentId;
+  const loadedState = await agentConscience.loadConscienceState(db, agentId);
+  assert.strictEqual(loadedState.revision, 0);
+
+  // Première transition : évaluation
+  agentConscience.evaluateBranch(loadedState, { errorsInLoop: 2 });
+  await agentConscience.persistConscienceState(db, agentId, loadedState, { reason: 'eval_loop_test' });
+  assert.strictEqual(loadedState.revision, 1);
+
+  const reloadedState = await agentConscience.loadConscienceState(db, agentId);
+  assert.strictEqual(reloadedState.revision, 1);
+  assert.strictEqual(reloadedState.dissonanceLevel, 5.0);
+
+  // Deuxième transition : Eurêka
+  agentConscience.triggerEureka(reloadedState);
+  await agentConscience.persistConscienceState(db, agentId, reloadedState, { reason: 'eureka_breakthrough' });
+  assert.strictEqual(reloadedState.revision, 2);
+  assert.strictEqual(reloadedState.dissonanceLevel, 2.5);
+  assert.strictEqual(reloadedState.eurekaMoments, 1);
+  console.log(`   [OK] Révisions incrémentées séquentiellement (0 -> 1 -> 2) avec motifs enregistrés.`);
+
+  // --- 5. Test d'Auditabilité des Transitions ---
+  console.log("\n5. Test de récupération de l'historique des transitions...");
+  const transitions = await agentConscience.getConscienceTransitions(db, agentId, { limit: 10 });
+  assert.strictEqual(transitions.length, 2);
+  assert.strictEqual(transitions[0].toRevision, 2);
+  assert.strictEqual(transitions[0].reason, 'eureka_breakthrough');
+  assert.strictEqual(transitions[1].toRevision, 1);
+  assert.strictEqual(transitions[1].reason, 'eval_loop_test');
+  console.log(`   [OK] Transitions récupérées et ordonnées avec succès (${transitions.length} transitions trouvées).`);
+
+  // --- 6. Test de Robustesse sur Agent Inexistant ---
+  console.log("\n6. Test de détection d'agent inexistant...");
+  let nonExistentError = null;
+  try {
+    const ghostState = agentConscience.createConscienceState();
+    await agentConscience.persistConscienceState(db, 'non-existent-agent-id', ghostState);
+  } catch (err) {
+    nonExistentError = err;
+  }
+  assert.ok(nonExistentError);
+  assert.ok(nonExistentError.message.includes('not found in database'));
+  console.log(`   [OK] Erreur explicite retournée pour agent inexistant: "${nonExistentError.message}".`);
+
+  // --- 7. Test des Outils MCP & Contrôleur API ---
+  console.log("\n7. Test des Outils MCP et du Contrôleur Express...");
+  const { dispatchTool } = require('../src/services/mcpToolRegistry');
+  const mcpStateRes = await dispatchTool('genos_get_conscience_state', { agent_id: agentId });
+  assert.strictEqual(mcpStateRes.kind, 'bio');
+  assert.strictEqual(mcpStateRes.result.conscience.revision, 2);
+  assert.strictEqual(mcpStateRes.result.conscience.eurekaMoments, 1);
+
+  const mcpHistoryRes = await dispatchTool('genos_get_conscience_history', { agent_id: agentId, limit: 5 });
+  assert.strictEqual(mcpHistoryRes.kind, 'bio');
+  assert.strictEqual(mcpHistoryRes.result.count, 2);
+  assert.strictEqual(mcpHistoryRes.result.transitions[0].reason, 'eureka_breakthrough');
+
+  const conscienceController = require('../src/controllers/agentConscienceController');
+  let ctrlJson = null;
+  const mockRes = {
+    json: (data) => { ctrlJson = data; return mockRes; },
+    status: () => mockRes
+  };
+  await conscienceController.getAgentConscience({ params: { id: agentId } }, mockRes, () => {});
+  assert.strictEqual(ctrlJson.agentId, agentId);
+  assert.strictEqual(ctrlJson.conscience.revision, 2);
+
+  await conscienceController.getConscienceTransitions({ params: { id: agentId }, query: { limit: 10 } }, mockRes, () => {});
+  assert.strictEqual(ctrlJson.agentId, agentId);
+  assert.strictEqual(ctrlJson.count, 2);
+  console.log(`   [OK] Outils MCP et contrôleur HTTP validés avec succès.`);
+
   console.log("\n=== TOUS LES TESTS SONT PASSÉS AVEC SUCCÈS ! ===");
   process.exit(0);
 }

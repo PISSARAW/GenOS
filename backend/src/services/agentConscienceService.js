@@ -119,7 +119,7 @@ function formatConsciencePrompt(state) {
 async function persistConscienceState(db, agentId, state, options = {}) {
   const previousTail = persistTails.get(agentId) || Promise.resolve();
   const operation = previousTail.catch(() => {}).then(() => persistConscienceStateNow(db, agentId, state, true, options));
-  const tracked = operation.finally(() => {
+  const tracked = operation.catch(() => {}).finally(() => {
     if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
   });
   persistTails.set(agentId, tracked);

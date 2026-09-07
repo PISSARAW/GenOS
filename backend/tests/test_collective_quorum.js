@@ -78,4 +78,27 @@ test('collective quorum and weightedQuorum threshold verification', async (t) =>
     assert.strictEqual(res.quorumReached, true);
     assert.strictEqual(res.decision, 'canary');
   });
+
+  await t.test('sql issue filter prevents vote eviction by unrelated issues', async () => {
+    // Flood database with 60 votes on an unrelated issue
+    for (let i = 0; i < 60; i++) {
+      await db.run(
+        `INSERT INTO agent_organization_messages (
+          orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json, delivery
+        ) VALUES (?, 'test_org', 1, ?, 'broadcast', 'general', 'vote', 'vote message', ?, 'delivered')`,
+        orchestratorId, `flooder-${i}`, JSON.stringify({ issue: 'other_unrelated_issue', vote: 'noise' })
+      );
+    }
+
+    const res = await quorum({
+      orchestratorId,
+      issue,
+      minVotes: 3,
+      threshold: 0.6
+    });
+    assert.strictEqual(res.success, true);
+    assert.strictEqual(res.quorumReached, true);
+    assert.strictEqual(res.decision, 'canary');
+    assert.strictEqual(res.totalVotes, 3);
+  });
 });

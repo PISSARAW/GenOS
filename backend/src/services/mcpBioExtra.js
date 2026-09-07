@@ -65,6 +65,7 @@ function executeBioExtra(toolName, args = {}) {
           transport: 'local',
           output: JSON.stringify({ agentId, count: transitions.length, transitions }),
           agentId,
+          count: transitions.length,
           transitions
         };
       } catch (e) {
