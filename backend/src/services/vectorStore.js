@@ -6,11 +6,12 @@ function pointId(value) {
 }
 
 class QdrantVectorStore {
-  constructor({ url, apiKey, collection = 'genos_chunks', fetchFn = fetch }) {
+  constructor({ url, apiKey, collection = 'genos_chunks', fetchFn = fetch, timeoutMs = 15000 }) {
     this.url = String(url || '').replace(/\/$/, '');
     this.apiKey = apiKey;
     this.collection = collection;
     this.fetch = fetchFn;
+    this.timeoutMs = Number.isFinite(Number(timeoutMs)) && Number(timeoutMs) > 0 ? Math.min(Number(timeoutMs), 30 * 60 * 1000) : 15000;
     this.ensuredCollections = new Set();
   }
 
@@ -19,9 +20,18 @@ class QdrantVectorStore {
   }
 
   async request(path, body, method = 'POST') {
-    const response = await this.fetch(`${this.url}${path}`, { method, headers: this.headers(), body: body === undefined ? undefined : JSON.stringify(body) });
-    if (!response.ok && response.status !== 409) throw new Error(`Qdrant returned HTTP ${response.status}.`);
-    return response.status === 409 ? null : response.json();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetch(`${this.url}${path}`, { method, headers: this.headers(), body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal });
+      if (!response.ok && response.status !== 409) throw new Error(`Qdrant returned HTTP ${response.status}.`);
+      return response.status === 409 ? null : response.json();
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error(`Qdrant request timed out after ${this.timeoutMs}ms.`);
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async ensureCollection(dimensions) {
