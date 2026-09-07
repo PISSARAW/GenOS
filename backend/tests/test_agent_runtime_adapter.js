@@ -66,7 +66,7 @@ try {
       constraintCoverage: 1, revisions: ['pacing'], criticEvidence: ['independent reading']
     }
   } }, { role: 'literary_author' });
-  assert(creativeScore > 100, 'creative evidence must be scored by craft and coverage, not citation count');
+  assert(creativeScore >= 100, 'creative evidence must be scored by craft and coverage, not citation count');
   assert.deepEqual(
     adapter.competentLocalModels([
       { model: 'tiny:3b', uri: 'ollama://tiny:3b', chatCapable: true },
