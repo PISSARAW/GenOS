@@ -35,6 +35,10 @@ applyLegacyModelConfiguration();
 
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
+function isSupportedProvider(provider) {
+  return SUPPORTED_PROVIDERS.has(String(provider || '').trim().toLowerCase());
+}
+
 function estimateTokenCount(text = '') {
   const value = String(text || '');
   return value.length ? Math.max(1, Math.ceil(Buffer.byteLength(value, 'utf8') / 4)) : 0;
@@ -270,4 +274,4 @@ function getModelStatus(model) {
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
-module.exports = { generate, tokenize, estimateTokenCount, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint };
+module.exports = { generate, tokenize, estimateTokenCount, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint, isSupportedProvider };
