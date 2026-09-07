@@ -252,7 +252,9 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_cost_accounting', cat: 'Experimental Labs', risk: 'Low', desc: 'Calculate and report cost accounting for agents and resources.' },
   { name: 'genos_export_audit', cat: 'Experimental Labs', risk: 'Low', desc: 'Export an audit bundle for a specific snapshot.' },
   { name: 'genos_execute_primitive', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute any registered GenOS strategy primitive dynamically.' },
-  { name: 'genos_execute_strategy_pipeline', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute a sequential strategy primitive pipeline with automatic feedback loop.' }
+  { name: 'genos_execute_strategy_pipeline', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute a sequential strategy primitive pipeline with automatic feedback loop.' },
+  { name: 'genos_synaptic_stdp_update', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Update a causal synaptic weight from temporal spike order.' },
+  { name: 'genos_synaptic_prune_scale', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Prune and scale low-confidence memory synapses.' }
 ];
 
 async function seedMcpTools(db) {
