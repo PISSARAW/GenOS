@@ -1,4 +1,5 @@
 const mcpExecutor = require('../services/mcpExecutor');
+const grpc = require('@grpc/grpc-js');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Mcp is alive via gRPC!" }),
@@ -13,7 +14,7 @@ module.exports = {
       }));
       callback(null, { tools: list });
     } catch (err) {
-      callback(null, { tools: [] });
+      callback({ code: grpc.status.UNAVAILABLE, message: `MCP tool discovery failed: ${err.message}` });
     }
   },
 
