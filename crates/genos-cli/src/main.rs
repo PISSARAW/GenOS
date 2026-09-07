@@ -10,7 +10,7 @@ use args::{
     StrategySubcommands, RebaseSubcommands, WorldSubcommands
 };
 use commands::{
-    agent, api_server, biomimicry, capsule, hallucination, platform, replay, snapshot, store_ops,
+    agent, api_server, biomimicry, capsule, experiments, hallucination, platform, replay, snapshot, store_ops,
 };
 use genos_immune::{AntibodyDetector, Antigen, ClonalSelection};
 use std::path::PathBuf;
@@ -79,9 +79,9 @@ fn main() {
             }
         },
         Some(Commands::Experiment(cmd)) => match cmd.subcommand {
-            ExperimentSubcommands::CausalReplay { input_file } => platform::handle_experiment_causal(&input_file),
-            ExperimentSubcommands::Incident { manifest } => platform::handle_experiment_incident(&manifest),
-            ExperimentSubcommands::BugInvestigation { manifest } => platform::handle_experiment_bug(&manifest),
+            ExperimentSubcommands::CausalReplay { input_file } => experiments::handle_experiment_causal(&input_file),
+            ExperimentSubcommands::Incident { manifest } => experiments::handle_experiment_incident(&manifest),
+            ExperimentSubcommands::BugInvestigation { manifest } => experiments::handle_experiment_bug(&manifest),
         },
         Some(Commands::Phenotype(cmd)) => match cmd.subcommand {
             PhenotypeSubcommands::MeasureDivergence { trait_name, expected, observed, tolerance } => {

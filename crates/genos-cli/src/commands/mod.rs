@@ -7,6 +7,7 @@ pub mod capsule;
 pub mod compliance;
 pub mod hallucination;
 pub mod platform;
+pub mod experiments;
 pub mod replay;
 pub mod reproduction;
 pub mod snapshot;
