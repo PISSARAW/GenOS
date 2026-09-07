@@ -1,4 +1,5 @@
 const CACHE_MS = 5000;
+const { validateProviderEndpoint } = require('./providerEndpointPolicy');
 let cache = { expiresAt: 0, models: [] };
 
 function endpointBase(endpoint) {
@@ -24,6 +25,7 @@ async function readJson(url, timeoutMs = 2500) {
 }
 
 async function discoverProvider({ provider, endpoint, modelsPath, map }) {
+  try { validateProviderEndpoint(endpoint, { localOnly: true }); } catch (_) { return []; }
   const base = endpointBase(endpoint);
   if (!base) return [];
   try {
