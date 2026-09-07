@@ -12,6 +12,7 @@ const { terminateChild, clearTerminationTimer } = require('./processTermination'
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_MCP_BUFFER_BYTES = 1024 * 1024;
+const MAX_MCP_ERROR_BYTES = 4096;
 
 function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
   const numeric = Number(value);
@@ -93,6 +94,12 @@ async function readMcpHttpResponse(response) {
   return payloads[payloads.length - 1];
 }
 
+async function describeHttpError(response, phase) {
+  let detail = '';
+  try { detail = (await response.text()).slice(0, MAX_MCP_ERROR_BYTES).trim(); } catch (_) {}
+  return `MCP HTTP ${phase} returned ${response.status}${detail ? `: ${detail}` : '.'}`;
+}
+
 async function fetchHttpPhase(url, options, deadlineAt, phase, readResponse = (response) => response) {
   const remaining = deadlineAt - Date.now();
   if (remaining <= 0) throw new Error(`MCP HTTP ${phase} timed out.`);
@@ -133,18 +140,18 @@ async function callHttp(url, toolName, options = {}) {
   const protocolHeaders = { 'MCP-Protocol-Version': '2025-06-18' };
   try {
     const initResponse = await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...protocolHeaders, ...auth }, body: JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } })) }, deadlineAt, 'initialize', async (response) => {
-      if (!response.ok) throw new Error(`MCP HTTP initialize returned ${response.status}.`);
+      if (!response.ok) throw new Error(await describeHttpError(response, 'initialize'));
       return { payload: await readMcpHttpResponse(response), sessionId: response.headers.get('mcp-session-id') };
     });
     const initPayload = initResponse.payload;
     const sessionHeaders = initResponse.sessionId ? { 'Mcp-Session-Id': initResponse.sessionId } : {};
     if (initPayload.error) throw new Error(initPayload.error.message || 'MCP initialize failed.');
     await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', ...protocolHeaders, ...sessionHeaders, ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) }, deadlineAt, 'initialized notification', async (response) => {
-      if (!response.ok) throw new Error(`MCP HTTP initialized notification returned ${response.status}.`);
+      if (!response.ok) throw new Error(await describeHttpError(response, 'initialized notification'));
       return null;
     });
     const payload = await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...protocolHeaders, ...sessionHeaders, ...auth }, body: JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: args })) }, deadlineAt, 'tools/call', async (response) => {
-      if (!response.ok) throw new Error(`MCP HTTP tools/call returned ${response.status}.`);
+      if (!response.ok) throw new Error(await describeHttpError(response, 'tools/call'));
       return readMcpHttpResponse(response);
     });
     if (payload.error) throw new Error(payload.error.message || 'MCP tools/call failed.');
