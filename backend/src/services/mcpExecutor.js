@@ -132,6 +132,18 @@ function runWithTimeout(commandLine, timeoutMs) {
   return runSafeSync(commandLine, { timeoutMs });
 }
 
+function resolveMcpOutputPath(outputFile) {
+  if (typeof outputFile !== 'string' || !outputFile.trim() || outputFile.includes('\0') || path.isAbsolute(outputFile)) {
+    throw Object.assign(new Error('output_file must be a non-empty relative path.'), { code: 'INVALID_OUTPUT_PATH' });
+  }
+  const root = path.resolve(process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..'));
+  const resolved = path.resolve(root, outputFile);
+  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
+    throw Object.assign(new Error('output_file must remain inside the GenOS workspace.'), { code: 'INVALID_OUTPUT_PATH' });
+  }
+  return resolved;
+}
+
 function withTimeout(promise, timeoutMs) {
   const timeout = normalizeMcpTimeout(timeoutMs);
   return Promise.race([
@@ -329,8 +341,9 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     try {
       const out = runWithTimeout(`genos experiment causal-replay ${args.input_file}`, timeoutMs);
-      require('fs').writeFileSync(args.output_file, out);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${args.output_file}` };
+      const outputPath = resolveMcpOutputPath(args.output_file);
+      require('fs').writeFileSync(outputPath, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Causal replay report written to ${outputPath}` };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
@@ -456,8 +469,9 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     const cp = require('child_process');
     try {
       const out = runWithTimeout(`genos compliance generate --standard ${args.standard}`, timeoutMs);
-      require('fs').writeFileSync(args.output_file, out);
-      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${args.output_file}` };
+      const outputPath = resolveMcpOutputPath(args.output_file);
+      require('fs').writeFileSync(outputPath, out);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: `Compliance report written to ${outputPath}` };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
     }
@@ -768,4 +782,4 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   return result.output;
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath };
