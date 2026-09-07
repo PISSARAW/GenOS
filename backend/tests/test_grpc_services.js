@@ -89,8 +89,8 @@ async function runGrpcSuite() {
 
     const paretoRes = await callRpc(arenaClient, 'CalculatePareto', {
       candidates_json: JSON.stringify([
-        { id: 'sol-1', executionTimeMs: 10, fitnessScore: 80 },
-        { id: 'sol-2', executionTimeMs: 50, fitnessScore: 95 }
+        { id: 'sol-1', executionTimeMs: 10, tokenCostUSD: 0.01, fitnessScore: 80, adversarialPassRate: 90 },
+        { id: 'sol-2', executionTimeMs: 50, tokenCostUSD: 0.05, fitnessScore: 95, adversarialPassRate: 95 }
       ])
     });
     assert(paretoRes.pareto_count >= 1, 'Must calculate at least 1 Pareto candidate');
@@ -216,6 +216,12 @@ async function runGrpcSuite() {
     assert.strictEqual(wsPing.status, 'Service Workspace is alive via gRPC!');
     console.log(`  ✅ PASS: WorkspaceService Ping -> "${wsPing.status}"`);
 
+    await db.run(
+      "INSERT OR REPLACE INTO workspaces (id, name, path, organization_id, project_id) VALUES (?, ?, ?, NULL, NULL)",
+      'ws-test-identity',
+      'gRPC identity workspace',
+      process.cwd()
+    );
     const provRes = await callRpc(wsClient, 'ProvisionWorkspace', {
       workspace_id: 'ws-test-identity',
       isolation_mode: 'Branch'
@@ -233,6 +239,29 @@ async function runGrpcSuite() {
 
     const orchDesc = descriptors.orchestrator.genos.orchestrator.v1;
     const orchClient = createClient(orchDesc.OrchestratorService);
+    await db.run("INSERT OR IGNORE INTO organizations (id, name) VALUES (?, ?)", 'grpc-org', 'gRPC test organization');
+    await db.run("INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)", 'grpc-project', 'grpc-org', 'gRPC test project');
+    await db.run(
+      'UPDATE workspaces SET organization_id = ?, project_id = ? WHERE id = ?',
+      'grpc-org',
+      'grpc-project',
+      'ws-test-identity'
+    );
+    await db.run(
+      "INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES (?, ?, ?, 'idle', 'orchestrator', ?, NULL)",
+      'orch-prime',
+      'gRPC orchestrator',
+      'orchestrator',
+      'ws-test-identity'
+    );
+    await db.run(
+      "INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id) VALUES (?, ?, ?, 'idle', 'worker', ?, ?)",
+      'worker-sub-1',
+      'gRPC worker',
+      'worker',
+      'ws-test-identity',
+      'orch-prime'
+    );
     const orchRes = await callRpc(orchClient, 'DispatchWorker', {
       orchestrator_id: 'orch-prime',
       worker_id: 'worker-sub-1',
