@@ -10,9 +10,7 @@ async function circuitBreakerOpen(context) {
   // Ouvre le circuit breaker pour bloquer toute exécution destructrice.
   const circuitBreaker = require('../circuitBreaker');
   const scope = context.scope || 'worker_deployment';
-  const agentType = context.agentType || 'GenOS';
-  circuitBreaker.recordFailure(scope, agentType);
-  const state = circuitBreaker.getState();
+  const state = circuitBreaker.trip(scope, context.reason || 'strategy requested circuit open');
   telemetry.emitEvent({
     eventType: 'CIRCUIT_BREAKER_OPEN',
     agentId: context.agentId || 'strategy_adapter',
@@ -27,8 +25,8 @@ async function circuitBreakerOpen(context) {
 async function circuitBreakerHalfOpen(context) {
   // Transition en mode canary (HALF-OPEN) pour tester si le système est rétabli.
   const circuitBreaker = require('../circuitBreaker');
-  circuitBreaker.checkState();
-  const state = circuitBreaker.getState();
+  const scope = context.scope || 'worker_deployment';
+  const state = circuitBreaker.checkState(scope);
   telemetry.emitEvent({
     eventType: 'CIRCUIT_BREAKER_HALF_OPEN',
     agentId: context.agentId || 'strategy_adapter',
@@ -162,7 +160,7 @@ async function permissionCheck(context) {
   const circuitBreaker = require('../circuitBreaker');
   const toolName = context.tool || context.action || '';
   const isDestructive = circuitBreaker.isDestructive(toolName);
-  const circuit = circuitBreaker.canExecute(context.scope || 'default', context.agentType || 'GenOS');
+  const circuit = circuitBreaker.canExecute(toolName, context.agentType || 'GenOS', context.scope || 'default', context.args || null);
   const allowed = circuit.allowed && !isDestructive;
   telemetry.emitEvent({
     eventType: allowed ? 'PERMISSION_GRANTED' : 'PERMISSION_DENIED',

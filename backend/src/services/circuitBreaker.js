@@ -172,6 +172,22 @@ class CircuitBreakerService {
     }
   }
 
+  trip(scope = 'global', reason = 'manual') {
+    const state = this.context(scope);
+    const now = Date.now();
+    state.state = 'OPEN';
+    state.halfOpenProbe = null;
+    state.lastStateChange = now;
+    telemetry.emitEvent({
+      eventType: 'CIRCUIT_BREAKER_TRIPPED',
+      agentId: 'circuit_breaker',
+      action: 'TRIP',
+      detail: `Circuit breaker manually tripped for scope '${scope}': ${reason}`,
+      severity: 'critical'
+    });
+    return state.state;
+  }
+
   toggleToolLock(toolName, locked, reason = '') {
     this.toolLockOverrides.set(toolName, locked);
     telemetry.emitEvent({
