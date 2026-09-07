@@ -1,6 +1,10 @@
 const crypto = require('crypto');
 
-const SECRET_KEY = process.env.GENOS_PROMOTION_SECRET || 'dev-insecure-promotion-secret-key-12345';
+function secretKey() {
+  const value = String(process.env.GENOS_PROMOTION_SECRET || '').trim();
+  if (!value) throw new Error('GENOS_PROMOTION_SECRET must be configured.');
+  return value;
+}
 
 /**
  * Validates a cryptographic signature for a promotion approval payload.
@@ -24,7 +28,7 @@ function validateSignature(payload, signature) {
   // Serialize payload deterministically
   const dataToSign = `${payload.runId}:${payload.timestamp}:${payload.signerId || ''}`;
 
-  const expectedSignature = crypto.createHmac('sha256', SECRET_KEY)
+  const expectedSignature = crypto.createHmac('sha256', secretKey())
                                   .update(dataToSign)
                                   .digest('hex');
 
@@ -50,7 +54,7 @@ function validateSignature(payload, signature) {
  */
 function generateSignature(payload) {
   const dataToSign = `${payload.runId}:${payload.timestamp}:${payload.signerId || ''}`;
-  return crypto.createHmac('sha256', SECRET_KEY)
+  return crypto.createHmac('sha256', secretKey())
                .update(dataToSign)
                .digest('hex');
 }
