@@ -17,7 +17,7 @@ function autonomousWorkerId(orchestratorId, index) {
 }
 function autonomousRoundOutcome(eventType) {
   if (eventType === 'AGENT_COMPLETED') return 'completed';
-  if (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN'].includes(eventType)) return 'failed';
+  if (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(eventType)) return 'failed';
   return null;
 }
 async function advanceAutonomousRound(mission, event) {
