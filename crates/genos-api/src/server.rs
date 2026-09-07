@@ -18,12 +18,31 @@ fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<Str
     if let Ok(res) = client.get(&url).send() {
         if let Ok(json_resp) = res.json::<serde_json::Value>() {
             if let Some(models) = json_resp["models"].as_array() {
-                // If there are any models installed, pick the first one available
-                // (In a more advanced Thalamus, this could score models based on task complexity)
-                if !models.is_empty() {
-                    if let Some(model_name) = models[0]["name"].as_str() {
-                        return Some(model_name.to_string());
+                if models.is_empty() {
+                    return None;
+                }
+
+                let mut available_model_names = Vec::new();
+                for model in models {
+                    if let Some(name) = model["name"].as_str() {
+                        available_model_names.push(name.to_string());
                     }
+                }
+
+                // Priorité aux modèles réputés performants et polyvalents
+                let preferred_keywords = vec!["llama3", "mistral", "mixtral", "phi3", "gemma", "qwen"];
+                
+                for keyword in &preferred_keywords {
+                    for model_name in &available_model_names {
+                        if model_name.to_lowercase().contains(keyword) {
+                            return Some(model_name.clone());
+                        }
+                    }
+                }
+
+                // Fallback: prendre le premier modèle disponible si aucun modèle préféré n'est trouvé
+                if !available_model_names.is_empty() {
+                    return Some(available_model_names[0].clone());
                 }
             }
         }
