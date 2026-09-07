@@ -13,21 +13,80 @@ function getEntropyStats(actionEvents = []) {
   const totalActions = actionEvents.length;
   const uniqueActions = Object.keys(frequencies).length;
   let entropy = 0;
+  let maxCount = 0;
   for (const count of Object.values(frequencies)) {
+    if (count > maxCount) maxCount = count;
     const p = count / totalActions;
     if (p > 0) entropy -= p * Math.log2(p);
   }
 
   const maxEntropy = uniqueActions > 1 ? Math.log2(uniqueActions) : 1;
+  const dominanceRatio = totalActions > 0 ? maxCount / totalActions : 0;
   return {
     entropy,
     normalizedEntropy: maxEntropy > 0 ? entropy / maxEntropy : 0,
-    uniqueActions
+    uniqueActions,
+    dominanceRatio
+  };
+}
+
+function getTransitionEntropy(actionEvents = []) {
+  const items = actionEvents.map((item) => typeof item === 'string' ? item : (item.type || item.action || 'generic_action'));
+  if (items.length < 4) return { transitionEntropy: 1.0, isPeriodicCycle: false, cycleLength: 0 };
+
+  const transitions = {};
+  const stateCounts = {};
+  for (let i = 0; i < items.length - 1; i += 1) {
+    const from = items[i];
+    const to = items[i + 1];
+    stateCounts[from] = (stateCounts[from] || 0) + 1;
+    if (!transitions[from]) transitions[from] = {};
+    transitions[from][to] = (transitions[from][to] || 0) + 1;
+  }
+
+  const totalTransitions = items.length - 1;
+  let conditionalEntropy = 0;
+
+  for (const [from, toMap] of Object.entries(transitions)) {
+    const fromCount = stateCounts[from];
+    const pFrom = fromCount / totalTransitions;
+    let stateCondEntropy = 0;
+    for (const count of Object.values(toMap)) {
+      const pTo = count / fromCount;
+      if (pTo > 0) stateCondEntropy -= pTo * Math.log2(pTo);
+    }
+    conditionalEntropy += pFrom * stateCondEntropy;
+  }
+
+  // Check explicit short periodic cycle (period 2 or 3)
+  let isPeriodicCycle = false;
+  let cycleLength = 0;
+  for (const period of [2, 3]) {
+    if (items.length >= period * 2) {
+      let matches = 0;
+      let comparisons = 0;
+      for (let i = period; i < items.length; i += 1) {
+        comparisons += 1;
+        if (items[i] === items[i - period]) matches += 1;
+      }
+      if (comparisons > 0 && (matches / comparisons) >= 0.85) {
+        isPeriodicCycle = true;
+        cycleLength = period;
+        break;
+      }
+    }
+  }
+
+  return {
+    transitionEntropy: Number(conditionalEntropy.toFixed(3)),
+    isPeriodicCycle,
+    cycleLength
   };
 }
 
 /**
  * Calculates Information-Theoretic Shannon Entropy H(A) = - sum(P(a_i) * log2(P(a_i)))
+ * and transition Markov entropy to detect both raw collapse and periodic cyclic deadlocks.
  */
 function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
   const sample = actionEvents.slice(-windowSize);
@@ -37,7 +96,8 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
     return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0, sampleSize: 0 };
   }
 
-  const { entropy, normalizedEntropy, uniqueActions } = getEntropyStats(sample);
+  const { entropy, normalizedEntropy, uniqueActions, dominanceRatio } = getEntropyStats(sample);
+  const { transitionEntropy, isPeriodicCycle, cycleLength } = getTransitionEntropy(sample);
 
   const maxEntropy = uniqueActions > 1 ? Math.log2(uniqueActions) : 1;
   const sparkline = [];
@@ -51,12 +111,22 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
   let driftState = 'OPTIMAL_EXPLORATION';
   let diagnostic = 'Swarm operating within balanced exploration-exploitation parameters.';
 
-  if (normalizedEntropy > 0.88 && uniqueActions >= 4) {
+  const isDominantRepetition = dominanceRatio >= 0.85 && totalActions >= 6;
+  const isEntropyCollapsed = normalizedEntropy < 0.20 && totalActions >= 6;
+  const isDeadlockCycle = totalActions >= 6 && (isPeriodicCycle || (transitionEntropy === 0 && uniqueActions <= 3));
+
+  if (isDominantRepetition || isEntropyCollapsed || isDeadlockCycle) {
+    driftState = 'COLLAPSE_DEADLOCK';
+    if (isPeriodicCycle) {
+      diagnostic = `Cyclic deadlock detected: periodic loop of length ${cycleLength} detected.`;
+    } else if (isDominantRepetition) {
+      diagnostic = `High repetition dominance (${Math.round(dominanceRatio * 100)}%): single action repetition collapse.`;
+    } else {
+      diagnostic = 'Low entropy collapse detected: infinite repetition or frozen logic.';
+    }
+  } else if (normalizedEntropy > 0.88 && uniqueActions >= 5 && totalActions >= 10) {
     driftState = 'SPIKE_CONFUSION';
     diagnostic = 'High entropy spike detected: erratic tool switching or hallucination loop.';
-  } else if (normalizedEntropy < 0.20 && totalActions >= 6) {
-    driftState = 'COLLAPSE_DEADLOCK';
-    diagnostic = 'Low entropy collapse detected: infinite repetition or frozen logic.';
   }
 
   return {
@@ -65,6 +135,10 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
     maxPossibleEntropy: Number(maxEntropy.toFixed(3)),
     uniqueActionCount: uniqueActions,
     sampleSize: totalActions,
+    dominanceRatio: Number(dominanceRatio.toFixed(3)),
+    transitionEntropy,
+    isPeriodicCycle,
+    cycleLength,
     cognitiveDriftState: driftState,
     diagnosticRecommendation: diagnostic,
     sparkline

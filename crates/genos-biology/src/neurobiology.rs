@@ -7,23 +7,28 @@ SYSTÃƒÆ’Ã‹â€ ME NERVEUX ET NEURONES
 ===================================================================== */
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Neurotransmitter {
-    Glutamate, // Excitateur (DÃƒÆ’Ã‚Â©clenche le potentiel d'action)
-    GABA,      // Inhibiteur (Bloque le signal ÃƒÆ’Ã‚Â©lectrique)
+    #[serde(alias = "Glutamate", alias = "glutamate")]
+    Glutamate, // Excitateur (Déclenche le potentiel d'action)
+    #[serde(alias = "GABA", alias = "gaba", alias = "Gaba")]
+    GABA,      // Inhibiteur (Bloque le signal électrique)
+    #[serde(alias = "Dopamine", alias = "dopamine")]
     Dopamine,  // Renforcement (Motivation et apprentissage positif)
-    Serotonin, // Modulation (Stabilisation du rÃƒÆ’Ã‚Â©seau)
+    #[serde(alias = "Serotonin", alias = "serotonin")]
+    Serotonin, // Modulation (Stabilisation du réseau)
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Synapse {
     pub target_id: String,
-    pub weight: f64, // PlasticitÃƒÆ’Ã‚Â© : Force de la connexion.
+    pub weight: f64, // Plasticité : Force de la connexion.
     pub transmitter_type: Neurotransmitter,
-    pub activity_history: u32, // Trace de l'utilisation rÃƒÆ’Ã‚Â©cente
+    pub activity_history: u32, // Trace de l'utilisation récente
     
-    // Neurobiologie de l'Ã©lagage (Pruning) et PlasticitÃ©
-    pub ampa_receptors: f64,  // DensitÃƒÂ© (LTP)
-    pub c3_opsonization: f64, // Signal "Eat Me" (ComplÃƒÂ©ment)
+    // Neurobiologie de l'élagage (Pruning) et Plasticité
+    pub ampa_receptors: f64,  // Densité (LTP)
+    pub c3_opsonization: f64, // Signal "Eat Me" (Complément)
     pub cd47_expression: f64, // Signal "Don't Eat Me"
 }
 
@@ -37,19 +42,30 @@ impl Synapse {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum CompartmentType {
+    #[serde(alias = "Soma", alias = "soma")]
     Soma,
+    #[serde(alias = "ProximalTrunk", alias = "proximal_trunk", alias = "trunk", alias = "proximal")]
     ProximalTrunk,
+    #[serde(alias = "ApicalDendrite", alias = "apical_dendrite", alias = "apical")]
     ApicalDendrite,
+    #[serde(alias = "BasalDendrite", alias = "basal_dendrite", alias = "basal")]
     BasalDendrite,
+    #[serde(alias = "DistalTuft", alias = "distal_tuft", alias = "tuft", alias = "distal")]
     DistalTuft,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum SpineMorphology {
+    #[serde(alias = "Filopodia", alias = "filopodia")]
     Filopodia, // Épine exploratoire très motile, faible densité AMPA initiale
+    #[serde(alias = "Thin", alias = "thin")]
     Thin,      // Épine d'apprentissage à haute plasticité (LTP active)
+    #[serde(alias = "Stubby", alias = "stubby")]
     Stubby,    // Épine intermédiaire de transition
+    #[serde(alias = "Mushroom", alias = "mushroom")]
     Mushroom,  // Épine de mémoire consolidée, large tête PSD-95, haute densité AMPA, protégée par CD47
 }
 
@@ -920,10 +936,26 @@ mod tests {
 
         // LTD postsynaptique (delta_t = -10ms)
         let ltd_density = tree.apply_postsynaptic_stdp("afferent_1", -10.0, 0.2);
-        assert!(ltd_density.is_some());
+        assert!(ltp_density.is_some());
         assert!(ltd_density.unwrap() < ltp_density.unwrap());
     }
+
+    #[test]
+    fn test_sqlite_node_compatibility_deserialization() {
+        // Validation que les chaînes stockées par Node / SQLite sont parfaitement désérialisées
+        let compartment: CompartmentType = serde_json::from_str(r#""apical""#).unwrap();
+        assert_eq!(compartment, CompartmentType::ApicalDendrite);
+
+        let compartment_trunk: CompartmentType = serde_json::from_str(r#""trunk""#).unwrap();
+        assert_eq!(compartment_trunk, CompartmentType::ProximalTrunk);
+
+        let spine: SpineMorphology = serde_json::from_str(r#""mushroom""#).unwrap();
+        assert_eq!(spine, SpineMorphology::Mushroom);
+
+        let spine_thin: SpineMorphology = serde_json::from_str(r#""thin""#).unwrap();
+        assert_eq!(spine_thin, SpineMorphology::Thin);
+
+        let transmitter: Neurotransmitter = serde_json::from_str(r#""glutamate""#).unwrap();
+        assert_eq!(transmitter, Neurotransmitter::Glutamate);
+    }
 }
-
-
-
