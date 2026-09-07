@@ -362,20 +362,27 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
   let copiedEntries = 0;
-  try {
-    await fs.cp(source, destination, {
-      recursive: true,
-      filter: (entry) => {
-        try { if (require('fs').lstatSync(entry).isSymbolicLink()) return false; } catch (_) { return false; }
-        if (excluded.has(path.basename(entry))) return false;
-        const relative = path.relative(source, entry);
-        const depth = relative ? relative.split(path.sep).length : 0;
-        if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+  async function copyTree(sourcePath, destinationPath, relative = '') {
+    const sourceStat = await fs.lstat(sourcePath);
+    if (sourceStat.isSymbolicLink()) return;
+    if (sourceStat.isDirectory()) {
+      if (relative && excluded.has(path.basename(sourcePath))) return;
+      const depth = relative ? relative.split(path.sep).length : 0;
+      if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+      await fs.mkdir(destinationPath, { recursive: true });
+      for (const entry of await fs.readdir(sourcePath)) {
         copiedEntries += 1;
         if (copiedEntries > MAX_COPY_ENTRIES) throw new Error(`Workspace copy exceeds the ${MAX_COPY_ENTRIES}-entry limit.`);
-        return true;
+        await copyTree(path.join(sourcePath, entry), path.join(destinationPath, entry), relative ? path.join(relative, entry) : entry);
       }
-    });
+      return;
+    }
+    if (!sourceStat.isFile()) return;
+    await fs.mkdir(path.dirname(destinationPath), { recursive: true });
+    await fs.copyFile(sourcePath, destinationPath);
+  }
+  try {
+    await copyTree(source, destination);
   } catch (error) {
     await fs.rm(destination, { recursive: true, force: true }).catch(() => {});
     throw error;
