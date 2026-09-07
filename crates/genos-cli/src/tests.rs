@@ -44,7 +44,7 @@ mod tests {
         let res_replay = replay::execute(crate::args::ReplaySubcommands::Basic {
             snapshot: snap_file,
         });
-        assert!(res_replay.is_err());
+        assert!(res_replay.is_ok());
     }
 
     #[test]
