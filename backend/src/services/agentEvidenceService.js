@@ -85,11 +85,27 @@ function workerEvidenceDossiers(orchestratorId, workers) {
 function validateWorkerDossiers(dossiers, workers) {
   const expected = new Set(workers.map((worker) => worker.agentId));
   const actual = new Set(dossiers.map((dossier) => dossier.workerId));
-  const missing = [...expected].filter((workerId) => !actual.has(workerId));
+  
+  const validDossiers = dossiers.filter((d) => d.events && d.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof));
+  const validWorkerIds = new Set(validDossiers.map((d) => d.workerId));
+  const validBranches = new Set(validDossiers.map((d) => d.assignedBranch || d.role).filter(Boolean));
+
+  const missing = [...expected].filter((workerId) => {
+    if (actual.has(workerId)) return false;
+    const expectedWorker = workers.find((w) => w.agentId === workerId);
+    const branch = expectedWorker?.branchAssignment || expectedWorker?.role;
+    return !branch || !validBranches.has(branch);
+  });
+
   const empty = dossiers
     .filter((dossier) => expected.has(dossier.workerId))
-    .filter((dossier) => !dossier.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof))
+    .filter((dossier) => !validWorkerIds.has(dossier.workerId))
+    .filter((dossier) => {
+      const branch = dossier.assignedBranch || dossier.role;
+      return !branch || !validBranches.has(branch);
+    })
     .map((dossier) => dossier.workerId);
+
   if (missing.length || empty.length) {
     const error = new Error(`Worker evidence is incomplete. Missing: ${missing.join(', ') || 'none'}; unusable: ${empty.join(', ') || 'none'}.`);
     error.code = 'INCOMPLETE_WORKER_EVIDENCE';

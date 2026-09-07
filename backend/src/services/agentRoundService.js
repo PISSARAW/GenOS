@@ -7,7 +7,7 @@ const {
   activeProcesses, missionStarts, pendingContinuations, autonomousRounds,
   activeWorkerBarriers, emit
 } = require('./agentOrchestrationState');
-const { evidenceScore } = require('./agentEvidenceService');
+const { evidenceScore, extractEvidenceReport } = require('./agentEvidenceService');
 const crypto = require('crypto');
 
 const MAX_CONTINUATION_DISPATCH_ATTEMPTS = 3;
@@ -57,7 +57,7 @@ async function advanceAutonomousRound(mission, event) {
   const arenaTask = require('./arenaTaskEvaluation');
   const paretoResult = arenaTask.evaluateDossiersPareto(completed.map(r => ({
     workerId: r.agentId,
-    evidenceReport: r.payload?.evidenceReport || {},
+    evidenceReport: extractEvidenceReport(r.payload) || {},
     fitnessScore: r.evidenceScore,
     tokens: r.payload?.tokens || 1000
   })));
@@ -75,7 +75,8 @@ async function advanceAutonomousRound(mission, event) {
   for (const [index, survivor] of survivors.entries()) {
     const previous = state.workers.get(survivor.agentId);
     const assignedTokens = continuation.workerTokens?.[index] || continuation.perWorkerTokens;
-    const dossier = JSON.stringify(survivor.payload?.evidenceReport || {}).slice(0, 8000);
+    const rep = extractEvidenceReport(survivor.payload) || {};
+    const dossier = JSON.stringify(rep).slice(0, 8000);
     const consumedEvents = Number(survivor.payload?.usage?.events || survivor.payload?.events || 1);
     const consumedCost = Number(survivor.payload?.usage?.cost_usd || survivor.payload?.cost_usd || 0);
     const remainingEvents = Math.max(1, (previous.executionBudget?.events || 100) - consumedEvents);
