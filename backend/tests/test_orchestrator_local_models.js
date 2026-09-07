@@ -18,7 +18,7 @@ async function main() {
         }) };
       }
       if (sql.includes('provider_configs')) {
-        return { endpoint: args[1] === 'configured-local' ? 'http://local.test/first' : 'http://local.test/second' };
+        return { endpoint: args[1] === 'configured-local' ? 'http://127.0.0.1:1234/first' : 'http://127.0.0.1:1234/second' };
       }
       return null;
     }
