@@ -6,7 +6,7 @@ function errorHandler(err, req, res, next) {
   const statusCode = err.status || err.statusCode || 500;
   const errorCode = err.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
   const message = err.message || 'An unexpected error occurred';
-  const details = err.details || (process.env.NODE_ENV === 'test' ? err.stack : undefined);
+  const details = err.details;
 
   if (statusCode === 500) {
     console.error('[GenOS Server Error]', err);
