@@ -67,7 +67,7 @@ async function mctsSelect(context) {
 }
 
 async function prune(context) {
-  // Beam Search / Pruning : Conserve uniquement le Top K, tue les autres.
+  // Beam Search / Pruning : Conserve uniquement le Top K, élague les autres.
   const db = await getDatabase();
   const candidates = context.candidates || [];
   const rawK = context.k !== undefined ? context.k : context.retainTopK;
@@ -76,26 +76,54 @@ async function prune(context) {
   if (candidates.length === 0) return { success: false, error: 'No candidates to prune.' };
   
   const scored = [];
+  const entityMap = new Map();
+
   for (const cId of candidates) {
-    const row = context.workspaceId
+    let row = context.workspaceId
       ? await db.get('SELECT a.id, a.status, a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.id = ?', cId, context.workspaceId)
       : await db.get("SELECT id, status, current_task FROM agents WHERE id = ?", cId);
-    if (!row) continue;
+    let entityType = 'agent';
+
+    if (!row) {
+      const nodeRow = await db.get('SELECT id, score, visits, metadata FROM lineage_nodes WHERE id = ?', cId);
+      if (nodeRow) {
+        row = nodeRow;
+        entityType = 'lineage_node';
+      }
+    }
+
     const score = Number.isFinite(Number(context.scores?.[cId]))
       ? Number(context.scores[cId])
-      : (row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : 0));
+      : (entityType === 'agent'
+          ? (row?.status === 'completed' ? 10 : (row?.status === 'running' ? 5 : 0))
+          : Number(row?.score || 0));
+
+    entityMap.set(cId, { entityType, row });
     scored.push({ id: cId, score });
   }
   
   scored.sort((a, b) => b.score - a.score);
   const retained = scored.slice(0, k).map(s => s.id);
   const pruned = scored.slice(k).map(s => s.id);
+
   const runtimeAdapter = require('../agentRuntimeAdapter');
   const { scheduleWorkspaceCleanup } = require('../agentWorkspaceLifecycleService');
+  let evaluationService;
+  try {
+    evaluationService = require('../evaluationObservabilityService');
+  } catch (_) {}
+
   for (const pid of pruned) {
-    runtimeAdapter.stopMission(pid);
-    await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
-    try { await scheduleWorkspaceCleanup(pid); } catch (_) {}
+    const meta = entityMap.get(pid);
+    if (meta?.entityType === 'lineage_node' && evaluationService) {
+      try {
+        await evaluationService.pruneNode(pid, { organizationId: context.organizationId, projectId: context.projectId });
+      } catch (_) {}
+    } else {
+      runtimeAdapter.stopMission(pid);
+      await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] Beam Search cutoff' WHERE id = ?", pid);
+      try { await scheduleWorkspaceCleanup(pid); } catch (_) {}
+    }
   }
   
   telemetry.emitEvent({
@@ -106,6 +134,39 @@ async function prune(context) {
     severity: 'info',
     payload: { retained, pruned, k }
   });
+  return { success: true, retained, pruned };
+}
+
+async function routePruning(context) {
+  // Prunes redundant routes, sub-optimal paths or cyclic branches without killing agent runtime processes.
+  const routes = context.routes || context.candidates || [];
+  const rawK = context.k !== undefined ? context.k : context.retainTopK;
+  const k = rawK === undefined ? 1 : Number(rawK);
+  if (!Array.isArray(routes) || routes.length === 0) {
+    return { success: false, error: 'No routes to prune.' };
+  }
+
+  const scoredRoutes = routes.map((r, idx) => {
+    const id = typeof r === 'string' ? r : (r.id || `route-${idx}`);
+    const score = Number.isFinite(Number(context.scores?.[id]))
+      ? Number(context.scores[id])
+      : (typeof r === 'object' && Number.isFinite(Number(r.score)) ? Number(r.score) : 0);
+    return { id, route: r, score };
+  });
+
+  scoredRoutes.sort((a, b) => b.score - a.score);
+  const retained = scoredRoutes.slice(0, k).map(r => r.route);
+  const pruned = scoredRoutes.slice(k).map(r => r.route);
+
+  telemetry.emitEvent({
+    eventType: 'ROUTE_PRUNED',
+    agentId: context.orchestratorId || 'strategy_adapter',
+    action: 'ROUTE_PRUNING',
+    detail: `Route pruning kept ${retained.length} optimal routes, pruned ${pruned.length} suboptimal routes.`,
+    severity: 'info',
+    payload: { retainedCount: retained.length, prunedCount: pruned.length, k }
+  });
+
   return { success: true, retained, pruned };
 }
 
@@ -388,4 +449,4 @@ async function backpropagate(context = {}) {
   };
 }
 
-module.exports = { mctsSelect, prune, pruneAndScale, reallocate, budgetLimit, prmEvaluate, schizogonyBurst, backpropagate };
+module.exports = { mctsSelect, prune, pruneAndScale, routePruning, reallocate, budgetLimit, prmEvaluate, schizogonyBurst, backpropagate };

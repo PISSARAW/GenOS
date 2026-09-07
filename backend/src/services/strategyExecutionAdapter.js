@@ -153,7 +153,7 @@ const HANDLERS = {
   prune: search.prune,
   retain_top_k: search.prune,
   prune_and_scale: search.pruneAndScale,
-  route_pruning: search.prune,
+  route_pruning: search.routePruning,
   reallocate: search.reallocate,
   resource_equalize: search.reallocate,
   token_limit: search.budgetLimit,
