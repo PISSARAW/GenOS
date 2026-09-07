@@ -8,6 +8,16 @@ function number(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function requiredNumber(value, field, { integer = false, min = 0, max = Number.MAX_SAFE_INTEGER } = {}) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || (integer && !Number.isInteger(parsed)) || parsed < min || parsed > max) {
+    const error = new Error(`${field} must be a finite ${integer ? 'integer' : 'number'} between ${min} and ${max}.`);
+    error.code = 'INVALID_RELEASE_ARGUMENT';
+    throw error;
+  }
+  return parsed;
+}
+
 async function scopedRelease(db, req, releaseId) {
   const scope = scopeSql(req);
   return db.get(`SELECT * FROM releases WHERE id = ? AND ${scope.clause}`, releaseId, ...scope.params);
@@ -25,13 +35,22 @@ async function create(req, res, next) {
   try {
     const db = await getDatabase();
     const { workflowId, version = 1, environment = 'staging', traffic = 100 } = req.body || {};
-    if (!workflowId) return res.status(400).json({ error: { code: 'INVALID_WORKFLOW', message: 'workflowId is required.' } });
+    if (typeof workflowId !== 'string' || !workflowId.trim()) return res.status(400).json({ error: { code: 'INVALID_WORKFLOW', message: 'workflowId must be a non-empty string.' } });
+    let validatedVersion;
+    let validatedTraffic;
+    if (!['staging', 'production'].includes(environment)) return res.status(400).json({ error: { code: 'INVALID_ENVIRONMENT', message: 'environment must be staging or production.' } });
+    try {
+      validatedVersion = requiredNumber(version, 'version', { integer: true, min: 1, max: 1_000_000_000 });
+      validatedTraffic = requiredNumber(traffic, 'traffic', { min: 0, max: 100 });
+    } catch (error) {
+      return res.status(400).json({ error: { code: error.code, message: error.message } });
+    }
     const scope = scopeSql(req);
     const workflow = await db.get(`SELECT id FROM workflows WHERE id = ? AND ${scope.clause}`, workflowId, ...scope.params);
     if (!workflow) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow is outside the tenant scope.' } });
     const releaseId = id('rel');
-    await db.run('INSERT INTO releases(id,workflow_id,version,environment,traffic,status,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?)', releaseId, workflowId, version, environment, traffic, 'pending', ...scope.params);
-    res.status(201).json({ id: releaseId, workflowId, version, environment, traffic, status: 'pending' });
+    await db.run('INSERT INTO releases(id,workflow_id,version,environment,traffic,status,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?)', releaseId, workflowId, validatedVersion, environment, validatedTraffic, 'pending', ...scope.params);
+    res.status(201).json({ id: releaseId, workflowId, version: validatedVersion, environment, traffic: validatedTraffic, status: 'pending' });
   } catch (error) { next(error); }
 }
 
@@ -44,6 +63,7 @@ async function promote(req, res, next) {
     if (active) return res.status(409).json({ error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } });
     
     const environment = req.body?.environment || 'production';
+    if (!['staging', 'production'].includes(environment)) return res.status(400).json({ error: { code: 'INVALID_ENVIRONMENT', message: 'environment must be staging or production.' } });
 
     if (environment === 'production') {
       if (['draft', 'pending', 'failed', 'rolled_back'].includes(release.status)) {
@@ -85,9 +105,23 @@ async function createRollout(req, res, next) {
       variants: req.body?.variants || (strategy === 'canary' ? [{ name: 'stable', traffic: 95 }, { name: 'canary', traffic: 5 }] : [{ name: 'control', traffic: 50 }, { name: 'candidate', traffic: 50 }]),
       slo: req.body?.slo || { maxErrorRate: 0.01, maxAverageLatencyMs: 3000, minRequests: 100 }
     };
-    const traffic = config.variants.reduce((total, variant) => total + number(variant.traffic), 0);
-    if (config.variants.length < 2 || Math.abs(traffic - 100) > 0.001 || config.variants.some(variant => !variant.name || number(variant.traffic) < 0)) {
+    if (!Array.isArray(config.variants) || config.variants.length < 2 || config.variants.some((variant) => !variant || typeof variant.name !== 'string' || !variant.name.trim())) {
       return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: 'At least two named variants with traffic totaling 100 are required.' } });
+    }
+    const variantNames = config.variants.map((variant) => variant.name.trim());
+    if (new Set(variantNames).size !== variantNames.length) return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: 'Variant names must be unique.' } });
+    let traffic;
+    try {
+      config.variants = config.variants.map((variant) => ({ ...variant, name: variant.name.trim(), traffic: requiredNumber(variant.traffic, 'variant traffic', { min: 0, max: 100 }) }));
+      traffic = config.variants.reduce((total, variant) => total + variant.traffic, 0);
+      if (Math.abs(traffic - 100) > 0.001) throw new Error('Variant traffic must total 100.');
+      const slo = config.slo;
+      if (!slo || typeof slo !== 'object' || Array.isArray(slo)) throw new Error('slo must be an object.');
+      requiredNumber(slo.maxErrorRate, 'maxErrorRate', { min: 0, max: 1 });
+      requiredNumber(slo.maxAverageLatencyMs, 'maxAverageLatencyMs', { min: 0, max: 86_400_000 });
+      requiredNumber(slo.minRequests, 'minRequests', { integer: true, min: 1, max: 1_000_000_000 });
+    } catch (error) {
+      return res.status(400).json({ error: { code: 'INVALID_VARIANTS', message: error.message } });
     }
     const rolloutId = id('rollout');
     const scope = scopeSql(req);
@@ -105,12 +139,27 @@ async function recordRolloutMetric(req, res, next) {
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
     if (rollout.status !== 'running' && rollout.status !== 'paused') return res.status(409).json({ error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running or paused rollout.' } });
     const { variant, requests = 0, errors = 0, latencyMs = 0, tokens = 0, costUsd = 0 } = req.body || {};
+    if (typeof variant !== 'string' || !variant.trim()) return res.status(400).json({ error: { code: 'INVALID_VARIANT', message: 'variant must be a non-empty string.' } });
+    let validatedRequests;
+    let validatedErrors;
+    let validatedLatency;
+    let validatedTokens;
+    let validatedCost;
+    try {
+      validatedRequests = requiredNumber(requests, 'requests', { integer: true, min: 0, max: 1_000_000_000 });
+      validatedErrors = requiredNumber(errors, 'errors', { integer: true, min: 0, max: validatedRequests });
+      validatedLatency = requiredNumber(latencyMs, 'latencyMs', { min: 0, max: 86_400_000 });
+      validatedTokens = requiredNumber(tokens, 'tokens', { integer: true, min: 0, max: Number.MAX_SAFE_INTEGER });
+      validatedCost = requiredNumber(costUsd, 'costUsd', { min: 0, max: Number.MAX_SAFE_INTEGER });
+    } catch (error) {
+      return res.status(400).json({ error: { code: error.code, message: error.message } });
+    }
     const metric = await db.get('SELECT variant FROM release_rollout_metrics WHERE rollout_id = ? AND variant = ?', rollout.id, variant);
     if (!metric) return res.status(400).json({ error: { code: 'UNKNOWN_VARIANT', message: 'variant is not configured for this rollout.' } });
-    const requestCount = Math.max(0, Math.floor(number(requests)));
-    const errorCount = Math.min(requestCount, Math.max(0, Math.floor(number(errors))));
-    await db.run(`UPDATE release_rollout_metrics SET requests = requests + ?, errors = errors + ?, latency_ms_total = latency_ms_total + ?, tokens = tokens + ?, cost_usd = cost_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE rollout_id = ? AND variant = ?`, requestCount, errorCount, Math.max(0, number(latencyMs)) * requestCount, Math.max(0, Math.floor(number(tokens))), Math.max(0, number(costUsd)), rollout.id, variant);
-    await db.run('INSERT INTO usage_ledger(id,organization_id,project_id,release_id,category,quantity,cost_usd,metadata_json) VALUES(?,?,?,?,?,?,?,?)', id('usage'), ...scope.params, rollout.release_id, 'rollout', requestCount, Math.max(0, number(costUsd)), JSON.stringify({ rolloutId: rollout.id, variant, tokens: Math.max(0, Math.floor(number(tokens))) }));
+    const requestCount = validatedRequests;
+    const errorCount = validatedErrors;
+    await db.run(`UPDATE release_rollout_metrics SET requests = requests + ?, errors = errors + ?, latency_ms_total = latency_ms_total + ?, tokens = tokens + ?, cost_usd = cost_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE rollout_id = ? AND variant = ?`, requestCount, errorCount, validatedLatency * requestCount, validatedTokens, validatedCost, rollout.id, variant);
+    await db.run('INSERT INTO usage_ledger(id,organization_id,project_id,release_id,category,quantity,cost_usd,metadata_json) VALUES(?,?,?,?,?,?,?,?)', id('usage'), ...scope.params, rollout.release_id, 'rollout', requestCount, validatedCost, JSON.stringify({ rolloutId: rollout.id, variant, tokens: validatedTokens }));
     if (rollout.status === 'paused' && requestCount > 0) {
       await db.run("UPDATE release_rollouts SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.id);
     }
