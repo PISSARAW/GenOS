@@ -1,5 +1,6 @@
 pub mod security;
 pub mod server;
+pub mod thalamus;
 pub mod types;
 
 pub use security::{RateLimiter, TenantAuth};
