@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "dev": "node server.js",
     "test": "node tests/test_backend.js",
     "test:grpc": "node tests/test_grpc_services.js",
     "apoptosis": "node bin/genos-apoptosis.cjs",
