@@ -67,4 +67,51 @@ test('swarmController quorum and abstention semantics', async (t) => {
     const notYetRejected = hasBeenRejected(3, 2, 5, 10, 0.60);
     assert.strictEqual(notYetRejected, false);
   });
+
+  await t.test('castVote supports distinct agentId in req.body to avoid worker_node collisions', async () => {
+    const { createProposal, castVote } = require('../src/controllers/swarmController');
+    const db = await getDatabase();
+    const wsId = `ws-vote-${Date.now()}`;
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)", wsId, `ws-name-${wsId}`, `/path/${wsId}`);
+
+    // Create a proposal
+    let propId = null;
+    const reqCreate = {
+      body: { title: 'Proposal Test', quorumThreshold: 0.5, workspaceId: wsId }
+    };
+    const resCreate = {
+      status: (code) => ({
+        json: (data) => { propId = data.proposalId; }
+      })
+    };
+    await createProposal(reqCreate, resCreate);
+    assert.ok(propId, 'Proposal should be created');
+
+    // Agent 1 votes
+    let vote1Result = null;
+    await castVote({
+      body: { proposalId: propId, agentId: 'swarm-worker-alpha', vote: 'yes' }
+    }, {
+      status: (code) => ({ json: (d) => { vote1Result = { code, d }; } }),
+      json: (d) => { vote1Result = { code: 200, d }; }
+    });
+    assert.strictEqual(vote1Result.code, 200);
+
+    // Agent 2 votes without collision
+    let vote2Result = null;
+    await castVote({
+      body: { proposalId: propId, agentId: 'swarm-worker-beta', vote: 'no' }
+    }, {
+      status: (code) => ({ json: (d) => { vote2Result = { code, d }; } }),
+      json: (d) => { vote2Result = { code: 200, d }; }
+    });
+    assert.strictEqual(vote2Result.code, 200);
+
+    // Verifying both votes exist in database
+    const recordedVotes = await db.all('SELECT agent_id, vote FROM swarm_votes WHERE proposal_id = ?', propId);
+    assert.strictEqual(recordedVotes.length, 2);
+    const agentIds = recordedVotes.map(r => r.agent_id);
+    assert.ok(agentIds.includes('swarm-worker-alpha'));
+    assert.ok(agentIds.includes('swarm-worker-beta'));
+  });
 });
