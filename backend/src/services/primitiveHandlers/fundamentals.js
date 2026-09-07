@@ -8,6 +8,7 @@ const fleet = require('../agentFleetService');
 const epistemics = require('../epistemics');
 const genosCli = require('../genosCli');
 const { getDatabase } = require('../../db');
+const { resolveContainedPath } = require('../pathSafety');
 const modelProvider = require('../modelProvider');
 const localModelDiscovery = require('../localModelDiscovery');
 const workspaceSnapshotStore = require('../workspaceSnapshotStore');
@@ -286,7 +287,14 @@ async function verify(context) {
     const workspace = await scopedWorkspace(db, context.workspaceId);
     if (workspace) {
       for (const artifact of context.requiredArtifacts) {
-         const fullPath = path.join(workspace.path, artifact);
+        let fullPath;
+        try { fullPath = resolveContainedPath(workspace.path, artifact, 'required artifact'); }
+        catch (_) {
+          success = false;
+          domainVerified = false;
+          failures.push(`Unsafe required artifact path: ${artifact}`);
+          continue;
+        }
          if (!fs.existsSync(fullPath)) {
             success = false;
             domainVerified = false;
