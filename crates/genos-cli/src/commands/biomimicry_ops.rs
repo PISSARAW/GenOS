@@ -101,3 +101,50 @@ pub fn parse_uuid(input: &str) -> Uuid {
 pub fn print_json(val: serde_json::Value) {
     println!("{}", serde_json::to_string_pretty(&val).unwrap());
 }
+
+pub fn handle_network_quorum(agent_id: &str, threshold: f64, action_id: &str) -> Result<(), String> {
+    let sanitized: String = action_id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    let root = crate::commands::root_resolver::resolve_matrix_root();
+    let quorum_dir = root.join("quorum");
+    if !quorum_dir.exists() {
+        let _ = std::fs::create_dir_all(&quorum_dir);
+    }
+    let file_path = quorum_dir.join(format!("{}.json", sanitized));
+
+    let mut voters: Vec<String> = if file_path.exists() {
+        let content = std::fs::read_to_string(&file_path).unwrap_or_default();
+        serde_json::from_str::<serde_json::Value>(&content)
+            .ok()
+            .and_then(|v| v.get("voters").and_then(|arr| arr.as_array()).map(|arr| {
+                arr.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect()
+            }))
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    if !voters.iter().any(|v| v == agent_id) {
+        voters.push(agent_id.to_string());
+    }
+
+    let voter_count = voters.len();
+    let quorum_reached = (voter_count as f64) >= threshold;
+    let payload = json!({
+        "success": true,
+        "operation": "network_quorum",
+        "action_id": action_id,
+        "agent_id": agent_id,
+        "threshold": threshold,
+        "voter_count": voter_count,
+        "voters": voters,
+        "quorum_reached": quorum_reached,
+        "status": if quorum_reached { "quorum_reached" } else { "accumulating" }
+    });
+
+    let _ = std::fs::write(&file_path, serde_json::to_string_pretty(&payload).unwrap_or_default());
+    print_json(payload);
+    Ok(())
+}
