@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
-const circuitBreaker = require('./src/services/circuitBreaker');
-const safety = require('./src/services/platformSafetyService');
-const resilience = require('./src/services/resilienceService');
+const circuitBreaker = require('../src/services/circuitBreaker');
+const safety = require('../src/services/platformSafetyService');
+const resilience = require('../src/services/resilienceService');
 
 async function main() {
   circuitBreaker.resetHalt('security-control-test');
@@ -21,7 +21,7 @@ async function main() {
 
   const autopsy = await resilience.evaluateApoptosis('costly-agent', {
     consecutiveFailures: 0,
-    semanticDivergence: 1,
+    semanticDivergence: 0,
     hallucinations: 0,
     costUsd: 2
   }, null, { maxCostUsd: 1 });
