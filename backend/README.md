@@ -138,8 +138,8 @@ npm run dev
 
 The server listens by default on:
 - **HTTP REST API:** `http://localhost:4000` (override via `PORT`)
-- **Health Probe:** `GET http://localhost:4000/api/health`
-- **gRPC Service:** `0.0.0.0:50051` (override via `GRPC_PORT`)
+- **Health Probes:** `GET http://localhost:4000/healthz`, `/readyz`, `/livez`
+- **gRPC Service:** `127.0.0.1:50051` by default, or `GRPC_BIND_ADDRESS:GRPC_PORT` when configured
 
 ### Bootstrap Credentials
 On first boot, the backend initializes `genos.db` (67+ tables), applies migrations, and creates a bootstrap administrator token. The one-time token is output to the console:
