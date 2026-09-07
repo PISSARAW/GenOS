@@ -11,7 +11,11 @@ function endpointBase(endpoint) {
 }
 
 function isChatCapable(model) {
-  return !/(embed|embedding|rerank)/i.test(model);
+  return typeof model === 'string' && !/(embed|embedding|rerank)/i.test(model);
+}
+
+function validModelName(model) {
+  return typeof model === 'string' && model.trim().length > 0 && model.length <= 256 && !/[\r\n]/.test(model);
 }
 
 async function readJson(url, timeoutMs = 2500) {
@@ -30,7 +34,7 @@ async function discoverProvider({ provider, endpoint, modelsPath, map }) {
   if (!base) return { models: [], error: `Invalid ${provider} endpoint.` };
   try {
     const payload = await readJson(`${base}${modelsPath}`);
-    return { models: map(payload).map((model) => ({ ...model, provider, endpoint, local: true, chatCapable: isChatCapable(model.model) })) };
+    return { models: map(payload).filter((model) => validModelName(model?.model)).map((model) => ({ ...model, model: model.model.trim(), provider, endpoint, local: true, chatCapable: isChatCapable(model.model) })) };
   } catch (error) { return { models: [], error: `${provider} discovery failed: ${error.message}` }; }
 }
 
