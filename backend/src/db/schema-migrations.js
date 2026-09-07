@@ -102,10 +102,6 @@ async function applyVersionedMigrations(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_episodic_agent_session ON episodic_memories (agent_id, session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);
-  CREATE INDEX IF NOT EXISTS idx_synapses_target ON memory_synapses(target_id);
-  CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight);
-  CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression);
-  CREATE INDEX IF NOT EXISTS idx_synapses_tenant ON memory_synapses(organization_id, project_id);
   CREATE INDEX IF NOT EXISTS idx_conscience_transitions_agent_rev ON conscience_transitions(agent_id, to_revision);
   CREATE INDEX IF NOT EXISTS idx_conscience_transitions_created ON conscience_transitions(created_at);`);
   await migrateAgentStatusConstraint(db);
@@ -203,6 +199,12 @@ async function applyVersionedMigrations(db) {
       throw error;
     }
   }
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_synapses_target ON memory_synapses(target_id);
+    CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight);
+    CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression);
+    CREATE INDEX IF NOT EXISTS idx_synapses_tenant ON memory_synapses(organization_id, project_id);
+  `);
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
   }
