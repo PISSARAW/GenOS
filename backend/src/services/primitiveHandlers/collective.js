@@ -111,7 +111,7 @@ async function brierScores(context) {
   const scores = {};
   for (const id of agentIds) {
     const agentObservations = observations.filter((item) => item.agentId === id);
-    const score = agentObservations.length > 0
+    let score = agentObservations.length > 0
       ? agentObservations.reduce((sum, item) => {
         const prediction = Number(item.prediction);
         const outcome = Number(item.outcome);
@@ -121,8 +121,13 @@ async function brierScores(context) {
         return sum + (prediction - outcome) ** 2;
       }, 0) / agentObservations.length
       : Number(suppliedScores[id]);
+
     if (!Number.isFinite(score) || score < 0 || score > 1) {
-      return { success: false, error: 'Calibration observations or scores required for every agent.' };
+      if (context.allowDefaults) {
+        score = Number(context.defaultScore ?? 0.25);
+      } else {
+        return { success: false, error: 'Calibration observations or scores required for every agent.' };
+      }
     }
     scores[id] = Number(score.toFixed(6));
   }
@@ -161,10 +166,17 @@ async function quorum(context) {
       try {
         const payload = JSON.parse(row.payload_json);
         if (payload.issue === issue && payload.vote) {
-          votes[payload.vote] = (votes[payload.vote] || 0) + 1;
+          if (payload.vote !== 'abstain') {
+            votes[payload.vote] = (votes[payload.vote] || 0) + 1;
+          }
           hasVoted.add(row.sender_agent_id);
         }
       } catch (e) {}
+    }
+    
+    const minParticipation = context.minParticipation || 3; // Default to at least 3 participants for quorum
+    if (hasVoted.size < minParticipation) {
+      return { success: true, issue, decision: null, votes, totalVotes: hasVoted.size, error: 'Quorum not reached' };
     }
     
     const sortedOptions = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
@@ -203,7 +215,9 @@ async function weightedQuorum(context) {
     const brierRes = await brierScores({
       agentIds,
       calibrationScores: context.calibrationScores,
-      calibrationObservations: context.calibrationObservations
+      calibrationObservations: context.calibrationObservations,
+      allowDefaults: true,
+      defaultScore: 0.25
     });
     if (!brierRes.success) return brierRes;
     const bScores = brierRes.scores || {};
