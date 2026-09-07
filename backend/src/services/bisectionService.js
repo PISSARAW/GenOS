@@ -58,7 +58,7 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
 /**
  * Algorithmic O(log N) causal bisection search isolating the exact culprit agent step
  */
-async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null) {
+async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null, executionResults = null) {
   const history = snapshotHistory;
   if (history.length === 0) {
     return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
@@ -120,12 +120,12 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null)
       stepNumber: culpritSnap.step ?? culpritSnap.step_number,
       snapshotHash: culpritSnap.hash ?? culpritSnap.snapshot_hash,
       culpritAgentId: culpritSnap.agent || culpritSnap.author || 'worker_fast_coder',
-      actionDescription: culpritSnap._execution
-        ? `Invariant command exited with ${culpritSnap._execution.exitCode}.\n${culpritSnap._execution.stderr || culpritSnap._execution.stdout || ''}`.trim()
+      actionDescription: executionResults?.get(culpritSnap)
+        ? `Invariant command exited with ${executionResults.get(culpritSnap).exitCode}.\n${executionResults.get(culpritSnap).stderr || executionResults.get(culpritSnap).stdout || ''}`.trim()
         : culpritSnap.reason || culpritSnap.label,
       toolCall: 'isolated_test_runner',
       targetFile: null,
-      rootCauseSummary: culpritSnap._execution?.stderr || culpritSnap.reason || culpritSnap.label || `First snapshot failing the supplied invariant: ${culpritSnap.label}`
+      rootCauseSummary: executionResults?.get(culpritSnap)?.stderr || culpritSnap.reason || culpritSnap.label || `First snapshot failing the supplied invariant: ${culpritSnap.label}`
     }
   };
 }
@@ -234,6 +234,7 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
   }
 
   let failurePredicate = predicate;
+  const executionResults = new WeakMap();
   if (!failurePredicate) {
     const isDurable = history.some(s => {
       try {
@@ -253,7 +254,7 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
             timeoutMs,
             workspacePath: wsPath
           });
-          snap._execution = execution;
+           executionResults.set(snap, execution);
           return execution.exitCode === 0;
         };
       } catch (_) {
@@ -277,7 +278,7 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
     };
   }
 
-  const bisectionResult = await bisectAnomalyAsync(history, failurePredicate);
+  const bisectionResult = await bisectAnomalyAsync(history, failurePredicate, executionResults);
 
   let remediation = null;
   if (bisectionResult.anomalyFound && autoRollback && db && workspaceId) {
