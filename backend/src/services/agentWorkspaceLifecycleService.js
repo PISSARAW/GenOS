@@ -185,9 +185,9 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
 async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0) {
   const tracked = activeWorktrees.get(agentId);
   if (!tracked || tracked.scheduled) return false;
-  tracked.scheduled = true;
   const delay = forceDelay !== null ? forceDelay : gcDelayMs();
   if (delay < 0) return false;
+  tracked.scheduled = true;
   const reclaim = async () => {
     try {
       const via = await cleanupWorkspace(tracked.workspaceRoot, agentId);
