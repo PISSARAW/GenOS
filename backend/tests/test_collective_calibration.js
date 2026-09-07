@@ -14,6 +14,15 @@ async function run() {
 
   const missing = await brierScores({ agentIds: ['agent-a'] });
   assert.strictEqual(missing.success, false);
+
+  const fallback = await brierScores({
+    agentIds: ['agent-uncalibrated'],
+    allowDefaults: true,
+    defaultScore: 0.25
+  });
+  assert.strictEqual(fallback.success, true);
+  assert.strictEqual(fallback.scores['agent-uncalibrated'], 0.25);
+
   console.log('collective calibration: PASS');
 }
 
