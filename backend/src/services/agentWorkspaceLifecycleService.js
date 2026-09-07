@@ -320,18 +320,23 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   const excluded = new Set(['.git', '.genos', 'node_modules', 'target']);
   let copiedEntries = 0;
-  await fs.cp(source, destination, {
-    recursive: true,
-    filter: (entry) => {
-      if (excluded.has(path.basename(entry))) return false;
-      const relative = path.relative(source, entry);
-      const depth = relative ? relative.split(path.sep).length : 0;
-      if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
-      copiedEntries += 1;
-      if (copiedEntries > MAX_COPY_ENTRIES) throw new Error(`Workspace copy exceeds the ${MAX_COPY_ENTRIES}-entry limit.`);
-      return true;
-    }
-  });
+  try {
+    await fs.cp(source, destination, {
+      recursive: true,
+      filter: (entry) => {
+        if (excluded.has(path.basename(entry))) return false;
+        const relative = path.relative(source, entry);
+        const depth = relative ? relative.split(path.sep).length : 0;
+        if (depth > MAX_COPY_DEPTH) throw new Error(`Workspace copy exceeds the ${MAX_COPY_DEPTH}-level depth limit.`);
+        copiedEntries += 1;
+        if (copiedEntries > MAX_COPY_ENTRIES) throw new Error(`Workspace copy exceeds the ${MAX_COPY_ENTRIES}-entry limit.`);
+        return true;
+      }
+    });
+  } catch (error) {
+    await fs.rm(destination, { recursive: true, force: true }).catch(() => {});
+    throw error;
+  }
   return destination;
 }
 
