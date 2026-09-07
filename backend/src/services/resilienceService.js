@@ -137,27 +137,51 @@ function somaticHypermutationPrompt(prompt = '', mutationRate = 0.2, options = {
  * Evaluates adaptive apoptosis criteria and generates post-mortem autopsy report
  */
 async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy = {}) {
-  const agent = agentId || 'agent-unknown';
+  let actualAgentId = agentId;
+  let actualMetrics = triggerMetrics;
+  let actualDb = db;
+  let actualPolicy = policy;
+
+  if (agentId && typeof agentId === 'object' && !Array.isArray(agentId)) {
+    actualAgentId = agentId.agentId || agentId.agent_id || 'agent-unknown';
+    actualMetrics = agentId.triggerMetrics || agentId.metrics || {};
+    actualDb = agentId.db || null;
+    actualPolicy = agentId.policy || {};
+  }
+
+  const agent = actualAgentId || 'agent-unknown';
   const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
-  const consecutiveFailures = Math.max(0, Math.floor(finite(triggerMetrics.consecutiveFailures, 0)));
-  const semanticDivergence = Math.max(0, Math.min(1, finite(triggerMetrics.semanticDivergence, 0.8)));
-  const hallucinations = Math.max(0, Math.floor(finite(triggerMetrics.hallucinations, 0)));
-  const tokensBurned = Math.max(0, finite(triggerMetrics.tokensBurned, 0));
-  const costUsd = Math.max(0, finite(triggerMetrics.costUsd, 0));
+  const consecutiveFailures = Math.max(0, Math.floor(finite(actualMetrics.consecutiveFailures, 0)));
+  const semanticDivergence = Math.max(0, Math.min(1, finite(actualMetrics.semanticDivergence, 0.8)));
+  const hallucinations = Math.max(0, Math.floor(finite(actualMetrics.hallucinations, 0)));
+  const tokensBurned = Math.max(0, finite(actualMetrics.tokensBurned, 0));
+  const costUsd = Math.max(0, finite(actualMetrics.costUsd, 0));
 
   // Multi-threshold criteria check
-  const maxFailures = Math.max(0, Math.floor(finite(policy.maxConsecutiveFailures, 3)));
-  const divergenceThreshold = Math.max(0, Math.min(1, finite(policy.divergenceThreshold, 0.55)));
+  const maxFailures = Math.max(0, Math.floor(finite(actualPolicy.maxConsecutiveFailures, 3)));
+  const divergenceThreshold = Math.max(0, Math.min(1, finite(actualPolicy.divergenceThreshold, 0.55)));
   const failureTrigger = consecutiveFailures >= maxFailures;
   const semanticTrigger = semanticDivergence > divergenceThreshold;
   const hallucinationTrigger = hallucinations >= 2;
-  const maxCostUsd = Number(policy.maxCostUsd);
+  const maxCostUsd = Number(actualPolicy.maxCostUsd);
   const costTrigger = Number.isFinite(maxCostUsd) && maxCostUsd >= 0 && costUsd >= maxCostUsd;
 
-  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger || costTrigger;
+  // Modèle biophysique de Conscience cognitive synchronisé avec Rust ConscienceState
+  const errorsPenalty = consecutiveFailures * 2.5;
+  const repetitionPenalty = (finite(actualMetrics.repetitionScore, 0) > 0.15 || hallucinations >= 1) ? 5.0 : 0.0;
+  const driftPenalty = (semanticDivergence > 0.35) ? 6.0 : 0.0;
+  const penalty = errorsPenalty + repetitionPenalty + driftPenalty;
+  const relief = finite(actualMetrics.progressScore, 0) * 3.0;
+  const initialDissonance = finite(actualMetrics.dissonanceLevel, 0.0);
+  const dissonanceLevel = Math.max(0, Number((initialDissonance + penalty - relief).toFixed(4)));
+  const maxDissonanceThreshold = finite(actualPolicy.maxDissonanceThreshold, 50.0);
+  const dissonanceTrigger = dissonanceLevel >= maxDissonanceThreshold;
+
+  const shouldTerminate = failureTrigger || semanticTrigger || hallucinationTrigger || costTrigger || dissonanceTrigger;
 
   let primaryReason = 'No termination criteria met';
-  if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
+  if (dissonanceTrigger) primaryReason = `Cognitive conscience dissonance threshold exceeded (${dissonanceLevel} >= ${maxDissonanceThreshold})`;
+  else if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
   else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} > ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
   else if (costTrigger) primaryReason = `Execution cost limit breached (${costUsd} >= ${maxCostUsd} USD)`;
@@ -165,8 +189,8 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   // Build the report from persisted agent telemetry. Do not invent call stacks
   // or failed tool calls when the evaluation found no termination condition.
   let lastActions = [];
-  if (db) {
-    const events = await db.all(
+  if (actualDb) {
+    const events = await actualDb.all(
       'SELECT event_type, action, detail, severity, created_at FROM telemetry_events WHERE agent_id = ? ORDER BY id DESC LIMIT 3',
       agent
     );
@@ -186,6 +210,8 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
     apoptosisExecuted: shouldTerminate,
     triggerReason: primaryReason,
     metricsSnapshot: {
+      dissonanceLevel,
+      maxDissonanceThreshold,
       consecutiveFailures,
       tokensBurned,
       costUsd,
@@ -199,9 +225,9 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   };
 
   // If DB available and apoptosis executed, update agent status
-  if (db && shouldTerminate) {
+  if (actualDb && shouldTerminate) {
     try {
-      await db.run(
+      await actualDb.run(
         `UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, current_task = 'Terminated by Apoptosis Sentinel', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
         agent
       );
