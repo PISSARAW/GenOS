@@ -20,7 +20,7 @@ function isMeaningfulEvidenceItem(item) {
     const trimmed = item.trim();
     if (!trimmed) return false;
     if (detectPlaceholderOrHallucination(trimmed).isPlaceholder) return false;
-    if (/^(?:none|n\/a|null|undefined|todo|unverified|fake|dummy|mock)$/i.test(trimmed)) return false;
+    if (/^(?:none|n\/a|null|undefined|todo|unverified|fake|dummy|mock)(?:\b|[:\s])/i.test(trimmed)) return false;
     return true;
   }
   if (typeof item === 'number' || typeof item === 'boolean') {
