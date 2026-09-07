@@ -6,12 +6,26 @@ const telemetry = require('../telemetryObserver');
 const dynOrg = require('../dynamicOrganizationService');
 const { getDatabase } = require('../../db');
 
+function parseSqliteUtcTimestamp(ts) {
+  if (!ts) return Date.now();
+  if (ts instanceof Date) return ts.getTime();
+  if (typeof ts === 'number') return ts;
+  const str = String(ts).trim();
+  if (!str) return Date.now();
+  if (str.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(str)) {
+    return new Date(str).getTime();
+  }
+  const isoUtc = str.replace(' ', 'T') + 'Z';
+  const parsed = new Date(isoUtc).getTime();
+  return Number.isNaN(parsed) ? new Date(str).getTime() : parsed;
+}
+
 async function pheromoneDeposit(context) {
   // Stigmergie : Un agent dépose une "phéromone" (trace) sur un chemin/artefact.
   const db = await getDatabase();
-  const orchestratorId = context.orchestratorId;
-  const agentId = context.agentId;
-  const path = context.path || context.trail || 'default_trail';
+  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.orchestrator;
+  const agentId = context.agentId || context.agent_id || context.senderId || context.sender_agent_id;
+  const path = context.path || context.trail || context.target_file || context.targetFile || 'default_trail';
   const strength = context.strength === undefined ? 1 : Number(context.strength);
 
   if (!orchestratorId || !agentId) {
@@ -47,7 +61,7 @@ async function pheromoneDeposit(context) {
 async function trailSelection(context) {
   // Sélection stigmergique : Lit les phéromones et choisit le chemin le plus fort.
   const db = await getDatabase();
-  const orchestratorId = context.orchestratorId;
+  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.agentId || context.agent_id;
   if (!orchestratorId) {
     return { success: false, error: 'orchestratorId required for trail_selection.' };
   }
@@ -55,13 +69,15 @@ async function trailSelection(context) {
   try {
     const state = await dynOrg.getState(db, orchestratorId);
     if (!state) return { success: false, error: `Orchestrator '${orchestratorId}' has no active organization.` };
-    const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || 3600000);
+    const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || context.evaporation_half_life_ms || context.halfLifeMs || 3600000);
     if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
       return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
     }
-    const suppliedReferenceTime = context.referenceTime == null ? Date.now() : new Date(context.referenceTime).getTime();
+    const rawRef = context.referenceTime ?? context.reference_time;
+    const suppliedReferenceTime = rawRef == null ? Date.now() : parseSqliteUtcTimestamp(rawRef);
     const referenceTime = Number.isFinite(suppliedReferenceTime) ? suppliedReferenceTime : Date.now();
-    const traceLimit = context.traceLimit == null ? 1000 : Number(context.traceLimit);
+    const rawLimit = context.traceLimit ?? context.trace_limit;
+    const traceLimit = rawLimit == null ? 1000 : Number(rawLimit);
     if (!Number.isInteger(traceLimit) || traceLimit < 1 || traceLimit > 10000) {
       return { success: false, error: 'traceLimit must be an integer between 1 and 10000.' };
     }
@@ -78,7 +94,8 @@ async function trailSelection(context) {
       try {
         const payload = JSON.parse(row.payload_json);
         if (payload.type === 'pheromone' && payload.path) {
-          const ageMs = Math.max(0, referenceTime - new Date(row.created_at || referenceTime).getTime());
+          const createdAtMs = parseSqliteUtcTimestamp(row.created_at);
+          const ageMs = Math.max(0, referenceTime - createdAtMs);
           const evaporation = Math.pow(0.5, ageMs / evaporationHalfLifeMs);
           trailStrengths[payload.path] = (trailStrengths[payload.path] || 0) + ((payload.strength || 0) * evaporation);
         }
@@ -174,23 +191,37 @@ async function quorum(context) {
       } catch (e) {}
     }
     
-    const minParticipation = context.minParticipation || 3; // Default to at least 3 participants for quorum
-    if (hasVoted.size < minParticipation) {
-      return { success: true, issue, decision: null, votes, totalVotes: hasVoted.size, error: 'Quorum not reached' };
-    }
-    
+    const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
+    const threshold = Number.isFinite(context.threshold) ? context.threshold : 0.5;
+
+    const totalExpressed = Object.values(votes).reduce((sum, val) => sum + val, 0);
     const sortedOptions = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
-    const decision = sortedOptions.length > 0 ? sortedOptions[0] : null;
-    
+    const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
+    const topVotes = topOption ? (votes[topOption] || 0) : 0;
+    const approvalRate = totalExpressed > 0 ? topVotes / totalExpressed : 0;
+
+    const quorumReached = hasVoted.size >= minParticipation && totalExpressed > 0 && approvalRate >= threshold;
+    const decision = quorumReached ? topOption : null;
+
     telemetry.emitEvent({
       eventType: 'SWARM_QUORUM',
       agentId: orchestratorId,
       action: 'QUORUM',
-      detail: `Quorum reached on ${issue}: ${decision}`,
+      detail: quorumReached ? `Quorum reached on ${issue}: ${decision}` : `Quorum not reached on ${issue}`,
       severity: 'info',
-      payload: { issue, decision, votes, totalVotes: hasVoted.size }
+      payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, approvalRate }
     });
-    return { success: true, issue, decision, votes, totalVotes: hasVoted.size };
+    return {
+      success: true,
+      issue,
+      decision,
+      quorumReached,
+      votes,
+      totalVotes: hasVoted.size,
+      expressedVotes: totalExpressed,
+      approvalRate,
+      ...(quorumReached ? {} : { error: 'Quorum not reached' })
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -241,23 +272,37 @@ async function weightedQuorum(context) {
       } catch (e) {}
     }
     
-    const minParticipation = context.minParticipation || 3;
-    if (hasVoted.size < minParticipation) {
-      return { success: true, issue, decision: null, weightedVotes, totalVotes: hasVoted.size, error: 'Quorum not reached' };
-    }
-    
+    const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
+    const threshold = Number.isFinite(context.threshold) ? context.threshold : 0.5;
+
+    const totalExpressedWeight = Object.values(weightedVotes).reduce((sum, w) => sum + w, 0);
     const sortedOptions = Object.keys(weightedVotes).sort((a, b) => weightedVotes[b] - weightedVotes[a]);
-    const decision = sortedOptions.length > 0 ? sortedOptions[0] : null;
+    const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
+    const topWeight = topOption ? (weightedVotes[topOption] || 0) : 0;
+    const approvalRate = totalExpressedWeight > 0 ? topWeight / totalExpressedWeight : 0;
+
+    const quorumReached = hasVoted.size >= minParticipation && totalExpressedWeight > 0 && approvalRate >= threshold;
+    const decision = quorumReached ? topOption : null;
     
     telemetry.emitEvent({
       eventType: 'SWARM_WEIGHTED_QUORUM',
       agentId: orchestratorId,
       action: 'WEIGHTED_QUORUM',
-      detail: `Weighted quorum reached on ${issue}: ${decision}`,
+      detail: quorumReached ? `Weighted quorum reached on ${issue}: ${decision}` : `Weighted quorum not reached on ${issue}`,
       severity: 'info',
-      payload: { issue, decision, weightedVotes, totalVotes: hasVoted.size }
+      payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate }
     });
-    return { success: true, issue, decision, weightedVotes, totalVotes: hasVoted.size };
+    return {
+      success: true,
+      issue,
+      decision,
+      quorumReached,
+      weightedVotes,
+      totalVotes: hasVoted.size,
+      totalWeight: totalExpressedWeight,
+      approvalRate,
+      ...(quorumReached ? {} : { error: 'Quorum not reached' })
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
