@@ -104,7 +104,12 @@ function dossierDigest(dossiers) {
     workerId: dossier.workerId,
     role: dossier.role,
     branch: dossier.assignedBranch,
-    reports: dossier.events.map((event) => event.evidenceReport).filter(Boolean)
+    reports: dossier.events.map((event) => {
+      if (event.evidenceReport) return event.evidenceReport;
+      if (event.noAnswerProof) return { noAnswerProof: event.noAnswerProof, type: 'impossibility_proof' };
+      if (event.failure) return { error: event.failure, type: 'failure' };
+      return null;
+    }).filter(Boolean)
   }));
 }
 
