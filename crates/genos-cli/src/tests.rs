@@ -6,8 +6,9 @@ mod tests {
     #[test]
     fn test_agent_and_snapshot_lifecycle() {
         let temp_dir = std::env::temp_dir();
-        let agent_file = temp_dir.join("test_agent_cell.yaml").to_string_lossy().to_string();
-        let snap_file = temp_dir.join("test_agent_snapshot.json").to_string_lossy().to_string();
+        let uid = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let agent_file = temp_dir.join(format!("test_agent_cell_{}.yaml", uid)).to_string_lossy().to_string();
+        let snap_file = temp_dir.join(format!("test_agent_snapshot_{}.json", uid)).to_string_lossy().to_string();
 
         let res = agent::execute(AgentSubcommands::Create {
             name: "Kwame".to_string(),
@@ -422,4 +423,34 @@ mod tests {
         });
         assert!(res_legal.is_ok(), "L'ouverture avec pioneer_factor doit réussir");
     }
+
+    #[test]
+    fn test_loop_detection_repetition_and_stagnation() {
+        use crate::args::LoopDetectionCmd;
+        use crate::commands::capsule;
+        use std::io::Write;
+
+        let temp_dir = std::env::temp_dir().join(format!("genos_test_{}", uuid::Uuid::new_v4()));
+        let _ = std::fs::create_dir_all(&temp_dir);
+        let history_file = temp_dir.join("history.jsonl");
+
+        // Write a repetitive history file: 4 consecutive exact match commands
+        let mut file = std::fs::File::create(&history_file).unwrap();
+        writeln!(file, "{{\"type\":\"run_command\",\"payload\":{{\"command\":\"cargo check\"}}}}").unwrap();
+        writeln!(file, "{{\"type\":\"run_command\",\"payload\":{{\"command\":\"cargo check\"}}}}").unwrap();
+        writeln!(file, "{{\"type\":\"run_command\",\"payload\":{{\"command\":\"cargo check\"}}}}").unwrap();
+        writeln!(file, "{{\"type\":\"run_command\",\"payload\":{{\"command\":\"cargo check\"}}}}").unwrap();
+        drop(file);
+
+        let cmd = LoopDetectionCmd {
+            history_file: history_file.to_str().unwrap().to_string(),
+            exact_match: 3,
+            stagnation: 5,
+            similarity: 0.95,
+        };
+
+        let res = capsule::handle_loop_detection(&cmd);
+        assert!(res.is_ok());
+    }
 }
+
