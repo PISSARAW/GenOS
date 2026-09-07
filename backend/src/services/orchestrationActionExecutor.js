@@ -4,6 +4,7 @@ const mcp = require('./mcpExecutor');
 const telemetry = require('./telemetryObserver');
 const path = require('path');
 const { getDatabase } = require('../db');
+const ACTION_RECEIPT_LEASE_MS = 5 * 60 * 1000;
 
 function actionArguments(decision, event, workspaceRoot) {
   const payload = event.payload || {};
@@ -46,11 +47,13 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
     db = await getDatabase();
     const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
     const existing = await db.get(
-      'SELECT status, completed_at FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
+      'SELECT status, completed_at, created_at FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
       orchestratorId, sourceEventId, decision.tool
     );
     const deferred = existing?.status === 'failed' && !existing.completed_at;
-    if (existing && !deferred) {
+    const startedAt = existing?.status === 'started' && existing.created_at ? Date.parse(`${existing.created_at}Z`) : NaN;
+    const stale = existing?.status === 'started' && Number.isFinite(startedAt) && Date.now() - startedAt >= ACTION_RECEIPT_LEASE_MS;
+    if (existing && !deferred && !stale) {
       telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
       return { executed: false, duplicate: true };
     }
