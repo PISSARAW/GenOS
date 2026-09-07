@@ -119,7 +119,7 @@ async function trailSelection(context) {
     
     const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a] || a.localeCompare(b));
     const repellentTrails = sortedTrails.filter(t => trailStrengths[t] < 0);
-    const excludeRepellent = Boolean(context.excludeRepellent || context.exclude_repellent);
+    const excludeRepellent = Boolean(context.excludeRepellent || context.exclude_repellent || context.avoidRepellent || context.avoid_repellent);
     let candidateTrails = sortedTrails;
     if (excludeRepellent) {
       const nonRepellent = sortedTrails.filter(t => trailStrengths[t] > 0);
@@ -128,7 +128,18 @@ async function trailSelection(context) {
       }
     }
 
-    const mode = String(context.mode || context.selection_mode || 'greedy').toLowerCase();
+    let mode = String(context.mode || context.selection_mode || '').toLowerCase();
+    if (!mode) {
+      if (context.probabilistic || context.alpha !== undefined) {
+        mode = 'probabilistic';
+      } else if (context.temperature !== undefined) {
+        mode = 'softmax';
+      } else if (context.epsilon !== undefined) {
+        mode = 'epsilon_greedy';
+      } else {
+        mode = 'greedy';
+      }
+    }
     let selectedTrail = null;
     const trailProbabilities = {};
 
@@ -146,7 +157,7 @@ async function trailSelection(context) {
         for (const t of candidateTrails) {
           trailProbabilities[t] = sumExp > 0 ? (exps[t] / sumExp) : (1 / candidateTrails.length);
         }
-      } else if (mode === 'probabilistic' || mode === 'roulette' || mode === 'fitness') {
+      } else if (mode === 'probabilistic' || mode === 'roulette' || mode === 'fitness' || mode === 'aco') {
         const alpha = Math.max(0.1, Number(context.alpha ?? 1.0));
         let sumWeights = 0;
         const weights = {};
