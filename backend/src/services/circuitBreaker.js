@@ -137,6 +137,11 @@ class CircuitBreakerService {
         detail: `Canary execution of '${toolName}' succeeded. Circuit breaker reset to CLOSED.`,
         severity: 'info'
       });
+      return;
+    }
+    if (state.state === 'CLOSED') {
+      state.failureCount = 0;
+      state.lastFailureTime = 0;
     }
   }
 
