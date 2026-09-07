@@ -1,4 +1,13 @@
 const { execSync } = require('child_process');
+const path = require('path');
+const fs = require('fs');
+
+function resolveGenosBin() {
+    const exe = process.platform === 'win32' ? 'genos.exe' : 'genos';
+    const localBin = path.resolve(__dirname, '../../target/debug', exe);
+    if (fs.existsSync(localBin)) return `"${localBin}"`;
+    return 'genos';
+}
 
 /**
  * Simulates a synaptic ping to the Griot agent via CLI.
@@ -14,7 +23,8 @@ function testSynapticPing(agentId) {
     try {
         console.log(`[Synaptic Ping] Sending ping to agent ${agentId}...`);
         // Simulate the CLI command execution
-        const command = `genos agent ping --id ${agentId}`;
+        const bin = resolveGenosBin();
+        const command = `${bin} agent ping --id ${agentId}`;
         console.log(`[Synaptic Ping] Executing: ${command}`);
         
         // Use execSync to simulate the ping

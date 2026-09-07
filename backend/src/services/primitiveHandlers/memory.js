@@ -388,28 +388,32 @@ async function stdpUpdate(context) {
   const update = Number((baseUpdate * neuromodulationFactor).toFixed(6));
 
   const [sRow, tRow] = await Promise.all([
-    db.get('SELECT id FROM genome_decisions WHERE id = ?', sourceId),
-    db.get('SELECT id FROM genome_decisions WHERE id = ?', targetId)
+    db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', sourceId),
+    db.get('SELECT id, organization_id, project_id FROM genome_decisions WHERE id = ?', targetId)
   ]);
   if (!sRow || !tRow) {
     return { success: false, error: `Invalid foreign keys for STDP: sourceId=${sourceId}, targetId=${targetId}` };
   }
+  const orgId = context.organizationId || sRow.organization_id || tRow.organization_id || null;
+  const projId = context.projectId || sRow.project_id || tRow.project_id || null;
 
   let row;
   await withTransaction(db, async (tx) => {
     const initialWeight = Math.max(0.01, Math.min(20.0, update > 0 ? update : 1.0 + update));
     await tx.run(
       `INSERT INTO memory_synapses
-      (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, last_updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      (source_id, target_id, weight, transmitter_type, pre_spike_at, post_spike_at, delta_t_ms, organization_id, project_id, last_updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(source_id, target_id) DO UPDATE SET
         weight = MIN(20.0, MAX(0.01, memory_synapses.weight + ?)),
         transmitter_type = COALESCE(memory_synapses.transmitter_type, excluded.transmitter_type),
         pre_spike_at = excluded.pre_spike_at,
         post_spike_at = excluded.post_spike_at,
         delta_t_ms = excluded.delta_t_ms,
+        organization_id = COALESCE(memory_synapses.organization_id, excluded.organization_id),
+        project_id = COALESCE(memory_synapses.project_id, excluded.project_id),
         last_updated_at = CURRENT_TIMESTAMP`,
-      sourceId, targetId, initialWeight, transmitterType, preSpikeAt, postSpikeAt, deltaT, update
+      sourceId, targetId, initialWeight, transmitterType, preSpikeAt, postSpikeAt, deltaT, orgId, projId, update
     );
     await tx.run(
       `UPDATE memory_synapses SET

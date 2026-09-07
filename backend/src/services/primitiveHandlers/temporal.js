@@ -188,14 +188,22 @@ async function dependencyMatrix(context = {}) {
   
   let rows = [];
   if (workspaceId) {
+    const ws = await db.get('SELECT organization_id, project_id FROM workspaces WHERE id = ?', workspaceId);
+    const orgId = ws?.organization_id || context.organizationId || null;
+    const projId = ws?.project_id || context.projectId || null;
     rows = await db.all(
       `SELECT s.source_id, s.target_id, s.weight
          FROM memory_synapses s
          JOIN genome_decisions source_node ON source_node.id = s.source_id
          JOIN genome_decisions target_node ON target_node.id = s.target_id
-        WHERE (source_node.organization_id = ? OR source_node.project_id = ? OR source_node.created_by = ? OR target_node.created_by = ?)
+        WHERE ((? IS NOT NULL AND source_node.organization_id = ?)
+            OR (? IS NOT NULL AND source_node.project_id = ?)
+            OR source_node.created_by IN (SELECT id FROM agents WHERE workspace_id = ?)
+            OR target_node.created_by IN (SELECT id FROM agents WHERE workspace_id = ?)
+            OR source_node.created_by = ?
+            OR target_node.created_by = ?)
         ORDER BY s.last_updated_at DESC LIMIT 100`,
-      workspaceId, workspaceId, orchestratorId || '', orchestratorId || ''
+      orgId, orgId, projId, projId, workspaceId, workspaceId, orchestratorId || '', orchestratorId || ''
     );
   } else if (orchestratorId) {
     rows = await db.all(
