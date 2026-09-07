@@ -1,4 +1,4 @@
-const { generate } = require("../src/services/modelProvider");
+﻿const { generate } = require("../src/services/modelProvider");
 const { runGenosSync } = require("../src/services/genosCli");
 const fs = require("fs");
 const path = require("path");
@@ -212,7 +212,4 @@ async function runComputerUseLoop(mission) {
     }
 }
 
-const args = process.argv.slice(2);
-const mission = args[0] || "Ouvre le bloc note et écrit GenOS V3.";
-runComputerUseLoop(mission).catch(console.error);
-
+module.exports = { runComputerUseLoop };
