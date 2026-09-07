@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { boundedInteger } = require('./argumentBounds');
 const { validateProviderEndpoint } = require('../services/providerEndpointPolicy');
+const { normalizeCapabilities } = require('../services/modelCapabilities');
 
 function catalogProviders() {
   const filePath = path.resolve(__dirname, '../../../config/providers.json');
@@ -16,7 +17,7 @@ function catalogProviders() {
     return catalogs.flatMap((catalog) => Object.entries(catalog.profiles || {}).map(([model, profile]) => ({
       provider: catalog.format === 'ollama' ? 'ollama' : catalog.name.toLowerCase(),
       model,
-      capabilities: [...(profile.advantages || []), ...(profile.disadvantages || []).map((item) => `not:${item}`)],
+      capabilities: normalizeCapabilities([...(profile.advantages || []), ...(profile.disadvantages || []).map((item) => `not:${item}`)]),
       endpoint: catalog.chat_url || null,
       costInput: 0,
       costOutput: 0,
@@ -40,7 +41,8 @@ async function providers(req, res) {
 async function registerProvider(req, res) {
   const provider = req.body || {};
   if (!provider.provider || !provider.model) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model are required' } });
-  if (!Array.isArray(provider.capabilities || [])) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array' } });
+  if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
+  provider.capabilities = normalizeCapabilities(provider.capabilities);
   if (provider.endpoint) {
     try { validateProviderEndpoint(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
   }
