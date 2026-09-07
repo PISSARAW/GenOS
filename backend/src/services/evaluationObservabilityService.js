@@ -147,19 +147,65 @@ async function pruneNode(nodeId, scope = {}) {
 
   const allPrunedIds = [nodeId, ...descendantRows.map(r => r.id)];
   const prunedAt = new Date().toISOString();
+  const placeholders = allPrunedIds.map(() => '?').join(',');
 
-  for (const targetId of allPrunedIds) {
-    const row = await db.get('SELECT metadata FROM lineage_nodes WHERE id = ?', targetId);
-    if (row) {
-      const metadata = { ...parse(row.metadata, {}), pruned: true, prunedAt, prunedRoot: nodeId };
-      await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), targetId);
+  // Récupération en une seule requête de tous les nœuds ciblés
+  const nodeRows = await db.all(`SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`, ...allPrunedIds).catch(() => []);
+
+  // Terminaison propre des agents d'exécution actifs associés aux nœuds élagués
+  let runtimeAdapter;
+  let scheduleWorkspaceCleanup;
+  try {
+    runtimeAdapter = require('./agentRuntimeAdapter');
+    const wsMod = require('./agentWorkspaceLifecycleService');
+    scheduleWorkspaceCleanup = wsMod.scheduleWorkspaceCleanup;
+  } catch (_) {}
+
+  const terminatedAgents = [];
+  for (const row of nodeRows) {
+    if (row.agent_id) {
+      terminatedAgents.push(row.agent_id);
+      if (runtimeAdapter) {
+        try { runtimeAdapter.stopMission(row.agent_id); } catch (_) {}
+      }
+      try {
+        await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?", row.agent_id);
+      } catch (_) {}
+      if (scheduleWorkspaceCleanup) {
+        try { await scheduleWorkspaceCleanup(row.agent_id); } catch (_) {}
+      }
     }
   }
 
+  // Mise à jour groupée des métadonnées des nœuds élagués
+  for (const row of nodeRows) {
+    const metadata = { ...parse(row.metadata, {}), pruned: true, prunedAt, prunedRoot: nodeId };
+    await db.run('UPDATE lineage_nodes SET metadata = ? WHERE id = ?', JSON.stringify(metadata), row.id);
+  }
+
+  // Marquage des arêtes du DAG associées à ces nœuds
+  const edgeRows = await db.all(
+    `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
+    ...allPrunedIds,
+    ...allPrunedIds
+  ).catch(() => []);
+
+  for (const edge of edgeRows) {
+    const eMeta = { ...parse(edge.metadata, {}), pruned: true, prunedAt };
+    await db.run('UPDATE lineage_edges SET metadata = ? WHERE id = ?', JSON.stringify(eMeta), edge.id).catch(() => {});
+  }
+
   const rootMeta = { ...parse(node.metadata, {}), pruned: true, prunedAt, descendantPrunedCount: descendantRows.length };
-  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata: rootMeta, allPrunedIds }, null, scope);
-  telemetry.emitEvent({ eventType: 'MCTS_NODE_PRUNED', agentId: node.agent_id || 'studio', action: 'PRUNE', detail: `MCTS node ${nodeId} and ${descendantRows.length} descendants pruned`, payload: { nodeId, allPrunedIds, provenance } });
-  return { nodeId, pruned: true, allPrunedIds, prunedCount: allPrunedIds.length, provenance };
+  const provenance = await recordProvenance('mcts_node', nodeId, { action: 'prune', node, metadata: rootMeta, allPrunedIds, terminatedAgents }, null, scope);
+  telemetry.emitEvent({
+    eventType: 'MCTS_NODE_PRUNED',
+    agentId: node.agent_id || 'studio',
+    action: 'PRUNE',
+    detail: `MCTS node ${nodeId} and ${descendantRows.length} descendants pruned. Terminated ${terminatedAgents.length} agents.`,
+    payload: { nodeId, allPrunedIds, terminatedAgents, provenance }
+  });
+
+  return { nodeId, pruned: true, allPrunedIds, prunedCount: allPrunedIds.length, terminatedAgents, provenance };
 }
 
 async function updateNotifications(preferences, scope = {}) {
