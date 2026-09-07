@@ -128,7 +128,7 @@ async function copyManifestPayload(workspacePath, root, hash, files, manifestDat
       if (sha256(copied) !== file.hash || copied.length !== file.size) {
         throw new Error(`Workspace changed while snapshotting ${file.path}; capture aborted.`);
       }
-      await fsp.chmod(destination, file.mode).catch(() => {});
+      await fsp.chmod(destination, file.mode);
     }
     const manifestJson = manifestData ? { ...manifestData, version: 1, hash, files } : { version: 1, hash, files };
     await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
@@ -308,7 +308,7 @@ async function materialize(snapshot, destination) {
     if (sha256(bytes) !== file.hash) throw new Error(`Snapshot payload checksum mismatch for ${file.path}.`);
     await fsp.mkdir(path.dirname(target), { recursive: true });
     await fsp.writeFile(target, bytes);
-    await fsp.chmod(target, file.mode).catch(() => {});
+    await fsp.chmod(target, file.mode);
   }
   const materializedHash = manifestHash(await collectFiles(destination));
   if (materializedHash !== manifest.hash) throw new Error(`Snapshot materialization checksum mismatch for ${destination}.`);

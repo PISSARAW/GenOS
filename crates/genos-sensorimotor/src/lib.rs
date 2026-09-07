@@ -74,20 +74,62 @@ fn execute_action_with(
             }
         }
         "click" => {
+            let mut uia_success = false;
+            
+            // TENTATIVE DE FRAPPE SILENCIEUSE (UI Automation)
             if let (Some(x_pos), Some(y_pos)) = (x, y) {
-                enigo.move_mouse(x_pos, y_pos, Coordinate::Abs).map_err(|e| format!("Mouse error: {:?}", e))?;
-                thread::sleep(Duration::from_millis(50));
+                if let Ok(uia) = uiautomation::UIAutomation::new() {
+                    let point = uiautomation::types::Point::new(x_pos, y_pos);
+                    if let Ok(element) = uia.element_from_point(point) {
+                        // Focus is crucial so subsequent "type" actions go to this element
+                        let _ = element.set_focus();
+                        
+                        use uiautomation::patterns::{UIInvokePattern, UITogglePattern, UISelectionItemPattern};
+                        
+                        if let Ok(invoke) = element.get_pattern::<UIInvokePattern>() {
+                            if invoke.invoke().is_ok() { uia_success = true; }
+                        } else if let Ok(toggle) = element.get_pattern::<UITogglePattern>() {
+                            if toggle.toggle().is_ok() { uia_success = true; }
+                        } else if let Ok(selection) = element.get_pattern::<UISelectionItemPattern>() {
+                            if selection.select().is_ok() { uia_success = true; }
+                        } else {
+                            // Si ce n'est pas un bouton mais par ex un champ texte, le focus a réussi
+                            uia_success = true;
+                        }
+                    }
+                }
             }
-            let btn = match button.unwrap_or("left") {
-                "right" => Button::Right,
-                "middle" => Button::Middle,
-                _ => Button::Left,
-            };
-            enigo.button(btn, Direction::Click).map_err(|e| format!("Click error: {:?}", e))?;
+            
+            // FALLBACK PHYSIQUE si UIAutomation a échoué
+            if !uia_success {
+                if let (Some(x_pos), Some(y_pos)) = (x, y) {
+                    enigo.move_mouse(x_pos, y_pos, Coordinate::Abs).map_err(|e| format!("Mouse error: {:?}", e))?;
+                    thread::sleep(Duration::from_millis(50));
+                }
+                let btn = match button.unwrap_or("left") {
+                    "right" => Button::Right,
+                    "middle" => Button::Middle,
+                    _ => Button::Left,
+                };
+                enigo.button(btn, Direction::Click).map_err(|e| format!("Click error: {:?}", e))?;
+            }
         }
         "type" => {
             if let Some(t) = text {
-                enigo.text(t).map_err(|e| format!("Type error: {:?}", e))?;
+                let mut uia_success = false;
+                
+                if let Ok(uia) = uiautomation::UIAutomation::new() {
+                    if let Ok(element) = uia.get_focused_element() {
+                        use uiautomation::patterns::UIValuePattern;
+                        if let Ok(value) = element.get_pattern::<UIValuePattern>() {
+                            if value.set_value(t).is_ok() { uia_success = true; }
+                        }
+                    }
+                }
+                
+                if !uia_success {
+                    enigo.text(t).map_err(|e| format!("Type error: {:?}", e))?;
+                }
             } else {
                 return Err("type requires text".to_string());
             }
