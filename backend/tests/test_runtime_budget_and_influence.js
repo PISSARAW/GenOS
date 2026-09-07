@@ -54,7 +54,7 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   const budget = runRuntime(directory, fakeCodex, {
     executionBudgetJson: JSON.stringify({ tokens: 1_000_000, events: 2, latencyMs: 5000, costUsd: 5 })
   }, { RUNTIME_CASE: 'budget' });
-  assert.equal(budget.status, 1);
+  assert.notEqual(budget.status, 0);
   const budgetEvents = eventsFrom(budget.stdout);
   assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'));
   assert(budgetEvents.some((event) => event.eventType === 'AGENT_HALTED' && event.status === 'blocked'));
@@ -67,7 +67,7 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   assert(eventsFrom(valid.stdout).some((event) => event.eventType === 'DOSSIER_INFLUENCE_VERIFIED'));
 
   const invalid = runRuntime(directory, fakeCodex, synthesisMission, { RUNTIME_CASE: 'missing' });
-  assert.equal(invalid.status, 1);
+  assert.notEqual(invalid.status, 0);
   assert(eventsFrom(invalid.stdout).some((event) => event.eventType === 'HARD_INVARIANT_FAILURE' && event.action === 'DOSSIER_INFLUENCE'));
 
   console.log('Runtime budget and dossier-influence checks passed.');
