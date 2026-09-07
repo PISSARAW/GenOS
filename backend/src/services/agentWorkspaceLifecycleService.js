@@ -171,8 +171,10 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   } else {
     try {
       const parentDir = path.dirname(workspaceRoot);
-      if (fsSync.existsSync(path.join(parentDir, '.git'))) {
-        await spawnGit(parentDir, ['worktree', 'prune']);
+      const match = workspaceRoot.match(/^(.*)[\/\\](\.genos-agent-worlds|\.genos-snapshot-worktrees|snapshot-worktrees|genos-snapshots)[\/\\]([^\/\\]+)[\/\\]/);
+      const guessedRepo = match ? path.join(match[1], match[3]) : parentDir;
+      if (fsSync.existsSync(path.join(guessedRepo, '.git'))) {
+        await spawnGit(guessedRepo, ['worktree', 'prune']);
       }
     } catch (_) {}
   }
