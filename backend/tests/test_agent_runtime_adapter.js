@@ -47,7 +47,7 @@ try {
   assert(roundSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)') || adapterSource.includes('for (const workerId of continuationWorkerIds) dispatchPendingContinuation(workerId)'), 'all selected continuation workers must be dispatched even if they closed before the final initial result');
 
   process.env.GENOS_AGENT_EXECUTOR = '/tmp/custom-genos-executor';
-  assert.strictEqual(adapter.configuredExecutable(), '/tmp/custom-genos-executor');
+  assert.strictEqual(adapter.configuredExecutable(), defaultExecutable);
 
   const halted = adapter.runtimeExitOutcome(
     { kind: 'guardrail', reason: 'tokens budget exceeded (45001 > 45000)' },
