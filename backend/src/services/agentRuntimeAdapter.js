@@ -136,7 +136,11 @@ async function startMissionInternal(mission) {
       tokens: Math.max(1, Math.floor(autonomyPlan.tokenPolicy.total * autonomyPlan.tokenPolicy.orchestratorReserve))
     }
     : normalizedRuntimeBudget;
-  const budgetCheck = validateBudgetCoherence({ executionBudget: runtimeBudget, autonomyPlan: autonomyPlan || { tokenPolicy: { total: runtimeBudget.tokens, workerShare: runtimeBudget.workerShare || 0.6, orchestratorReserve: runtimeBudget.orchestratorReserve || 0.4 } } });
+  const budgetCheck = validateBudgetCoherence({
+    executionBudget: { ...runtimeBudget, scope: dispatchedAgent.execution_mode || 'orchestrator' },
+    autonomyPlan: autonomyPlan || { tokenPolicy: { total: runtimeBudget.tokens, workerShare: runtimeBudget.workerShare || 0.6, orchestratorReserve: runtimeBudget.orchestratorReserve || 0.4 } },
+    scope: dispatchedAgent.execution_mode || 'orchestrator'
+  });
   if (!budgetCheck.valid) {
     throw Object.assign(new Error(`Runtime budget coherence check failed: ${budgetCheck.reason}`), { code: 'BUDGET_COHERENCE_FAILURE' });
   }
