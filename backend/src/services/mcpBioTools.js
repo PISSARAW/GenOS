@@ -1,5 +1,8 @@
 const cp = require('child_process');
-const { runGenosSync } = require('./genosCli');
+const genosCli = require('./genosCli');
+function runGenosSync(...args) {
+  return genosCli.runGenosSync(...args);
+}
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
 let echolocationProcess = null;
@@ -310,6 +313,18 @@ async function executeBioTool(toolName, args) {
   if (toolName === 'genos_biomimicry_network_quorum') {
     try {
       const out = runGenosSync(`genos biomimicry network-quorum --agent-id ${args.agent_id} --threshold ${args.quorum_threshold} --action-id "${args.action_id}"`);
+      return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_swarm_consensus') {
+    try {
+      const agentId = args.agent_id || 'swarm_agent';
+      const threshold = args.quorum_threshold || 0.66;
+      const actionId = args.proposal || args.action_id || 'swarm_consensus';
+      const out = runGenosSync(`genos biomimicry network-quorum --agent-id ${agentId} --threshold ${threshold} --action-id "${actionId}"`);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
