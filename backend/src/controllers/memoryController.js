@@ -101,10 +101,13 @@ async function ingestMemory(req, res, next) {
 
     const decisionId = `dec-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
     
-    // 1. Erreur de Prédiction (Dopamine Mismatch) & Détection de Correction
-    const isCorrection = /^(non|faux|erreur|actually|correction|wrong|incorrect)\b/i.test(content) ||
+    // 1. Erreur de Prédiction (Dopamine Mismatch) & Détection de Correction / Contre-Exemple
+    const isCorrection = category === 'counterexample' ||
+      /^(non|faux|erreur|actually|correction|wrong|incorrect|contre[- ]?exemple|counter[- ]?example|invalide|invalid|réfuté|refuted|falsifié|falsified)\b/i.test(content) ||
       /ce n'est pas/i.test(content) || /plutôt/i.test(content) || /en réalité/i.test(content) ||
-      /tu hallucines/i.test(content) || /you hallucinated/i.test(content) || /c'est faux/i.test(content);
+      /tu hallucines/i.test(content) || /you hallucinated/i.test(content) || /c'est faux/i.test(content) ||
+      /contre[- ]?exemple/i.test(content) || /counter[- ]?example/i.test(content) ||
+      /réfutation/i.test(content) || /falsification/i.test(content);
     let initialWeight = isCorrection ? 10.0 : 1.0;
 
     // 3. Filtre Amygdalien (Vigilance face aux Injections et Attaques Adversaires)
@@ -147,12 +150,12 @@ async function ingestMemory(req, res, next) {
           if (!rel.id || String(rel.id).startsWith('seed-') || String(rel.id).startsWith('exp-') || rel.id === 'signal_ignorance' || rel.category === 'Trajectory') continue;
           
           if (isFirst && isCorrection && (rel.cosineMetric > 0.65 || rel.similarityScore > 0.6)) {
-              // Si c'est une correction, le lien ciblé à haute similarité est inhibé (GABAergique)
+              // Si c'est une correction / contre-exemple, le lien ciblé à haute similarité est inhibé (GABAergique avec poids négatif)
               await db.run(
                 `INSERT INTO memory_synapses (source_id, target_id, weight, transmitter_type, activity_history, last_updated_at, organization_id, project_id)
-                 VALUES (?, ?, 5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
+                 VALUES (?, ?, -5.0, 'gaba', 1, CURRENT_TIMESTAMP, ?, ?)
                  ON CONFLICT(source_id, target_id) DO UPDATE SET
-                   weight = CASE WHEN memory_synapses.weight < 0 THEN MIN(-1.0, memory_synapses.weight - 2.0) ELSE MIN(20.0, memory_synapses.weight + 1.0) END,
+                   weight = CASE WHEN memory_synapses.weight < 0 THEN MIN(-1.0, memory_synapses.weight - 2.0) ELSE -5.0 END,
                    transmitter_type = 'gaba',
                    activity_history = memory_synapses.activity_history + 1,
                    last_updated_at = CURRENT_TIMESTAMP`,

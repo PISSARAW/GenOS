@@ -119,10 +119,10 @@ class VectorMemoryService {
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
             WHERE s.target_id IN (${placeholders}) AND (s.weight < 0 OR s.transmitter_type = 'gaba')
-              ${options.ownerId ? 'AND source_node.created_by = ?' : ''}
+              ${options.organizationId ? 'AND (s.organization_id = ? OR s.organization_id IS NULL)' : ''}
             GROUP BY s.target_id
             HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
-          options.ownerId ? [...topIds, options.ownerId] : topIds
+          options.organizationId ? [...topIds, options.organizationId] : topIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
         topItems = topItems.map(item => inhibitedIds.has(item.id)

@@ -227,7 +227,21 @@ async function recordExecutionEvent(db, agentId, event) {
   const failed = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType);
   const completed = ['AGENT_COMPLETED', 'WORKER_NO_ANSWER_PROVEN'].includes(event.eventType);
   const contractRecord = await strategyContracts.getContractById(db, row.contract_id);
-  const approvalRequired = completed && contractRecord?.contract?.promotion?.require_human_approval === true;
+  const contract = contractRecord?.contract || {};
+  if (completed && !guardrailReason) {
+    const promotionPolicy = require('./strategyPromotionPolicyService');
+    const promoEval = promotionPolicy.evaluatePromotionGate(contract, {
+      replayVerified: Boolean(event.payload?.replayVerified || event.payload?.replayReceipt || event.payload?.diffAndReplayPassed),
+      independentVerification: Boolean(event.payload?.independentVerification || event.payload?.claims?.length || event.payload?.evidenceReport?.claims?.length),
+      humanApproved: false,
+      report: event.payload?.evidenceReport || event.payload?.report
+    });
+    const policyViolationReason = promoEval.violations.find((v) => v.policy !== 'require_human_approval');
+    if (policyViolationReason) {
+      guardrailReason = `Promotion gate blocked (${policyViolationReason.policy}): ${policyViolationReason.message}`;
+    }
+  }
+  const approvalRequired = completed && !guardrailReason && contract?.promotion?.require_human_approval === true;
   const index = stepIndex(event, steps.length);
   const now = new Date().toISOString();
   if (!guardrailReason) guardrailReason = unfinishedPhaseReason(steps, index);
@@ -347,6 +361,16 @@ async function approveRun(db, id, options = {}) {
       action: 'PROMOTION_FINALIZED',
       detail: `Deferred promotion pipeline executed for approved run ${id}.`,
       payload: { runId: id, contractId: row.contract_id, promotionResult, approvedBy: options.approvedBy || 'human_gate' }
+    });
+  } catch (_) {}
+
+  try {
+    const promotionPolicy = require('./strategyPromotionPolicyService');
+    await promotionPolicy.applyPostPromotionPolicies(db, contract, {
+      agentId: row.agent_id,
+      rejectedBranchIds: options.rejectedBranchIds || [],
+      winnerWorkspaceRoot: options.winnerWorkspaceRoot,
+      targetWorkspaceRoot: options.targetWorkspaceRoot
     });
   } catch (_) {}
 
