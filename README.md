@@ -167,7 +167,7 @@ GenOS/
 │   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 78 strategies
 │   │   │   ├── embeddingProvider.js    # Unified 768-D multi-backend embeddings
 │   │   │   ├── budgetCoherenceService.js # 60/40 budget validation & envelope checks
-│   │   │   ├── mcpToolRegistry.js      # 241 tools typed dispatcher
+│   │   │   ├── mcpToolRegistry.js      # 243 tools typed dispatcher
 │   │   │   └── sleepCycle.js           # Hippocampal consolidation & microglial pruning
 │   │   └── strategies/        # Strategy catalog and classification families
 │   └── tests/                 # Comprehensive test suite (unit, integration, budget, human gate)
@@ -219,7 +219,7 @@ building the workspace; the two CLIs expose different command surfaces.
 
 ### 3. Connect via MCP (Model Context Protocol)
 
-GenOS provides an integrated MCP server and tool dispatcher exposing 241 tools to Claude, Cursor, or external agent runtimes:
+GenOS provides an integrated MCP server and tool dispatcher exposing 243 tools to Claude, Cursor, or external agent runtimes:
 
 ```bash
 cd mcp
