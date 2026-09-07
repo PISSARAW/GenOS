@@ -1,6 +1,8 @@
 const modelProvider = require('./modelProvider');
 const localModelDiscovery = require('./localModelDiscovery');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -123,6 +125,22 @@ async function loadProviderCandidates(db) {
     .filter((uri) => /^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\/[^/].+/.test(uri));
 }
 
+function loadCatalogProviders() {
+  try {
+    const filePath = path.resolve(__dirname, '../../../config/providers.json');
+    const catalogs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return catalogs.flatMap((catalog) => Object.keys(catalog.profiles || {}).map((model) => ({
+      provider: catalog.format === 'ollama' ? 'ollama' : String(catalog.name || '').toLowerCase(),
+      model,
+      endpoint: catalog.chat_url || null
+    }))).filter((item) => MODEL_URI.test(`${item.provider}://${item.model}`));
+  } catch (_) { return []; }
+}
+
+function catalogProviderFor(provider, model) {
+  return loadCatalogProviders().find((item) => item.provider === provider && item.model === model) || null;
+}
+
 async function localRoutingPolicy(db, context, discovered = []) {
   const configured = await loadPolicy(db, context) || envPolicy();
   const configuredLocal = candidateModels(null, configured).filter(isLocal);
@@ -157,7 +175,10 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   if (remainingTimeout() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
   let configuredCandidates = candidateModels(model, policy);
-  if (!configuredCandidates.length) configuredCandidates = await loadProviderCandidates(db);
+  if (!configuredCandidates.length) {
+    configuredCandidates = await loadProviderCandidates(db);
+    if (!configuredCandidates.length) configuredCandidates = loadCatalogProviders().map((item) => `${item.provider}://${item.model}`);
+  }
   
   let candidates = configuredCandidates;
   if (!candidates.length || candidates[0] === 'auto') {
@@ -190,8 +211,9 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       if (policy.preferLocal && !fallbackList.length) {
         throw Object.assign(new Error('No local chat-capable model was discovered; refusing implicit cloud fallback while preferLocal is enabled.'), { code: 'LOCAL_MODEL_REQUIRED' });
       }
-      const fallbackDefault = process.env.GENOS_DEFAULT_MODEL || 'openai://gpt-4o-mini';
-      candidates = fallbackList.length > 0 ? fallbackList : [fallbackDefault];
+      const configuredDefault = String(process.env.GENOS_DEFAULT_MODEL || '').trim();
+      const fallbackDefault = configuredDefault && configuredDefault !== 'auto' ? configuredDefault : null;
+      candidates = fallbackList.length > 0 ? fallbackList : (fallbackDefault ? [fallbackDefault] : []);
     }
   }
   
@@ -200,13 +222,15 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   const attempt = async (uri) => {
     const configuration = modelProvider.modelConfiguration(uri);
     const registered = db ? await db.get('SELECT endpoint, cost_input, cost_output, latency_ms FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
-    const localCandidate = isLocal(uri, registered?.endpoint);
+    const catalog = registered ? null : catalogProviderFor(configuration.provider, configuration.modelName);
+    const configuredEndpoint = registered?.endpoint || catalog?.endpoint;
+    const localCandidate = isLocal(uri, configuredEndpoint);
     if (localCandidate) {
       const discovered = await localModelDiscovery.discoverLocalModels();
-      if (!registered?.endpoint && discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
+      if (!configuredEndpoint && discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
         // If not found in cached discovery, try a force refresh before failing
         const refreshed = await localModelDiscovery.discoverLocalModels({ force: true });
-        if (!refreshed.length && !registered?.endpoint) throw new Error(`Local model '${uri}' could not be verified by discovery.`);
+        if (!refreshed.length && !configuredEndpoint) throw new Error(`Local model '${uri}' could not be verified by discovery.`);
         if (refreshed.length && !refreshed.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
           throw new Error(`Local model '${uri}' is not present in the current chat-capable discovery set.`);
         }
@@ -236,7 +260,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
         prompt,
         timeoutMs: attemptTimeout,
         maxTokens,
-        endpoint: registered?.endpoint || discoveredEndpoint || undefined,
+        endpoint: registered?.endpoint || catalog?.endpoint || discoveredEndpoint || undefined,
         priority,
         agentId,
         organizationId,
@@ -259,7 +283,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     }
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
-    const enriched = { ...result, model: uri, requestedModel: uri, servedModel: result.servedModel || result.model || configuration.modelName, endpoint: result.endpoint || registered?.endpoint || discoveredEndpoint || configuration.endpoint, latencyMs, costUsd, bufferedTokens };
+    const enriched = { ...result, model: uri, requestedModel: uri, servedModel: result.servedModel || result.model || configuration.modelName, endpoint: result.endpoint || configuredEndpoint || discoveredEndpoint || configuration.endpoint, latencyMs, costUsd, bufferedTokens };
     await recordModelUsage(db, { organizationId, projectId }, enriched);
     return enriched;
   };
