@@ -6,6 +6,7 @@ const mcpExecutor = require('./mcpExecutor');
 const { parseWorkflowCondition } = require('./workflowConditions');
 const { validateGraph } = require('../controllers/workflowController');
 const { exactMatch, groundedness, safety, parseJudgeResponse } = require('./evaluationGraders');
+const { jobTimeoutMs } = require('../controllers/argumentBounds');
 
 let timer = null;
 let busy = false;
@@ -31,6 +32,21 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
   const next = ordered.find((row) => workflowScopeKey(row) !== lastScope) || ordered[0] || null;
   if (next) lastScopeByTable.set(table, workflowScopeKey(next));
   return next;
+}
+
+function summarizeEvaluationGraders(results, graders) {
+  return Object.fromEntries(graders.map((grader) => {
+    const values = results.map((result) => result.graders[grader]).filter(Boolean);
+    const passed = values.filter((value) => value.passed === true).length;
+    const scores = values.map((value) => Number(value.score)).filter(Number.isFinite);
+    return [grader, {
+      total: values.length,
+      passed,
+      failed: values.length - passed,
+      score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
+      meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null
+    }];
+  }));
 }
 
 async function recoverInterruptedJobs(db) {
@@ -205,7 +221,9 @@ async function executeWorkflow(db, run) {
 }
 
 async function executeEvaluation(db, job) {
-  const cases = job.dataset_id ? await db.all('SELECT * FROM dataset_cases WHERE dataset_id = ?', job.dataset_id) : [];
+  const cases = job.dataset_id
+    ? await db.all('SELECT c.* FROM dataset_cases c JOIN datasets d ON d.id = c.dataset_id WHERE c.dataset_id = ? AND d.organization_id = ? AND d.project_id = ?', job.dataset_id, job.organization_id, job.project_id)
+    : [];
   const config = JSON.parse(job.config_json || '{}');
   const graders = config.graders || ['exact_match'];
   const knownGraders = new Set(['exact_match', 'groundedness', 'safety', 'llm_judge']);
@@ -234,7 +252,7 @@ async function executeEvaluation(db, job) {
         model: evaluationModel,
         policy: config.modelRouting,
         prompt: String(input.prompt ?? input.question ?? input.task ?? input.input ?? ''),
-        timeoutMs: Number(config.timeoutMs || 30000),
+        timeoutMs: jobTimeoutMs(config.timeoutMs),
         seed: config.seed,
         onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'EVALUATION_MODEL_TOKEN', agentId: job.id, action: 'EVALUATION_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } })
       });
@@ -255,7 +273,7 @@ async function executeEvaluation(db, job) {
           `<expected>${JSON.stringify(expected)}</expected>`,
           `<answer>${text}</answer>`
         ].join('\n');
-        const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: Number(config.timeoutMs || 30000), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
+        const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: jobTimeoutMs(config.timeoutMs), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         judge = parseJudgeResponse(judgeResult.text ?? judgeResult.content ?? '');
       } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable or invalid: ${error.message}` }; }
     }
@@ -269,7 +287,7 @@ async function executeEvaluation(db, job) {
     if (ok) passed++;
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
   }
-  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results };
+  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
@@ -287,11 +305,11 @@ async function updateCampaignStatus(db, campaignId) {
   await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
 }
 
-async function executeModelJob(db, job) {
+async function executeModelJobBody(db, job) {
   const persisted = await db.get?.('SELECT * FROM model_jobs WHERE id = ?', job.id);
   if (persisted) job = { ...job, ...persisted };
   const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}');
-  const totalTimeoutMs = Math.max(1, Number(job.timeout_ms) || 30000);
+  const totalTimeoutMs = jobTimeoutMs(job.timeout_ms);
   const deadlineAt = Date.now() + totalTimeoutMs;
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
@@ -325,6 +343,19 @@ async function executeModelJob(db, job) {
     await db.run('UPDATE model_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
   }
   await db.run("UPDATE model_jobs SET status = 'completed', result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
+}
+
+async function executeModelJob(db, job) {
+  const heartbeatMs = Math.max(1000, Math.min(60000, Math.floor((Number(process.env.GENOS_STALE_JOB_MINUTES) || 15) * 60 * 1000 / 3)));
+  const heartbeat = setInterval(() => {
+    db.run("UPDATE model_jobs SET claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", job.id).catch(() => {});
+  }, heartbeatMs);
+  heartbeat.unref?.();
+  try {
+    return await executeModelJobBody(db, job);
+  } finally {
+    clearInterval(heartbeat);
+  }
 }
 
 function isRetryableJobError(error = {}) {
@@ -407,4 +438,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeModelJob, withRetry, isRetryableJobError };
