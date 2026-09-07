@@ -53,6 +53,24 @@ assert.throws(
   () => validateDossierInfluence({ dossierInfluence: [{ workerId: 'worker-a', influence: '', usedClaims: [] }] }, ['worker-a']),
   (error) => error.code === 'INVALID_DOSSIER_INFLUENCE'
 );
+// Test shallow/punctuation-only influence rejection
+assert.throws(
+  () => validateDossierInfluence({ dossierInfluence: [{ workerId: 'worker-a', influence: '...', usedClaims: [] }] }, ['worker-a']),
+  (error) => error.code === 'INVALID_DOSSIER_INFLUENCE'
+);
+// Test invalid non-string items in usedClaims
+assert.throws(
+  () => validateDossierInfluence({ dossierInfluence: [{ workerId: 'worker-a', influence: 'Valid constraint', usedClaims: [123] }] }, ['worker-a']),
+  (error) => error.code === 'INVALID_DOSSIER_INFLUENCE'
+);
+// Test unexpected worker rejection
+assert.throws(
+  () => validateDossierInfluence({ dossierInfluence: [
+    { workerId: 'worker-a', influence: 'Valid constraint', usedClaims: ['c1'] },
+    { workerId: 'worker-phantom', influence: 'Valid constraint', usedClaims: ['c2'] }
+  ] }, ['worker-a']),
+  (error) => error.code === 'INVALID_DOSSIER_INFLUENCE'
+);
 
 const contract = buildStrategyContract({ problem: 'Build and test a service.' });
 assert.throws(() => validateContract({ ...contract, branches: [] }), /at least one hypothesis/);

@@ -120,17 +120,32 @@ function validateWorkerDossiers(dossiers, workers) {
   return true;
 }
 
-function validateDossierInfluence(report, workerIds) {
+function validateDossierInfluence(report, workerIds, options = {}) {
   const entries = Array.isArray(report?.dossierInfluence) ? report.dossierInfluence : [];
-  const byWorker = new Map(entries.map((entry) => [entry.workerId, entry]));
+  const expectedSet = new Set(workerIds);
+  const byWorker = new Map(entries.map((entry) => [entry?.workerId, entry]));
   const missing = workerIds.filter((workerId) => !byWorker.has(workerId));
+  const unexpected = entries.filter((entry) => !expectedSet.has(entry?.workerId)).map((entry) => entry?.workerId || 'unknown');
   const invalid = workerIds.filter((workerId) => {
     const entry = byWorker.get(workerId);
-    return !entry || typeof entry.influence !== 'string' || !entry.influence.trim() || !Array.isArray(entry.usedClaims);
+    if (!entry) return true;
+    if (typeof entry.influence !== 'string' || entry.influence.trim().length < 3 || /^[.\-_ /\\#*]+$/.test(entry.influence.trim())) {
+      return true;
+    }
+    if (!Array.isArray(entry.usedClaims)) {
+      return true;
+    }
+    if (entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim())) {
+      return true;
+    }
+    return false;
   });
-  if (missing.length || invalid.length || entries.length !== workerIds.length) {
-    const error = new Error(`Synthesis dossier influence is incomplete. Missing: ${missing.join(', ') || 'none'}; invalid: ${invalid.join(', ') || 'none'}.`);
+  if (missing.length || invalid.length || unexpected.length) {
+    const error = new Error(`Synthesis dossier influence is incomplete. Missing: ${missing.join(', ') || 'none'}; invalid: ${invalid.join(', ') || 'none'}; unexpected: ${unexpected.join(', ') || 'none'}.`);
     error.code = 'INVALID_DOSSIER_INFLUENCE';
+    error.missingWorkerIds = missing;
+    error.invalidWorkerIds = invalid;
+    error.unexpectedWorkerIds = unexpected;
     throw error;
   }
   return true;
@@ -181,6 +196,14 @@ function evidenceScore(payload = {}, context = {}) {
     || context.artifact === 'creative'
     || /author|literary|dramaturg|creative/i.test(context.role || '');
   if (!creative) {
+    const proof = report.noAnswerProof || payload.noAnswerProof;
+    if (report.outcome === 'no_answer' || proof) {
+      const evidenceList = Array.isArray(proof?.evidence) ? proof.evidence.filter((e) => typeof e === 'string' && e.trim()) : [];
+      if (evidenceList.length === 0) return 0;
+      const baseScore = (typeof proof?.method === 'string' && proof.method.trim()) ? 25 : 10;
+      const score = baseScore + (evidenceList.length * 12) - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 2 : 0);
+      return boundedEvidenceScore(score);
+    }
     const score = claims.reduce((count, claim) => {
       const evidenceCount = Array.isArray(claim.evidence) ? claim.evidence.length : 0;
       return count + (evidenceCount > 0 ? evidenceCount * 10 + 2 : -2);
