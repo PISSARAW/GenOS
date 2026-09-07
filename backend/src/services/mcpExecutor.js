@@ -46,6 +46,21 @@ function validateMcpUrl(value) {
   }
 }
 
+function trustedMcpCommand(command, args) {
+  const bundledBinary = [
+    path.resolve(__dirname, '../../../target/debug/genos-mcp'),
+    path.resolve(__dirname, '../../../target/debug/genos-mcp.exe'),
+    path.resolve(__dirname, '../../../target/release/genos-mcp'),
+    path.resolve(__dirname, '../../../target/release/genos-mcp.exe')
+  ];
+  const bundledScript = path.resolve(__dirname, '../../../mcp/index.js');
+  const resolvedCommand = path.resolve(command);
+  if (bundledBinary.includes(resolvedCommand)) return true;
+  return path.resolve(command) === path.resolve(process.execPath)
+    && args.length === 1
+    && path.resolve(args[0]) === bundledScript;
+}
+
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
   const command = process.env.GENOS_MCP_COMMAND;
@@ -53,7 +68,13 @@ function configuredTransport() {
     const error = validateMcpUrl(url);
     return error ? { type: 'invalid', error } : { type: 'http', url };
   }
-  if (command) return { type: 'stdio', command, args: parseArgs(process.env.GENOS_MCP_ARGS || '') };
+  if (command) {
+    const args = parseArgs(process.env.GENOS_MCP_ARGS || '');
+    if (!trustedMcpCommand(command, args)) {
+      return { type: 'invalid', error: 'GENOS_MCP_COMMAND must point to the bundled GenOS MCP executable or mcp/index.js.' };
+    }
+    return { type: 'stdio', command, args };
+  }
   // The backend and bundled MCP are shipped together. Use that local, full
   // control-plane endpoint for autonomous recovery actions; external callers
   // still see only genos_orchestrate by default.
