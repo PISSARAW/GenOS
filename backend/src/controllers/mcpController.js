@@ -8,6 +8,17 @@ const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
 
+function resolveAgentId(req) {
+  const authenticatedId = req.user?.username || req.user?.keyId || 'mcp_controller';
+  const requestedId = String(req.body?.agentId || '').trim();
+  if (requestedId && requestedId !== authenticatedId && req.user?.role !== 'admin' && !req.user?.permissions?.includes('all')) {
+    const error = new Error('agentId must match the authenticated principal.');
+    error.status = 403;
+    throw error;
+  }
+  return requestedId || authenticatedId;
+}
+
 async function listTools(req, res) {
   const db = await getDatabase();
   const tools = await db.all('SELECT * FROM mcp_tools ORDER BY category ASC, name ASC');
@@ -48,7 +59,8 @@ async function testTool(req, res) {
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return res.status(404).json({ success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` });
   if (tool.is_locked === 1) return res.status(503).json({ success: false, status: 'blocked', error: `Tool '${toolName}' is persisted in quarantine.` });
-  const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
+  let agentId;
+  try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ success: false, status: 'forbidden', error: error.message }); }
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
@@ -120,7 +132,8 @@ async function executeTool(req, res) {
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
   if (tool.is_locked === 1) return res.status(503).json({ error: { code: 'TOOL_LOCKED', message: `Tool '${toolName}' is persisted in quarantine.` } });
-  const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
+  let agentId;
+  try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ error: { code: 'AGENT_ID_FORBIDDEN', message: error.message } }); }
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
