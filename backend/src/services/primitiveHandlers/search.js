@@ -183,7 +183,8 @@ async function prmEvaluate(context) {
     const evalResult = await evaluation.runImpossibleBench({ task: `PRM_Eval: ${stepData}` });
     
     // Convertir le brier (0 = parfait, 1 = nul) en reward score (1 = parfait, 0 = nul)
-    const rewardScore = Math.max(0, 1 - (evalResult.brier_score || 0));
+    const brier = Number(evalResult.brierScore ?? evalResult.brier_score ?? 0.5);
+    const rewardScore = Math.max(0, Math.min(1, 1 - brier));
     const isGoodStep = rewardScore > 0.6; // Seuil de validation de l'étape
     
     telemetry.emitEvent({
