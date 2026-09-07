@@ -300,16 +300,14 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     }
     return destination;
   } catch (gitError) {
-    if (worktreeCreated) {
-      // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
-      try {
-        await runCommand('git', ['worktree', 'remove', '--force', destination], { cwd: source });
-        await runCommand('git', ['worktree', 'prune'], { cwd: source });
-      } catch (_) {}
-      try {
-        await fs.rm(destination, { recursive: true, force: true });
-      } catch (_) {}
-    }
+    // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
+    try {
+      await runCommand('git', ['worktree', 'remove', '--force', destination], { cwd: source });
+      await runCommand('git', ['worktree', 'prune'], { cwd: source });
+    } catch (_) {}
+    try {
+      await fs.rm(destination, { recursive: true, force: true });
+    } catch (_) {}
     // Non-Git workspaces retain the copy fallback below. A partially created
     // worktree is deliberately surfaced instead of silently copying into it.
     const destinationExists = await fs.access(destination).then(() => true, () => false);
