@@ -134,7 +134,7 @@ async function executeTool(req, res) {
   if (zeroTrust.decision === 'deny') return res.status(403).json({ error: { code: 'ZERO_TRUST_DENIED', message: zeroTrust.reason }, policy: zeroTrust });
   if (zeroTrust.decision === 'approval_required') {
     const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, JSON.stringify({ toolName, args }));
+    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
     return res.status(202).json({ success: false, approvalRequired: true, approvalId, policy: zeroTrust });
   }
 

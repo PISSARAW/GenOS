@@ -123,10 +123,22 @@ async function decideApproval(req, res, next) {
       } else {
         const circuitBreaker = require('../services/circuitBreaker');
         const mcpExecutor = require('../services/mcpExecutor');
+        const safety = require('../services/platformSafetyService');
+        const approvalPolicy = safety.validateToolCall({
+          agentId: approval.agent_id,
+          toolName,
+          args: payload.args || {},
+          permissions: ['*'],
+          deniedTools: Array.isArray(payload.deniedTools) ? payload.deniedTools : [],
+          taints: Array.isArray(payload.taints) ? payload.taints : []
+        });
+        if (approvalPolicy.decision === 'deny') {
+          execution = { success: false, status: 'blocked', error: approvalPolicy.reason, policy: approvalPolicy };
+        }
         const gate = circuitBreaker.canExecute(toolName, 'admin');
-        execution = gate.allowed
+        execution = execution || (gate.allowed
           ? await mcpExecutor.executeConfiguredTransport({ toolName, args: payload.args || {}, timeoutMs: 30000 })
-          : { success: false, status: 'blocked', error: gate.message };
+          : { success: false, status: 'blocked', error: gate.message });
         if (execution.success) circuitBreaker.recordSuccess(toolName);
         else if (execution.configured) circuitBreaker.recordFailure(toolName, execution.error || 'Approved MCP action failed.');
       }
