@@ -21,7 +21,12 @@ module.exports = {
 
   GetSchemaSpec: (call, callback) => {
     const schemaName = call.request?.schema_name || 'default';
-    const schemaFile = schemaName.endsWith('.schema.json') ? schemaName : `${schemaName}.schema.json`;
+    const schemaFile = /^[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json$/.test(schemaName)
+      ? schemaName
+      : `${schemaName}.schema.json`;
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json$/.test(schemaFile) || path.basename(schemaFile) !== schemaFile) {
+      return callback(null, { json_schema: JSON.stringify({ error: 'Invalid schema name.', available: false }) });
+    }
     const schemaPath = path.join(SPEC_DIR, schemaFile);
     if (fs.existsSync(schemaPath)) {
       try {
