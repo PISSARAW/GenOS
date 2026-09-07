@@ -23,10 +23,24 @@ function getToolRegistry() {
   return require('./mcpToolRegistry');
 }
 
+function validateMcpUrl(value) {
+  try {
+    const parsed = new URL(String(value));
+    if (!['http:', 'https:'].includes(parsed.protocol)) return 'MCP endpoint must use http or https.';
+    if (parsed.username || parsed.password) return 'MCP endpoint must not contain embedded credentials.';
+    return null;
+  } catch (_) {
+    return 'MCP endpoint must be a valid URL.';
+  }
+}
+
 function configuredTransport() {
   const url = process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT;
   const command = process.env.GENOS_MCP_COMMAND;
-  if (url) return { type: 'http', url };
+  if (url) {
+    const error = validateMcpUrl(url);
+    return error ? { type: 'invalid', error } : { type: 'http', url };
+  }
   if (command) return { type: 'stdio', command, args: parseArgs(process.env.GENOS_MCP_ARGS || '') };
   // The backend and bundled MCP are shipped together. Use that local, full
   // control-plane endpoint for autonomous recovery actions; external callers
@@ -589,6 +603,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (stratResult) return stratResult;
   const transport = configuredTransport();
 
+  if (transport?.type === 'invalid') return { configured: false, success: false, status: 'invalid_config', error: transport.error };
   if (!transport) return { configured: false, success: false, status: 'unavailable', error: 'No MCP transport configured. Set GENOS_MCP_URL or GENOS_MCP_COMMAND.' };
   const result = transport.type === 'http'
     ? await callHttp(transport.url, toolName, { args, timeoutMs })
@@ -731,4 +746,4 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   return result.output;
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl };
