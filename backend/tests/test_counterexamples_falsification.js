@@ -47,11 +47,75 @@ async function testPoint1() {
   console.log('  ✅ PASS: Point 1 falsification tests succeeded');
 }
 
+async function testPoint2() {
+  console.log('--- Test Point 2: Pruning des impasses et Replay contrefactuel ---');
+  const trajectoryService = require('../src/services/trajectoryService');
+  const memoryPrimitives = require('../src/services/primitiveHandlers/memory');
+  const { avoidKnownDeadEnds } = require('../src/services/primitiveHandlers/memoryDeadEnds');
+  const { getDatabase } = require('../src/db');
+
+  // 1. cherryPickGoldenPath returns deadEndSteps
+  const sampleTurns = [
+    { step: 1, action: 'scan', success: true },
+    { step: 2, action: 'blow_stack', error: 'Recursion depth limit exceeded', success: false },
+    { step: 3, action: 'guard_clause', success: true }
+  ];
+  const picked = trajectoryService.cherryPickGoldenPath(sampleTurns);
+  assert.strictEqual(picked.goldenPathSteps.length, 2);
+  assert.strictEqual(picked.deadEndSteps.length, 1);
+  assert.strictEqual(picked.deadEndSteps[0].action, 'blow_stack');
+  assert.strictEqual(picked.prunedSteps.length, 1);
+
+  // 2. counterfactualReplay substitution & length
+  const cf = trajectoryService.counterfactualReplay(
+    { id: 'traj_test', turns: sampleTurns, status: 'FAILURE' },
+    2,
+    { action: 'iterative_loop', success: true, detail: 'Used iterative loop instead of recursion' }
+  );
+  assert.strictEqual(cf.comparison.counterfactualTimeline.steps.length, sampleTurns.length, 'Timeline steps length should match original');
+  assert.strictEqual(cf.comparison.counterfactualTimeline.steps[1].action, 'iterative_loop', 'Step 2 must be replaced with alteration');
+  assert.strictEqual(cf.comparison.counterfactualTimeline.steps[1].counterfactual, true);
+  assert.strictEqual(cf.comparison.counterfactualTimeline.finalStatus, 'SUCCESS');
+
+  // 3. Dual persistence of dead-ends as Failure in genome_decisions
+  const db = await getDatabase();
+  const deadEndAction = 'unsafe_buffer_overflow_attempt_' + Date.now();
+  const rawTurnsWithDeadEnd = [
+    { step: 1, action: 'init_safe', success: true },
+    { step: 2, action: deadEndAction, error: 'Segmentation fault memory corruption', success: false },
+    { step: 3, action: 'finish_safe', success: true }
+  ];
+  const resCherry = await memoryPrimitives.cherryPickGoldenPath({
+    agentId: 'test_agent_ce',
+    turns: rawTurnsWithDeadEnd,
+    label: 'Test Golden Path with Dead End'
+  });
+  assert.ok(resCherry.success);
+  assert.strictEqual(resCherry.deadEndSteps.length, 1);
+
+  // Verify that avoidKnownDeadEnds detects the persisted failure
+  const avoidRes = await avoidKnownDeadEnds({
+    task: 'Execute memory operation',
+    action: deadEndAction,
+    threshold: 0.5
+  });
+  assert.strictEqual(avoidRes.isDeadEndRisk, true, 'Must detect dead end risk from persisted negative knowledge');
+  assert.ok(avoidRes.riskScore >= 0.5);
+
+  console.log('  ✅ PASS: Point 2 dead-end persistence & counterfactual replay tests succeeded');
+}
+
+async function runAll() {
+  await testPoint1();
+  await testPoint2();
+}
+
 if (require.main === module) {
-  testPoint1().catch(err => {
-    console.error('Point 1 tests failed:', err);
+  runAll().catch(err => {
+    console.error('Tests failed:', err);
     process.exit(1);
   });
 }
 
-module.exports = { testPoint1 };
+module.exports = { testPoint1, testPoint2 };
+

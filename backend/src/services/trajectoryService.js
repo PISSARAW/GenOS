@@ -56,7 +56,8 @@ function cherryPickGoldenPath(rawTurns = []) {
   if (turns.length === 0) throw new Error('At least one trajectory turn is required for a golden path.');
   const classifiedSteps = turns.map(classifyTurn);
   const goldenPath = classifiedSteps.filter(s => s.classification !== 'Dead-End');
-  const deadEndCount = turns.length - goldenPath.length;
+  const deadEndSteps = classifiedSteps.filter(s => s.classification === 'Dead-End');
+  const deadEndCount = deadEndSteps.length;
   const allPruned = turns.length > 0 && goldenPath.length === 0;
 
   return {
@@ -66,6 +67,8 @@ function cherryPickGoldenPath(rawTurns = []) {
     noiseReductionPercent: Number((((deadEndCount) / (turns.length || 1)) * 100).toFixed(1)),
     goldenPathSteps: goldenPath,
     goldenPath: goldenPath,
+    deadEndSteps,
+    prunedSteps: deadEndSteps,
     allPruned,
     warning: allPruned ? 'All trajectory turns were pruned as dead-ends; no golden path steps synthesized.' : null,
     classificationSummary: {
@@ -109,12 +112,28 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
     sourceTrajectoryId: source.id || 'traj_default_simulation'
   };
 
+  const branchIdx = step - 1;
+  const replacedStep = turns[branchIdx] || {};
+  const overrideStep = {
+    ...replacedStep,
+    type: 'Counterfactual Override',
+    classification: alt.classification || 'Breakthrough',
+    ...alt,
+    step: replacedStep.step || step,
+    counterfactual: true
+  };
+  const counterfactualSteps = [
+    ...turns.slice(0, branchIdx),
+    overrideStep,
+    ...turns.slice(branchIdx + 1)
+  ];
+
   const counterfactualTimeline = {
     stepBranched: step,
     alterationApplied: alt,
-    totalSteps: turns.length,
-    steps: [...turns.slice(0, step), { type: 'Counterfactual Override', ...alt }, ...turns.slice(step)],
-    finalStatus: 'SUCCESS'
+    totalSteps: counterfactualSteps.length,
+    steps: counterfactualSteps,
+    finalStatus: alt.error || alt.failed || alt.success === false ? 'FAILURE' : 'SUCCESS'
   };
 
   return {

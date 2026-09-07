@@ -50,6 +50,15 @@ async function cherryPick(req, res, next) {
       projId
     );
 
+    if (result.deadEndSteps && result.deadEndSteps.length > 0) {
+      const { persistDeadEndDecisions } = require('../services/primitiveHandlers/memoryDeadEnds');
+      await persistDeadEndDecisions(db, result.deadEndSteps, {
+        createdBy,
+        organizationId: orgId,
+        projectId: projId
+      });
+    }
+
     telemetry.emitEvent({
       eventType: 'GOLDEN_PATH_SYNTHESIZED',
       agentId: 'memory_synthesizer',
