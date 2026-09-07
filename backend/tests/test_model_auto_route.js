@@ -9,7 +9,7 @@ discovery.discoverLocalModels = async () => [];
 
 router.generate({ model: 'auto', prompt: 'test' })
   .then(() => { throw new Error('auto route unexpectedly succeeded without a model'); }, (error) => {
-    assert.match(error.message, /No model route is configured/);
+    assert.equal(error.code, 'LOCAL_MODEL_REQUIRED');
   })
   .then(() => console.log('Auto model route checks passed.'))
   .catch((error) => { console.error(error); process.exitCode = 1; })
