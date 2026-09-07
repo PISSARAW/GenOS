@@ -298,18 +298,6 @@ async function restore({ db, workspace, reference, author = 'studio' }) {
   const target = await getSnapshot(db, workspace.id, reference);
   const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
 
-  // Git fast path: resetting to the captured commit is O(changes) instead of
-  // copying every file. The pre-restore safety snapshot above still preserves
-  // anything the commit cannot represent (files uncommitted at capture time).
-  const metadata = parseMetadata(target.metadata);
-  if (metadata.gitCommit && isGitWorkspace(workspace.path)) {
-    try {
-      await spawnGit(workspace.path, ['reset', '--hard', metadata.gitCommit]);
-      await spawnGit(workspace.path, ['clean', '-fd']);
-      return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'git-reset' };
-    } catch (_) { /* fall through to the manifest restore */ }
-  }
-
   const staging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-'));
   try {
     await materialize(target, staging);
