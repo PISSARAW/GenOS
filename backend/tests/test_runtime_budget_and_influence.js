@@ -56,7 +56,6 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   }, { RUNTIME_CASE: 'budget' });
   assert.equal(budget.status, 1);
   const budgetEvents = eventsFrom(budget.stdout);
-  console.log('EVENT TYPES:', budgetEvents.map(e => e.eventType));
   assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'));
   assert(budgetEvents.some((event) => event.eventType === 'AGENT_HALTED' && event.status === 'blocked'));
 
