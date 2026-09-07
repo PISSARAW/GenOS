@@ -108,6 +108,10 @@ const HANDLERS = {
   cycle_detection: safety.cycleDetection,
   diagnose: safety.diagnose,
   hypothesis_evidence: safety.hypothesisEvidence,
+  conscience_evaluate: safety.conscienceEvaluate,
+  dissonance_check: safety.conscienceEvaluate,
+  conscience_eureka: safety.conscienceEureka,
+  trigger_eureka: safety.conscienceEureka,
 
   // Lot 5 — Collectif & Swarm Intelligence
   pheromone_deposit: collective.pheromoneDeposit,
