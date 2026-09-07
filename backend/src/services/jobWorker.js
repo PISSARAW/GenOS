@@ -48,6 +48,7 @@ async function recoverInterruptedJobs(db) {
 async function claim(db, table, id) {
   const started = table === 'workflow_runs' ? ', started_at = COALESCE(started_at, CURRENT_TIMESTAMP)' : '';
   const result = await db.run(`UPDATE ${table} SET status = 'running', claimed_at = CURRENT_TIMESTAMP${started} WHERE id = ? AND status = 'queued'`, id);
+  if (result.changes === 1) telemetry.emitEvent({ eventType: 'JOB_CLAIMED', action: 'JOB_CLAIM', detail: `Claimed ${table} job ${id}.`, payload: { table, jobId: id } });
   return result.changes === 1;
 }
 
@@ -73,7 +74,7 @@ async function executeWorkflow(db, run) {
   const traceId = `trace-${run.id}`;
   const started = Date.now();
   const metadata = (() => { try { return JSON.parse(workflow.metadata_json || '{}'); } catch (_) { return {}; } })();
-  const requestedDuration = Number(metadata.workflowTimeoutMs ?? metadata.timeoutMs ?? MAX_WORKFLOW_DURATION_MS);
+  const requestedDuration = Number(run.timeout_ms ?? metadata.workflowTimeoutMs ?? metadata.timeoutMs ?? MAX_WORKFLOW_DURATION_MS);
   const workflowDeadline = started + (Number.isFinite(requestedDuration) ? Math.max(1, Math.min(requestedDuration, MAX_WORKFLOW_DURATION_MS)) : MAX_WORKFLOW_DURATION_MS);
   const assertWorkflowDeadline = () => {
     if (Date.now() > workflowDeadline) {
@@ -293,8 +294,10 @@ async function withRetry(db, table, job, executor) {
   const max = Number.isFinite(configuredMax) ? Math.max(1, Math.min(Math.floor(configuredMax), 10)) : 3;
   for (let attempt = 1; attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
+    telemetry.emitEvent({ eventType: 'JOB_ATTEMPT_STARTED', action: 'JOB_ATTEMPT', detail: `Started attempt ${attempt}/${max} for ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt, maxAttempts: max } });
     try {
       await executor();
+      telemetry.emitEvent({ eventType: 'JOB_COMPLETED', action: 'JOB_COMPLETE', detail: `Completed ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt } });
       return;
     } catch (error) {
       if (error.code === 'MODEL_JOB_CANCELLED') {
@@ -304,7 +307,9 @@ async function withRetry(db, table, job, executor) {
       if (attempt === max || !isRetryableJobError(error)) {
         const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
         await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error), cancelled: status === 'cancelled' }), job.id);
+        telemetry.emitEvent({ eventType: 'JOB_FAILED', action: 'JOB_FAIL', detail: `Failed ${table} job ${job.id}: ${error.message}`, severity: 'error', payload: { table, jobId: job.id, attempt, maxAttempts: max, retryable: isRetryableJobError(error) } });
       } else {
+        telemetry.emitEvent({ eventType: 'JOB_RETRY_SCHEDULED', action: 'JOB_RETRY', detail: `Retry scheduled for ${table} job ${job.id}: ${error.message}`, severity: 'warning', payload: { table, jobId: job.id, attempt, maxAttempts: max } });
         const baseDelay = Math.min(30000, 250 * (2 ** (attempt - 1)));
         const jitter = Math.floor(Math.random() * Math.max(1, Math.floor(baseDelay / 2)));
         await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
