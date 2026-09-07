@@ -243,6 +243,7 @@ async function restoreSnapshot(req, res) {
 }
 
 const bisectionService = require('../services/bisectionService');
+const { MAX_BISECTION_SNAPSHOTS } = bisectionService;
 
 async function getDiff(req, res, next) {
   try {
@@ -284,7 +285,10 @@ async function bisect(req, res, next) {
     const db = await getDatabase();
     const workspace = await findWorkspace(db, req, workspaceId);
     if (!workspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${workspaceId}` } });
-    const rows = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', workspace.id);
+    const rows = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC LIMIT ?', workspace.id, MAX_BISECTION_SNAPSHOTS + 1);
+    if (rows.length > MAX_BISECTION_SNAPSHOTS) {
+      return res.status(413).json({ error: { code: 'BISECTION_HISTORY_TOO_LARGE', message: `Snapshot history exceeds the ${MAX_BISECTION_SNAPSHOTS}-snapshot bisection limit.` } });
+    }
     const history = rows.filter((row) => {
       try { const metadata = JSON.parse(row.metadata || '{}'); return metadata.storage === 'durable-filesystem' && metadata.manifestPath; } catch (_) { return false; }
     });
