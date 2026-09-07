@@ -27,7 +27,7 @@ function catalogProviders() {
 }
 
 function providerRows(rows) {
-  if (rows.length) return rows.map((row) => ({ provider: row.provider, model: row.model, capabilities: JSON.parse(row.capabilities_json || '[]'), costInput: row.cost_input, costOutput: row.cost_output, latencyMs: row.latency_ms, enabled: !!row.enabled }));
+  if (rows.length) return rows.map((row) => ({ provider: row.provider, model: row.model, endpoint: row.endpoint || null, capabilities: JSON.parse(row.capabilities_json || '[]'), costInput: row.cost_input, costOutput: row.cost_output, latencyMs: row.latency_ms, enabled: !!row.enabled }));
   return catalogProviders();
 }
 
@@ -50,7 +50,7 @@ async function registerProvider(req, res) {
   await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities || []), provider.costInput || 0, provider.costOutput || 0, provider.latencyMs || 0, provider.enabled === false ? 0 : 1);
   res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
 }
-async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); if (!parsed.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider configuration is registered for routing.' } }); res.json(safety.routeModel(req.body, parsed)); }
+async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); if (!parsed.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider configuration is registered for routing.' } }); res.json(safety.routeModel(req.body, parsed)); }
 async function routingPolicies(req, res, next) {
   try {
     const db = await getDatabase();
