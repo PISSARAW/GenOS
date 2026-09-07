@@ -25,6 +25,19 @@ impl Conscience {
         errors_in_loop: u32,
         progress_score: f64,
     ) {
+        self.evaluate_branch_extended(state, errors_in_loop, progress_score, 0.0, 0.0, 1.0);
+    }
+
+    /// Évalue un clone avec métriques cognitives avancées (répétition, dérive, santé).
+    pub fn evaluate_branch_extended(
+        &self,
+        state: &mut ConscienceState,
+        errors_in_loop: u32,
+        progress_score: f64,
+        repetition_score: f64,
+        semantic_drift: f64,
+        health_score: f64,
+    ) {
         if state.is_apoptotic {
             return;
         }
@@ -32,7 +45,11 @@ impl Conscience {
         state.max_dissonance_threshold = self.max_dissonance_threshold;
         state.baseline_budget = self.baseline_budget;
 
-        let penalty = (errors_in_loop as f64) * 2.5;
+        let repetition_penalty = if repetition_score > 0.15 { 5.0 } else { 0.0 };
+        let drift_penalty = if semantic_drift > 0.0 { 6.0 } else { 0.0 };
+        let health_penalty = if health_score < 0.5 { ((0.5 - health_score) * 10.0).max(0.0) } else { 0.0 };
+
+        let penalty = (errors_in_loop as f64) * 2.5 + repetition_penalty + drift_penalty + health_penalty;
         let relief = progress_score * 3.0;
 
         state.dissonance_level = (state.dissonance_level + penalty - relief).max(0.0);
@@ -42,6 +59,7 @@ impl Conscience {
             state.is_apoptotic = true;
             state.current_budget = 0.0;
         }
+        state.revision += 1;
     }
 
     /// Enregistre une illumination (Eurêka) et divise la dissonance par deux.
@@ -52,6 +70,7 @@ impl Conscience {
         state.eureka_moments += 1;
         state.dissonance_level /= 2.0;
         state.current_budget = (state.current_budget + 50.0).min(state.baseline_budget);
+        state.revision += 1;
     }
 }
 
@@ -65,22 +84,32 @@ mod tests {
         let mut state = ConscienceState::default();
 
         assert_eq!(state.dissonance_level, 0.0);
+        assert_eq!(state.revision, 0);
         assert!(!state.is_apoptotic);
 
         // Erreurs en boucle
         conscience.evaluate_branch(&mut state, 10, 0.0);
         assert_eq!(state.dissonance_level, 25.0);
+        assert_eq!(state.revision, 1);
         assert!(!state.is_apoptotic);
 
         // Eurêka
         conscience.trigger_eureka(&mut state);
         assert_eq!(state.dissonance_level, 12.5);
         assert_eq!(state.eureka_moments, 1);
+        assert_eq!(state.revision, 2);
+
+        // Évaluation avancée avec dérive et répétition
+        conscience.evaluate_branch_extended(&mut state, 0, 0.0, 0.20, 1.0, 0.4);
+        // penalty = 0 + 5.0 + 6.0 + 1.0 = 12.0 -> dissonance = 12.5 + 12.0 = 24.5
+        assert_eq!(state.dissonance_level, 24.5);
+        assert_eq!(state.revision, 3);
 
         // Dépasser le seuil
         conscience.evaluate_branch(&mut state, 20, 0.0);
         assert!(state.dissonance_level >= 50.0);
         assert!(state.is_apoptotic);
         assert_eq!(state.current_budget, 0.0);
+        assert_eq!(state.revision, 4);
     }
 }

@@ -9,6 +9,7 @@ pub struct ConscienceState {
     pub eureka_moments: u32,
     pub is_apoptotic: bool,
     pub max_dissonance_threshold: f64,
+    pub revision: u64,
 }
 
 impl Default for ConscienceState {
@@ -20,6 +21,7 @@ impl Default for ConscienceState {
             eureka_moments: 0,
             is_apoptotic: false,
             max_dissonance_threshold: 50.0,
+            revision: 0,
         }
     }
 }
