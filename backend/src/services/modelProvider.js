@@ -124,7 +124,10 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
         ? { contents: [{ parts: Array.isArray(prompt) ? prompt.map(p => p.text ? {text: p.text} : p) : [{ text: prompt }] }], ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {}) }
         : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) };
     const response = await fetch(endpointWithKey, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
-    if (!response.ok) throw new Error(`Model provider returned HTTP ${response.status}.`);
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
+    }
     const contentType = response.headers?.get?.('content-type') || '';
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
