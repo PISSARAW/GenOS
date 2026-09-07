@@ -243,7 +243,9 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
       throw new Error(`Git repository at ${source} has no commits yet; cannot create detached worktree.`);
     }
     const { stdout: diff } = await runCommand('git', ['diff', 'HEAD', '--binary'], { cwd: source });
+    let worktreeCreated = false;
     await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
+    worktreeCreated = true;
     if (diff && diff.trim()) {
       await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
     }
@@ -259,6 +261,16 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     }
     return destination;
   } catch (gitError) {
+    if (worktreeCreated) {
+      // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
+      try {
+        await runCommand('git', ['worktree', 'remove', '--force', destination], { cwd: source });
+        await runCommand('git', ['worktree', 'prune'], { cwd: source });
+      } catch (_) {}
+      try {
+        await fs.rm(destination, { recursive: true, force: true });
+      } catch (_) {}
+    }
     // Non-Git workspaces retain the copy fallback below. A partially created
     // worktree is deliberately surfaced instead of silently copying into it.
     const destinationExists = await fs.access(destination).then(() => true, () => false);
