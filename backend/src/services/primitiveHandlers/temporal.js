@@ -153,21 +153,27 @@ async function causalMerge(context = {}) {
   const conflicts = [];
   const allKeys = new Set([...Object.keys(base), ...Object.keys(left), ...Object.keys(right)]);
 
-  for (const key of allKeys) {
-    const bVal = JSON.stringify(base[key]);
-    const lVal = JSON.stringify(left[key]);
-    const rVal = JSON.stringify(right[key]);
-
-    if (lVal === rVal) {
-      merged[key] = left[key] !== undefined ? left[key] : right[key];
-    } else if (lVal === bVal) {
-      merged[key] = right[key];
-    } else if (rVal === bVal) {
-      merged[key] = left[key];
-    } else {
-      conflicts.push({ key, base: base[key], left: left[key], right: right[key] });
-      merged[key] = left[key]; // Priorise la branche d'intervention résolutoire
+  const sameValue = (first, second) => JSON.stringify(first) === JSON.stringify(second);
+  const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const cloneValue = (value) => (isPlainObject(value) ? { ...value } : Array.isArray(value) ? [...value] : value);
+  const mergeValue = (baseValue, leftValue, rightValue, keyPath) => {
+    if (sameValue(leftValue, rightValue)) return cloneValue(leftValue);
+    if (sameValue(leftValue, baseValue)) return cloneValue(rightValue);
+    if (sameValue(rightValue, baseValue)) return cloneValue(leftValue);
+    if (isPlainObject(baseValue) && isPlainObject(leftValue) && isPlainObject(rightValue)) {
+      const nested = {};
+      const nestedKeys = new Set([...Object.keys(baseValue), ...Object.keys(leftValue), ...Object.keys(rightValue)]);
+      for (const nestedKey of nestedKeys) {
+        nested[nestedKey] = mergeValue(baseValue[nestedKey], leftValue[nestedKey], rightValue[nestedKey], `${keyPath}.${nestedKey}`);
+      }
+      return nested;
     }
+    conflicts.push({ key: keyPath, base: baseValue, left: leftValue, right: rightValue });
+    return cloneValue(leftValue);
+  };
+
+  for (const key of allKeys) {
+    merged[key] = mergeValue(base[key], left[key], right[key], key);
   }
 
   const success = conflicts.length === 0 || context.allowConflictResolution === true;
