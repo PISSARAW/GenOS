@@ -267,6 +267,15 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
   const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
+  if (capsuleRootOverride) {
+    const resolvedOverride = path.resolve(capsuleRootOverride);
+    const configuredRoot = process.env.GENOS_CAPSULE_ROOT ? path.resolve(process.env.GENOS_CAPSULE_ROOT) : null;
+    const siblingRoot = path.resolve(path.dirname(source));
+    const defaultWorldRoot = path.join(siblingRoot, '.genos-agent-worlds');
+    if (resolvedOverride !== configuredRoot && resolvedOverride !== siblingRoot && resolvedOverride !== defaultWorldRoot) {
+      throw new Error(`Capsule root '${resolvedOverride}' is outside the source workspace boundary.`);
+    }
+  }
   // An explicit root is already the mission capsule directory. Workers must
   // be its siblings: nesting them below the orchestrator source makes fs.cp
   // recursively copy a directory into itself for non-Git workspaces.
