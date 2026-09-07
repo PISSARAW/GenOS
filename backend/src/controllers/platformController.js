@@ -137,7 +137,7 @@ async function decideApproval(req, res, next) {
         }
         const gate = circuitBreaker.canExecute(toolName, 'admin');
         execution = execution || (gate.allowed
-          ? await mcpExecutor.executeConfiguredTransport({ toolName, args: payload.args || {}, timeoutMs: 30000 })
+          ? await mcpExecutor.executeConfiguredTransport({ toolName, args: payload.args || {}, timeoutMs: mcpExecutor.normalizeMcpTimeout(payload.timeoutMs) })
           : { success: false, status: 'blocked', error: gate.message });
         if (execution.success) circuitBreaker.recordSuccess(toolName);
         else if (execution.configured) circuitBreaker.recordFailure(toolName, execution.error || 'Approved MCP action failed.');
