@@ -41,6 +41,14 @@ async function runTemporalSuite() {
   assert.deepStrictEqual(nestedMerge.merged.config, { left: 2, right: 2 }, 'Conserve les modifications imbriquees independantes');
   console.log('  PASS: Merge 3 voies recursif conserve les changements independants');
 
+  const unresolvedMerge = await temporalPrimitives.causalMerge({ base: { value: 1 }, left: { value: 2 }, right: { value: 3 } });
+  assert.strictEqual(unresolvedMerge.success, false, 'Refuse un conflit non resolu');
+  const resolvedMerge = await temporalPrimitives.causalMerge({
+    base: { value: 1 }, left: { value: 2 }, right: { value: 3 }, conflictResolution: { value: 'right' }
+  });
+  assert.strictEqual(resolvedMerge.success, true, 'Accepte une resolution explicite');
+  assert.strictEqual(resolvedMerge.merged.value, 3, 'Applique le choix explicite de resolution');
+
   const foldRes = await strategyAdapter.executePrimitive('state_fold', { turns: [{ action: 'edit' }, { action: 'test', pass: true }] });
   assert.ok(foldRes.success, 'state_fold via adapter');
   console.log('  PASS: state_fold primitive executee');
