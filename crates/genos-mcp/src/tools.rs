@@ -1,24 +1,23 @@
 use serde_json::{json, Value};
 use std::env;
 
-pub fn public_tool_specs() -> Vec<Value> {
-    let lease = env::var("GENOS_MCP_LEASE").ok().map(|s| {
-        s.split(',')
-            .map(|t| t.trim().to_string())
-            .filter(|t| !t.is_empty())
-            .collect::<Vec<String>>()
-    });
-    let disabled = env::var("GENOS_MCP_DISABLED_TOOLS").ok().map(|s| {
-        s.split(',')
-            .map(|t| t.trim().to_string())
-            .filter(|t| !t.is_empty())
-            .collect::<Vec<String>>()
-    }).unwrap_or_default();
+fn configured_tool_set(variable: &str) -> Option<Vec<String>> {
+    env::var(variable).ok().map(|value| {
+        value.split(',')
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(|name| {
+                if name.starts_with("genos_") { name.to_string() } else { format!("genos_{name}") }
+            })
+            .collect()
+    })
+}
 
-    let expose_all = matches!(
-        env::var("GENOS_MCP_EXPOSE_ALL").as_deref(),
-        Ok("1") | Ok("true") | Ok("TRUE")
-    );
+pub fn public_tool_specs() -> Vec<Value> {
+    let lease = configured_tool_set("GENOS_MCP_LEASE");
+    let disabled = configured_tool_set("GENOS_MCP_DISABLED_TOOLS").unwrap_or_default();
+
+    let expose_all = matches!(env::var("GENOS_MCP_EXPOSE_ALL").as_deref(), Ok(value) if value.eq_ignore_ascii_case("1") || value.eq_ignore_ascii_case("true"));
 
     let all_tools = vec![
         json!({
@@ -217,7 +216,7 @@ pub fn public_tool_specs() -> Vec<Value> {
 
     let filter_disabled = |tool: &Value| {
         let name = tool.get("name").and_then(Value::as_str).unwrap_or("");
-        !disabled.iter().any(|entry| entry == name || name.strip_prefix("genos_") == Some(entry))
+        !disabled.iter().any(|entry| entry == name)
     };
 
     if let Some(ref leased) = lease {
@@ -225,7 +224,7 @@ pub fn public_tool_specs() -> Vec<Value> {
             .into_iter()
             .filter(|t| {
                 let name = t.get("name").and_then(Value::as_str).unwrap_or("");
-                filter_disabled(t) && leased.iter().any(|l| l == name || name.strip_prefix("genos_") == Some(l))
+                filter_disabled(t) && leased.iter().any(|l| l == name)
             })
             .collect()
     } else if expose_all {
