@@ -31,11 +31,14 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
 
   // 2. require_independent_verification
   if (policy.require_independent_verification) {
+    const reportClaims = executionContext.report?.claims;
+    const reportHasEvidence = Array.isArray(reportClaims) && reportClaims.length > 0
+      && reportClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0);
     const verified = executionContext.independentVerification === true ||
       executionContext.evidenceVerified === true ||
       (Array.isArray(executionContext.verifiedClaims) && executionContext.verifiedClaims.length > 0) ||
       (Array.isArray(executionContext.workerDossiers) && executionContext.workerDossiers.length > 0) ||
-      (executionContext.report?.claims?.length > 0);
+      reportHasEvidence;
     if (!verified) {
       violations.push({
         policy: 'require_independent_verification',

@@ -289,7 +289,11 @@ async function verify(context) {
   if (context.testCommand && context.workspaceId) {
     const db = await getDatabase();
     const workspace = await scopedWorkspace(db, context.workspaceId);
-    if (workspace) {
+    if (!workspace) {
+      success = false;
+      domainVerified = false;
+      failures.push(`Workspace not found: ${context.workspaceId}`);
+    } else {
       try {
         const result = await runBoundedTestCommand(context.testCommand, workspace.path);
         testResults = { passed: result.code === 0, output: result.stdout || result.stderr, signal: result.signal };
@@ -308,8 +312,20 @@ async function verify(context) {
   }
 
   if (Array.isArray(context.invariants)) {
-    for (const inv of context.invariants) {
-       invariantResults.push({ invariant: inv, passed: true });
+    if (!Array.isArray(context.invariantResults) || context.invariantResults.length !== context.invariants.length) {
+      success = false;
+      domainVerified = false;
+      failures.push('Invariant results are required; invariants are never assumed to pass.');
+    } else {
+      invariantResults = context.invariants.map((invariant, index) => ({
+        invariant,
+        passed: context.invariantResults[index] === true || context.invariantResults[index]?.passed === true
+      }));
+      if (invariantResults.some((result) => !result.passed)) {
+        success = false;
+        domainVerified = false;
+        failures.push('One or more invariants failed.');
+      }
     }
   }
 

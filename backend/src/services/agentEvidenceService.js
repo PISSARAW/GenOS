@@ -59,7 +59,10 @@ function workerEvidenceDossiers(orchestratorId, workers) {
 function validateWorkerDossiers(dossiers, workers) {
   const expected = new Set(workers.map((worker) => worker.agentId));
   const actual = new Set(dossiers.map((dossier) => dossier.workerId));
-  const missing = [...expected].filter((workerId) => !actual.has(workerId));
+  const coveredBranches = new Set(dossiers.map((dossier) => dossier.assignedBranch).filter(Boolean));
+  const missing = workers
+    .filter((worker) => !actual.has(worker.agentId) && !coveredBranches.has(worker.branchAssignment))
+    .map((worker) => worker.agentId);
   const empty = dossiers
     .filter((dossier) => expected.has(dossier.workerId))
     .filter((dossier) => !dossier.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof))
@@ -155,6 +158,7 @@ function boundedEvidenceScore(value) {
 
 function evidenceScore(payload = {}, context = {}) {
   const report = payload.evidenceReport || payload.report || {};
+  if (payload.failure || report.outcome === 'failed' || ['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(payload.eventType)) return 0;
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const noAnswerEvidence = report.outcome === 'no_answer' && report.noAnswerProof && Array.isArray(report.noAnswerProof.evidence)
     ? report.noAnswerProof.evidence.filter((item) => typeof item === 'string' && item.trim()).length

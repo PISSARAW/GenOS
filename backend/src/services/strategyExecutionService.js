@@ -307,6 +307,7 @@ async function approveRun(db, id, options = {}) {
   const steps = await db.all('SELECT * FROM strategy_execution_steps WHERE run_id = ? ORDER BY sequence DESC', id);
 
   let report = options.report || null;
+  if (!report) throw new Error(`Execution run ${id} cannot be promoted without an evidence report.`);
   let task = options.task || contract.problem_profile?.description || agent?.role || `Run ${id} promotion`;
   let workspaceId = options.workspaceId || agent?.workspace_id || 'ws-genos-core';
   let turns = options.turns || [];
@@ -334,7 +335,7 @@ async function approveRun(db, id, options = {}) {
       orchestratorId: row.agent_id,
       workspaceId,
       task,
-      report: report || { outcome: 'success', approved: true },
+      report,
       turns: turns.length ? turns : [{ action: 'human_approval', pass: true }],
       sourceId: row.agent_id,
       targetId: row.agent_id
@@ -349,7 +350,7 @@ async function approveRun(db, id, options = {}) {
       agent?.name || row.agent_id,
       task,
       report?.claims?.map((c) => c.statement).join('\n') || options.summary || `Strategy promotion completed and approved for run ${id}.`,
-      { outcome: report?.outcome || 'success', approvedBy: options.approvedBy || 'human_gate' }
+      { outcome: report?.outcome || 'unknown', approvedBy: options.approvedBy || 'human_gate' }
     );
   } catch (_) {}
 

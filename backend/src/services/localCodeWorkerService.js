@@ -109,10 +109,10 @@ async function executeProposal({ workspaceRoot, text }) {
   }
   if (tests.some((test) => test.exitCode !== 0)) {
     await restorePatchState(workspaceRoot, patchState);
-    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true };
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true, testStatus: 'failed' };
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFiles = after.filter((file) => before.get(file.path) !== file.hash).map((file) => file.path);
-  return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false };
+  return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false, testStatus: 'passed' };
 }
 module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, restorePatchState };
