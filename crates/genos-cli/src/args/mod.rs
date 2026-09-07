@@ -77,4 +77,6 @@ pub enum Commands {
     Fossil(FossilCmd),
     /// OpenAI-compatible REST API server
     Serve(ServeCmd),
+    /// System control commands
+    Desktop(DesktopCmd),
 }

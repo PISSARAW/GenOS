@@ -348,3 +348,30 @@ pub enum PlatformSubcommands {
         index: Option<String>,
     },
 }
+
+#[derive(Args, Debug)]
+pub struct DesktopCmd {
+    #[command(subcommand)]
+    pub subcommand: DesktopSubcommands,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum DesktopSubcommands {
+    Capture {
+        #[arg(long)]
+        out: Option<String>,
+    },
+    Action {
+        #[arg(long)]
+        r#type: String,
+        #[arg(long)]
+        x: Option<i32>,
+        #[arg(long)]
+        y: Option<i32>,
+        #[arg(long)]
+        text: Option<String>,
+        #[arg(long)]
+        button: Option<String>,
+    },
+}
+

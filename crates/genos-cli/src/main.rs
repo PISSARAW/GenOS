@@ -10,7 +10,7 @@ use args::{
     StrategySubcommands, RebaseSubcommands, WorldSubcommands
 };
 use commands::{
-    agent, api_server, biomimicry, capsule, experiments, hallucination, platform, replay, snapshot, store_ops,
+    agent, api_server, biomimicry, capsule, experiments, hallucination, platform, replay, snapshot, store_ops, desktop,
 };
 use genos_immune::{AntibodyDetector, Antigen, ClonalSelection};
 use std::path::PathBuf;
@@ -70,6 +70,7 @@ fn main() {
         Some(Commands::Audit(cmd)) => capsule::handle_audit(&cmd.snapshot_id, cmd.output.as_deref()),
         Some(Commands::Merge(cmd)) => capsule::handle_merge(&cmd.branch_id, cmd.conditions.as_deref()),
         Some(Commands::CostAccounting(cmd)) => platform::handle_cost_accounting(&cmd.agent_id, cmd.timeframe.as_deref()),
+        Some(Commands::Desktop(cmd)) => desktop::execute(cmd.subcommand),
         Some(Commands::LoopDetection(cmd)) => {
             capsule::handle_loop_detection(&cmd)
         }
