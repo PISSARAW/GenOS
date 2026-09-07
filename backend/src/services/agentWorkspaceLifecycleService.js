@@ -106,10 +106,23 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   workspaceRoot = resolvedRoot;
   const marker = path.join(workspaceRoot, '.git');
   let removedVia = 'removed';
+  let parentRepoDir = null;
   try {
     // Worktrees carry a .git FILE pointing at the parent repository; a plain
     // repo checkout has a .git DIRECTORY and must never be worktree-removed.
     if (fsSync.existsSync(marker) && fsSync.statSync(marker).isFile()) {
+      try {
+        const gitFileContent = fsSync.readFileSync(marker, 'utf8');
+        const match = gitFileContent.match(/gitdir:\s*(.*)/i);
+        if (match && match[1]) {
+          const worktreeGitDir = path.resolve(workspaceRoot, match[1].trim());
+          const dotGitDir = path.dirname(path.dirname(worktreeGitDir));
+          if (path.basename(dotGitDir) === '.git') {
+            parentRepoDir = path.dirname(dotGitDir);
+          }
+        }
+      } catch (_) {}
+
       await spawnGit(workspaceRoot, ['worktree', 'remove', '--force', workspaceRoot]);
       removedVia = 'worktree-removed';
     }
@@ -118,6 +131,21 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   if (agentId && path.basename(agentId) === agentId && !agentId.includes(path.sep)) {
     await fs.rm(path.join(path.dirname(workspaceRoot), '.genos-runtime', agentId), { recursive: true, force: true });
   }
+
+  // Purge administrative git worktree metadata via `git worktree prune`
+  if (parentRepoDir) {
+    try {
+      await spawnGit(parentRepoDir, ['worktree', 'prune']);
+    } catch (_) {}
+  } else {
+    try {
+      const parentDir = path.dirname(workspaceRoot);
+      if (fsSync.existsSync(path.join(parentDir, '.git'))) {
+        await spawnGit(parentDir, ['worktree', 'prune']);
+      }
+    } catch (_) {}
+  }
+
   return removedVia;
 }
 
