@@ -45,6 +45,25 @@ function evidencePresent(value) {
   return isMeaningfulEvidenceItem(value);
 }
 
+function extractClaims(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload.claims)) return payload.claims;
+  if (Array.isArray(payload.evidenceReport?.claims)) return payload.evidenceReport.claims;
+  if (Array.isArray(payload.report?.claims)) return payload.report.claims;
+  if (Array.isArray(payload.result?.claims)) return payload.result.claims;
+  return [];
+}
+
+function extractUnverifiedClaims(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  const list = [];
+  if (Array.isArray(payload.unverifiedClaims)) list.push(...payload.unverifiedClaims);
+  if (Array.isArray(payload.evidenceReport?.unverifiedClaims)) list.push(...payload.evidenceReport.unverifiedClaims);
+  if (Array.isArray(payload.report?.unverifiedClaims)) list.push(...payload.report.unverifiedClaims);
+  if (Array.isArray(payload.result?.unverifiedClaims)) list.push(...payload.result.unverifiedClaims);
+  return list;
+}
+
 function inspectEvent(event = {}) {
   const payload = event.payload || {};
   const reasons = [];
@@ -59,20 +78,20 @@ function inspectEvent(event = {}) {
     observations.push(declared);
   }
 
-  const unverifiedClaims = asArray(payload.unverifiedClaims);
+  const unverifiedClaims = extractUnverifiedClaims(payload);
   if (unverifiedClaims.length) {
     reasons.push(`${unverifiedClaims.length} claim(s) explicitly lack evidence`);
     observations.push(unverifiedClaims.length);
   }
 
-  const claims = asArray(payload.claims);
+  const claims = extractClaims(payload);
   const unsupportedClaims = claims.filter((claim) => claim && !evidencePresent(claim.evidence || claim.receipts || claim.sourceRefs));
   if (unsupportedClaims.length) {
     reasons.push(`${unsupportedClaims.length} structured claim(s) lack evidence or receipts`);
     observations.push(unsupportedClaims.length);
   }
 
-  const proposal = payload.proposal;
+  const proposal = payload.proposal || payload.evidenceReport?.proposal || payload.report?.proposal;
   if (proposal) {
     if (!evidencePresent(proposal.proposal?.evidence || proposal.evidence)) {
       reasons.push('local code proposal has no evidence statement');
@@ -104,4 +123,10 @@ async function recordObservation(db, event) {
   return { monitored: true, ...observation, total: Number(updated?.hallucination_count || 0) };
 }
 
-module.exports = { inspectEvent, recordObservation, evidencePresent };
+module.exports = {
+  inspectEvent,
+  recordObservation,
+  evidencePresent,
+  extractClaims,
+  extractUnverifiedClaims
+};
