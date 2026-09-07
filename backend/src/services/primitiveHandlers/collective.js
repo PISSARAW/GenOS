@@ -188,6 +188,95 @@ async function trailSelection(context) {
   }
 }
 
+async function evaporation(context) {
+  // Évaporation active & purge stigmergique des traces obsolètes (< pruneThreshold)
+  const db = await getDatabase();
+  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.agentId || context.agent_id;
+  if (!orchestratorId) {
+    return { success: false, error: 'orchestratorId required for evaporation.' };
+  }
+
+  try {
+    const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || context.evaporation_half_life_ms || context.halfLifeMs || 3600000);
+    if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
+      return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
+    }
+    const rawThreshold = context.pruneThreshold ?? context.prune_threshold ?? context.threshold;
+    const pruneThreshold = Math.max(0, Number(rawThreshold ?? 0.001));
+    const rawRef = context.referenceTime ?? context.reference_time;
+    const suppliedReferenceTime = rawRef == null ? Date.now() : parseSqliteUtcTimestamp(rawRef);
+    const referenceTime = Number.isFinite(suppliedReferenceTime) ? suppliedReferenceTime : Date.now();
+    const dryRun = Boolean(context.dryRun || context.dry_run);
+
+    const rows = await db.all(
+      `SELECT id, payload_json, created_at FROM agent_organization_messages 
+       WHERE orchestrator_id = ? AND kind = 'trace' ORDER BY id ASC`,
+      orchestratorId
+    );
+
+    const expiredIds = [];
+    const remainingStrengths = {};
+
+    for (const row of rows) {
+      try {
+        const payload = JSON.parse(row.payload_json);
+        if (payload.type === 'pheromone' && payload.path) {
+          const createdAtMs = parseSqliteUtcTimestamp(row.created_at);
+          const ageMs = Math.max(0, referenceTime - createdAtMs);
+          const factor = Math.pow(0.5, ageMs / evaporationHalfLifeMs);
+          const rawStrength = Number(payload.strength || 0);
+          const effectiveStrength = rawStrength * factor;
+          
+          if (Math.abs(effectiveStrength) < pruneThreshold) {
+            expiredIds.push(row.id);
+          } else {
+            remainingStrengths[payload.path] = (remainingStrengths[payload.path] || 0) + effectiveStrength;
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (!dryRun && expiredIds.length > 0) {
+      const batchSize = 500;
+      for (let i = 0; i < expiredIds.length; i += batchSize) {
+        const batch = expiredIds.slice(i, i + batchSize);
+        const placeholders = batch.map(() => '?').join(',');
+        await db.run(
+          `DELETE FROM agent_organization_messages WHERE id IN (${placeholders})`,
+          batch
+        );
+      }
+    }
+
+    telemetry.emitEvent({
+      eventType: 'SWARM_EVAPORATION_CYCLE',
+      agentId: context.agentId || orchestratorId,
+      action: 'EVAPORATION_CYCLE',
+      detail: `Evaporated traces for ${orchestratorId}: purged ${expiredIds.length} expired, retained ${Object.keys(remainingStrengths).length} active paths.`,
+      severity: 'info',
+      payload: {
+        orchestratorId,
+        purgedTracesCount: expiredIds.length,
+        activeTrailsCount: Object.keys(remainingStrengths).length,
+        pruneThreshold,
+        evaporationHalfLifeMs,
+        dryRun
+      }
+    });
+
+    return {
+      success: true,
+      orchestratorId,
+      purgedTracesCount: expiredIds.length,
+      activeTrailsCount: Object.keys(remainingStrengths).length,
+      remainingStrengths,
+      dryRun
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 async function brierScores(context) {
   // Récupère les scores de Brier historiques d'une liste d'agents pour évaluer leur fiabilité.
   const agentIds = context.agentIds || [];
@@ -195,8 +284,7 @@ async function brierScores(context) {
   const observations = context.calibrationObservations || [];
   const suppliedScores = context.calibrationScores || {};
   const scores = {};
-  let db = null;
-  try { db = await getDatabase(); } catch (_) {}
+  const db = await getDatabase();
 
   for (const id of agentIds) {
     const agentObservations = observations.filter((item) => item.agentId === id);
@@ -211,20 +299,23 @@ async function brierScores(context) {
       }, 0) / agentObservations.length
       : Number(suppliedScores[id]);
 
-    if ((!Number.isFinite(score) || score < 0 || score > 1) && db) {
-      try {
-        const pastRuns = await db.all(
-          'SELECT brier_score FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL ORDER BY created_at DESC LIMIT 10',
-          id
-        );
-        if (pastRuns && pastRuns.length > 0) {
-          score = pastRuns.reduce((sum, r) => sum + Number(r.brier_score), 0) / pastRuns.length;
-        }
-      } catch (_) {}
+    if (!Number.isFinite(score) || score < 0 || score > 1) {
+      // Tenter de récupérer l'historique de calibration depuis la table evaluation_runs
+      if (db) {
+        try {
+          const runRow = await db.get(
+            'SELECT AVG(brier_score) as avg_brier FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL',
+            id
+          );
+          if (runRow && Number.isFinite(runRow.avg_brier) && runRow.avg_brier >= 0 && runRow.avg_brier <= 1) {
+            score = Number(runRow.avg_brier);
+          }
+        } catch (_) {}
+      }
     }
 
     if (!Number.isFinite(score) || score < 0 || score > 1) {
-      if (context.allowDefaults) {
+      if (context.allowDefaults || context.fallbackDefault) {
         score = Number(context.defaultScore ?? 0.25);
       } else {
         return { success: false, error: 'Calibration observations or scores required for every agent.' };
@@ -255,8 +346,10 @@ async function quorum(context) {
   try {
     const rows = await db.all(
       `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
-       WHERE orchestrator_id = ? AND kind = 'vote' ORDER BY id DESC LIMIT 50`,
-      orchestratorId
+       WHERE orchestrator_id = ? AND kind = 'vote'
+         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
+       ORDER BY id DESC`,
+      orchestratorId, issue
     );
     
     const votes = {};
@@ -276,10 +369,14 @@ async function quorum(context) {
     }
     
     const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
-    const threshold = Number.isFinite(context.threshold) ? context.threshold : 0.5;
+    const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
 
     const totalExpressed = Object.values(votes).reduce((sum, val) => sum + val, 0);
-    const sortedOptions = Object.keys(votes).sort((a, b) => votes[b] - votes[a]);
+    const sortedOptions = Object.keys(votes).sort((a, b) => {
+      const diff = votes[b] - votes[a];
+      if (diff !== 0) return diff;
+      return a.localeCompare(b); // Tie-breaker déterministe
+    });
     const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
     const topVotes = topOption ? (votes[topOption] || 0) : 0;
     const approvalRate = totalExpressed > 0 ? topVotes / totalExpressed : 0;
@@ -295,6 +392,20 @@ async function quorum(context) {
       severity: 'info',
       payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, approvalRate }
     });
+
+    if (db) {
+      try {
+        await db.run(
+          `INSERT INTO agent_organization_messages (orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json)
+           VALUES (?, 'collective', 1, ?, 'broadcast', 'consensus', 'consensus_resolution', ?, ?)`,
+          orchestratorId,
+          orchestratorId,
+          quorumReached ? `Quorum reached on ${issue}: ${decision}` : `Quorum not reached on ${issue}`,
+          JSON.stringify({ issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, approvalRate })
+        );
+      } catch (_) {}
+    }
+
     return {
       success: true,
       issue,
@@ -322,8 +433,10 @@ async function weightedQuorum(context) {
   try {
     const rows = await db.all(
       `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
-       WHERE orchestrator_id = ? AND kind = 'vote' ORDER BY id DESC LIMIT 50`,
-      orchestratorId
+       WHERE orchestrator_id = ? AND kind = 'vote'
+         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
+       ORDER BY id DESC`,
+      orchestratorId, issue
     );
     
     const agentIds = [...new Set(rows.map(r => r.sender_agent_id))];
@@ -346,9 +459,9 @@ async function weightedQuorum(context) {
         const payload = JSON.parse(row.payload_json);
         if (payload.issue === issue && payload.vote) {
           if (payload.vote !== 'abstain') {
-            const brier = bScores[row.sender_agent_id] || 0.25; // Default to random guesser
-            // Penalize high Brier scores heavily. Score >= 0.5 gets 0 weight.
-            const weight = Math.max(0, 1 - 2 * brier); 
+            const brier = bScores[row.sender_agent_id] !== undefined ? bScores[row.sender_agent_id] : 0.25;
+            // Pénalisation sélective des scores élevés de Brier : B >= 0.5 a un poids drastiquement réduit
+            const weight = brier >= 0.5 ? Math.max(0, 0.1 * (1 - brier)) : Math.pow(1 - brier, 2);
             weightedVotes[payload.vote] = (weightedVotes[payload.vote] || 0) + weight;
           }
           hasVoted.add(row.sender_agent_id);
@@ -357,10 +470,14 @@ async function weightedQuorum(context) {
     }
     
     const minParticipation = context.minVotes !== undefined ? context.minVotes : (context.minParticipation !== undefined ? context.minParticipation : 1);
-    const threshold = Number.isFinite(context.threshold) ? context.threshold : 0.5;
+    const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
 
     const totalExpressedWeight = Object.values(weightedVotes).reduce((sum, w) => sum + w, 0);
-    const sortedOptions = Object.keys(weightedVotes).sort((a, b) => weightedVotes[b] - weightedVotes[a]);
+    const sortedOptions = Object.keys(weightedVotes).sort((a, b) => {
+      const diff = weightedVotes[b] - weightedVotes[a];
+      if (Math.abs(diff) > 1e-9) return diff;
+      return a.localeCompare(b); // Tie-breaker déterministe
+    });
     const topOption = sortedOptions.length > 0 ? sortedOptions[0] : null;
     const topWeight = topOption ? (weightedVotes[topOption] || 0) : 0;
     const approvalRate = totalExpressedWeight > 0 ? topWeight / totalExpressedWeight : 0;
@@ -376,6 +493,20 @@ async function weightedQuorum(context) {
       severity: 'info',
       payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate }
     });
+
+    if (db) {
+      try {
+        await db.run(
+          `INSERT INTO agent_organization_messages (orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json)
+           VALUES (?, 'collective', 1, ?, 'broadcast', 'consensus', 'consensus_resolution', ?, ?)`,
+          orchestratorId,
+          orchestratorId,
+          quorumReached ? `Weighted quorum reached on ${issue}: ${decision}` : `Weighted quorum not reached on ${issue}`,
+          JSON.stringify({ issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate })
+        );
+      } catch (_) {}
+    }
+
     return {
       success: true,
       issue,
@@ -392,4 +523,4 @@ async function weightedQuorum(context) {
   }
 }
 
-module.exports = { pheromoneDeposit, trailSelection, brierScores, quorum, weightedQuorum };
+module.exports = { pheromoneDeposit, trailSelection, evaporation, brierScores, quorum, weightedQuorum };
