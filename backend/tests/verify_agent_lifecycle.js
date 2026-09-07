@@ -3,11 +3,12 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-agent-lifecycle-'));
 process.env.NODE_ENV = 'test';
 process.env.GENOS_DB_PATH = path.join(root, 'genos.db');
-process.env.GENOS_ADMIN_TOKEN = 'genos-agent-lifecycle-admin';
+process.env.GENOS_ADMIN_TOKEN = `lifecycle-test-${crypto.randomBytes(24).toString('hex')}`;
 process.env.GENOS_CAPSULE_ROOT = path.join(root, 'capsules');
 
 const { createApp } = require('../src/app');

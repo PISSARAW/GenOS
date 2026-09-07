@@ -10,9 +10,11 @@ const loadAllProtos = require('../proto/index');
 const registerAllServices = require('../src/grpc_services/index');
 const { getDatabase } = require('../src/db');
 const swarmMetrics = require('../src/services/swarmMetricsService');
+const crypto = require('crypto');
 
 const TEST_PORT = 50059;
-process.env.GENOS_GRPC_SHARED_SECRET = 'grpc-test-secret';
+const testGrpcSecret = `grpc-test-${crypto.randomBytes(24).toString('hex')}`;
+process.env.GENOS_GRPC_SHARED_SECRET = testGrpcSecret;
 
 async function runGrpcSuite() {
   console.log('=== STARTING GENOS gRPC MICROSERVICES VERIFICATION SUITE ===\n');
@@ -47,7 +49,7 @@ async function runGrpcSuite() {
   function callRpc(client, method, req = {}) {
     return new Promise((resolve, reject) => {
       const metadata = new grpc.Metadata();
-      metadata.set('x-genos-grpc-key', 'grpc-test-secret');
+      metadata.set('x-genos-grpc-key', testGrpcSecret);
       client[method](req, metadata, (err, res) => {
         if (err) return reject(err);
         resolve(res);
