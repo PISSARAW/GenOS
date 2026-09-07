@@ -4,17 +4,67 @@
  * and inter-agent circular deadlocks.
  */
 
+const path = require('path');
 const { calculateShannonEntropy, detectDeadlocks } = require('./swarmMetricsService');
 
 const agentActionWindows = new Map();
 const recentInteractions = [];
 
+function normalizeCommandSignature(cmd) {
+  if (typeof cmd !== 'string') return null;
+  const trimmed = cmd.trim();
+  if (!trimmed) return null;
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  const bin = path.basename(parts[0]).replace(/\.(exe|cmd|bat|sh|ps1)$/i, '');
+  if (parts.length > 1 && !parts[1].startsWith('-')) {
+    const sub = parts[1].replace(/[^a-zA-Z0-9_.-]/g, '').slice(0, 30);
+    return `cmd:${bin}:${sub}`;
+  }
+  return `cmd:${bin}`;
+}
+
 function extractActionSignature(event) {
   if (!event) return null;
-  if (event.payload?.toolName) return `tool:${event.payload.toolName}`;
-  if (event.action && event.action !== 'NONE') return `action:${event.action}`;
-  if (event.eventType && event.eventType.startsWith('WORKFLOW_')) return `workflow:${event.eventType}`;
-  return null;
+
+  // 1. Explicit tool name (MCP or internal)
+  const tool = event.payload?.toolName || event.payload?.tool_name || event.payload?.name || event.toolName;
+  if (tool) return `tool:${tool}`;
+
+  // 2. Command execution details
+  const rawCmd = event.payload?.item?.command || event.payload?.command || event.item?.command || event.cmd;
+  if (rawCmd) {
+    const sig = normalizeCommandSignature(rawCmd);
+    if (sig) return sig;
+  }
+
+  // 3. Item type (agent message, think, etc.)
+  const itemType = event.payload?.item?.type || event.item?.type;
+  if (itemType) {
+    if (itemType === 'agent_message') return 'msg:agent_message';
+    if (itemType !== 'command_execution') return `item:${itemType}`;
+  }
+
+  // 4. Action property (if non-generic)
+  const genericActions = new Set(['NONE', 'EXECUTE', 'STEP', 'ACTION', 'GENERIC_ACTION']);
+  const action = String(event.action || '').trim();
+  if (action && !genericActions.has(action.toUpperCase())) {
+    return `action:${action}`;
+  }
+
+  // 5. Specific event types
+  const eventType = String(event.eventType || '').trim();
+  if (eventType && !['AGENT_STEP', 'STEP', 'NONE'].includes(eventType.toUpperCase())) {
+    return `event:${eventType}`;
+  }
+
+  // 6. Detail inspection for commands or specific texts
+  if (typeof event.detail === 'string' && event.detail.length > 0) {
+    const sig = normalizeCommandSignature(event.detail);
+    if (sig) return sig;
+  }
+
+  return 'generic:action';
 }
 
 function inspectEvent(agentId, event) {
