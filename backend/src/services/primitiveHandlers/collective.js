@@ -103,17 +103,86 @@ async function trailSelection(context) {
     }
     
     const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a] || a.localeCompare(b));
-    const selectedTrail = sortedTrails.length > 0 ? sortedTrails[0] : null;
+    const mode = String(context.mode || context.selection_mode || 'greedy').toLowerCase();
+    let selectedTrail = null;
+    const trailProbabilities = {};
+
+    if (sortedTrails.length > 0) {
+      if (mode === 'softmax') {
+        const temperature = Math.max(0.001, Number(context.temperature ?? 1.0));
+        const maxScore = Math.max(...sortedTrails.map(t => trailStrengths[t]));
+        let sumExp = 0;
+        const exps = {};
+        for (const t of sortedTrails) {
+          const expVal = Math.exp((trailStrengths[t] - maxScore) / temperature);
+          exps[t] = expVal;
+          sumExp += expVal;
+        }
+        for (const t of sortedTrails) {
+          trailProbabilities[t] = sumExp > 0 ? (exps[t] / sumExp) : (1 / sortedTrails.length);
+        }
+      } else if (mode === 'probabilistic' || mode === 'roulette' || mode === 'fitness') {
+        const alpha = Math.max(0.1, Number(context.alpha ?? 1.0));
+        let sumWeights = 0;
+        const weights = {};
+        for (const t of sortedTrails) {
+          const w = Math.pow(Math.max(0, trailStrengths[t]), alpha);
+          weights[t] = w;
+          sumWeights += w;
+        }
+        for (const t of sortedTrails) {
+          trailProbabilities[t] = sumWeights > 0 ? (weights[t] / sumWeights) : (1 / sortedTrails.length);
+        }
+      } else if (mode === 'epsilon_greedy') {
+        const rawEpsilon = Number(context.epsilon ?? 0.1);
+        const epsilon = Math.min(1, Math.max(0, Number.isFinite(rawEpsilon) ? rawEpsilon : 0.1));
+        const bestTrail = sortedTrails[0];
+        const n = sortedTrails.length;
+        for (const t of sortedTrails) {
+          trailProbabilities[t] = (t === bestTrail ? (1 - epsilon) : 0) + (epsilon / n);
+        }
+      } else {
+        // default: 'greedy'
+        for (const t of sortedTrails) {
+          trailProbabilities[t] = t === sortedTrails[0] ? 1.0 : 0.0;
+        }
+      }
+
+      if (mode === 'greedy') {
+        selectedTrail = sortedTrails[0];
+      } else {
+        const r = Math.random();
+        let cumulative = 0;
+        for (const t of sortedTrails) {
+          cumulative += trailProbabilities[t];
+          if (r <= cumulative) {
+            selectedTrail = t;
+            break;
+          }
+        }
+        if (!selectedTrail) {
+          selectedTrail = sortedTrails[0];
+        }
+      }
+    }
     
     telemetry.emitEvent({
       eventType: 'SWARM_TRAIL_SELECTION',
       agentId: context.agentId || orchestratorId,
       action: 'TRAIL_SELECTION',
-      detail: `Selected trail ${selectedTrail || 'none'} from ${sortedTrails.length} options.`,
+      detail: `Selected trail ${selectedTrail || 'none'} from ${sortedTrails.length} options (mode: ${mode}).`,
       severity: 'info',
-      payload: { selectedTrail, trailStrengths, referenceTime: new Date(referenceTime).toISOString(), traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length }
+      payload: { selectedTrail, trailStrengths, trailProbabilities, mode, referenceTime: new Date(referenceTime).toISOString(), traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length }
     });
-    return { success: true, selectedTrail, trailStrengths, traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length };
+    return {
+      success: true,
+      selectedTrail,
+      trailStrengths,
+      trailProbabilities,
+      mode,
+      traceLimit,
+      truncated: Number(totalTraceCount?.count || 0) > rows.length
+    };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -126,6 +195,9 @@ async function brierScores(context) {
   const observations = context.calibrationObservations || [];
   const suppliedScores = context.calibrationScores || {};
   const scores = {};
+  let db = null;
+  try { db = await getDatabase(); } catch (_) {}
+
   for (const id of agentIds) {
     const agentObservations = observations.filter((item) => item.agentId === id);
     let score = agentObservations.length > 0
@@ -138,6 +210,18 @@ async function brierScores(context) {
         return sum + (prediction - outcome) ** 2;
       }, 0) / agentObservations.length
       : Number(suppliedScores[id]);
+
+    if ((!Number.isFinite(score) || score < 0 || score > 1) && db) {
+      try {
+        const pastRuns = await db.all(
+          'SELECT brier_score FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL ORDER BY created_at DESC LIMIT 10',
+          id
+        );
+        if (pastRuns && pastRuns.length > 0) {
+          score = pastRuns.reduce((sum, r) => sum + Number(r.brier_score), 0) / pastRuns.length;
+        }
+      } catch (_) {}
+    }
 
     if (!Number.isFinite(score) || score < 0 || score > 1) {
       if (context.allowDefaults) {
