@@ -235,6 +235,10 @@ class StrategyExecutionAdapter {
       const res = await this.executePrimitive(p, context);
       results.push({ primitive: p, result: res });
 
+      if (res.success && p === 'brier_scores' && res.scores) {
+        context.calibrationScores = { ...(context.calibrationScores || {}), ...res.scores };
+      }
+
       if (!res.success) {
         pipelineSuccess = false;
         telemetry.emitEvent({
