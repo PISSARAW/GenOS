@@ -382,7 +382,6 @@ async function runAllAdversarialSuites() {
     await runXssInjectionTests();
     await runCircuitBreakerTests();
     await runFuzzingStressTests();
-
     const duration = Date.now() - startTime;
     console.log('\n================================================================');
     console.log(`  ALL ADVERSARIAL TESTS PASSED: ${passedAsserts}/${totalAsserts} assertions in ${duration}ms`);
