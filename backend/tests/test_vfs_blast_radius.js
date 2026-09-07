@@ -13,4 +13,8 @@ const result = dryRunPatch('workspace', [{ path: 'src\\b.js', content: 'B' }]);
 assert.deepStrictEqual(result.sideEffects.filesCreated, ['src/b.js']);
 assert.strictEqual(result.clean, true);
 
+for (const invalidCount of [-1, 1.5, NaN, Infinity, '1']) {
+  assert.throws(() => require('../src/services/vfsSandboxService').calculateBlastRadius(invalidCount, false, 'viewer'), /filesModified must be a non-negative integer/);
+}
+
 console.log('VFS blast-radius collision checks passed.');
