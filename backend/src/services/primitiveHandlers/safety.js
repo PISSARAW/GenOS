@@ -331,7 +331,7 @@ async function cycleDetection(context = {}) {
   };
 }
 
-const { diagnose, hypothesisEvidence } = require('./safetyHypothesis');
+const { diagnose, hypothesisEvidence, beliefProvenance, contradictionCheck, beliefGate } = require('./safetyHypothesis');
 const { conscienceEvaluate, conscienceEureka } = require('./safetyConscience');
 
 module.exports = {
@@ -348,6 +348,9 @@ module.exports = {
   diagnose,
   hypothesisEvidence,
   conscienceEvaluate,
-  conscienceEureka
+  conscienceEureka,
+  beliefProvenance,
+  contradictionCheck,
+  beliefGate
 };
 
