@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /** Synchronous Codex PreToolUse policy for isolated GenOS runtimes. */
 let raw = '';
-const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { normalizeAllowedCommands, normalizeSandboxCommand } = require('../src/services/sandboxCommandPolicy');
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { raw += chunk; });
 process.stdin.on('end', () => {
@@ -16,7 +16,7 @@ process.stdin.on('end', () => {
     }
   }));
   const tool = String(input.tool_name || '');
-  const command = String(input.tool_input?.command || '').trim();
+  const command = normalizeSandboxCommand(input.tool_input?.command || '');
   let allowedCommands = [];
   try {
     const parsed = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]');
