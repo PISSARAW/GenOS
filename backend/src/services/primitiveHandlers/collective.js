@@ -26,14 +26,17 @@ async function pheromoneDeposit(context) {
   const orchestratorId = context.orchestratorId || context.orchestrator_id || context.orchestrator;
   const agentId = context.agentId || context.agent_id || context.senderId || context.sender_agent_id;
   const path = context.path || context.trail || context.target_file || context.targetFile || 'default_trail';
-  const strength = context.strength === undefined ? 1 : Number(context.strength);
+  const rawStrength = context.strength === undefined ? 1 : Number(context.strength);
+  const isRepellent = Boolean(context.isRepellent || context.is_repellent || context.repellent || rawStrength < 0);
 
   if (!orchestratorId || !agentId) {
     return { success: false, error: 'orchestratorId and agentId required for pheromone_deposit.' };
   }
-  if (!Number.isFinite(strength) || strength < 0 || strength > 1) {
-    return { success: false, error: 'pheromone strength must be a finite value in [0, 1].' };
+  if (!Number.isFinite(rawStrength) || rawStrength < -1 || rawStrength > 1) {
+    return { success: false, error: 'pheromone strength must be a finite value in [-1, 1].' };
   }
+
+  const finalStrength = isRepellent ? -Math.abs(rawStrength === 0 ? 1 : rawStrength) : Math.abs(rawStrength);
 
   // On utilise l'infrastructure DynamicOrganization pour diffuser la trace
   try {
@@ -41,18 +44,18 @@ async function pheromoneDeposit(context) {
       orchestratorId,
       senderAgentId: agentId,
       kind: 'trace',
-      content: `[PHEROMONE] path=${path} strength=${strength}`,
-      payload: { type: 'pheromone', path, strength }
+      content: `[PHEROMONE] path=${path} strength=${finalStrength}${finalStrength < 0 ? ' (REPELLENT)' : ''}`,
+      payload: { type: 'pheromone', path, strength: finalStrength, isRepellent: finalStrength < 0 }
     });
     telemetry.emitEvent({
       eventType: 'SWARM_PHEROMONE_DEPOSIT',
       agentId,
-      action: 'PHEROMONE_DEPOSIT',
-      detail: `Deposited pheromone on ${path} with strength ${strength}`,
+      action: finalStrength < 0 ? 'REPELLENT_PHEROMONE_DEPOSIT' : 'PHEROMONE_DEPOSIT',
+      detail: `Deposited ${finalStrength < 0 ? 'repellent ' : ''}pheromone on ${path} with strength ${finalStrength}`,
       severity: 'info',
-      payload: { path, strength, msgId: msg.id }
+      payload: { path, strength: finalStrength, isRepellent: finalStrength < 0, msgId: msg.id }
     });
-    return { success: true, path, strength, messageId: msg.id };
+    return { success: true, path, strength: finalStrength, isRepellent: finalStrength < 0, messageId: msg.id };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -103,57 +106,67 @@ async function trailSelection(context) {
     }
     
     const sortedTrails = Object.keys(trailStrengths).sort((a, b) => trailStrengths[b] - trailStrengths[a] || a.localeCompare(b));
+    const repellentTrails = sortedTrails.filter(t => trailStrengths[t] < 0);
+    const excludeRepellent = Boolean(context.excludeRepellent || context.exclude_repellent);
+    let candidateTrails = sortedTrails;
+    if (excludeRepellent) {
+      const nonRepellent = sortedTrails.filter(t => trailStrengths[t] > 0);
+      if (nonRepellent.length > 0) {
+        candidateTrails = nonRepellent;
+      }
+    }
+
     const mode = String(context.mode || context.selection_mode || 'greedy').toLowerCase();
     let selectedTrail = null;
     const trailProbabilities = {};
 
-    if (sortedTrails.length > 0) {
+    if (candidateTrails.length > 0) {
       if (mode === 'softmax') {
         const temperature = Math.max(0.001, Number(context.temperature ?? 1.0));
-        const maxScore = Math.max(...sortedTrails.map(t => trailStrengths[t]));
+        const maxScore = Math.max(...candidateTrails.map(t => trailStrengths[t]));
         let sumExp = 0;
         const exps = {};
-        for (const t of sortedTrails) {
+        for (const t of candidateTrails) {
           const expVal = Math.exp((trailStrengths[t] - maxScore) / temperature);
           exps[t] = expVal;
           sumExp += expVal;
         }
-        for (const t of sortedTrails) {
-          trailProbabilities[t] = sumExp > 0 ? (exps[t] / sumExp) : (1 / sortedTrails.length);
+        for (const t of candidateTrails) {
+          trailProbabilities[t] = sumExp > 0 ? (exps[t] / sumExp) : (1 / candidateTrails.length);
         }
       } else if (mode === 'probabilistic' || mode === 'roulette' || mode === 'fitness') {
         const alpha = Math.max(0.1, Number(context.alpha ?? 1.0));
         let sumWeights = 0;
         const weights = {};
-        for (const t of sortedTrails) {
+        for (const t of candidateTrails) {
           const w = Math.pow(Math.max(0, trailStrengths[t]), alpha);
           weights[t] = w;
           sumWeights += w;
         }
-        for (const t of sortedTrails) {
-          trailProbabilities[t] = sumWeights > 0 ? (weights[t] / sumWeights) : (1 / sortedTrails.length);
+        for (const t of candidateTrails) {
+          trailProbabilities[t] = sumWeights > 0 ? (weights[t] / sumWeights) : (1 / candidateTrails.length);
         }
       } else if (mode === 'epsilon_greedy') {
         const rawEpsilon = Number(context.epsilon ?? 0.1);
         const epsilon = Math.min(1, Math.max(0, Number.isFinite(rawEpsilon) ? rawEpsilon : 0.1));
-        const bestTrail = sortedTrails[0];
-        const n = sortedTrails.length;
-        for (const t of sortedTrails) {
+        const bestTrail = candidateTrails[0];
+        const n = candidateTrails.length;
+        for (const t of candidateTrails) {
           trailProbabilities[t] = (t === bestTrail ? (1 - epsilon) : 0) + (epsilon / n);
         }
       } else {
         // default: 'greedy'
-        for (const t of sortedTrails) {
-          trailProbabilities[t] = t === sortedTrails[0] ? 1.0 : 0.0;
+        for (const t of candidateTrails) {
+          trailProbabilities[t] = t === candidateTrails[0] ? 1.0 : 0.0;
         }
       }
 
       if (mode === 'greedy') {
-        selectedTrail = sortedTrails[0];
+        selectedTrail = candidateTrails[0];
       } else {
         const r = Math.random();
         let cumulative = 0;
-        for (const t of sortedTrails) {
+        for (const t of candidateTrails) {
           cumulative += trailProbabilities[t];
           if (r <= cumulative) {
             selectedTrail = t;
@@ -161,7 +174,7 @@ async function trailSelection(context) {
           }
         }
         if (!selectedTrail) {
-          selectedTrail = sortedTrails[0];
+          selectedTrail = candidateTrails[0];
         }
       }
     }
@@ -170,15 +183,16 @@ async function trailSelection(context) {
       eventType: 'SWARM_TRAIL_SELECTION',
       agentId: context.agentId || orchestratorId,
       action: 'TRAIL_SELECTION',
-      detail: `Selected trail ${selectedTrail || 'none'} from ${sortedTrails.length} options (mode: ${mode}).`,
+      detail: `Selected trail ${selectedTrail || 'none'} from ${candidateTrails.length} candidates (mode: ${mode}).`,
       severity: 'info',
-      payload: { selectedTrail, trailStrengths, trailProbabilities, mode, referenceTime: new Date(referenceTime).toISOString(), traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length }
+      payload: { selectedTrail, trailStrengths, trailProbabilities, repellentTrails, mode, referenceTime: new Date(referenceTime).toISOString(), traceLimit, truncated: Number(totalTraceCount?.count || 0) > rows.length }
     });
     return {
       success: true,
       selectedTrail,
       trailStrengths,
       trailProbabilities,
+      repellentTrails,
       mode,
       traceLimit,
       truncated: Number(totalTraceCount?.count || 0) > rows.length

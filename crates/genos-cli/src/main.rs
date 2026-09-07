@@ -19,7 +19,8 @@ fn immune_memory_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
         return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
     }
-    Ok(PathBuf::from(".genos").join("immune").join(format!("{}.json", agent_id)))
+    let root = crate::commands::root_resolver::resolve_matrix_root();
+    Ok(root.join("immune").join(format!("{}.json", agent_id)))
 }
 
 fn load_immune_selection(agent_id: &str) -> Result<(ClonalSelection, PathBuf), String> {

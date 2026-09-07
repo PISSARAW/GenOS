@@ -4,16 +4,10 @@ use genos_genome::Genome;
 use genos_store::{Capsule, CryptobiosisStore, FossilRegistry};
 use serde_json::json;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 fn get_storage_dir(subdir: &str) -> PathBuf {
-    let dir = if Path::new(".genos-matrix").exists() {
-        PathBuf::from(".genos-matrix").join(subdir)
-    } else if Path::new(".genos").exists() {
-        PathBuf::from(".genos").join(subdir)
-    } else {
-        PathBuf::from(subdir)
-    };
+    let dir = crate::commands::root_resolver::resolve_matrix_root().join(subdir);
     let _ = fs::create_dir_all(&dir);
     dir
 }

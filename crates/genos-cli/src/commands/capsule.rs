@@ -13,13 +13,7 @@ pub fn execute(cmd: CapsuleSubcommands) -> Result<(), String> {
 
 pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), String> {
     let audit_id = format!("audit-{}", Uuid::new_v4().simple());
-    let capsule_dir = if Path::new(".genos-matrix").exists() {
-        std::path::PathBuf::from(".genos-matrix/capsules")
-    } else if Path::new(".genos").exists() {
-        std::path::PathBuf::from(".genos/capsules")
-    } else {
-        std::path::PathBuf::from("capsules")
-    };
+    let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
     let capsule_file = capsule_dir.join(format!("{}.json", snapshot_id));
 
     let (hash, compliance_score, status) = if capsule_file.exists() {
@@ -138,13 +132,7 @@ fn handle_create(snapshot: &str, seed: Option<&str>, budget_steps: Option<u32>) 
     let capsule = genos_store::Capsule::create("sandbox_boundary", payload);
     let verified = capsule.verify();
 
-    let capsule_dir = if Path::new(".genos-matrix").exists() {
-        std::path::PathBuf::from(".genos-matrix/capsules")
-    } else if Path::new(".genos").exists() {
-        std::path::PathBuf::from(".genos/capsules")
-    } else {
-        std::path::PathBuf::from("capsules")
-    };
+    let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
     let _ = fs::create_dir_all(&capsule_dir);
     let path = capsule_dir.join(format!("{}.json", capsule.capsule_id));
     let _ = fs::write(&path, serde_json::to_string_pretty(&capsule).unwrap());

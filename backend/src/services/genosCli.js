@@ -78,9 +78,10 @@ function runGenosSync(commandLine, { timeoutMs = 60000 } = {}) {
   if (args[0] === 'genos') args.shift();
   const bin = resolveGenosBin();
   if (!fs.existsSync(bin)) throw new Error(`genos binary not found at ${bin}.`);
+  const root = ensureRoot();
   return execFileSync(bin, args, {
-    cwd: ensureRoot(),
-    env: { ...process.env },
+    cwd: root,
+    env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: Math.max(1, Number(timeoutMs) || 60000),
@@ -107,9 +108,10 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
     let stdout = '';
     let stderr = '';
     let settled = false;
+    const root = ensureRoot();
     const child = spawn(bin, args, {
-      cwd: ensureRoot(),
-      env: { ...process.env },
+      cwd: root,
+      env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
       windowsHide: true
     });
 

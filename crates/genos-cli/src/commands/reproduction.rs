@@ -31,11 +31,7 @@ fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<S
     let name = plasmid_name.unwrap_or_else(|| "plasmid_core".to_string());
     let plasmid = Plasmid::new(&name);
 
-    let root = if std::path::Path::new(".genos-matrix").exists() {
-        std::path::PathBuf::from(".genos-matrix")
-    } else {
-        std::path::PathBuf::from(".genos")
-    };
+    let root = crate::commands::root_resolver::resolve_matrix_root();
     let chromatin_dir = root.join("chromatin");
     let state_path = chromatin_dir.join(format!("{}.json", target));
     let mut genome = if state_path.exists() {
