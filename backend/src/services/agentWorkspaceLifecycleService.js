@@ -318,7 +318,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   if (await availableBytes(path.dirname(destination)) < 1024 * 1024 * 1024) {
     throw new Error('Insufficient disk space for a non-Git isolated workspace; free at least 1 GiB or use a Git workspace.');
   }
-  const excluded = new Set(['.git', '.genos', 'node_modules', 'target']);
+  const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
   let copiedEntries = 0;
   try {
     await fs.cp(source, destination, {
