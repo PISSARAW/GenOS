@@ -1,4 +1,5 @@
 const CACHE_MS = 5000;
+const ERROR_CACHE_MS = 500;
 const { validateProviderEndpoint } = require('./providerEndpointPolicy');
 let cache = { expiresAt: 0, key: '', models: [], errors: [] };
 
@@ -11,21 +12,25 @@ function endpointBase(endpoint) {
 }
 
 function isChatCapable(model) {
-  return typeof model === 'string' && !/(embed|embedding|rerank)/i.test(model);
+  return !/(embed|embedding|rerank)/i.test(model);
 }
 
-function validModelName(model) {
-  return typeof model === 'string' && model.trim().length > 0 && model.length <= 256 && !/[\r\n]/.test(model);
-}
-
-async function readJson(url, timeoutMs = 2500) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { signal: controller.signal });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } finally { clearTimeout(timer); }
+async function readJson(url, timeoutMs = Number(process.env.GENOS_MODEL_DISCOVERY_TIMEOUT_MS) || 2500) {
+  let lastError;
+  const attempts = Math.max(1, Number(process.env.GENOS_MODEL_DISCOVERY_RETRIES) || 2);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+    } finally { clearTimeout(timer); }
+  }
+  throw lastError;
 }
 
 async function discoverProvider({ provider, endpoint, modelsPath, map }) {
@@ -34,7 +39,7 @@ async function discoverProvider({ provider, endpoint, modelsPath, map }) {
   if (!base) return { models: [], error: `Invalid ${provider} endpoint.` };
   try {
     const payload = await readJson(`${base}${modelsPath}`);
-    return { models: map(payload).filter((model) => validModelName(model?.model)).map((model) => ({ ...model, model: model.model.trim(), provider, endpoint, local: true, chatCapable: isChatCapable(model.model) })) };
+    return { models: map(payload).map((model) => ({ ...model, provider, endpoint, local: true, chatCapable: isChatCapable(model.model) })) };
   } catch (error) { return { models: [], error: `${provider} discovery failed: ${error.message}` }; }
 }
 
@@ -50,7 +55,7 @@ async function discoverLocalModels({ force = false } = {}) {
   const results = await Promise.all(targets.filter((target) => target.endpoint).map(discoverProvider));
   const models = results.flatMap((result) => result.models || []);
   const errors = results.flatMap((result) => result.error ? [result.error] : []);
-  cache = { expiresAt: Date.now() + CACHE_MS, key: cacheKey, models, errors };
+  cache = { expiresAt: Date.now() + (errors.length ? ERROR_CACHE_MS : CACHE_MS), key: cacheKey, models, errors };
   return models;
 }
 
