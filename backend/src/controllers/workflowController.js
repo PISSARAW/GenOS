@@ -53,7 +53,7 @@ function validateGraph(graph) {
     const iterations = node.max_iterations ?? node.data?.maxIterations;
     if (iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
   });
-  const incoming = new Set(edges.map((edge) => edge.target));
+  const incoming = new Set(edges.filter((edge) => edge && typeof edge === 'object').map((edge) => edge.target));
   // React Flow uses the built-in `input` node type for a trigger node,
   // while persisted graphs may use the domain-level `trigger` type.
   if (nodes.length > 1 && nodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
