@@ -29,8 +29,22 @@ function catalogProviders() {
 }
 
 function providerRows(rows) {
-  if (rows.length) return rows.map((row) => ({ provider: row.provider, model: row.model, endpoint: row.endpoint || null, capabilities: JSON.parse(row.capabilities_json || '[]'), costInput: row.cost_input, costOutput: row.cost_output, latencyMs: row.latency_ms, enabled: !!row.enabled }));
+  if (rows.length) return rows.map((row) => {
+    let capabilities = [];
+    try { capabilities = normalizeCapabilities(JSON.parse(row.capabilities_json || '[]')); } catch (_) {}
+    return { provider: row.provider, model: row.model, endpoint: row.endpoint || null, capabilities, costInput: row.cost_input, costOutput: row.cost_output, latencyMs: row.latency_ms, enabled: !!row.enabled };
+  });
   return catalogProviders();
+}
+
+function validateProviderNumber(value, field, maximum = Number.MAX_SAFE_INTEGER) {
+  const number = Number(value ?? 0);
+  if (!Number.isFinite(number) || number < 0 || number > maximum) {
+    const error = new Error(`${field} must be a finite non-negative number.`);
+    error.code = 'INVALID_PROVIDER';
+    throw error;
+  }
+  return number;
 }
 
 async function providers(req, res) {
@@ -40,15 +54,25 @@ async function providers(req, res) {
 }
 async function registerProvider(req, res) {
   const provider = req.body || {};
-  if (!provider.provider || !provider.model) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model are required' } });
+  if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model must be valid non-empty identifiers.' } });
   if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
   provider.capabilities = normalizeCapabilities(provider.capabilities);
+  let costInput;
+  let costOutput;
+  let latencyMs;
+  try {
+    costInput = validateProviderNumber(provider.costInput, 'costInput', 1_000_000);
+    costOutput = validateProviderNumber(provider.costOutput, 'costOutput', 1_000_000);
+    latencyMs = validateProviderNumber(provider.latencyMs, 'latencyMs', 86_400_000);
+  } catch (error) {
+    return res.status(400).json({ error: { code: error.code, message: error.message } });
+  }
   if (provider.endpoint) {
     try { validateProviderEndpoint(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
   }
   const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
   const db = await getDatabase();
-  await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities || []), provider.costInput || 0, provider.costOutput || 0, provider.latencyMs || 0, provider.enabled === false ? 0 : 1);
+  await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), costInput, costOutput, latencyMs, provider.enabled === false ? 0 : 1);
   res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
 }
 async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); if (!parsed.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider configuration is registered for routing.' } }); res.json(safety.routeModel(req.body, parsed)); }
