@@ -14,7 +14,7 @@ function validate(manifest) {
 function run(manifest, payload = {}, timeoutMs = 15000) {
   const plugin = validate(manifest);
   return new Promise((resolve, reject) => {
-    const child = spawn('docker', ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--pids-limit', '64', '--memory', '256m', '--security-opt', 'no-new-privileges', plugin.image], { stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH } });
+    const child = spawn('docker', ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--pids-limit', '64', '--memory', '256m', '--security-opt', 'no-new-privileges', plugin.image], { detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH } });
     let output = ''; let errors = '';
     const timer = setTimeout(() => { terminateChild(child); reject(new Error('Plugin sandbox timed out.')); }, Math.min(Math.max(Number(timeoutMs) || 15000, 1000), 60000));
     child.stdout.on('data', (chunk) => { output = appendBounded(output, chunk); }); child.stderr.on('data', (chunk) => { errors = appendBounded(errors, chunk); });
