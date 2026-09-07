@@ -6,6 +6,8 @@ const { cleanupWorkspace } = require('../src/services/agentWorkspaceLifecycleSer
 
 async function run() {
   const capsuleRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-cleanup-'));
+  const previousCapsuleRoot = process.env.GENOS_CAPSULE_ROOT;
+  process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
   const workspace = path.join(capsuleRoot, 'agent-a');
   const runtimeRoot = path.join(capsuleRoot, '.genos-runtime', 'agent-a');
   fs.mkdirSync(workspace, { recursive: true });
@@ -18,6 +20,8 @@ async function run() {
     assert.equal(fs.existsSync(runtimeRoot), false);
   } finally {
     fs.rmSync(capsuleRoot, { recursive: true, force: true });
+    if (previousCapsuleRoot === undefined) delete process.env.GENOS_CAPSULE_ROOT;
+    else process.env.GENOS_CAPSULE_ROOT = previousCapsuleRoot;
   }
   console.log('Agent workspace cleanup checks passed.');
 }
