@@ -25,7 +25,6 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_diff', cat: 'Workspace Control', risk: 'Low', desc: 'Calculates structural diffs between snapshots' },
   { name: 'genos_lineage', cat: 'Workspace Control', risk: 'Low', desc: 'Extracts full MCTS DAG lineage tree' },
   { name: 'genos_replay', cat: 'Workspace Control', risk: 'Low', desc: 'Step-by-step causal replay traversal' },
-  { name: 'genos_merge', cat: 'Workspace Control', risk: 'High', desc: 'Merges parallel universe branch into master' },
 
   // Experimental Labs
   { name: 'genos_workspace_experiment', cat: 'Experimental Labs', risk: 'Amber', desc: 'Runs hypothesis testing in workspace' },
