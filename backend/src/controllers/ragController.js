@@ -6,6 +6,9 @@ const { configuredStore } = require('../services/vectorStore');
 const ner = require('../services/nerService');
 const { boundedInteger } = require('./argumentBounds');
 
+const MAX_DOCUMENT_BYTES = 5 * 1024 * 1024;
+const MAX_DOCUMENT_NAME_LENGTH = 256;
+
 async function listDocuments(req, res, next) {
   try {
     const db = await getDatabase();
@@ -20,15 +23,21 @@ async function ingestDocument(req, res, next) {
   try {
     const db = await getDatabase();
     const { name, content = '', chunkSize = 800 } = req.body || {};
-    if (!name || !content) {
-      return res.status(400).json({ error: { code: 'INVALID_DOCUMENT', message: 'name and content are required.' } });
+    if (typeof name !== 'string' || !name.trim() || name.length > MAX_DOCUMENT_NAME_LENGTH || typeof content !== 'string' || !content.trim()) {
+      return res.status(400).json({ error: { code: 'INVALID_DOCUMENT', message: 'name and content must be non-empty strings with a valid name length.' } });
+    }
+    if (Buffer.byteLength(content, 'utf8') > MAX_DOCUMENT_BYTES) {
+      return res.status(413).json({ error: { code: 'DOCUMENT_TOO_LARGE', message: `content must not exceed ${MAX_DOCUMENT_BYTES} bytes.` } });
+    }
+    const size = boundedInteger(chunkSize, 800, 100, 10_000);
+    if (chunkSize !== undefined && size !== Number(chunkSize)) {
+      return res.status(400).json({ error: { code: 'INVALID_CHUNK_SIZE', message: 'chunkSize must be an integer between 100 and 10000.' } });
     }
     const id = `doc-${crypto.randomUUID()}`;
     const s = scopeSql(req);
     const store = configuredStore();
     await db.run('INSERT INTO rag_documents(id, name, content_length, organization_id, project_id) VALUES(?,?,?,?,?)', id, name, content.length, ...s.params);
 
-    const size = Math.max(100, Number(chunkSize) || 800);
     let count = 0;
     let hadEmbeddings = false;
 
