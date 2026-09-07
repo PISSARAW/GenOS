@@ -358,6 +358,7 @@ async function quorum(context) {
   if (!orchestratorId) return { success: false, error: 'orchestratorId required.' };
   
   try {
+    // Filtrage SQL strict par issue pour eviter l'eviction de votes par d'autres deliberations concurrentes
     const rows = await db.all(
       `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
        WHERE orchestrator_id = ? AND kind = 'vote'
