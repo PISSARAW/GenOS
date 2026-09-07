@@ -71,6 +71,9 @@ async function fork(context) {
       role: context.role || 'worker',
       mission: context.mission || 'strategy_fork'
     });
+    const agentWorkspaceLifecycle = require('../agentWorkspaceLifecycleService');
+    const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(parent.workspace_root, id, context.capsuleRoot);
+    
     const startPromise = runtimeAdapter.startMission({
       agentId: id,
       name: 'Forked Worker of ' + context.orchestratorId,
@@ -80,7 +83,7 @@ async function fork(context) {
       executionMode: 'worker',
       agentType: parent.agent_type || 'GenOS',
       workspaceId: parent.workspace_id,
-      workspaceRoot: parent.workspace_root,
+      workspaceRoot: workerWorkspaceRoot,
       workspaceIsolation: parent.isolation_mode || 'Branch',
       orchestratorAgentId: context.orchestratorId,
       executionBudget: context.executionBudget || {}
