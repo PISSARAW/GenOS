@@ -45,6 +45,35 @@ async function assertNoSymlinkPath(root, destination) {
     }
   }
 }
+async function capturePatchState(workspaceRoot, patches) {
+  const state = new Map();
+  for (const patch of patches) {
+    const normalized = normalizeRelativePath(patch.path, 'patch path');
+    if (state.has(normalized)) throw new Error(`Duplicate patch path: ${normalized}`);
+    const destination = path.resolve(workspaceRoot, normalized);
+    try {
+      const stat = await fs.lstat(destination);
+      if (!stat.isFile()) throw new Error(`Patch target is not a regular file: ${normalized}`);
+      state.set(normalized, { exists: true, content: await fs.readFile(destination), mode: stat.mode & 0o777 });
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+      state.set(normalized, { exists: false });
+    }
+  }
+  return state;
+}
+async function restorePatchState(workspaceRoot, state) {
+  for (const [relative, original] of state) {
+    const destination = path.resolve(workspaceRoot, relative);
+    if (!original.exists) {
+      await fs.rm(destination, { force: true });
+      continue;
+    }
+    await fs.mkdir(path.dirname(destination), { recursive: true });
+    await fs.writeFile(destination, original.content);
+    await fs.chmod(destination, original.mode).catch(() => {});
+  }
+}
 async function runTest(command, root) {
   const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   return new Promise((resolve) => {
@@ -61,20 +90,29 @@ async function executeProposal({ workspaceRoot, text }) {
     if (!allowedTest(command, workspaceRoot)) throw new Error(`Test command is not allow-listed: ${command}`);
   }
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
-  for (const patch of proposal.patches) {
-    const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
-    if (!destination.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
-    await assertNoSymlinkPath(workspaceRoot, destination);
-    await fs.mkdir(path.dirname(destination), { recursive: true });
-    await assertNoSymlinkPath(workspaceRoot, destination);
-    await fs.writeFile(destination, patch.content, 'utf8');
+  const patchState = await capturePatchState(workspaceRoot, proposal.patches);
+  let tests;
+  try {
+    for (const patch of proposal.patches) {
+      const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
+      if (!destination.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
+      await assertNoSymlinkPath(workspaceRoot, destination);
+      await fs.mkdir(path.dirname(destination), { recursive: true });
+      await assertNoSymlinkPath(workspaceRoot, destination);
+      await fs.writeFile(destination, patch.content, 'utf8');
+    }
+    tests = [];
+    for (const command of proposal.tests) tests.push(await runTest(command, workspaceRoot));
+  } catch (error) {
+    await restorePatchState(workspaceRoot, patchState).catch(() => {});
+    throw error;
   }
-  const tests = [];
-  for (const command of proposal.tests) {
-    tests.push(await runTest(command, workspaceRoot));
+  if (tests.some((test) => test.exitCode !== 0)) {
+    await restorePatchState(workspaceRoot, patchState);
+    return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles: [], tests, merged: false, rolledBack: true };
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
   const changedFiles = after.filter((file) => before.get(file.path) !== file.hash).map((file) => file.path);
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false };
 }
-module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath };
+module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath, capturePatchState, restorePatchState };
