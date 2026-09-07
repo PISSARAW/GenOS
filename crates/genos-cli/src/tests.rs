@@ -58,8 +58,22 @@ mod tests {
             agent_id: "test-agent".to_string(),
             target_file: "main.rs".to_string(),
             pheromone_type: "trail".to_string(),
+            amount: 2.5,
+            is_repellent: false,
         });
         assert!(res2.is_ok());
+
+        let res_read = biomimicry::execute(BiomimicrySubcommands::StigmergyRead {
+            agent_id: "test-agent".to_string(),
+            target_file: "main.rs".to_string(),
+        });
+        assert!(res_read.is_ok());
+
+        let res_evap = biomimicry::execute(BiomimicrySubcommands::StigmergyEvaporate {
+            agent_id: "test-agent".to_string(),
+            dt_seconds: Some(10.0),
+        });
+        assert!(res_evap.is_ok());
 
         let res_spore = biomimicry::execute(BiomimicrySubcommands::Spore {
             action: "create".to_string(),

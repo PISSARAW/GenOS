@@ -116,7 +116,7 @@ const HANDLERS = {
   // Lot 5 — Collectif & Swarm Intelligence
   pheromone_deposit: collective.pheromoneDeposit,
   trail_selection: collective.trailSelection,
-  evaporation: collective.trailSelection,
+  evaporation: collective.evaporation,
   brier_scores: collective.brierScores,
   quorum: collective.quorum,
   weighted_quorum: collective.weightedQuorum,

@@ -22,7 +22,7 @@ fn chromatin_state_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
         return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
     }
-    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    let root = crate::commands::root_resolver::resolve_matrix_root();
     Ok(root.join("chromatin").join(format!("{}.json", agent_id)))
 }
 
@@ -39,7 +39,7 @@ fn telomere_state_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
         return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
     }
-    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    let root = crate::commands::root_resolver::resolve_matrix_root();
     Ok(root.join("telomeres").join(format!("{}.json", agent_id)))
 }
 
@@ -47,8 +47,34 @@ fn cerebellum_state_path(agent_id: &str) -> Result<PathBuf, String> {
     if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
         return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
     }
-    let root = if PathBuf::from(".genos-matrix").exists() { PathBuf::from(".genos-matrix") } else { PathBuf::from(".genos") };
+    let root = crate::commands::root_resolver::resolve_matrix_root();
     Ok(root.join("cerebellum").join(format!("{}.json", agent_id)))
+}
+
+fn stigmergy_state_path(agent_id: &str) -> Result<PathBuf, String> {
+    if agent_id.is_empty() || !agent_id.chars().all(|character| character.is_ascii_alphanumeric() || character == '-' || character == '_') {
+        return Err("agent_id must contain only ASCII letters, digits, '-' or '_'".to_string());
+    }
+    let root = crate::commands::root_resolver::resolve_matrix_root();
+    Ok(root.join("stigmergy").join(format!("{}.json", agent_id)))
+}
+
+fn load_or_create_stigmergy_field(path: &PathBuf) -> Result<genos_signal::StigmergyField, String> {
+    if path.exists() {
+        let content = fs::read_to_string(path).map_err(|e| format!("Failed to read stigmergy state: {}", e))?;
+        genos_signal::StigmergyField::from_json(&content).map_err(|e| format!("Failed to parse stigmergy state: {}", e))
+    } else {
+        Ok(genos_signal::StigmergyField::default())
+    }
+}
+
+fn save_stigmergy_field(path: &PathBuf, field: &genos_signal::StigmergyField) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create stigmergy directory: {}", e))?;
+    }
+    let content = field.to_json().map_err(|e| format!("Failed to serialize stigmergy field: {}", e))?;
+    fs::write(path, content).map_err(|e| format!("Failed to write stigmergy state: {}", e))?;
+    Ok(())
 }
 
 
@@ -92,7 +118,19 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "bhe_integrity": 1.0, "status": "protected"
             }));
         }
-        BiomimicrySubcommands::StigmergyDeposit { agent_id, target_file, pheromone_type } => {
+        BiomimicrySubcommands::StigmergyDeposit { agent_id, target_file, pheromone_type, amount, is_repellent } => {
+            let path = stigmergy_state_path(&agent_id)?;
+            let mut field = load_or_create_stigmergy_field(&path)?;
+            let intensity = if amount > 0.0 { amount } else { 1.0 };
+            if is_repellent {
+                field.deposit_repellent(&target_file, intensity);
+            } else {
+                field.deposit(&target_file, intensity);
+            }
+            save_stigmergy_field(&path, &field)?;
+
+            let current_intensity = field.read(&target_file);
+
             let mut ecm = ExtracellularMatrix::new();
             let cell_id = parse_uuid(&agent_id);
             let claim_res = ecm.claim_territory(TerritoryClaim {
@@ -100,18 +138,65 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 filepath: &target_file,
                 position: 0,
             });
+
             print_json(json!({
-                "success": claim_res.is_ok(), "operation": "stigmergy_deposit",
-                "agent_id": agent_id, "target_file": target_file,
-                "pheromone_type": pheromone_type, "deposited_intensity": 1.0,
-                "territory_claimed": claim_res.is_ok()
+                "success": true,
+                "operation": "stigmergy_deposit",
+                "agent_id": agent_id,
+                "target_file": target_file,
+                "pheromone_type": pheromone_type,
+                "deposited_intensity": intensity,
+                "is_repellent": is_repellent,
+                "current_intensity": current_intensity,
+                "active_pheromones_count": field.pheromones.len(),
+                "territory_claimed": claim_res.is_ok(),
+                "persisted_path": path.to_string_lossy()
+            }));
+        }
+        BiomimicrySubcommands::StigmergyRead { agent_id, target_file } => {
+            let path = stigmergy_state_path(&agent_id)?;
+            let field = load_or_create_stigmergy_field(&path)?;
+            let intensity = field.read(&target_file);
+            let p_opt = field.get_pheromone(&target_file);
+
+            print_json(json!({
+                "success": true,
+                "operation": "stigmergy_read",
+                "agent_id": agent_id,
+                "target_file": target_file,
+                "intensity": intensity,
+                "pheromone": p_opt,
+                "active_pheromones_count": field.pheromones.len()
+            }));
+        }
+        BiomimicrySubcommands::StigmergyEvaporate { agent_id, dt_seconds } => {
+            let path = stigmergy_state_path(&agent_id)?;
+            let mut field = load_or_create_stigmergy_field(&path)?;
+            if let Some(dt) = dt_seconds {
+                field.evaporate_dt(dt);
+            } else {
+                field.evaporate();
+            }
+            save_stigmergy_field(&path, &field)?;
+
+            print_json(json!({
+                "success": true,
+                "operation": "stigmergy_evaporate",
+                "agent_id": agent_id,
+                "dt_seconds": dt_seconds,
+                "remaining_pheromones_count": field.pheromones.len()
             }));
         }
         BiomimicrySubcommands::TheoryAutopoiesis { agent_id, target_gene, new_value } => {
             let mut cell = AgentCell::new(&agent_id, "Autopoïèse régénératrice", "Worker");
             let initial_dissonance = cell.conscience.dissonance_level;
-            cell.conscience.reduce_dissonance(new_value.min(50.0));
-            let membrane_integrity = (1.0 - (cell.conscience.dissonance_level / 100.0)).clamp(0.0, 1.0);
+            cell.conscience.reduce_dissonance(new_value.min(cell.conscience.max_dissonance_threshold));
+            let max_threshold = if cell.conscience.max_dissonance_threshold > 0.0 {
+                cell.conscience.max_dissonance_threshold
+            } else {
+                50.0
+            };
+            let membrane_integrity = (1.0 - (cell.conscience.dissonance_level / max_threshold)).clamp(0.0, 1.0);
             print_json(json!({
                 "success": true, "operation": "theory_autopoiesis",
                 "agent_id": agent_id, "target_gene": target_gene,
