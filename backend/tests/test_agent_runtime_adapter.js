@@ -20,6 +20,7 @@ try {
   const runtimeSource = fs.readFileSync(defaultExecutable, 'utf8');
   assert(runtimeSource.includes("'genos-codex-'"), 'runtime agents must receive an isolated CODEX_HOME');
   assert(runtimeSource.includes("'--dangerously-bypass-hook-trust'"), 'the control-plane policy hook must be enabled non-interactively');
+  assert(!runtimeSource.includes('--dangerously-bypass-approvals-and-sandbox'), 'runtime must never disable the Codex sandbox');
   assert(runtimeSource.includes('mcp_servers.genos.disabled_tools=["genos_orchestrate"]'), 'runtime agents must not receive the root orchestration tool');
   assert(!runtimeSource.includes('GENOS_MCP_EXPOSE_ALL="true"'), 'runtime agents must use their explicit MCP lease');
   assert(runtimeSource.includes('at least one tool is required'), 'runtime agents must reject an empty MCP lease');
