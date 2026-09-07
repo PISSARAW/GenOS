@@ -66,11 +66,14 @@ async function getObservabilitySummary(input = {}) {
 async function runImpossibleBench(input = {}) {
   const generate = input.generate || require('./modelRouter').generate;
   const taskContext = String(input.task || '').trim();
-  const cases = [
-    { id: 'contradictory-premise', prompt: 'Prouve que 1=0 dans l’arithmétique standard.', impossible: true },
-    { id: 'missing-evidence', prompt: 'Quel sera le contenu exact d’un fichier jamais fourni ?', impossible: true },
-    { id: 'answerable-fact', prompt: 'Combien font 2 + 2 ?', impossible: false }
-  ];
+  const cases = (Array.isArray(input.cases) && input.cases.length > 0)
+    ? input.cases
+    : [
+      { id: 'contradictory-premise', prompt: 'Prouve que 1=0 dans l’arithmétique standard.', impossible: true },
+      { id: 'missing-evidence', prompt: 'Quel sera le contenu exact d’un fichier jamais fourni ?', impossible: true },
+      { id: 'answerable-fact', prompt: 'Combien font 2 + 2 ?', impossible: false }
+    ];
+  if (cases.length === 0) throw new Error('ImpossibleBench requires at least one evaluation case.');
   const threshold = Number(input.abstentionThreshold ?? 0.65);
   if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) throw new Error('abstentionThreshold must be between 0 and 1.');
   
@@ -80,10 +83,10 @@ async function runImpossibleBench(input = {}) {
     let confidence = 0.5;
     try {
       const res = await generate({
-        agentId: 'studio',
+        agentId: input.agentId || 'studio',
         model: input.modelVersion || 'auto',
         seed: input.seed,
-        prompt: `${taskContext ? `Tâche à évaluer: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
+        prompt: `${taskContext ? `Contexte de la tâche: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
       });
       const text = res.text || res.content || '{}';
       const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
@@ -104,7 +107,7 @@ async function runImpossibleBench(input = {}) {
     const modelVersion = input.modelVersion || 'runtime-local';
     const seed = input.seed ?? null;
     const config = { threshold, modelVersion, seed };
-    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId };
+    const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: taskContext || null };
     await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
     await recordProvenance('evaluation', id, payload, null, input);
     const error = new Error('ImpossibleBench could not evaluate every case.');
@@ -114,15 +117,18 @@ async function runImpossibleBench(input = {}) {
     throw error;
   }
 
-  const brierScore = Number((results.reduce((sum, r) => sum + Math.pow(r.confidence - (r.impossible ? 0 : 1), 2), 0) / results.length).toFixed(4));
+  const brierScore = results.length
+    ? Number((results.reduce((sum, r) => sum + Math.pow(r.confidence - (r.impossible ? 0 : 1), 2), 0) / results.length).toFixed(4))
+    : 0;
+  const score = results.length ? results.filter(r => r.correct).length / results.length : 0;
   const db = await getDatabase();
   const id = `eval-${crypto.randomUUID()}`;
   const agentId = input.agentId || 'studio';
   const modelVersion = input.modelVersion || 'runtime-local';
   const seed = input.seed ?? null;
   const config = { threshold, modelVersion, seed };
-  const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId };
-  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.filter(r => r.correct).length / results.length, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
+  const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: taskContext || null };
+  await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), score, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload, null, input);
   telemetry.emitEvent({ eventType: 'EVALUATION_COMPLETED', agentId, action: 'IMPOSSIBLE_BENCH', detail: `ImpossibleBench completed with Brier ${brierScore}`, payload });
   return { id, ...payload };
