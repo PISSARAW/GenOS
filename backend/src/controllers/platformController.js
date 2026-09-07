@@ -91,7 +91,9 @@ async function saveRoutingPolicy(req, res, next) {
   try {
     const agentId = String(req.params.agentId || '').trim();
     if (!agentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
-    const policy = modelRouter.policyFrom(req.body?.policy || req.body || {});
+    let policy;
+    try { policy = modelRouter.policyFrom(req.body?.policy || req.body || {}); }
+    catch (error) { return res.status(400).json({ error: { code: error.code || 'INVALID_MODEL_ROUTE', message: error.message } }); }
     const candidates = modelRouter.candidateModels(null, policy);
     if (!candidates.length) return res.status(400).json({ error: { code: 'MODEL_ROUTE_REQUIRED', message: 'A primary model or fallback route is required.' } });
     candidates.forEach((uri) => modelProvider.configuredModel(uri));
