@@ -1,11 +1,15 @@
 ﻿const fs = require('fs');
 const { spawn } = require('child_process');
 const path = require('path');
+const { terminateChild } = require('../backend/src/services/processTermination');
 const tracePath = process.env.GENOS_MCP_TRACE_LOG;
 const log = tracePath
 	? fs.createWriteStream(path.resolve(tracePath), { flags: 'a', mode: 0o600 })
 	: null;
 const child = spawn(process.execPath, [path.join(__dirname, 'index.js')], { detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
+for (const signal of ['SIGINT', 'SIGTERM']) {
+	process.once(signal, () => terminateChild(child));
+}
 process.stdin.pipe(child.stdin);
 child.stdout.pipe(process.stdout);
 if (log) {
