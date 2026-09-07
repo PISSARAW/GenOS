@@ -203,7 +203,12 @@ async function cancelRun(req, res, next) {
            AND workflow_id IN (SELECT id FROM workflows WHERE ${s.clause})`,
       JSON.stringify({ message: 'Workflow run cancelled by operator.', cancelled: true }), req.params.runId, ...s.params
     );
-    if (result.changes !== 1) return res.status(409).json({ error: { code: 'RUN_NOT_CANCELLABLE', message: 'Run does not exist or is already terminal.' } });
+    if (result.changes !== 1) {
+      const scoped = scopeSql(req, 'w');
+      const current = await db.get(`SELECT r.status FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.id = ? AND ${scoped.clause}`, req.params.runId, ...scoped.params);
+      if (current?.status === 'cancelled') return res.json({ id: req.params.runId, status: 'cancelled' });
+      return res.status(409).json({ error: { code: 'RUN_NOT_CANCELLABLE', message: 'Run does not exist or is already terminal.' } });
+    }
     res.json({ id: req.params.runId, status: 'cancelled' });
   } catch (error) { next(error); }
 }
