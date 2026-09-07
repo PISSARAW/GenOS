@@ -82,13 +82,74 @@ fn handle_simulate(model: &str, snapshot: &str) -> Result<(), String> {
 fn parse_snapshot_metadata(snapshot: &str) -> (String, f64) {
     if let Ok(content) = fs::read_to_string(snapshot) {
         if let Ok(val) = serde_json::from_str::<Value>(&content) {
-            let agent = val.get("agent_id").and_then(|v| v.as_str()).unwrap_or("unknown-agent").to_string();
+            let agent = val.get("agent_id")
+                .or_else(|| val.get("id"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown-agent")
+                .to_string();
+
             let dissonance = val.get("state")
-                .and_then(|s| s.get("dissonance"))
+                .and_then(|s| {
+                    s.get("conscience")
+                        .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
+                        .or_else(|| s.get("dissonance_level"))
+                        .or_else(|| s.get("dissonance"))
+                })
+                .or_else(|| {
+                    val.get("conscience")
+                        .and_then(|c| c.get("dissonance_level").or_else(|| c.get("dissonance")))
+                })
+                .or_else(|| val.get("dissonance_level"))
+                .or_else(|| val.get("dissonance"))
                 .and_then(|d| d.as_f64())
                 .unwrap_or(0.0);
+
             return (agent, dissonance);
         }
     }
     ("fallback-agent".to_string(), 0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn test_parse_snapshot_metadata_nested_schemas() {
+        let temp_dir = std::env::temp_dir();
+        let file_path = temp_dir.join("test_conscience_snapshot.json");
+
+        // Cas 1: Schema avec state.conscience.dissonance_level
+        let mut file = fs::File::create(&file_path).unwrap();
+        writeln!(
+            file,
+            r#"{{"agent_id": "agent-alpha", "state": {{"conscience": {{"dissonance_level": 35.5}}}}}}"#
+        ).unwrap();
+        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
+        assert_eq!(agent, "agent-alpha");
+        assert_eq!(dissonance, 35.5);
+
+        // Cas 2: Schema avec conscience direct au niveau racine
+        let mut file = fs::File::create(&file_path).unwrap();
+        writeln!(
+            file,
+            r#"{{"agent_id": "agent-beta", "conscience": {{"dissonance_level": 42.0}}}}"#
+        ).unwrap();
+        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
+        assert_eq!(agent, "agent-beta");
+        assert_eq!(dissonance, 42.0);
+
+        // Cas 3: Schema historique state.dissonance
+        let mut file = fs::File::create(&file_path).unwrap();
+        writeln!(
+            file,
+            r#"{{"agent_id": "agent-gamma", "state": {{"dissonance": 15.0}}}}"#
+        ).unwrap();
+        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
+        assert_eq!(agent, "agent-gamma");
+        assert_eq!(dissonance, 15.0);
+
+        let _ = fs::remove_file(file_path);
+    }
 }
