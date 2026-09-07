@@ -397,6 +397,8 @@ const CREATE_INDEXES_LINES = [
 "CREATE INDEX IF NOT EXISTS idx_compliance_framework ON compliance_reports(framework, created_at);",
 "CREATE INDEX IF NOT EXISTS idx_ide_workspace ON ide_integrations(workspace_id, ide);",
 "CREATE INDEX IF NOT EXISTS idx_provenance_subject ON provenance_records(subject_type, subject_id);",
+"CREATE INDEX IF NOT EXISTS idx_provenance_payload_hash ON provenance_records(payload_hash);",
+"CREATE INDEX IF NOT EXISTS idx_provenance_parent_hash ON provenance_records(parent_hash);",
 "CREATE INDEX IF NOT EXISTS idx_evaluation_benchmark ON evaluation_runs(benchmark, created_at);",
 "CREATE INDEX IF NOT EXISTS idx_strategy_contract_agent ON strategy_contracts(agent_id, version DESC);",
 "CREATE INDEX IF NOT EXISTS idx_strategy_execution_agent ON strategy_execution_runs(agent_id, created_at DESC);",

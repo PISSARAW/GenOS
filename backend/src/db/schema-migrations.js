@@ -205,6 +205,8 @@ async function applyVersionedMigrations(db) {
     CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight);
     CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression);
     CREATE INDEX IF NOT EXISTS idx_synapses_tenant ON memory_synapses(organization_id, project_id);
+    CREATE INDEX IF NOT EXISTS idx_provenance_payload_hash ON provenance_records(payload_hash);
+    CREATE INDEX IF NOT EXISTS idx_provenance_parent_hash ON provenance_records(parent_hash);
   `);
   for (const [version, description] of migrations) {
     await db.run('INSERT OR IGNORE INTO schema_migrations (version, description) VALUES (?, ?)', version, description);
