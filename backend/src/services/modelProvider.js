@@ -86,6 +86,16 @@ function resolveProviderApiKey(provider) {
   }
 }
 
+function catalogEndpoint(provider, modelName) {
+  try {
+    const catalogs = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../config/providers.json'), 'utf8'));
+    const catalog = catalogs.find((entry) => (entry.format === 'ollama' ? 'ollama' : String(entry.name || '').toLowerCase()) === provider && Object.prototype.hasOwnProperty.call(entry.profiles || {}, modelName));
+    return catalog?.chat_url || null;
+  } catch (_) {
+    return null;
+  }
+}
+
 function assertSafeProviderEndpoint(endpoint) {
   let parsed;
   try { parsed = new URL(String(endpoint)); } catch (_) { throw new Error('Model provider endpoint must be a valid URL.'); }
@@ -109,14 +119,15 @@ function modelConfiguration(model) {
   }
   const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
   const apiKey = resolveProviderApiKey(provider);
-  const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages')
+  const catalog = catalogEndpoint(provider, modelName);
+  const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || catalog || 'https://api.anthropic.com/v1/messages')
     : provider === 'gemini' ? (process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`)
       : provider === 'mistral' ? (process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions')
         : provider === 'groq' ? (process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions')
           : provider === 'deepseek' ? (process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions')
             : provider === 'together' ? (process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions')
-              : provider === 'openrouter' ? (process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions')
-                : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions')
+                : provider === 'openrouter' ? (process.env.OPENROUTER_API_ENDPOINT || catalog || 'https://openrouter.ai/api/v1/chat/completions')
+                : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || catalog || 'http://localhost:11434/v1/chat/completions')
                   : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
                     : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
                       : (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
@@ -273,12 +284,12 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     if (nativeOllama && stream) {
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
       requireUsableText(streamed.text, provider);
-      return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName, endpoint };
+      return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
       requireUsableText(streamed.text, provider);
-      return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName, endpoint };
+      return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens ?? tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens ?? tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     const payload = await response.json();
     const message = provider === 'gemini' ? payload.candidates?.[0]?.content : (provider === 'anthropic' ? payload : (nativeOllama ? payload.message : payload.choices?.[0]?.message));
@@ -293,7 +304,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const text = normalizedContent.text;
             if (!text.trim() && !normalizedContent.toolCalls.length) requireUsableText(text, provider);
     for (const token of tokenize(text)) await onToken(token);
-    return { text, toolCalls: normalizedContent.toolCalls, structured: parseStructuredText(text, normalizedResponseFormat), inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
+    return { text, toolCalls: normalizedContent.toolCalls, structured: parseStructuredText(text, normalizedResponseFormat), inputTokens: payload.usage?.input_tokens ?? payload.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens ?? payload.usage?.completion_tokens ?? estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
   } catch (error) {
     controller.abort();
     if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
