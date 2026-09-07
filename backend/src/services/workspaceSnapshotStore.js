@@ -391,6 +391,7 @@ function isAllowedTestCommand(command) {
     return args.length === 0 || (args[0] === '--' && args.slice(1).length > 0 && args.slice(1).every((argument) => safeArgument.test(argument)));
   }
   if (parts[0] === 'pytest') return false;
+  if (parts[1] !== 'test') return false;
   return parts.slice(2).length > 0 && parts.slice(2).every((option) => safeOptions.test(option) || safeArgument.test(option));
 }
 
