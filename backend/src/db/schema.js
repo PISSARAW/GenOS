@@ -22,6 +22,9 @@ async function initializeSchema(db) {
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
   try { await db.exec('ALTER TABLE rag_chunks ADD COLUMN embedding_blob BLOB;'); } catch (_) {}
+  try { await db.exec('ALTER TABLE swarm_proposals ADD COLUMN consensus_type TEXT DEFAULT "simple";'); } catch (_) {}
+  try { await db.exec('ALTER TABLE swarm_votes ADD COLUMN weight REAL DEFAULT 1.0;'); } catch (_) {}
+  try { await db.exec('ALTER TABLE swarm_votes ADD COLUMN brier_score REAL;'); } catch (_) {}
   await applyVersionedMigrations(db);
   await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
   for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {

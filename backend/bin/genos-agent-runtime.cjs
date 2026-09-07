@@ -130,8 +130,9 @@ process.stdin.on('end', async () => {
   const nameMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Autonomous implementation agent');
   const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
   let conscienceState = agentConscience.createConscienceState();
+  let db = null;
   try {
-    const db = await getDatabase();
+    db = await getDatabase();
     if (mission.agentId) {
       conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
     }
@@ -289,7 +290,11 @@ process.stdin.on('end', async () => {
       severity: 'warning', status: 'blocked', currentTask: 'Execution stopped by budget guard',
       payload: budgetStopped
     });
-    child.kill('SIGTERM');
+    setImmediate(() => {
+      try {
+        child.kill('SIGTERM');
+      } catch (_) {}
+    });
   };
   const accountEvent = (event, rawLine) => {
     eventCount += 1;
@@ -334,18 +339,44 @@ process.stdin.on('end', async () => {
       if (type === 'turn.started') emit({ eventType: 'AGENT_STEP', action: 'THINK', detail: 'Implementation turn started.', payload: event });
       else if (type === 'item.started') emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item started.', payload: event });
       else if (type === 'item.completed') {
+        let ch = null;
         if (event.item?.type === 'agent_message' && typeof event.item?.text === 'string') {
           const c = immune.chaperoneAgentOutput(event.item.text, { prompt: mission.prompt });
           finalReportText = c.purifiedText || event.item.text;
+          ch = c.health;
           if (c.warning) emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive observée dans le message agent.', severity: 'warning', payload: c.health });
         }
-        recordedTurns.push({ step: recordedTurns.length + 1, type: event.item?.type || 'action', action: event.item?.command || event.item?.type || 'action', cmd: event.item?.command || null, pass: !event.error, detail: String(event.item?.command || event.item?.text || '').slice(0, 300) });
+        const hasError = Boolean(event.error || event.item?.error || (event.item?.exit_code !== undefined && event.item?.exit_code !== 0));
+        recordedTurns.push({ step: recordedTurns.length + 1, type: event.item?.type || 'action', action: event.item?.command || event.item?.type || 'action', cmd: event.item?.command || null, pass: !hasError, detail: String(event.item?.command || event.item?.text || '').slice(0, 300) });
         emit({ eventType: 'AGENT_STEP', action: event.item?.type || 'EXECUTE', detail: event.item?.command || event.item?.text || 'Execution item completed.', payload: event });
+
+        const errorsInLoop = recordedTurns.slice(-5).filter(t => !t.pass).length;
+        const progressScore = event.item?.type === 'agent_message' ? 1.0 : (hasError ? 0.0 : 0.2);
+        const evalResult = agentConscience.evaluateBranch(conscienceState, {
+          errorsInLoop,
+          progressScore,
+          cognitiveHealth: ch || {}
+        });
+        if (evalResult.apoptoticTriggered) {
+          emit({
+            eventType: 'AGENT_HALTED', action: 'CELLULAR_APOPTOSIS',
+            detail: `Cognitive apoptosis triggered (dissonance: ${conscienceState.dissonanceLevel.toFixed(1)}, budget: ${conscienceState.currentBudget.toFixed(0)}).`,
+            severity: 'error', status: 'blocked', currentTask: 'Cellular apoptosis triggered',
+            payload: { conscienceState }
+          });
+          child.kill('SIGTERM');
+        }
+        if (db && mission.agentId) {
+          agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'item_completed' }).catch(() => {});
+        }
       }
       else if (type === 'turn.completed') {
         const drift = finalReportText ? immune.evaluateCognitiveDrift(finalReportText) : null;
         if (drift?.warning) emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive ou répétition excessive observée.', severity: 'warning', payload: drift });
         emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
+        if (db && mission.agentId) {
+          agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'turn_completed' }).catch(() => {});
+        }
       }
     });
   });
@@ -368,9 +399,19 @@ process.stdin.on('end', async () => {
   });
   child.on('close', async (code, signal) => {
     const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
+    if (db && mission.agentId) {
+      if (code === 0 && !budgetStopped && !missingTools.length) {
+        agentConscience.triggerEureka(conscienceState);
+      }
+      try {
+        await agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: code === 0 ? 'mission_completed' : 'mission_failed' });
+      } catch (_) {}
+    }
     if (budgetStopped) {
       emit({ eventType: 'AGENT_HALTED', action: 'BUDGET_GUARD', detail: 'Runtime stopped at the active execution budget boundary.', severity: 'warning', status: 'blocked', currentTask: 'Budget exhausted', payload: { code, signal, budget: budgetStopped } });
       process.exitCode = 1;
+      cleanup();
+      process.exit(1);
     } else if (code === 0 && missingTools.length) {
       emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'ORCHESTRATION_POLICY', detail: `Required GenOS orchestration tools were not observed: ${missingTools.join(', ')}.`, severity: 'error', status: 'error', payload: { missingTools, observedTools: [...observedTools] } });
       process.exitCode = 1;
@@ -429,8 +470,20 @@ process.stdin.on('end', async () => {
             status: 'rejected'
           });
         } catch (_) {}
-      } else {
-        emit({ eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Codex implementation runtime completed.', status: 'completed', currentTask: 'Execution completed', payload: { code, observedTools: [...observedTools], evidenceReport: report } });
+        emit({
+          eventType: 'AGENT_COMPLETED',
+          action: 'COMPLETE',
+          detail: 'Codex implementation runtime completed.',
+          status: 'completed',
+          currentTask: 'Execution completed',
+          payload: {
+            code,
+            observedTools: [...observedTools],
+            evidenceReport: report,
+            usage: { tokens: exactTokens || estimatedTokens, events: eventCount, cost_usd: observedCostUsd },
+            conscienceState
+          }
+        });
         if (strategyContract.promotion?.require_human_approval === true) {
           emit({ eventType: 'AGENT_AWAITING_APPROVAL', action: 'PROMOTION_GATE', detail: 'Human approval is required before strategy promotion.', status: 'blocked', currentTask: 'Awaiting human approval', payload: { evidenceReport: report } });
         } else {

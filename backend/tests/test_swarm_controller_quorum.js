@@ -1,6 +1,7 @@
 const assert = require('assert');
 const test = require('node:test');
-const { hasReachedQuorum, hasBeenRejected } = require('../src/controllers/swarmController');
+const { hasReachedQuorum, hasBeenRejected, getActiveNodeCount } = require('../src/controllers/swarmController');
+const { getDatabase } = require('../src/db');
 
 test('swarmController quorum and abstention semantics', async (t) => {
   await t.test('abstention counts toward turnout but does not penalize approval rate', () => {
@@ -28,5 +29,27 @@ test('swarmController quorum and abstention semantics', async (t) => {
     // 10 active nodes, 50% turnout = 5 votes required. Only 4 total votes received (4 yes, 0 no).
     const notEnoughTurnout = hasReachedQuorum(4, 0, 4, 10, 0.60);
     assert.strictEqual(notEnoughTurnout, false);
+  });
+
+  await t.test('getActiveNodeCount filters by workspace and includes idle/ready agents', async () => {
+    const db = await getDatabase();
+    const ws1 = `ws-test-${Date.now()}-1`;
+    const ws2 = `ws-test-${Date.now()}-2`;
+
+    // Insert agents in ws1: 1 running, 1 idle, 1 ready, 1 terminated
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a1', ?, 'running')", `ag-1-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a2', ?, 'idle')", `ag-2-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a3', ?, 'ready')", `ag-3-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a4', ?, 'terminated')", `ag-4-${Date.now()}`, ws1);
+
+    // Insert agents in ws2: 2 running
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'b1', ?, 'running')", `bg-1-${Date.now()}`, ws2);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'b2', ?, 'running')", `bg-2-${Date.now()}`, ws2);
+
+    const countWs1 = await getActiveNodeCount(db, ws1, null);
+    assert.strictEqual(countWs1, 3, 'Should count 3 active/idle/ready agents in ws1, excluding terminated');
+
+    const countWs2 = await getActiveNodeCount(db, ws2, null);
+    assert.strictEqual(countWs2, 2, 'Should count 2 agents in ws2 without leakage from ws1');
   });
 });
