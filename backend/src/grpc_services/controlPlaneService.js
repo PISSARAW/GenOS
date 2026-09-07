@@ -6,19 +6,21 @@ module.exports = {
   GetCircuitStatus: (call, callback) => {
     const status = circuitBreaker.getStatus('default');
     callback(null, {
-      is_open: status.isOpen || false,
-      failures: status.failures || 0,
+      is_open: status.isOpen,
+      failures: status.failureCount,
       state: status.state || 'CLOSED'
     });
   },
 
   TripCircuit: (call, callback) => {
     const { circuit_name, reason } = call.request || {};
-    circuitBreaker.trip(circuit_name || 'default', reason || 'manual');
+    const scope = circuit_name || 'default';
+    circuitBreaker.trip(scope, reason || 'manual');
+    const status = circuitBreaker.getStatus(scope);
     callback(null, {
-      is_open: true,
-      failures: 5,
-      state: 'OPEN'
+      is_open: status.isOpen,
+      failures: status.failureCount,
+      state: status.state
     });
   }
 };
