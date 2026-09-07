@@ -144,6 +144,21 @@ async function ingestMemory(req, res, next) {
       // On cherche les souvenirs liés (limite 3 pour le multi-hop)
       const searchRes = await vectorMemoryService.searchMemory(content, { limit: 3, organizationId: orgId, projectId: projId }, db);
       const related = searchRes.allScoredExperiences || [];
+      if (isCorrection && orgId && projId) {
+        const tenantDecisions = await db.all(
+          'SELECT id, title, content, category FROM genome_decisions WHERE organization_id = ? AND project_id = ? AND id != ? ORDER BY created_at DESC',
+          orgId,
+          projId,
+          decisionId
+        );
+        const tenantIds = new Set(tenantDecisions.map((item) => item.id));
+        const externalRelated = related.filter((item) => !tenantIds.has(item.id));
+        related.splice(0, related.length, ...tenantDecisions.map((item) => ({
+          ...item,
+          cosineMetric: 1,
+          similarityScore: 1
+        })), ...externalRelated);
+      }
       
       let isFirst = true;
       for (const rel of related) {
