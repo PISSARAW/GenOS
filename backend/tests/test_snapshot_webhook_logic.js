@@ -58,6 +58,8 @@ async function main() {
     assert.equal(webhooks.accepts({ events: '["*"]' }, { eventType: 'ANYTHING' }), true);
     assert.equal(snapshots.isAllowedTestCommand('npm test -- backend/tests/test_backend.js'), true);
     assert.equal(snapshots.isAllowedTestCommand('cargo test --workspace'), true);
+    assert.equal(snapshots.isAllowedTestCommand('cargo test --manifest-path ../outside/Cargo.toml'), false);
+    assert.equal(snapshots.isAllowedTestCommand('cargo test --config ../outside/config.toml'), false);
     assert.equal(snapshots.isAllowedTestCommand('node -e "process.exit(1)"'), false);
     assert.equal(snapshots.isAllowedTestCommand('npx @attacker/pkg'), false);
     assert.equal(snapshots.isAllowedTestCommand('npm test & whoami'), false);

@@ -14,6 +14,8 @@ assert.equal(proposal.patches[0].path, 'src/lib.rs');
 assert.equal(isAllowedSandboxTestCommand('cargo  test --quiet'), true);
 assert.equal(isAllowedSandboxTestCommand('pytest'), true);
 assert.equal(isAllowedSandboxTestCommand('cargo test; whoami'), false);
+assert.equal(isAllowedSandboxTestCommand('cargo test --manifest-path ../outside/Cargo.toml'), false);
+assert.equal(isAllowedSandboxTestCommand('cargo test --config ../outside/config.toml'), false);
 assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), false);
 
 (async () => {
@@ -24,6 +26,12 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			/not allow-listed/
 		);
 		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
+		await fs.mkdir(path.join(root, 'linked-target'));
+		await fs.symlink(path.join(root, 'linked-target'), path.join(root, 'linked'), 'junction');
+		await assert.rejects(
+			executeProposal({ workspaceRoot: root, text: JSON.stringify({ ...proposal, patches: [{ path: 'linked/escape.rs', content: 'x' }] }) }),
+			/symlink/
+		);
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}

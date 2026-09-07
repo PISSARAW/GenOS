@@ -26,7 +26,10 @@ function isAllowedSandboxTestCommand(command) {
     return args.length === 0 || (args[0] === '--' && args.slice(1).length > 0 && args.slice(1).every((argument) => SAFE_ARGUMENT.test(argument)));
   }
   if (parts[0] !== 'cargo' || parts[1] !== 'test') return false;
-  return parts.slice(2).length > 0 && parts.slice(2).every((option) => SAFE_CARGO_OPTIONS.has(option) || SAFE_ARGUMENT.test(option));
+  return parts.slice(2).length > 0 && parts.slice(2).every((option) => {
+    if (option.startsWith('--')) return SAFE_CARGO_OPTIONS.has(option);
+    return SAFE_ARGUMENT.test(option);
+  });
 }
 
 module.exports = { normalizeSandboxCommand, normalizeAllowedCommands, isAllowedSandboxTestCommand };
