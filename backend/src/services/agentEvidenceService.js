@@ -118,8 +118,9 @@ function validateWorkerDossierCoherence(dossier, worker, contract = {}) {
   for (const rep of reports) {
     if (rep.outcome === 'success') {
       const claims = Array.isArray(rep.claims) ? rep.claims : [];
-      if (claims.length === 0 && !rep.artifactText) {
-        throw Object.assign(new Error(`Worker '${worker.agentId}' reported success but provided no verifiable claims or artifact in its dossier.`), { code: 'UNSUBSTANTIATED_WORKER_DOSSIER' });
+      const counterexamples = Array.isArray(rep.counterexamples) ? rep.counterexamples : [];
+      if (claims.length === 0 && counterexamples.length === 0 && !rep.artifactText) {
+        throw Object.assign(new Error(`Worker '${worker.agentId}' reported success but provided no verifiable claims, counterexamples, or artifact in its dossier.`), { code: 'UNSUBSTANTIATED_WORKER_DOSSIER' });
       }
     }
   }
@@ -347,11 +348,14 @@ function evidenceScore(payload = {}, context = {}) {
       const score = baseScore + (evidenceList.length * 12) - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 2 : 0);
       return boundedEvidenceScore(score);
     }
-    const score = claims.reduce((count, claim) => {
+    const baseScore = claims.reduce((count, claim) => {
       const evidenceCount = countClaimEvidence(claim);
       return count + (evidenceCount > 0 ? evidenceCount * 10 + 2 : -2);
     }, 0) - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
-    return boundedEvidenceScore(score);
+    const counterexamplesScore = Array.isArray(report.counterexamples) 
+      ? report.counterexamples.filter(c => typeof c === 'string' && c.trim()).length * 15 
+      : 0;
+    return boundedEvidenceScore(baseScore + counterexamplesScore);
   }
   const evaluation = report.creativeEvaluation || {};
   const rubric = evaluation.rubric || report.rubric || {};
