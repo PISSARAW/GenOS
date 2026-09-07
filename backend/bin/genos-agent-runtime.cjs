@@ -465,9 +465,26 @@ process.stdin.on('end', async () => {
       emit({ eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Validated the agent final evidence report.', payload: report });
       const classified = workerRecovery.classifyFinalReport(report, isWorker);
       if (classified.outcome === 'no_answer') {
-        emit({ eventType: 'WORKER_NO_ANSWER_PROVEN', action: 'REPORT_NO_ANSWER', detail: 'Worker returned an evidence-backed proof that no answer exists in the stated scope.', status: 'completed', currentTask: 'No answer proven', payload: { code, observedTools: [...observedTools], evidenceReport: report, noAnswerProof: classified.noAnswerProof } });
+        emit({
+          eventType: isWorker ? 'WORKER_NO_ANSWER_PROVEN' : 'MISSION_NO_ANSWER_PROVEN',
+          action: 'REPORT_NO_ANSWER',
+          detail: isWorker
+            ? 'Worker returned an evidence-backed proof that no answer exists in the stated scope.'
+            : 'Orchestrator returned an evidence-backed proof that no answer exists in the stated scope.',
+          status: 'completed',
+          currentTask: 'No answer proven',
+          payload: { code, observedTools: [...observedTools], evidenceReport: report, noAnswerProof: classified.noAnswerProof }
+        });
       } else if (classified.outcome === 'failed') {
-        emit({ eventType: 'WORKER_TASK_FAILED', action: 'REPORT_FAILURE', detail: classified.failure.reason || 'Worker did not complete the assigned task.', severity: 'warning', status: 'error', currentTask: 'Task failed; awaiting orchestrator decision', payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof } });
+        emit({
+          eventType: isWorker ? 'WORKER_TASK_FAILED' : 'AGENT_FAILED',
+          action: 'REPORT_FAILURE',
+          detail: classified.failure.reason || (isWorker ? 'Worker did not complete the assigned task.' : 'Orchestrator did not complete the assigned mission.'),
+          severity: 'warning',
+          status: 'error',
+          currentTask: isWorker ? 'Task failed; awaiting orchestrator decision' : 'Mission failed',
+          payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof }
+        });
         try {
           const failureSummary = classified.failure?.reason || report?.claims?.map(c => c.statement).join('\n') || finalReportText || 'Worker task execution failed';
           await agentMemory.compileExecutionMemory(

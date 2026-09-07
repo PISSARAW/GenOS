@@ -1,7 +1,6 @@
 const assert = require('assert');
 const fs = require('fs');
-const path = require('path');
-const recovery = require('./src/services/workerFailureRecoveryService');
+const recovery = require('../src/services/workerFailureRecoveryService');
 
 function report(category, attempt = 0, payload = {}) {
   return recovery.failureReport({
@@ -41,10 +40,10 @@ assert.equal(recovery.classifyFinalReport({ claims: [], uncertainties: ['not sol
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { evidence: [] } }).outcome, 'failed');
 assert.equal(recovery.classifyFinalReport({ outcome: 'no_answer', noAnswerProof: { method: 'enumeration', evidence: ['all states checked'] } }).outcome, 'no_answer');
 
-const runtimeSource = fs.readFileSync(path.resolve(__dirname, 'bin/genos-agent-runtime.cjs'), 'utf8');
-assert(runtimeSource.includes("eventType: 'WORKER_TASK_FAILED'"), 'semantic worker failures must be emitted to the control plane');
-assert(runtimeSource.includes("eventType: 'WORKER_NO_ANSWER_PROVEN'"), 'evidence-backed no-answer conclusions must be explicit');
-const adapterSource = fs.readFileSync(path.resolve(__dirname, 'src/services/agentRuntimeAdapter.js'), 'utf8');
+const runtimeSource = fs.readFileSync(require.resolve('../bin/genos-agent-runtime.cjs'), 'utf8');
+assert(runtimeSource.includes("eventType: isWorker ? 'WORKER_TASK_FAILED' : 'AGENT_FAILED'") || runtimeSource.includes("WORKER_TASK_FAILED"), 'semantic worker failures must be emitted to the control plane');
+assert(runtimeSource.includes("WORKER_NO_ANSWER_PROVEN"), 'evidence-backed no-answer conclusions must be explicit');
+const adapterSource = fs.readFileSync(require.resolve('../src/services/agentRuntimeAdapter.js'), 'utf8');
 assert(adapterSource.includes("'WORKER_RECOVERY_DECISION'"), 'the orchestrator must record its recovery decision');
 assert(adapterSource.includes("await dispatchWorkerRecovery(agentId)"), 'a queued recovery must be dispatched after the failed runtime releases its slot');
 
