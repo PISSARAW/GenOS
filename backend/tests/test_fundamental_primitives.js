@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const fundamentals = require('../src/services/primitiveHandlers/fundamentals');
+const snapshotStore = require('../src/services/workspaceSnapshotStore');
 
 async function main() {
   const snapshot = await fundamentals.snapshot({ workspaceId: 'missing-workspace' });
@@ -9,6 +10,11 @@ async function main() {
   const revert = await fundamentals.safeRevert({ workspaceId: 'missing-workspace', snapshotId: 'missing-snapshot' });
   assert.equal(revert.success, false);
   assert.match(revert.error, /not found/);
+  assert.equal(snapshotStore.isAllowedTestCommand('cargo test --lib'), true);
+  assert.equal(snapshotStore.isAllowedTestCommand('npm test'), true);
+  assert.equal(snapshotStore.isAllowedTestCommand('node -e "rm -rf /"'), false);
+  assert.equal(snapshotStore.isAllowedTestCommand('npx attacker/pkg'), false);
+  assert.equal(snapshotStore.isAllowedTestCommand('npm run evil'), false);
 
   const dryRun = await fundamentals.vfsDryRun({ workspaceId: 'workspace-test', patch: { path: 'src/index.js', content: 'export default 1;' } });
   assert.equal(dryRun.success, true);

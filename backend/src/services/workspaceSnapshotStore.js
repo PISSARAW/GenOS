@@ -381,9 +381,17 @@ const ALLOWED_TEST_COMMANDS = new Set(['npm test', 'npm run check', 'pytest', 'c
 function isAllowedTestCommand(command) {
   const normalized = String(command || '').trim().replace(/\s+/g, ' ');
   if (ALLOWED_TEST_COMMANDS.has(normalized)) return true;
-  // Autoriser des arguments supplémentaires (ex: cargo test --lib, npm test -- --watch)
-  const prefixes = ['npm test', 'npm run ', 'pytest ', 'cargo test ', 'node ', 'deno test', 'npx '];
-  return prefixes.some(prefix => normalized.startsWith(prefix));
+  const safeOptions = /^(?:--lib|--workspace|--quiet|--offline|--all-features)$/;
+  const safeArgument = /^[A-Za-z0-9_./:-]+$/;
+  const parts = normalized.split(' ');
+  if (!['npm', 'pytest', 'cargo'].includes(parts[0])) return false;
+  if (parts[0] === 'npm') {
+    if (parts[1] !== 'test' && !(parts[1] === 'run' && parts[2] === 'check')) return false;
+    const args = parts.slice(parts[1] === 'test' ? 2 : 3);
+    return args.length === 0 || (args[0] === '--' && args.slice(1).length > 0 && args.slice(1).every((argument) => safeArgument.test(argument)));
+  }
+  if (parts[0] === 'pytest') return false;
+  return parts.slice(2).length > 0 && parts.slice(2).every((option) => safeOptions.test(option) || safeArgument.test(option));
 }
 
 function assertAllowedTestCommand(command) {
