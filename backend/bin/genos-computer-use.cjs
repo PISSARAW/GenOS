@@ -1,5 +1,7 @@
 const { generate } = require("../src/services/modelProvider");
 const { runGenosSync } = require("../src/services/genosCli");
+const fs = require("fs");
+const path = require("path");
 
 async function runComputerUseLoop(mission) {
     console.log(`Starting Computer Use Mission: ${mission}`);
@@ -9,14 +11,18 @@ async function runComputerUseLoop(mission) {
         iterations++;
         console.log(`\n--- Iteration ${iterations} ---`);
         
-        // 1. Capture screen
+        // 1. Capture screen to file to avoid ENOBUFS (maxBuffer exceeded) in spawnSync
         console.log("Capturing screen...");
         let base64Image;
+        const screenPath = path.join(process.cwd(), ".genos", "current_screen.png");
         try {
-            const out = runGenosSync("genos desktop capture").toString();
-            const payload = JSON.parse(out);
-            if (!payload.success) throw new Error(payload.error);
-            base64Image = payload.base64;
+            // Ensure .genos dir exists
+            if (!fs.existsSync(path.dirname(screenPath))) fs.mkdirSync(path.dirname(screenPath), { recursive: true });
+            
+            runGenosSync(`genos desktop capture --out "${screenPath}"`, { maxBuffer: 1024 * 1024 * 50 });
+            
+            // Read file as base64
+            base64Image = fs.readFileSync(screenPath, "base64");
         } catch (e) {
             console.error("Failed to capture screen:", e.message);
             break;
@@ -33,7 +39,8 @@ async function runComputerUseLoop(mission) {
         const result = await generate({
             model: process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022",
             prompt,
-            stream: false
+            stream: false,
+            maxTokens: 4096
         });
 
         const text = result.text;
@@ -42,7 +49,6 @@ async function runComputerUseLoop(mission) {
         // 4. Parse Tool Calls
         let toolCall = null;
         try {
-            // Anthropic tool block stringified in modelProvider
             if (text.includes("\"type\":\"tool_use\"")) {
                 const lines = text.split("\n");
                 for (const line of lines) {
@@ -70,7 +76,6 @@ async function runComputerUseLoop(mission) {
             try {
                 runGenosSync(cmd);
                 console.log("Action completed.");
-                // Small sleep to let the UI update
                 await new Promise(r => setTimeout(r, 1000));
             } catch (e) {
                 console.error("Action failed:", e.message);
