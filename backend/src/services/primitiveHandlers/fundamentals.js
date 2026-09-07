@@ -205,17 +205,21 @@ async function bisectAgent(context) {
 }
 
 function entropyCheck(context) {
-  if (!Array.isArray(context.actionHistory) || context.actionHistory.length === 0) {
+  if (!context || !Array.isArray(context.actionHistory) || context.actionHistory.length === 0) {
     return { success: false, error: 'actionHistory required for entropy check.' };
   }
-  const counts = new Map();
-  for (const action of context.actionHistory) counts.set(action, (counts.get(action) || 0) + 1);
-  const total = context.actionHistory.length;
-  const entropy = [...counts.values()].reduce((sum, count) => {
-    const probability = count / total;
-    return sum - probability * Math.log2(probability);
-  }, 0);
-  return { success: true, entropy, samples: total };
+  const swarmMetricsService = require('../swarmMetricsService');
+  const metrics = swarmMetricsService.calculateShannonEntropy(context.actionHistory);
+  return {
+    success: true,
+    entropy: metrics.rawEntropy,
+    normalizedEntropy: metrics.normalizedEntropy,
+    cognitiveDriftState: metrics.cognitiveDriftState,
+    diagnosticRecommendation: metrics.diagnosticRecommendation,
+    samples: metrics.sampleSize,
+    uniqueActions: metrics.uniqueActionCount,
+    isPeriodicCycle: metrics.isPeriodicCycle
+  };
 }
 
 async function evaluate(context) {

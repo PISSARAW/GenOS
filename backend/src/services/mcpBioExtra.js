@@ -74,6 +74,33 @@ function executeBioExtra(toolName, args = {}) {
     })();
   }
 
+  if (toolName === 'genos_get_swarm_entropy' || toolName === 'genos_biomimicry_entropy') {
+    const agentId = args.agent_id || args.agentId;
+    const swarmMetrics = require('./swarmMetricsService');
+    const swarmSentinel = require('./swarmSentinelService');
+    const { getDatabase } = require('../db');
+    return (async () => {
+      try {
+        const db = await getDatabase();
+        const events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
+        const chronologicalEvents = [...events].reverse();
+        const swarmEntropy = swarmMetrics.calculateShannonEntropy(chronologicalEvents);
+        const agentEntropy = agentId ? swarmSentinel.getAgentEntropy(agentId) : null;
+        return {
+          configured: true,
+          success: true,
+          status: 'completed',
+          transport: 'local',
+          output: JSON.stringify({ swarmEntropy, agentEntropy }),
+          swarmEntropy,
+          agentEntropy
+        };
+      } catch (e) {
+        return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+      }
+    })();
+  }
+
   if (toolName === 'genos_biomimicry_spore') {
     const action = args.action || 'create';
     const agentId = args.agent_id || 'griot-01';

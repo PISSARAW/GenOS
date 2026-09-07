@@ -60,6 +60,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_resilience_circuit_breaker', cat: 'Resilience & Security', risk: 'High', desc: 'Manual trip or reset of tool circuit breaker' },
   { name: 'genos_get_conscience_state', cat: 'Resilience & Security', risk: 'Low', desc: 'Inspects real-time conscience state and dissonance level' },
   { name: 'genos_get_conscience_history', cat: 'Resilience & Security', risk: 'Low', desc: 'Inspects conscience revision history and cognitive transitions' },
+  { name: 'genos_get_swarm_entropy', cat: 'Resilience & Security', risk: 'Low', desc: 'Inspects Shannon entropy, drift state, and cyclic deadlocks across the swarm' },
   { name: 'genos_biomimicry_swarm_consensus', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Honeybee dance quorum voting protocol' },
   { name: 'genos_biomimicry_flocking_explore', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Boids flocking exploration algorithm' },
   { name: 'genos_biomimicry_network_quorum', cat: 'Swarm Biomimicry', risk: 'Low', desc: 'Mycelial network quorum communication' },
