@@ -7,6 +7,7 @@ const { resolveTenant } = require('../middleware/tenant');
 const fs = require('fs');
 const path = require('path');
 const { boundedInteger } = require('./argumentBounds');
+const { validateProviderEndpoint } = require('../services/providerEndpointPolicy');
 
 function catalogProviders() {
   const filePath = path.resolve(__dirname, '../../../config/providers.json');
@@ -41,9 +42,7 @@ async function registerProvider(req, res) {
   if (!provider.provider || !provider.model) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model are required' } });
   if (!Array.isArray(provider.capabilities || [])) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array' } });
   if (provider.endpoint) {
-    let endpoint;
-    try { endpoint = new URL(provider.endpoint); } catch (_) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: 'endpoint must be a valid HTTP(S) URL' } }); }
-    if (!['http:', 'https:'].includes(endpoint.protocol)) return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: 'endpoint must use HTTP or HTTPS' } });
+    try { validateProviderEndpoint(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
   }
   const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
   const db = await getDatabase();
