@@ -200,11 +200,24 @@ async function slmRoute(context = {}) {
 
 async function bisectAgent(context) {
   const bisectService = require('../bisectionService');
-  if (context.workspaceId && context.bugTrigger) {
-    const res = await bisectService.bisectAnomalyAsync(context.workspaceId, context.bugTrigger);
+  const workspaceId = context.workspaceId || context.agent_id;
+  if (workspaceId && (Array.isArray(context.snapshotHistory) || context.testCommand || context.bugTrigger)) {
+    if (context.predicate !== undefined && typeof context.predicate !== 'function') {
+      return { success: false, error: 'predicate must be a function when supplied in-process.' };
+    }
+    const db = await getDatabase();
+    const res = await bisectService.autoBisectWorkspaceAnomaly(db, {
+      workspaceId,
+      workspaceRoot: context.workspaceRoot,
+      testCommand: context.testCommand || 'npm test',
+      snapshotHistory: Array.isArray(context.snapshotHistory) ? context.snapshotHistory : null,
+      predicate: context.predicate || null,
+      timeoutMs: context.timeoutMs,
+      autoRollback: context.autoRollback !== false
+    });
     return { success: true, bisectionResult: res };
   }
-  return { success: false, error: 'workspaceId and bugTrigger required for bisection.' };
+  return { success: false, error: 'workspaceId and snapshotHistory, testCommand, or bugTrigger required for bisection.' };
 }
 
 function entropyCheck(context) {
