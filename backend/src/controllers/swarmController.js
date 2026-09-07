@@ -43,8 +43,10 @@ async function getConsensus(req, res) {
     const pVotes = votesByProposal.get(p.id) || [];
     const yesCount = pVotes.filter(v => v.vote === 'yes').length;
     const noCount = pVotes.filter(v => v.vote === 'no').length;
+    const abstainCount = pVotes.filter(v => v.vote === 'abstain').length;
     const totalVotes = pVotes.length;
-    const approvalRate = totalVotes > 0 ? Math.round((yesCount / totalVotes) * 100) : 0;
+    const validVotes = yesCount + noCount;
+    const approvalRate = validVotes > 0 ? Math.round((yesCount / validVotes) * 100) : 0;
 
     return {
       id: p.id,
