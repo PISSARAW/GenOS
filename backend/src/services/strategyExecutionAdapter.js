@@ -212,7 +212,13 @@ async function logPrimitiveExecutionAudit(agentId, primitives = [], context = {}
       executionKey, context.orchestratorId || agentId, `exec_${Date.now()}`, `primitives: ${primitives.join(',')}`, 'completed', timestamp
     );
   } catch (err) {
-    // Fail silently: audit logging should not block execution
+    telemetry.emitEvent({
+      eventType: 'STRATEGY_PRIMITIVE_AUDIT_FAILED',
+      action: 'AUDIT_WRITE',
+      detail: `Could not persist primitive execution audit: ${err.message}`,
+      severity: 'warning',
+      payload: { agentId, primitives, context }
+    });
   }
 }
 
