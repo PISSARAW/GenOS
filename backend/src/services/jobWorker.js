@@ -110,8 +110,10 @@ async function executeWorkflow(db, run) {
   const input = JSON.parse(run.input_json || '{}');
   const nodes = new Map((graph.nodes || []).map((node) => [node.id, node]));
   const edges = graph.edges || [];
-  const output = {};
-  const visited = new Set();
+  let checkpoint = {};
+  try { checkpoint = JSON.parse(run.output_json || '{}'); } catch (_) {}
+  const output = checkpoint.output && typeof checkpoint.output === 'object' ? { ...checkpoint.output } : {};
+  const visited = new Set(Array.isArray(checkpoint.completedNodes) ? checkpoint.completedNodes : []);
   const skipped = new Set();
   const shouldRun = (node) => {
     const condition = node.when || node.data?.when;
@@ -127,7 +129,12 @@ async function executeWorkflow(db, run) {
       error.code = 'WORKFLOW_CANCELLED';
       throw error;
     }
-    if (!node || ((!options.force) && (visited.has(node.id) || skipped.has(node.id)))) return;
+    if (!node || ((!options.force) && skipped.has(node.id))) return;
+    if (!options.force && visited.has(node.id)) {
+      const resumedNext = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
+      for (const child of resumedNext) await runNode(child, depth + 1, false, options);
+      return;
+    }
     if (blocked || !shouldRun(node)) {
       skipped.add(node.id);
       output[node.id] = { status: 'skipped', reason: 'condition_not_satisfied' };
@@ -176,6 +183,7 @@ async function executeWorkflow(db, run) {
         nodeOutput = { status: 'completed', parallelBranches: branches.length };
       }
       output[node.id] = nodeOutput;
+      await db.run('UPDATE workflow_runs SET output_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = \'running\'', JSON.stringify({ traceId, completedNodes: [...visited], skippedNodes: [...skipped], output }), run.id);
       await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput), run.organization_id || workflow.organization_id || null, run.project_id || workflow.project_id || null);
       await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
       telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
