@@ -309,9 +309,9 @@ async function select(context) {
     const inputFitness = Number(candidate.input?.fitnessScore ?? candidate.input?.score);
     const fitnessScore = boundedPercentage(Number.isFinite(inputFitness) ? inputFitness : Number(row.lineage_score || 0) * 100);
     const evidenceScore = boundedPercentage(candidate.input?.evidenceScore);
-    const statusScore = row.status === 'completed' ? 10 : (row.status === 'running' ? 5 : 0);
-    const score = statusScore + (fitnessScore * 0.7) + (evidenceScore * 0.3);
-    scored.push({ id: candidate.id, status: row.status, fitnessScore, evidenceScore, score });
+    const testAccuracy = boundedPercentage(candidate.input?.testAccuracy ?? candidate.input?.test_accuracy ?? 0);
+    const score = (fitnessScore * 0.5) + (evidenceScore * 0.3) + (testAccuracy * 0.2);
+    scored.push({ id: candidate.id, status: row.status, fitnessScore, evidenceScore, testAccuracy, score });
   }
   const uniqueScored = [...scored.reduce((byId, candidate) => {
     const previous = byId.get(candidate.id);
