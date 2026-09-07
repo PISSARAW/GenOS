@@ -12,6 +12,7 @@ for (const [file, marker] of sources) {
 }
 assert(fs.readFileSync('mcp/wrapper.cjs', 'utf8').includes('detached: process.platform !== \'win32\''));
 assert(fs.readFileSync('backend/src/services/pluginSandbox.js', 'utf8').includes('terminateChild(child)'));
+assert(fs.readFileSync('backend/src/services/pluginSandbox.js', 'utf8').includes("detached: process.platform !== 'win32'"));
 assert(fs.readFileSync('backend/src/services/genosCli.js', 'utf8').includes('terminateChild(child)'));
 
 console.log('Process spawn safety checks passed.');
