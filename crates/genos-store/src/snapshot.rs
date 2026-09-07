@@ -20,6 +20,8 @@ pub struct SnapshotManifest {
     pub timestamp: Option<String>,
     #[serde(default)]
     pub payload: Option<serde_json::Value>,
+    #[serde(default = "default_storage_id")]
+    storage_id: Uuid,
 }
 
 fn default_schema() -> String {
@@ -28,6 +30,10 @@ fn default_schema() -> String {
 
 fn default_version() -> String {
     "3.0.0".to_string()
+}
+
+fn default_storage_id() -> Uuid {
+    Uuid::new_v4()
 }
 
 impl SnapshotManifest {
@@ -61,24 +67,58 @@ impl SnapshotManifest {
             state,
             timestamp: Some(now),
             payload: Some(payload),
+            storage_id: default_storage_id(),
         }
     }
 }
 
-#[derive(Default)]
 pub struct SnapshotStore {
     snapshots: HashMap<Uuid, SnapshotManifest>,
+    store_dir: std::path::PathBuf,
 }
 
 impl SnapshotStore {
     pub fn new() -> Self {
+        Self::with_dir(".genos/snapshots")
+    }
+
+    pub fn with_dir(store_dir: impl Into<std::path::PathBuf>) -> Self {
+        let store_dir = store_dir.into();
+        let _ = std::fs::create_dir_all(&store_dir);
+        
+        let mut snapshots = HashMap::new();
+        if let Ok(entries) = std::fs::read_dir(&store_dir) {
+            for entry in entries.flatten() {
+                if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                    if let Ok(manifest) = serde_json::from_str::<SnapshotManifest>(&content) {
+                        snapshots.insert(manifest.storage_id, manifest);
+                    }
+                }
+            }
+        }
+        
         Self {
-            snapshots: HashMap::new(),
+            snapshots,
+            store_dir,
         }
     }
 
-    pub fn save(&mut self, manifest: SnapshotManifest) -> Uuid {
-        let id = Uuid::new_v4();
+    pub fn save(&mut self, mut manifest: SnapshotManifest) -> Uuid {
+        let id = if manifest.storage_id == Uuid::nil() {
+            default_storage_id()
+        } else {
+            manifest.storage_id
+        };
+        manifest.storage_id = id;
+        if manifest.snapshot_id == "snap-default" || manifest.snapshot_id.is_empty() {
+            manifest.snapshot_id = format!("snap-{}", id.simple());
+        }
+        
+        let file_path = self.store_dir.join(format!("{}.json", manifest.snapshot_id));
+        if let Ok(json) = serde_json::to_string_pretty(&manifest) {
+            let _ = std::fs::write(file_path, json);
+        }
+        
         self.snapshots.insert(id, manifest);
         id
     }
@@ -93,5 +133,24 @@ impl SnapshotStore {
             .filter(|(_, s)| s.agent_id == agent_id)
             .map(|(&id, s)| (id, s))
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn persisted_snapshot_keeps_storage_id_after_reload() {
+        let root = std::env::temp_dir().join(format!("genos-store-{}", Uuid::new_v4()));
+        let mut store = SnapshotStore::with_dir(&root);
+        let manifest = SnapshotManifest::new("agent-1", "branch-1", serde_json::json!({}));
+        let id = store.save(manifest);
+        assert!(store.get(&id).is_some());
+
+        let reloaded = SnapshotStore::with_dir(&root);
+        assert!(reloaded.get(&id).is_some());
+
+        std::fs::remove_dir_all(root).unwrap();
     }
 }
