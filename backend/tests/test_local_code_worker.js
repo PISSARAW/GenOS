@@ -14,6 +14,7 @@ assert.equal(proposal.patches[0].path, 'src/lib.rs');
 assert.equal(isAllowedSandboxTestCommand('cargo  test --quiet'), true);
 assert.equal(isAllowedSandboxTestCommand('pytest'), true);
 assert.equal(isAllowedSandboxTestCommand('cargo test; whoami'), false);
+assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), false);
 
 (async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
