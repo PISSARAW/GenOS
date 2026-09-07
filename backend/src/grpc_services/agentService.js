@@ -47,8 +47,7 @@ module.exports = {
         executionBudget: parseJson(mission.execution_budget_json, {}, 'execution_budget_json'),
         nameMeaning: mission.name_meaning
       });
-      const result = await Promise.race([startPromise, new Promise((resolve) => setTimeout(() => resolve({ queued: true }), 25))]);
-      startPromise.catch((error) => console.error(`[gRPC] Agent ${mission.agent_id} failed:`, error.message));
+      const result = await startPromise;
       callback(null, { success: true, message: result?.duplicate ? `Mission for agent ${mission.agent_id} already running` : `Mission for agent ${mission.agent_id} started` });
     } catch (err) {
       callback({ code: grpcStatusForError(err), message: err.message });
