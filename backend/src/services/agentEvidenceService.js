@@ -54,6 +54,8 @@ function recordWorkerEvidence(mission, event) {
         ? event.payload.evidence
         : (event.payload?.autopsy?.triggerReason ? [event.payload.autopsy.triggerReason] : [])
     };
+  }
+
   let provHash = null;
   if (report) {
     try {
@@ -320,6 +322,7 @@ module.exports = {
   recordWorkerEvidence,
   workerEvidenceDossiers,
   validateWorkerDossiers,
+  validateWorkerDossierCoherence,
   validateDossierInfluence,
   buildWorkerSynthesisPrompt,
   dossierDigest,

@@ -386,7 +386,7 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
       throw error;
     }
     const dossiers = workerEvidenceDossiers(agentId, autonomousWorkers);
-    validateWorkerDossiers(dossiers, autonomousWorkers);
+    validateWorkerDossiers(dossiers, autonomousWorkers, { contract: contractRecord?.contract });
     normalizedMission.prompt = buildWorkerSynthesisPrompt(
       normalizedMission.prompt || normalizedMission.currentTask || '',
       dossiers
