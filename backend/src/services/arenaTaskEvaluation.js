@@ -54,6 +54,10 @@ function dossierToCandidate(dossier, options = {}) {
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties : [];
   const tests = Array.isArray(report.tests) ? report.tests : [];
 
+  const workerRecovery = require('./workerFailureRecoveryService');
+  const proof = workerRecovery.proofOfNoAnswer(report) || workerRecovery.proofOfNoAnswer(dossier);
+  const isNoAnswer = report.outcome === 'no_answer' && Boolean(proof);
+
   // Compute adversarial pass rate from verified tests
   let passRate = 50;
   if (tests.length > 0) {
@@ -61,19 +65,27 @@ function dossierToCandidate(dossier, options = {}) {
     passRate = Number(((passed / tests.length) * 100).toFixed(1));
   } else if (report.outcome === 'success') {
     passRate = 90;
+  } else if (isNoAnswer) {
+    passRate = 85;
   } else if (report.outcome === 'failed') {
     passRate = 20;
   }
 
-  // Compute fitness score based on verified claims and penalty on unverified claims / uncertainties
+  // Compute fitness score based on verified claims/proofs and penalty on unverified claims / uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
-  const claimScore = claims.reduce((acc, c) => {
-    const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
-    return acc + (hasEvidence ? 15 : -10);
-  }, 0);
-  const boundedClaimScore = Math.max(-40, Math.min(40, claimScore));
+  let epistemicScore = 0;
+  if (isNoAnswer) {
+    const evidenceCount = Array.isArray(proof.evidence) ? proof.evidence.length : 0;
+    epistemicScore = Math.min(40, 20 + evidenceCount * 10);
+  } else {
+    const claimScore = claims.reduce((acc, c) => {
+      const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
+      return acc + (hasEvidence ? 15 : -10);
+    }, 0);
+    epistemicScore = Math.max(-40, Math.min(40, claimScore));
+  }
   const uncertaintyPenalty = uncertainties.length * 3;
-  let calculatedFitness = Math.max(0, Math.min(100, 50 + boundedClaimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  let calculatedFitness = Math.max(0, Math.min(100, 50 + epistemicScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
   const isFailed = report.outcome === 'failed'
     || Boolean(dossier?.failure)
     || Boolean(report.failure)
