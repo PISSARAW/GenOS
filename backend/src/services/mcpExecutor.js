@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
+const { validateToolArguments } = require('./mcpArgumentValidation');
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
@@ -243,8 +244,11 @@ async function callStdio(transport, toolName, options = {}) {
       pending = null;
     }
     if (!child.stdin.destroyed) child.stdin.end();
-    if (!child.killed) terminateChild(child);
-    clearTerminationTimer(child);
+    if (!child.killed) {
+      terminateChild(child);
+    } else {
+      clearTerminationTimer(child);
+    }
   }
 }
 
@@ -258,6 +262,10 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   }
   if (!registry.isSupportedTool(normalizedToolName)) {
     return { configured: false, success: false, status: 'unsupported', error: `Tool '${normalizedToolName}' is not supported by the runtime dispatch registry.`, executionKind };
+  }
+  const argumentError = validateToolArguments(normalizedToolName, args);
+  if (argumentError) {
+    return { configured: false, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
   }
 
   const runLocal = (cmd) => {
