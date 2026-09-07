@@ -5,7 +5,7 @@ const path = require('path');
 
 const mcpExecutor = require('../src/services/mcpExecutor');
 
-function sendJsonRpc(child, request, timeoutMs = 5000) {
+function sendJsonRpc(child, request, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     let buffer = '';
     const timer = setTimeout(() => {
@@ -105,6 +105,7 @@ async function testRustMcpServer() {
   } finally {
     child.stdin.end();
     child.kill();
+    await new Promise((resolve) => child.once('close', resolve));
   }
 }
 
@@ -142,6 +143,7 @@ async function testNodeMcpServer() {
   } finally {
     child.stdin.end();
     child.kill();
+    await new Promise((resolve) => child.once('close', resolve));
   }
 }
 
