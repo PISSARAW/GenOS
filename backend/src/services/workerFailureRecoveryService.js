@@ -80,7 +80,8 @@ function failureReport(event = {}, mission = {}) {
 }
 
 function decideRecovery(report) {
-  if (report.noAnswerProof) {
+  const isOperationalFailure = ['capability_mismatch', 'policy_block', 'missing_capability', 'transient_runtime', 'mutated_output'].includes(report.category);
+  if (report.noAnswerProof && !isOperationalFailure) {
     return {
       action: 'conclude_no_answer', terminal: true, retry: false,
       reason: 'The worker supplied an evidence-backed proof that the requested answer does not exist within the stated scope.'

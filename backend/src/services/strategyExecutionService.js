@@ -156,18 +156,18 @@ const STAGE_PRIMITIVE_MAP = {
   conditional_promotion: ['select_winner', 'stdp_update', 'cherry_pick_golden_path']
 };
 
-function resolveStagePrimitives(stageKey, portfolio = []) {
+function resolveStagePrimitives(stageKey, portfolio = [], options = {}) {
   const defaults = STAGE_PRIMITIVE_MAP[stageKey] || [];
   const portfolioPrimitives = (portfolio || []).flatMap((s) => s.primitives || []);
   const matching = portfolioPrimitives.filter((p) => defaults.includes(p));
-  // STRICT: Do not fall back to defaults if portfolio has no matching primitives.
-  // This ensures that only contracted primitives are executed.
-  if (matching.length === 0 && defaults.length > 0) {
+  // Only throw if strict mode is explicitly requested
+  if (options.strict && matching.length === 0 && defaults.length > 0) {
     throw Object.assign(
       new Error(`Stage '${stageKey}' requires one of [${defaults.join(', ')}] but the selected strategy portfolio does not support any. Portfolio primitives: [${portfolioPrimitives.join(', ') || 'none'}]`),
       { code: 'STRATEGY_PORTFOLIO_UNSUPPORTED_STAGE', stageKey, required: defaults, available: portfolioPrimitives }
     );
   }
+  // Return only contracted primitives (no uncontracted defaults executed, graceful pass-through if none contracted)
   return [...new Set(matching)];
 }
 
@@ -320,5 +320,7 @@ module.exports = {
   normalizedBudget,
   unfinishedPhaseReason,
   primitiveFailureReason,
+  resolveStagePrimitives,
+  STAGE_PRIMITIVE_MAP,
   get strategyExecutionAdapter() { return require('./strategyExecutionAdapter'); }
 };

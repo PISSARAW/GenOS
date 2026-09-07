@@ -8,13 +8,63 @@
  * auditable and avoids treating ordinary uncertainty as a hallucination.
  */
 
+const { detectPlaceholderOrHallucination } = require('./epistemics');
+
 function asArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
+function isMeaningfulEvidenceItem(item) {
+  if (item === null || item === undefined) return false;
+  if (typeof item === 'string') {
+    const trimmed = item.trim();
+    if (!trimmed) return false;
+    if (detectPlaceholderOrHallucination(trimmed).isPlaceholder) return false;
+    if (/^(?:none|n\/a|null|undefined|todo|unverified|fake|dummy|mock)$/i.test(trimmed)) return false;
+    return true;
+  }
+  if (typeof item === 'number' || typeof item === 'boolean') {
+    return true;
+  }
+  if (typeof item === 'object') {
+    if (Array.isArray(item)) {
+      return item.some(isMeaningfulEvidenceItem);
+    }
+    const keys = Object.keys(item);
+    if (keys.length === 0) return false;
+    return keys.some((k) => isMeaningfulEvidenceItem(item[k]));
+  }
+  return false;
+}
+
 function evidencePresent(value) {
-  if (Array.isArray(value)) return value.length > 0;
-  return typeof value === 'string' && value.trim().length > 0;
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) {
+  if (typeof value === 'object') {
+    return Object.keys(value).length > 0;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return true;
+  }
+  return false;
+}
+
+function extractClaims(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload.claims)) return payload.claims;
+  if (Array.isArray(payload.evidenceReport?.claims)) return payload.evidenceReport.claims;
+  if (Array.isArray(payload.report?.claims)) return payload.report.claims;
+  if (Array.isArray(payload.result?.claims)) return payload.result.claims;
+  return [];
+}
+
+function extractUnverifiedClaims(payload) {
+  if (!payload || typeof payload !== 'object') return [];
+  const list = [];
+  if (Array.isArray(payload.unverifiedClaims)) list.push(...payload.unverifiedClaims);
+  if (Array.isArray(payload.evidenceReport?.unverifiedClaims)) list.push(...payload.evidenceReport.unverifiedClaims);
+  if (Array.isArray(payload.report?.unverifiedClaims)) list.push(...payload.report.unverifiedClaims);
+  return list;
 }
 
 function inspectEvent(event = {}) {
@@ -31,20 +81,20 @@ function inspectEvent(event = {}) {
     observations.push(declared);
   }
 
-  const unverifiedClaims = asArray(payload.unverifiedClaims);
+  const unverifiedClaims = extractUnverifiedClaims(payload);
   if (unverifiedClaims.length) {
     reasons.push(`${unverifiedClaims.length} claim(s) explicitly lack evidence`);
     observations.push(unverifiedClaims.length);
   }
 
-  const claims = asArray(payload.claims);
+  const claims = extractClaims(payload);
   const unsupportedClaims = claims.filter((claim) => claim && !evidencePresent(claim.evidence || claim.receipts || claim.sourceRefs));
   if (unsupportedClaims.length) {
     reasons.push(`${unsupportedClaims.length} structured claim(s) lack evidence or receipts`);
     observations.push(unsupportedClaims.length);
   }
 
-  const proposal = payload.proposal;
+  const proposal = payload.proposal || payload.evidenceReport?.proposal || payload.report?.proposal;
   if (proposal) {
     if (!evidencePresent(proposal.proposal?.evidence || proposal.evidence)) {
       reasons.push('local code proposal has no evidence statement');
