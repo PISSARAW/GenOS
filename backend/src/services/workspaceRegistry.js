@@ -24,7 +24,15 @@ function resolveWorkspacesRoot() {
 }
 
 function isPathWithinRoot(root, candidate) {
-  const relative = path.relative(path.resolve(root), path.resolve(candidate));
+  let realRoot;
+  let realCandidate;
+  try {
+    realRoot = fs.realpathSync(path.resolve(root));
+    realCandidate = fs.realpathSync(path.resolve(candidate));
+  } catch (_) {
+    return false;
+  }
+  const relative = path.relative(realRoot, realCandidate);
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
