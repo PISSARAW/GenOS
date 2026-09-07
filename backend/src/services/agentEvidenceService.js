@@ -54,6 +54,18 @@ function recordWorkerEvidence(mission, event) {
         ? event.payload.evidence
         : (event.payload?.autopsy?.triggerReason ? [event.payload.autopsy.triggerReason] : [])
     };
+  let provHash = null;
+  if (report) {
+    try {
+      const crypto = require('crypto');
+      provHash = crypto.createHash('sha256').update(JSON.stringify(report)).digest('hex');
+      const { recordProvenance } = require('./evaluationObservabilityService');
+      recordProvenance('worker_evidence', workerId, {
+        workerId,
+        orchestratorId,
+        report
+      }, null, { organizationId: mission.organizationId, projectId: mission.projectId }).catch(() => {});
+    } catch (_) {}
   }
   events.push({
     eventType: event.eventType,
@@ -61,7 +73,8 @@ function recordWorkerEvidence(mission, event) {
     detail: String(event.detail || '').slice(0, 500),
     ...(report ? { evidenceReport: report } : {}),
     ...(failure ? { failure } : {}),
-    ...(event.payload?.noAnswerProof ? { noAnswerProof: event.payload.noAnswerProof } : {})
+    ...(event.payload?.noAnswerProof ? { noAnswerProof: event.payload.noAnswerProof } : {}),
+    ...(provHash ? { provenanceHash: provHash } : {})
   });
   // Always preserve events that carry evidence reports, failures, or proofs of impossibility
   const evidenceCarrying = events.filter((e) => e.evidenceReport || e.failure || e.noAnswerProof);
