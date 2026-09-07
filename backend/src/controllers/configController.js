@@ -65,7 +65,15 @@ async function getLocalModels(req, res, next) {
 async function testModel(req, res, next) {
   try {
     const prompt = String(req.body?.prompt || 'Reply with exactly: GENOS_MODEL_OK');
-    const result = await modelProvider.generate({ model: req.body?.model, prompt, timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
+    const model = req.body?.model;
+    let endpoint;
+    if (model) {
+      const configuration = modelProvider.modelConfiguration(model);
+      const db = await getDatabase();
+      const registered = await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName);
+      endpoint = registered?.endpoint || undefined;
+    }
+    const result = await modelProvider.generate({ model, prompt, endpoint, timeoutMs: Math.min(Number(req.body?.timeoutMs) || 30000, 120000) });
     res.json({ success: true, provider: result.provider, text: result.text, usage: { inputTokens: result.inputTokens, outputTokens: result.outputTokens } });
   } catch (error) {
     res.status(502).json({ error: { code: 'MODEL_EXECUTION_FAILED', message: error.message } });
