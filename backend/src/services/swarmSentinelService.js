@@ -111,6 +111,10 @@ function inspectEvent(agentId, event) {
 
 function recordInteraction(sender, recipient, hasDiff = false) {
   if (!sender || !recipient || sender === recipient) return null;
+  const lowerRec = String(recipient).toLowerCase();
+  const lowerSen = String(sender).toLowerCase();
+  if (lowerRec === 'telemetry' || lowerRec === 'system' || lowerRec === 'unknown') return null;
+  if (lowerSen === 'telemetry' || lowerSen === 'system' || lowerSen === 'unknown') return null;
   recentInteractions.push({ sender, recipient, hasDiff, timestamp: Date.now() });
   if (recentInteractions.length > 50) recentInteractions.shift();
 
