@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Local/frontier model routing helpers for agent missions: competency floors,
  * ranking, and the local-worker route decision.
  */
@@ -52,9 +52,18 @@ async function consultLocalModels(db, agentId, mission, plan, tenant = {}) {
 }
 
 function modelScale(model) {
-  const billions = String(model.model || '').match(/(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])/i);
+  const modelName = String(model?.model || model?.uri || '');
+  const billions = modelName.match(/(?:^|[-_:])(\d+(?:\.\d+)?)b(?:$|[-_:])/i);
   if (billions) return Number(billions[1]) * 1_000_000_000;
-  return Number(model.size || 0);
+  // Convert quantized byte sizes (e.g. Ollama ~0.6 bytes/param at Q4) to parameter estimates
+  const byteSize = Number(model?.size || 0);
+  if (byteSize > 1_000_000_000) {
+    return Math.round(byteSize * 1.6);
+  }
+  if (/(mistral|llama|qwen|gemma|deepseek|phi|codellama|starcoder)/i.test(modelName)) {
+    return 7_000_000_000;
+  }
+  return byteSize;
 }
 
 function localCompetencyFloor({ role, modelTier, purpose } = {}) {
