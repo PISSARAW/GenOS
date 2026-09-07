@@ -58,6 +58,15 @@ try {
   const failed = adapter.runtimeExitOutcome(null, 1, null, 'ERROR actual runtime failure');
   assert.equal(failed.status, 'error');
   assert.equal(failed.eventType, 'AGENT_FAILED');
+  const domainFailed = adapter.runtimeExitOutcome(null, 0, null, '', {
+    hasDomainFailure: true,
+    domainVerdict: 'failed'
+  });
+  assert.equal(domainFailed.status, 'failed');
+  assert.equal(domainFailed.eventType, 'AGENT_FAILED');
+  const unverified = adapter.runtimeExitOutcome(null, 0, null, '', { unverified: true });
+  assert.equal(unverified.status, 'unverified');
+  assert.equal(unverified.payload.domainVerdict, 'unverified');
   assert.equal(adapter.evidenceScore({ evidenceReport: { claims: [{ evidence: ['source', 'calculation'] }], uncertainties: ['inclination'] } }), 19);
   const creativeScore = adapter.evidenceScore({ evidenceReport: {
     artifact: 'creative', artifactText: 'A finished story.', uncertainties: [],
