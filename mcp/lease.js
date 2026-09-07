@@ -11,9 +11,9 @@ export function parseLease(value) {
 export function toolIsLeased(toolName, allTools, environment = process.env) {
   const lease = parseLease(environment.GENOS_MCP_LEASE);
   const exposeAll = /^(1|true)$/i.test(environment.GENOS_MCP_EXPOSE_ALL || "");
+  if (lease) return allTools.some((tool) => tool.name === toolName) && lease.has(toolName);
   if (exposeAll) return allTools.some((tool) => tool.name === toolName);
-  if (!lease) return toolName === allTools[0]?.name;
-  return allTools.some((tool) => tool.name === toolName) && lease.has(toolName);
+  return toolName === allTools[0]?.name;
 }
 
 export function filterLeasedTools(allTools, environment = process.env) {
