@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "test": "npm --prefix backend test"
+    "test": "npm --prefix backend test",
+    "clean:artifacts": "node scripts/clean-artifacts.mjs"
   },
   "dependencies": {
     "puppeteer": "^25.10.0"
