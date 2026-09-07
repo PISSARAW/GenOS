@@ -20,6 +20,7 @@ const { getDatabase } = require('../src/db');
 const { terminateChild } = require('../src/services/processTermination');
 const immune = require('../src/services/immuneSystem');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const MAX_RUNTIME_LINE_BYTES = 4 * 1024 * 1024;
 
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
@@ -349,6 +350,11 @@ process.stdin.on('end', async () => {
 
   child.stdout.on('data', (chunk) => {
     buffer += chunk.toString();
+    if (Buffer.byteLength(buffer, 'utf8') > MAX_RUNTIME_LINE_BYTES) {
+      stopForBudget('outputBytes', Buffer.byteLength(buffer, 'utf8'), MAX_RUNTIME_LINE_BYTES);
+      buffer = '';
+      return;
+    }
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
     lines.filter(Boolean).forEach((line) => {
