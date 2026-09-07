@@ -118,11 +118,12 @@ async function recordWorkerLineage(db, workerInfo, options = {}) {
 
   try {
     await db.run(
-      `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, state_summary, metadata)
-       VALUES (?, ?, ?, 'agent', ?, ?, ?)
+      `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, score, state_summary, metadata)
+       VALUES (?, ?, ?, ?, 'agent', ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET score = excluded.score, metadata = excluded.metadata`,
       workerInfo.agentId,
       workspaceId,
+      workerInfo.agentId,
       workerInfo.name || workerInfo.agentId,
       validatedScore,
       `Evolved worker: ${workerInfo.role || 'specialist'}`,
