@@ -235,6 +235,12 @@ class CircuitBreakerService {
     });
   }
 
+  async hydrateToolLocks(db) {
+    const lockedTools = await db.all('SELECT name FROM mcp_tools WHERE is_locked = 1');
+    for (const tool of lockedTools) this.toolLockOverrides.set(tool.name, true);
+    return lockedTools.length;
+  }
+
   triggerHalt(reason = 'Manual Kill Switch Activated', source = 'admin') {
     this.isHalted = true;
     this.haltReason = reason;
