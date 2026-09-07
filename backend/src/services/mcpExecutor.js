@@ -11,6 +11,7 @@ const { terminateChild, clearTerminationTimer } = require('./processTermination'
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
+const MAX_MCP_BUFFER_BYTES = 1024 * 1024;
 
 function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
   const numeric = Number(value);
@@ -135,7 +136,7 @@ async function callStdio(transport, toolName, options = {}) {
   let buffer = ''; let stderr = ''; let pending = null;
   child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
-    buffer += chunk.toString();
+    buffer = appendBounded(buffer, chunk, MAX_MCP_BUFFER_BYTES);
     const lines = buffer.split(/\r?\n/);
     buffer = lines.pop() || '';
     for (const line of lines) {
