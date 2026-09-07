@@ -81,7 +81,7 @@ function inspectEvent(agentId, event) {
   if (window.length > 15) window.shift();
 
   // Evaluate Shannon entropy on recent action stream
-  if (window.length >= 6) {
+  if (window.length >= 4) {
     const metrics = calculateShannonEntropy(window, 15);
     if (metrics.cognitiveDriftState === 'COLLAPSE_DEADLOCK') {
       return {

@@ -58,11 +58,12 @@ function getTransitionEntropy(actionEvents = []) {
     conditionalEntropy += pFrom * stateCondEntropy;
   }
 
-  // Check explicit short periodic cycle (period 2 or 3)
+  // Check explicit short periodic cycle (period 1, 2, 3, or 4)
   let isPeriodicCycle = false;
   let cycleLength = 0;
-  for (const period of [2, 3]) {
-    if (items.length >= period * 2) {
+  for (const period of [1, 2, 3, 4]) {
+    const minItems = period === 1 ? 3 : period * 2;
+    if (items.length >= minItems) {
       let matches = 0;
       let comparisons = 0;
       for (let i = period; i < items.length; i += 1) {
@@ -96,7 +97,7 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
     return { entropy: 0, normalizedEntropy: 0, state: 'IDLE', uniqueActions: 0, sampleSize: 0 };
   }
 
-  const { entropy, normalizedEntropy, uniqueActions, dominanceRatio } = getEntropyStats(sample);
+  let { entropy, normalizedEntropy, uniqueActions, dominanceRatio } = getEntropyStats(sample);
   const { transitionEntropy, isPeriodicCycle, cycleLength } = getTransitionEntropy(sample);
 
   const maxEntropy = uniqueActions > 1 ? Math.log2(uniqueActions) : 1;
@@ -111,14 +112,16 @@ function calculateShannonEntropy(actionEvents = [], windowSize = 50) {
   let driftState = 'OPTIMAL_EXPLORATION';
   let diagnostic = 'Swarm operating within balanced exploration-exploitation parameters.';
 
-  const isDominantRepetition = dominanceRatio >= 0.85 && totalActions >= 6;
-  const isEntropyCollapsed = normalizedEntropy < 0.20 && totalActions >= 6;
-  const isDeadlockCycle = totalActions >= 6 && (isPeriodicCycle || (transitionEntropy === 0 && uniqueActions <= 3));
+  const isDominantRepetition = (dominanceRatio >= 0.85 && totalActions >= 4) || (totalActions >= 4 && uniqueActions === 1);
+  const isEntropyCollapsed = normalizedEntropy < 0.20 && totalActions >= 4;
+  const isDeadlockCycle = (isPeriodicCycle && totalActions >= (cycleLength === 1 ? 3 : cycleLength * 2)) ||
+                          (totalActions >= 4 && transitionEntropy === 0 && uniqueActions <= 3);
 
   if (isDominantRepetition || isEntropyCollapsed || isDeadlockCycle) {
     driftState = 'COLLAPSE_DEADLOCK';
     if (isPeriodicCycle) {
       diagnostic = `Cyclic deadlock detected: periodic loop of length ${cycleLength} detected.`;
+      normalizedEntropy = Number(Math.min(normalizedEntropy, transitionEntropy).toFixed(3));
     } else if (isDominantRepetition) {
       diagnostic = `High repetition dominance (${Math.round(dominanceRatio * 100)}%): single action repetition collapse.`;
     } else {
