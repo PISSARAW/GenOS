@@ -1,8 +1,8 @@
 const { runGenosSync } = require('./genosCli');
 
-function handleBioCall(cmd) {
+function handleBioCall(cmd, timeoutMs) {
   try {
-    const out = runGenosSync(cmd);
+    const out = runGenosSync(cmd, { timeoutMs });
     const outputStr = out.toString();
     let parsed = null;
     try {
@@ -22,7 +22,8 @@ function handleBioCall(cmd) {
   }
 }
 
-function executeBioExtra(toolName, args = {}) {
+function executeBioExtra(toolName, args = {}, options = {}) {
+  const timeoutMs = Math.max(1, Number(options.timeoutMs) || 30000);
   if (!toolName.startsWith('genos_')) return null;
 
   if (toolName === 'genos_get_conscience_state' || toolName === 'genos_biomimicry_conscience_state') {
@@ -108,7 +109,7 @@ function executeBioExtra(toolName, args = {}) {
     const params = [`--action ${action}`, `--agent-id ${agentId}`, `--spore-type ${sporeType}`];
     if (args.warm_and_wet !== undefined) params.push(`--warm-and-wet ${args.warm_and_wet}`);
     if (args.nutrients !== undefined) params.push(`--nutrients ${args.nutrients}`);
-    return handleBioCall(`genos biomimicry spore ${params.join(' ')}`);
+    return handleBioCall(`genos biomimicry spore ${params.join(' ')}`, timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_bioluminescence') {
@@ -117,21 +118,21 @@ function executeBioExtra(toolName, args = {}) {
     const organelle = args.organelle || 'mitochondria';
     const eventType = args.event_type || 'TELEMETRY';
     const details = args.details || '';
-    return handleBioCall(`genos biomimicry bioluminescence --agent-id ${agentId} --color ${color} --organelle "${organelle}" --event-type "${eventType}" --details "${details}"`);
+    return handleBioCall(`genos biomimicry bioluminescence --agent-id ${agentId} --color ${color} --organelle "${organelle}" --event-type "${eventType}" --details "${details}"`, timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_anti_collusion') {
     const agentId = args.agent_id || 'griot-01';
     const tokens = args.consumed_tokens || 600;
     const flag = args.physical_test_passed ? '--physical-test-passed' : '';
-    return handleBioCall(`genos biomimicry anti-collusion --agent-id ${agentId} --consumed-tokens ${tokens} ${flag}`.trim());
+    return handleBioCall(`genos biomimicry anti-collusion --agent-id ${agentId} --consumed-tokens ${tokens} ${flag}`.trim(), timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_redundancy') {
     const exp = args.expected_tool || 'default_tool';
     const mut = args.mutated_tool || exp;
     const flag = args.fallback ? '--fallback' : '';
-    return handleBioCall(`genos biomimicry redundancy --expected-tool "${exp}" --mutated-tool "${mut}" ${flag}`.trim());
+    return handleBioCall(`genos biomimicry redundancy --expected-tool "${exp}" --mutated-tool "${mut}" ${flag}`.trim(), timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_tissue') {
@@ -142,19 +143,19 @@ function executeBioExtra(toolName, args = {}) {
     if (args.stem_id) params.push(`--stem-id "${args.stem_id}"`);
     if (args.worker_id) params.push(`--worker-id "${args.worker_id}"`);
     if (args.task) params.push(`--task "${args.task}"`);
-    return handleBioCall(`genos biomimicry tissue ${params.join(' ')}`);
+    return handleBioCall(`genos biomimicry tissue ${params.join(' ')}`, timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_embryology') {
     const divisions = args.divisions || 2;
     const gradient = args.gradient || 1.0;
-    return handleBioCall(`genos biomimicry embryology --divisions ${divisions} --gradient ${gradient}`);
+    return handleBioCall(`genos biomimicry embryology --divisions ${divisions} --gradient ${gradient}`, timeoutMs);
   }
 
   if (toolName === 'genos_biomimicry_therapy') {
     const agentId = args.agent_id || 'griot-01';
     const therapy = args.therapy_type || 'targeted';
-    return handleBioCall(`genos biomimicry therapy --agent-id ${agentId} --therapy-type "${therapy}"`);
+    return handleBioCall(`genos biomimicry therapy --agent-id ${agentId} --therapy-type "${therapy}"`, timeoutMs);
   }
 
   if (toolName === 'genos_cell_division') {
@@ -176,7 +177,7 @@ function executeBioExtra(toolName, args = {}) {
     if (args.seed !== undefined) {
       params.push(`--seed ${args.seed}`);
     }
-    return handleBioCall(`genos evolution division ${params.join(' ')}`);
+    return handleBioCall(`genos evolution division ${params.join(' ')}`, timeoutMs);
   }
 
   if (toolName === 'genos_dna_methylation') {
@@ -184,19 +185,19 @@ function executeBioExtra(toolName, args = {}) {
     const locus = args.locus || args.gene || 'promoter_locus';
     const state = args.state || (args.methylated === false ? 'Euchromatin' : 'HeterochromatinFacultative');
     const pioneer = (args.pioneer_factor || args.pioneerFactor) ? ' --pioneer-factor' : '';
-    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`);
+    return handleBioCall(`genos biomimicry epigenetic-chromatin --agent-id ${agentId} --locus "${locus}" --state ${state}${pioneer}`, timeoutMs);
   }
 
   if (toolName === 'genos_grns') {
     const agentId = args.agent_id || 'global';
     const condition = args.condition || 'environmental_trigger';
     const action = args.action || args.action_script || 'upregulate';
-    return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${agentId} --condition "${condition}" --action-script "${action}"`);
+    return handleBioCall(`genos biomimicry gene-regulatory-network --agent-id ${agentId} --condition "${condition}" --action-script "${action}"`, timeoutMs);
   }
 
   if (toolName === 'genos_lamarckian_mutation') {
     const agentId = args.agent_id || 'global';
-    const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${agentId}`);
+    const res = handleBioCall(`genos biomimicry hypermutation --agent-id ${agentId}`, timeoutMs);
     if (res && res.success) return res;
     return {
       configured: true,
