@@ -24,6 +24,7 @@ const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agent
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
 const agentConscience = require('./agentConscienceService');
+const cognitiveMonitor = require('./cognitiveMonitor');
 const swarmSentinel = require('./swarmSentinelService');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
@@ -202,12 +203,24 @@ async function superviseMission(options) {
         }
 
         // Évaluation de la Conscience Cognitive
+        const isHallucinationEvent = Boolean(observation?.monitored && observation?.detected);
         const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)
           || (currentEvent.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
         const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)
-          && currentEvent.severity !== 'error';
-        if (isErrorEvent) {
-          const evalResult = agentConscience.evaluateBranch(conscienceState, { errorsInLoop: 1 });
+          && currentEvent.severity !== 'error'
+          && !isHallucinationEvent;
+
+        if (isErrorEvent || isHallucinationEvent) {
+          const detailText = String(currentEvent.detail || '') + ' ' + (typeof currentEvent.payload === 'string' ? currentEvent.payload : JSON.stringify(currentEvent.payload || {}));
+          const cognitiveHealth = cognitiveMonitor.evaluateCognitiveHealth(detailText);
+          if (isHallucinationEvent) {
+            cognitiveHealth.semantic_drift = Math.max(cognitiveHealth.semantic_drift || 0, 1.0);
+            cognitiveHealth.health_score = Math.min(cognitiveHealth.health_score ?? 1.0, 0.2);
+          }
+          const evalResult = agentConscience.evaluateBranch(conscienceState, {
+            errorsInLoop: isErrorEvent ? 1 : 0,
+            cognitiveHealth
+          });
           emit(agentId, 'CONSCIENCE_STATE_UPDATED', 'CONSCIENCE', `Dissonance cognitive augmentée à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'warning');
           if (evalResult.apoptoticTriggered && !termination) {
             emit(agentId, 'COGNITIVE_APOPTOSIS', 'CONSCIENCE_LIMIT', `Dissonance cognitive critique (${conscienceState.dissonanceLevel.toFixed(1)} >= ${conscienceState.maxDissonanceThreshold}). Apoptose déclenchée.`, { conscienceState }, 'critical', 'apoptosis');
@@ -215,7 +228,7 @@ async function superviseMission(options) {
             haltRuntime('cognitive_apoptosis', 'Dissonance cognitive critique.', 'Runtime halted by Cognitive Conscience Apoptosis.', { conscienceState });
             continue;
           }
-          await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_error' });
+          await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: isHallucinationEvent ? 'supervisor_hallucination' : 'supervisor_error' });
         } else if (isSuccessEvent) {
           agentConscience.triggerEureka(conscienceState);
           emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
