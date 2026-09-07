@@ -32,6 +32,8 @@ class CircuitBreakerService {
     this.toolLockOverrides = new Map(); // toolName -> boolean
     this.halfOpenProbe = null;
     this.scopedStates = new Map();
+    this.executionHistory = new Map();
+    this.maxConsecutiveToolCalls = 6;
   }
 
   context(scope = 'global') {
@@ -61,7 +63,7 @@ class CircuitBreakerService {
     return state.state;
   }
 
-  canExecute(toolName, userRole = 'viewer', scope = 'global') {
+  canExecute(toolName, userRole = 'viewer', scope = 'global', args = null) {
     if (this.isHalted) {
       return { allowed: false, reason: 'SYSTEM_HALTED', message: `Execution blocked. System is halted: ${this.haltReason}` };
     }
@@ -69,6 +71,34 @@ class CircuitBreakerService {
     const manualLock = this.toolLockOverrides.get(toolName);
     if (manualLock === true) {
       return { allowed: false, reason: 'TOOL_LOCKED', message: `Tool '${toolName}' is manually locked in quarantine.` };
+    }
+
+    // Anti-loop protection: detect identical consecutive executions even for non-destructive tools
+    const argSig = args ? (typeof args === 'object' ? JSON.stringify(args) : String(args)) : '';
+    const callSig = `${toolName}:${argSig}`;
+    const history = this.executionHistory.get(scope) || { callSig: '', count: 0 };
+
+    if (history.callSig === callSig) {
+      history.count += 1;
+    } else {
+      history.callSig = callSig;
+      history.count = 1;
+    }
+    this.executionHistory.set(scope, history);
+
+    if (history.count >= this.maxConsecutiveToolCalls) {
+      telemetry.emitEvent({
+        eventType: 'CIRCUIT_BREAKER_TOOL_LOOP',
+        agentId: typeof scope === 'string' ? scope : 'circuit_breaker',
+        action: 'TOOL_LOOP_TRIP',
+        detail: `Tool '${toolName}' executed identically ${history.count} consecutive times in scope '${scope}'. Throttling loop.`,
+        severity: 'warning'
+      });
+      return {
+        allowed: false,
+        reason: 'TOOL_EXECUTION_LOOP',
+        message: `Execution of tool '${toolName}' blocked: repeated identically ${history.count} consecutive times.`
+      };
     }
 
     const state = this.checkState(scope);
@@ -176,6 +206,7 @@ class CircuitBreakerService {
     this.state = 'CLOSED';
     this.failureCount = 0;
     this.halfOpenProbe = null;
+    this.executionHistory.clear();
 
     telemetry.emitEvent({
       eventType: 'KILL_SWITCH_RESET',
