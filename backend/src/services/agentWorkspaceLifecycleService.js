@@ -295,6 +295,12 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   // Git worktrees share the object database and prevent a multi-gigabyte copy
   // of dependencies. Replay the tracked dirty diff so the capsule starts from
   // the caller's real working state without altering that source workspace.
+  if (fsSync.existsSync(path.join(source, '.git'))) {
+    const { stdout: indexEntries } = await runCommand('git', ['ls-files', '-s'], { cwd: source });
+    if (indexEntries.split(/\r?\n/).some((entry) => entry.startsWith('120000 '))) {
+      throw new Error(`Git workspace '${source}' contains tracked symlinks and cannot be sandboxed safely.`);
+    }
+  }
   try {
     const { stdout: gitTopLevel } = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: source });
     if (path.resolve(gitTopLevel.trim()) !== source) {
