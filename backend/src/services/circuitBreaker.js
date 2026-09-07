@@ -226,7 +226,9 @@ class CircuitBreakerService {
     this.haltTimestamp = null;
     this.state = 'CLOSED';
     this.failureCount = 0;
+    this.lastFailureTime = 0;
     this.halfOpenProbe = null;
+    this.scopedStates.clear();
     this.executionHistory.clear();
 
     telemetry.emitEvent({
