@@ -37,8 +37,8 @@ function classifyTurn(turn) {
   } else if (!category) {
     if (turn.cmd && (turn.pass || turn.success)) {
       category = 'Verification';
-    } else if (turn.success && (turn.action?.includes('replace') || turn.action?.includes('patch') || turn.action?.includes('write'))) {
-      category = 'Breakthrough';
+    } else if (turn.success && (turn.action?.includes('replace') || turn.action?.includes('patch') || turn.action?.includes('write') || turn.action === 'write_to_file')) {
+      category = (turn.verified === true || turn.pass === true) ? 'Breakthrough' : 'Modification';
     } else {
       category = 'Exploration';
     }
@@ -51,17 +51,20 @@ function classifyTurn(turn) {
  * @param {Array} rawTurns
  * @returns {object}
  */
-function cherryPickGoldenPath(rawTurns = []) {
+function cherryPickGoldenPath(rawTurns = [], globalStatus = 'success') {
   const turns = Array.isArray(rawTurns) ? rawTurns : [];
   if (turns.length === 0) throw new Error('At least one trajectory turn is required for a golden path.');
   const classifiedSteps = turns.map(classifyTurn);
-  const goldenPath = classifiedSteps.filter(s => s.classification !== 'Dead-End');
+  
+  const isFailed = ['rejected', 'failed', 'error', 'FAILURE'].includes(globalStatus);
+  const goldenPath = isFailed ? [] : classifiedSteps.filter(s => s.classification !== 'Dead-End');
   const deadEndSteps = classifiedSteps.filter(s => s.classification === 'Dead-End');
   const deadEndCount = deadEndSteps.length;
-  const allPruned = turns.length > 0 && goldenPath.length === 0;
+  const allPruned = isFailed || (turns.length > 0 && goldenPath.length === 0);
 
   return {
     synthesisId: `golden-path-${Date.now()}`,
+    validGoldenPath: !isFailed && !allPruned,
     originalStepCount: turns.length,
     prunedStepCount: deadEndCount,
     noiseReductionPercent: Number((((deadEndCount) / (turns.length || 1)) * 100).toFixed(1)),
@@ -167,12 +170,12 @@ async function recordMissionTrajectory(db, options = {}) {
       error: options.status === 'rejected' ? 'Mission execution failed or rejected' : null
     }];
   }
-  const goldenPath = cherryPickGoldenPath(turns);
+  const status = ['pending', 'active', 'approved', 'rejected', 'failed', 'error', 'revising', 'completed', 'success'].includes(options.status) ? options.status : 'pending';
+  const goldenPath = cherryPickGoldenPath(turns, status);
   const trajId = options.id || `traj_${crypto.randomUUID()}`;
   const agentId = options.agentId || options.authorName || 'GenOS Agent';
   const task = options.task || options.mission || 'Autonomous Task';
   const report = options.report || {};
-  const status = ['pending', 'active', 'approved', 'rejected', 'revising'].includes(options.status) ? options.status : 'pending';
   const requestedConfidence = Number(options.confidence);
   const confidence = Number.isFinite(requestedConfidence) ? Math.max(0, Math.min(100, requestedConfidence)) : 0;
 

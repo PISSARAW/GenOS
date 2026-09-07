@@ -11,6 +11,8 @@ const PLACEHOLDER_PATTERNS = [
   /lorem ipsum/i,
   /todo: implement/i,
   /unverified claim/i,
+  /\[unverified_claim\]/i,
+  /\[unverified_evidence\]/i,
   /\[obsolete\/corrected fact - do not use\]/i
 ];
 
@@ -130,13 +132,14 @@ function validateMemoryPerception(memoryItem, options = {}) {
     : (memoryItem?.summary || memoryItem?.content || memoryItem?.title || '');
   const tags = Array.isArray(memoryItem?.tags) ? memoryItem.tags : [];
   const isObsolete = tags.includes('obsolete_suppressed') || /\[obsolete\/corrected fact/i.test(content);
+  const isUnverified = tags.includes('unverified') || tags.includes('unproven') || /\[unverified/i.test(content);
   const placeholder = detectPlaceholderOrHallucination(content);
 
   const epistemic = new EpistemicData('memory_core', content, true);
-  if (isObsolete || placeholder.isPlaceholder) {
+  if (isObsolete || isUnverified || placeholder.isPlaceholder) {
     epistemic.markInvalid('generate');
     epistemic.forbidden_ops.push('act', 'plan');
-    epistemic.reason = isObsolete ? 'Obsolete suppressed memory' : placeholder.reason;
+    epistemic.reason = isObsolete ? 'Obsolete suppressed memory' : (isUnverified ? 'Unverified unproven claims' : placeholder.reason);
   } else {
     epistemic.confidence = typeof memoryItem?.credibility === 'number' ? memoryItem.credibility : 1.0;
   }

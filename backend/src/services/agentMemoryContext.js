@@ -196,14 +196,22 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
       return null;
     }
 
+    const { evidencePresent } = require('./hallucinationMonitoringService');
+    const rawClaims = Array.isArray(options.claims) ? options.claims : (Array.isArray(options.evidenceReport?.claims) ? options.evidenceReport.claims : []);
+    const unverifiedClaims = Array.isArray(options.unverifiedClaims) ? options.unverifiedClaims : (Array.isArray(options.evidenceReport?.unverifiedClaims) ? options.evidenceReport.unverifiedClaims : []);
+    const hasUnprovenClaims = unverifiedClaims.length > 0 || rawClaims.some(c => !c || !evidencePresent(c.evidence || c.receipts || c.sourceRefs));
+
     const category = isFailure ? 'Failure' : 'Experience';
-    const claims = Array.isArray(options.claims) ? options.claims : [];
-    const claimsText = claims.length > 0
-      ? `\nClaims: ` + claims.map(c => `[${c.statement} | evidence: ${Array.isArray(c.evidence) ? c.evidence.join(', ') : 'verified'}]`).join('; ')
+    const claimsText = rawClaims.length > 0
+      ? `\nClaims: ` + rawClaims.map(c => `[${c.statement} | evidence: ${Array.isArray(c.evidence) ? c.evidence.join(', ') : 'verified'}]`).join('; ')
       : '';
-    const content = `Task: ${task}\nResult: ${summary.slice(0, 800)}${claimsText}`;
+      
+    const verificationTag = hasUnprovenClaims ? '[UNVERIFIED_EVIDENCE]' : '[VERIFIED_SYSTEM_FACT]';
+    const content = `${verificationTag} Task: ${task}\nResult: ${summary.slice(0, 800)}${claimsText}`;
+    
     const memId = await vectorMemory.storeMemory(agentId, content, null, {
       category,
+      tags: hasUnprovenClaims ? ['unverified'] : [],
       organizationId: options.organizationId,
       projectId: options.projectId
     });
@@ -216,13 +224,13 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
           agentId,
           task,
           summary: summary.slice(0, 500),
-          claims
+          claims: rawClaims
         }, options.provenanceHash, { organizationId: options.organizationId, projectId: options.projectId });
       } catch (_) {}
     }
 
-    // Only secrete positive exosomes into the extracellular matrix for successful missions
-    if (!isFailure) {
+    // Only secrete positive exosomes into the extracellular matrix for successful missions without unproven claims
+    if (!isFailure && !hasUnprovenClaims) {
       try {
         const engramContent = `Agent ${agentId} learned from task "${task.slice(0, 100)}": ${summary.slice(0, 400)}`;
         const { textToVector } = require('./memoryScoring');

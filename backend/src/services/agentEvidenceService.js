@@ -177,6 +177,9 @@ function validateDossierInfluence(report, workerIds, options = {}) {
   const byWorker = new Map(entries.map((entry) => [entry?.workerId, entry]));
   const missing = workerIds.filter((workerId) => !byWorker.has(workerId));
   const unexpected = entries.filter((entry) => !expectedSet.has(entry?.workerId)).map((entry) => entry?.workerId || 'unknown');
+  
+  const workerDossiers = new Map((options.dossiers || []).map(d => [d.workerId, d]));
+
   const invalid = workerIds.filter((workerId) => {
     const entry = byWorker.get(workerId);
     if (!entry) return true;
@@ -189,8 +192,30 @@ function validateDossierInfluence(report, workerIds, options = {}) {
     if (entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim())) {
       return true;
     }
+
+    if (workerDossiers.has(workerId)) {
+      const dossier = workerDossiers.get(workerId);
+      const allWorkerClaims = new Set();
+      for (const event of (dossier.events || [])) {
+        const payload = event.evidenceReport || event.payload || {};
+        const claims = Array.isArray(payload.claims) ? payload.claims : [];
+        for (const c of claims) {
+          if (c?.statement) allWorkerClaims.add(c.statement.trim());
+        }
+      }
+      if (allWorkerClaims.size > 0) {
+        for (const claim of entry.usedClaims) {
+          if (!allWorkerClaims.has(claim.trim())) {
+            // A claim was cited that does not exist in the worker's dossier!
+            return true;
+          }
+        }
+      }
+    }
+
     return false;
   });
+
   if (missing.length || invalid.length || unexpected.length) {
     const error = new Error(`Synthesis dossier influence is incomplete. Missing: ${missing.join(', ') || 'none'}; invalid: ${invalid.join(', ') || 'none'}; unexpected: ${unexpected.join(', ') || 'none'}.`);
     error.code = 'INVALID_DOSSIER_INFLUENCE';
