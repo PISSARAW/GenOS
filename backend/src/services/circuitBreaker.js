@@ -24,6 +24,7 @@ class CircuitBreakerService {
   constructor() {
     this.state = 'CLOSED';
     this.failureCount = 0;
+    this.failureTimes = [];
     this.failureWindowMs = 60000; // 60s window
     this.cooldownMs = 60000;
     this.lastFailureTime = 0;
@@ -53,7 +54,7 @@ class CircuitBreakerService {
 
   context(scope = 'global') {
     if (scope === 'global') return this;
-    if (!this.scopedStates.has(scope)) this.scopedStates.set(scope, { state: 'CLOSED', failureCount: 0, lastFailureTime: 0, lastStateChange: Date.now(), halfOpenProbe: null });
+    if (!this.scopedStates.has(scope)) this.scopedStates.set(scope, { state: 'CLOSED', failureCount: 0, failureTimes: [], lastFailureTime: 0, lastStateChange: Date.now(), halfOpenProbe: null });
     return this.scopedStates.get(scope);
   }
 
@@ -143,6 +144,7 @@ class CircuitBreakerService {
     if (state.state === 'HALF-OPEN' && state.halfOpenProbe === toolName) {
       state.state = 'CLOSED';
       state.failureCount = 0;
+      state.failureTimes = [];
       state.halfOpenProbe = null;
       state.lastStateChange = Date.now();
       telemetry.emitEvent({
@@ -156,6 +158,7 @@ class CircuitBreakerService {
     }
     if (state.state === 'CLOSED') {
       state.failureCount = 0;
+      state.failureTimes = [];
       state.lastFailureTime = 0;
     }
   }
@@ -163,11 +166,9 @@ class CircuitBreakerService {
   recordFailure(toolName, errorDetail, scope = 'global') {
     const state = this.context(scope);
     const now = Date.now();
-    if (now - state.lastFailureTime > this.failureWindowMs) {
-      state.failureCount = 1;
-    } else {
-      state.failureCount += 1;
-    }
+    state.failureTimes = (state.failureTimes || []).filter((timestamp) => now - timestamp <= this.failureWindowMs);
+    state.failureTimes.push(now);
+    state.failureCount = state.failureTimes.length;
     state.lastFailureTime = now;
 
     telemetry.emitEvent({
@@ -241,6 +242,7 @@ class CircuitBreakerService {
     this.haltTimestamp = null;
     this.state = 'CLOSED';
     this.failureCount = 0;
+    this.failureTimes = [];
     this.lastFailureTime = 0;
     this.halfOpenProbe = null;
     this.scopedStates.clear();
