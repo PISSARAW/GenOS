@@ -34,6 +34,14 @@ pub enum AgentSubcommands {
         #[arg(long)]
         parent_id: Option<String>,
     },
+    Validate {
+        #[arg(long)]
+        file: String,
+    },
+    Ping {
+        #[arg(long)]
+        id: String,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -49,6 +57,10 @@ pub enum SnapshotSubcommands {
         agent: String,
         #[arg(long)]
         out: String,
+    },
+    Validate {
+        #[arg(long)]
+        file: String,
     },
     List,
 }
