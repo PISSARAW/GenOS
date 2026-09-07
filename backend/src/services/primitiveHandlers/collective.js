@@ -347,9 +347,9 @@ async function quorum(context) {
     const rows = await db.all(
       `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
        WHERE orchestrator_id = ? AND kind = 'vote'
-         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
-       ORDER BY id DESC`,
-      orchestratorId, issue
+         AND (json_extract(payload_json, '$.issue') = ? OR (json_extract(payload_json, '$.issue') IS NULL AND ? = 'default_issue'))
+       ORDER BY id DESC LIMIT 500`,
+      orchestratorId, issue, issue
     );
     
     const votes = {};
@@ -434,9 +434,9 @@ async function weightedQuorum(context) {
     const rows = await db.all(
       `SELECT sender_agent_id, payload_json FROM agent_organization_messages 
        WHERE orchestrator_id = ? AND kind = 'vote'
-         AND (json_extract(payload_json, '$.issue') = ? OR json_extract(payload_json, '$.issue') IS NULL)
-       ORDER BY id DESC`,
-      orchestratorId, issue
+         AND (json_extract(payload_json, '$.issue') = ? OR (json_extract(payload_json, '$.issue') IS NULL AND ? = 'default_issue'))
+       ORDER BY id DESC LIMIT 500`,
+      orchestratorId, issue, issue
     );
     
     const agentIds = [...new Set(rows.map(r => r.sender_agent_id))];

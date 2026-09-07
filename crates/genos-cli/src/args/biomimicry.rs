@@ -27,8 +27,24 @@ pub enum BiomimicrySubcommands {
         agent_id: String,
         #[arg(long)]
         target_file: String,
-        #[arg(long)]
+        #[arg(long, default_value = "trail")]
         pheromone_type: String,
+        #[arg(long, default_value_t = 1.0)]
+        amount: f64,
+        #[arg(long, default_value_t = false)]
+        is_repellent: bool,
+    },
+    StigmergyRead {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        target_file: String,
+    },
+    StigmergyEvaporate {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        dt_seconds: Option<f64>,
     },
     TheoryAutopoiesis {
         #[arg(long)]
