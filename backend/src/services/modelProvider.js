@@ -32,6 +32,20 @@ function estimateTokenCount(text = '') {
   return value.length ? Math.max(1, Math.ceil(Buffer.byteLength(value, 'utf8') / 4)) : 0;
 }
 
+function normalizeResponseFormat(responseFormat, jsonSchema) {
+  if (jsonSchema) return { type: 'json_schema', json_schema: { name: 'genos_response', strict: true, schema: jsonSchema } };
+  if (!responseFormat) return null;
+  if (responseFormat === 'json_object' || responseFormat === 'json_schema') return { type: responseFormat };
+  if (typeof responseFormat === 'object' && responseFormat.type) return responseFormat;
+  throw new Error('responseFormat must be json_object, json_schema, or a provider response format object.');
+}
+
+function parseStructuredText(text, responseFormat) {
+  if (!responseFormat) return null;
+  try { return JSON.parse(String(text || '')); }
+  catch (_) { throw new Error('Model returned invalid structured JSON.'); }
+}
+
 function configuredModel(model) {
   let value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
   if (value.startsWith('local://')) {
@@ -96,7 +110,7 @@ function modelConfiguration(model) {
     return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
 }
 
-async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
+async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, jsonSchema }) {
   const effectiveTimeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Math.min(Number(timeoutMs), 30 * 60 * 1000)) : 30000;
   const configuration = modelConfiguration(model);
   // Local inference goes through the gateway's bounded queue: concurrent
@@ -105,11 +119,11 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   const targetEndpoint = endpointOverride || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(
-      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight }),
+      () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight, responseFormat, jsonSchema }),
       { provider: configuration.provider, priority, agentId, organizationId, projectId }
     );
   }
-  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight });
+  return generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight, responseFormat, jsonSchema });
 }
 
 async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
@@ -119,6 +133,7 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   let buffer = '';
   let text = '';
   let usage = {};
+  let servedModel = null;
   const consume = async (chunk) => {
     buffer += decoder.decode(chunk, { stream: true });
     const lines = buffer.split(/\r?\n/);
@@ -128,6 +143,7 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
       const data = line.slice(5).trim();
       if (!data || data === '[DONE]') continue;
       const payload = JSON.parse(data);
+      if (payload.model) servedModel = payload.model;
       const delta = payload.choices?.[0]?.delta?.content || payload.response || '';
       if (delta) { text += delta; await onToken(delta); }
       if (payload.usage) usage = payload.usage;
@@ -144,7 +160,7 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
     await consume(next.value);
   }
   if (buffer.startsWith('data:')) await consume(new TextEncoder().encode(`${buffer}\n`));
-  return { text, usage };
+  return { text, usage, servedModel };
 }
 
 async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
@@ -154,6 +170,7 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
   let buffer = '';
   let text = '';
   let usage = {};
+  let servedModel = null;
   const consume = async (chunk) => {
     buffer += decoder.decode(chunk, { stream: true });
     const lines = buffer.split(/\r?\n/);
@@ -161,6 +178,7 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
     for (const line of lines) {
       if (!line.trim()) continue;
       const payload = JSON.parse(line);
+      if (payload.model) servedModel = payload.model;
       const delta = payload.message?.content || payload.response || '';
       if (delta) { text += delta; await onToken(delta); }
       if (payload.prompt_eval_count != null || payload.eval_count != null) {
@@ -177,7 +195,7 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
     await consume(next.value);
   }
   if (buffer.trim()) await consume(new TextEncoder().encode(`${buffer}\n`));
-  return { text, usage };
+  return { text, usage, servedModel };
 }
 
 async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, computerUse = false }) {
@@ -232,15 +250,15 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const contentType = response.headers?.get?.('content-type') || '';
     if (nativeOllama && stream) {
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider };
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.type === 'tool_use' ? JSON.stringify(part) : (part.text || '')).join('\n') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : nativeOllama ? (payload.message?.content || payload.response || '') : (payload.choices?.[0]?.message?.content || '');
     for (const token of tokenize(text)) await onToken(token);
-    return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider };
+    return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
   } catch (error) {
     controller.abort();
     if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
