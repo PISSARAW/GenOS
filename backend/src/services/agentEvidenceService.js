@@ -125,9 +125,10 @@ function evidenceScore(payload = {}, context = {}) {
     || context.artifact === 'creative'
     || /author|literary|dramaturg|creative/i.test(context.role || '');
   if (!creative) {
-    const score = claims.reduce((count, claim) => count + (Array.isArray(claim.evidence) ? claim.evidence.length * 10 : 0), 0)
-      + claims.length * 2
-      - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
+    const score = claims.reduce((count, claim) => {
+      const evidenceCount = Array.isArray(claim.evidence) ? claim.evidence.length : 0;
+      return count + (evidenceCount > 0 ? evidenceCount * 10 + 2 : -2);
+    }, 0) - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
     return boundedEvidenceScore(score);
   }
   const evaluation = report.creativeEvaluation || {};
