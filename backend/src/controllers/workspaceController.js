@@ -135,8 +135,11 @@ async function listWorkspaces(req, res) {
 
 async function createWorkspace(req, res) {
   const { name, language = 'TypeScript', description = '', visibility = 'Private' } = req.body || {};
-  if (!name || path.basename(name) !== name || name === '.' || name === '..') {
-    return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name is required' } });
+  if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._ -]{0,127}$/.test(name) || path.basename(name) !== name || name === '.' || name === '..') {
+    return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workspace name must be 1-128 safe filename characters.' } });
+  }
+  if (typeof language !== 'string' || !language.trim() || language.length > 64 || typeof description !== 'string' || description.length > 10_000 || !['Private', 'Public'].includes(visibility)) {
+    return res.status(400).json({ error: { code: 'INVALID_WORKSPACE_FIELDS', message: 'language, description, and visibility are invalid.' } });
   }
 
   const db = await getDatabase();
