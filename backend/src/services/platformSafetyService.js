@@ -8,7 +8,18 @@ const DEFAULT_PROVIDERS = [
 ];
 
 function normalizeProvider(p) {
-  return { ...p, costInput: Number(p.costInput || 0), costOutput: Number(p.costOutput || 0), latencyMs: Number(p.latencyMs || 0), enabled: p.enabled !== false };
+  const costInput = Number(p.costInput ?? 0);
+  const costOutput = Number(p.costOutput ?? 0);
+  const latencyMs = Number(p.latencyMs ?? 0);
+  return {
+    ...p,
+    capabilities: Array.isArray(p.capabilities) ? p.capabilities : [],
+    costInput,
+    costOutput,
+    latencyMs,
+    enabled: p.enabled !== false,
+    valid: Number.isFinite(costInput) && costInput >= 0 && Number.isFinite(costOutput) && costOutput >= 0 && Number.isFinite(latencyMs) && latencyMs >= 0
+  };
 }
 
 function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
@@ -17,11 +28,17 @@ function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
   const uncertainty = bounded(request.uncertainty ?? 0.2, 0.2);
   const budget = request.maxCostUsd == null ? Infinity : Number(request.maxCostUsd);
   if (!Number.isFinite(budget) && budget !== Infinity || budget < 0) return { decision: 'invalid-request', candidates: [], reason: 'maxCostUsd must be a non-negative number.' };
-  const required = new Set(Array.isArray(request.requiredCapabilities) ? request.requiredCapabilities : []);
-  const estimatedInputTokens = Math.max(0, Number(request.estimatedInputTokens || 0));
-  const estimatedOutputTokens = Math.max(0, Number(request.estimatedOutputTokens || 0));
+  if (request.requiredCapabilities !== undefined && (!Array.isArray(request.requiredCapabilities) || request.requiredCapabilities.some((capability) => typeof capability !== 'string' || !capability.trim()))) {
+    return { decision: 'invalid-request', candidates: [], reason: 'requiredCapabilities must be an array of non-empty strings.' };
+  }
+  const required = new Set((request.requiredCapabilities || []).map((capability) => capability.trim()));
+  const estimatedInputTokens = Number(request.estimatedInputTokens ?? 0);
+  const estimatedOutputTokens = Number(request.estimatedOutputTokens ?? 0);
+  if (!Number.isFinite(estimatedInputTokens) || estimatedInputTokens < 0 || !Number.isFinite(estimatedOutputTokens) || estimatedOutputTokens < 0) {
+    return { decision: 'invalid-request', candidates: [], reason: 'estimated token counts must be finite non-negative numbers.' };
+  }
   const estimatedCost = (provider) => (provider.costInput * estimatedInputTokens + provider.costOutput * estimatedOutputTokens) / 1_000_000;
-  const candidates = providers.map(normalizeProvider).filter(p => Array.isArray(p.capabilities) && p.enabled && requiredIsSatisfied(p, required) && estimatedCost(p) <= budget);
+  const candidates = providers.map(normalizeProvider).filter(p => p.valid && p.enabled && requiredIsSatisfied(p, required) && estimatedCost(p) <= budget);
   if (!candidates.length) return { decision: 'no-capable-model', candidates: [], reason: 'No enabled provider satisfies capabilities and budget.' };
   const scored = candidates.map(p => {
     const quality = (p.capabilities.includes('reasoning') ? 0.6 : 0.2) + (p.capabilities.includes('long-context') ? 0.2 : 0) + complexity * 0.2;

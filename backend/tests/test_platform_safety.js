@@ -15,6 +15,13 @@ test('Zero Trust denies missing permissions and escalates high-impact tools', ()
   assert.equal(safety.validateToolCall({ agentId: 'agent-a', toolName: 'read_file', permissions: ['tool:execute'], taints: ['external'] }).decision, 'deny');
 });
 
+test('model routing rejects malformed capability and token requirements', () => {
+  assert.equal(safety.routeModel({ requiredCapabilities: 'reasoning' }).decision, 'invalid-request');
+  assert.equal(safety.routeModel({ requiredCapabilities: [''] }).decision, 'invalid-request');
+  assert.equal(safety.routeModel({ estimatedInputTokens: -1 }).decision, 'invalid-request');
+  assert.equal(safety.routeModel({}, [{ provider: 'x', model: 'm', capabilities: ['reasoning'], costInput: 'bad' }]).decision, 'no-capable-model');
+});
+
 test('replay produces deterministic ordered steps and Pareto removes dominated options', () => {
   const replay = safety.buildReplay('inc-1', [{ id: 1, agent_id: 'a', event_type: 'INCIDENT_STEP', action: 'scan', detail: 'x', severity: 'info', created_at: '2026-01-01', payload_json: '{}' }]);
   assert.equal(replay.totalSteps, 1);
