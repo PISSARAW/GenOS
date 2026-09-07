@@ -11,7 +11,7 @@ function normalizeSandboxCommand(command) {
 function normalizeAllowedCommands(value) {
   if (!Array.isArray(value)) return null;
   if (value.some((command) => typeof command !== 'string')) return null;
-  return [...new Set(value.map((command) => command.trim()).filter(Boolean))];
+  return [...new Set(value.map(normalizeSandboxCommand).filter(Boolean))];
 }
 
 function isAllowedSandboxTestCommand(command) {

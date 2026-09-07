@@ -12,6 +12,7 @@ function invoke(toolName, command, env = {}) {
 }
 
 assert.strictEqual(invoke('Bash', 'node --test dp_partition.test.mjs').stdout, '');
+assert.strictEqual(invoke('Bash', 'node  --test   dp_partition.test.mjs').stdout, '');
 const deniedCommand = JSON.parse(invoke('Bash', 'git status').stdout);
 assert.strictEqual(deniedCommand.hookSpecificOutput.permissionDecision, 'deny');
 assert.match(deniedCommand.hookSpecificOutput.permissionDecisionReason, /outside the GenOS execution policy/);
