@@ -160,6 +160,9 @@ function parseSize(name) {
 }
 
 async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
+  if (variantIndex !== undefined && (!Number.isInteger(Number(variantIndex)) || Number(variantIndex) < 0)) {
+    throw Object.assign(new Error('variantIndex must be a non-negative integer.'), { code: 'INVALID_MODEL_VARIANT' });
+  }
   const timeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : 30000;
   const deadline = deadlineAt != null
     ? Number(deadlineAt)
@@ -185,7 +188,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       let selectedModel;
       if (variantIndex !== undefined) {
          // MUE COGNITIVE (Polymorphisme) : Rotation à travers les modèles disponibles
-         selectedModel = sorted[variantIndex % sorted.length];
+         selectedModel = sorted[Number(variantIndex) % sorted.length];
       } else if (complexity === 'low') {
          selectedModel = sorted[0];
       } else if (complexity === 'high') {
