@@ -1,3 +1,5 @@
+const { validateProviderEndpoint } = require('./providerEndpointPolicy');
+
 function cosine(a = [], b = []) {
   const n = Math.min(a.length, b.length);
   let dot = 0, aa = 0, bb = 0;
@@ -24,6 +26,7 @@ function normalizeVector(vec = [], targetDim = 768) {
 
 async function embedWithOpenAi(text, apiKey, endpoint, model) {
   const url = endpoint || 'https://api.openai.com/v1/embeddings';
+  validateProviderEndpoint(url);
   const embeddingModel = model || 'text-embedding-3-small';
   const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
   const body = { model: embeddingModel, input: text };
@@ -69,6 +72,7 @@ async function embedWithGemini(text, apiKey, model) {
 
 async function embedWithOllama(text, rawUrl, model) {
   const base = rawUrl.replace(/\/+$/, '');
+  validateProviderEndpoint(base, { localOnly: true });
   const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
   // Try modern /api/embed first
   try {
