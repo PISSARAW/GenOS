@@ -20,7 +20,7 @@ function detectExecutionKind(toolName) {
   if (!normalized) return 'unsupported';
 
   if (mcpStrategyTools.isStrategyTool(normalized)) return 'strategy';
-  if (normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience')) return 'bio';
+  if (normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience') || normalized.includes('entropy')) return 'bio';
   if (normalized.startsWith('genos_')) return 'cli';
   return 'unsupported';
 }
