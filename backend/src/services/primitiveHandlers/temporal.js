@@ -58,10 +58,13 @@ async function causalReplay(context) {
   }
 
   const inputFile = scopedInputPath(context.inputFile, context.workspaceRoot);
-  const outputFile = context.outputFile || `/tmp/causal_report_${Date.now()}.json`;
+  const outputFile = scopedInputPath(context.outputFile || `causal_report_${Date.now()}.json`, context.workspaceRoot);
 
   if (!inputFile || !fs.existsSync(inputFile)) {
     return { success: false, error: 'Existing inputFile required for causal replay.' };
+  }
+  if (!outputFile) {
+    return { success: false, error: 'outputFile must stay inside workspaceRoot for causal replay.' };
   }
 
   const res = await mcpExecutor.execute({
