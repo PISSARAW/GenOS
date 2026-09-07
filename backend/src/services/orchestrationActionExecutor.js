@@ -46,10 +46,11 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
     db = await getDatabase();
     const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
     const existing = await db.get(
-      'SELECT status FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
+      'SELECT status, completed_at FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
       orchestratorId, sourceEventId, decision.tool
     );
-    if (existing && existing.status !== 'deferred') {
+    const deferred = existing?.status === 'failed' && !existing.completed_at;
+    if (existing && !deferred) {
       telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
       return { executed: false, duplicate: true };
     }
@@ -72,7 +73,10 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
   const args = actionArguments(decision, event, workspaceRoot);
   if (!args) {
     telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: orchestratorId, action: decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, reason: decision.reason, eventId: event.id } });
-    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'deferred', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
+    // The receipt schema predates a dedicated deferred state. A failed receipt
+    // without a completion timestamp is the durable retryable marker; real
+    // failures always receive completed_at below.
+    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'failed', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
     return { executed: false, deferred: true, reason: 'missing_required_evidence' };
   }
   const result = await mcp.execute({ agentId: orchestratorId, toolName: decision.tool, args });
