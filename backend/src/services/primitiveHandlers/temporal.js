@@ -156,6 +156,7 @@ async function causalMerge(context = {}) {
   const sameValue = (first, second) => JSON.stringify(first) === JSON.stringify(second);
   const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
   const cloneValue = (value) => (isPlainObject(value) ? { ...value } : Array.isArray(value) ? [...value] : value);
+  const resolutions = context.conflictResolution && typeof context.conflictResolution === 'object' ? context.conflictResolution : {};
   const mergeValue = (baseValue, leftValue, rightValue, keyPath) => {
     if (sameValue(leftValue, rightValue)) return cloneValue(leftValue);
     if (sameValue(leftValue, baseValue)) return cloneValue(rightValue);
@@ -168,7 +169,9 @@ async function causalMerge(context = {}) {
       }
       return nested;
     }
-    conflicts.push({ key: keyPath, base: baseValue, left: leftValue, right: rightValue });
+    const resolution = resolutions[keyPath];
+    conflicts.push({ key: keyPath, base: baseValue, left: leftValue, right: rightValue, resolution: resolution || null });
+    if (resolution === 'right') return cloneValue(rightValue);
     return cloneValue(leftValue);
   };
 
@@ -176,7 +179,7 @@ async function causalMerge(context = {}) {
     merged[key] = mergeValue(base[key], left[key], right[key], key);
   }
 
-  const success = conflicts.length === 0 || context.allowConflictResolution === true;
+  const success = conflicts.every((conflict) => conflict.resolution === 'left' || conflict.resolution === 'right');
   telemetry.emitEvent({
     eventType: 'TEMPORAL_CAUSAL_MERGE',
     agentId,
