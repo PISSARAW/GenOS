@@ -3,6 +3,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const snapshotStore = require('./workspaceSnapshotStore');
 const { terminateChild } = require('./processTermination');
+const { isAllowedSandboxTestCommand, normalizeSandboxCommand } = require('./sandboxCommandPolicy');
 const { normalizeRelativePath } = require('./pathSafety');
 
 const FORBIDDEN_PARTS = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', 'tests', 'test']);
@@ -28,14 +29,10 @@ function parseProposal(text) {
   return proposal;
 }
 function allowedTest(command, root) {
-  const normalized = String(command || '').trim();
-  if (!normalized) return false;
-  if (normalized === 'cargo test --quiet') return require('fs').existsSync(path.join(root, 'Cargo.toml'));
-  if (normalized === 'npm test -- --runInBand') return require('fs').existsSync(path.join(root, 'package.json'));
-  return false;
+  return isAllowedSandboxTestCommand(command);
 }
 async function runTest(command, root) {
-  const [program, ...args] = command.split(' ');
+  const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   return new Promise((resolve) => {
     const child = spawn(program, args, { cwd: root, shell: false, detached: process.platform !== 'win32', env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);

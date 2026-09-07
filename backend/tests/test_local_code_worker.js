@@ -3,6 +3,7 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const { parseProposal, safePath, executeProposal } = require('../src/services/localCodeWorkerService');
+const { isAllowedSandboxTestCommand } = require('../src/services/sandboxCommandPolicy');
 assert.equal(safePath('src/lib.rs'), true);
 assert.equal(safePath('tests/security.rs'), false);
 assert.equal(safePath('src/lib.test.js'), false);
@@ -10,6 +11,9 @@ assert.equal(safePath('Cargo.toml'), false);
 assert.throws(() => parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}'));
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
+assert.equal(isAllowedSandboxTestCommand('cargo  test --quiet'), true);
+assert.equal(isAllowedSandboxTestCommand('pytest'), true);
+assert.equal(isAllowedSandboxTestCommand('cargo test; whoami'), false);
 
 (async () => {
 	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
