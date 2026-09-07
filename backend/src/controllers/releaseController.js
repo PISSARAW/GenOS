@@ -117,16 +117,27 @@ async function recordRolloutMetric(req, res, next) {
   } catch (error) { next(error); }
 }
 
-function decide(metrics, config) {
+function decide(metrics, config, strategy = 'canary') {
   const policy = config.slo || {};
   const totalRequests = metrics.reduce((sum, metric) => sum + metric.requests, 0);
-  const totalErrors = metrics.reduce((sum, metric) => sum + metric.errors, 0);
-  const errorRate = totalRequests ? totalErrors / totalRequests : 0;
-  const averageLatencyMs = totalRequests ? metrics.reduce((sum, metric) => sum + metric.latency_ms_total, 0) / totalRequests : 0;
+  
+  const candidateVariantName = (config.variants && config.variants.length > 1) ? config.variants[config.variants.length - 1].name : (strategy === 'canary' ? 'canary' : 'candidate');
+  const candidateMetric = metrics.find(m => m.variant === candidateVariantName) || { requests: 0, errors: 0, latency_ms_total: 0 };
+  
+  const candidateRequests = candidateMetric.requests;
+  const errorRate = candidateRequests ? candidateMetric.errors / candidateRequests : 0;
+  const averageLatencyMs = candidateRequests ? candidateMetric.latency_ms_total / candidateRequests : 0;
+  
   const minRequests = Math.max(1, number(policy.minRequests, 100));
   if (totalRequests < minRequests) return { status: 'paused', reason: 'insufficient_sample', totalRequests, errorRate, averageLatencyMs };
   if (errorRate > number(policy.maxErrorRate, 0.01) || averageLatencyMs > number(policy.maxAverageLatencyMs, 3000)) return { status: 'rolled_back', reason: 'slo_breach', totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  
   const winner = [...metrics].sort((left, right) => (left.errors / Math.max(1, left.requests)) - (right.errors / Math.max(1, right.requests)) || (left.latency_ms_total / Math.max(1, left.requests)) - (right.latency_ms_total / Math.max(1, right.requests)))[0]?.variant;
+  
+  if (strategy === 'canary' && winner === 'stable') {
+    return { status: 'rolled_back', reason: 'candidate_underperformed', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
+  }
+  
   return { status: 'promoted', reason: 'slo_satisfied', selectedVariant: winner, totalRequests, errorRate, averageLatencyMs, latencyMetric: 'average' };
 }
 
@@ -137,7 +148,7 @@ async function decideRollout(req, res, next) {
     const rollout = await db.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
     const metrics = await db.all('SELECT * FROM release_rollout_metrics WHERE rollout_id = ? ORDER BY variant', rollout.id);
-    const outcome = decide(metrics, JSON.parse(rollout.config_json));
+    const outcome = decide(metrics, JSON.parse(rollout.config_json), rollout.strategy);
     await db.run('UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', outcome.status, JSON.stringify(outcome), rollout.id);
     if (outcome.status === 'promoted') await db.run("UPDATE releases SET status = 'active', environment = 'production', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.release_id);
     if (outcome.status === 'rolled_back') await db.run("UPDATE releases SET status = 'rolled_back', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.release_id);
