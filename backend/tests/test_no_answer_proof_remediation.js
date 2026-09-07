@@ -70,3 +70,21 @@ assert.ok(localParsedProof, 'Local worker no_answer proof must be recognized as 
 assert.equal(localReport.outcome === 'no_answer' && Boolean(localParsedProof), true);
 
 console.log('✓ Point 6 verified.');
+// Test Point 7: dossierDigest properly surfaces impossibility_proof type
+const { dossierDigest } = require('../src/services/agentEvidenceService');
+const sampleDossiers = [{
+  workerId: 'worker-1',
+  role: 'specialist',
+  assignedBranch: 'branch-1',
+  events: [{
+    eventType: 'WORKER_NO_ANSWER_PROVEN',
+    evidenceReport: { outcome: 'no_answer', claims: [] },
+    noAnswerProof: { method: 'finite check', evidence: ['rejected state'] }
+  }]
+}];
+const digest = dossierDigest(sampleDossiers);
+assert.equal(digest[0].reports[0].type, 'impossibility_proof', 'Report must have type impossibility_proof');
+assert.equal(digest[0].reports[0].outcome, 'no_answer');
+assert.ok(digest[0].reports[0].noAnswerProof);
+
+console.log('✓ Point 7 verified.');

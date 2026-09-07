@@ -263,8 +263,20 @@ function dossierDigest(dossiers) {
     role: dossier.role,
     branch: dossier.assignedBranch,
     reports: dossier.events.map((event) => {
+      const proof = event.noAnswerProof || event.evidenceReport?.noAnswerProof;
+      const isNoAnswer = event.eventType === 'WORKER_NO_ANSWER_PROVEN'
+        || event.eventType === 'MISSION_NO_ANSWER_PROVEN'
+        || event.evidenceReport?.outcome === 'no_answer'
+        || Boolean(proof);
+      if (isNoAnswer && proof) {
+        return {
+          type: 'impossibility_proof',
+          outcome: 'no_answer',
+          noAnswerProof: proof,
+          evidenceReport: event.evidenceReport || undefined
+        };
+      }
       if (event.evidenceReport) return event.evidenceReport;
-      if (event.noAnswerProof) return { noAnswerProof: event.noAnswerProof, type: 'impossibility_proof' };
       if (event.failure) return { error: event.failure, type: 'failure' };
       return null;
     }).filter(Boolean)
