@@ -224,6 +224,13 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     if (toolName === 'genos_world_hardlink_create') {
       return runLocal(`genos world create --provider hardlink --root .genos/world --world-id ${args.world_id} --seed "${args.seed}"`);
     }
+    if (toolName === 'genos_replay') {
+      const snapshot = args.snapshot || args.snapshot_id;
+      if (!snapshot) {
+        return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'Replay requires a snapshot reference.' };
+      }
+      return runLocal(`genos replay basic --snapshot "${snapshot}"`);
+    }
     if (toolName === 'genos_biomimicry_sar_prime') {
       return runLocal(`genos biomimicry bio-feature --feature sar --action prime --param incident_id=${args.incident_id} --param severity=${args.severity || 1.0}`);
     }
