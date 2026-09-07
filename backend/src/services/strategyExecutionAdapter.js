@@ -19,6 +19,7 @@ const safety = require('./primitiveHandlers/safety');
 const collective = require('./primitiveHandlers/collective');
 const temporal = require('./primitiveHandlers/temporal');
 const search = require('./primitiveHandlers/search');
+const computerUse = require('./primitiveHandlers/computerUse');
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
@@ -177,7 +178,13 @@ const HANDLERS = {
   prm_evaluate: search.prmEvaluate,
   score_partial_repro: search.prmEvaluate,
   backpropagate: search.backpropagate,
-  back_propagate: search.backpropagate
+  back_propagate: search.backpropagate,
+
+  // Lot 8 — Computer Use (contrôle natif du PC : capture d'écran + plan d'actions)
+  capture: computerUse.capture,
+  screen_capture: computerUse.capture,
+  run_plan: computerUse.runPlan,
+  desktop_mission: computerUse.runPlan
 };
 
 /**
