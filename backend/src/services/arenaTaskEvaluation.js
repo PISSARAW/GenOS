@@ -22,30 +22,21 @@ function extractDossierReport(dossier) {
   const events = Array.isArray(dossier.events) ? dossier.events : [];
   for (let i = events.length - 1; i >= 0; i--) {
     const report = events[i].evidenceReport || events[i].payload?.evidenceReport || events[i].payload?.report || (events[i].payload?.claims ? events[i].payload : null);
-    if (report && typeof report === 'object' && Object.keys(report).length > 0) return report;
+    if (report) return report;
   }
-  if (dossier.evidenceReport && typeof dossier.evidenceReport === 'object' && Object.keys(dossier.evidenceReport).length > 0) {
-    return dossier.evidenceReport;
-  }
-  if (dossier.report && typeof dossier.report === 'object' && Object.keys(dossier.report).length > 0) {
-    return dossier.report;
-  }
-  if (Array.isArray(dossier.claims) || dossier.outcome || dossier.creativeEvaluation) {
-    return dossier;
-  }
-  return dossier.evidenceReport || dossier.report || {};
+  return dossier.evidenceReport || dossier.report || dossier;
 }
 
 function testResultPassed(test) {
   if (typeof test === 'boolean') return test;
   if (test && typeof test === 'object') {
     if (test.passed === true || test.ok === true || test.exitCode === 0) return true;
-    if (test.passed === false || test.ok === false || Number(test.exitCode) !== 0) return false;
+    if (test.passed === false || test.ok === false || (test.exitCode !== null && test.exitCode !== undefined && Number(test.exitCode) !== 0)) return false;
     return false;
   }
   const text = String(test || '').trim().toLowerCase();
-  if (!text || /\b(?:not\s+ok|fail(?:ed|ure)?|error|exception|exit\s+code\s+[1-9]\d*)\b/.test(text)) return false;
-  return /^(?:ok\b|passed\b|pass\b|successful\b|success\b|exit\s+code\s+0\b)/.test(text);
+  if (!text || /\b(?:not\s+(?:ok|pass(?:ed)?|successful)|fail(?:ed|ure)?|error|exception|exit\s+code\s+[1-9]\d*)\b/.test(text)) return false;
+  return /\b(?:ok|passed|pass|successful|success|exit\s+code\s+0)\b/.test(text);
 }
 
 function dossierToCandidate(dossier, options = {}) {
@@ -54,46 +45,33 @@ function dossierToCandidate(dossier, options = {}) {
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties : [];
   const tests = Array.isArray(report.tests) ? report.tests : [];
 
-  const workerRecovery = require('./workerFailureRecoveryService');
-  const proof = workerRecovery.proofOfNoAnswer(report) || workerRecovery.proofOfNoAnswer(dossier);
-  const isNoAnswer = report.outcome === 'no_answer' && Boolean(proof);
-
   // Compute adversarial pass rate from verified tests
-  let passRate = 50;
+  let passRate = 0;
   if (tests.length > 0) {
     const passed = tests.filter(testResultPassed).length;
     passRate = Number(((passed / tests.length) * 100).toFixed(1));
   } else if (report.outcome === 'success') {
     passRate = 90;
-  } else if (isNoAnswer) {
+  } else if (report.outcome === 'no_answer' && report.noAnswerProof) {
     passRate = 85;
   } else if (report.outcome === 'failed') {
     passRate = 20;
   }
 
-  // Compute fitness score based on verified claims/proofs and penalty on unverified claims / uncertainties
+  // Compute fitness score based on verified claims and penalty on uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
-  let epistemicScore = 0;
-  if (isNoAnswer) {
-    const evidenceCount = Array.isArray(proof.evidence) ? proof.evidence.length : 0;
-    epistemicScore = Math.min(40, 20 + evidenceCount * 10);
-  } else {
-    const claimScore = claims.reduce((acc, c) => {
-      const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
-      return acc + (hasEvidence ? 15 : -10);
-    }, 0);
-    epistemicScore = Math.max(-40, Math.min(40, claimScore));
-  }
+  const claimScore = Math.max(-40, Math.min(40, claims.reduce((acc, c) => {
+    const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
+    return acc + (hasEvidence ? 15 : -10);
+  }, 0)));
   const uncertaintyPenalty = uncertainties.length * 3;
-  let calculatedFitness = Math.max(0, Math.min(100, 50 + epistemicScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  let calculatedFitness = Math.max(0, Math.min(100, 50 + claimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
   const isFailed = report.outcome === 'failed'
     || Boolean(dossier?.failure)
     || Boolean(report.failure)
-    || (Array.isArray(dossier?.events) && dossier.events.some((e) => e.failure || e.payload?.failure || ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR'].includes(e.eventType)));
-  if (isFailed) {
-    calculatedFitness = Math.min(15, calculatedFitness);
-  }
-  const rawFitness = suppliedFitness === null ? calculatedFitness : suppliedFitness;
+    || (Array.isArray(dossier?.events) && dossier.events.some((event) => event.failure || event.payload?.failure || ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType)));
+  if (isFailed) calculatedFitness = Math.min(15, calculatedFitness);
+  const rawFitness = suppliedFitness === null ? calculatedFitness : Math.min(suppliedFitness, calculatedFitness);
 
   const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
   const tokens = nonNegativeNumber(options.tokens ?? dossier.tokens, 1500);

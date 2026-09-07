@@ -19,6 +19,12 @@ const supplied = dossierToCandidate({
   evidenceReport: { claims: Array.from({ length: 20 }, () => ({ evidence: ['proof'] })) }
 });
 assert.strictEqual(supplied.fitnessScore, 37);
+const inflated = dossierToCandidate({ workerId: 'inflated-worker', fitnessScore: 100, evidenceReport: { claims: [], tests: ['failed'] } });
+assert(inflated.fitnessScore < 100, 'Declared fitness must not override failed evidence.');
+const untested = dossierToCandidate({ workerId: 'untested-worker', evidenceReport: { claims: [] } });
+assert.equal(untested.adversarialPassRate, 0, 'No tests must not receive a neutral pass rate.');
+const failedDeclared = dossierToCandidate({ workerId: 'failed-worker', evidenceReport: { outcome: 'failed', claims: [{ evidence: ['proof'] }], tests: ['passed'] } });
+assert(failedDeclared.fitnessScore <= 15, 'Failed dossier fitness must be capped.');
 
 const passed = dossierToCandidate({
   workerId: 'passed-worker',
