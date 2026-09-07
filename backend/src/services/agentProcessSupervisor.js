@@ -262,7 +262,8 @@ async function superviseMission(options) {
           || (currentEvent.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
         const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)
           && currentEvent.severity !== 'error'
-          && !isHallucinationEvent;
+          && !isHallucinationEvent
+          && missionDomainState.domainVerdict === 'completed';
 
         if (isErrorEvent || isHallucinationEvent) {
           const detailText = String(currentEvent.detail || '') + ' ' + (typeof currentEvent.payload === 'string' ? currentEvent.payload : JSON.stringify(currentEvent.payload || {}));
