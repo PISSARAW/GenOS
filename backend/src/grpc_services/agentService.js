@@ -41,7 +41,7 @@ module.exports = {
         strategyContract: parseJson(mission.strategy_contract_json, {}, 'strategy_contract_json'),
         orchestratorAgentId: mission.orchestrator_agent_id,
         autonomyPlan: parseJson(mission.autonomy_plan_json, {}, 'autonomy_plan_json'),
-        toolLease: parseJson(mission.tool_lease_json, [], 'tool_lease_json'),
+        toolLease: parseToolLease(mission.tool_lease_json),
         genosCapsule: parseJson(mission.genos_capsule_json, {}, 'genos_capsule_json'),
         executionPolicy: parseJson(mission.execution_policy_json, {}, 'execution_policy_json'),
         executionBudget: parseJson(mission.execution_budget_json, {}, 'execution_budget_json'),
@@ -81,3 +81,15 @@ function parseJson(value, fallback, fieldName) {
     throw error;
   }
 }
+
+function parseToolLease(value) {
+  const lease = parseJson(value, [], 'tool_lease_json');
+  if (!Array.isArray(lease) || lease.some((tool) => typeof tool !== 'string' || !tool.trim())) {
+    const error = new Error('tool_lease_json must be an array of non-empty tool names.');
+    error.code = 'INVALID_MISSION_JSON';
+    throw error;
+  }
+  return [...new Set(lease.map((tool) => tool.trim()))];
+}
+
+module.exports.parseToolLease = parseToolLease;
