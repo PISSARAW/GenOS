@@ -9,7 +9,28 @@ const MAX_BISECTION_SNAPSHOTS = 10000;
  * Computes multi-branch temporal tree diff across workspaces or snapshots
  */
 function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branch', options = {}) {
-  const diffEntries = options.diffEntries || [];
+  const entries = options.diffEntries || [];
+  if (!Array.isArray(entries)) throw new TypeError('diffEntries must be an array.');
+  const fileCounts = new Map();
+  for (const entry of entries) {
+    const file = String(entry.file || 'unknown');
+    fileCounts.set(file, (fileCounts.get(file) || 0) + 1);
+  }
+  const diffEntries = entries.map((entry) => {
+    const additions = entry.additions == null ? 0 : Number(entry.additions);
+    const deletions = entry.deletions == null ? 0 : Number(entry.deletions);
+    if (!Number.isFinite(additions) || additions < 0 || !Number.isFinite(deletions) || deletions < 0) {
+      throw new TypeError(`Diff counts must be non-negative numbers for '${entry.file || 'unknown'}'.`);
+    }
+    const file = String(entry.file || 'unknown');
+    return {
+      ...entry,
+      file,
+      additions,
+      deletions,
+      collisionRisk: fileCounts.get(file) > 1 ? 'HIGH' : (entry.collisionRisk || 'UNKNOWN')
+    };
+  });
 
   return {
     baseBranch: baseWorkspace,

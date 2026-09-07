@@ -1,5 +1,14 @@
-﻿const { generate } = require("../src/services/modelProvider");
-const { runGenosSync } = require("../src/services/genosCli");
+﻿/**
+ * Computer Use Service — desktop GUI control loop (screenshot -> model -> action plan).
+ *
+ * Extracted so it can be driven both as a standalone CLI script
+ * (bin/genos-computer-use.cjs) and as a strategy primitive (`capture`,
+ * `run_plan`) invoked by the orchestrator/agents through
+ * strategyExecutionAdapter, the same generic mechanism used by every other
+ * strategy primitive.
+ */
+const { generate } = require("./modelProvider");
+const { runGenosSync } = require("./genosCli");
 const fs = require("fs");
 const path = require("path");
 
@@ -9,15 +18,13 @@ const path = require("path");
 // cannot see the screenshot and will never produce a usable action.
 const KNOWN_VISION_HINTS = /vl|vision|llava|moondream|minicpm|pixtral|bakllava|gemma-?3|qwen.*vl/i;
 
-function resolveComputerUseModel() {
-    const candidate = process.env.GENOS_COMPUTER_USE_MODEL || process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022";
+function resolveComputerUseModel(modelOverride) {
+    const candidate = modelOverride || process.env.GENOS_COMPUTER_USE_MODEL || process.env.GENOS_DEFAULT_MODEL || "anthropic://claude-3-5-sonnet-20241022";
     const match = candidate.match(/^([\w-]+):\/\/(.+)$/);
     const provider = match ? match[1] : '';
     const modelName = match ? match[2] : '';
-    if (provider !== 'anthropic' && !KNOWN_VISION_HINTS.test(modelName)) {
-        console.warn(`Warning: '${candidate}' does not look like a vision model. Computer Use needs image input; use a model such as ollama://qwen2.5vl:7b, ollama://llama3.2-vision, or ollama://minicpm-v, or set GENOS_COMPUTER_USE_MODEL=anthropic://<model>.`);
-    }
-    return { model: candidate, provider };
+    const looksLikeVision = provider === 'anthropic' || KNOWN_VISION_HINTS.test(modelName);
+    return { model: candidate, provider, looksLikeVision };
 }
 
 const LOCAL_VISION_INSTRUCTIONS = `You control a computer via screenshots. Respond with ONLY a single JSON object (no prose, no markdown fences, no extra objects) describing the next action(s). A new screenshot is taken after your actions run, so never request one. Allowed action types only: mouse_move, click, type, key. You may chain several steps that should run back-to-back before the next screenshot (e.g. open a launcher, type a command, press Enter) using "actions": [...]. Examples:
@@ -99,38 +106,57 @@ function tryParseJson(str) {
     } catch (e) { return null; }
 }
 
-async function runComputerUseLoop(mission) {
-    console.log(`Starting Computer Use Mission: ${mission}`);
-    const { model, provider } = resolveComputerUseModel();
+function screenPath() {
+    return path.join(process.cwd(), ".genos", "current_screen.png").replace(/\\/g, "/");
+}
+
+/** Captures the desktop and returns it as a base64 PNG string. */
+async function captureScreenshot() {
+    const out = screenPath();
+    if (!fs.existsSync(path.dirname(out))) fs.mkdirSync(path.dirname(out), { recursive: true });
+    runGenosSync(`genos desktop capture --out "${out}"`, { maxBuffer: 1024 * 1024 * 50 });
+    // `genos desktop capture --out` writes the base64 string itself (not raw PNG
+    // bytes), so read it as text - re-encoding it as base64 would double-encode it.
+    return fs.readFileSync(out, "utf8").trim();
+}
+
+/**
+ * Runs the observe -> think -> act loop for a natural-language desktop mission.
+ * Returns a structured summary instead of relying on console output so callers
+ * (CLI script or strategy primitive) can decide how to surface it.
+ */
+async function runMission(mission, options = {}) {
+    const log = typeof options.onLog === 'function' ? options.onLog : () => {};
+    const maxIterations = Number.isFinite(Number(options.maxIterations)) ? Number(options.maxIterations) : 15;
+    const { model, provider, looksLikeVision } = resolveComputerUseModel(options.model);
     const isAnthropic = provider === 'anthropic';
+    if (!looksLikeVision) {
+        log(`Warning: '${model}' does not look like a vision model. Computer Use needs image input; use a model such as ollama://qwen2.5vl:7b, ollama://llama3.2-vision, or ollama://minicpm-v, or set GENOS_COMPUTER_USE_MODEL=anthropic://<model>.`);
+    }
+
+    log(`Starting Computer Use Mission: ${mission}`);
     // Each iteration only sees the current screenshot, so without this the model
     // has no memory of what it already did and tends to repeat completed actions.
     const history = [];
 
     let iterations = 0;
-    while (iterations < 15) {
+    let outcome = 'max_iterations_reached';
+    let lastResponse = '';
+
+    while (iterations < maxIterations) {
         iterations++;
-        console.log(`\n--- Iteration ${iterations} ---`);
-        
-        // 1. Capture screen to file to avoid ENOBUFS (maxBuffer exceeded) in spawnSync
-        console.log("Capturing screen...");
+        log(`\n--- Iteration ${iterations} ---`);
+
+        log("Capturing screen...");
         let base64Image;
-        const screenPath = path.join(process.cwd(), ".genos", "current_screen.png").replace(/\\/g, "/");
         try {
-            // Ensure .genos dir exists
-            if (!fs.existsSync(path.dirname(screenPath))) fs.mkdirSync(path.dirname(screenPath), { recursive: true });
-            
-            runGenosSync(`genos desktop capture --out "${screenPath}"`, { maxBuffer: 1024 * 1024 * 50 });
-            
-            // `genos desktop capture --out` writes the base64 string itself (not raw PNG
-            // bytes), so read it as text - re-encoding it as base64 would double-encode it.
-            base64Image = fs.readFileSync(screenPath, "utf8").trim();
+            base64Image = await captureScreenshot();
         } catch (e) {
-            console.error("Failed to capture screen:", e.message);
+            log(`Failed to capture screen: ${e.message}`);
+            outcome = 'capture_failed';
             break;
         }
 
-        // 2. Build prompt (Anthropic image block vs. generic OpenAI-style image_url)
         const historyText = history.length
             ? `\n\nActions already taken (do not repeat what already succeeded, check the screenshot first):\n${history.slice(-8).join("\n")}`
             : "";
@@ -144,21 +170,15 @@ async function runComputerUseLoop(mission) {
                 { type: "text", text: `Mission: ${mission}\n\n${LOCAL_VISION_INSTRUCTIONS}${historyText}` }
             ];
 
-        // 3. Call model
-        console.log("Thinking...");
-        const result = await generate({
-            model,
-            prompt,
-            stream: false,
-            maxTokens: 4096
-        });
-
+        log("Thinking...");
+        const result = await generate({ model, prompt, stream: false, maxTokens: 4096 });
         const text = result.text;
-        console.log("Model responded with raw text:\n" + text + "\n-----------------");
+        lastResponse = text;
+        log(`Model responded with raw text:\n${text}\n-----------------`);
 
-        // 4. Parse the next plan - possibly several steps to run back-to-back
-        // before the next screenshot (fixes the model losing its train of
-        // thought when forced to re-observe after every single action).
+        // Parse the next plan - possibly several steps to run back-to-back before
+        // the next screenshot (avoids the model losing its train of thought when
+        // forced to re-observe after every single action).
         let plan = [];
         let done = false;
         try {
@@ -185,31 +205,35 @@ async function runComputerUseLoop(mission) {
         } catch (e) {}
 
         if (done) {
-            console.log("Model signaled mission completion.");
+            log("Model signaled mission completion.");
+            outcome = 'completed';
             break;
         }
 
         if (!plan.length) {
-            console.log("No tool calls. Mission might be completed or model is confused.");
-            console.log("Response:", text);
+            log("No tool calls. Mission might be completed or model is confused.");
+            outcome = 'no_action';
             break;
         }
 
-        // 5. Execute the whole plan in one Rust process call - actions run
-        // back-to-back with no screenshot in between, so a step like
-        // "open launcher -> type -> Enter" completes in one shot.
-        console.log(`Executing plan (${plan.length} step${plan.length > 1 ? "s" : ""}):`, plan);
+        // Execute the whole plan in one Rust process call - actions run back-to-back
+        // with no screenshot in between, so a step like "open launcher -> type ->
+        // Enter" completes in one shot.
+        log(`Executing plan (${plan.length} step${plan.length > 1 ? "s" : ""}): ${JSON.stringify(plan)}`);
         const payload = JSON.stringify(plan).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
         try {
             runGenosSync(`genos desktop actions --json "${payload}"`);
-            console.log("Plan completed.");
+            log("Plan completed.");
             history.push(`${JSON.stringify(plan)} -> succeeded`);
         } catch (e) {
-            console.error("Plan failed:", e.message);
+            log(`Plan failed: ${e.message}`);
             history.push(`${JSON.stringify(plan)} -> failed: ${e.message.split("\n")[0]}`);
         }
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 500));
     }
+
+    return { success: outcome === 'completed', outcome, iterations, mission, model, history, lastResponse };
 }
 
-module.exports = { runComputerUseLoop };
+module.exports = { runMission, captureScreenshot, resolveComputerUseModel };
+

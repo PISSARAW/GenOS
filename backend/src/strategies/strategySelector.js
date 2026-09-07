@@ -11,7 +11,8 @@ const PREFERRED_PRIMARY = {
   security: 'red_blue_coevolution',
   scientific_research: 'factorial_experiment',
   architecture_decision: 'causal_replay_intervention',
-  implementation: 'n_way_counterfactual_fork'
+  implementation: 'n_way_counterfactual_fork',
+  desktop_control: 'computer_use_direct'
 };
 
 const BRANCHES = {
@@ -21,7 +22,8 @@ const BRANCHES = {
   security: ['red_team_simulation', 'blue_team_defense', 'independent_observer'],
   scientific_research: ['baseline_hypothesis', 'competing_hypothesis', 'replication_protocol'],
   architecture_decision: ['minimal_change', 'balanced_design', 'long_term_design'],
-  implementation: ['minimal_patch', 'planned_implementation', 'independent_alternative']
+  implementation: ['minimal_patch', 'planned_implementation', 'independent_alternative'],
+  desktop_control: ['direct_gui_manipulation', 'keyboard_shortcut_path', 'verify_after_each_step']
 };
 
 function includesAny(text, terms) {
@@ -30,6 +32,10 @@ function includesAny(text, terms) {
 
 function classifyProblem(problem = '') {
   const text = String(problem).toLowerCase();
+  
+  // Mission requiring literal mouse/keyboard/screen control of the local machine
+  // (as opposed to writing/editing code) - must be checked before 'bug'/'fix' below.
+  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'computer use', 'desktop control', 'clique sur', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris'])) return 'desktop_control';
   
   // Mapping direct si le texte correspond exactement ou est pré-typé
   if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
