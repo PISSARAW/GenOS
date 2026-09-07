@@ -26,9 +26,22 @@
     "memory": { "type": "object" },
     "models": { "type": "object" },
     "tools": { "type": "object" },
+    "objectives": { "type": "object" },
+    "capabilities": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "memory_policy": { "type": "object" },
+    "model_policy": { "type": "object" },
+    "tool_policy": { "type": "object" },
     "policies": {
       "type": ["array", "object"]
-    }
+    },
+    "cell_id": { "type": "string" },
+    "organelles": { "type": "array" },
+    "conscience": { "type": "object" },
+    "bud_scars": { "type": ["array", "integer"] },
+    "hayflick_limit": { "type": "integer" }
   },
   "additionalProperties": true
 }

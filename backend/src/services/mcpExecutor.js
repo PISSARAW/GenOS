@@ -297,13 +297,29 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       }
       const res = await db.run(sql, ...params);
       prunedCount = res?.changes || 0;
+
+      // Cleanup orphaned weak decisions
+      const doomed = await db.all(`
+        SELECT g.id FROM genome_decisions g
+        LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+        WHERE g.synaptic_weight < 0.1
+        GROUP BY g.id
+        HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
+      `);
+      let orphanedPruned = 0;
+      if (doomed && doomed.length > 0) {
+        const doomedIds = doomed.map(d => d.id);
+        const placeholders = doomedIds.map(() => '?').join(',');
+        const delRes = await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, ...doomedIds);
+        orphanedPruned = delRes?.changes || doomedIds.length;
+      }
     }
     return {
       configured: true,
       success: true,
       status: 'completed',
       transport: 'strategy_primitive',
-      output: { success: true, prunedSynapses: prunedCount, threshold, agent_id: agentId || 'global' }
+      output: { success: true, prunedSynapses: prunedCount, orphanedDecisionsPruned: orphanedPruned, threshold, agent_id: agentId || 'global' }
     };
   }
   if (toolName === 'genos_trinity_deploy') {

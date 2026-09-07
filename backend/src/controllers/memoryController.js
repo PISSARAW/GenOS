@@ -328,6 +328,23 @@ async function pruneSynapses(req, res, next) {
     const resDb = await db.run(sql, ...params);
     const prunedCount = resDb?.changes || 0;
 
+    // Nettoyage des décisions orphelines sans synapses résiduelles
+    const doomed = await db.all(`
+      SELECT g.id 
+      FROM genome_decisions g
+      LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+      WHERE g.synaptic_weight < 0.1
+      GROUP BY g.id
+      HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
+    `);
+    let orphanedDecisionsPruned = 0;
+    if (doomed && doomed.length > 0) {
+      const doomedIds = doomed.map(d => d.id);
+      const placeholders = doomedIds.map(() => '?').join(',');
+      const delRes = await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, ...doomedIds);
+      orphanedDecisionsPruned = delRes?.changes || doomedIds.length;
+    }
+
     res.json({
       success: true,
       operation: 'agent_prune',
@@ -337,7 +354,8 @@ async function pruneSynapses(req, res, next) {
       threshold: th,
       c3_threshold: c3Th,
       cd47_threshold: cd47Th,
-      pruned_synapses: prunedCount
+      pruned_synapses: prunedCount,
+      orphaned_decisions_pruned: orphanedDecisionsPruned
     });
   } catch (err) {
     next(err);
