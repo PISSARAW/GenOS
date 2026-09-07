@@ -30,6 +30,21 @@ const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
 const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 const MAX_COPY_DEPTH = 32;
 const MAX_COPY_ENTRIES = 100000;
+const DEFAULT_MAX_COPY_BYTES = 1024 * 1024 * 1024;
+
+function maxCopyBytes() {
+  const configured = Number(process.env.GENOS_MAX_WORKSPACE_COPY_BYTES);
+  return Number.isSafeInteger(configured) && configured > 0 ? configured : DEFAULT_MAX_COPY_BYTES;
+}
+
+function addCopyBytes(state, bytes) {
+  state.bytes += bytes;
+  if (state.bytes > state.limit) {
+    const error = new Error(`Workspace copy exceeds the ${state.limit}-byte size limit.`);
+    error.code = 'WORKSPACE_COPY_SIZE_LIMIT';
+    throw error;
+  }
+}
 
 async function withGitRepoLock(repoPath, fn) {
   const key = path.resolve(repoPath);
@@ -331,14 +346,19 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     }
     const { stdout: untracked } = await runCommand('git', ['ls-files', '--others', '--exclude-standard'], { cwd: source });
     const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean).map((file) => normalizeRelativePath(file, 'untracked file'));
+    const copyState = { bytes: 0, limit: maxCopyBytes() };
     for (const file of untrackedFiles) {
       const srcPath = path.join(source, file);
       const destPath = path.join(destination, file);
       try {
-        if ((await fs.lstat(srcPath)).isSymbolicLink()) continue;
+        const sourceStat = await fs.lstat(srcPath);
+        if (sourceStat.isSymbolicLink()) continue;
+        if (sourceStat.isFile()) addCopyBytes(copyState, sourceStat.size);
         await fs.mkdir(path.dirname(destPath), { recursive: true });
         await fs.cp(srcPath, destPath, { recursive: true });
-      } catch (_) {}
+      } catch (error) {
+        if (error.code === 'WORKSPACE_COPY_SIZE_LIMIT') throw error;
+      }
     }
     return destination;
   } catch (gitError) {
@@ -362,6 +382,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
   let copiedEntries = 0;
+  const copyState = { bytes: 0, limit: maxCopyBytes() };
   async function copyTree(sourcePath, destinationPath, relative = '') {
     const sourceStat = await fs.lstat(sourcePath);
     if (sourceStat.isSymbolicLink()) return;
@@ -378,6 +399,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
       return;
     }
     if (!sourceStat.isFile()) return;
+    addCopyBytes(copyState, sourceStat.size);
     await fs.mkdir(path.dirname(destinationPath), { recursive: true });
     await fs.copyFile(sourcePath, destinationPath);
   }
