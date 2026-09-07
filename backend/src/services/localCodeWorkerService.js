@@ -31,6 +31,20 @@ function parseProposal(text) {
 function allowedTest(command, root) {
   return isAllowedSandboxTestCommand(command);
 }
+async function assertNoSymlinkPath(root, destination) {
+  const resolvedRoot = path.resolve(root);
+  const relative = path.relative(resolvedRoot, destination);
+  let current = resolvedRoot;
+  for (const part of relative.split(path.sep).filter(Boolean)) {
+    current = path.join(current, part);
+    try {
+      const stat = await fs.lstat(current);
+      if (stat.isSymbolicLink()) throw new Error(`Patch path crosses a symlink: ${part}`);
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+}
 async function runTest(command, root) {
   const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   return new Promise((resolve) => {
@@ -50,7 +64,9 @@ async function executeProposal({ workspaceRoot, text }) {
   for (const patch of proposal.patches) {
     const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
     if (!destination.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
+    await assertNoSymlinkPath(workspaceRoot, destination);
     await fs.mkdir(path.dirname(destination), { recursive: true });
+    await assertNoSymlinkPath(workspaceRoot, destination);
     await fs.writeFile(destination, patch.content, 'utf8');
   }
   const tests = [];
@@ -61,4 +77,4 @@ async function executeProposal({ workspaceRoot, text }) {
   const changedFiles = after.filter((file) => before.get(file.path) !== file.hash).map((file) => file.path);
   return { proposal: { format: proposal.format, patches: proposal.patches.map(({ path }) => ({ path })), evidence: proposal.evidence }, changedFiles, tests, merged: false };
 }
-module.exports = { safePath, parseProposal, executeProposal };
+module.exports = { safePath, parseProposal, executeProposal, assertNoSymlinkPath };
