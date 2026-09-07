@@ -140,6 +140,11 @@ async function testNodeMcpServer() {
     const toolNames = listRes.result.tools.map((t) => t.name);
     assert(toolNames.includes('genos_orchestrate'));
     assert(toolNames.includes('genos_snapshot'));
+    assert(toolNames.includes('genos_merge'));
+    assert(toolNames.includes('genos_audit'));
+    assert(toolNames.includes('genos_biomimicry'));
+    assert(toolNames.includes('genos_trinity_launch'));
+    assert(toolNames.includes('genos_a_team_preview'));
   } finally {
     child.stdin.end();
     child.kill();
