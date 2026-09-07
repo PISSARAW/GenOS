@@ -1,5 +1,9 @@
 const assert = require('node:assert/strict');
 const modelProvider = require('../src/services/modelProvider');
+assert.deepEqual(modelProvider.normalizeMessageContent([{ type: 'text', text: 'hello' }, { type: 'tool_use', id: 'call-1', input: {} }]), {
+  text: 'hello',
+  toolCalls: [{ type: 'tool_use', id: 'call-1', input: {} }]
+});
 
 const previousKey = process.env.OPENAI_API_KEY;
 const previousEndpoint = process.env.OPENAI_API_ENDPOINT;
