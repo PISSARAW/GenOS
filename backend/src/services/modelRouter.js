@@ -10,6 +10,7 @@ const MODEL_URI = /^(openai|anthropic|gemini|mistral|groq|deepseek|together|open
 
 function validateModelUri(value, field) {
   if (value === undefined || value === null || value === '') return null;
+  if (value === 'auto') return value;
   if (typeof value !== 'string' || !MODEL_URI.test(value.trim())) {
     const error = new Error(`${field} must be a supported provider URI.`);
     error.code = 'INVALID_MODEL_ROUTE';
