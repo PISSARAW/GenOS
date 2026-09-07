@@ -179,6 +179,9 @@ async function dryRun(req, res, next) {
 async function getSchema(req, res, next) {
   try {
     const toolName = req.params.name || req.query.name;
+    const db = await getDatabase();
+    const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+    if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
     const schema = vfsSandboxService.getToolSchema(toolName);
     res.json(schema);
   } catch (err) {
