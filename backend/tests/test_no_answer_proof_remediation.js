@@ -45,3 +45,17 @@ assert.equal(validProof.method, 'enumeration');
 assert.deepEqual(validProof.evidence, ['state 1 verified']);
 
 console.log('✓ Point 4 verified.');
+// Test Point 5: Operational failures never conclude conclude_no_answer even if proof exists
+const opFailureReport = recovery.failureReport({
+  eventType: 'WORKER_TASK_FAILED',
+  detail: 'Command timed out',
+  payload: {
+    failure: { category: 'transient_runtime', reason: 'timeout' },
+    noAnswerProof: { method: 'enumeration', evidence: ['draft'] }
+  }
+}, { agentId: 'worker-op', recoveryAttempt: 0 });
+
+const opDecision = recovery.decideRecovery(opFailureReport);
+assert.notEqual(opDecision.action, 'conclude_no_answer', 'Operational failure must not conclude conclude_no_answer');
+
+console.log('✓ Point 5 verified.');

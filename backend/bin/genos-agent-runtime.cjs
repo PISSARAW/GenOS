@@ -520,7 +520,7 @@ process.stdin.on('end', async () => {
           severity: 'warning',
           status: 'error',
           currentTask: isWorker ? 'Task failed; awaiting orchestrator decision' : 'Mission failed',
-          payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: report.noAnswerProof }
+          payload: { code, observedTools: [...observedTools], evidenceReport: report, failure: classified.failure, noAnswerProof: null }
         });
         try {
           const failureSummary = classified.failure?.reason || report?.claims?.map(c => c.statement).join('\n') || finalReportText || 'Worker task execution failed';
