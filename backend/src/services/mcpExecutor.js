@@ -7,6 +7,7 @@ const { appendBounded } = require('./boundedOutput');
 const fs = require('fs');
 const path = require('path');
 const { runGenosSync } = require('./genosCli');
+const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
 function getToolRegistry() {
   return require('./mcpToolRegistry');
@@ -126,7 +127,7 @@ async function callStdio(transport, toolName, options = {}) {
     if (remaining <= 0) return reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
     const timer = setTimeout(() => {
       pending = null;
-      child.kill('SIGKILL');
+      terminateChild(child);
       reject(new Error(`MCP STDIO request timed out after ${timeoutMs}ms.`));
     }, remaining);
     pending = { id, resolve, reject, timer };
@@ -160,7 +161,8 @@ async function callStdio(transport, toolName, options = {}) {
       clearTimeout(pending.timer);
       pending = null;
     }
-    if (!child.killed) child.kill('SIGTERM');
+    if (!child.killed) terminateChild(child);
+    clearTerminationTimer(child);
   }
 }
 
