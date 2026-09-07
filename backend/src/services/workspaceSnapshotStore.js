@@ -17,9 +17,9 @@ const { terminateChild } = require('./processTermination');
 const { normalizeRelativePath } = require('./pathSafety');
 const { normalizeSandboxCommand, isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
 
-const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
+const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next', '.aws', '.ssh', '.docker', '.kube', '.gnupg']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
-const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
+const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 const restoreLocks = new Map();
 
 async function withRestoreLock(workspacePath, operation) {
