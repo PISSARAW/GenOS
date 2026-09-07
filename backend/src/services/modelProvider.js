@@ -27,10 +27,28 @@ applyLegacyModelConfiguration();
 function tokenize(text = '') { return String(text).trim().split(/\s+/).filter(Boolean); }
 
 function configuredModel(model) {
-  const value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
+  let value = String(model || process.env.GENOS_DEFAULT_MODEL || '').trim();
+  if (value.startsWith('local://')) {
+    value = `ollama://${value.slice(8)}`;
+  }
   if (!value) throw new Error('No model provider is configured. Set GENOS_DEFAULT_MODEL or LLM_PROVIDER plus its model variable.');
-  if (!/^(openai|anthropic|gemini|mistral|ollama|lmstudio|vllm|openai-compatible):\/\//.test(value)) throw new Error(`Unsupported model URI '${value}'. Use OpenAI, Anthropic, Gemini, Mistral, Ollama, LM Studio, vLLM, or OpenAI-compatible syntax.`);
+  if (!/^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\//.test(value)) {
+    throw new Error(`Unsupported model URI '${value}'. Use OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together, OpenRouter, Ollama, LM Studio, vLLM, or OpenAI-compatible syntax.`);
+  }
   return value;
+}
+
+function resolveProviderApiKey(provider) {
+  switch (provider) {
+    case 'anthropic': return process.env.ANTHROPIC_API_KEY;
+    case 'gemini': return process.env.GEMINI_API_KEY;
+    case 'mistral': return process.env.MISTRAL_API_KEY;
+    case 'groq': return process.env.GROQ_API_KEY || process.env.GENOS_MODEL_API_KEY;
+    case 'deepseek': return process.env.DEEPSEEK_API_KEY || process.env.GENOS_MODEL_API_KEY;
+    case 'together': return process.env.TOGETHER_API_KEY || process.env.GENOS_MODEL_API_KEY;
+    case 'openrouter': return process.env.OPENROUTER_API_KEY || process.env.GENOS_MODEL_API_KEY;
+    default: return process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY;
+  }
 }
 
 function modelConfiguration(model) {
@@ -41,16 +59,20 @@ function modelConfiguration(model) {
   if (provider === 'openai-compatible' && !explicitEndpoint) {
     throw new Error('GENOS_OPENAI_COMPATIBLE_ENDPOINT or GENOS_MODEL_ENDPOINT is required for openai-compatible models.');
   }
-  const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && !/^https:\/\/api\.openai\.com\//.test(explicitEndpoint));
-  const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
+  const local = ['ollama', 'lmstudio', 'vllm'].includes(provider) || Boolean(explicitEndpoint && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0)/.test(explicitEndpoint));
+  const apiKey = resolveProviderApiKey(provider);
   const endpoint = provider === 'anthropic' ? (process.env.ANTHROPIC_API_ENDPOINT || 'https://api.anthropic.com/v1/messages')
     : provider === 'gemini' ? (process.env.GEMINI_API_ENDPOINT || `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`)
       : provider === 'mistral' ? (process.env.MISTRAL_API_ENDPOINT || 'https://api.mistral.ai/v1/chat/completions')
-        : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions')
-          : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
-            : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
-              : (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
-  return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? (provider === 'anthropic' ? 'ANTHROPIC_API_KEY' : provider === 'gemini' ? 'GEMINI_API_KEY' : provider === 'mistral' ? 'MISTRAL_API_KEY' : 'GENOS_MODEL_API_KEY/OPENAI_API_KEY') : null };
+        : provider === 'groq' ? (process.env.GROQ_API_ENDPOINT || 'https://api.groq.com/openai/v1/chat/completions')
+          : provider === 'deepseek' ? (process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com/v1/chat/completions')
+            : provider === 'together' ? (process.env.TOGETHER_API_ENDPOINT || 'https://api.together.xyz/v1/chat/completions')
+              : provider === 'openrouter' ? (process.env.OPENROUTER_API_ENDPOINT || 'https://openrouter.ai/api/v1/chat/completions')
+                : provider === 'ollama' ? (process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions')
+                  : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
+                    : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
+                      : (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
+  return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
 }
 
 async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
@@ -103,7 +125,7 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   return { text, usage };
 }
 
-async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
+async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, computerUse = false }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const abort = () => controller.abort();
@@ -113,17 +135,42 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const configuration = modelConfiguration(model);
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
     const endpoint = endpointOverride || configuredEndpoint;
-    const apiKey = provider === 'anthropic' ? process.env.ANTHROPIC_API_KEY : provider === 'gemini' ? process.env.GEMINI_API_KEY : provider === 'mistral' ? process.env.MISTRAL_API_KEY : (process.env.GENOS_MODEL_API_KEY || process.env.OPENAI_API_KEY);
+    const apiKey = resolveProviderApiKey(provider);
     if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
-    const endpointWithKey = provider === 'gemini' && !endpoint.includes('key=') ? `${endpoint}${endpoint.includes('?') ? '&' : '?'}key=${encodeURIComponent(apiKey)}` : endpoint;
-    const headers = provider === 'anthropic' ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'computer-use-2024-10-22' } : { 'Content-Type': 'application/json', ...(provider === 'gemini' ? {} : (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})) };
+    const headers = { 'Content-Type': 'application/json' };
+    if (provider === 'anthropic') {
+      if (apiKey) headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      if (computerUse) headers['anthropic-beta'] = 'computer-use-2024-10-22';
+    } else if (provider === 'gemini') {
+      if (apiKey) headers['x-goog-api-key'] = apiKey;
+    } else if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
     const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
-    const body = provider === 'anthropic'
-      ? { model: modelName, max_tokens: outputLimit || 2048, messages: [{ role: 'user', content: prompt }], tools: [{ type: "computer_20241022", name: "computer", display_width_px: displayWidth, display_height_px: displayHeight, display_number: 1 }] }
-      : provider === 'gemini'
-        ? { contents: [{ parts: Array.isArray(prompt) ? prompt.map(p => p.text ? {text: p.text} : p) : [{ text: prompt }] }], ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {}) }
-        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) };
-    const response = await fetch(endpointWithKey, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
+    let body;
+    if (provider === 'anthropic') {
+      body = {
+        model: modelName,
+        max_tokens: outputLimit || 2048,
+        messages: [{ role: 'user', content: prompt }],
+        ...(computerUse ? { tools: [{ type: "computer_20241022", name: "computer", display_width_px: displayWidth, display_height_px: displayHeight, display_number: 1 }] } : {})
+      };
+    } else if (provider === 'gemini') {
+      body = {
+        contents: [{ parts: Array.isArray(prompt) ? prompt.map(p => p.text ? { text: p.text } : p) : [{ text: prompt }] }],
+        ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {})
+      };
+    } else {
+      body = {
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        stream,
+        ...(outputLimit ? { max_tokens: outputLimit } : {}),
+        ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {})
+      };
+    }
+    const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
