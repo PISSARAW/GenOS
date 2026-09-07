@@ -9,6 +9,7 @@
 
 const { spawn, execFileSync } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
+const { terminateChild } = require('./processTermination');
 const fs = require('fs');
 const path = require('path');
 
@@ -114,13 +115,14 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
     const child = spawn(bin, args, {
       cwd: root,
       env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
-      windowsHide: true
+      windowsHide: true,
+      detached: process.platform !== 'win32'
     });
 
     const timer = setTimeout(() => {
       if (!settled) {
         settled = true;
-        child.kill();
+        terminateChild(child);
         resolvePromise({ ok: false, code: 'TIMEOUT', error: `genos ${args[0]} timed out after ${timeoutMs}ms`, stdout, stderr });
       }
     }, timeoutMs);
