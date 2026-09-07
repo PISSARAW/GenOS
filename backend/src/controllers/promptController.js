@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
+const { jobMaxAttempts, jobTimeoutMs, jsonByteLength } = require('./argumentBounds');
 
 const parse = (value, fallback) => { try { return JSON.parse(value); } catch (_) { return fallback; } };
 const row = (item) => item && ({ ...item, variables: parse(item.variables_json, []), config: parse(item.config_json, {}) });
@@ -39,7 +40,24 @@ async function renderPrompt(req, res, next) {
   try { const db = await getDatabase(); const s = scopeSql(req); const version = await db.get(`SELECT v.* FROM prompt_versions v JOIN prompts p ON p.id=v.prompt_id WHERE v.prompt_id = ? AND v.version = ? AND p.organization_id=? AND p.project_id=?`, req.params.id, Number(req.body?.version || 1), ...s.params); if (!version) return res.status(404).json({ error: { code: 'VERSION_NOT_FOUND', message: 'Prompt version not found.' } }); const variables = req.body?.variables || {}; const rendered = version.template.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? ''); res.json({ promptId: req.params.id, version: version.version, rendered, model: version.model }); } catch (e) { next(e); }
 }
 async function playground(req, res, next) {
-  try { const { prompt = '', models = [], variables = {}, config = {} } = req.body || {}; const selectedModels = Array.isArray(models) ? models.map((model) => String(model).trim()).filter(Boolean) : []; if (!selectedModels.length && !config.modelRouting) return res.status(400).json({ error: { code: 'MODEL_REQUIRED', message: 'Select a real model URI or provide a model routing policy.' } }); const requestedAttempts = Number(config.maxAttempts ?? 3); const maxAttempts = Number.isFinite(requestedAttempts) ? Math.max(1, Math.min(Math.floor(requestedAttempts), 10)) : 3; const requestedTimeout = Number(config.timeoutMs ?? 30000); const timeoutMs = Number.isFinite(requestedTimeout) ? Math.max(1000, Math.min(Math.floor(requestedTimeout), 30 * 60 * 1000)) : 30000; const rendered = String(prompt).replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? ''); const db = await getDatabase(); const id = `model-${crypto.randomUUID()}`; const s = scopeSql(req); await db.run('INSERT INTO model_jobs(id,prompt,models_json,config_json,max_attempts,timeout_ms,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?)', id, rendered, JSON.stringify(selectedModels), JSON.stringify(config), maxAttempts, timeoutMs, ...s.params); res.status(202).json({ id, status: 'queued', models: selectedModels, rendered, maxAttempts, timeoutMs }); } catch (e) { next(e); }
+  try {
+    const body = req.body || {};
+    const { prompt = '', models = [], variables = {}, config: rawConfig = {} } = body;
+    const config = rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig) ? rawConfig : {};
+    const selectedModels = Array.isArray(models) ? models.map((model) => String(model).trim()).filter(Boolean) : [];
+    if (typeof prompt !== 'string' || Buffer.byteLength(prompt, 'utf8') > 512 * 1024) return res.status(413).json({ error: { code: 'PROMPT_TOO_LARGE', message: 'Prompt must be a string no larger than 512 KiB.' } });
+    if (selectedModels.length > 32 || selectedModels.some((model) => model.length > 512)) return res.status(400).json({ error: { code: 'INVALID_MODELS', message: 'At most 32 model URIs of 512 characters each are allowed.' } });
+    if (jsonByteLength(variables) > 512 * 1024 || jsonByteLength(config) > 512 * 1024) return res.status(413).json({ error: { code: 'JOB_CONFIG_TOO_LARGE', message: 'Model job variables and config exceed 512 KiB.' } });
+    if (!selectedModels.length && !config.modelRouting) return res.status(400).json({ error: { code: 'MODEL_REQUIRED', message: 'Select a real model URI or provide a model routing policy.' } });
+    const maxAttempts = jobMaxAttempts(config.maxAttempts);
+    const timeoutMs = jobTimeoutMs(config.timeoutMs);
+    const rendered = prompt.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], variables) ?? '');
+    const db = await getDatabase(); const id = `model-${crypto.randomUUID()}`; const s = scopeSql(req);
+    const requestedPriority = Number(config.priority ?? 0);
+    const priority = Number.isFinite(requestedPriority) ? Math.max(0, Math.min(Math.floor(requestedPriority), 100)) : 0;
+    await db.run('INSERT INTO model_jobs(id,prompt,models_json,priority,config_json,max_attempts,timeout_ms,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?,?)', id, rendered, JSON.stringify(selectedModels), priority, JSON.stringify(config), maxAttempts, timeoutMs, ...s.params);
+    res.status(202).json({ id, status: 'queued', models: selectedModels, rendered, priority, maxAttempts, timeoutMs });
+  } catch (e) { next(e); }
 }
 async function listJobs(req, res, next) { try { const db = await getDatabase(); const s = scopeSql(req); const jobs = await db.all(`SELECT * FROM model_jobs WHERE ${s.clause} ORDER BY created_at DESC LIMIT 100`, ...s.params); res.json(jobs.map((job) => ({ ...job, models: parse(job.models_json, []), config: parse(job.config_json, {}), result: parse(job.result_json, null), error: parse(job.error_json, null) }))); } catch (e) { next(e); } }
 async function cancelJob(req, res, next) {
