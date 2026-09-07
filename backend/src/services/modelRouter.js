@@ -262,6 +262,17 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     if (maxCostUsd == null || !Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) < 0) {
       throw Object.assign(new Error('Parallel model review requires an explicit non-negative maxCostUsd budget.'), { code: 'MODEL_PARALLEL_BUDGET_REQUIRED' });
     }
+    const estimatedInputTokens = modelProvider.tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length;
+    const estimatedOutputTokens = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : 2048;
+    let estimatedParallelCost = 0;
+    for (const candidate of candidates) {
+      const configuration = modelProvider.modelConfiguration(candidate);
+      const registered = db ? await db.get('SELECT cost_input, cost_output FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
+      estimatedParallelCost += estimateCostUsd(registered?.cost_input, registered?.cost_output, estimatedInputTokens, estimatedOutputTokens);
+    }
+    if (estimatedParallelCost > Number(maxCostUsd)) {
+      throw Object.assign(new Error(`Estimated parallel model cost ${estimatedParallelCost} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_PARALLEL_COST_BUDGET_EXCEEDED' });
+    }
     const settled = await Promise.allSettled(candidates.map(attempt));
     const successes = settled.map((result, index) => result.status === 'fulfilled' ? { ...result.value, index } : null).filter(Boolean);
     if (!successes.length) {
@@ -272,10 +283,15 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     const selected = scored.length
       ? [...scored].sort((left, right) => responseScore(right) - responseScore(left) || left.index - right.index)[0]
       : successes.sort((left, right) => left.index - right.index)[0];
+    const totalCostUsd = successes.reduce((sum, result) => sum + Number(result.costUsd || 0), 0);
+    if (totalCostUsd > Number(maxCostUsd)) {
+      throw Object.assign(new Error(`Actual parallel model cost ${totalCostUsd} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_PARALLEL_COST_BUDGET_EXCEEDED' });
+    }
     await emitBufferedTokens(selected.bufferedTokens || [], onToken, selected.model);
     const { bufferedTokens: _bufferedTokens, ...selectedResult } = selected;
     return {
       ...selectedResult,
+      totalCostUsd,
       route: { mode: 'parallel', selectedModel: selected.model, selectionScore: responseScore(selected), attempts: settled.map((result, index) => ({ model: candidates[index], status: result.status, error: result.status === 'rejected' ? result.reason?.message : null })), reviews: successes.map(({ index, bufferedTokens: _tokens, ...result }) => result) }
     };
   }

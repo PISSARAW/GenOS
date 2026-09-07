@@ -32,6 +32,13 @@ function estimateTokenCount(text = '') {
   return value.length ? Math.max(1, Math.ceil(Buffer.byteLength(value, 'utf8') / 4)) : 0;
 }
 
+function requireUsableText(text, provider) {
+  if (typeof text !== 'string' || !text.trim()) {
+    throw new Error(`Model provider '${provider}' returned HTTP 200 without usable text.`);
+  }
+  return text;
+}
+
 function normalizeResponseFormat(responseFormat, jsonSchema) {
   if (jsonSchema) return { type: 'json_schema', json_schema: { name: 'genos_response', strict: true, schema: jsonSchema } };
   if (!responseFormat) return null;
@@ -44,6 +51,14 @@ function parseStructuredText(text, responseFormat) {
   if (!responseFormat) return null;
   try { return JSON.parse(String(text || '')); }
   catch (_) { throw new Error('Model returned invalid structured JSON.'); }
+}
+
+function normalizeMessageContent(content) {
+  if (typeof content === 'string') return { text: content, toolCalls: [] };
+  if (!Array.isArray(content)) return { text: '', toolCalls: [] };
+  const text = content.filter((part) => part?.type === 'text' || typeof part?.text === 'string').map((part) => part.text || '').join('');
+  const toolCalls = content.filter((part) => part?.type === 'tool_use' || part?.type === 'tool_call').map((part) => part);
+  return { text, toolCalls };
 }
 
 function configuredModel(model) {
@@ -252,15 +267,26 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const contentType = response.headers?.get?.('content-type') || '';
     if (nativeOllama && stream) {
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
+      requireUsableText(streamed.text, provider);
       return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
+      requireUsableText(streamed.text, provider);
       return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
-    const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.type === 'tool_use' ? JSON.stringify(part) : (part.text || '')).join('\n') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : nativeOllama ? (payload.message?.content || payload.response || '') : (payload.choices?.[0]?.message?.content || '');
+    const payload = await response.json();
+    const normalizedContent = provider === 'anthropic'
+      ? normalizeMessageContent(payload.content)
+      : provider === 'gemini'
+        ? normalizeMessageContent(payload.candidates?.[0]?.content?.parts)
+        : nativeOllama
+          ? normalizeMessageContent(payload.message?.content || payload.response || '')
+          : normalizeMessageContent(payload.choices?.[0]?.message?.content);
+    const text = normalizedContent.text;
+    requireUsableText(text, provider);
     for (const token of tokenize(text)) await onToken(token);
-    return { text, structured: parseStructuredText(text, normalizedResponseFormat), inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
+    return { text, toolCalls: normalizedContent.toolCalls, structured: parseStructuredText(text, normalizedResponseFormat), inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
   } catch (error) {
     controller.abort();
     if (error.name === 'AbortError') throw new Error(`Model timeout after ${timeoutMs}ms.`);
