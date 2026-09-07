@@ -11,7 +11,7 @@ modelRouter.generate = async ({ timeoutMs }) => {
   return { model: 'model', text: 'ok' };
 };
 
-const job = { id: 'job-deadline', models_json: JSON.stringify(['a', 'b']), config_json: '{}', prompt: 'test', timeout_ms: 25, result_json: null };
+const job = { id: 'job-deadline', models_json: JSON.stringify(['a', 'b']), config_json: '{}', prompt: 'test', timeout_ms: 10, result_json: null };
 (async () => {
   let failure;
   try { await jobWorker.executeModelJob(db, job); } catch (error) { failure = error; }
