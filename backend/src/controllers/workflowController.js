@@ -14,7 +14,8 @@ function validateGraph(graph) {
   if (graph && !Array.isArray(graph.edges)) errors.push('Workflow edges must be an array.');
   const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph?.edges) ? graph.edges : [];
-  const ids = new Set(nodes.map((node) => node?.id).filter((id) => typeof id === 'string' && id.trim()));
+  const validNodes = nodes.filter((node) => node && typeof node === 'object');
+  const ids = new Set(validNodes.map((node) => node.id).filter((id) => typeof id === 'string' && id.trim()));
   if (nodes.length === 0) errors.push('Workflow must contain at least one node.');
   if (nodes.some((node) => !node || typeof node.id !== 'string' || !node.id.trim())) errors.push('Every workflow node must have a non-empty string id.');
   if (new Set(nodes.map((node) => node.id)).size !== nodes.length) errors.push('Node ids must be unique.');
@@ -36,7 +37,7 @@ function validateGraph(graph) {
     if (edgeKeys.has(edgeKey)) errors.push(`Duplicate edge from '${edge.source}' to '${edge.target}'.`);
     else edgeKeys.add(edgeKey);
   });
-  const adjacency = new Map(nodes.map((node) => [node.id, []]));
+  const adjacency = new Map(validNodes.map((node) => [node.id, []]));
   edges.forEach((edge) => { if (edge && adjacency.has(edge.source) && adjacency.has(edge.target)) adjacency.get(edge.source).push(edge.target); });
   const visiting = new Set(); const visited = new Set();
   const hasCycle = (id) => {
@@ -46,21 +47,22 @@ function validateGraph(graph) {
     if ((adjacency.get(id) || []).some(hasCycle)) return true;
     visiting.delete(id); visited.add(id); return false;
   };
-  if (nodes.some((node) => hasCycle(node.id))) errors.push('Workflow graph must be acyclic.');
+  if (validNodes.some((node) => hasCycle(node.id))) errors.push('Workflow graph must be acyclic.');
   nodes.forEach((node) => {
+    if (!node || typeof node !== 'object') return;
     const condition = node.when || node.data?.when;
     if (condition && !validateWorkflowCondition(condition)) errors.push(`Node ${node.id} has an unsupported condition.`);
     const iterations = node.max_iterations ?? node.data?.maxIterations;
     if (iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
   });
-  const incoming = new Set(edges.filter((edge) => edge && typeof edge === 'object').map((edge) => edge.target));
+  const incoming = new Set(edges.filter((edge) => Boolean(edge && typeof edge === 'object')).map((edge) => edge.target));
   // React Flow uses the built-in `input` node type for a trigger node,
   // while persisted graphs may use the domain-level `trigger` type.
-  if (nodes.length > 1 && nodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
+  if (nodes.length > 1 && validNodes.some((node) => !incoming.has(node.id) && node.type !== 'trigger' && node.type !== 'input')) {
     errors.push('Every non-trigger node must have an incoming edge.');
   }
   const requiresModel = (node) => /\b(llm|agent|model)\b/i.test([node.kind, node.data?.kind, node.data?.label, node.type].filter(Boolean).join(' '));
-  nodes.filter(requiresModel).forEach((node) => {
+  validNodes.filter(requiresModel).forEach((node) => {
     if (!(node.model || node.data?.model || node.modelRouting?.primary || node.data?.modelRouting?.primary || process.env.GENOS_DEFAULT_MODEL)) {
       errors.push(`Node ${node.id} requires a real model URI or GENOS_DEFAULT_MODEL.`);
     }
