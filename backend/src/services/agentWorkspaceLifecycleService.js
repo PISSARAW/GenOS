@@ -233,9 +233,17 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     if (path.resolve(gitTopLevel.trim()) !== source) {
       throw new Error(`Mission workspace ${source} is nested inside ${gitTopLevel.trim()}; copy only the mission scope.`);
     }
-    const { stdout: diff } = await runCommand('git', ['diff', '--binary'], { cwd: source });
+    const { stdout: diff } = await runCommand('git', ['diff', 'HEAD', '--binary'], { cwd: source });
     await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
     if (diff) await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
+    const { stdout: untracked } = await runCommand('git', ['ls-files', '--others', '--exclude-standard'], { cwd: source });
+    const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean);
+    for (const file of untrackedFiles) {
+      const srcPath = path.join(source, file);
+      const destPath = path.join(destination, file);
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await fs.cp(srcPath, destPath, { recursive: true });
+    }
     return destination;
   } catch (gitError) {
     // Non-Git workspaces retain the copy fallback below. A partially created
