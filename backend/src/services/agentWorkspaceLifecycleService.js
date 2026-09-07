@@ -296,10 +296,14 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   // of dependencies. Replay the tracked dirty diff so the capsule starts from
   // the caller's real working state without altering that source workspace.
   if (fsSync.existsSync(path.join(source, '.git'))) {
+      try {
+        await runCommand('git', ['rev-parse', '--is-inside-work-tree'], { cwd: source });
     const { stdout: indexEntries } = await runCommand('git', ['ls-files', '-s'], { cwd: source });
     if (indexEntries.split(/\r?\n/).some((entry) => entry.startsWith('120000 '))) {
       throw new Error(`Git workspace '${source}' contains tracked symlinks and cannot be sandboxed safely.`);
     }
+      } catch (error) {
+        if (/contains tracked symlinks/.test(error.message)) throw error;
   }
   try {
     const { stdout: gitTopLevel } = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: source });
