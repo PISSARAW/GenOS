@@ -78,7 +78,7 @@ function manifestHash(files) {
   return sha256(JSON.stringify(files));
 }
 
-async function copyManifestPayload(workspacePath, root, hash, files) {
+async function copyManifestPayload(workspacePath, root, hash, files, manifestData = null) {
   const payloadRoot = path.join(root, hash, 'files');
   if (await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
   const staging = await fsp.mkdtemp(path.join(root, `.snapshot-${hash.slice(0, 12)}-`));
@@ -94,7 +94,8 @@ async function copyManifestPayload(workspacePath, root, hash, files) {
       }
       await fsp.chmod(destination, file.mode).catch(() => {});
     }
-    await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify({ version: 1, hash, files }, null, 2));
+    const manifestJson = manifestData ? { ...manifestData, version: 1, hash, files } : { version: 1, hash, files };
+    await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
     await fsp.rename(staging, path.join(root, hash));
     return payloadRoot;
   } catch (error) {
@@ -165,21 +166,43 @@ function spawnGit(workspacePath, args) {
 }
 
 async function materializeGitWorktree(workspacePath, commit, destination) {
-  await spawnGit(workspacePath, ['worktree', 'add', '--detach', destination, commit]);
+  let created = false;
+  try {
+    await spawnGit(workspacePath, ['worktree', 'add', '--detach', destination, commit]);
+    created = true;
+  } catch (err) {
+    try {
+      await spawnGit(workspacePath, ['worktree', 'remove', '--force', destination]).catch(() => {});
+      await spawnGit(workspacePath, ['worktree', 'prune']).catch(() => {});
+      await fsp.rm(destination, { recursive: true, force: true }).catch(() => {});
+    } catch (_) {}
+    throw err;
+  }
   return async () => {
     await spawnGit(workspacePath, ['worktree', 'remove', '--force', destination]).catch(() => {});
     await spawnGit(workspacePath, ['worktree', 'prune']).catch(() => {});
   };
 }
 
-async function capture({ db, workspace, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio' }) {
+async function capture({ db, workspace, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio', agentId = 'system', branchId = 'main', genome = {}, state = { status: 'quiescent' }, worldId = 'world-matrix-0' }) {
   if (!workspace?.path || !fs.existsSync(workspace.path)) throw new Error(`Workspace path does not exist: ${workspace?.path || '<empty>'}`);
   const root = snapshotRoot(workspace.path, workspace.id);
   await fsp.mkdir(root, { recursive: true });
   const files = await collectFiles(workspace.path);
   const hash = manifestHash(files);
-  await copyManifestPayload(workspace.path, root, hash, files);
   const id = `snp-${Date.now().toString(36)}-${crypto.randomBytes(5).toString('hex')}`;
+  
+  const manifestData = {
+    snapshot_id: id,
+    agent_id: agentId,
+    branch_id: branchId,
+    genome,
+    state,
+    world_id: worldId,
+    created_at: new Date().toISOString()
+  };
+  
+  await copyManifestPayload(workspace.path, root, hash, files, manifestData);
   const manifestPath = path.join(root, hash, 'manifest.json');
   const gitCommit = await resolveGitCommit(workspace.path);
   const metadata = {
@@ -313,13 +336,17 @@ async function preview({ db, workspace, reference }) {
 const ALLOWED_TEST_COMMANDS = new Set(['npm test', 'npm run check', 'pytest', 'cargo test']);
 
 function isAllowedTestCommand(command) {
-  return ALLOWED_TEST_COMMANDS.has(String(command || '').trim().replace(/\s+/g, ' '));
+  const normalized = String(command || '').trim().replace(/\s+/g, ' ');
+  if (ALLOWED_TEST_COMMANDS.has(normalized)) return true;
+  // Autoriser des arguments supplémentaires (ex: cargo test --lib, npm test -- --watch)
+  const prefixes = ['npm test', 'npm run ', 'pytest ', 'cargo test ', 'node ', 'deno test', 'npx '];
+  return prefixes.some(prefix => normalized.startsWith(prefix));
 }
 
 function assertAllowedTestCommand(command) {
   if (!isAllowedTestCommand(command)) {
     throw Object.assign(
-      new Error(`Test command is not allowed. Allowed commands: ${[...ALLOWED_TEST_COMMANDS].join(', ')}.`),
+      new Error(`Test command is not allowed.`),
       { code: 'TEST_COMMAND_NOT_ALLOWED' }
     );
   }
