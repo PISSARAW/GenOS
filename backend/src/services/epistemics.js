@@ -28,6 +28,8 @@ class EpistemicData {
       this.provenance = config.provenance || { origin: this.source };
       this.allowed_ops = Array.isArray(config.allowed_ops) ? [...config.allowed_ops] : [];
       this.forbidden_ops = Array.isArray(config.forbidden_ops) ? [...config.forbidden_ops] : [];
+      this.refutedBy = config.refutedBy || null;
+      this.disputedReason = config.disputedReason || null;
     } else {
       this.source = String(sourceOrConfig || 'unknown');
       this._content = content ?? '';
@@ -37,6 +39,8 @@ class EpistemicData {
       this.provenance = { origin: this.source };
       this.allowed_ops = [];
       this.forbidden_ops = [];
+      this.refutedBy = null;
+      this.disputedReason = null;
     }
   }
 
@@ -73,7 +77,7 @@ class EpistemicData {
   }
 
   isInvalid() {
-    return this._state === 'INVALID';
+    return this._state === 'INVALID' || this._state === 'REFUTED';
   }
 
   markInvalid(reason) {
@@ -81,6 +85,21 @@ class EpistemicData {
     this.confidence = 0.0;
     if (reason && !this.forbidden_ops.includes(reason)) {
       this.forbidden_ops.push(reason);
+    }
+  }
+
+  markRefuted(refutedBy) {
+    this._state = 'REFUTED';
+    this.confidence = 0.0;
+    this.refutedBy = refutedBy;
+    this.forbidden_ops.push('generate', 'act', 'plan');
+  }
+
+  markDisputed(reason) {
+    if (this._state !== 'INVALID' && this._state !== 'REFUTED') {
+      this._state = 'DISPUTED';
+      this.confidence = Math.min(this.confidence, 0.5);
+      this.disputedReason = reason;
     }
   }
 
