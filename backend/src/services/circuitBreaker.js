@@ -260,6 +260,18 @@ class CircuitBreakerService {
   getStatus(scope = 'global') {
     const state = this.context(scope);
     const currentState = this.checkState(scope);
+    const scopes = {};
+    if (scope === 'global') {
+      for (const [name, scopedState] of this.scopedStates.entries()) {
+        const scopedCurrentState = this.checkState(name);
+        scopes[name] = {
+          state: scopedCurrentState,
+          failureCount: scopedState.failureCount,
+          isOpen: scopedCurrentState === 'OPEN',
+          halfOpenProbe: scopedState.halfOpenProbe
+        };
+      }
+    }
     return {
       state: currentState,
       failureCount: state.failureCount,
@@ -269,6 +281,7 @@ class CircuitBreakerService {
       haltReason: this.haltReason,
       haltTimestamp: this.haltTimestamp,
       halfOpenProbe: state.halfOpenProbe,
+      scopes,
       quarantinedTools: Array.from(this.toolLockOverrides.entries()).filter(([_, v]) => v).map(([k]) => k)
     };
   }
