@@ -129,6 +129,16 @@ async function hypothesisEvidence(context = {}) {
   const retained = evaluated.filter(h => !h.falsified);
   const falsified = evaluated.filter(h => h.falsified);
 
+  return {
+    success: true,
+    totalHypotheses: evaluated.length,
+    retainedCount: retained.length,
+    falsifiedCount: falsified.length,
+    retainedHypotheses: retained,
+    falsifiedHypotheses: falsified
+  };
+}
+
 /**
  * Remonte la provenance d'une croyance, conclusion ou hypothese via provenanceResolver
  */
