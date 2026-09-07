@@ -1,5 +1,5 @@
 /**
- * GenOS MCP Strategy Tools — Direct execution bridge for 78 strategies & 97 primitives.
+ * GenOS MCP Strategy Tools — Direct execution bridge for 79 strategies & 97 primitives.
  */
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
 
@@ -13,10 +13,7 @@ function isStrategyTool(toolName) {
     toolName === 'genos_record_experience' ||
     toolName === 'genos_compile_memory' ||
     toolName === 'genos_synaptic_stdp_update' ||
-    toolName === 'genos_synaptic_prune_scale' ||
-    toolName === 'genos_blame' ||
-    toolName === 'genos_lineage' ||
-    toolName === 'genos_hypothesis_evidence'
+    toolName === 'genos_synaptic_prune_scale'
   );
 }
 
@@ -24,33 +21,6 @@ async function executeStrategyTool(toolName, args = {}) {
   if (!isStrategyTool(toolName)) return null;
 
   try {
-    if (toolName === 'genos_blame' || toolName === 'genos_lineage') {
-      const targetId = args.target_id || args.targetId || args.agent_id || args.agentId || args.id;
-      const res = await strategyExecutionAdapter.executePrimitive('provenance', {
-        ...args,
-        targetId,
-        maxDepth: args.max_depth || args.maxDepth || 10
-      });
-      const ok = res && res.success !== false;
-      return {
-        configured: true,
-        success: ok,
-        status: ok ? 'completed' : 'tool_error',
-        transport: 'strategy_primitive',
-        output: res
-      };
-    }
-    if (toolName === 'genos_hypothesis_evidence') {
-      const res = await strategyExecutionAdapter.executePrimitive('hypothesis_evidence', args);
-      const ok = res && res.success !== false;
-      return {
-        configured: true,
-        success: ok,
-        status: ok ? 'completed' : 'tool_error',
-        transport: 'strategy_primitive',
-        output: res
-      };
-    }
     if (toolName === 'genos_record_experience') {
       const res = await strategyExecutionAdapter.executePrimitive('record_experience', args);
       const ok = res && res.success !== false;
@@ -77,7 +47,6 @@ async function executeStrategyTool(toolName, args = {}) {
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
       const res = await strategyExecutionAdapter.executePrimitive('mutate', {
         ...args,
-        agentId: args.agentId || args.agent_id || args.orchestratorId,
         mutations,
         hypermutation: true,
         mutationRate: args.mutationRate ?? 0.35

@@ -40,40 +40,40 @@ async function run() {
   const db = await getDatabase(dbPath);
 
   const incident = buildStrategyContract({ problem: 'Reproduce an intermittent production incident' });
-  assert.equal(listStrategies().length, 78);
+  assert.equal(listStrategies().length, 79);
   assert(listStrategies().every((strategy) => ['ready', 'partial'].includes(strategy.executionStatus)));
   assert(listStrategies().some((strategy) => strategy.executionStatus === 'partial'));
   assert.equal(incident.problem_profile.type, 'incident');
   assert.equal(incident.selection_policy.allowExperimental, false);
   assert.equal(incident.selection_policy.allowPrototype, false);
   assert.equal(incident.selection_policy.allowExperimentalAtHighRisk, false);
-  assert.equal(incident.selected_strategy.primary, 'negative_knowledge');
+  assert.equal(incident.selected_strategy.primary, 'falsifiable_hypothesis_tree');
   assert.equal(incident.promotion.require_human_approval, true);
-  assert.equal(incident.strategy_decisions.length, 78);
-  assert.equal(incident.strategy_decision_summary.total_registry, 78);
+  assert.equal(incident.strategy_decisions.length, 79);
+  assert.equal(incident.strategy_decision_summary.total_registry, 79);
   assert(incident.strategy_portfolio.length >= 4);
   assert(incident.strategy_decisions.some((decision) => decision.id === 'mcts_prm' && decision.status === 'ineligible'));
   const research = selectStrategyPortfolio({ problem: 'Run a scientific hypothesis experiment' });
-  assert.equal(research.primary.id, 'negative_knowledge');
-  assert.equal(research.decisions.length, 78);
+  assert.equal(research.primary.id, 'falsifiable_hypothesis_tree');
+  assert.equal(research.decisions.length, 79);
   const framedMission = encodeMission({
     agentId: 'agent-strategy-test',
     strategyContractJson: JSON.stringify(incident)
   });
   const decodedMission = decodeMission(framedMission);
-  assert.equal(JSON.parse(decodedMission.strategyContractJson).selected_strategy.primary, 'negative_knowledge');
+  assert.equal(JSON.parse(decodedMission.strategyContractJson).selected_strategy.primary, 'falsifiable_hypothesis_tree');
 
   const server = createApp().listen(PORT);
   try {
     const registry = await request('GET', '/api/strategies');
     assert.equal(registry.status, 200);
-    assert.equal(registry.body.total, 78);
-    assert.equal(registry.body.registryTotal, 78);
+    assert.equal(registry.body.total, 79);
+    assert.equal(registry.body.registryTotal, 79);
 
     const preview = await request('POST', '/api/strategies/select', { problem: 'Choose an architecture trade-off' });
     assert.equal(preview.status, 200);
     assert.equal(preview.body.selected_strategy.primary, 'pareto_frontier');
-    assert.equal(preview.body.strategy_decisions.length, 78);
+    assert.equal(preview.body.strategy_decisions.length, 79);
 
     await db.run("INSERT INTO workspaces (id, name, path) VALUES ('strategy-workspace', 'Strategy workspace', ?)", __dirname);
     await db.run(`INSERT INTO agents (id, name, role, status, workspace_id, current_task)
@@ -84,7 +84,7 @@ async function run() {
     });
     assert.equal(first.status, 201);
     assert.equal(first.body.version, 1);
-    assert.equal(first.body.primaryStrategy, 'negative_knowledge');
+    assert.equal(first.body.primaryStrategy, 'falsifiable_hypothesis_tree');
     assert.match(first.body.contractHash, /^sha256:[a-f0-9]{64}$/);
 
     const second = await request('POST', '/api/agents/agent-strategy-test/strategy-contracts', {
@@ -121,7 +121,16 @@ async function run() {
       eventType: 'AGENT_STEP', action: 'EXECUTE', detail: 'Implementation', payload: { usage: { input_tokens: 100, cached_input_tokens: 60, output_tokens: 50 } }
     });
     await strategyExecution.recordExecutionEvent(db, 'agent-strategy-test', {
-      eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Done', payload: {}
+      eventType: 'AGENT_COMPLETED', action: 'COMPLETE', detail: 'Done', payload: {
+        replayVerified: true,
+        evidenceReport: {
+          outcome: 'success',
+          claims: [{ claim: 'Implementation completed', evidence: ['test:strategy-contracts'] }],
+          tests: [{ name: 'strategy-contracts', passed: true }],
+          uncertainties: [],
+          replayVerified: true
+        }
+      }
     });
     const executionLatest = await request('GET', '/api/agents/agent-strategy-test/execution-runs/latest');
     assert.equal(executionLatest.status, 200);
@@ -169,7 +178,7 @@ async function run() {
     assert.equal(upgraded.status, 200);
     assert.equal(upgraded.body.version, 2);
     assert.equal(upgraded.body.createdBy, 'strategy_registry_upgrade');
-    assert.equal(upgraded.body.contract.strategy_decisions.length, 78);
+    assert.equal(upgraded.body.contract.strategy_decisions.length, 79);
 
     const invalid = await request('POST', '/api/agents/agent-strategy-test/strategy-contracts', {
       contract: { schema: 'invalid' }
