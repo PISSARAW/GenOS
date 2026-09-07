@@ -131,6 +131,10 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   // Local inference goes through the gateway's bounded queue: concurrent
   // agents must queue for the GPU instead of stampeding it. Cloud providers
   // have their own rate limits and bypass the queue.
+  if (endpointOverride) {
+    validateProviderEndpoint(endpointOverride, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(configuration.provider) });
+    assertSafeProviderEndpoint(endpointOverride);
+  }
   const targetEndpoint = endpointOverride || configuration.endpoint;
   if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(
@@ -276,6 +280,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       return { text: streamed.text, structured: parseStructuredText(streamed.text, normalizedResponseFormat), inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName, endpoint };
     }
     const payload = await response.json();
+    const message = provider === 'gemini' ? payload.candidates?.[0]?.content : (provider === 'anthropic' ? payload : (nativeOllama ? payload.message : payload.choices?.[0]?.message));
     const normalizedContent = provider === 'anthropic'
       ? normalizeMessageContent(payload.content)
       : provider === 'gemini'
@@ -283,8 +288,9 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
         : nativeOllama
           ? normalizeMessageContent(payload.message?.content || payload.response || '')
           : normalizeMessageContent(payload.choices?.[0]?.message?.content);
+            normalizedContent.toolCalls.push(...(Array.isArray(message?.tool_calls) ? message.tool_calls : []));
     const text = normalizedContent.text;
-    requireUsableText(text, provider);
+            if (!text.trim() && !normalizedContent.toolCalls.length) requireUsableText(text, provider);
     for (const token of tokenize(text)) await onToken(token);
     return { text, toolCalls: normalizedContent.toolCalls, structured: parseStructuredText(text, normalizedResponseFormat), inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || estimateTokenCount(text), provider, servedModel: payload.model || modelName, endpoint };
   } catch (error) {
@@ -304,4 +310,4 @@ function getModelStatus(model) {
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
-module.exports = { generate, tokenize, estimateTokenCount, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint, normalizeResponseFormat, parseStructuredText };
+module.exports = { generate, tokenize, estimateTokenCount, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint, normalizeResponseFormat, parseStructuredText, normalizeMessageContent };
