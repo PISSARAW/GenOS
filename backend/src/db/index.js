@@ -71,15 +71,28 @@ async function closeDatabase() {
 }
 
 async function withTransaction(db, callback) {
-  // Laisse SQLite gérer la concurrence via WAL et busy_timeout
-  await db.exec('BEGIN IMMEDIATE;');
+  const currentTail = transactionTails.get(db) || Promise.resolve();
+  let release;
+  const nextTail = new Promise(resolve => {
+    release = resolve;
+  });
+  transactionTails.set(db, currentTail.then(() => nextTail, () => nextTail));
+
+  await currentTail;
   try {
-    const result = await callback(db);
-    await db.exec('COMMIT;');
-    return result;
-  } catch (err) {
-    await db.exec('ROLLBACK;');
-    throw err;
+    await db.exec('BEGIN IMMEDIATE;');
+    try {
+      const result = await callback(db);
+      await db.exec('COMMIT;');
+      return result;
+    } catch (err) {
+      try {
+        await db.exec('ROLLBACK;');
+      } catch (_) {}
+      throw err;
+    }
+  } finally {
+    release();
   }
 }
 
