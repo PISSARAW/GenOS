@@ -239,36 +239,92 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   return autopsyReport;
 }
 
-const cryptobiosisSnapshots = new Map();
-const MAX_CRYPTOBIOSIS_SNAPSHOTS = 1024;
-
 function snapshotState(statePayload) {
   return JSON.parse(JSON.stringify(statePayload || {}));
 }
 
-function trimSnapshots() {
-  while (cryptobiosisSnapshots.size > MAX_CRYPTOBIOSIS_SNAPSHOTS) {
-    cryptobiosisSnapshots.delete(cryptobiosisSnapshots.keys().next().value);
+const legacyCryptobiosisSnapshots = new Map();
+
+function freezeCryptobiosis(dbOrWorkspaceId, workspaceIdOrReason = 'fleet', reasonOrState = '', statePayload = {}) {
+  if (dbOrWorkspaceId && typeof dbOrWorkspaceId.get === 'function' && typeof dbOrWorkspaceId.run === 'function') {
+    return freezeCryptobiosisInDatabase(dbOrWorkspaceId, workspaceIdOrReason, reasonOrState, statePayload);
   }
+
+  const workspaceId = dbOrWorkspaceId || 'fleet';
+  const reason = workspaceIdOrReason || '';
+  const state = snapshotState(reasonOrState || {});
+  const snapshot = {
+    snapshotId: `cryptobiosis_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    workspaceId,
+    reason,
+    frozenAt: new Date().toISOString(),
+    state
+  };
+  legacyCryptobiosisSnapshots.set(snapshot.snapshotId, snapshot);
+  while (legacyCryptobiosisSnapshots.size > 1024) {
+    legacyCryptobiosisSnapshots.delete(legacyCryptobiosisSnapshots.keys().next().value);
+  }
+  return snapshot;
 }
 
-function freezeCryptobiosis(workspaceId = 'fleet', reason = '', statePayload = {}) {
+async function freezeCryptobiosisInDatabase(db, workspaceId = 'fleet', reason = '', statePayload = {}) {
   const snapshotId = `cryptobiosis_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   const frozenAt = new Date().toISOString();
-  const snapshot = {
+  const state = snapshotState(statePayload);
+  
+  if (db) {
+    const agents = state.agents || [];
+    let agentId = agents[0]?.id;
+    if (!agentId) {
+      agentId = 'agent_system';
+      const existing = await db.get('SELECT id FROM agents WHERE id = ?', agentId);
+      if (!existing) {
+        await db.run("INSERT OR IGNORE INTO agents(id, workspace_id, name, role, status) VALUES (?, ?, 'System Sentinel', 'System', 'idle')", agentId, workspaceId);
+      }
+    }
+    await db.run(
+      'INSERT INTO cryptobiosis_snapshots(snapshot_id, id, agent_id, workspace_id, reason, state_json, capsule_hash, status, frozen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      snapshotId, snapshotId, agentId, workspaceId, reason, JSON.stringify(state), snapshotId, 'frozen', frozenAt
+    );
+  }
+  
+  return {
     snapshotId,
     workspaceId,
     reason,
     frozenAt,
-    state: snapshotState(statePayload)
+    state
   };
-  cryptobiosisSnapshots.set(snapshotId, snapshot);
-  trimSnapshots();
-  return snapshot;
 }
 
-function thawCryptobiosis(snapshotId, targetWorkspaceId) {
-  const snapshot = cryptobiosisSnapshots.get(snapshotId);
+function thawCryptobiosis(dbOrSnapshotId, snapshotId, targetWorkspaceId) {
+  if (!dbOrSnapshotId || typeof dbOrSnapshotId.get !== 'function') {
+    const legacySnapshot = legacyCryptobiosisSnapshots.get(dbOrSnapshotId);
+    if (!legacySnapshot) {
+      return {
+        success: false,
+        code: 'SNAPSHOT_NOT_FOUND',
+        error: `Cryptobiosis snapshot '${dbOrSnapshotId}' is not found.`,
+        snapshotId: dbOrSnapshotId
+      };
+    }
+    return {
+      success: true,
+      snapshotId: dbOrSnapshotId,
+      workspaceId: targetWorkspaceId || legacySnapshot.workspaceId,
+      state: snapshotState(legacySnapshot.state),
+      revivedAgentCount: Array.isArray(legacySnapshot.state.agents) ? legacySnapshot.state.agents.length : 0,
+      restoredAt: new Date().toISOString()
+    };
+  }
+  return thawCryptobiosisFromDatabase(dbOrSnapshotId, snapshotId, targetWorkspaceId);
+}
+
+async function thawCryptobiosisFromDatabase(db, snapshotId, targetWorkspaceId) {
+  if (!db) {
+    return { success: false, code: 'DB_REQUIRED', error: 'Database required', snapshotId };
+  }
+  const snapshot = await db.get('SELECT * FROM cryptobiosis_snapshots WHERE snapshot_id = ? OR id = ?', snapshotId, snapshotId);
   if (!snapshot) {
     return {
       success: false,
@@ -281,16 +337,16 @@ function thawCryptobiosis(snapshotId, targetWorkspaceId) {
   return {
     success: true,
     snapshotId,
-    workspaceId: targetWorkspaceId || snapshot.workspaceId,
-    state: snapshotState(snapshot.state),
+    workspaceId: targetWorkspaceId || snapshot.workspace_id,
+    state: snapshotState(JSON.parse(snapshot.state_json || '{}')),
+    revivedAgentCount: Array.isArray(JSON.parse(snapshot.state_json || '{}').agents)
+      ? JSON.parse(snapshot.state_json || '{}').agents.length
+      : 0,
     restoredAt: new Date().toISOString()
   };
 }
 
 function hydrateCryptobiosis(snapshot) {
-  if (!snapshot?.snapshotId) throw new Error('A durable cryptobiosis snapshot is required.');
-  cryptobiosisSnapshots.set(snapshot.snapshotId, snapshotState(snapshot));
-  trimSnapshots();
   return snapshot;
 }
 
