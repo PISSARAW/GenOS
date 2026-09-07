@@ -134,6 +134,7 @@ function dequeue() {
   const nextIndex = queue.findIndex((task) => task.fairnessKey !== previousKey);
   const task = queue.splice(nextIndex >= 0 ? nextIndex : 0, 1)[0];
   if (!task) return null;
+  task.queued = false;
   state.lastFairnessKey[lane] = task.fairnessKey;
   if (lane === 'interactive') state.consecutiveInteractive += 1;
   else state.consecutiveInteractive = 0;
