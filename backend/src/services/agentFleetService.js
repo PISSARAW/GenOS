@@ -118,10 +118,14 @@ async function runLocalWorker(db, mission, executionRun) {
           : `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local worker (${agentName}). Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
+    if (proposal?.testStatus === 'failed') {
+      throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal });
+    }
     let evidenceReport;
     try {
       evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
     } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
+    if (proposal?.tests?.length) evidenceReport.tests = proposal.tests;
     const workerRecovery = require('./workerFailureRecoveryService');
     const { evidencePresent } = require('./hallucinationMonitoringService');
     const noAnswerProof = workerRecovery.proofOfNoAnswer(evidenceReport);

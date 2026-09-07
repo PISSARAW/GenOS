@@ -43,6 +43,15 @@ async function run() {
   });
   assert.equal(evalPass.eligible, true);
   assert.equal(evalPass.violations.length, 0);
+  assert.equal(
+    promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
+      replayVerified: true,
+      report: { claims: [{ statement: 'unsupported claim' }] },
+      humanApproved: true
+    }).eligible,
+    false,
+    'Claims without evidence must not satisfy independent verification'
+  );
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');

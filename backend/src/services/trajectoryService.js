@@ -205,7 +205,7 @@ async function recordMissionTrajectory(db, options = {}) {
   const title = (report.claims?.[0]?.statement || proofStatement || task || 'Autonomous Trajectory').slice(0, 100);
   const semanticSummary = [
     `Task: ${task}`,
-    `Outcome: ${report.outcome || 'success'}`,
+    `Outcome: ${report.outcome || status}`,
     claimStatements ? `Claims: ${claimStatements}` : null,
     proofStatement ? `Proof: ${proofStatement}` : null,
     `Golden Path: ${goldenPath.goldenPathSteps.length} steps (${goldenPath.noiseReductionPercent}% noise reduction)`

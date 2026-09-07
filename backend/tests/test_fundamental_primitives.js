@@ -33,6 +33,12 @@ async function main() {
   assert.equal(evaluation.status, 'incomplete');
   assert.equal(typeof evaluation.code, 'string');
 
+  const unexecutedInvariant = await fundamentals.verify({ invariants: ['must be checked'] });
+  assert.equal(unexecutedInvariant.success, false);
+  assert.match(unexecutedInvariant.failures[0], /never assumed to pass/);
+  const missingWorkspaceTest = await fundamentals.verify({ testCommand: 'cargo test', workspaceId: 'missing-workspace' });
+  assert.equal(missingWorkspaceTest.success, false);
+
   console.log('Fundamental primitives: all assertions passed.');
 }
 
