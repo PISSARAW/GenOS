@@ -4,6 +4,7 @@ const { scopeSql } = require('../middleware/tenant');
 const embedding = require('../services/embeddingProvider');
 const { configuredStore } = require('../services/vectorStore');
 const ner = require('../services/nerService');
+const { boundedInteger } = require('./argumentBounds');
 
 async function listDocuments(req, res, next) {
   try {
@@ -162,7 +163,7 @@ async function search(req, res, next) {
     }
 
     const reranked = await embedding.rerank(raw, candidates);
-    res.json(reranked.slice(0, Number(req.body?.limit) || 8));
+    res.json(reranked.slice(0, boundedInteger(req.body?.limit, 8, 1, 100)));
   } catch (e) {
     next(e);
   }
