@@ -123,7 +123,7 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
         }
       } catch (_) {}
 
-      await spawnGit(workspaceRoot, ['worktree', 'remove', '--force', workspaceRoot]);
+      await spawnGit(parentRepoDir || path.dirname(workspaceRoot), ['worktree', 'remove', '--force', workspaceRoot]);
       removedVia = 'worktree-removed';
     }
   } catch (_) { /* fall through to the filesystem removal */ }
