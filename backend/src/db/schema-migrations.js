@@ -84,7 +84,8 @@ async function applyVersionedMigrations(db) {
     ['012-agent-runtime-pid', 'Persist runtime process ownership across cluster workers'],
     ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references'],
     ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing'],
-    ['015-synapse-indexes', 'Add B-Tree indexes on memory_synapses for target, weight, pruning and tenant scoping']
+    ['015-synapse-indexes', 'Add B-Tree indexes on memory_synapses for target, weight, pruning and tenant scoping'],
+    ['016-workflow-version-snapshots', 'Persist immutable workflow definitions for queued and historical runs']
   ];
   await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
     id TEXT PRIMARY KEY,
@@ -149,6 +150,22 @@ async function applyVersionedMigrations(db) {
   if (!names.has('organization_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN organization_id TEXT');
   if (!names.has('project_id')) await db.exec('ALTER TABLE workspaces ADD COLUMN project_id TEXT');
   await migrateWorkspaceNameConstraint(db);
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS workflow_versions (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      graph_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
+      metadata_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workflow_id) REFERENCES workflows(id) ON DELETE CASCADE,
+      UNIQUE(workflow_id, version)
+    );
+    INSERT OR IGNORE INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json, created_at)
+      SELECT 'wfv-' || id, id, version, graph_json, metadata_json, COALESCE(updated_at, CURRENT_TIMESTAMP)
+      FROM workflows;
+    CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow ON workflow_versions(workflow_id, version DESC);
+  `);
   const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
   const projectColumns = await db.all('PRAGMA table_info(projects)');
   if (!projectColumns.some((column) => column.name === 'status')) await db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
@@ -156,7 +173,7 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE OR IGNORE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'workflow_runs', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
@@ -164,6 +181,12 @@ async function applyVersionedMigrations(db) {
     if (table === 'trace_spans' && !columnNames.has('workspace_id')) await db.exec('ALTER TABLE trace_spans ADD COLUMN workspace_id TEXT');
     if (table === 'evaluation_runs' && !columnNames.has('agent_id')) await db.exec('ALTER TABLE evaluation_runs ADD COLUMN agent_id TEXT');
     if (table === 'telemetry_events' && !columnNames.has('event_id')) await db.exec('ALTER TABLE telemetry_events ADD COLUMN event_id TEXT');
+    if (table === 'workflow_runs' && !columnNames.has('attempts')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
+    if (table === 'workflow_runs' && !columnNames.has('max_attempts')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
+    if (table === 'workflow_runs' && !columnNames.has('timeout_ms')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN timeout_ms INTEGER NOT NULL DEFAULT 30000');
+    if (table === 'workflow_runs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN claimed_at DATETIME');
+    if (table === 'model_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE model_jobs ADD COLUMN claimed_at DATETIME');
+    if (table === 'evaluation_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN claimed_at DATETIME');
   }
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry_events(event_id) WHERE event_id IS NOT NULL');
   await migrateDatasetNameConstraint(db);

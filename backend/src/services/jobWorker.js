@@ -4,10 +4,12 @@ const telemetry = require('./telemetryObserver');
 const modelRouter = require('./modelRouter');
 const mcpExecutor = require('./mcpExecutor');
 const { parseWorkflowCondition } = require('./workflowConditions');
+const { validateGraph } = require('../controllers/workflowController');
 
 let timer = null;
 let busy = false;
 let recovered = false;
+let lastRecoveryAt = 0;
 const lastScopeByTable = new Map();
 const MAX_WORKFLOW_NODES = 10000;
 const MAX_WORKFLOW_DEPTH = 256;
@@ -26,22 +28,26 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
 }
 
 async function recoverInterruptedJobs(db) {
+  const staleMinutes = Math.max(1, Math.min(1440, Number(process.env.GENOS_STALE_JOB_MINUTES) || 15));
+  const stale = `claimed_at IS NULL OR claimed_at < datetime('now', ?) `;
   await db.run(
     `UPDATE workflow_runs
-        SET status = 'failed',
+        SET status = CASE WHEN attempts + 1 < max_attempts THEN 'queued' ELSE 'failed' END,
+            attempts = attempts + 1,
             error_json = COALESCE(error_json, ?),
-            completed_at = COALESCE(completed_at, CURRENT_TIMESTAMP)
-      WHERE status = 'running'`,
-    JSON.stringify({ message: 'Worker interrupted; explicit retry required because workflow effects are not replay-safe.' })
+            completed_at = CASE WHEN attempts + 1 < max_attempts THEN NULL ELSE COALESCE(completed_at, CURRENT_TIMESTAMP) END,
+            claimed_at = NULL
+      WHERE status = 'running' AND (${stale})`,
+    JSON.stringify({ message: 'Worker claim became stale; workflow recovery scheduled.', retryable: true }), `-${staleMinutes} minutes`
   );
   for (const table of ['evaluation_jobs', 'model_jobs']) {
-    await db.run(`UPDATE ${table} SET status = 'failed', attempts = max_attempts, error_json = COALESCE(error_json, ?), completed_at = CURRENT_TIMESTAMP WHERE status = 'running' AND attempts + 1 >= max_attempts`, JSON.stringify({ message: 'Worker interrupted and retry budget exhausted.', retryable: false }));
-    await db.run(`UPDATE ${table} SET status = 'queued', attempts = attempts + 1 WHERE status = 'running' AND attempts + 1 < max_attempts`);
+    await db.run(`UPDATE ${table} SET status = CASE WHEN attempts + 1 < max_attempts THEN 'queued' ELSE 'failed' END, attempts = attempts + 1, error_json = COALESCE(error_json, ?), completed_at = CASE WHEN attempts + 1 < max_attempts THEN NULL ELSE CURRENT_TIMESTAMP END, claimed_at = NULL WHERE status = 'running' AND (${stale})`, JSON.stringify({ message: 'Worker claim became stale; retry scheduled.', retryable: true }), `-${staleMinutes} minutes`);
   }
 }
 
 async function claim(db, table, id) {
-  const result = await db.run(`UPDATE ${table} SET status = 'running', claimed_at = CURRENT_TIMESTAMP, started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = ? AND status = 'queued'`, id);
+  const started = table === 'workflow_runs' ? ', started_at = COALESCE(started_at, CURRENT_TIMESTAMP)' : '';
+  const result = await db.run(`UPDATE ${table} SET status = 'running', claimed_at = CURRENT_TIMESTAMP${started} WHERE id = ? AND status = 'queued'`, id);
   return result.changes === 1;
 }
 
@@ -52,16 +58,18 @@ async function executeWorkflow(db, run) {
     error.code = 'WORKFLOW_CANCELLED';
     throw error;
   }
-  const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', run.workflow_id);
+  const workflow = await db.get(
+    `SELECT w.*, v.graph_json AS version_graph_json, v.metadata_json AS version_metadata_json
+       FROM workflows w JOIN workflow_versions v ON v.workflow_id = w.id AND v.version = ?
+      WHERE w.id = ?`,
+    run.workflow_version, run.workflow_id
+  );
   if (!workflow) throw new Error('Workflow no longer exists.');
-    if (!['staging', 'published'].includes(workflow.status)) {
-      throw new Error(`Workflow status '${workflow.status}' is not runnable.`);
-    }
-  if (Number(workflow.version) !== Number(run.workflow_version)) {
-    throw new Error(`Workflow version mismatch: run requested v${run.workflow_version}, current definition is v${workflow.version}.`);
-  }
-  const graph = JSON.parse(workflow.graph_json || '{"nodes":[],"edges":[]}');
+  if (!['staging', 'published'].includes(workflow.status)) throw new Error(`Workflow status '${workflow.status}' is not runnable.`);
+  const graph = JSON.parse(workflow.version_graph_json || '{"nodes":[],"edges":[]}');
   if ((graph.nodes || []).length > MAX_WORKFLOW_NODES) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_NODES}-node execution limit.`);
+  const validation = validateGraph(graph);
+  if (!validation.valid) throw new Error(`Workflow graph is invalid: ${validation.errors.join(' ')}`);
   const traceId = `trace-${run.id}`;
   const started = Date.now();
   const metadata = (() => { try { return JSON.parse(workflow.metadata_json || '{}'); } catch (_) { return {}; } })();
@@ -289,8 +297,13 @@ async function withRetry(db, table, job, executor) {
       await executor();
       return;
     } catch (error) {
+      if (error.code === 'MODEL_JOB_CANCELLED') {
+        await db.run(`UPDATE ${table} SET status = 'cancelled', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'`, JSON.stringify({ message: error.message, cancelled: true, attempts: attempt }), job.id);
+        return;
+      }
       if (attempt === max || !isRetryableJobError(error)) {
-        await db.run(`UPDATE ${table} SET status = 'failed', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error) }), job.id);
+        const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
+        await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error), cancelled: status === 'cancelled' }), job.id);
       } else {
         const baseDelay = Math.min(30000, 250 * (2 ** (attempt - 1)));
         const jitter = Math.floor(Math.random() * Math.max(1, Math.floor(baseDelay / 2)));
@@ -305,7 +318,7 @@ async function processOnce() {
   busy = true;
   try {
     const db = await getDatabase();
-    if (!recovered) { await recoverInterruptedJobs(db); recovered = true; }
+    if (!recovered || Date.now() - lastRecoveryAt >= 60000) { await recoverInterruptedJobs(db); recovered = true; lastRecoveryAt = Date.now(); }
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
     const workflow = selectFairWorkflow(queuedWorkflows, 'workflow_runs');
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) await withRetry(db, 'workflow_runs', workflow, () => executeWorkflow(db, workflow));

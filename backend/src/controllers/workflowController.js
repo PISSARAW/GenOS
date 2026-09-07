@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 const { validateWorkflowCondition } = require('../services/workflowConditions');
 
@@ -8,18 +8,36 @@ function parseJson(value, fallback) {
 }
 
 function validateGraph(graph) {
-  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
-  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
-  const ids = new Set(nodes.map((node) => node.id).filter(Boolean));
   const errors = [];
   if (!graph || typeof graph !== 'object') errors.push('Workflow graph must be an object.');
+  if (graph && !Array.isArray(graph.nodes)) errors.push('Workflow nodes must be an array.');
+  if (graph && !Array.isArray(graph.edges)) errors.push('Workflow edges must be an array.');
+  const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
+  const edges = Array.isArray(graph?.edges) ? graph.edges : [];
+  const ids = new Set(nodes.map((node) => node?.id).filter((id) => typeof id === 'string' && id.trim()));
   if (nodes.length === 0) errors.push('Workflow must contain at least one node.');
+  if (nodes.some((node) => !node || typeof node.id !== 'string' || !node.id.trim())) errors.push('Every workflow node must have a non-empty string id.');
   if (new Set(nodes.map((node) => node.id)).size !== nodes.length) errors.push('Node ids must be unique.');
+  const edgeIds = new Set();
+  const edgeKeys = new Set();
   edges.forEach((edge) => {
+    if (!edge || typeof edge !== 'object') {
+      errors.push('Every workflow edge must be an object.');
+      return;
+    }
+    if (edge.id !== undefined) {
+      if (typeof edge.id !== 'string' || !edge.id.trim()) errors.push('Workflow edge ids must be non-empty strings.');
+      else if (edgeIds.has(edge.id)) errors.push(`Edge id '${edge.id}' must be unique.`);
+      else edgeIds.add(edge.id);
+    }
     if (!ids.has(edge.source) || !ids.has(edge.target)) errors.push(`Edge ${edge.id || '(unnamed)'} references an unknown node.`);
+    if (edge.source === edge.target && ids.has(edge.source)) errors.push(`Edge ${edge.id || '(unnamed)'} cannot point to its own node.`);
+    const edgeKey = `${String(edge.source)}\u0000${String(edge.target)}`;
+    if (edgeKeys.has(edgeKey)) errors.push(`Duplicate edge from '${edge.source}' to '${edge.target}'.`);
+    else edgeKeys.add(edgeKey);
   });
   const adjacency = new Map(nodes.map((node) => [node.id, []]));
-  edges.forEach((edge) => { if (adjacency.has(edge.source) && adjacency.has(edge.target)) adjacency.get(edge.source).push(edge.target); });
+  edges.forEach((edge) => { if (edge && adjacency.has(edge.source) && adjacency.has(edge.target)) adjacency.get(edge.source).push(edge.target); });
   const visiting = new Set(); const visited = new Set();
   const hasCycle = (id) => {
     if (visiting.has(id)) return true;
@@ -82,7 +100,10 @@ async function createWorkflow(req, res, next) {
     }
     const workspace = await db.get(`SELECT id FROM workspaces WHERE id = ? AND ${s.clause}`, workspaceId, ...s.params);
     if (!workspace) return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace not found in this project.' } });
-    await db.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspace.id, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
+    await withTransaction(db, async (tx) => {
+      await tx.run('INSERT INTO workflows (id, workspace_id, name, description, version, status, graph_json, metadata_json, organization_id, project_id) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?)', id, workspace.id, name.trim(), description, 'draft', JSON.stringify(graph), JSON.stringify(metadata), ...s.params);
+      await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, id, 1, JSON.stringify(graph), JSON.stringify(metadata));
+    });
     res.status(201).json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', id)));
   } catch (error) { next(error); }
 }
@@ -102,11 +123,18 @@ async function updateWorkflow(req, res, next) {
     const s = scopeSql(req); const existing = await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params);
     if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     const graph = req.body?.graph || parseJson(existing.graph_json, {});
+    if (req.body?.status && !['draft', 'staging', 'published', 'archived'].includes(req.body.status)) return res.status(400).json({ error: { code: 'INVALID_STATUS', message: 'Workflow status must be draft, staging, published, or archived.' } });
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const nextVersion = Number(existing.version || 0) + 1;
-    const result = await db.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, req.body?.status || existing.status, JSON.stringify(graph), JSON.stringify(req.body?.metadata || parseJson(existing.metadata_json, {})), req.params.id, ...s.params);
-    if (result.changes !== 1) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
+    const metadata = req.body?.metadata || parseJson(existing.metadata_json, {});
+    const result = await withTransaction(db, async (tx) => {
+      const update = await tx.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, req.body?.status || existing.status, JSON.stringify(graph), JSON.stringify(metadata), req.params.id, existing.version, ...s.params);
+      if (update.changes !== 1) return null;
+      await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, req.params.id, nextVersion, JSON.stringify(graph), JSON.stringify(metadata));
+      return update;
+    });
+    if (!result) return res.status(409).json({ error: { code: 'WORKFLOW_VERSION_CONFLICT', message: 'Workflow changed while it was being updated.' } });
     res.json(mapWorkflow(await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params)));
   } catch (error) { next(error); }
 }
@@ -128,11 +156,15 @@ async function createRun(req, res, next) {
     if (!['staging', 'published'].includes(workflow.status)) {
       return res.status(409).json({ error: { code: 'WORKFLOW_NOT_RUNNABLE', message: 'Only staging or published workflows can be run.' } });
     }
-    const graph = parseJson(workflow.graph_json, {});
+    const version = await db.get('SELECT version, graph_json FROM workflow_versions WHERE workflow_id = ? AND version = ?', workflow.id, workflow.version);
+    if (!version) return res.status(409).json({ error: { code: 'WORKFLOW_VERSION_UNAVAILABLE', message: 'The workflow has no persisted executable version.' } });
+    const graph = parseJson(version.graph_json, {});
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const id = `wfr-${crypto.randomUUID()}`;
-    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, status, input_json) VALUES (?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, 'queued', JSON.stringify(req.body?.input || {}));
+    const maxAttempts = Math.max(1, Math.min(10, Number(req.body?.maxAttempts || 3)));
+    const timeoutMs = Math.max(1, Math.min(30 * 60 * 1000, Number(req.body?.timeoutMs || 30000)));
+    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, status, input_json, max_attempts, timeout_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, 'queued', JSON.stringify(req.body?.input || {}), maxAttempts, timeoutMs);
     res.status(202).json({ id, workflowId: workflow.id, version: workflow.version, status: 'queued', acceptedAt: new Date().toISOString() });
   } catch (error) { next(error); }
 }
