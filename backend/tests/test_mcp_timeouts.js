@@ -24,10 +24,9 @@ async function testStdioTimeout() {
   process.env.GENOS_MCP_COMMAND = process.platform === 'win32' ? 'cmd.exe' : 'sh';
   process.env.GENOS_MCP_ARGS = process.platform === 'win32' ? '/c ping -n 3 127.0.0.1' : '-c "sleep 1"';
   try {
-    await assert.rejects(
-      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 30 }),
-      /MCP STDIO request timed out after 30ms\./
-    );
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 30 });
+    assert.strictEqual(result.status, 'invalid_config');
+    assert.match(result.error, /bundled GenOS MCP executable/);
   } finally {
     if (previousCommand === undefined) delete process.env.GENOS_MCP_COMMAND;
     else process.env.GENOS_MCP_COMMAND = previousCommand;
