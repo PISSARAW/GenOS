@@ -8,6 +8,20 @@ const {
   WORKER_EVIDENCE_EVENTS
 } = require('./agentOrchestrationState');
 
+function extractEvidenceReport(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  if (payload.evidenceReport && typeof payload.evidenceReport === 'object' && Object.keys(payload.evidenceReport).length > 0) {
+    return payload.evidenceReport;
+  }
+  if (payload.report && typeof payload.report === 'object' && Object.keys(payload.report).length > 0) {
+    return payload.report;
+  }
+  if (Array.isArray(payload.claims) || payload.outcome || Array.isArray(payload.dossierInfluence) || payload.creativeEvaluation) {
+    return payload;
+  }
+  return payload.evidenceReport || payload.report || null;
+}
+
 function recordWorkerEvidence(mission, event) {
   const orchestratorId = mission.orchestratorAgentId;
   if (!orchestratorId || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
@@ -24,7 +38,7 @@ function recordWorkerEvidence(mission, event) {
     });
   }
   const events = round.events.get(workerId) || [];
-  const report = event.payload?.evidenceReport || event.payload?.report;
+  const report = extractEvidenceReport(event.payload);
   events.push({
     eventType: event.eventType,
     action: event.action,
@@ -33,7 +47,12 @@ function recordWorkerEvidence(mission, event) {
     ...(event.payload?.failure ? { failure: event.payload.failure } : {}),
     ...(event.payload?.noAnswerProof ? { noAnswerProof: event.payload.noAnswerProof } : {})
   });
-  round.events.set(workerId, events.slice(-4));
+  // Always preserve events that carry evidence reports, failures, or proofs of impossibility
+  const evidenceCarrying = events.filter((e) => e.evidenceReport || e.failure || e.noAnswerProof);
+  const otherEvents = events.filter((e) => !e.evidenceReport && !e.failure && !e.noAnswerProof);
+  const cappedOther = otherEvents.slice(-10);
+  const combined = [...evidenceCarrying, ...cappedOther].slice(-25);
+  round.events.set(workerId, combined);
 }
 
 function workerEvidenceDossiers(orchestratorId, workers) {
@@ -124,7 +143,7 @@ function boundedEvidenceScore(value) {
 }
 
 function evidenceScore(payload = {}, context = {}) {
-  const report = payload.evidenceReport || payload.report || {};
+  const report = extractEvidenceReport(payload) || {};
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const creative = report.artifact === 'creative'
     || context.artifact === 'creative'
@@ -149,6 +168,7 @@ function evidenceScore(payload = {}, context = {}) {
 }
 
 module.exports = {
+  extractEvidenceReport,
   recordWorkerEvidence,
   workerEvidenceDossiers,
   validateWorkerDossiers,
