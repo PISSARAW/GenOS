@@ -129,8 +129,8 @@ class CircuitBreakerService {
     }
 
     if (state === 'HALF-OPEN' && isDestructive) {
-      if (stateContext.halfOpenProbe && stateContext.halfOpenProbe !== toolName) {
-        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
+      if (stateContext.halfOpenProbe) {
+        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${stateContext.halfOpenProbe}' is already in progress.` };
       }
       stateContext.halfOpenProbe = toolName;
     }

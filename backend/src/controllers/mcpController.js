@@ -77,13 +77,12 @@ async function toggleCircuitBreaker(req, res) {
     return res.status(400).json({ error: { code: 'INVALID_TOOL', message: 'toolName is required' } });
   }
 
-  circuitBreaker.toggleToolLock(toolName, !!locked, reason);
-
   const db = await getDatabase();
   const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) {
     return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
   }
+  circuitBreaker.toggleToolLock(toolName, !!locked, reason);
   await db.run('UPDATE mcp_tools SET is_locked = ? WHERE name = ?', locked ? 1 : 0, toolName);
 
   res.json({

@@ -160,6 +160,11 @@ async function permissionCheck(context) {
   const circuitBreaker = require('../circuitBreaker');
   const toolName = context.tool || context.action || '';
   const isDestructive = circuitBreaker.isDestructive(toolName);
+  const db = await getDatabase();
+  const persistedTool = toolName ? await db.get('SELECT is_locked FROM mcp_tools WHERE name = ?', toolName) : null;
+  if (persistedTool?.is_locked === 1) {
+    return { success: false, allowed: false, isDestructive, circuitState: { allowed: false, reason: 'TOOL_LOCKED', message: `Tool '${toolName}' is manually locked in quarantine.` } };
+  }
   const circuit = circuitBreaker.canExecute(toolName, context.agentType || 'GenOS', context.scope || 'default', context.args || null);
   const allowed = circuit.allowed && !isDestructive;
   telemetry.emitEvent({
