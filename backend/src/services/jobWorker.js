@@ -61,19 +61,19 @@ async function executeWorkflow(db, run) {
   }
   const workflow = await db.get(
     `SELECT w.*, v.graph_json AS version_graph_json, v.metadata_json AS version_metadata_json
-       FROM workflows w JOIN workflow_versions v ON v.workflow_id = w.id AND v.version = ?
+      FROM workflows w LEFT JOIN workflow_versions v ON v.workflow_id = w.id AND v.version = ?
       WHERE w.id = ?`,
     run.workflow_version, run.workflow_id
   );
   if (!workflow) throw new Error('Workflow no longer exists.');
   if (!['staging', 'published'].includes(workflow.status)) throw new Error(`Workflow status '${workflow.status}' is not runnable.`);
-  const graph = JSON.parse(workflow.version_graph_json || '{"nodes":[],"edges":[]}');
+  const graph = JSON.parse(workflow.version_graph_json || workflow.graph_json || '{"nodes":[],"edges":[]}');
   if ((graph.nodes || []).length > MAX_WORKFLOW_NODES) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_NODES}-node execution limit.`);
   const validation = validateGraph(graph);
   if (!validation.valid) throw new Error(`Workflow graph is invalid: ${validation.errors.join(' ')}`);
   const traceId = `trace-${run.id}`;
   const started = Date.now();
-  const metadata = (() => { try { return JSON.parse(workflow.metadata_json || '{}'); } catch (_) { return {}; } })();
+  const metadata = (() => { try { return JSON.parse(workflow.version_metadata_json || workflow.metadata_json || '{}'); } catch (_) { return {}; } })();
   const requestedDuration = Number(run.timeout_ms ?? metadata.workflowTimeoutMs ?? metadata.timeoutMs ?? MAX_WORKFLOW_DURATION_MS);
   const workflowDeadline = started + (Number.isFinite(requestedDuration) ? Math.max(1, Math.min(requestedDuration, MAX_WORKFLOW_DURATION_MS)) : MAX_WORKFLOW_DURATION_MS);
   const assertWorkflowDeadline = () => {
