@@ -90,9 +90,12 @@ async function cherryPickGoldenPath(context) {
   let turns = context.turns || context.trajectory || [];
   if (!Array.isArray(turns) || turns.length === 0) {
     if (context.task || context.reply) {
+      if (!context.verified && !context.verifiedEvidence) {
+         return { success: false, error: 'Cannot record a reply as a Golden Path without verified evidence or explicit verification.' };
+      }
       turns = [
         { step: 1, action: 'task_definition', classification: 'Exploration', detail: String(context.task || '').slice(0, 200) },
-        { step: 2, action: 'task_completion', classification: 'Breakthrough', success: true, detail: String(context.reply || '').slice(0, 200) }
+        { step: 2, action: 'task_completion', classification: 'Breakthrough', success: true, verified: true, detail: String(context.reply || '').slice(0, 200) }
       ];
     } else {
       return { success: false, error: 'At least one trajectory turn is required for a golden path.' };
