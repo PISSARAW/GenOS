@@ -6,6 +6,7 @@ const express = require('express');
 const router = express.Router();
 const deployController = require('../controllers/deployController');
 const agentDossierController = require('../controllers/agentDossierController');
+const agentConscienceController = require('../controllers/agentConscienceController');
 const strategyExecutionController = require('../controllers/strategyExecutionController');
 const { requirePermission } = require('../middleware/auth');
 const { attachTenant, requireTenantScope } = require('../middleware/tenant');
@@ -18,6 +19,8 @@ router.post('/deploy/trinity', requirePermission('workspace:write'), requireTena
 router.get('/deploy/trinity', requireTenantScope(), deployController.listTrinityWorlds);
 router.get('/agents', requireTenantScope(), paginateList(deployController.listAgents));
 router.get('/agents/:id/dossier', requireTenantScope(), agentDossierController.getAgentDossier);
+router.get('/agents/:id/conscience', requireTenantScope(), agentConscienceController.getAgentConscience);
+router.get('/agents/:id/conscience/transitions', requireTenantScope(), agentConscienceController.getConscienceTransitions);
 router.post('/agents/:id/stop', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.stopAgent);
 router.post('/agents/bulk-stop', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.stopAgents);
 router.post('/agents/bulk-delete', requirePermission('workspace:write'), requireTenantScope({ write: true }), deployController.deleteAgents);
