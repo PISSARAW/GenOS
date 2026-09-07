@@ -107,6 +107,17 @@ process.stdin.on('end', async () => {
   try { autonomyPlan = JSON.parse(mission.autonomyPlanJson || '{}'); } catch {}
   let toolLease = [];
   try { toolLease = JSON.parse(mission.toolLeaseJson || '[]'); } catch {}
+  if (!Array.isArray(toolLease) || toolLease.some((tool) => typeof tool !== 'string' || !tool.trim())) {
+    process.stderr.write('Invalid mission tool lease: expected an array of non-empty tool names.\n');
+    process.exitCode = 2;
+    return;
+  }
+  toolLease = [...new Set(toolLease.map((tool) => tool.trim()))];
+  if (!toolLease.length) {
+    process.stderr.write('Invalid mission tool lease: at least one tool is required.\n');
+    process.exitCode = 2;
+    return;
+  }
   let genosCapsule = {};
   try { genosCapsule = JSON.parse(mission.genosCapsuleJson || '{}'); } catch {}
   let executionPolicy = {};
@@ -229,7 +240,7 @@ process.stdin.on('end', async () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpCommand)}`,
       '-c', `mcp_servers.genos.args=${JSON.stringify(mcpArgs)}`,
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')},GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
       '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
