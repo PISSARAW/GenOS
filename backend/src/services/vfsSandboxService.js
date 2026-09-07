@@ -3,6 +3,8 @@
  * Side-effect prediction, dynamic JSON Schema inspection, and micro-telemetry metering.
  */
 
+const { normalizeRelativePath } = require('./pathSafety');
+
 // Tool metadata registry for the 40 MCP tools
 const TOOL_SCHEMAS = {
   genos_create: {
@@ -110,11 +112,11 @@ function calculateBlastRadius(filesModified, isDestructive, requiredRole) {
 }
 
 function normalizeWorkspacePath(value) {
-  const normalized = String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
-  if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.split('/').includes('..')) {
+  try {
+    return normalizeRelativePath(String(value || '').replace(/^\.\//, ''), 'workspace path');
+  } catch (_) {
     throw new Error(`Path escapes the workspace: ${value}`);
   }
-  return normalized.split('/').filter(Boolean).join('/');
 }
 
 /**
@@ -147,7 +149,7 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   } else if (tool === 'genos_restore' || tool === 'genos_rollback') {
     requiredRole = 'operator';
     isDestructive = true;
-    filesModified.push(args.path || 'workspace_root');
+    filesModified.push(args.path ? normalizeWorkspacePath(args.path) : 'workspace_root');
   } else if (tool === 'genos_run' || tool === 'run_command') {
     requiredRole = 'admin';
     isDestructive = true;
@@ -243,11 +245,12 @@ function dryRunPatch(workspaceId, patch, vfsState = {}) {
   }
   const normalizedPaths = new Set();
   const normalizedEntries = entries.map((entry) => {
-    const normalized = entry.path.replace(/\\/g, '/').replace(/^\.\//, '');
-    if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.split('/').includes('..')) {
+    let canonicalPath;
+    try {
+      canonicalPath = normalizeRelativePath(entry.path.replace(/^\.\//, ''), 'patch path');
+    } catch (_) {
       throw new Error(`Patch path escapes the workspace: ${entry.path}`);
     }
-    const canonicalPath = normalized.split('/').filter(Boolean).join('/');
     if (!canonicalPath || normalizedPaths.has(canonicalPath)) {
       throw new Error(`Patch contains a duplicate target path: ${entry.path}`);
     }
