@@ -5,6 +5,15 @@
 const telemetry = require('../telemetryObserver');
 const { getDatabase } = require('../../db');
 
+function brierScoreToWeight(brier) {
+  if (!Number.isFinite(brier)) return 1.0;
+  if (brier >= 1.0) return 0.0;
+  if (brier >= 0.5) {
+    return Math.max(0, 0.1 * (1 - brier));
+  }
+  return Math.pow(1 - brier, 2);
+}
+
 function calculateItemBrierScore(item) {
   if (!item) return NaN;
 
@@ -143,9 +152,10 @@ async function quorum(context = {}) {
       if (hasVoted.has(row.sender_agent_id)) continue;
       try {
         const payload = JSON.parse(row.payload_json);
-        if (payload.issue === issue && payload.vote) {
-          if (payload.vote !== 'abstain') {
-            votes[payload.vote] = (votes[payload.vote] || 0) + 1;
+        if (payload.issue === issue && payload.vote !== undefined && payload.vote !== null) {
+          const voteStr = String(payload.vote).trim();
+          if (voteStr.toLowerCase() !== 'abstain') {
+            votes[voteStr] = (votes[voteStr] || 0) + 1;
           }
           hasVoted.add(row.sender_agent_id);
         }
@@ -166,10 +176,13 @@ async function quorum(context = {}) {
           );
           for (const rv of restVotes) {
             if (hasVoted.has(rv.agent_id)) continue;
-            if (rv.vote && rv.vote !== 'abstain') {
-              votes[rv.vote] = (votes[rv.vote] || 0) + 1;
+            if (rv.vote !== undefined && rv.vote !== null) {
+              const rvVoteStr = String(rv.vote).trim();
+              if (rvVoteStr.toLowerCase() !== 'abstain') {
+                votes[rvVoteStr] = (votes[rvVoteStr] || 0) + 1;
+              }
+              hasVoted.add(rv.agent_id);
             }
-            hasVoted.add(rv.agent_id);
           }
         }
       } catch (_) {}
@@ -263,11 +276,12 @@ async function weightedQuorum(context = {}) {
       if (hasVoted.has(row.sender_agent_id)) continue;
       try {
         const payload = JSON.parse(row.payload_json);
-        if (payload.issue === issue && payload.vote) {
-          if (payload.vote !== 'abstain') {
+        if (payload.issue === issue && payload.vote !== undefined && payload.vote !== null) {
+          const voteStr = String(payload.vote).trim();
+          if (voteStr.toLowerCase() !== 'abstain') {
             const brier = bScores[row.sender_agent_id] !== undefined ? bScores[row.sender_agent_id] : 0.25;
-            const weight = Number.isFinite(brier) ? Math.max(0, 1 - 2 * brier) : 1.0;
-            weightedVotes[payload.vote] = (weightedVotes[payload.vote] || 0) + weight;
+            const weight = brierScoreToWeight(brier);
+            weightedVotes[voteStr] = (weightedVotes[voteStr] || 0) + weight;
           }
           hasVoted.add(row.sender_agent_id);
         }
@@ -288,16 +302,19 @@ async function weightedQuorum(context = {}) {
           );
           for (const rv of restVotes) {
             if (hasVoted.has(rv.agent_id)) continue;
-            if (rv.vote && rv.vote !== 'abstain') {
-              let weight = 1.0;
-              if (Number.isFinite(rv.brier_score)) {
-                weight = Math.max(0, 1 - 2 * rv.brier_score);
-              } else if (Number.isFinite(rv.weight)) {
-                weight = Number(rv.weight);
+            if (rv.vote !== undefined && rv.vote !== null) {
+              const rvVoteStr = String(rv.vote).trim();
+              if (rvVoteStr.toLowerCase() !== 'abstain') {
+                let weight = 1.0;
+                if (Number.isFinite(rv.brier_score)) {
+                  weight = brierScoreToWeight(rv.brier_score);
+                } else if (Number.isFinite(rv.weight)) {
+                  weight = Number(rv.weight);
+                }
+                weightedVotes[rvVoteStr] = (weightedVotes[rvVoteStr] || 0) + weight;
               }
-              weightedVotes[rv.vote] = (weightedVotes[rv.vote] || 0) + weight;
+              hasVoted.add(rv.agent_id);
             }
-            hasVoted.add(rv.agent_id);
           }
         }
       } catch (_) {}
@@ -331,6 +348,9 @@ async function weightedQuorum(context = {}) {
     await recordConsensusMessage(db, orchestratorId, 'weighted_consensus_resolution', issue, decision, quorumReached, {
       weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
     });
+    await recordConsensusMessage(db, orchestratorId, 'consensus_resolution', issue, decision, quorumReached, {
+      weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
+    });
 
     return {
       success: true,
@@ -338,6 +358,7 @@ async function weightedQuorum(context = {}) {
       decision,
       quorumReached,
       weightedVotes,
+      weightedTally: weightedVotes,
       totalVotes: hasVoted.size,
       totalWeight: totalExpressedWeight,
       approvalRate,
