@@ -151,11 +151,14 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
           const dotGitDir = path.dirname(path.dirname(worktreeGitDir));
           if (path.basename(dotGitDir) === '.git') {
             parentRepoDir = path.dirname(dotGitDir);
+          } else {
+            parentRepoDir = dotGitDir;
           }
         }
       } catch (_) {}
 
-      await spawnGit(parentRepoDir || path.dirname(workspaceRoot), ['worktree', 'remove', '--force', workspaceRoot]);
+      const executionDir = parentRepoDir || process.cwd();
+      await spawnGit(executionDir, ['worktree', 'remove', '--force', workspaceRoot]);
       removedVia = 'worktree-removed';
     }
   } catch (_) { /* fall through to the filesystem removal */ }
