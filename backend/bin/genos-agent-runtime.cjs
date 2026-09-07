@@ -297,9 +297,8 @@ process.stdin.on('end', async () => {
       severity: 'warning', status: 'blocked', currentTask: 'Execution stopped by budget guard',
       payload: budgetStopped
     });
-    try { child.stdout.destroy(); } catch (_) {}
-    try { child.stderr.destroy(); } catch (_) {}
-    try { child.stdin.destroy(); } catch (_) {}
+    try { child.stdout.pause(); } catch (_) {}
+    try { child.stderr.pause(); } catch (_) {}
     setImmediate(() => {
       try {
         terminateChild(child);
