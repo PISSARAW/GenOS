@@ -293,10 +293,13 @@ async function bisect(req, res, next) {
       try { const metadata = JSON.parse(row.metadata || '{}'); return metadata.storage === 'durable-filesystem' && metadata.manifestPath; } catch (_) { return false; }
     });
     if (history.length < 2) return res.status(409).json({ error: { code: 'NO_DURABLE_SNAPSHOTS', message: 'Capture at least two durable snapshots before running bisection.' } });
-    const result = await bisectionService.bisectAnomalyAsync(history, async (snapshot) => {
-      const execution = await snapshotStore.runInSnapshot({ snapshot, command: normalizedCommand, timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000), workspacePath: workspace.path });
-      snapshot._execution = execution;
-      return execution.exitCode === 0;
+    const result = await bisectionService.autoBisectWorkspaceAnomaly(db, {
+      workspaceId: workspace.id,
+      workspaceRoot: workspace.path,
+      testCommand: normalizedCommand,
+      snapshotHistory: history,
+      timeoutMs: Math.min(Number(timeoutMs) || 30000, 120000),
+      autoRollback: false
     });
     telemetry.emitEvent({ eventType: 'WORKSPACE_BISECTION_COMPLETED', agentId: req.user?.username || 'studio', action: 'BISECTION', detail: `Bisection completed for ${workspace.id}`, payload: { workspaceId: workspace.id, command: normalizedCommand, result } });
     res.json(result);
