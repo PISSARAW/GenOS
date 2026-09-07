@@ -5,6 +5,23 @@
 
 const { normalizeRelativePath } = require('./pathSafety');
 const virtualFiles = new Map();
+let virtualFileBytes = 0;
+const DEFAULT_MAX_VFS_FILE_BYTES = 8 * 1024 * 1024;
+const DEFAULT_MAX_VFS_BYTES = 64 * 1024 * 1024;
+const DEFAULT_MAX_VFS_FILES = 10000;
+
+function positiveLimit(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function vfsLimits() {
+  return {
+    maxFileBytes: positiveLimit('GENOS_MAX_VFS_FILE_BYTES', DEFAULT_MAX_VFS_FILE_BYTES),
+    maxBytes: positiveLimit('GENOS_MAX_VFS_BYTES', DEFAULT_MAX_VFS_BYTES),
+    maxFiles: positiveLimit('GENOS_MAX_VFS_FILES', DEFAULT_MAX_VFS_FILES)
+  };
+}
 
 // Tool metadata registry for the 40 MCP tools
 const TOOL_SCHEMAS = {
@@ -279,11 +296,21 @@ async function executeVfsOperation(operation, filePath, content = '') {
   const op = String(operation || '').toLowerCase();
   if (['create', 'write', 'replace', 'write_file', 'replace_file_content'].includes(op)) {
     if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
-    virtualFiles.set(target, String(content));
+    const value = String(content);
+    const bytes = Buffer.byteLength(value, 'utf8');
+    const limits = vfsLimits();
+    if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
+    if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
+    const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
+    if (virtualFileBytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
+    virtualFiles.set(target, value);
+    virtualFileBytes = virtualFileBytes - previousBytes + bytes;
     return { success: true, message: `Wrote ${target}` };
   }
   if (['delete', 'remove', 'delete_file'].includes(op)) {
-    if (!virtualFiles.delete(target)) return { success: false, message: `File not found: ${target}` };
+    if (!virtualFiles.has(target)) return { success: false, message: `File not found: ${target}` };
+    virtualFileBytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
+    virtualFiles.delete(target);
     return { success: true, message: `Deleted ${target}` };
   }
   throw new Error(`Unsupported VFS operation: ${operation}`);
