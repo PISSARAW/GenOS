@@ -20,12 +20,10 @@ function resolveComputerUseModel() {
     return { model: candidate, provider };
 }
 
-const LOCAL_VISION_INSTRUCTIONS = `You control a computer via screenshots. Respond with ONLY a single JSON object (no prose, no markdown fences, no extra objects) describing the next action. A new screenshot is taken every turn, so never request one. Allowed actions only:
-{"action":"mouse_move","coordinate":[100,200]}
-{"action":"click","coordinate":[100,200],"button":"left"}
-{"action":"type","text":"hello"}
-{"action":"key","text":"Enter"}
-Coordinates are pixels from the top-left corner and must never be negative. When the mission is complete, respond with {"action":"done"}.`;
+const LOCAL_VISION_INSTRUCTIONS = `You control a computer via screenshots. Respond with ONLY a single JSON object (no prose, no markdown fences, no extra objects) describing the next action(s). A new screenshot is taken after your actions run, so never request one. Allowed action types only: mouse_move, click, type, key. You may chain several steps that should run back-to-back before the next screenshot (e.g. open a launcher, type a command, press Enter) using "actions": [...]. Examples:
+{"actions":[{"type":"key","text":"super"},{"type":"type","text":"notepad"},{"type":"key","text":"enter"}]}
+{"actions":[{"type":"click","x":100,"y":200,"button":"left"}]}
+A single action is also accepted without wrapping: {"type":"type","text":"hello"}. Coordinates are pixels from the top-left corner and must never be negative. When the mission is complete, respond with {"action":"done"}.`;
 
 // Local vision models often ignore instructions and invent action names or
 // emit several JSON objects in one reply; normalize/validate before executing.
@@ -59,19 +57,34 @@ function extractFirstJson(text) {
 }
 
 function normalizeToolCall(raw) {
-    if (!raw || !raw.action) return null;
-    const rawAction = String(raw.action).toLowerCase();
+    const rawName = raw && (raw.action || raw.type);
+    if (!rawName) return null;
+    const rawAction = String(rawName).toLowerCase();
     if (NOOP_ACTIONS.has(rawAction)) return { skip: true };
     let button = raw.button;
     if (/^right/.test(rawAction)) button = button || "right";
     if (/^middle/.test(rawAction)) button = button || "middle";
     const action = ACTION_ALIASES[rawAction] || rawAction;
     if (!SUPPORTED_ACTIONS.has(action)) return null;
-    const result = { action, text: raw.text, button };
-    if (Array.isArray(raw.coordinate) && raw.coordinate.length === 2) {
-        result.coordinate = raw.coordinate.map((n) => Math.max(0, Math.round(Number(n)) || 0));
+    const result = { type: action, text: raw.text, button };
+    const coordinate = Array.isArray(raw.coordinate) ? raw.coordinate : (raw.x !== undefined && raw.y !== undefined ? [raw.x, raw.y] : null);
+    if (Array.isArray(coordinate) && coordinate.length === 2) {
+        const [nx, ny] = coordinate.map((n) => Math.max(0, Math.round(Number(n)) || 0));
+        result.x = nx; result.y = ny;
     }
     return result;
+}
+
+// Normalizes either {"actions":[...]} (a multi-step plan) or a bare single
+// action object into an array of executable steps (dropping unsupported ones).
+function normalizePlan(parsed) {
+    const rawSteps = Array.isArray(parsed.actions) ? parsed.actions : [parsed];
+    const steps = [];
+    for (const rawStep of rawSteps) {
+        const normalized = normalizeToolCall(rawStep);
+        if (normalized && !normalized.skip) steps.push(normalized);
+    }
+    return steps;
 }
 
 // Local models sometimes emit raw control characters inside JSON strings
@@ -124,7 +137,7 @@ async function runComputerUseLoop(mission) {
         const prompt = isAnthropic
             ? [
                 { type: "image", source: { type: "base64", media_type: "image/png", data: base64Image } },
-                { type: "text", text: `Mission: ${mission}\n\nObserve the screen and use the computer tool to make progress.${historyText}` }
+                { type: "text", text: `Mission: ${mission}\n\nObserve the screen and use the computer tool to make progress. You may call the tool multiple times in this turn to chain steps (e.g. open a launcher, type a command, press Enter) - they all run before the next screenshot.${historyText}` }
             ]
             : [
                 { type: "image_url", image_url: { url: `data:image/png;base64,${base64Image}` } },
@@ -143,8 +156,10 @@ async function runComputerUseLoop(mission) {
         const text = result.text;
         console.log("Model responded.");
 
-        // 4. Parse the next action
-        let toolCall = null;
+        // 4. Parse the next plan - possibly several steps to run back-to-back
+        // before the next screenshot (fixes the model losing its train of
+        // thought when forced to re-observe after every single action).
+        let plan = [];
         let done = false;
         try {
             if (isAnthropic) {
@@ -153,8 +168,8 @@ async function runComputerUseLoop(mission) {
                         try {
                             const parsed = JSON.parse(line);
                             if (parsed.type === "tool_use" && parsed.name === "computer") {
-                                toolCall = parsed.input;
-                                break;
+                                const normalized = normalizeToolCall(parsed.input);
+                                if (normalized && !normalized.skip) plan.push(normalized);
                             }
                         } catch (err) {}
                     }
@@ -164,7 +179,7 @@ async function runComputerUseLoop(mission) {
                 if (jsonStr) {
                     const parsed = tryParseJson(jsonStr);
                     if (parsed && parsed.action === "done") done = true;
-                    else if (parsed) toolCall = normalizeToolCall(parsed);
+                    else if (parsed) plan = normalizePlan(parsed);
                 }
             }
         } catch (e) {}
@@ -174,39 +189,26 @@ async function runComputerUseLoop(mission) {
             break;
         }
 
-        if (toolCall && toolCall.skip) {
-            console.log("Model requested a no-op action, continuing.");
-            await new Promise(r => setTimeout(r, 1000));
-            continue;
-        }
-
-        if (toolCall) {
-            console.log("Executing Action:", toolCall);
-            let cmd = `genos desktop action --type ${toolCall.action}`;
-            if (toolCall.coordinate) {
-                cmd += ` --x ${toolCall.coordinate[0]} --y ${toolCall.coordinate[1]}`;
-            }
-            if (toolCall.button) {
-                cmd += ` --button ${toolCall.button}`;
-            }
-            if (toolCall.text) {
-                cmd += ` --text "${toolCall.text.replace(/"/g, "\\\"")}"`;
-            }
-            
-            try {
-                runGenosSync(cmd);
-                console.log("Action completed.");
-                history.push(`${JSON.stringify(toolCall)} -> succeeded`);
-                await new Promise(r => setTimeout(r, 1000));
-            } catch (e) {
-                console.error("Action failed:", e.message);
-                history.push(`${JSON.stringify(toolCall)} -> failed: ${e.message.split("\n")[0]}`);
-            }
-        } else {
+        if (!plan.length) {
             console.log("No tool calls. Mission might be completed or model is confused.");
             console.log("Response:", text);
             break;
         }
+
+        // 5. Execute the whole plan in one Rust process call - actions run
+        // back-to-back with no screenshot in between, so a step like
+        // "open launcher -> type -> Enter" completes in one shot.
+        console.log(`Executing plan (${plan.length} step${plan.length > 1 ? "s" : ""}):`, plan);
+        const payload = JSON.stringify(plan).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        try {
+            runGenosSync(`genos desktop actions --json "${payload}"`);
+            console.log("Plan completed.");
+            history.push(`${JSON.stringify(plan)} -> succeeded`);
+        } catch (e) {
+            console.error("Plan failed:", e.message);
+            history.push(`${JSON.stringify(plan)} -> failed: ${e.message.split("\n")[0]}`);
+        }
+        await new Promise(r => setTimeout(r, 500));
     }
 }
 

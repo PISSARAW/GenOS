@@ -1,6 +1,7 @@
 use base64::{engine::general_purpose, Engine as _};
 use enigo::{Enigo, Mouse, Keyboard, Settings, Coordinate, Direction, Key, Button};
 use xcap::Monitor;
+use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
 
@@ -18,6 +19,16 @@ pub fn capture_screen_base64() -> Result<String, String> {
     Ok(general_purpose::STANDARD.encode(&buffer))
 }
 
+#[derive(Deserialize, Debug)]
+pub struct ActionStep {
+    #[serde(rename = "type")]
+    pub action: String,
+    pub x: Option<i32>,
+    pub y: Option<i32>,
+    pub text: Option<String>,
+    pub button: Option<String>,
+}
+
 pub fn execute_action(
     action: &str,
     x: Option<i32>,
@@ -26,7 +37,31 @@ pub fn execute_action(
     button: Option<&str>,
 ) -> Result<(), String> {
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| format!("Failed to init Enigo: {:?}", e))?;
-    
+    execute_action_with(&mut enigo, action, x, y, text, button)
+}
+
+/// Execute a batch of actions back-to-back with a single Enigo session, so a
+/// multi-step plan (e.g. open the Run dialog, type a command, press Enter) runs
+/// in one process without the overhead of spawning the CLI per step or
+/// re-capturing the screen between each one. Stops at the first failing step
+/// and reports its index.
+pub fn execute_actions(steps: &[ActionStep]) -> Result<(), String> {
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| format!("Failed to init Enigo: {:?}", e))?;
+    for (i, step) in steps.iter().enumerate() {
+        execute_action_with(&mut enigo, &step.action, step.x, step.y, step.text.as_deref(), step.button.as_deref())
+            .map_err(|e| format!("Step {} ({}) failed: {}", i, step.action, e))?;
+    }
+    Ok(())
+}
+
+fn execute_action_with(
+    enigo: &mut Enigo,
+    action: &str,
+    x: Option<i32>,
+    y: Option<i32>,
+    text: Option<&str>,
+    button: Option<&str>,
+) -> Result<(), String> {
     match action {
         "mouse_move" => {
             if let (Some(x_pos), Some(y_pos)) = (x, y) {
@@ -37,6 +72,10 @@ pub fn execute_action(
             }
         }
         "click" => {
+            if let (Some(x_pos), Some(y_pos)) = (x, y) {
+                enigo.move_mouse(x_pos, y_pos, Coordinate::Abs).map_err(|e| format!("Mouse error: {:?}", e))?;
+                thread::sleep(Duration::from_millis(50));
+            }
             let btn = match button.unwrap_or("left") {
                 "right" => Button::Right,
                 "middle" => Button::Middle,

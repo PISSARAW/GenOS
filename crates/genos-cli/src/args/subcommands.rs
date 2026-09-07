@@ -373,5 +373,11 @@ pub enum DesktopSubcommands {
         #[arg(long)]
         button: Option<String>,
     },
+    /// Execute a JSON array of actions back-to-back in one process, e.g.
+    /// '[{"type":"key","text":"super"},{"type":"type","text":"notepad"},{"type":"key","text":"enter"}]'
+    Actions {
+        #[arg(long)]
+        json: String,
+    },
 }
 
