@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Autonomy plan construction for orchestrator missions: Trinity and A-Team
  * composition, token allocation, local model plan review, and organization
  * initialization.
@@ -12,20 +12,39 @@ const { emit } = require('./agentOrchestrationState');
 const { consultLocalModels } = require('./agentModelRoutingService');
 
 async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dispatchedAgent, contractRecord }) {
+  const missionBudget = normalizedMission.executionBudget || {};
+  const configuredWorkerShare = Number.isFinite(Number(missionBudget.workerShare))
+    ? Math.max(0, Math.min(1, Number(missionBudget.workerShare)))
+    : (Number.isFinite(Number(missionBudget.tokenPolicy?.workerShare))
+      ? Math.max(0, Math.min(1, Number(missionBudget.tokenPolicy.workerShare)))
+      : 0.6);
+  const configuredOrchestratorReserve = Number.isFinite(Number(missionBudget.orchestratorReserve))
+    ? Math.max(0, Math.min(1, Number(missionBudget.orchestratorReserve)))
+    : (Number.isFinite(Number(missionBudget.tokenPolicy?.orchestratorReserve))
+      ? Math.max(0, Math.min(1, Number(missionBudget.tokenPolicy.orchestratorReserve)))
+      : (1 - configuredWorkerShare));
+
   const autonomyPlan = dispatchedAgent.execution_mode === 'orchestrator'
     ? buildAutonomyPlan(contractRecord.contract, normalizedMission.executionBudget)
     : null;
   if (autonomyPlan) {
+    const effectiveWorkerShare = Number.isFinite(Number(autonomyPlan.tokenPolicy?.workerShare)) && autonomyPlan.tokenPolicy.workerShare > 0
+      ? autonomyPlan.tokenPolicy.workerShare
+      : configuredWorkerShare;
+    const effectiveOrchestratorReserve = Number.isFinite(Number(autonomyPlan.tokenPolicy?.orchestratorReserve))
+      ? autonomyPlan.tokenPolicy.orchestratorReserve
+      : configuredOrchestratorReserve;
+
     autonomyPlan.trinity = trinityService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
     const trinityWorkerCount = autonomyPlan.trinity.members.length;
     const affordableTrinityMembers = Math.floor(
-      (autonomyPlan.tokenPolicy.total * 0.6) / autonomyPlan.tokenPolicy.minimumWorkerTokens
+      (autonomyPlan.tokenPolicy.total * effectiveWorkerShare) / autonomyPlan.tokenPolicy.minimumWorkerTokens
     );
     autonomyPlan.trinity.budgetPermitsLaunch = affordableTrinityMembers >= trinityWorkerCount;
     autonomyPlan.trinity.activated = autonomyPlan.trinity.explicitlyRequested && autonomyPlan.trinity.budgetPermitsLaunch;
     if (autonomyPlan.trinity.recommended && autonomyPlan.trinity.budgetPermitsLaunch) {
-      autonomyPlan.tokenPolicy.workerShare = 0.6;
-      autonomyPlan.tokenPolicy.orchestratorReserve = 0.4;
+      autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
+      autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
       autonomyPlan.tokenPolicy.rounds = buildAllocation({
         totalTokens: autonomyPlan.tokenPolicy.total,
         workerShare: autonomyPlan.tokenPolicy.workerShare,
@@ -49,7 +68,7 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
     autonomyPlan.aTeam = aTeamService.analyzeMission(normalizedMission.prompt || normalizedMission.currentTask || '');
     const aTeamWorkerCount = autonomyPlan.aTeam.members.length;
     const affordableAteamMembers = Math.floor(
-      (autonomyPlan.tokenPolicy.total * 0.6) / autonomyPlan.tokenPolicy.minimumWorkerTokens
+      (autonomyPlan.tokenPolicy.total * effectiveWorkerShare) / autonomyPlan.tokenPolicy.minimumWorkerTokens
     );
     autonomyPlan.aTeam.activated = !autonomyPlan.trinity.recommended
       && autonomyPlan.aTeam.recommended
@@ -57,8 +76,8 @@ async function buildAutonomyPlanForMission({ db, agentId, normalizedMission, dis
     if (autonomyPlan.aTeam.activated) {
       autonomyPlan.workers = autonomyPlan.aTeam.members;
       autonomyPlan.dispatchWorkers = autonomyPlan.aTeam.members;
-      autonomyPlan.tokenPolicy.workerShare = 0.6;
-      autonomyPlan.tokenPolicy.orchestratorReserve = 0.4;
+      autonomyPlan.tokenPolicy.workerShare = effectiveWorkerShare;
+      autonomyPlan.tokenPolicy.orchestratorReserve = effectiveOrchestratorReserve;
       autonomyPlan.tokenPolicy.rounds = buildAllocation({
         totalTokens: autonomyPlan.tokenPolicy.total,
         workerShare: autonomyPlan.tokenPolicy.workerShare,
