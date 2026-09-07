@@ -152,13 +152,13 @@ async function executeWorkflow(db, run) {
         nodeOutput = { status: 'completed', parallelBranches: branches.length };
       }
       output[node.id] = nodeOutput;
-      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json) VALUES (?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput));
+      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput), run.organization_id || workflow.organization_id || null, run.project_id || workflow.project_id || null);
       await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
       telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
     } catch (error) {
       const failedOutput = { status: 'failed', error: error.message };
       output[node.id] = failedOutput;
-      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, end_time, inputs_json, outputs_json, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, Date.now(), JSON.stringify(input), JSON.stringify(failedOutput), error.message);
+      await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, end_time, inputs_json, outputs_json, error, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, Date.now(), JSON.stringify(input), JSON.stringify(failedOutput), error.message, run.organization_id || workflow.organization_id || null, run.project_id || workflow.project_id || null);
       telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_FAILED', agentId: node.id, action: 'WORKFLOW_STEP', detail: error.message, severity: 'error', payload: { runId: run.id, traceId, nodeId: node.id } });
       throw error;
     }
@@ -292,7 +292,8 @@ function isRetryableJobError(error = {}) {
 async function withRetry(db, table, job, executor) {
   const configuredMax = Number(job.max_attempts || 3);
   const max = Number.isFinite(configuredMax) ? Math.max(1, Math.min(Math.floor(configuredMax), 10)) : 3;
-  for (let attempt = 1; attempt <= max; attempt++) {
+  const firstAttempt = Math.max(1, Number(job.attempts || 0) + 1);
+  for (let attempt = firstAttempt; attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
     telemetry.emitEvent({ eventType: 'JOB_ATTEMPT_STARTED', action: 'JOB_ATTEMPT', detail: `Started attempt ${attempt}/${max} for ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt, maxAttempts: max } });
     try {
@@ -357,4 +358,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob, withRetry };
