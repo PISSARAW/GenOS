@@ -202,12 +202,22 @@ async function superviseMission(options) {
           }, 'warning');
         }
 
-        if (currentEvent.payload?.recipient && currentEvent.payload?.sender) {
-          swarmSentinel.recordInteraction(
-            currentEvent.payload.sender,
-            currentEvent.payload.recipient,
-            Boolean(currentEvent.payload.hasDiff || currentEvent.payload.diff)
+        const msgRecipient = currentEvent.payload?.recipient || currentEvent.payload?.targetAgentId || currentEvent.recipient;
+        const msgSender = currentEvent.payload?.sender || currentEvent.sender || (msgRecipient ? agentId : null);
+        if (msgSender && msgRecipient && msgSender !== msgRecipient) {
+          const deadlockStatus = swarmSentinel.recordInteraction(
+            msgSender,
+            msgRecipient,
+            Boolean(currentEvent.payload?.hasDiff || currentEvent.payload?.diff || currentEvent.hasDiff)
           );
+          if (deadlockStatus?.deadlockDetected && !termination && !finalEvent) {
+            emit(agentId, 'SWARM_INTERACTION_DEADLOCK', 'SENTINEL_HALT', deadlockStatus.recommendation, {
+              circularDeadlocks: deadlockStatus.circularDeadlocks,
+              chattyLoops: deadlockStatus.chattyLoops
+            }, 'critical', 'deadlock_collapse');
+            haltRuntime('deadlock_collapse', deadlockStatus.recommendation, 'Runtime halted: Swarm Sentinel detected circular inter-agent deadlock or chatty loop.', { deadlockStatus });
+            continue;
+          }
         }
 
         // Évaluation de la Conscience Cognitive
