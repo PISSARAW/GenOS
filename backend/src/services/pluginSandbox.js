@@ -30,10 +30,20 @@ function validate(manifest) {
   return { id: manifest.id, image, version: manifest.version || 'latest', capabilities };
 }
 
+function dockerRunArgs(plugin) {
+  const cpuLimit = Number(process.env.GENOS_PLUGIN_CPU_LIMIT);
+  const memoryLimit = Number(process.env.GENOS_PLUGIN_MEMORY_LIMIT_MB);
+  const tmpfsLimit = Number(process.env.GENOS_PLUGIN_TMPFS_LIMIT_MB);
+  const cpus = Number.isFinite(cpuLimit) && cpuLimit > 0 ? String(cpuLimit) : '1';
+  const memoryMb = Number.isSafeInteger(memoryLimit) && memoryLimit > 0 ? memoryLimit : 256;
+  const tmpfsMb = Number.isSafeInteger(tmpfsLimit) && tmpfsLimit > 0 ? tmpfsLimit : 64;
+  return ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--pids-limit', '64', '--cpus', cpus, '--memory', `${memoryMb}m`, '--memory-swap', `${memoryMb}m`, '--tmpfs', `/tmp:rw,noexec,nosuid,size=${tmpfsMb}m`, '--ulimit', 'nofile=1024:1024', '--security-opt', 'no-new-privileges', plugin.image];
+}
+
 function run(manifest, payload = {}, timeoutMs = 15000) {
   const plugin = validate(manifest);
   return new Promise((resolve, reject) => {
-    const child = spawn('docker', ['run', '--rm', '--network', 'none', '--read-only', '--cap-drop', 'ALL', '--pids-limit', '64', '--memory', '256m', '--security-opt', 'no-new-privileges', plugin.image], { detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH } });
+    const child = spawn('docker', dockerRunArgs(plugin), { detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'], env: { PATH: process.env.PATH } });
     let output = ''; let errors = '';
     const timer = setTimeout(() => { terminateChild(child); reject(new Error('Plugin sandbox timed out.')); }, Math.min(Math.max(Number(timeoutMs) || 15000, 1000), 60000));
     child.stdout.on('data', (chunk) => { output = appendBounded(output, chunk); }); child.stderr.on('data', (chunk) => { errors = appendBounded(errors, chunk); });
@@ -41,4 +51,4 @@ function run(manifest, payload = {}, timeoutMs = 15000) {
     child.stdin.end(JSON.stringify(payload));
   });
 }
-module.exports = { validate, run, validateImage };
+module.exports = { dockerRunArgs, validate, run, validateImage };
