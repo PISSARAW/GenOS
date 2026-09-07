@@ -16,9 +16,38 @@ const runtimeAdapter = require('../agentRuntimeAdapter');
 const workerGarage = require('../workerGarageService');
 const agentAuthority = require('../agentAuthorityService');
 const agentEvolution = require('../agentEvolutionService');
+const { spawn } = require('child_process');
+const { terminateChild } = require('../processTermination');
+const { isAllowedSandboxTestCommand, normalizeSandboxCommand } = require('../sandboxCommandPolicy');
 
 async function scopedWorkspace(db, workspaceId) {
   return db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId);
+}
+
+function runBoundedTestCommand(command, cwd, timeoutMs = 120000) {
+  const normalized = normalizeSandboxCommand(command);
+  if (!isAllowedSandboxTestCommand(normalized)) throw new Error('Test command is not allow-listed.');
+  const windows = process.platform === 'win32';
+  const shell = windows ? (process.env.ComSpec || 'cmd.exe') : '/bin/sh';
+  const args = windows ? ['/d', '/s', '/c', normalized] : ['-c', normalized];
+  return new Promise((resolve, reject) => {
+    const child = spawn(shell, args, { cwd, detached: process.platform !== 'win32', windowsVerbatimArguments: windows, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      terminateChild(child);
+      const error = new Error(`Test command timed out after ${timeoutMs}ms.`);
+      error.code = 'TEST_TIMEOUT';
+      reject(error);
+    }, timeoutMs);
+    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-20000); });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-20000); });
+    child.once('error', (error) => { if (!settled) { settled = true; clearTimeout(timer); reject(error); } });
+    child.once('close', (code, signal) => { if (!settled) { settled = true; clearTimeout(timer); resolve({ code, signal, stdout, stderr }); } });
+  });
 }
 
 async function snapshot(context) {
@@ -261,10 +290,14 @@ async function verify(context) {
     const db = await getDatabase();
     const workspace = await scopedWorkspace(db, context.workspaceId);
     if (workspace) {
-      const { execSync } = require('child_process');
       try {
-        const output = execSync(context.testCommand, { cwd: workspace.path, encoding: 'utf-8', stdio: 'pipe' });
-        testResults = { passed: true, output };
+        const result = await runBoundedTestCommand(context.testCommand, workspace.path);
+        testResults = { passed: result.code === 0, output: result.stdout || result.stderr, signal: result.signal };
+        if (result.code !== 0) {
+          success = false;
+          domainVerified = false;
+          failures.push(`Test command failed: ${context.testCommand}`);
+        }
       } catch (err) {
         success = false;
         domainVerified = false;
@@ -457,4 +490,5 @@ module.exports = {
   worktreeCleanup,
   casGc,
   dagMarkSweep
+  ,runBoundedTestCommand
 };
