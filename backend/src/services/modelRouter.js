@@ -107,6 +107,14 @@ async function loadPolicy(db, { agentId, organizationId, projectId }) {
   try { return policyFrom(JSON.parse(row.policy_json || '{}')); } catch (_) { return null; }
 }
 
+async function loadProviderCandidates(db) {
+  if (!db || typeof db.all !== 'function') return [];
+  const rows = await db.all('SELECT provider, model FROM provider_configs WHERE enabled = 1 ORDER BY provider, model');
+  return rows
+    .map((row) => `${String(row.provider || '').trim()}://${String(row.model || '').trim()}`)
+    .filter((uri) => /^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\/[^/].+/.test(uri));
+}
+
 async function localRoutingPolicy(db, context, discovered = []) {
   const configured = await loadPolicy(db, context) || envPolicy();
   const configuredLocal = candidateModels(null, configured).filter(isLocal);
@@ -137,7 +145,8 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   const remainingTimeout = () => deadline == null ? timeout : Math.min(timeout, deadline - Date.now());
   if (remainingTimeout() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
-  const configuredCandidates = candidateModels(model, policy);
+  let configuredCandidates = candidateModels(model, policy);
+  if (!configuredCandidates.length) configuredCandidates = await loadProviderCandidates(db);
   
   let candidates = configuredCandidates;
   if (!candidates.length || candidates[0] === 'auto') {
@@ -260,4 +269,4 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
 }
 
-module.exports = { generate, loadPolicy, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
+module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
