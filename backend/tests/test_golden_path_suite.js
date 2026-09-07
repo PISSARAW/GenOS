@@ -125,7 +125,8 @@ async function runSuite() {
   const autoResult = await memoryPrimitives.cherryPickGoldenPath({
     agentId: 'agent_synthesizer_test',
     task: 'Optimize memory indexing',
-    reply: 'Created secondary b-tree index'
+    reply: 'Created secondary b-tree index',
+    verified: true
   });
   assert.ok(autoResult.success, 'Primitive cherryPickGoldenPath should succeed with synthesized turns');
   assert.strictEqual(autoResult.goldenPathSteps.length, 2, 'Synthesized turns should result in 2 steps');
