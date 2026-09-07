@@ -2,13 +2,16 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
-const snapshots = require('./src/services/workspaceSnapshotStore');
-const webhooks = require('./src/services/webhookService');
+const snapshots = require('../src/services/workspaceSnapshotStore');
+const webhooks = require('../src/services/webhookService');
 
 function memoryDb() {
   const rows = [];
   return {
     rows,
+    async exec(sql) {
+      if (!/^\s*(BEGIN IMMEDIATE|COMMIT|ROLLBACK)/i.test(sql)) throw new Error(`Unexpected SQL: ${sql}`);
+    },
     async run(sql, ...args) {
       if (sql.includes('INSERT INTO workspace_snapshots')) {
         const [id, workspace_id, snapshot_hash, label, author, reason, diff_summary, metadata] = args;
@@ -16,6 +19,10 @@ function memoryDb() {
         rows.push({ id, workspace_id, snapshot_hash, step_number, label, author, reason, diff_summary, metadata });
         return { changes: 1 };
       }
+      throw new Error(`Unexpected SQL: ${sql}`);
+    },
+    async all(sql, workspaceId) {
+      if (sql.includes('SELECT snapshot_hash')) return rows.filter((row) => row.workspace_id === workspaceId).map((row) => ({ snapshot_hash: row.snapshot_hash }));
       throw new Error(`Unexpected SQL: ${sql}`);
     },
     async get(sql, ...args) {
@@ -31,6 +38,7 @@ async function main() {
   const db = memoryDb();
   const workspace = { id: 'ws-test', path: root };
   try {
+    assert.equal(typeof db.exec, 'function');
     await fs.writeFile(path.join(root, 'source.txt'), 'version one');
     await fs.writeFile(path.join(root, '.env'), 'TOKEN=must-not-leak');
     const first = await snapshots.capture({ db, workspace });
