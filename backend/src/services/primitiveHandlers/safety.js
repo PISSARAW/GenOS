@@ -294,23 +294,39 @@ async function cycleDetection(context = {}) {
     }
   }
 
+  let budgetPenalized = 0;
   if (hasCycle) {
+    try {
+      const db = await getDatabase();
+      const targetAgentId = context.agentId || context.targetId || (cycleParticipants.length === 1 ? cycleParticipants[0] : null);
+      if (targetAgentId) {
+        await db.run(
+          "UPDATE agents SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 100) - 15) WHERE id = ?",
+          targetAgentId
+        );
+        budgetPenalized = 15;
+      }
+    } catch (_) {}
+
     telemetry.emitEvent({
       eventType: 'COMMUNICATION_CYCLE_DETECTED',
       agentId: context.agentId || context.orchestratorId || 'strategy_adapter',
-      action: 'CYCLE_DETECTION',
+      action: 'BREAK_LOOP',
       detail: `Cycle detected in agent communication (${loopType}): ${cycleParticipants.join(' <-> ')}`,
       severity: 'warning',
-      payload: { loopType, cycleParticipants, detectedCycle }
+      payload: { loopType, cycleParticipants, detectedCycle, budgetPenalized }
     });
   }
 
   return {
     success: true,
     hasCycle,
+    action: hasCycle ? 'BREAK_LOOP' : 'CONTINUE',
+    intervention: hasCycle,
     loopType,
     cycleParticipants,
     detectedCycle,
+    budgetPenalized,
     recommendation: hasCycle ? 'Break communication loop: mandate external decision or inject novel evidence' : 'No cycle detected'
   };
 }
