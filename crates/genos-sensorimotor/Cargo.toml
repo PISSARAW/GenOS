@@ -1,0 +1,13 @@
+[package]
+name = "genos-sensorimotor"
+version = "3.0.0"
+edition = "2021"
+
+[dependencies]
+enigo = "*"
+xcap = "*"
+base64 = "0.22"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+image = "0.25"
