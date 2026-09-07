@@ -21,6 +21,22 @@ const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target',
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
 const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 const restoreLocks = new Map();
+const DEFAULT_MAX_SNAPSHOT_FILES = 100000;
+const DEFAULT_MAX_SNAPSHOT_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_MAX_SNAPSHOT_FILE_BYTES = 128 * 1024 * 1024;
+
+function configuredPositiveInteger(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function snapshotLimits() {
+  return {
+    maxFiles: configuredPositiveInteger('GENOS_MAX_SNAPSHOT_FILES', DEFAULT_MAX_SNAPSHOT_FILES),
+    maxBytes: configuredPositiveInteger('GENOS_MAX_SNAPSHOT_BYTES', DEFAULT_MAX_SNAPSHOT_BYTES),
+    maxFileBytes: configuredPositiveInteger('GENOS_MAX_SNAPSHOT_FILE_BYTES', DEFAULT_MAX_SNAPSHOT_FILE_BYTES)
+  };
+}
 
 async function withRestoreLock(workspacePath, operation) {
   const key = path.resolve(workspacePath);
@@ -85,8 +101,9 @@ function shouldIgnore(relativePath, entry) {
   return parts.some((part) => IGNORED_DIRECTORIES.has(part)) || IGNORED_FILES.has(entry.name) || entry.name.startsWith('genos.db') || SENSITIVE_FILES.test(entry.name);
 }
 
-async function collectFiles(root) {
+async function collectFiles(root, limits = snapshotLimits()) {
   const files = [];
+  let totalBytes = 0;
   async function walk(directory, relative = '') {
     const entries = await fsp.readdir(directory, { withFileTypes: true });
     for (const entry of entries) {
@@ -96,8 +113,12 @@ async function collectFiles(root) {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) await walk(absolute, childRelative);
       else if (entry.isFile() && isSafeRelative(childRelative)) {
-        const bytes = await fsp.readFile(absolute);
         const stat = await fsp.stat(absolute);
+        if (stat.size > limits.maxFileBytes) throw new Error(`Snapshot file exceeds the ${limits.maxFileBytes}-byte limit: ${childRelative}`);
+        if (files.length >= limits.maxFiles) throw new Error(`Snapshot exceeds the ${limits.maxFiles}-file limit.`);
+        totalBytes += stat.size;
+        if (totalBytes > limits.maxBytes) throw new Error(`Snapshot exceeds the ${limits.maxBytes}-byte limit.`);
+        const bytes = await fsp.readFile(absolute);
         files.push({ path: childRelative.split(path.sep).join('/'), hash: sha256(bytes), size: stat.size, mode: stat.mode & 0o777 });
       }
     }
@@ -183,9 +204,14 @@ async function readManifest(snapshot) {
   if (manifest.hash !== snapshot.snapshot_hash) throw new Error(`Snapshot ${snapshot.id} failed manifest hash validation.`);
   if (manifestHash(manifest.files || []) !== manifest.hash) throw new Error(`Snapshot ${snapshot.id} has a corrupted manifest.`);
   const paths = new Set();
+  const limits = snapshotLimits();
+  let totalBytes = 0;
   for (const file of manifest.files) {
     if (!file || !isSafeRelative(file.path) || paths.has(file.path) || !/^[a-f0-9]{64}$/.test(file.hash) || !Number.isSafeInteger(file.size) || file.size < 0) {
       throw new Error(`Snapshot ${snapshot.id} contains an invalid file entry.`);
+    }
+    if (manifest.files.length > limits.maxFiles || file.size > limits.maxFileBytes || (totalBytes += file.size) > limits.maxBytes) {
+      throw new Error(`Snapshot ${snapshot.id} exceeds the configured size limits.`);
     }
     paths.add(file.path);
   }
