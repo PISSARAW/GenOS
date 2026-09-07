@@ -1,4 +1,5 @@
 const BLOCKED_HOSTNAMES = /^(?:localhost|.*\.local|.*\.internal|metadata(?:\.google\.internal)?|metadata\.amazonaws\.com)$/i;
+const dns = require('dns').promises;
 
 function isLoopbackHostname(hostname) {
   const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '');
@@ -23,4 +24,19 @@ function validateProviderEndpoint(rawEndpoint, { localOnly = false } = {}) {
   return parsed;
 }
 
-module.exports = { validateProviderEndpoint, isLoopbackHostname, isBlockedAddress };
+async function validateProviderEndpointAsync(rawEndpoint, options = {}) {
+  const parsed = validateProviderEndpoint(rawEndpoint, options);
+  if (isLoopbackHostname(parsed.hostname) || isBlockedAddress(parsed.hostname)) return parsed;
+  try {
+    const addresses = await dns.lookup(parsed.hostname, { all: true, verbatim: true });
+    if (addresses.some(({ address }) => isBlockedAddress(address) || isLoopbackHostname(address))) {
+      throw new Error('Provider endpoint resolves to a blocked private, loopback, or metadata address.');
+    }
+  } catch (error) {
+    if (error.code === 'ENOTFOUND' || error.code === 'EAI_AGAIN') throw new Error('Provider endpoint hostname could not be resolved.');
+    throw error;
+  }
+  return parsed;
+}
+
+module.exports = { validateProviderEndpoint, validateProviderEndpointAsync, isLoopbackHostname, isBlockedAddress };

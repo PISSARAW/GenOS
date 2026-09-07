@@ -1,5 +1,5 @@
 const inferenceGateway = require('./inferenceGatewayService');
-const { validateProviderEndpoint } = require('./providerEndpointPolicy');
+const { validateProviderEndpoint, validateProviderEndpointAsync } = require('./providerEndpointPolicy');
 const fs = require('fs');
 const path = require('path');
 
@@ -229,6 +229,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const endpoint = endpointOverride || configuredEndpoint;
     validateProviderEndpoint(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
     assertSafeProviderEndpoint(endpoint);
+    await validateProviderEndpointAsync(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
     const apiKey = resolveProviderApiKey(provider);
     if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
     const headers = { 'Content-Type': 'application/json' };
