@@ -119,9 +119,7 @@ async function ensureAdminKey(db) {
       );
 
       if (!configured) {
-        console.warn('[GenOS Bootstrap] Generated one-time administrator token:');
-        console.warn(rawKey);
-        console.warn('[GenOS Bootstrap] Save it now; it is stored only as a hash.');
+        console.warn('[GenOS Bootstrap] Generated one-time administrator token and stored only its hash. Configure GENOS_ADMIN_TOKEN before startup to provide a credential.');
       }
     }
   }
