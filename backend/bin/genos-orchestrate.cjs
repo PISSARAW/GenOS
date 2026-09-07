@@ -143,6 +143,17 @@ async function main() {
       process.stdout.write(JSON.stringify(result));
       return;
     }
+    if (action === 'execute_primitive') {
+      const primitive = String(request.primitive || request.primitive_name || '').trim();
+      if (!primitive) throw new Error('primitive_name is required.');
+      const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
+      const context = request.args && typeof request.args === 'object' ? { ...request.args } : { ...(request.context || {}) };
+      if (request.agentId && !context.agentId) context.agentId = request.agentId;
+      if (request.orchestratorId && !context.orchestratorId) context.orchestratorId = request.orchestratorId;
+      const result = await strategyExecutionAdapter.executePrimitive(primitive, context);
+      process.stdout.write(JSON.stringify(result));
+      return;
+    }
     if (action === 'change_strategy') {
       const transition = await strategyAdaptation.changeStrategy(db, {
         orchestratorId,
