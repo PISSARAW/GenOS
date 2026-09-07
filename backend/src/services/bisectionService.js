@@ -5,6 +5,28 @@
 
 const MAX_BISECTION_SNAPSHOTS = 10000;
 
+function knownHealth(snapshot) {
+  if (typeof snapshot.healthy === 'boolean') return snapshot.healthy;
+  if (snapshot.metadata) {
+    try {
+      const metadata = typeof snapshot.metadata === 'string' ? JSON.parse(snapshot.metadata) : snapshot.metadata;
+      if (typeof metadata.healthy === 'boolean') return metadata.healthy;
+    } catch (_) {}
+  }
+  return null;
+}
+
+function monotonicityViolation(history) {
+  let sawFailure = false;
+  for (const snapshot of history) {
+    const health = knownHealth(snapshot);
+    if (health === null) return false;
+    if (!health) sawFailure = true;
+    if (sawFailure && health) return true;
+  }
+  return false;
+}
+
 /**
  * Computes multi-branch temporal tree diff across workspaces or snapshots
  */
@@ -63,6 +85,9 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
   if (history.length === 0) {
     return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
   }
+  if (monotonicityViolation(history)) {
+    return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'Snapshot health history is non-monotonic; causal bisection requires a healthy-to-failing sequence.' };
+  }
 
   let low = 0;
   let high = history.length - 1;
@@ -73,7 +98,10 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const snap = history[mid];
-    const isHealthy = failurePredicate ? await failurePredicate(snap) : snap.healthy !== false;
+    const isHealthy = failurePredicate ? await failurePredicate(snap) : knownHealth(snap);
+    if (typeof isHealthy !== 'boolean') {
+      return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: 'Snapshot predicate did not produce a boolean health result.' };
+    }
 
     bisectionSteps.push({
       iteration: bisectionSteps.length + 1,
@@ -134,12 +162,14 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
 // bisection uses bisectAnomalyAsync because its predicate runs a real command.
 function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
   if (snapshotHistory.length === 0) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
+  if (monotonicityViolation(snapshotHistory)) return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: 0, bisectionSteps: 0, bisectionAuditTrace: [], reason: 'Snapshot health history is non-monotonic; causal bisection requires a healthy-to-failing sequence.' };
   if (failurePredicate && failurePredicate.constructor?.name === 'AsyncFunction') throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
   let low = 0; let high = snapshotHistory.length - 1; let culpritIdx = -1; const steps = [];
   while (low <= high) {
     const mid = Math.floor((low + high) / 2); const snapshot = snapshotHistory[mid];
-    const healthy = failurePredicate ? failurePredicate(snapshot) : snapshot.healthy !== false;
+    const healthy = failurePredicate ? failurePredicate(snapshot) : knownHealth(snapshot);
     if (healthy && healthy.then) throw new Error('Use bisectAnomalyAsync for asynchronous predicates.');
+    if (typeof healthy !== 'boolean') return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: steps.length, bisectionSteps: steps.length, bisectionAuditTrace: steps, reason: 'Snapshot predicate did not produce a boolean health result.' };
     steps.push({ iteration: steps.length + 1, testedIndex: mid, stepNumber: snapshot.step, snapshotHash: snapshot.hash, evaluatedStatus: healthy ? 'PASS (HEALTHY)' : 'FAIL (ANOMALY_PRESENT)' });
     if (healthy) low = mid + 1; else { culpritIdx = mid; high = mid - 1; }
   }
@@ -266,15 +296,10 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
   if (!failurePredicate) {
     failurePredicate = (snap) => {
       if (snap._execution) return snap._execution.exitCode === 0;
-      if (typeof snap.healthy === 'boolean') return snap.healthy;
-      if (snap.metadata) {
-        try {
-          const meta = typeof snap.metadata === 'string' ? JSON.parse(snap.metadata || '{}') : snap.metadata;
-          if (typeof meta.healthy === 'boolean') return meta.healthy;
-        } catch (_) {}
-      }
+      const health = knownHealth(snap);
+      if (health !== null) return health;
       if (snap.status === 'failed' || snap.status === 'error') return false;
-      return true;
+      return null;
     };
   }
 
