@@ -50,6 +50,9 @@ async function e2e() {
   assert.equal(missingVersion.body.error.code, 'WORKFLOW_VERSION_NOT_FOUND');
   const create = await invoke(releases.create, { body: { workflowId }, tenant });
   assert.equal(create.code, 201);
+  const duplicate = await invoke(releases.create, { body: { workflowId }, tenant });
+  assert.equal(duplicate.code, 409);
+  assert.equal(duplicate.body.error.code, 'RELEASE_ALREADY_EXISTS');
   const rollout = await invoke(releases.createRollout, { params: { id: create.body.id }, body: { strategy: 'ab', slo: config.slo }, tenant });
   assert.equal(rollout.code, 201);
   for (const variant of ['control', 'candidate']) {

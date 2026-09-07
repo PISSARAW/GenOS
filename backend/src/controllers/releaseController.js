@@ -50,6 +50,8 @@ async function create(req, res, next) {
     if (!workflow) return res.status(404).json({ error: { code: 'WORKFLOW_NOT_FOUND', message: 'Workflow is outside the tenant scope.' } });
     const workflowVersion = await db.get('SELECT version FROM workflow_versions WHERE workflow_id = ? AND version = ?', workflowId, validatedVersion);
     if (!workflowVersion) return res.status(404).json({ error: { code: 'WORKFLOW_VERSION_NOT_FOUND', message: `Workflow version ${validatedVersion} does not exist.` } });
+    const duplicate = await db.get(`SELECT id FROM releases WHERE workflow_id = ? AND version = ? AND environment = ? AND ${scope.clause}`, workflowId, validatedVersion, environment, ...scope.params);
+    if (duplicate) return res.status(409).json({ error: { code: 'RELEASE_ALREADY_EXISTS', message: 'A release for this workflow version and environment already exists.' }, id: duplicate.id });
     const releaseId = id('rel');
     await db.run('INSERT INTO releases(id,workflow_id,version,environment,traffic,status,organization_id,project_id) VALUES(?,?,?,?,?,?,?,?)', releaseId, workflowId, validatedVersion, environment, validatedTraffic, 'pending', ...scope.params);
     res.status(201).json({ id: releaseId, workflowId, version: validatedVersion, environment, traffic: validatedTraffic, status: 'pending' });
