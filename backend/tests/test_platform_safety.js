@@ -22,6 +22,13 @@ test('model routing rejects malformed capability and token requirements', () => 
   assert.equal(safety.routeModel({}, [{ provider: 'x', model: 'm', capabilities: ['reasoning'], costInput: 'bad' }]).decision, 'no-capable-model');
 });
 
+test('model capability aliases and negative declarations are enforced', () => {
+  const result = safety.routeModel({ requiredCapabilities: ['tools'] }, [{ provider: 'x', model: 'm', capabilities: ['tool_calling'] }]);
+  assert.equal(result.decision, 'route');
+  const blocked = safety.routeModel({ requiredCapabilities: ['slow'] }, [{ provider: 'x', model: 'm', capabilities: ['not:slow'] }]);
+  assert.equal(blocked.decision, 'no-capable-model');
+});
+
 test('replay produces deterministic ordered steps and Pareto removes dominated options', () => {
   const replay = safety.buildReplay('inc-1', [{ id: 1, agent_id: 'a', event_type: 'INCIDENT_STEP', action: 'scan', detail: 'x', severity: 'info', created_at: '2026-01-01', payload_json: '{}' }]);
   assert.equal(replay.totalSteps, 1);

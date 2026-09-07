@@ -1,4 +1,5 @@
 /** Platform & Safety primitives. Kept deterministic so they are safe to replay and test. */
+const { normalizeCapabilities, capabilitiesSatisfy } = require('./modelCapabilities');
 
 const DEFAULT_PROVIDERS = [
   { provider: 'openai', model: 'gpt-4o-mini', capabilities: ['reasoning', 'tools'], costInput: 0.15, costOutput: 0.60, latencyMs: 700 },
@@ -13,7 +14,7 @@ function normalizeProvider(p) {
   const latencyMs = Number(p.latencyMs ?? 0);
   return {
     ...p,
-    capabilities: Array.isArray(p.capabilities) ? p.capabilities : [],
+    capabilities: normalizeCapabilities(p.capabilities),
     costInput,
     costOutput,
     latencyMs,
@@ -50,7 +51,7 @@ function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
   return { decision: 'route', complexity, uncertainty, selected: chosen, candidates: scored, requiresApproval: uncertainty >= 0.8 || complexity >= 0.95 };
 }
 
-function requiredIsSatisfied(provider, required) { return [...required].every(cap => provider.capabilities.includes(cap)); }
+function requiredIsSatisfied(provider, required) { return capabilitiesSatisfy(provider.capabilities, [...required]); }
 
 function validateToolCall({ agentId, toolName, args = {}, permissions = [], deniedTools = [], taints = [] }) {
   const normalized = String(toolName || '').trim();
