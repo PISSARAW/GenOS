@@ -220,8 +220,9 @@ function entropyCheck(context) {
 
 async function evaluate(context) {
   try {
+    const threshold = Number.isFinite(context.threshold) ? Number(context.threshold) : 0.20;
     const evalResult = await evaluation.runImpossibleBench({ task: context.task || 'test' });
-    const isGood = evalResult.brierScore < 0.4;
+    const isGood = evalResult.brierScore < threshold;
     return { success: isGood, brierScore: evalResult.brierScore, metrics: evalResult };
   } catch (err) {
     return { success: false, status: 'incomplete', code: err.code || 'EVALUATION_FAILED', error: err.message, runId: err.runId || null };
