@@ -7,6 +7,17 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch (_) { return fallback; }
 }
 
+const WORKFLOW_TRANSITIONS = {
+  draft: new Set(['draft', 'staging', 'archived']),
+  staging: new Set(['staging', 'published', 'draft', 'archived']),
+  published: new Set(['published', 'archived']),
+  archived: new Set(['archived'])
+};
+
+function workflowTransitionAllowed(current, next) {
+  return Boolean(WORKFLOW_TRANSITIONS[current]?.has(next));
+}
+
 function validateGraph(graph) {
   const errors = [];
   if (!graph || typeof graph !== 'object') errors.push('Workflow graph must be an object.');
@@ -126,12 +137,15 @@ async function updateWorkflow(req, res, next) {
     if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
     const graph = req.body?.graph || parseJson(existing.graph_json, {});
     if (req.body?.status && !['draft', 'staging', 'published', 'archived'].includes(req.body.status)) return res.status(400).json({ error: { code: 'INVALID_STATUS', message: 'Workflow status must be draft, staging, published, or archived.' } });
+    const nextStatus = req.body?.status || existing.status;
+    if (!workflowTransitionAllowed(existing.status, nextStatus)) return res.status(409).json({ error: { code: 'INVALID_STATUS_TRANSITION', message: `Workflow cannot transition from ${existing.status} to ${nextStatus}.` } });
+    if (existing.status === 'published' && (req.body?.graph || req.body?.name || req.body?.description !== undefined || req.body?.metadata)) return res.status(409).json({ error: { code: 'PUBLISHED_WORKFLOW_IMMUTABLE', message: 'Published workflows cannot be modified; create a new version.' } });
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const nextVersion = Number(existing.version || 0) + 1;
     const metadata = req.body?.metadata || parseJson(existing.metadata_json, {});
     const result = await withTransaction(db, async (tx) => {
-      const update = await tx.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, req.body?.status || existing.status, JSON.stringify(graph), JSON.stringify(metadata), req.params.id, existing.version, ...s.params);
+      const update = await tx.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND version = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, nextStatus, JSON.stringify(graph), JSON.stringify(metadata), req.params.id, existing.version, ...s.params);
       if (update.changes !== 1) return null;
       await tx.run('INSERT INTO workflow_versions (id, workflow_id, version, graph_json, metadata_json) VALUES (?, ?, ?, ?, ?)', `wfv-${crypto.randomUUID()}`, req.params.id, nextVersion, JSON.stringify(graph), JSON.stringify(metadata));
       return update;
@@ -194,4 +208,4 @@ async function cancelRun(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { listWorkflows, createWorkflow, getWorkflow, updateWorkflow, validateWorkflow, createRun, listRuns, cancelRun, validateGraph };
+module.exports = { listWorkflows, createWorkflow, getWorkflow, updateWorkflow, validateWorkflow, createRun, listRuns, cancelRun, validateGraph, workflowTransitionAllowed };
