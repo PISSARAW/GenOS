@@ -5,7 +5,7 @@ const tracePath = process.env.GENOS_MCP_TRACE_LOG;
 const log = tracePath
 	? fs.createWriteStream(path.resolve(tracePath), { flags: 'a', mode: 0o600 })
 	: null;
-const child = spawn(process.execPath, [path.join(__dirname, 'index.js')], { stdio: ['pipe', 'pipe', 'pipe'] });
+const child = spawn(process.execPath, [path.join(__dirname, 'index.js')], { detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'] });
 process.stdin.pipe(child.stdin);
 child.stdout.pipe(process.stdout);
 if (log) {

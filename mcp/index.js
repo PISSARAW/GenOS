@@ -54,7 +54,7 @@ function resolveGenosBin() {
 
 function runExecutable(cmd, args, cwd, timeoutMs = toolTimeoutMs()) {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { cwd, shell: false });
+    const child = spawn(cmd, args, { cwd, shell: false, detached: process.platform !== "win32" });
     let out = "";
     let err = "";
     let settled = false;
