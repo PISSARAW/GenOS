@@ -16,11 +16,21 @@ mod tests {
         });
         assert!(res.is_ok());
 
+        let res_val = agent::execute(AgentSubcommands::Validate {
+            file: agent_file.clone(),
+        });
+        assert!(res_val.is_ok());
+
         let res_snap = snapshot::execute(SnapshotSubcommands::Create {
             agent: agent_file,
             out: snap_file.clone(),
         });
         assert!(res_snap.is_ok());
+
+        let res_snap_val = snapshot::execute(SnapshotSubcommands::Validate {
+            file: snap_file.clone(),
+        });
+        assert!(res_snap_val.is_ok());
 
         let res_diff = snapshot::handle_diff(&snap_file, &snap_file);
         assert!(res_diff.is_ok());
