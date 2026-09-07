@@ -123,11 +123,12 @@ async function runLocalWorker(db, mission, executionRun) {
       evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
     } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
     const workerRecovery = require('./workerFailureRecoveryService');
+    const { evidencePresent } = require('./hallucinationMonitoringService');
     const noAnswerProof = workerRecovery.proofOfNoAnswer(evidenceReport);
     const isNoAnswer = evidenceReport.outcome === 'no_answer' && Boolean(noAnswerProof);
     if (!isNoAnswer) {
       if (!Array.isArray(evidenceReport.claims)) throw new Error('Local worker evidence report requires a claims array.');
-      if (evidenceReport.claims.some((claim) => !claim || !Array.isArray(claim.evidence) || claim.evidence.length === 0)) {
+      if (evidenceReport.claims.some((claim) => !claim || !evidencePresent(claim.evidence || claim.receipts || claim.sourceRefs))) {
         throw new Error('Local worker evidence report contains claims without evidence.');
       }
     }

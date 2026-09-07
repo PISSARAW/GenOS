@@ -7,6 +7,7 @@ const {
   workerEvidenceRounds,
   WORKER_EVIDENCE_EVENTS
 } = require('./agentOrchestrationState');
+const { evidencePresent } = require('./hallucinationMonitoringService');
 
 function extractEvidenceReport(payload) {
   if (!payload || typeof payload !== 'object') return null;
@@ -293,6 +294,16 @@ function boundedEvidenceScore(value) {
   return Number.isFinite(number) ? Math.max(0, Math.min(100, number)) : 0;
 }
 
+function countClaimEvidence(claim) {
+  if (!claim || typeof claim !== 'object') return 0;
+  const raw = claim.evidence ?? claim.receipts ?? claim.sourceRefs;
+  if (!evidencePresent(raw)) return 0;
+  if (Array.isArray(raw)) {
+    return raw.filter((item) => evidencePresent(item)).length;
+  }
+  return 1;
+}
+
 function evidenceScore(payload = {}, context = {}) {
   const report = extractEvidenceReport(payload) || {};
   if (report.outcome === 'failed' || payload.failure || report.failure) {
@@ -312,7 +323,7 @@ function evidenceScore(payload = {}, context = {}) {
       return boundedEvidenceScore(score);
     }
     const score = claims.reduce((count, claim) => {
-      const evidenceCount = Array.isArray(claim.evidence) ? claim.evidence.length : 0;
+      const evidenceCount = countClaimEvidence(claim);
       return count + (evidenceCount > 0 ? evidenceCount * 10 + 2 : -2);
     }, 0) - (Array.isArray(report.uncertainties) ? report.uncertainties.length * 3 : 0);
     return boundedEvidenceScore(score);
