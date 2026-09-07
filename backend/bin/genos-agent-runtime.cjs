@@ -495,9 +495,9 @@ process.stdin.on('end', async () => {
       const allClaims = Array.isArray(report.claims) ? report.claims : [];
       const unprovenClaims = allClaims.filter((c) => !c || !evidencePresent(c.evidence || c.receipts || c.sourceRefs));
       const explicitUnverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims : [];
+      let evidenceBlocker = null;
       if (unprovenClaims.length > 0 || explicitUnverified.length > 0) {
         const db = await getDatabase();
-        let evidenceBlocker = null;
         try {
           const run = await db.get('SELECT id, created_at FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1', mission.agentId);
           if (run) {
@@ -594,6 +594,7 @@ process.stdin.on('end', async () => {
         } catch (_) {}
       } else {
         let conclusionProvenance = null;
+        const evidenceBlocker = null;
         try {
           const { recordProvenance } = require('../src/services/evaluationObservabilityService.js');
           conclusionProvenance = await recordProvenance('conclusion', mission.agentId, {
