@@ -23,13 +23,17 @@ async function startServer() {
     
     // Fork workers for each CPU core (cap at 4 to preserve resources for LLMs)
     const numCPUs = Math.min(os.cpus().length, 4);
+    const jobWorkerPids = new Set();
     for (let i = 0; i < numCPUs; i++) {
-      cluster.fork();
+      const worker = cluster.fork({ GENOS_JOB_WORKER: i === 0 ? '1' : '0' });
+      if (i === 0) jobWorkerPids.add(worker.process.pid);
     }
 
     cluster.on('exit', (worker, code, signal) => {
       console.log(`[GenOS Cluster] Worker ${worker.process.pid} died. Booting replacement...`);
-      cluster.fork();
+      const wasJobWorker = jobWorkerPids.delete(worker.process.pid);
+      const replacement = cluster.fork({ GENOS_JOB_WORKER: wasJobWorker ? '1' : '0' });
+      if (wasJobWorker) jobWorkerPids.add(replacement.process.pid);
     });
     
     enableGriotAutostart();
@@ -54,7 +58,7 @@ async function startServer() {
       }
     }
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
-    if (cluster.worker.id === 1) { // Only worker 1 processes background jobs to prevent duplicate jobs
+    if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
         jobWorker.startJobWorker();
     }
     const { count } = await db.get(
@@ -67,7 +71,7 @@ async function startServer() {
     const server = http.createServer(app);
 
     // 2.5 Create gRPC Server (Microservices Architecture)
-    if (cluster.worker.id === 1) {
+    if (process.env.GENOS_JOB_WORKER === '1') {
       const grpc = require('@grpc/grpc-js');
       const loadAllProtos = require('./proto/index.js');
       const registerAllServices = require('./src/grpc_services/index.js');
