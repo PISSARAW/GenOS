@@ -2,7 +2,7 @@ const assert = require('assert');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-const hook = path.resolve(__dirname, 'bin/genos-pre-tool-policy.cjs');
+const hook = path.resolve(__dirname, '../bin/genos-pre-tool-policy.cjs');
 function invoke(toolName, command, env = {}) {
   return spawnSync(process.execPath, [hook], {
     input: JSON.stringify({ hook_event_name: 'PreToolUse', tool_name: toolName, tool_input: { command } }),
