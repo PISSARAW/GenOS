@@ -43,7 +43,11 @@ async function e2e() {
   await db.run('INSERT INTO organizations(id,name) VALUES(?,?)', organizationId, organizationId);
   await db.run('INSERT INTO projects(id,organization_id,name) VALUES(?,?,?)', projectId, organizationId, projectId);
   await db.run('INSERT INTO workflows(id,name,graph_json,organization_id,project_id) VALUES(?,?,?,?,?)', workflowId, 'test', '{"nodes":[],"edges":[]}', organizationId, projectId);
+  await db.run('INSERT INTO workflow_versions(id,workflow_id,version,graph_json) VALUES(?,?,?,?)', `wfv-${workflowId}`, workflowId, 1, '{"nodes":[],"edges":[]}');
   const tenant = { organizationId, projectId };
+  const missingVersion = await invoke(releases.create, { body: { workflowId, version: 2 }, tenant });
+  assert.equal(missingVersion.code, 404);
+  assert.equal(missingVersion.body.error.code, 'WORKFLOW_VERSION_NOT_FOUND');
   const create = await invoke(releases.create, { body: { workflowId }, tenant });
   assert.equal(create.code, 201);
   const rollout = await invoke(releases.createRollout, { params: { id: create.body.id }, body: { strategy: 'ab', slo: config.slo }, tenant });
