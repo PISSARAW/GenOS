@@ -1,5 +1,6 @@
 const modelProvider = require('./modelProvider');
 const localModelDiscovery = require('./localModelDiscovery');
+const crypto = require('crypto');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -30,6 +31,29 @@ function isLocal(uri) {
 }
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
+
+function estimateCostUsd(costInput, costOutput, inputTokens, outputTokens) {
+  return Number(((Number(costInput || 0) * inputTokens + Number(costOutput || 0) * outputTokens) / 1_000_000).toFixed(8));
+}
+
+async function recordModelUsage(db, scope, result) {
+  if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
+  await db.run(
+    'INSERT INTO usage_ledger(id, organization_id, project_id, release_id, category, quantity, cost_usd, metadata_json) VALUES(?,?,?,?,?,?,?,?)',
+    `usage-model-${crypto.randomUUID()}`,
+    scope.organizationId,
+    scope.projectId,
+    null,
+    'model_inference',
+    result.inputTokens + result.outputTokens,
+    result.costUsd,
+    JSON.stringify({ model: result.model, provider: result.provider, inputTokens: result.inputTokens, outputTokens: result.outputTokens, latencyMs: result.latencyMs })
+  );
+}
+
+async function emitBufferedTokens(tokens, onToken, model) {
+  for (const token of tokens) await onToken(token, model);
+}
 
 function responseScore(result) {
   for (const key of ['score', 'qualityScore', 'confidence']) {
@@ -91,11 +115,11 @@ function parseSize(name) {
   return value * multiplier;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
   const timeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : 30000;
   const deadline = deadlineAt != null
     ? Number(deadlineAt)
-    : (Number.isFinite(Number(deadlineMs)) ? Date.now() + Math.max(1, Number(deadlineMs)) : null);
+    : Date.now() + Math.max(1, Number.isFinite(Number(deadlineMs)) ? Number(deadlineMs) : timeout);
   const remainingTimeout = () => deadline == null ? timeout : Math.min(timeout, deadline - Date.now());
   if (remainingTimeout() <= 0) throw new Error('Model routing deadline exhausted before attempting a provider.');
   const policy = policyFrom(suppliedPolicy || await loadPolicy(db, { agentId, organizationId, projectId }) || envPolicy());
@@ -137,21 +161,30 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
   const attempt = async (uri) => {
+    const configuration = modelProvider.modelConfiguration(uri);
+    const registered = db ? await db.get('SELECT endpoint, cost_input, cost_output, latency_ms FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
     if (isLocal(uri)) {
       const discovered = await localModelDiscovery.discoverLocalModels();
-      if (discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
+      if (!registered?.endpoint && discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
         // If not found in cached discovery, try a force refresh before failing
         const refreshed = await localModelDiscovery.discoverLocalModels({ force: true });
+        if (!refreshed.length && !registered?.endpoint) throw new Error(`Local model '${uri}' could not be verified by discovery.`);
         if (refreshed.length && !refreshed.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
           throw new Error(`Local model '${uri}' is not present in the current chat-capable discovery set.`);
         }
       }
     }
-    const configuration = modelProvider.modelConfiguration(uri);
     const discoveredEndpoint = localModelDiscovery.endpointForModel(uri);
-    const registered = db ? await db.get('SELECT endpoint FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
     const attemptTimeout = remainingTimeout();
     if (attemptTimeout <= 0) throw new Error('Model routing deadline exhausted before attempting provider ' + uri + '.');
+    const estimatedInputTokens = modelProvider.tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length;
+    const estimatedOutputTokens = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : 2048;
+    const estimatedCost = estimateCostUsd(registered?.cost_input, registered?.cost_output, estimatedInputTokens, estimatedOutputTokens);
+    if (maxCostUsd != null && estimatedCost > Number(maxCostUsd)) {
+      throw Object.assign(new Error(`Estimated model cost ${estimatedCost} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
+    }
+    const bufferedTokens = [];
+    const startedAt = Date.now();
     const result = await modelProvider.generate({
       model: uri,
       prompt,
@@ -163,12 +196,19 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       organizationId,
       projectId,
       seed,
-      onToken: (token) => onToken(token, uri)
+      onToken: (token) => { bufferedTokens.push(token); }
     });
-    return { ...result, model: uri };
+    const latencyMs = Date.now() - startedAt;
+    const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
+    const enriched = { ...result, model: uri, latencyMs, costUsd, bufferedTokens };
+    await recordModelUsage(db, { organizationId, projectId }, enriched);
+    return enriched;
   };
 
   if (policy.mode === 'parallel' && candidates.length > 1) {
+    if (maxCostUsd == null || !Number.isFinite(Number(maxCostUsd)) || Number(maxCostUsd) < 0) {
+      throw Object.assign(new Error('Parallel model review requires an explicit non-negative maxCostUsd budget.'), { code: 'MODEL_PARALLEL_BUDGET_REQUIRED' });
+    }
     const settled = await Promise.allSettled(candidates.map(attempt));
     const successes = settled.map((result, index) => result.status === 'fulfilled' ? { ...result.value, index } : null).filter(Boolean);
     if (!successes.length) {
@@ -179,20 +219,28 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     const selected = scored.length
       ? [...scored].sort((left, right) => responseScore(right) - responseScore(left) || left.index - right.index)[0]
       : successes.sort((left, right) => left.index - right.index)[0];
+    await emitBufferedTokens(selected.bufferedTokens || [], onToken, selected.model);
+    const { bufferedTokens: _bufferedTokens, ...selectedResult } = selected;
     return {
-      ...selected,
-      route: { mode: 'parallel', selectedModel: selected.model, selectionScore: responseScore(selected), attempts: settled.map((result, index) => ({ model: candidates[index], status: result.status, error: result.status === 'rejected' ? result.reason?.message : null })), reviews: successes.map(({ index, ...result }) => result) }
+      ...selectedResult,
+      route: { mode: 'parallel', selectedModel: selected.model, selectionScore: responseScore(selected), attempts: settled.map((result, index) => ({ model: candidates[index], status: result.status, error: result.status === 'rejected' ? result.reason?.message : null })), reviews: successes.map(({ index, bufferedTokens: _tokens, ...result }) => result) }
     };
   }
 
   const attempts = [];
+  let discoveryRefreshed = false;
   for (const uri of candidates) {
     try {
       const result = await attempt(uri);
-      return { ...result, route: { mode: 'fallback', selectedModel: uri, attempts } };
+      await emitBufferedTokens(result.bufferedTokens || [], onToken, uri);
+      const { bufferedTokens: _bufferedTokens, ...cleanResult } = result;
+      return { ...cleanResult, route: { mode: 'fallback', selectedModel: uri, attempts } };
     } catch (error) {
       attempts.push({ model: uri, status: 'failed', error: error.message });
-      if (isLocal(uri)) await localModelDiscovery.discoverLocalModels({ force: true });
+      if (isLocal(uri) && !discoveryRefreshed) {
+        discoveryRefreshed = true;
+        await localModelDiscovery.discoverLocalModels({ force: true });
+      }
     }
   }
   throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);

@@ -65,18 +65,6 @@ function assertSafeProviderEndpoint(endpoint) {
   return endpoint;
 }
 
-function validateProviderEndpoint(endpoint, { localOnly = false } = {}) {
-  const parsed = new URL(String(endpoint));
-  if (localOnly) {
-    const host = parsed.hostname.toLowerCase();
-    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
-    if (!isLocalHost) throw new Error('Local model providers must use a loopback endpoint.');
-  } else if (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(parsed.hostname.toLowerCase())) {
-    throw new Error('Remote model providers must use HTTPS endpoints.');
-  }
-  return endpoint;
-}
-
 function modelConfiguration(model) {
   const uri = configuredModel(model);
   const match = uri.match(/^([\w-]+):\/\/(.+)$/);
