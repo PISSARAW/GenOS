@@ -197,12 +197,29 @@ async function compileExecutionMemory(agentId = 'agent', task = '', summary = ''
     }
 
     const category = isFailure ? 'Failure' : 'Experience';
-    const content = `Task: ${task}\nResult: ${summary.slice(0, 1000)}`;
+    const claims = Array.isArray(options.claims) ? options.claims : [];
+    const claimsText = claims.length > 0
+      ? `\nClaims: ` + claims.map(c => `[${c.statement} | evidence: ${Array.isArray(c.evidence) ? c.evidence.join(', ') : 'verified'}]`).join('; ')
+      : '';
+    const content = `Task: ${task}\nResult: ${summary.slice(0, 800)}${claimsText}`;
     const memId = await vectorMemory.storeMemory(agentId, content, null, {
       category,
       organizationId: options.organizationId,
       projectId: options.projectId
     });
+
+    if (options.provenanceHash && memId) {
+      try {
+        const { recordProvenance } = require('./evaluationObservabilityService');
+        await recordProvenance('decision', memId, {
+          decisionId: memId,
+          agentId,
+          task,
+          summary: summary.slice(0, 500),
+          claims
+        }, options.provenanceHash, { organizationId: options.organizationId, projectId: options.projectId });
+      } catch (_) {}
+    }
 
     // Only secrete positive exosomes into the extracellular matrix for successful missions
     if (!isFailure) {

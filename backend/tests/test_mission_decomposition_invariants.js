@@ -78,4 +78,26 @@ const plan = buildAutonomyPlan(contract, { tokens: 100, minimumWorkerTokens: 800
 assert.equal(plan.dispatchDecision.status, 'deferred');
 assert.equal(plan.dispatchDecision.selectedWorkers, 0);
 
+// Test dossier coherence validation against strategy contract
+const { validateWorkerDossierCoherence } = require('../src/services/agentEvidenceService');
+assert.throws(
+  () => validateWorkerDossierCoherence({ workerId: 'wrong-worker' }, { agentId: 'correct-worker' }, contract),
+  (error) => error.code === 'INVALID_DOSSIER_COHERENCE'
+);
+assert.throws(
+  () => validateWorkerDossierCoherence(
+    { workerId: 'worker-1', events: [{ evidenceReport: { outcome: 'success', claims: [] } }] },
+    { agentId: 'worker-1', role: 'specialist' },
+    contract
+  ),
+  (error) => error.code === 'UNSUBSTANTIATED_WORKER_DOSSIER'
+);
+assert.ok(
+  validateWorkerDossierCoherence(
+    { workerId: 'worker-1', events: [{ evidenceReport: { outcome: 'success', claims: [{ statement: 'Verified', evidence: ['test pass'] }] } }] },
+    { agentId: 'worker-1', role: 'specialist' },
+    contract
+  )
+);
+
 console.log('Mission decomposition invariants: ok');

@@ -541,6 +541,21 @@ process.stdin.on('end', async () => {
           });
         } catch (_) {}
       } else {
+        let conclusionProvenance = null;
+        try {
+          const { recordProvenance } = require('../src/services/evaluationObservabilityService.js');
+          conclusionProvenance = await recordProvenance('conclusion', mission.agentId, {
+            agentId: mission.agentId,
+            agentName,
+            task: mission.prompt,
+            claims: report?.claims || [],
+            tests: report?.tests || [],
+            uncertainties: report?.uncertainties || [],
+            dossierInfluence: report?.dossierInfluence || [],
+            outcome: report?.outcome || 'success'
+          }, null, { organizationId: mission.organizationId, projectId: mission.projectId });
+        } catch (_) {}
+
         emit({
           eventType: 'AGENT_COMPLETED',
           action: 'COMPLETE',
@@ -552,7 +567,8 @@ process.stdin.on('end', async () => {
             observedTools: [...observedTools],
             evidenceReport: report,
             usage: { tokens: exactTokens || estimatedTokens, events: eventCount, cost_usd: observedCostUsd },
-            conscienceState
+            conscienceState,
+            conclusionProvenance
           }
         });
         if (strategyContract.promotion?.require_human_approval === true) {
@@ -567,7 +583,14 @@ process.stdin.on('end', async () => {
               agentName,
               mission.prompt,
               report?.claims?.map(c => c.statement).join('\n') || finalReportText,
-              { outcome: report?.outcome || 'success', organizationId: mission.organizationId, projectId: mission.projectId }
+              {
+                outcome: report?.outcome || 'success',
+                organizationId: mission.organizationId,
+                projectId: mission.projectId,
+                claims: report?.claims || [],
+                provenanceHash: conclusionProvenance?.payloadHash,
+                provenanceId: conclusionProvenance?.id
+              }
             );
           } catch (_) {}
         }
