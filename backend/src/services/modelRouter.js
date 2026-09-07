@@ -36,6 +36,20 @@ function estimateCostUsd(costInput, costOutput, inputTokens, outputTokens) {
   return Number(((Number(costInput || 0) * inputTokens + Number(costOutput || 0) * outputTokens) / 1_000_000).toFixed(8));
 }
 
+async function runWithDeadline(operation, timeoutMs, model) {
+  let timer;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(Object.assign(new Error(`Model route '${model}' exceeded its remaining deadline.`), { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' })), Math.max(1, timeoutMs));
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function recordModelUsage(db, scope, result) {
   if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
   await db.run(
@@ -185,7 +199,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     }
     const bufferedTokens = [];
     const startedAt = Date.now();
-    const result = await modelProvider.generate({
+    const result = await runWithDeadline(modelProvider.generate({
       model: uri,
       prompt,
       timeoutMs: attemptTimeout,
@@ -197,7 +211,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       projectId,
       seed,
       onToken: (token) => { bufferedTokens.push(token); }
-    });
+    }), attemptTimeout, uri);
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
     const enriched = { ...result, model: uri, latencyMs, costUsd, bufferedTokens };
