@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
+const { validateWorkflowCondition } = require('../services/workflowConditions');
 
 function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch (_) { return fallback; }
@@ -28,10 +29,9 @@ function validateGraph(graph) {
     visiting.delete(id); visited.add(id); return false;
   };
   if (nodes.some((node) => hasCycle(node.id))) errors.push('Workflow graph must be acyclic.');
-  const validCondition = /^(?:true|false|input\.[\w-]+\s*={2,3}\s*["']?[^"']+["']?)$/i;
   nodes.forEach((node) => {
     const condition = node.when || node.data?.when;
-    if (condition && !validCondition.test(String(condition).trim())) errors.push(`Node ${node.id} has an unsupported condition.`);
+    if (condition && !validateWorkflowCondition(condition)) errors.push(`Node ${node.id} has an unsupported condition.`);
     const iterations = node.max_iterations ?? node.data?.maxIterations;
     if (iterations != null && (!Number.isInteger(Number(iterations)) || Number(iterations) < 0 || Number(iterations) > 20)) errors.push(`Node ${node.id} maxIterations must be an integer between 0 and 20.`);
   });
@@ -105,8 +105,9 @@ async function updateWorkflow(req, res, next) {
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const nextVersion = Number(existing.version || 0) + 1;
-    await db.run('UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, req.body?.status || existing.status, JSON.stringify(graph), JSON.stringify(req.body?.metadata || parseJson(existing.metadata_json, {})), req.params.id);
-    res.json(mapWorkflow(await db.get('SELECT * FROM workflows WHERE id = ?', req.params.id)));
+    const result = await db.run(`UPDATE workflows SET name = ?, description = ?, version = ?, status = ?, graph_json = ?, metadata_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${s.clause}`, req.body?.name || existing.name, req.body?.description ?? existing.description, nextVersion, req.body?.status || existing.status, JSON.stringify(graph), JSON.stringify(req.body?.metadata || parseJson(existing.metadata_json, {})), req.params.id, ...s.params);
+    if (result.changes !== 1) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Workflow not found.' } });
+    res.json(mapWorkflow(await db.get(`SELECT * FROM workflows WHERE id = ? AND ${s.clause}`, req.params.id, ...s.params)));
   } catch (error) { next(error); }
 }
 
@@ -131,7 +132,7 @@ async function createRun(req, res, next) {
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const id = `wfr-${crypto.randomUUID()}`;
-    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, status, input_json) VALUES (?, ?, ?, ?, ?)', id, workflow.id, workflow.version, 'queued', JSON.stringify(req.body?.input || {}));
+    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, status, input_json) VALUES (?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, 'queued', JSON.stringify(req.body?.input || {}));
     res.status(202).json({ id, workflowId: workflow.id, version: workflow.version, status: 'queued', acceptedAt: new Date().toISOString() });
   } catch (error) { next(error); }
 }
