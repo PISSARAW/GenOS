@@ -235,14 +235,18 @@ class CircuitBreakerService {
     return { status: 'resumed', state: this.state };
   }
 
-  getStatus() {
+  getStatus(scope = 'global') {
+    const state = this.context(scope);
+    const currentState = this.checkState(scope);
     return {
-      state: this.checkState(),
-      failureCount: this.failureCount,
+      state: currentState,
+      failureCount: state.failureCount,
+      failures: state.failureCount,
+      isOpen: currentState === 'OPEN',
       isHalted: this.isHalted,
       haltReason: this.haltReason,
       haltTimestamp: this.haltTimestamp,
-      halfOpenProbe: this.halfOpenProbe,
+      halfOpenProbe: state.halfOpenProbe,
       quarantinedTools: Array.from(this.toolLockOverrides.entries()).filter(([_, v]) => v).map(([k]) => k)
     };
   }
