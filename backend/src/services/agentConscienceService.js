@@ -116,9 +116,9 @@ function formatConsciencePrompt(state) {
 /**
  * Persiste l'état de conscience en base SQLite si les colonnes existent.
  */
-async function persistConscienceState(db, agentId, state) {
+async function persistConscienceState(db, agentId, state, options = {}) {
   const previousTail = persistTails.get(agentId) || Promise.resolve();
-  const operation = previousTail.catch(() => {}).then(() => persistConscienceStateNow(db, agentId, state));
+  const operation = previousTail.catch(() => {}).then(() => persistConscienceStateNow(db, agentId, state, true, options));
   const tracked = operation.finally(() => {
     if (persistTails.get(agentId) === tracked) persistTails.delete(agentId);
   });
@@ -126,11 +126,14 @@ async function persistConscienceState(db, agentId, state) {
   return operation;
 }
 
-async function persistConscienceStateNow(db, agentId, state, retry = true) {
+async function persistConscienceStateNow(db, agentId, state, retry = true, options = {}) {
   const previous = await db.get(
     'SELECT dissonance_level, cognitive_budget, is_apoptotic, conscience_revision FROM agents WHERE id = ?',
     agentId
   );
+  if (!previous) {
+    throw new Error(`Agent ${agentId} not found in database for conscience persistence`);
+  }
   const result = await db.run(
       `UPDATE agents SET 
          dissonance_level = ?, 
@@ -159,13 +162,14 @@ async function persistConscienceStateNow(db, agentId, state, retry = true) {
     state.currentBudget = Math.min(state.currentBudget, current.currentBudget);
     state.isApoptotic = state.isApoptotic || current.isApoptotic;
     state.revision = current.revision;
-    return persistConscienceStateNow(db, agentId, state, false);
+    return persistConscienceStateNow(db, agentId, state, false, options);
   }
+  const transitionReason = String(options.reason || 'evaluation');
   await db.run(
     `INSERT INTO conscience_transitions
       (agent_id, from_revision, to_revision, from_dissonance, to_dissonance,
-       from_budget, to_budget, from_apoptotic, to_apoptotic)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       from_budget, to_budget, from_apoptotic, to_apoptotic, reason)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     agentId,
     previous?.conscience_revision ?? state.revision,
     state.revision + 1,
@@ -174,7 +178,8 @@ async function persistConscienceStateNow(db, agentId, state, retry = true) {
     previous?.cognitive_budget ?? state.currentBudget,
     state.currentBudget,
     previous?.is_apoptotic ? 1 : 0,
-    state.isApoptotic ? 1 : 0
+    state.isApoptotic ? 1 : 0,
+    transitionReason
   );
   state.revision += 1;
 }
@@ -203,6 +208,33 @@ async function loadConscienceState(db, agentId) {
   }
 }
 
+/**
+ * Récupère l'historique des transitions de conscience pour un agent.
+ */
+async function getConscienceTransitions(db, agentId, options = {}) {
+  const limit = Math.max(1, Math.min(200, Math.floor(Number(options.limit) || 50)));
+  const offset = Math.max(0, Math.floor(Number(options.offset) || 0));
+  try {
+    const rows = await db.all(
+      `SELECT id, agent_id as agentId, from_revision as fromRevision, to_revision as toRevision,
+              from_dissonance as fromDissonance, to_dissonance as toDissonance,
+              from_budget as fromBudget, to_budget as toBudget,
+              from_apoptotic as fromApoptotic, to_apoptotic as toApoptotic,
+              reason, created_at as createdAt
+       FROM conscience_transitions
+       WHERE agent_id = ?
+       ORDER BY to_revision DESC, id DESC
+       LIMIT ? OFFSET ?`,
+      agentId,
+      limit,
+      offset
+    );
+    return rows || [];
+  } catch (error) {
+    throw new Error(`Unable to load conscience transitions for agent ${agentId}: ${error.message}`);
+  }
+}
+
 module.exports = {
   DEFAULT_MAX_DISSONANCE,
   DEFAULT_BASELINE_BUDGET,
@@ -214,5 +246,6 @@ module.exports = {
   markApoptotic,
   formatConsciencePrompt,
   persistConscienceState,
-  loadConscienceState
+  loadConscienceState,
+  getConscienceTransitions
 };
