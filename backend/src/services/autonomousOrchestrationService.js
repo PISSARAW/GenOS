@@ -85,12 +85,21 @@ function buildAutonomyPlan(contract, budget = {}) {
 
   const requiredTools = [...new Set(realizable.flatMap((entry) => entry.requiredTools))];
   const totalTokens = Number(budget.tokens || 500000);
-  const minimumWorkerTokens = Number(budget.minimumWorkerTokens || 8000);
-  const affordableWorkers = Math.max(0, Math.floor((totalTokens * 0.6) / minimumWorkerTokens));
+  const workerShare = Number.isFinite(Number(budget.workerShare))
+    ? Math.max(0, Math.min(1, Number(budget.workerShare)))
+    : (Number.isFinite(Number(budget.tokenPolicy?.workerShare))
+      ? Math.max(0, Math.min(1, Number(budget.tokenPolicy?.workerShare)))
+      : 0.6);
+  const orchestratorReserve = Number.isFinite(Number(budget.orchestratorReserve))
+    ? Math.max(0, Math.min(1, Number(budget.orchestratorReserve)))
+    : (Number.isFinite(Number(budget.tokenPolicy?.orchestratorReserve))
+      ? Math.max(0, Math.min(1, Number(budget.tokenPolicy?.orchestratorReserve)))
+      : (1 - workerShare));
+  const affordableWorkers = Math.max(0, Math.floor((totalTokens * workerShare) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));
   const allocation = complex || uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
   const rounds = buildAllocation({
-    totalTokens, workerShare: dispatchWorkers.length ? 0.6 : 0, workerCount: dispatchWorkers.length,
+    totalTokens, workerShare: dispatchWorkers.length ? workerShare : 0, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, mode: allocation
   });
 
@@ -166,8 +175,8 @@ function buildAutonomyPlan(contract, budget = {}) {
     parasitism: { enabled: highRisk || security, mode: 'adversarial_parasite_branch', action: 'isolate_and_score_parasitic_trajectories' },
     tokenPolicy: {
       total: totalTokens,
-      workerShare: dispatchWorkers.length ? 0.6 : 0,
-      orchestratorReserve: dispatchWorkers.length ? 0.4 : 1,
+      workerShare: dispatchWorkers.length ? workerShare : 0,
+      orchestratorReserve: dispatchWorkers.length ? orchestratorReserve : 1,
       allocation,
       minimumWorkerTokens,
       stopConditions: contract.stop_conditions || [],
