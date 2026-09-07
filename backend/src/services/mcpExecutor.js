@@ -500,10 +500,12 @@ function checkChromatinLock(agentId, toolName) {
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
   const candidateDirs = [
-    path.join(workspaceRoot, '.genos', 'chromatin'),
+    ...(process.env.GENOS_STUDIO_ROOT ? [path.join(process.env.GENOS_STUDIO_ROOT, 'chromatin')] : []),
+    ...(process.env.GENOS_ROOT ? [path.join(process.env.GENOS_ROOT, 'chromatin')] : []),
     path.join(workspaceRoot, '.genos-matrix', 'chromatin'),
-    path.join(process.cwd(), '.genos', 'chromatin'),
-    path.join(process.cwd(), '.genos-matrix', 'chromatin')
+    path.join(workspaceRoot, '.genos', 'chromatin'),
+    path.join(process.cwd(), '.genos-matrix', 'chromatin'),
+    path.join(process.cwd(), '.genos', 'chromatin')
   ];
 
   let chromatinData = null;

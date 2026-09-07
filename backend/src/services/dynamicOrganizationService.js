@@ -154,9 +154,10 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
       String(reason || 'Runtime need changed.'), actor
     );
     if (organization !== 'network_silence') {
+      const flushRoute = routeMessage({ state: { policy: profile, orchestratorId }, sender: {}, recipientAgentId: null, kind: 'evidence' });
       await transaction.run(
-        "UPDATE agent_organization_messages SET delivery = 'delivered', organization = ?, organization_version = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
-        organization, version, orchestratorId
+        "UPDATE agent_organization_messages SET delivery = ?, organization = ?, organization_version = ?, channel = ?, recipient_agent_id = ? WHERE orchestrator_id = ? AND delivery = 'buffered'",
+        flushRoute.delivery, organization, version, flushRoute.channel, flushRoute.recipientAgentId, orchestratorId
       );
     }
   });

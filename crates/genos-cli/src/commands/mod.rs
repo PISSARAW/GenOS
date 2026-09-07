@@ -12,3 +12,4 @@ pub mod reproduction;
 pub mod snapshot;
 pub mod store_ops;
 pub mod swarm_alleles;
+pub mod root_resolver;
