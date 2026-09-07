@@ -58,20 +58,6 @@ function estimateCostUsd(costInput, costOutput, inputTokens, outputTokens) {
   return Number(((Number(costInput || 0) * inputTokens + Number(costOutput || 0) * outputTokens) / 1_000_000).toFixed(8));
 }
 
-async function runWithDeadline(operation, timeoutMs, model) {
-  let timer;
-  try {
-    return await Promise.race([
-      operation,
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(Object.assign(new Error(`Model route '${model}' exceeded its remaining deadline.`), { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' })), Math.max(1, timeoutMs));
-      })
-    ]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 async function recordModelUsage(db, scope, result) {
   if (!db || typeof db.run !== 'function' || !scope.organizationId || !scope.projectId) return;
   await db.run(
@@ -159,7 +145,7 @@ function parseSize(name) {
   return value * multiplier;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080, responseFormat, jsonSchema }) {
   if (variantIndex !== undefined && (!Number.isInteger(Number(variantIndex)) || Number(variantIndex) < 0)) {
     throw Object.assign(new Error('variantIndex must be a non-negative integer.'), { code: 'INVALID_MODEL_VARIANT' });
   }
@@ -201,6 +187,9 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       candidates = [selectedModel.uri, ...others];
     } else {
       const fallbackList = configuredCandidates.filter(c => c !== 'auto');
+      if (policy.preferLocal && !fallbackList.length) {
+        throw Object.assign(new Error('No local chat-capable model was discovered; refusing implicit cloud fallback while preferLocal is enabled.'), { code: 'LOCAL_MODEL_REQUIRED' });
+      }
       const fallbackDefault = process.env.GENOS_DEFAULT_MODEL || 'openai://gpt-4o-mini';
       candidates = fallbackList.length > 0 ? fallbackList : [fallbackDefault];
     }
@@ -234,23 +223,40 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     }
     const bufferedTokens = [];
     const startedAt = Date.now();
-    const result = await runWithDeadline(modelProvider.generate({
-      model: uri,
-      prompt,
-      timeoutMs: attemptTimeout,
-      maxTokens,
-      endpoint: registered?.endpoint || discoveredEndpoint || undefined,
-      priority,
-      agentId,
-      organizationId,
-      projectId,
-      seed,
-      stream,
-      signal,
-      displayWidth,
-      displayHeight,
-      onToken: (token) => { bufferedTokens.push(token); }
-    }), attemptTimeout, uri);
+    const attemptController = new AbortController();
+    let deadlineExpired = false;
+    const abortAttempt = () => attemptController.abort();
+    if (signal?.aborted) abortAttempt();
+    else signal?.addEventListener('abort', abortAttempt, { once: true });
+    const deadlineTimer = setTimeout(() => { deadlineExpired = true; attemptController.abort(); }, Math.max(1, attemptTimeout));
+    let result;
+    try {
+      result = await modelProvider.generate({
+        model: uri,
+        prompt,
+        timeoutMs: attemptTimeout,
+        maxTokens,
+        endpoint: registered?.endpoint || discoveredEndpoint || undefined,
+        priority,
+        agentId,
+        organizationId,
+        projectId,
+        seed,
+        stream,
+        signal: attemptController.signal,
+        displayWidth,
+        displayHeight,
+        responseFormat,
+        jsonSchema,
+        onToken: (token) => { bufferedTokens.push(token); }
+      });
+    } catch (error) {
+      if (deadlineExpired) throw Object.assign(new Error(`Model route '${uri}' exceeded its remaining deadline.`), { code: 'MODEL_ROUTE_DEADLINE_EXCEEDED' });
+      throw error;
+    } finally {
+      clearTimeout(deadlineTimer);
+      signal?.removeEventListener('abort', abortAttempt);
+    }
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
     const enriched = { ...result, model: uri, requestedModel: uri, servedModel: result.servedModel || result.model || configuration.modelName, endpoint: result.endpoint || registered?.endpoint || discoveredEndpoint || configuration.endpoint, latencyMs, costUsd, bufferedTokens };
@@ -305,14 +311,16 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       const { bufferedTokens: _bufferedTokens, ...cleanResult } = result;
       return { ...cleanResult, route: { mode: 'fallback', selectedModel: uri, attempts } };
     } catch (error) {
-      attempts.push({ model: uri, status: 'failed', error: error.message });
+      attempts.push({ model: uri, status: 'failed', error: error.message, code: error.code || null });
       if (isLocal(uri) && !discoveryRefreshed) {
         discoveryRefreshed = true;
         await localModelDiscovery.discoverLocalModels({ force: true });
       }
     }
   }
-  throw new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
+  const routeError = new Error(`Every model route failed. ${attempts.map((item) => `${item.model}: ${item.error}`).join('; ')}`);
+  if (attempts.length > 0 && attempts.every((attempt) => attempt.code === 'MODEL_ROUTE_DEADLINE_EXCEEDED')) routeError.code = 'MODEL_ROUTE_DEADLINE_EXCEEDED';
+  throw routeError;
 }
 
 module.exports = { generate, loadPolicy, loadProviderCandidates, localRoutingPolicy, policyFrom, candidateModels, isLocal, responseScore, parseSize };
