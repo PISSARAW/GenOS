@@ -79,6 +79,23 @@ async function runDendriticSuite() {
   await db.run('DELETE FROM memory_synapses WHERE source_id = ? OR target_id = ?', srcId, targetId);
   await db.run('DELETE FROM genome_decisions WHERE id IN (?, ?)', srcId, targetId);
 
+  // Validation des calculs biophysiques alignés avec neurobiology.rs
+  const { calculateRallAttenuation, evaluateNmdaSpike, normalizeCompartment, normalizeSpineMorphology } = require('../src/services/neurobiologyBiophysics');
+  const vAttenuated = calculateRallAttenuation(10.0, 1.0, 1.0);
+  assert.ok(Math.abs(vAttenuated - (10.0 * Math.exp(-1.0))) < 0.01, 'Atténuation de Rall doit correspondre à V0 * exp(-x/lambda)');
+
+  const subthreshold = evaluateNmdaSpike(1.0, 1.0, 1.5);
+  assert.strictEqual(subthreshold.isNmdaSpike, false);
+
+  const supralinear = evaluateNmdaSpike(1.5, 2.0, 1.2);
+  assert.strictEqual(supralinear.isNmdaSpike, true);
+  assert.ok(supralinear.voltage > 1.5 * 1.8, 'Spike NMDA supralinéaire validé');
+
+  assert.strictEqual(normalizeCompartment('apical'), 'ApicalDendrite');
+  assert.strictEqual(normalizeCompartment('trunk'), 'ProximalTrunk');
+  assert.strictEqual(normalizeSpineMorphology('mushroom'), 'Mushroom');
+  console.log('  PASS: Module biophysique Rall & NMDA synchronise avec neurobiology.rs');
+
   console.log('=== TOUS LES TESTS DENDRITIQUES BACKEND ONT REUSSI ===');
 }
 
