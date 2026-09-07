@@ -3,6 +3,8 @@ const { validateProviderEndpoint } = require('./providerEndpointPolicy');
 const fs = require('fs');
 const path = require('path');
 
+const SUPPORTED_PROVIDERS = new Set(['openai', 'anthropic', 'gemini', 'mistral', 'groq', 'deepseek', 'together', 'openrouter', 'ollama', 'lmstudio', 'vllm', 'openai-compatible']);
+
 function loadEnvironmentFile() {
   const filePath = path.resolve(__dirname, '../../../.env');
   if (!fs.existsSync(filePath)) return;
@@ -15,7 +17,13 @@ function loadEnvironmentFile() {
 
 function applyLegacyModelConfiguration() {
   if (!process.env.GENOS_DEFAULT_MODEL && process.env.LLM_PROVIDER && process.env.OLLAMA_MODEL) {
-    process.env.GENOS_DEFAULT_MODEL = `${process.env.LLM_PROVIDER}://${process.env.OLLAMA_MODEL}`;
+    const provider = String(process.env.LLM_PROVIDER).trim().toLowerCase();
+    if (!SUPPORTED_PROVIDERS.has(provider)) {
+      const error = new Error(`Unsupported legacy model provider '${process.env.LLM_PROVIDER}'.`);
+      error.code = 'INVALID_MODEL_PROVIDER';
+      throw error;
+    }
+    process.env.GENOS_DEFAULT_MODEL = `${provider}://${process.env.OLLAMA_MODEL}`;
   }
   if (!process.env.GENOS_OLLAMA_ENDPOINT && process.env.OLLAMA_API_URL) {
     process.env.GENOS_OLLAMA_ENDPOINT = `${process.env.OLLAMA_API_URL.replace(/\/$/, '')}/v1/chat/completions`;
@@ -38,7 +46,7 @@ function configuredModel(model) {
     value = `ollama://${value.slice(8)}`;
   }
   if (!value) throw new Error('No model provider is configured. Set GENOS_DEFAULT_MODEL or LLM_PROVIDER plus its model variable.');
-  if (!/^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\//.test(value)) {
+  if (!new RegExp(`^(?:${[...SUPPORTED_PROVIDERS].join('|')}):\\/\\/`).test(value)) {
     throw new Error(`Unsupported model URI '${value}'. Use OpenAI, Anthropic, Gemini, Mistral, Groq, DeepSeek, Together, OpenRouter, Ollama, LM Studio, vLLM, or OpenAI-compatible syntax.`);
   }
   return value;
