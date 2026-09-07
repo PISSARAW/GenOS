@@ -175,9 +175,10 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       const others = sorted.filter(m => m.uri !== selectedModel.uri).map(m => m.uri);
       candidates = [selectedModel.uri, ...others];
     } else {
-      const fallbackList = configuredCandidates.filter(c => c !== 'auto');
-      const fallbackDefault = process.env.GENOS_DEFAULT_MODEL || 'openai://gpt-4o-mini';
-      candidates = fallbackList.length > 0 ? fallbackList : [fallbackDefault];
+      if (policy.preferLocal || configuredCandidates[0] === 'auto') {
+        throw Object.assign(new Error('No local chat-capable model is available for the requested route.'), { code: 'LOCAL_MODEL_REQUIRED' });
+      }
+      throw Object.assign(new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.'), { code: 'MODEL_ROUTE_REQUIRED' });
     }
   }
   
