@@ -20,10 +20,19 @@ function extractDossierReport(dossier) {
   if (!dossier) return {};
   const events = Array.isArray(dossier.events) ? dossier.events : [];
   for (let i = events.length - 1; i >= 0; i--) {
-    const report = events[i].evidenceReport || events[i].payload?.evidenceReport;
-    if (report) return report;
+    const report = events[i].evidenceReport || events[i].payload?.evidenceReport || events[i].payload?.report || (events[i].payload?.claims ? events[i].payload : null);
+    if (report && typeof report === 'object' && Object.keys(report).length > 0) return report;
   }
-  return dossier.evidenceReport || {};
+  if (dossier.evidenceReport && typeof dossier.evidenceReport === 'object' && Object.keys(dossier.evidenceReport).length > 0) {
+    return dossier.evidenceReport;
+  }
+  if (dossier.report && typeof dossier.report === 'object' && Object.keys(dossier.report).length > 0) {
+    return dossier.report;
+  }
+  if (Array.isArray(dossier.claims) || dossier.outcome || dossier.creativeEvaluation) {
+    return dossier;
+  }
+  return dossier.evidenceReport || dossier.report || {};
 }
 
 function testResultPassed(test) {
