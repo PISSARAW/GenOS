@@ -86,10 +86,10 @@ function responseScore(result) {
 
 function candidateModels(explicitModel, policy) {
   const primary = String(explicitModel || policy.primary || '').trim();
-  const ordered = [primary, ...policy.fallbacks, ...(policy.mode === 'parallel' ? policy.parallelReview : [])].filter(Boolean);
-  const unique = [...new Set(ordered)];
-  if (policy.preferLocal) unique.sort((left, right) => Number(isLocal(right)) - Number(isLocal(left)));
-  return unique;
+  const rest = [...policy.fallbacks, ...(policy.mode === 'parallel' ? policy.parallelReview : [])].filter(Boolean);
+  const uniqueRest = [...new Set(rest)].filter((candidate) => candidate !== primary);
+  if (policy.preferLocal) uniqueRest.sort((left, right) => Number(isLocal(right)) - Number(isLocal(left)));
+  return [primary, ...uniqueRest].filter(Boolean);
 }
 
 async function loadPolicy(db, { agentId, organizationId, projectId }) {
