@@ -64,6 +64,26 @@ impl DnaStrand {
         }).collect()
     }
 
+    pub fn decode_instruction(&self) -> String {
+        let mut bytes = Vec::new();
+        for chunk in self.sequence.chunks(4) {
+            if chunk.len() == 4 {
+                let mut b = 0u8;
+                for (i, &nuc) in chunk.iter().enumerate() {
+                    let bits = match nuc {
+                        DnaNucleotide::A => 0b00,
+                        DnaNucleotide::C => 0b01,
+                        DnaNucleotide::G => 0b10,
+                        DnaNucleotide::T => 0b11,
+                    };
+                    b |= bits << ((3 - i) * 2);
+                }
+                bytes.push(b);
+            }
+        }
+        String::from_utf8_lossy(&bytes).to_string()
+    }
+
     pub fn len(&self) -> usize { self.sequence.len() }
 
     pub fn is_empty(&self) -> bool { self.sequence.is_empty() }
