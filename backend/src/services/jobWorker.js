@@ -377,8 +377,9 @@ function isRetryableJobError(error = {}) {
 async function withRetry(db, table, job, executor) {
   const configuredMax = Number(job.max_attempts || 3);
   const max = Number.isFinite(configuredMax) ? Math.max(1, Math.min(Math.floor(configuredMax), 10)) : 3;
-  const firstAttempt = Math.max(1, Number(job.attempts || 0) + 1);
-  const previousAttempts = Number.isFinite(Number(job.attempts)) ? Math.max(0, Math.floor(Number(job.attempts))) : 0;
+  const previousAttempts = Number.isFinite(Number(job.attempts))
+    ? Math.max(0, Math.floor(Number(job.attempts)))
+    : 0;
   for (let attempt = Math.max(1, previousAttempts + 1); attempt <= max; attempt++) {
     await db.run(`UPDATE ${table} SET attempts = ? WHERE id = ?`, attempt, job.id);
     telemetry.emitEvent({ eventType: 'JOB_ATTEMPT_STARTED', action: 'JOB_ATTEMPT', detail: `Started attempt ${attempt}/${max} for ${table} job ${job.id}.`, payload: { table, jobId: job.id, attempt, maxAttempts: max } });
