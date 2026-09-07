@@ -14,6 +14,7 @@ const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
+const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 
 if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   telemetry.on('telemetry', (evt) => {
@@ -31,9 +32,7 @@ let id = action === 'dispatch_worker'
 // Accept the policy at the top level (current schema) and inside `arguments`
 // while older long-lived MCP clients refresh their cached tool schema.
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
-const allowedCommands = Array.isArray(policyRequest.allowed_commands)
-  ? [...new Set(policyRequest.allowed_commands.map((value) => String(value).trim()).filter(Boolean))]
-  : [];
+const allowedCommands = normalizeAllowedCommands(policyRequest.allowed_commands) || [];
 const allowFileEdits = policyRequest.allow_file_edits === true;
 
 // This bridge creates a root authority boundary. A delegated worker must never
@@ -322,7 +321,7 @@ async function main() {
       const strategyContract = await contracts.getLatestContract(db, orchestratorId);
       if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       let inheritedCommands = [];
-      try { inheritedCommands = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]'); } catch {}
+      try { inheritedCommands = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inheritedCommands = []; }
       await runtime.startMission({
         agentId: id, name, role, prompt: task, modelTier: request.model_tier || reusable?.modelTier || parent.model_tier,
         workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id,

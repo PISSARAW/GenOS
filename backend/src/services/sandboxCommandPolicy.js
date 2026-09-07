@@ -6,6 +6,12 @@ function normalizeSandboxCommand(command) {
   return String(command || '').trim().replace(/\s+/g, ' ');
 }
 
+function normalizeAllowedCommands(value) {
+  if (!Array.isArray(value)) return null;
+  if (value.some((command) => typeof command !== 'string')) return null;
+  return [...new Set(value.map((command) => command.trim()).filter(Boolean))];
+}
+
 function isAllowedSandboxTestCommand(command) {
   const normalized = normalizeSandboxCommand(command);
   if (!normalized) return false;
@@ -20,4 +26,4 @@ function isAllowedSandboxTestCommand(command) {
   return parts.slice(2).length > 0 && parts.slice(2).every((option) => SAFE_CARGO_OPTIONS.has(option) || SAFE_ARGUMENT.test(option));
 }
 
-module.exports = { normalizeSandboxCommand, isAllowedSandboxTestCommand };
+module.exports = { normalizeSandboxCommand, normalizeAllowedCommands, isAllowedSandboxTestCommand };

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /** Synchronous Codex PreToolUse policy for isolated GenOS runtimes. */
 let raw = '';
+const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => { raw += chunk; });
 process.stdin.on('end', () => {
@@ -19,7 +20,7 @@ process.stdin.on('end', () => {
   let allowedCommands = [];
   try {
     const parsed = JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]');
-    if (Array.isArray(parsed)) allowedCommands = parsed.map((value) => String(value).trim()).filter(Boolean);
+    allowedCommands = normalizeAllowedCommands(parsed) || [];
   } catch {}
 
   if (tool === 'Bash' && !allowedCommands.includes(command)) {
