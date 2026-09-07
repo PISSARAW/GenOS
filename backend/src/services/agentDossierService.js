@@ -28,6 +28,9 @@ function workspaceScope(tenant, alias = 'w') {
 
 async function agentFamily(db, agentId, tenant) {
   const scope = workspaceScope(tenant);
+  const childScopeClause = tenant
+    ? `(child.workspace_id IS NULL OR (${scope.clause}))`
+    : `(${scope.clause})`;
   return db.all(
     `WITH RECURSIVE family AS (
        SELECT a.*, 0 AS depth FROM agents a
@@ -37,7 +40,7 @@ async function agentFamily(db, agentId, tenant) {
       SELECT child.*, family.depth + 1 FROM agents child
       LEFT JOIN workspaces w ON w.id = child.workspace_id
       JOIN family ON child.parent_agent_id = family.id
-      WHERE family.depth < ? AND ${scope.clause}
+      WHERE family.depth < ? AND ${childScopeClause}
      )
      SELECT * FROM family ORDER BY depth, created_at, id`,
     agentId,
@@ -82,6 +85,33 @@ function memoryRecords(events) {
 
 function mutationRecords(events) {
   return events.filter((event) => /MUTATION|CROSSOVER|EVOLUTION|PARASIT/.test(event.eventType) || /MUTAT|CROSSOVER|EVOL/.test(event.action));
+}
+
+function synthesisInfluenceRecords(events) {
+  const records = [];
+  const verifiedWorkers = new Set();
+  for (const event of events) {
+    if (event.eventType === 'DOSSIER_INFLUENCE_VERIFIED') {
+      for (const wid of event.payload?.workerIds || []) verifiedWorkers.add(wid);
+    }
+    const report = event.payload?.evidenceReport || event.payload?.report || (event.payload?.dossierInfluence ? event.payload : null);
+    if (Array.isArray(report?.dossierInfluence)) {
+      for (const entry of report.dossierInfluence) {
+        if (!entry || typeof entry !== 'object') continue;
+        records.push({
+          sourceAgentId: event.agentId,
+          workerId: entry.workerId,
+          influence: entry.influence,
+          usedClaims: Array.isArray(entry.usedClaims) ? entry.usedClaims : [],
+          recordedAt: event.createdAt
+        });
+      }
+    }
+  }
+  return {
+    verifiedWorkerIds: [...verifiedWorkers],
+    influences: records
+  };
 }
 
 async function loadAgentDossier(db, agentId, tenant) {
@@ -156,6 +186,7 @@ async function loadAgentDossier(db, agentId, tenant) {
       runtime: runtimeOrganizations(events)
     },
     mutations: mutationRecords(events),
+    synthesisInfluence: synthesisInfluenceRecords(events),
     forks,
     children,
     descendants,
@@ -164,4 +195,4 @@ async function loadAgentDossier(db, agentId, tenant) {
   };
 }
 
-module.exports = { MAX_AGENT_FAMILY_DEPTH, loadAgentDossier, agentFamily, memoryRecords, mutationRecords, runtimeOrganizations };
+module.exports = { MAX_AGENT_FAMILY_DEPTH, loadAgentDossier, agentFamily, memoryRecords, mutationRecords, runtimeOrganizations, synthesisInfluenceRecords };
