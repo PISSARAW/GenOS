@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 const { validateWorkflowCondition } = require('../services/workflowConditions');
+const { jobMaxAttempts, jobTimeoutMs, jsonByteLength } = require('./argumentBounds');
 
 function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch (_) { return fallback; }
@@ -105,6 +106,7 @@ async function createWorkflow(req, res, next) {
     if (!name || typeof name !== 'string') return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'Workflow name is required.' } });
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
+    if (jsonByteLength(graph) > 2 * 1024 * 1024 || jsonByteLength(metadata) > 512 * 1024) return res.status(413).json({ error: { code: 'WORKFLOW_PAYLOAD_TOO_LARGE', message: 'Workflow graph and metadata exceed the configured size limits.' } });
     if (!workspaceId || typeof workspaceId !== 'string') return res.status(400).json({ error: { code: 'WORKSPACE_REQUIRED', message: 'workspaceId is required.' } });
     const id = `wf-${crypto.randomUUID()}`;
     const s = scopeSql(req);
@@ -178,9 +180,12 @@ async function createRun(req, res, next) {
     const validation = validateGraph(graph);
     if (!validation.valid) return res.status(422).json({ error: { code: 'INVALID_GRAPH', message: validation.errors.join(' '), details: validation } });
     const id = `wfr-${crypto.randomUUID()}`;
-    const maxAttempts = Math.max(1, Math.min(10, Number(req.body?.maxAttempts || 3)));
-    const timeoutMs = Math.max(1, Math.min(30 * 60 * 1000, Number(req.body?.timeoutMs || 30000)));
-    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, status, input_json, max_attempts, timeout_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, 'queued', JSON.stringify(req.body?.input || {}), maxAttempts, timeoutMs);
+    const maxAttempts = jobMaxAttempts(req.body?.maxAttempts);
+    const timeoutMs = jobTimeoutMs(req.body?.timeoutMs);
+    const requestedPriority = Number(req.body?.priority ?? 0);
+    const priority = Number.isFinite(requestedPriority) ? Math.max(0, Math.min(Math.floor(requestedPriority), 100)) : 0;
+    if (jsonByteLength(req.body?.input || {}) > 512 * 1024) return res.status(413).json({ error: { code: 'WORKFLOW_INPUT_TOO_LARGE', message: 'Workflow input exceeds 512 KiB.' } });
+    await db.run('INSERT INTO workflow_runs (id, workflow_id, workflow_version, organization_id, project_id, priority, status, input_json, max_attempts, timeout_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, workflow.id, workflow.version, req.tenant.organizationId, req.tenant.projectId, priority, 'queued', JSON.stringify(req.body?.input || {}), maxAttempts, timeoutMs);
     res.status(202).json({ id, workflowId: workflow.id, version: workflow.version, status: 'queued', acceptedAt: new Date().toISOString() });
   } catch (error) { next(error); }
 }

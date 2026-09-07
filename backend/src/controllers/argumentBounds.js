@@ -6,4 +6,16 @@ function boundedInteger(value, fallback, minimum, maximum) {
   return numeric;
 }
 
-module.exports = { boundedInteger };
+function jobMaxAttempts(value, fallback = 3) {
+  return boundedInteger(value, fallback, 1, 10);
+}
+
+function jobTimeoutMs(value, fallback = 30000) {
+  return boundedInteger(value, fallback, 1, 30 * 60 * 1000);
+}
+
+function jsonByteLength(value) {
+  return Buffer.byteLength(JSON.stringify(value === undefined ? null : value), 'utf8');
+}
+
+module.exports = { boundedInteger, jobMaxAttempts, jobTimeoutMs, jsonByteLength };
