@@ -3,12 +3,31 @@ const { appendBounded } = require('./boundedOutput');
 const { terminateChild } = require('./processTermination');
 const ALLOWED_CAPABILITIES = new Set(['mcp', 'retrieval', 'webhook', 'grader', 'connector']);
 
+function allowedPluginRegistries() {
+  return String(process.env.GENOS_PLUGIN_REGISTRIES || '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function validateImage(image) {
+  if (!String(image).includes('@sha256:')) throw new Error('Plugin image must be pinned by a sha256 digest.');
+  if (!/^[a-z0-9][a-z0-9./:_-]+@sha256:[a-f0-9]{64}$/i.test(image)) throw new Error('Plugin image is invalid.');
+  const [reference, digest] = image.split('@');
+  if (!digest || !/^sha256:[a-f0-9]{64}$/i.test(digest)) throw new Error('Plugin image must be pinned by a sha256 digest.');
+  const registry = reference.includes('/') ? reference.split('/')[0].toLowerCase() : 'docker.io';
+  const registries = allowedPluginRegistries();
+  if (registries.length && !registries.includes(registry)) throw new Error(`Plugin registry '${registry}' is not allowed.`);
+  return image;
+}
+
 function validate(manifest) {
   if (!manifest?.id || !/^[a-z0-9][a-z0-9._-]{1,63}$/i.test(manifest.id)) throw new Error('Plugin id is invalid.');
-  if (!manifest?.image || !/^[a-z0-9][a-z0-9./:_-]+$/i.test(manifest.image)) throw new Error('Plugin image is invalid.');
+  if (!manifest?.image) throw new Error('Plugin image is invalid.');
+  const image = validateImage(manifest.image);
   const capabilities = Array.isArray(manifest.capabilities) ? manifest.capabilities : [];
   if (capabilities.some((capability) => !ALLOWED_CAPABILITIES.has(capability))) throw new Error('Plugin requests an unsupported capability.');
-  return { id: manifest.id, image: manifest.image, version: manifest.version || 'latest', capabilities };
+  return { id: manifest.id, image, version: manifest.version || 'latest', capabilities };
 }
 
 function run(manifest, payload = {}, timeoutMs = 15000) {
@@ -22,4 +41,4 @@ function run(manifest, payload = {}, timeoutMs = 15000) {
     child.stdin.end(JSON.stringify(payload));
   });
 }
-module.exports = { validate, run };
+module.exports = { validate, run, validateImage };
