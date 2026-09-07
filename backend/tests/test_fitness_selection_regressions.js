@@ -42,5 +42,6 @@ const pareto = calculateParetoFront([
 ]);
 assert.deepStrictEqual(pareto.paretoFront.map((candidate) => candidate.solverKey), ['valid']);
 assert.deepStrictEqual(pareto.invalidSolutions.map((candidate) => candidate.solverKey), ['invalid']);
+assert.equal(pareto.evaluationStatus, 'partial_invalid_candidates');
 
 console.log('Fitness and selection regression checks passed.');
