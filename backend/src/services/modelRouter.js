@@ -1,5 +1,6 @@
 const modelProvider = require('./modelProvider');
 const localModelDiscovery = require('./localModelDiscovery');
+const telemetry = require('./telemetryObserver');
 const crypto = require('crypto');
 
 function list(value) {
@@ -267,6 +268,14 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       return { ...cleanResult, route: { mode: 'fallback', selectedModel: uri, attempts } };
     } catch (error) {
       attempts.push({ model: uri, status: 'failed', error: error.message });
+      telemetry.emitEvent({
+        eventType: 'MODEL_ROUTE_FAILED',
+        agentId: agentId || 'model-router',
+        action: 'MODEL_FALLBACK',
+        detail: `Model route '${uri}' failed; trying the next candidate.`,
+        severity: 'warning',
+        payload: { model: uri, error: error.message, attempt: attempts.length, organizationId, projectId }
+      });
       if (isLocal(uri) && !discoveryRefreshed) {
         discoveryRefreshed = true;
         await localModelDiscovery.discoverLocalModels({ force: true });
