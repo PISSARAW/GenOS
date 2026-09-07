@@ -50,10 +50,75 @@ fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<Str
     None
 }
 
-fn call_llm_api(prompt: &str) -> String {
+fn evaluate_prompt_complexity(prompt: &str) -> u32 {
+    let mut score = 0;
+    let keywords = [
+        "architecture", "déploie", "simule", "code complet", "projet entier",
+        "essaim", "swarm", "agents", "orchestrateur", "itère", "mutation", 
+        "système distribué", "complexe", "bft", "blockchain", "génétique"
+    ];
+    let prompt_lower = prompt.to_lowercase();
+    for kw in &keywords {
+        if prompt_lower.contains(kw) {
+            score += 20;
+        }
+    }
+    if prompt.len() > 300 {
+        score += 30;
+    } else if prompt.len() > 150 {
+        score += 15;
+    }
+    score
+}
+
+fn thalamus_cache_lookup(prompt: &str) -> Option<String> {
+    let cache_file = ".genos_thalamus_cache.json";
+    if let Ok(content) = std::fs::read_to_string(cache_file) {
+        if let Ok(cache) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
+            if let Some(answer) = cache.get(prompt) {
+                return Some(answer.clone());
+            }
+        }
+    }
+    None
+}
+
+fn thalamus_cache_store(prompt: &str, response: &str) {
+    let cache_file = ".genos_thalamus_cache.json";
+    let mut cache = std::collections::HashMap::new();
+    if let Ok(content) = std::fs::read_to_string(cache_file) {
+        if let Ok(existing) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
+            cache = existing;
+        }
+    }
+    cache.insert(prompt.to_string(), response.to_string());
+    if let Ok(json) = serde_json::to_string_pretty(&cache) {
+        let _ = std::fs::write(cache_file, json);
+    }
+}
+
+fn call_llm_api(prompt: &str, rethink: bool, system_level: u8) -> String {
     if prompt == "Ping" || env::var("GENOS_MOCK_LLM").is_ok() {
         return format!("Echo: {}", prompt);
     }
+    
+    // 1. LE CACHE (Le Par Cœur - Réponse instantanée)
+    // Le cache n'est utilisé que pour le Système 1, ou si non forcé
+    if system_level == 1 && !rethink {
+        if let Some(cached_response) = thalamus_cache_lookup(prompt) {
+            return format!("⚡ [Mémoire Sémantique] Résultat mis en cache :\n{}", cached_response);
+        }
+    }
+    
+    // 2. ÉVALUATION DE COMPLEXITÉ (Système 1 vs Système 2)
+    // On ne fait le triage que si la requête vient explicitement du Système 1
+    if system_level == 1 {
+        let complexity_score = evaluate_prompt_complexity(prompt);
+        if complexity_score >= 50 {
+            return format!("🧠 [Thalamus] Alerte : Requête ultra-complexe détectée (Score cognitif : {}).\nMon réflexe immédiat (Système 1) risque de produire une réponse de surface ou d'halluciner.\n\n💡 Pour engager le cortex préfrontal et la machinerie GenOS (Système 2), utilisez plutôt :\n  ./g trio --mission \"<votre_mission>\" \n  ./g auto --mission \"<votre_mission>\"", complexity_score);
+        }
+    }
+
     dotenv::dotenv().ok();
     let client = Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
 
@@ -66,21 +131,27 @@ fn call_llm_api(prompt: &str) -> String {
     let (chosen_provider, chosen_model) = if let Some(p) = override_provider {
         (p, override_model.unwrap_or_else(|| "llama3".to_string()))
     } else {
-        // Autonomic Thalamus decision: Check local cortex (Ollama) first
         if let Some(local_model) = thalamus_select_ollama_model(&client, &ollama_url) {
-            println!("[Thalamus] Local pathway active. Routing to Ollama model: {}", local_model);
             ("ollama".to_string(), local_model)
         } else {
-            println!("[Thalamus] Local pathway dead. Rerouting to Cloud Cortex (Gemini).");
             ("gemini".to_string(), "".to_string())
         }
     };
 
-    if chosen_provider.to_lowercase() == "ollama" {
-        let url = format!("{}/api/generate", ollama_url);
+    let mut augmented_prompt = prompt.to_string();
+    
+    // 3. LA RECONNAISSANCE DE MOTIF (RAG / Similitude)
+    // Ici, on simule une vérification rapide dans l'index vectoriel.
+    // Si un fragment de réponse similaire existe, on l'injecte dans le prompt.
+    if prompt.to_lowercase().contains("capitale") {
+        augmented_prompt = format!("Contexte de notre mémoire RAG :\n- Les capitales sont souvent demandées, sois direct.\n\nQuestion: {}", prompt);
+    }
+
+    let final_response = if chosen_provider.to_lowercase() == "ollama" {
+        let url = format!("{}/api/chat", ollama_url);
         let body = serde_json::json!({
             "model": chosen_model,
-            "prompt": prompt,
+            "messages": [{ "role": "user", "content": augmented_prompt }],
             "stream": false
         });
 
@@ -88,17 +159,19 @@ fn call_llm_api(prompt: &str) -> String {
             Ok(res) => {
                 let status = res.status();
                 if let Ok(json_resp) = res.json::<serde_json::Value>() {
-                    if let Some(text) = json_resp["response"].as_str() {
-                        return text.to_string();
+                    if let Some(text) = json_resp["message"]["content"].as_str() {
+                        text.to_string()
                     } else if let Some(err_msg) = json_resp["error"].as_str() {
-                        return format!("Thalamus Error [Ollama {}] ({}): {}", chosen_model, status, err_msg);
+                        format!("Thalamus Error [Ollama {}] ({}): {}", chosen_model, status, err_msg)
+                    } else {
+                        format!("Thalamus Error: Unexpected JSON from local cortex: {}", json_resp)
                     }
-                    return format!("Thalamus Error: Unexpected JSON from local cortex: {}", json_resp);
+                } else {
+                    format!("Thalamus Error: Could not parse local response. HTTP Status: {}", status)
                 }
-                return format!("Thalamus Error: Could not parse local response. HTTP Status: {}", status);
             },
             Err(e) => {
-                return format!("Thalamus Error: Synaptic failure connecting to {}. Details: {}", ollama_url, e);
+                format!("Thalamus Error: Synaptic failure connecting to {}. Details: {}", ollama_url, e)
             }
         }
     } else {
@@ -109,20 +182,31 @@ fn call_llm_api(prompt: &str) -> String {
         };
         
         let url = format!("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={}", api_key);
-        let body = serde_json::json!({ "contents": [{ "parts": [{"text": prompt}] }] });
+        let body = serde_json::json!({ "contents": [{ "parts": [{"text": augmented_prompt}] }] });
         
         match client.post(&url).json(&body).send() {
             Ok(res) => {
                 if let Ok(json_resp) = res.json::<serde_json::Value>() {
                     if let Some(text) = json_resp["candidates"][0]["content"]["parts"][0]["text"].as_str() {
-                        return text.to_string();
+                        text.to_string()
+                    } else {
+                        "Thalamus Error: Could not extract sensory data from Gemini response".to_string()
                     }
+                } else {
+                    "Thalamus Error: Could not extract sensory data from Gemini response".to_string()
                 }
-                return "Thalamus Error: Could not extract sensory data from Gemini response".to_string();
             },
-            Err(e) => return format!("Thalamus Error: Cloud synaptic failure: {}", e)
+            Err(e) => format!("Thalamus Error: Cloud synaptic failure: {}", e)
         }
+    };
+
+    // 4. SAUVEGARDE EN MÉMOIRE
+    // On ne met en cache que les réponses qui ne sont pas des erreurs Thalamus, et seulement pour le Système 1
+    if system_level == 1 && !final_response.starts_with("Thalamus Error") {
+        thalamus_cache_store(prompt, &final_response);
     }
+    
+    final_response
 }
 
 pub fn handle_http_request(
@@ -142,6 +226,8 @@ pub fn handle_http_request(
 
     // Extract Headers and Body
     let mut auth_header: Option<String> = None;
+    let mut rethink = false;
+    let mut system_level = 2; // Default to System 2 (no triage/interference) for API clients/agents
     for line in lines.by_ref() {
         if line.trim().is_empty() {
             break;
@@ -151,6 +237,14 @@ pub fn handle_http_request(
             let val = line[pos + 1..].trim();
             if key == "authorization" {
                 auth_header = Some(val.to_string());
+            }
+            if key == "x-genos-rethink" && val.to_lowercase() == "true" {
+                rethink = true;
+            }
+            if key == "x-genos-system" {
+                if let Ok(lvl) = val.parse::<u8>() {
+                    system_level = lvl;
+                }
             }
         }
     }
@@ -213,7 +307,7 @@ pub fn handle_http_request(
 
         let last_prompt = chat_req.messages.last().map(|m| m.content.as_str()).unwrap_or("Hello from client");
         
-        let completion_text = call_llm_api(last_prompt);
+        let completion_text = call_llm_api(last_prompt, rethink, system_level);
         
         let prompt_tokens = (last_prompt.len() / 4).max(1) as u64;
         let completion_tokens = (completion_text.len() / 4).max(1) as u64;

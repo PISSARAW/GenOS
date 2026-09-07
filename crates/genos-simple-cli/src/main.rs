@@ -1998,9 +1998,9 @@ async fn main() {
             
             println!("✅ Opération GenOS terminée. L'agent retourne en veille.");
         }
-        Commands::Ask { args } => {
+        Commands::Ask { mut args } => {
             if args.is_empty() {
-                println!("Usage: .\\g ask <Votre question ou problème...>");
+                println!("Usage: .\\g ask <Votre question ou problème...> [--rethink]");
                 println!("Exemple : .\\g ask Quelle est la capitale du Burundi ?");
                 return;
             }
@@ -2009,13 +2009,24 @@ async fn main() {
                 eprintln!("💡 Lancez d'abord './g start' pour éveiller le cortex GenOS.");
                 std::process::exit(1);
             }
+            let mut rethink = false;
+            if let Some(pos) = args.iter().position(|a| a == "--rethink") {
+                rethink = true;
+                args.remove(pos);
+            }
             let prompt = args.join(" ");
             let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
             let body = serde_json::json!({
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": prompt }]
             });
-            match client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body).send().await {
+            let mut req = client.post("http://127.0.0.1:8085/v1/chat/completions")
+                .json(&body)
+                .header("X-GenOS-System", "1");
+            if rethink {
+                req = req.header("X-GenOS-Rethink", "true");
+            }
+            match req.send().await {
                 Ok(res) if res.status().is_success() => {
                     if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                         if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
