@@ -284,6 +284,15 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
     try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
     catch (e) { return { configured: true, success: false, status: e.code === 'ETIMEDOUT' ? 'timeout' : 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message }; }
   };
+  if (process.env.GENOS_MCP_URL || process.env.GENOS_MCP_ENDPOINT || process.env.GENOS_MCP_COMMAND) {
+    const transport = configuredTransport();
+    if (transport?.type === 'invalid') return { configured: false, success: false, status: 'invalid_config', error: transport.error };
+    const result = transport.type === 'http'
+      ? await callHttp(transport.url, normalizedToolName, { args, timeoutMs })
+      : await callStdio(transport, normalizedToolName, { args, timeoutMs });
+    const isError = result.isError === true;
+    return { configured: true, success: !isError, status: isError ? 'tool_error' : 'completed', transport: transport.type, output: result.structuredContent ?? result.content ?? result };
+  }
   if (toolName === 'genos_agent_world_capsule') {
     return runLocal(`genos capsule create --snapshot ${args.snapshot_id}` + (args.seed ? ` --seed "${args.seed}"` : '') + (args.budget_steps ? ` --budget-steps ${args.budget_steps}` : ''));
   }
