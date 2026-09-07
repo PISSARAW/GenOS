@@ -14,9 +14,18 @@ async function expireOpenProposals(db) {
   `);
 }
 
-function hasReachedQuorum(yesCount, totalVotes, activeNodeCount, threshold) {
-  const requiredVotes = Math.max(1, Math.ceil(activeNodeCount * threshold));
-  return totalVotes >= requiredVotes && yesCount / totalVotes >= threshold;
+function hasReachedQuorum(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+  const participationThreshold = 0.5; // Require at least 50% participation
+  const requiredVotes = Math.max(1, Math.ceil(activeNodeCount * participationThreshold));
+  const validVotes = yesCount + noCount;
+  return totalVotes >= requiredVotes && validVotes > 0 && (yesCount / validVotes) >= approvalThreshold;
+}
+
+function hasBeenRejected(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+  const remainingVotes = activeNodeCount - totalVotes;
+  const maxPossibleYes = yesCount + remainingVotes;
+  const maxPossibleValid = (yesCount + noCount) + remainingVotes;
+  return maxPossibleValid > 0 && (maxPossibleYes / maxPossibleValid) < approvalThreshold;
 }
 
 async function getConsensus(req, res) {
@@ -69,14 +78,26 @@ async function getConsensus(req, res) {
   });
 
   for (const proposal of formatted) {
-    if (proposal.status === 'open' && hasReachedQuorum(
-      proposal.yesCount,
-      proposal.totalVotes,
-      Number(activeNodeRow?.count || 0),
-      proposal.quorumThreshold
-    )) {
-      proposal.status = 'passed';
-      await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposal.id);
+    if (proposal.status === 'open') {
+      if (hasReachedQuorum(
+        proposal.yesCount,
+        proposal.noCount,
+        proposal.totalVotes,
+        Number(activeNodeRow?.count || 0),
+        proposal.quorumThreshold
+      )) {
+        proposal.status = 'passed';
+        await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposal.id);
+      } else if (hasBeenRejected(
+        proposal.yesCount,
+        proposal.noCount,
+        proposal.totalVotes,
+        Number(activeNodeRow?.count || 0),
+        proposal.quorumThreshold
+      )) {
+        proposal.status = 'rejected';
+        await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", proposal.id);
+      }
     }
   }
 
@@ -169,10 +190,14 @@ async function castVote(req, res) {
 
   const proposalVotes = await db.all('SELECT vote FROM swarm_votes WHERE proposal_id = ?', safeProposalId);
   const yesCount = proposalVotes.filter((item) => item.vote === 'yes').length;
+  const noCount = proposalVotes.filter((item) => item.vote === 'no').length;
   const totalVotes = proposalVotes.length;
   const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
-  if (hasReachedQuorum(yesCount, totalVotes, Number(activeNodeRow?.count || 0), proposal.quorum_threshold)) {
+  
+  if (hasReachedQuorum(yesCount, noCount, totalVotes, Number(activeNodeRow?.count || 0), proposal.quorum_threshold)) {
     await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", safeProposalId);
+  } else if (hasBeenRejected(yesCount, noCount, totalVotes, Number(activeNodeRow?.count || 0), proposal.quorum_threshold)) {
+    await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", safeProposalId);
   }
 
   telemetry.emitEvent({
