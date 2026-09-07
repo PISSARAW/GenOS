@@ -220,11 +220,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     return base + (index < total - (base * assignments.length) ? 1 : 0);
   };
   const workers = [];
-  const sourceWorkspace = parent.workspace_path;
+  const sourceWorkspace = mission.workspaceRoot || parent.workspace_path;
   if (!sourceWorkspace) throw new Error(`Workspace '${parent.workspace_id}' has no filesystem path.`);
-  if (mission.workspaceRoot && path.resolve(mission.workspaceRoot) !== path.resolve(sourceWorkspace)) {
-    throw Object.assign(new Error(`Mission workspace root does not match workspace '${parent.workspace_id}'.`), { code: 'WORKSPACE_ROOT_MISMATCH' });
-  }
   const usedNames = [];
   for (const [index, assignment] of assignments.entries()) {
     const assignedTokens = initialWorkerTokens?.[index] || perWorkerTokens;
