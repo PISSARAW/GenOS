@@ -254,6 +254,17 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
             let empty_args = json!({});
             let args = params.and_then(|p| p.get("arguments")).unwrap_or(&empty_args);
 
+            if !tools::is_tool_allowed(name) {
+                return Some(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "content": [{ "type": "text", "text": format!("Tool '{name}' is outside the active GenOS MCP lease.") }],
+                        "isError": true
+                    }
+                }));
+            }
+
             let (code, text) = handle_tool_call(name, args, workspace);
             Some(json!({
                 "jsonrpc": "2.0",
