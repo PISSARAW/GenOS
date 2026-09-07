@@ -60,12 +60,19 @@ fn execute_command(mut command: Command) -> Result<(i32, String), String> {
     };
     let stdout = stdout.and_then(|thread| thread.join().ok()).unwrap_or_default();
     let stderr = stderr.and_then(|thread| thread.join().ok()).unwrap_or_default();
-    let text = if stderr.is_empty() {
-        bounded_output(stdout)
+    let code = status.code().unwrap_or(-1);
+    let stdout_text = bounded_output(stdout);
+    let stderr_text = bounded_output(stderr);
+    let text = if code == 0 {
+        stdout_text
+    } else if stdout_text.is_empty() {
+        stderr_text
+    } else if stderr_text.is_empty() {
+        stdout_text
     } else {
-        format!("{}\n{}", bounded_output(stdout), bounded_output(stderr))
+        format!("{}\n{}", stdout_text, stderr_text)
     };
-    Ok((status.code().unwrap_or(-1), text))
+    Ok((code, text))
 }
 
 fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
@@ -289,11 +296,22 @@ fn handle_tool_call(name: &str, args: &Value, workspace: &Path) -> (i32, String)
 fn process_request(line: &str, workspace: &Path) -> Option<Value> {
     let req: Value = match serde_json::from_str(line) {
         Ok(v) => v,
-        Err(_) => return None,
+        Err(_) => return Some(json!({
+            "jsonrpc": "2.0",
+            "id": null,
+            "error": { "code": -32700, "message": "Parse error" }
+        })),
     };
 
     let id = req.get("id").cloned();
-    let method = req.get("method").and_then(Value::as_str)?;
+    let method = match req.get("method").and_then(Value::as_str) {
+        Some(method) => method,
+        None => return Some(json!({
+            "jsonrpc": "2.0",
+            "id": id,
+            "error": { "code": -32600, "message": "Invalid Request" }
+        }))
+    };
 
     match method {
         "initialize" => Some(json!({
