@@ -17,4 +17,8 @@ for (const invalidCount of [-1, 1.5, NaN, Infinity, '1']) {
   assert.throws(() => require('../src/services/vfsSandboxService').calculateBlastRadius(invalidCount, false, 'viewer'), /filesModified must be a non-negative integer/);
 }
 
+for (const unsafePath of ['../secret', '/tmp/x', 'C:/tmp/x', 'safe/../secret']) {
+  assert.throws(() => require('../src/services/vfsSandboxService').simulateDryRun('genos_create', { path: unsafePath, content: 'x' }), /Path escapes the workspace/);
+}
+
 console.log('VFS blast-radius collision checks passed.');

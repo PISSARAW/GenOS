@@ -109,6 +109,14 @@ function calculateBlastRadius(filesModified, isDestructive, requiredRole) {
   return Math.min(100, Math.max(0, score));
 }
 
+function normalizeWorkspacePath(value) {
+  const normalized = String(value || '').replace(/\\/g, '/').replace(/^\.\//, '');
+  if (!normalized || normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.split('/').includes('..')) {
+    throw new Error(`Path escapes the workspace: ${value}`);
+  }
+  return normalized.split('/').filter(Boolean).join('/');
+}
+
 /**
  * Simulates dry-run execution against an in-memory Virtual File System (VFS)
  */
@@ -128,7 +136,7 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   // Intercept file and execution operations
   if (tool === 'genos_create' || tool === 'replace_file_content' || tool === 'write_to_file') {
     requiredRole = 'operator';
-    const targetPath = args.path || args.TargetFile || 'virtual_file.txt';
+    const targetPath = normalizeWorkspacePath(args.path || args.TargetFile || 'virtual_file.txt');
     if (vfs[targetPath]) {
       filesModified.push(targetPath);
       vfs[targetPath] = args.content || args.CodeContent || '';
