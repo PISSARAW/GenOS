@@ -810,6 +810,113 @@ mod tests {
             "La dopamine doit amplifier le renforcement STDP (3-facteurs)"
         );
     }
+
+    #[test]
+    fn test_dendritic_cable_attenuation_and_compartments() {
+        let mut tree = DendriticTree::new();
+
+        // Signal sur le tronc proximal (x = 0.15)
+        let epsp_proximal = tree.process_signal_on_compartment("source_prox", 10.0, "proximal_trunk");
+
+        // Signal sur la touffe distale (x = 1.40)
+        let epsp_distal = tree.process_signal_on_compartment("source_dist", 10.0, "distal_tuft");
+
+        // Rall cable theory : l'atténuation est plus forte pour le compartiment distal
+        assert!(
+            epsp_proximal > epsp_distal,
+            "L'atténuation de câble de Rall doit réduire davantage le signal distal ({}) que proximal ({})",
+            epsp_distal, epsp_proximal
+        );
+
+        // Intégration supralinéaire : seuil NMDA dépassé
+        let high_signal_epsp = tree.process_signal_on_compartment("source_prox", 50.0, "proximal_trunk");
+        let expected_linear = (high_signal_epsp / 50.0) * 10.0;
+        assert!(
+            high_signal_epsp > expected_linear * 1.2,
+            "Un signal fort doit déclencher un pic NMDA supralinéaire"
+        );
+    }
+
+    #[test]
+    fn test_spine_morphology_transition_and_pruning() {
+        let mut tree = DendriticTree::new();
+
+        // 1. Bourgeonnement initial : doit être Filopodia
+        tree.process_signal("pre_neuron", 5.0);
+        let spine = &tree.get_compartment("apical_oblique").unwrap().spines[0];
+        assert_eq!(spine.morphology, SpineMorphology::Filopodia);
+
+        // 2. Première activation : transition vers Thin
+        tree.apply_structural_plasticity();
+        let spine_thin = &tree.get_compartment("apical_oblique").unwrap().spines[0];
+        assert_eq!(spine_thin.morphology, SpineMorphology::Thin);
+
+        // 3. Activations répétées : transition vers Mushroom (mémoire consolidée)
+        tree.process_signal("pre_neuron", 10.0);
+        tree.process_signal("pre_neuron", 10.0);
+        tree.apply_structural_plasticity();
+        let spine_mushroom = &tree.get_compartment("apical_oblique").unwrap().spines[0];
+        assert_eq!(spine_mushroom.morphology, SpineMorphology::Mushroom);
+        assert!(spine_mushroom.ampa_receptors >= 1.1);
+        assert!(spine_mushroom.cd47_expression >= 1.2);
+
+        // 4. Inactivité prolongée et élagage
+        for _ in 0..15 {
+            tree.apply_structural_plasticity();
+        }
+        let count = tree.total_spines();
+        assert!(count <= 1, "L'inactivité doit résorber ou élaguer les épines");
+    }
+
+    #[test]
+    fn test_dendritic_metabolic_atp_cost() {
+        let mut tree = DendriticTree::new();
+        let mut atp = 1.0; // Moins que DEFAULT_SPROUT_ATP_COST (2.0)
+
+        // Doit échouer car budget insuffisant
+        let err = tree.process_signal_with_metabolism("new_src", 5.0, "apical_oblique", &mut atp);
+        assert!(err.is_err(), "Le bourgeonnement doit échouer si le budget ATP est insuffisant");
+
+        // Avec assez d'ATP
+        atp = 10.0;
+        let res = tree.process_signal_with_metabolism("new_src", 5.0, "apical_oblique", &mut atp);
+        assert!(res.is_ok());
+        assert_eq!(atp, 8.0, "Le coût en ATP (2.0) doit être déduit du budget cellulaire");
+    }
+
+    #[test]
+    fn test_synaptic_connection_and_transmission() {
+        let mut pre = NervousSystem::new("cortex_pre");
+        let mut post = NervousSystem::new("cortex_post");
+
+        // Connexion synaptique complète
+        pre.form_synaptic_connection(&mut post, 0.8, Neurotransmitter::Glutamate, Some("apical_oblique"));
+        assert_eq!(pre.axon.terminals.len(), 1);
+        assert_eq!(post.dendritic_tree.total_spines(), 1);
+
+        // Remplir les vésicules et déclencher l'action potential
+        pre.soma.current_potential = -50.0; // Dépasse le seuil de -55mV
+        pre.axon.vesicles_at_terminals = 50.0;
+        let delivered = NervousSystem::transmit_signal(&mut pre, &mut post);
+        assert_eq!(delivered, 1);
+        assert!(post.soma.current_potential > post.soma.resting_potential);
+    }
+
+    #[test]
+    fn test_postsynaptic_stdp() {
+        let mut tree = DendriticTree::new();
+        tree.process_signal("afferent_1", 5.0);
+
+        // LTP postsynaptique (delta_t = +10ms)
+        let ltp_density = tree.apply_postsynaptic_stdp("afferent_1", 10.0, 0.3);
+        assert!(ltp_density.is_some());
+        assert!(ltp_density.unwrap() > 0.6);
+
+        // LTD postsynaptique (delta_t = -10ms)
+        let ltd_density = tree.apply_postsynaptic_stdp("afferent_1", -10.0, 0.2);
+        assert!(ltd_density.is_some());
+        assert!(ltd_density.unwrap() < ltp_density.unwrap());
+    }
 }
 
 
