@@ -28,6 +28,32 @@ const cognitiveMonitor = require('./cognitiveMonitor');
 const swarmSentinel = require('./swarmSentinelService');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
+const SAFE_RUNTIME_ENV = new Set([
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'LANG', 'LC_ALL', 'NODE_ENV'
+]);
+
+function isSensitiveEnvironmentName(name) {
+  return /(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name);
+}
+
+function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates) {
+  const environment = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (SAFE_RUNTIME_ENV.has(name) || (name.startsWith('GENOS_') && !isSensitiveEnvironmentName(name))) {
+      environment[name] = value;
+    }
+  }
+  for (const [name, value] of Object.entries(runtimeEnvironment || {})) {
+    if (!isSensitiveEnvironmentName(name)) environment[name] = value;
+  }
+  return {
+    ...environment,
+    GENOS_WORKSPACE_ROOT: workspaceRoot,
+    GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false'
+  };
+}
+
 function runtimeExitOutcome(termination, code, options = {}, domainState = {}) {
   const signal = typeof options === 'object' && options !== null ? options.signal : options;
   const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
@@ -84,7 +110,7 @@ async function superviseMission(options) {
   }
   const child = spawn(spawnCmd, spawnArgs, {
     cwd: workspaceRoot,
-    env: { ...process.env, ...runtimeEnvironment, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_SILENT_UPDATES: silentUpdates ? 'true' : 'false' },
+    env: buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdates),
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: process.platform !== 'win32'
   });
