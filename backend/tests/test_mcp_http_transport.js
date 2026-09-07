@@ -71,7 +71,7 @@ async function testNotificationFailure() {
     process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
     await assert.rejects(
       mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 1000 }),
-      /MCP HTTP initialized notification returned 503\./
+      /MCP HTTP initialized notification returned 503: temporarily unavailable/
     );
   } finally {
     if (previousUrl === undefined) delete process.env.GENOS_MCP_URL;
