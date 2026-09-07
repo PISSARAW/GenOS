@@ -59,6 +59,7 @@ pub fn execute_action(
                     "tab" => Key::Tab,
                     "backspace" => Key::Backspace,
                     "space" => Key::Space,
+                    "super" | "windows" | "win" | "meta" => Key::Meta,
                     _ => return Err(format!("Unsupported key: {}", k)),
                 };
                 enigo.key(key, Direction::Click).map_err(|e| format!("Key error: {:?}", e))?;
