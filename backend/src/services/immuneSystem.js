@@ -201,28 +201,82 @@ function cleanMarkdownAndNoise(raw) {
     return text;
 }
 
+function extractBalancedArray(text, startIndex) {
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+    let start = -1;
+
+    for (let i = startIndex; i < text.length; i++) {
+        const char = text[i];
+        if (escape) {
+            escape = false;
+            continue;
+        }
+        if (char === '\\') {
+            escape = true;
+            continue;
+        }
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+        if (inString) continue;
+
+        if (char === '[') {
+            if (depth === 0) start = i;
+            depth++;
+        } else if (char === ']') {
+            depth--;
+            if (depth === 0 && start !== -1) {
+                return text.slice(start, i + 1);
+            }
+            if (depth < 0) return null;
+        }
+    }
+    return null;
+}
+
+function extractClaimsFromText(text) {
+    const match = text.match(/"claims"\s*:/i);
+    if (match) {
+        const colonIndex = text.indexOf(':', match.index);
+        const bracketIndex = text.indexOf('[', colonIndex);
+        if (bracketIndex !== -1) {
+            const rawArray = extractBalancedArray(text, bracketIndex);
+            if (rawArray) {
+                try {
+                    const parsed = JSON.parse(rawArray);
+                    if (Array.isArray(parsed)) return parsed;
+                } catch (_) {}
+            }
+        }
+    }
+    return null;
+}
+
 function heuristicReconstruction(raw, err) {
     const text = String(raw || '');
     const outcomeMatch = text.match(/"outcome"\s*:\s*"([^"]+)"/i);
-    const claimsMatch = text.match(/"claims"\s*:\s*(\[[^\]]*\])/i);
+    const parsedClaims = extractClaimsFromText(text);
     const statementMatches = [...text.matchAll(/"statement"\s*:\s*"([^"]+)"/gi)];
 
-    if (!outcomeMatch && !claimsMatch && statementMatches.length === 0) {
+    if (!outcomeMatch && !parsedClaims && statementMatches.length === 0) {
         return null;
     }
 
     const outcome = outcomeMatch ? outcomeMatch[1] : (/réussi|success|completed/i.test(text) ? 'success' : 'failed');
-    let claims = [];
-    if (claimsMatch) {
-        try { claims = JSON.parse(claimsMatch[1]); } catch (_) {}
-    }
+    let claims = parsedClaims || [];
     if (!claims.length && statementMatches.length) {
-        claims = statementMatches.map(m => ({ statement: m[1], evidence: ['chaperone_reconstructed'] }));
+        claims = statementMatches.map(m => ({ statement: m[1], evidence: [] }));
     }
     return {
         author: { name: 'ChaperoneRestored', meaning: 'Restauré par le Chaperon Moléculaire' },
         outcome: outcome || 'success',
-        claims: claims.length ? claims : [{ statement: 'Sortie extraite par le Chaperon Moléculaire.', evidence: ['macrophage_recovery'] }],
+        claims: claims.length ? claims : [{ statement: 'Sortie extraite par le Chaperon Moléculaire.', evidence: [] }],
+        unverifiedClaims: claims.some(c => !c.evidence || c.evidence.length === 0)
+            ? ['Affirmation(s) extraite(s) par le Chaperon Moléculaire sans preuve structurelle']
+            : [],
         uncertainties: ['Structure JSON partiellement reconstituée par heuristique immunitaire.']
     };
 }
