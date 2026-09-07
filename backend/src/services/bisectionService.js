@@ -80,7 +80,7 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
 /**
  * Algorithmic O(log N) causal bisection search isolating the exact culprit agent step
  */
-async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null, executionResults = null) {
+async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null, executionResults = null, options = {}) {
   const history = snapshotHistory;
   if (history.length === 0) {
     return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: 0, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'No snapshots available for this workspace.' };
@@ -93,15 +93,23 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
   let high = history.length - 1;
   let culpritIdx = -1;
   const bisectionSteps = [];
+  const predicateRetries = Math.max(1, Math.min(3, Number(options.predicateRetries) || 2));
 
   // O(log N) Binary Search for First Bad Commit
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const snap = history[mid];
-    const isHealthy = failurePredicate ? await failurePredicate(snap) : knownHealth(snap);
-    if (typeof isHealthy !== 'boolean') {
+    const evaluations = [];
+    for (let attempt = 0; attempt < predicateRetries; attempt += 1) {
+      evaluations.push(failurePredicate ? await failurePredicate(snap) : knownHealth(snap));
+    }
+    if (evaluations.some((evaluation) => typeof evaluation !== 'boolean')) {
       return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: 'Snapshot predicate did not produce a boolean health result.' };
     }
+    if (!evaluations.every((evaluation) => evaluation === evaluations[0])) {
+      return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: 'Snapshot predicate was unstable across repeated evaluations.' };
+    }
+    const isHealthy = evaluations[0];
 
     bisectionSteps.push({
       iteration: bisectionSteps.length + 1,
@@ -303,7 +311,7 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
     };
   }
 
-  const bisectionResult = await bisectAnomalyAsync(history, failurePredicate, executionResults);
+  const bisectionResult = await bisectAnomalyAsync(history, failurePredicate, executionResults, { predicateRetries: options.predicateRetries });
 
   let remediation = null;
   if (bisectionResult.anomalyFound && autoRollback && db && workspaceId) {

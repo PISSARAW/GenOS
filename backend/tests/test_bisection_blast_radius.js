@@ -27,7 +27,15 @@ Promise.resolve(bisection.bisectAnomalyAsync([
 }).then((result) => {
   assert.strictEqual(result.bisectionComplete, false);
   assert.match(result.reason, /boolean health/);
-  console.log('Bisection monotonicity and evidence checks passed.');
+  let evaluations = 0;
+  return bisection.bisectAnomalyAsync(
+    [{ step: 1 }, { step: 2 }],
+    async () => { evaluations += 1; return evaluations % 2 === 0; }
+  );
+}).then((result) => {
+  assert.strictEqual(result.bisectionComplete, false);
+  assert.match(result.reason, /unstable/);
+  console.log('Bisection monotonicity, evidence, and stability checks passed.');
 }).catch((error) => {
   console.error(error);
   process.exitCode = 1;
