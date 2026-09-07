@@ -15,6 +15,7 @@ const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_MCP_BUFFER_BYTES = 1024 * 1024;
 const MAX_MCP_ERROR_BYTES = 4096;
+const MAX_MCP_HTTP_BYTES = 1024 * 1024;
 const SAFE_MCP_ENV = new Set([
   'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
   'LANG', 'LC_ALL', 'NODE_ENV'
@@ -98,10 +99,29 @@ function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
   };
 }
 
+async function readResponseTextBounded(response, limit = MAX_MCP_HTTP_BYTES) {
+  if (!response.body?.getReader) return (await response.text()).slice(0, limit);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > limit) throw new Error(`MCP HTTP response exceeded the ${limit}-byte limit.`);
+      chunks.push(next.value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))));
+}
+
 async function readMcpHttpResponse(response) {
   const contentType = response.headers.get('content-type') || '';
-  if (!contentType.includes('text/event-stream')) return response.json();
-  const text = await response.text();
+  const text = await readResponseTextBounded(response);
+  if (!contentType.includes('text/event-stream')) return JSON.parse(text);
   const payloads = [];
   for (const event of text.split(/\r?\n\r?\n/)) {
     const data = event.split(/\r?\n/)
@@ -119,7 +139,7 @@ async function readMcpHttpResponse(response) {
 
 async function describeHttpError(response, phase) {
   let detail = '';
-  try { detail = (await response.text()).slice(0, MAX_MCP_ERROR_BYTES).trim(); } catch (_) {}
+  try { detail = (await readResponseTextBounded(response, MAX_MCP_ERROR_BYTES)).trim(); } catch (_) {}
   return `MCP HTTP ${phase} returned ${response.status}${detail ? `: ${detail}` : '.'}`;
 }
 
