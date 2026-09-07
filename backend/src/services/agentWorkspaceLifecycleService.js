@@ -132,45 +132,41 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   const resolvedRoot = path.resolve(workspaceRoot || '');
   const filesystemRoot = path.parse(resolvedRoot).root;
   if (!workspaceRoot || resolvedRoot === filesystemRoot) throw new Error('Refusing to clean a filesystem root.');
+  
+  const isAllowedDir = resolvedRoot.includes('.genos-agent-worlds') || resolvedRoot.includes('.genos-snapshot-worktrees') || resolvedRoot.includes('snapshot-worktrees') || resolvedRoot.includes('genos-snapshots');
+  if (!isAllowedDir) {
+    throw new Error(`Refusing to clean workspace '${resolvedRoot}': not inside an allowed capsule directory.`);
+  }
+
   if (agentId && (path.basename(agentId) !== agentId || path.basename(resolvedRoot) !== agentId)) {
     throw new Error(`Refusing to clean workspace '${resolvedRoot}' for agent '${agentId}'.`);
   }
   workspaceRoot = resolvedRoot;
   const marker = path.join(workspaceRoot, '.git');
   let removedVia = 'removed';
-  let parentRepoDir = null;
+  let commonGitDir = null;
   try {
-    // Worktrees carry a .git FILE pointing at the parent repository; a plain
-    // repo checkout has a .git DIRECTORY and must never be worktree-removed.
     if (fsSync.existsSync(marker) && fsSync.statSync(marker).isFile()) {
       try {
-        const gitFileContent = fsSync.readFileSync(marker, 'utf8');
-        const match = gitFileContent.match(/gitdir:\s*(.*)/i);
-        if (match && match[1]) {
-          const worktreeGitDir = path.resolve(workspaceRoot, match[1].trim());
-          const dotGitDir = path.dirname(path.dirname(worktreeGitDir));
-          if (path.basename(dotGitDir) === '.git') {
-            parentRepoDir = path.dirname(dotGitDir);
-          } else {
-            parentRepoDir = dotGitDir;
-          }
+        const { stdout } = await runCommand('git', ['-C', workspaceRoot, 'rev-parse', '--path-format=absolute', '--git-common-dir']);
+        if (stdout && stdout.trim()) {
+           commonGitDir = stdout.trim();
         }
       } catch (_) {}
 
-      const executionDir = parentRepoDir || process.cwd();
+      const executionDir = commonGitDir ? path.dirname(commonGitDir) : process.cwd();
       await spawnGit(executionDir, ['worktree', 'remove', '--force', workspaceRoot]);
       removedVia = 'worktree-removed';
     }
   } catch (_) { /* fall through to the filesystem removal */ }
-  await fs.rm(workspaceRoot, { recursive: true, force: true });
+  await fs.rm(workspaceRoot, { recursive: true, force: true }).catch(() => {});
   if (agentId && path.basename(agentId) === agentId && !agentId.includes(path.sep)) {
-    await fs.rm(path.join(path.dirname(workspaceRoot), '.genos-runtime', agentId), { recursive: true, force: true });
+    await fs.rm(path.join(path.dirname(workspaceRoot), '.genos-runtime', agentId), { recursive: true, force: true }).catch(() => {});
   }
 
-  // Purge administrative git worktree metadata via `git worktree prune`
-  if (parentRepoDir) {
+  if (commonGitDir) {
     try {
-      await spawnGit(parentRepoDir, ['worktree', 'prune']);
+      await runCommand('git', ['--git-dir', commonGitDir, 'worktree', 'prune'], { cwd: process.cwd() });
     } catch (_) {}
   } else {
     try {
@@ -184,11 +180,11 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   return removedVia;
 }
 
-async function scheduleWorkspaceCleanup(agentId) {
+async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0) {
   const tracked = activeWorktrees.get(agentId);
   if (!tracked || tracked.scheduled) return false;
   tracked.scheduled = true;
-  const delay = gcDelayMs();
+  const delay = forceDelay !== null ? forceDelay : gcDelayMs();
   if (delay < 0) return false;
   const reclaim = async () => {
     try {
@@ -200,7 +196,13 @@ async function scheduleWorkspaceCleanup(agentId) {
       return { agentId, workspaceRoot: tracked.workspaceRoot, via };
     } catch (_) {
       tracked.scheduled = false;
-      setTimeout(() => scheduleWorkspaceCleanup(agentId), CLEANUP_RETRY_DELAY_MS).unref();
+      if (retries < 3) {
+        setTimeout(() => scheduleWorkspaceCleanup(agentId, CLEANUP_RETRY_DELAY_MS, retries + 1), CLEANUP_RETRY_DELAY_MS).unref();
+      } else {
+        activeWorktrees.delete(agentId);
+        const db = await getDatabase();
+        await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId).catch(() => {});
+      }
       return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'failed' };
     }
   };
@@ -217,7 +219,7 @@ async function reconcileWorkspaceCleanup(db) {
   const rows = await db.all('SELECT agent_id, workspace_root FROM agent_capsule_cleanup');
   for (const row of rows) {
     activeWorktrees.set(row.agent_id, { workspaceRoot: row.workspace_root });
-    await scheduleWorkspaceCleanup(row.agent_id);
+    await scheduleWorkspaceCleanup(row.agent_id, 0);
   }
   return rows.length;
 }
