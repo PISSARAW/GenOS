@@ -1,4 +1,7 @@
 const assert = require('assert');
+const crypto = require('crypto');
+process.env.NODE_ENV = 'test';
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || `test-${crypto.randomBytes(16).toString('hex')}`;
 const { validateGraph } = require('../src/controllers/workflowController');
 const { getDatabase, closeDatabase } = require('../src/db');
 
