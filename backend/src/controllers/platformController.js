@@ -37,6 +37,18 @@ function providerRows(rows) {
   return catalogProviders();
 }
 
+function configuredProviderRows(rows) {
+  return rows.filter((row) => {
+    try {
+      const uri = `${row.provider}://${row.model}`;
+      const configuration = modelProvider.modelConfiguration(uri, row.endpoint || undefined);
+      return configuration.configured;
+    } catch (_) {
+      return false;
+    }
+  });
+}
+
 function validateProviderNumber(value, field, maximum = Number.MAX_SAFE_INTEGER) {
   const number = Number(value ?? 0);
   if (!Number.isFinite(number) || number < 0 || number > maximum) {
@@ -76,7 +88,7 @@ async function registerProvider(req, res) {
   await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), costInput, costOutput, latencyMs, provider.enabled === false ? 0 : 1);
   res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
 }
-async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); if (!parsed.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider configuration is registered for routing.' } }); res.json(safety.routeModel(req.body, parsed)); }
+async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); const configured = configuredProviderRows(parsed); if (!configured.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider with valid runtime configuration is available for routing.' } }); res.json(safety.routeModel(req.body, configured)); }
 async function routingPolicies(req, res, next) {
   try {
     const db = await getDatabase();
@@ -177,4 +189,4 @@ async function decideApproval(req, res, next) {
   } catch (error) { next(error); }
 }
 async function pareto(req, res) { res.json(safety.paretoFrontier(req.body?.items || [])); }
-module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto };
+module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, configuredProviderRows };
