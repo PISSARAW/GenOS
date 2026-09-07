@@ -201,9 +201,9 @@ async function scheduleWorkspaceCleanup(agentId, forceDelay = null, retries = 0)
       if (retries < 3) {
         setTimeout(() => scheduleWorkspaceCleanup(agentId, CLEANUP_RETRY_DELAY_MS, retries + 1), CLEANUP_RETRY_DELAY_MS).unref();
       } else {
-        activeWorktrees.delete(agentId);
-        const db = await getDatabase();
-        await db.run('DELETE FROM agent_capsule_cleanup WHERE agent_id = ?', agentId).catch(() => {});
+        // Keep the durable row and in-memory reference so a later reconciliation
+        // can retry cleanup instead of losing the orphaned workspace forever.
+        tracked.scheduled = false;
       }
       return { agentId, workspaceRoot: tracked.workspaceRoot, via: 'failed' };
     }
