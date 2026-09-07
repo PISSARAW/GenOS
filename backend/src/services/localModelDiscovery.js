@@ -25,13 +25,13 @@ async function readJson(url, timeoutMs = 2500) {
 }
 
 async function discoverProvider({ provider, endpoint, modelsPath, map }) {
-  try { validateProviderEndpoint(endpoint, { localOnly: true }); } catch (_) { return []; }
+  try { validateProviderEndpoint(endpoint, { localOnly: true }); } catch (error) { return { models: [], error: `${provider} discovery rejected: ${error.message}` }; }
   const base = endpointBase(endpoint);
-  if (!base) return [];
+  if (!base) return { models: [], error: `Invalid ${provider} endpoint.` };
   try {
     const payload = await readJson(`${base}${modelsPath}`);
-    return map(payload).map((model) => ({ ...model, provider, endpoint, local: true, chatCapable: isChatCapable(model.model) }));
-  } catch (_) { return []; }
+    return { models: map(payload).map((model) => ({ ...model, provider, endpoint, local: true, chatCapable: isChatCapable(model.model) })) };
+  } catch (error) { return { models: [], error: `${provider} discovery failed: ${error.message}` }; }
 }
 
 async function discoverLocalModels({ force = false } = {}) {
@@ -39,10 +39,13 @@ async function discoverLocalModels({ force = false } = {}) {
   const targets = [
     { provider: 'lmstudio', endpoint: process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `lmstudio://${item.id}` })) },
     { provider: 'ollama', endpoint: process.env.GENOS_OLLAMA_ENDPOINT || 'http://localhost:11434/v1/chat/completions', modelsPath: '/api/tags', map: (payload) => (payload.models || []).filter(item => item.name && !/(embed|embedding|rerank)/i.test(item.name)).map((item) => ({ model: item.name, uri: `ollama://${item.name}`, size: item.size || null })) },
-    { provider: 'vllm', endpoint: process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `vllm://${item.id}` })) }
+    { provider: 'vllm', endpoint: process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions', modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `vllm://${item.id}` })) },
+    { provider: 'openai-compatible', endpoint: process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT, modelsPath: '/v1/models', map: (payload) => (payload.data || []).map((item) => ({ model: item.id, uri: `openai-compatible://${item.id}` })) }
   ];
-  const models = (await Promise.all(targets.map(discoverProvider))).flat();
-  cache = { expiresAt: Date.now() + CACHE_MS, models };
+  const results = await Promise.all(targets.filter((target) => target.endpoint).map(discoverProvider));
+  const models = results.flatMap((result) => result.models || []);
+  const errors = results.flatMap((result) => result.error ? [result.error] : []);
+  cache = { expiresAt: Date.now() + CACHE_MS, models, errors };
   return models;
 }
 
@@ -54,4 +57,6 @@ function endpointForModel(uri) {
   return cache.models.find((model) => model.uri === uri)?.endpoint || null;
 }
 
-module.exports = { discoverLocalModels, discoverChatModelUris, endpointForModel };
+function discoveryErrors() { return cache.errors || []; }
+
+module.exports = { discoverLocalModels, discoverChatModelUris, endpointForModel, discoveryErrors };
