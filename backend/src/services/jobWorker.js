@@ -22,8 +22,13 @@ function workflowScopeKey(row) {
 }
 
 function selectFairWorkflow(rows = [], table = 'workflow_runs') {
+  const ordered = [...rows].sort((left, right) => {
+    const priority = Number(right.priority || 0) - Number(left.priority || 0);
+    if (priority) return priority;
+    return String(left.created_at || '').localeCompare(String(right.created_at || '')) || String(left.id).localeCompare(String(right.id));
+  });
   const lastScope = lastScopeByTable.get(table) || null;
-  const next = rows.find((row) => workflowScopeKey(row) !== lastScope) || rows[0] || null;
+  const next = ordered.find((row) => workflowScopeKey(row) !== lastScope) || ordered[0] || null;
   if (next) lastScopeByTable.set(table, workflowScopeKey(next));
   return next;
 }
@@ -210,6 +215,12 @@ async function executeEvaluation(db, job) {
   const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let passed = 0; const results = [];
   for (const item of cases) {
+    const activeJob = await db.get('SELECT status FROM evaluation_jobs WHERE id = ?', job.id);
+    if (activeJob?.status === 'cancelled') {
+      const error = new Error('Evaluation job was cancelled.');
+      error.code = 'EVALUATION_JOB_CANCELLED';
+      throw error;
+    }
     const input = JSON.parse(item.input_json || '{}'); const expected = JSON.parse(item.expected_json || 'null');
     let actual = input.output ?? input.answer ?? input.response ?? '';
     let evaluationSource = 'fixture';
@@ -259,7 +270,7 @@ async function executeEvaluation(db, job) {
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
   }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results };
-  await db.run('UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify(result), job.id);
+  await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
 async function updateCampaignStatus(db, campaignId) {
@@ -268,6 +279,8 @@ async function updateCampaignStatus(db, campaignId) {
   if (!jobs.length) return;
   const status = jobs.some((job) => job.status === 'failed')
     ? 'failed'
+    : jobs.every((job) => job.status === 'cancelled')
+      ? 'cancelled'
     : jobs.every((job) => job.status === 'completed')
       ? 'completed'
       : 'running';
@@ -275,6 +288,8 @@ async function updateCampaignStatus(db, campaignId) {
 }
 
 async function executeModelJob(db, job) {
+  const persisted = await db.get?.('SELECT * FROM model_jobs WHERE id = ?', job.id);
+  if (persisted) job = { ...job, ...persisted };
   const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}');
   const totalTimeoutMs = Math.max(1, Number(job.timeout_ms) || 30000);
   const deadlineAt = Date.now() + totalTimeoutMs;
@@ -298,6 +313,11 @@ async function executeModelJob(db, job) {
       throw error;
     }
     const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
+    if (Date.now() >= deadlineAt) {
+      const error = new Error(`Model job exceeded its total timeout of ${totalTimeoutMs}ms.`);
+      error.code = 'MODEL_JOB_TIMEOUT';
+      throw error;
+    }
     const output = { model: generated.model || modelKey, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length };
     outputs.push(output);
     completedModels.add(modelKey);
@@ -310,7 +330,7 @@ async function executeModelJob(db, job) {
 function isRetryableJobError(error = {}) {
   const text = `${error.code || ''} ${error.message || ''}`.toLowerCase();
   return error.retryable === true
-    || /timeout|timed out|rate limit|429|econn|enotfound|eai_again|etimedout|socket|network|temporar|connection refused|stream closed|reset|unavailable|5\d\d/.test(text);
+    || /timeout|timed out|rate limit|429|econn|enotfound|eai_again|etimedout|socket|network|temporar|connection refused|stream[ _-]?closed|http2|reset|unavailable|5\d\d/.test(text);
 }
 
 async function withRetry(db, table, job, executor) {
@@ -328,6 +348,10 @@ async function withRetry(db, table, job, executor) {
     } catch (error) {
       if (error.code === 'MODEL_JOB_CANCELLED') {
         await db.run(`UPDATE ${table} SET status = 'cancelled', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'`, JSON.stringify({ message: error.message, cancelled: true, attempts: attempt }), job.id);
+        return;
+      }
+      if (error.code === 'EVALUATION_JOB_CANCELLED') {
+        await db.run(`UPDATE ${table} SET status = 'cancelled', error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL WHERE id = ? AND status = 'running'`, JSON.stringify({ message: error.message, cancelled: true, attempts: attempt }), job.id);
         return;
       }
       if (attempt === max || !isRetryableJobError(error)) {
@@ -353,14 +377,14 @@ async function processOnce() {
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
     const workflow = selectFairWorkflow(queuedWorkflows, 'workflow_runs');
     if (workflow && await claim(db, 'workflow_runs', workflow.id)) await withRetry(db, 'workflow_runs', workflow, () => executeWorkflow(db, workflow));
-    const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
+    const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY priority DESC, created_at ASC");
     const evaluation = selectFairWorkflow(queuedEvaluations, 'evaluation_jobs');
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
       if (evaluation.campaign_id) await db.run("UPDATE evaluation_campaigns SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'planned'", evaluation.campaign_id);
       await withRetry(db, 'evaluation_jobs', evaluation, () => executeEvaluation(db, evaluation));
       await updateCampaignStatus(db, evaluation.campaign_id);
     }
-    const queuedModels = await db.all("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
+    const queuedModels = await db.all("SELECT * FROM model_jobs WHERE status = 'queued' ORDER BY priority DESC, created_at ASC");
     const model = selectFairWorkflow(queuedModels, 'model_jobs');
     if (model && await claim(db, 'model_jobs', model.id)) await withRetry(db, 'model_jobs', model, () => executeModelJob(db, model));
   } finally { busy = false; }
@@ -383,4 +407,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob, withRetry };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob, withRetry, isRetryableJobError };
