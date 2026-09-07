@@ -44,6 +44,9 @@ function dossierToCandidate(dossier, options = {}) {
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties : [];
   const tests = Array.isArray(report.tests) ? report.tests : [];
+  const noAnswerEvidence = report.outcome === 'no_answer' && report.noAnswerProof && Array.isArray(report.noAnswerProof.evidence)
+    ? report.noAnswerProof.evidence.filter((item) => typeof item === 'string' && item.trim()).length
+    : 0;
 
   // Compute adversarial pass rate from verified tests
   let passRate = 0;
@@ -60,7 +63,7 @@ function dossierToCandidate(dossier, options = {}) {
 
   // Compute fitness score based on verified claims and penalty on uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
-  const claimScore = Math.max(-40, Math.min(40, claims.reduce((acc, c) => {
+  const claimScore = noAnswerEvidence > 0 ? Math.min(40, 20 + noAnswerEvidence * 10) : Math.max(-40, Math.min(40, claims.reduce((acc, c) => {
     const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
     return acc + (hasEvidence ? 15 : -10);
   }, 0)));
