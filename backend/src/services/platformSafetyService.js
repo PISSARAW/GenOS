@@ -48,8 +48,25 @@ function validateToolCall({ agentId, toolName, args = {}, permissions = [], deni
 }
 
 function buildReplay(incidentId, events = [], stepSpeed = 100) {
-  const relevant = events.filter(e => Boolean(e.agent_id) && ((e.event_type || '').toLowerCase().includes('incident') || String(e.payload_json || '').includes(incidentId)));
-  const source = relevant.length ? relevant : events.slice(0, 20);
+  const targetId = String(incidentId || '').trim();
+  const parsedEvents = events.map((event) => {
+    let payload = {};
+    try { payload = JSON.parse(event.payload_json || '{}'); } catch (_) {}
+    return { event, payload };
+  });
+  const explicitIncidentIds = new Set(parsedEvents
+    .map(({ event, payload }) => event.incident_id || event.incidentId || payload.incident_id || payload.incidentId)
+    .filter(Boolean)
+    .map(String));
+  const relevant = parsedEvents
+    .filter(({ event, payload }) => {
+      if (!event.agent_id) return false;
+      const eventIncidentId = event.incident_id || event.incidentId || payload.incident_id || payload.incidentId;
+      if (eventIncidentId) return String(eventIncidentId) === targetId;
+      return explicitIncidentIds.size === 0 && (event.event_type || '').toLowerCase().includes('incident');
+    })
+    .map(({ event }) => event);
+  const source = relevant;
   return { incidentId, stepSpeed: Math.max(1, Number(stepSpeed) || 100), totalSteps: source.length, timeline: source.map((e, index) => ({ step: index + 1, eventId: e.id, timestamp: e.created_at, agentId: e.agent_id, action: e.action, eventType: e.event_type, detail: e.detail, severity: e.severity, status: index === source.length - 1 ? 'failure' : 'observed' })) };
 }
 
