@@ -18,6 +18,22 @@ const { terminateChild } = require('./processTermination');
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
 const SENSITIVE_FILES = /^(?:\.env(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?)$/i;
+const restoreLocks = new Map();
+
+async function withRestoreLock(workspacePath, operation) {
+  const key = path.resolve(workspacePath);
+  const previous = restoreLocks.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  restoreLocks.set(key, current);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (restoreLocks.get(key) === current) restoreLocks.delete(key);
+  }
+}
 
 function snapshotRoot(workspacePath, workspaceId) {
   const configured = process.env.GENOS_SNAPSHOT_ROOT;
@@ -305,6 +321,11 @@ async function copyMaterializedFiles(sourceRoot, files, destination) {
 }
 
 async function restore({ db, workspace, reference, author = 'studio' }) {
+  if (!workspace?.path) throw new Error('Workspace path is required for restore.');
+  return withRestoreLock(workspace.path, () => restoreUnlocked({ db, workspace, reference, author }));
+}
+
+async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) {
   const target = await getSnapshot(db, workspace.id, reference);
   const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
 
