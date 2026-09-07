@@ -1,9 +1,9 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
-const { getDatabase, closeDatabase } = require('./src/db');
-const strategyContracts = require('./src/services/strategyContractService');
-const { loadAgentDossier } = require('./src/services/agentDossierService');
+const { getDatabase, closeDatabase } = require('../src/db');
+const strategyContracts = require('../src/services/strategyContractService');
+const { loadAgentDossier } = require('../src/services/agentDossierService');
 
 async function run() {
   const dbPath = path.resolve(__dirname, 'agent-dossier-test.db');
@@ -17,6 +17,12 @@ async function run() {
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'AGENT_RUNTIME_STARTED', 'START', 'Started', ?)", JSON.stringify({ autonomyPlan: { organization: 'network_silence' } }));
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'AGENT_CAPSULE_CREATED', 'CAPSULE', 'Created', ?)", JSON.stringify({ id: 'capsule-dp', genomeId: 'genome-dp' }));
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-child', 'EVIDENCE_REPORT', 'VERIFY', 'Verified recurrence', ?)", JSON.stringify({ claims: [{ statement: 'Optimal value is 42', evidence: ['tests pass'] }] }));
+    await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'DOSSIER_INFLUENCE_VERIFIED', 'VERIFY_SYNTHESIS', 'Verified', ?)", JSON.stringify({ workerIds: ['agent-child'] }));
+    await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'EVIDENCE_REPORT', 'SYNTHESIS', 'Synthesized', ?)", JSON.stringify({
+      outcome: 'success',
+      claims: [{ statement: 'Final optimal value 42 confirmed' }],
+      dossierInfluence: [{ workerId: 'agent-child', influence: 'Adopted DP state formula', usedClaims: ['Optimal value is 42'] }]
+    }));
     await db.run("INSERT INTO telemetry_events (agent_id, event_type, action, detail, payload_json) VALUES ('agent-root', 'GENOME_MUTATION_COMPLETED', 'MUTATE', 'Selected stronger branch', '{}')");
 
     const dossier = await loadAgentDossier(db, 'agent-root');
@@ -30,6 +36,11 @@ async function run() {
     assert.equal(dossier.forks[0].id, 'agent-child');
     assert.equal(dossier.children[0].id, 'agent-child');
     assert.equal(dossier.descendants.length, 1);
+    assert.ok(dossier.synthesisInfluence);
+    assert.deepEqual(dossier.synthesisInfluence.verifiedWorkerIds, ['agent-child']);
+    assert.equal(dossier.synthesisInfluence.influences.length, 1);
+    assert.equal(dossier.synthesisInfluence.influences[0].workerId, 'agent-child');
+    assert.equal(dossier.synthesisInfluence.influences[0].influence, 'Adopted DP state formula');
     console.log('Agent dossier checks passed.');
   } finally {
     await closeDatabase();
