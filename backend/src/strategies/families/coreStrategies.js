@@ -6,7 +6,8 @@ const direct = defineFamily('direct', [
   ['plan_execute_verify', 'Planifier–exécuter–vérifier', ['all'], ['verification', 'separation_of_duties'], 'implemented', ['plan', 'run', 'independent_verify']],
   ['dry_run_blast_radius', 'Dry-run avec blast radius', ['implementation', 'critical_refactor', 'security'], ['safety', 'low_cost'], 'implemented', ['vfs_dry_run', 'permission_check', 'blast_radius']],
   ['entropy_model_escalation', 'Escalade de modèle par entropie', ['all'], ['low_cost', 'entropy', 'model_routing'], 'experimental', ['slm_route', 'entropy_check', 'frontier_escalation']],
-  ['provider_fallback', 'Fallback fournisseur', ['all'], ['resilient', 'low_latency'], 'implemented', ['provider_route', 'fallback_chain', 'degraded_mode']]
+  ['provider_fallback', 'Fallback fournisseur', ['all'], ['resilient', 'low_latency'], 'implemented', ['provider_route', 'fallback_chain', 'degraded_mode']],
+  ['computer_use_direct', 'Contrle natif PC (Computer Use)', ['all'], ['vision', 'system_control', 'low_latency'], 'implemented', ['capture', 'run_plan', 'verify']]
 ]);
 
 const diagnosis = defineFamily('diagnosis', [
