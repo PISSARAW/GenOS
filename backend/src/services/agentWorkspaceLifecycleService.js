@@ -304,6 +304,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     }
       } catch (error) {
         if (/contains tracked symlinks/.test(error.message)) throw error;
+      }
   }
   try {
     const { stdout: gitTopLevel } = await runCommand('git', ['rev-parse', '--show-toplevel'], { cwd: source });
