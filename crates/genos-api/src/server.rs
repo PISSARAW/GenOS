@@ -174,7 +174,7 @@ pub fn handle_http_request(
 
         // Rate Limiter
         {
-            let mut lim = limiter.lock().unwrap();
+            let mut lim = limiter.lock().unwrap_or_else(|p| p.into_inner());
             if !lim.try_acquire(1) {
                 return (429, vec![("Content-Type".into(), "application/json".into())], json!({
                     "error": { "message": "Rate limit exceeded. Try again later.", "type": "rate_limit_error" }

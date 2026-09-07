@@ -79,4 +79,31 @@ mod tests {
         assert!(body.contains("chat.completion"));
         assert!(body.contains("Ping"));
     }
+
+    #[test]
+    fn test_server_poisoned_mutex_recovery() {
+        let mut auth = TenantAuth::new();
+        auth.register_tenant("test_client", "sk-secret-token");
+        let limiter = std::sync::Arc::new(Mutex::new(RateLimiter::new(10, 1)));
+
+        // Intentionally poison the mutex by panicking inside a thread holding the lock
+        let limiter_clone = std::sync::Arc::clone(&limiter);
+        let _ = std::thread::spawn(move || {
+            let _guard = limiter_clone.lock().unwrap();
+            panic!("Intentional panic to poison mutex");
+        }).join();
+
+        assert!(limiter.is_poisoned());
+
+        // Now verify handle_http_request recovers smoothly from the poisoned mutex
+        let payload = r#"{"model":"genos-core-v3","messages":[{"role":"user","content":"Ping"}]}"#;
+        let req = format!(
+            "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer sk-secret-token\r\nContent-Length: {}\r\n\r\n{}",
+            payload.len(),
+            payload
+        );
+        let (status, _, body) = handle_http_request(&req, &auth, &limiter);
+        assert_eq!(status, 200);
+        assert!(body.contains("chat.completion"));
+    }
 }
