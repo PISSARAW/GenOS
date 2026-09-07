@@ -20,6 +20,25 @@ fn tool_timeout_ms() -> u64 {
         .unwrap_or(DEFAULT_TOOL_TIMEOUT_MS)
 }
 
+fn read_bounded(mut stream: impl Read) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    let mut chunk = [0_u8; 8192];
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(count) => {
+                bytes.extend_from_slice(&chunk[..count]);
+                if bytes.len() > MAX_OUTPUT_BYTES {
+                    let excess = bytes.len() - MAX_OUTPUT_BYTES;
+                    bytes.drain(..excess);
+                }
+            }
+            Err(_) => break,
+        }
+    }
+    bytes
+}
+
 fn bounded_output(bytes: Vec<u8>) -> String {
     let start = bytes.len().saturating_sub(MAX_OUTPUT_BYTES);
     String::from_utf8_lossy(&bytes[start..]).to_string()
@@ -31,16 +50,8 @@ fn execute_command(mut command: Command) -> Result<(i32, String), String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|error| error.to_string())?;
-    let stdout = child.stdout.take().map(|mut stream| thread::spawn(move || {
-        let mut bytes = Vec::new();
-        let _ = stream.read_to_end(&mut bytes);
-        bytes
-    }));
-    let stderr = child.stderr.take().map(|mut stream| thread::spawn(move || {
-        let mut bytes = Vec::new();
-        let _ = stream.read_to_end(&mut bytes);
-        bytes
-    }));
+    let stdout = child.stdout.take().map(|stream| thread::spawn(move || read_bounded(stream)));
+    let stderr = child.stderr.take().map(|stream| thread::spawn(move || read_bounded(stream)));
     let deadline = Instant::now() + Duration::from_millis(tool_timeout_ms());
     let status = loop {
         match child.try_wait() {
@@ -73,6 +84,20 @@ fn execute_command(mut command: Command) -> Result<(i32, String), String> {
         format!("{}\n{}", stdout_text, stderr_text)
     };
     Ok((code, text))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{read_bounded, MAX_OUTPUT_BYTES};
+    use std::io::Cursor;
+
+    #[test]
+    fn read_bounded_keeps_only_the_configured_tail() {
+        let input = vec![b'x'; MAX_OUTPUT_BYTES + 4096];
+        let output = read_bounded(Cursor::new(input));
+        assert_eq!(output.len(), MAX_OUTPUT_BYTES);
+        assert!(output.iter().all(|byte| *byte == b'x'));
+    }
 }
 
 fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
