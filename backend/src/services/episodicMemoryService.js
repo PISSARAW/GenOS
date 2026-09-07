@@ -5,6 +5,20 @@
 
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
+const DEFAULT_MAX_EPISODE_FIELD_BYTES = 1024 * 1024;
+const DEFAULT_MAX_EPISODE_BYTES = 4 * 1024 * 1024;
+
+function positiveLimit(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 ? value : fallback;
+}
+
+function episodeLimits() {
+  return {
+    maxFieldBytes: positiveLimit('GENOS_MAX_EPISODE_FIELD_BYTES', DEFAULT_MAX_EPISODE_FIELD_BYTES),
+    maxBytes: positiveLimit('GENOS_MAX_EPISODE_BYTES', DEFAULT_MAX_EPISODE_BYTES)
+  };
+}
 
 function normalizeStringField(val) {
   if (val === null || val === undefined) return '';
@@ -43,6 +57,13 @@ async function recordEpisode(episode = {}, dbOverride = null) {
   const contextState = normalizeStringField(episode.context_state || episode.contextState || {});
   const actionInput = normalizeStringField(episode.action_input || episode.actionInput || '');
   const observationOutput = normalizeStringField(episode.observation_output || episode.observationOutput || '');
+  const limits = episodeLimits();
+  for (const [name, value] of [['context_state', contextState], ['action_input', actionInput], ['observation_output', observationOutput]]) {
+    if (Buffer.byteLength(value, 'utf8') > limits.maxFieldBytes) throw new Error(`Episode ${name} exceeds the ${limits.maxFieldBytes}-byte limit.`);
+  }
+  if ([contextState, actionInput, observationOutput].reduce((total, value) => total + Buffer.byteLength(value, 'utf8'), 0) > limits.maxBytes) {
+    throw new Error(`Episode exceeds the ${limits.maxBytes}-byte limit.`);
+  }
   const rewardScore = typeof (episode.reward_score ?? episode.rewardScore) === 'number'
     ? (episode.reward_score ?? episode.rewardScore)
     : 0.0;
