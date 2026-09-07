@@ -29,11 +29,14 @@ const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
 
 async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
-  const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 14 * 60 * 1000);
+  const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 60 * 1000);
   const pollMs = Number(options.pollMs || 100);
-  const deadline = Date.now() + timeoutMs;
+  const startTime = Date.now();
+  const deadline = startTime + timeoutMs;
   const initialIds = new Set(initialWorkerIds);
   let stablePasses = 0;
+  const missingChecks = new Map();
+
   while (Date.now() < deadline) {
     if (options.isCancelled?.()) {
       const error = new Error(`Worker evidence barrier for '${orchestratorId}' was stopped by the operator.`);
@@ -47,15 +50,34 @@ async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWork
       ? await db.all(`SELECT id, status FROM agents WHERE parent_agent_id = ? AND id IN (${placeholders})`, orchestratorId, ...ids)
       : [];
     const descendantIds = new Set(ids);
-    const statusesTerminal = agents.length === trackedIds.size
-      && agents.every((agent) => TERMINAL_AGENT_STATUSES.has(agent.status));
-    const runtimePending = [...descendantIds].some((id) =>
+    const foundIds = new Set(agents.map((a) => a.id));
+    const missingIds = ids.filter((id) => !foundIds.has(id));
+
+    const isRuntimePending = (id) => (
       activeProcesses.has(id)
       || missionStarts.has(id)
       || pendingContinuations.has(id)
       || pendingWorkerRecoveries.has(id)
       || activeWorkerRecoveryDispatches.has(id)
     );
+
+    for (const missingId of missingIds) {
+      if (!isRuntimePending(missingId)) {
+        const count = (missingChecks.get(missingId) || 0) + 1;
+        missingChecks.set(missingId, count);
+        if (count >= 10 && (Date.now() - startTime >= Math.min(timeoutMs, 3000))) {
+          const error = new Error(`Autonomous worker '${missingId}' of orchestrator '${orchestratorId}' is missing from database and runtime state.`);
+          error.code = 'WORKER_NOT_FOUND';
+          throw error;
+        }
+      } else {
+        missingChecks.delete(missingId);
+      }
+    }
+
+    const statusesTerminal = agents.length === trackedIds.size
+      && agents.every((agent) => TERMINAL_AGENT_STATUSES.has(agent.status));
+    const runtimePending = [...descendantIds].some(isRuntimePending);
     const roundPending = !options.ignoreRoundPending && autonomousRounds.has(orchestratorId);
     if (statusesTerminal && !runtimePending && !roundPending) {
       stablePasses += 1;
