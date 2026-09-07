@@ -169,6 +169,15 @@ async function readManifest(snapshot) {
   const metadata = parseMetadata(snapshot.metadata);
   const manifestPath = metadata.manifestPath || path.join(metadata.storagePath || '', 'manifest.json');
   if (!manifestPath) throw new Error(`Snapshot ${snapshot.id} has no durable manifest reference.`);
+  if (snapshot.workspace_path) {
+    const expectedRoot = snapshotRoot(snapshot.workspace_path, snapshot.workspace_id);
+    const realRoot = await fsp.realpath(expectedRoot);
+    const realManifest = await fsp.realpath(manifestPath);
+    const relativeManifest = path.relative(realRoot, realManifest);
+    if (relativeManifest.startsWith(`..${path.sep}`) || relativeManifest === '..' || path.isAbsolute(relativeManifest)) {
+      throw new Error(`Snapshot ${snapshot.id} manifest is outside its snapshot root.`);
+    }
+  }
   const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
   if (manifest.version !== 1 || !Array.isArray(manifest.files)) throw new Error(`Snapshot ${snapshot.id} has an invalid manifest format.`);
   if (manifest.hash !== snapshot.snapshot_hash) throw new Error(`Snapshot ${snapshot.id} failed manifest hash validation.`);
@@ -291,8 +300,8 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
 async function getSnapshot(db, workspaceId, reference) {
   const numeric = Number(reference);
   const row = Number.isInteger(numeric) && String(reference).trim() !== ''
-    ? await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? AND step_number = ? ORDER BY created_at DESC LIMIT 1', workspaceId, numeric)
-    : await db.get('SELECT * FROM workspace_snapshots WHERE workspace_id = ? AND (id = ? OR snapshot_hash = ?) ORDER BY created_at DESC LIMIT 1', workspaceId, reference, reference);
+    ? await db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? AND s.step_number = ? ORDER BY s.created_at DESC LIMIT 1', workspaceId, numeric)
+    : await db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? AND (s.id = ? OR s.snapshot_hash = ?) ORDER BY s.created_at DESC LIMIT 1', workspaceId, reference, reference);
   if (!row) throw new Error(`Snapshot not found: ${reference}`);
   return row;
 }
@@ -357,7 +366,7 @@ async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) 
   const backupStaging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-backup-'));
   try {
     const verified = await materialize(target, staging);
-    await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id }, backupStaging);
+    await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id, workspace_id: workspace.id, workspace_path: workspace.path }, backupStaging);
     await removeWorkspaceFiles(workspace.path);
     await copyMaterializedFiles(staging, verified.files, workspace.path);
     if (manifestHash(await collectFiles(workspace.path)) !== verified.hash) {
@@ -367,7 +376,7 @@ async function restoreUnlocked({ db, workspace, reference, author = 'studio' }) 
   } catch (error) {
     try {
       await removeWorkspaceFiles(workspace.path);
-      const backupManifest = await readManifest({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id });
+      const backupManifest = await readManifest({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id, workspace_id: workspace.id, workspace_path: workspace.path });
       await copyMaterializedFiles(backupStaging, backupManifest.files, workspace.path);
       if (manifestHash(await collectFiles(workspace.path)) !== backupManifest.hash) {
         throw new Error(`Safety snapshot checksum mismatch for ${workspace.path}.`);
