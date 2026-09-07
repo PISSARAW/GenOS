@@ -109,19 +109,38 @@ fn hox_axis(value: &str) -> Option<u8> {
     None
 }
 
-/// ACTE 4 : Le Sculpteur (Apoptose)
+/// Calcule la viabilité biologique d'une cellule selon son budget métabolique,
+/// sa réserve télomérique (Hayflick limit), ses cicatrices de division et sa sénescence.
+pub fn calculate_cellular_viability(cell: &AgentCell) -> f64 {
+    let senescence_penalty = if cell.is_senescent { -100.0 } else { 0.0 };
+    let telomere_reserve = cell.hayflick_limit.saturating_sub(cell.bud_scars) as f64;
+    let scar_penalty = (cell.bud_scars as f64) * 2.0;
+    let organelle_bonus = (cell.organelles.len() as f64) * 5.0;
+    let metabolic_budget = cell.conscience.current_budget;
+
+    metabolic_budget + telomere_reserve * 3.0 + organelle_bonus - scar_penalty + senescence_penalty
+}
+
+/// ACTE 4 : Le Sculpteur (Apoptose sélective basée sur la viabilité biologique)
 pub fn sculpt_architecture_via_apoptosis(swarm: &mut Vec<AgentCell>) {
-    let mut role_counts = std::collections::HashMap::new();
-    for cell in swarm.iter() {
-        *role_counts.entry(cell.role.clone()).or_insert(0usize) += 1;
+    let mut role_indices: std::collections::HashMap<String, Vec<usize>> = std::collections::HashMap::new();
+    for (idx, cell) in swarm.iter().enumerate() {
+        role_indices.entry(cell.role.clone()).or_default().push(idx);
     }
-    // Élagage basé sur la redondance fonctionnelle et l'optimisation architecturale
-    for cell in swarm.iter_mut() {
-        let count = role_counts.get(&cell.role).copied().unwrap_or(1);
-        if count > 1 {
-            cell.trigger_apoptosis();
-            if let Some(role_count) = role_counts.get_mut(&cell.role) {
-                *role_count -= 1;
+
+    // Élagage basé sur la sélection de la cellule la plus viable (fitness métabolique et télomérique)
+    for (_role, indices) in role_indices.iter_mut() {
+        if indices.len() > 1 {
+            // Trier par viabilité décroissante : le meilleur reste en premier
+            indices.sort_by(|&a, &b| {
+                let score_a = calculate_cellular_viability(&swarm[a]);
+                let score_b = calculate_cellular_viability(&swarm[b]);
+                score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+            });
+
+            // Déclencher l'apoptose sur toutes les cellules redondantes moins performantes
+            for &idx in indices.iter().skip(1) {
+                swarm[idx].trigger_apoptosis();
             }
         }
     }
@@ -265,5 +284,25 @@ mod tests {
         differentiate_cell(&mut cell, &mut genome);
         assert_eq!(cell.chromatin_state, Some("Differentiated".to_string()));
         assert_eq!(cell.genome_id, Some(genome.genome_id()));
+    }
+
+    #[test]
+    fn test_apoptosis_selects_fittest_cells_and_prunes_senescent() {
+        let mut weak_cell = AgentCell::new("WeakCell", "Desc", "WORKER");
+        weak_cell.is_senescent = true;
+        weak_cell.bud_scars = 40;
+        weak_cell.conscience.current_budget = 5.0;
+
+        let mut strong_cell = AgentCell::new("StrongCell", "Desc", "WORKER");
+        strong_cell.is_senescent = false;
+        strong_cell.bud_scars = 0;
+        strong_cell.conscience.current_budget = 100.0;
+
+        // Même si weak_cell est en première position, c'est strong_cell qui doit survivre
+        let mut swarm = vec![weak_cell, strong_cell];
+        sculpt_architecture_via_apoptosis(&mut swarm);
+
+        assert_eq!(swarm.len(), 1, "Une seule cellule doit survivre pour ce rôle");
+        assert_eq!(swarm[0].name, "StrongCell", "L'élagage doit préserver la cellule la plus viable");
     }
 }
