@@ -242,6 +242,64 @@ const ALL_TOOLS = [
     },
   },
   {
+    name: "genos_trinity_launch",
+    description: "Deploy Trinity worlds for deep comparative exploration.",
+    inputSchema: {
+      type: "object",
+      properties: { mission: { type: "string", description: "Mission to analyze." } },
+      required: ["mission"],
+    },
+  },
+  {
+    name: "genos_a_team_preview",
+    description: "Compose a multidisciplinary A-Team for a mission.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        project_goal: { type: "string", description: "Overarching project goal." },
+        sub_systems: { type: "array", items: { type: "string" }, description: "Distinct subsystems." },
+      },
+      required: ["project_goal", "sub_systems"],
+    },
+  },
+  {
+    name: "genos_merge",
+    description: "Merge an isolated branch under invariants.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        branch_id: { type: "string", description: "Branch ID to merge." },
+        conditions: { type: "string", description: "Conditions to satisfy." },
+      },
+      required: ["branch_id"],
+    },
+  },
+  {
+    name: "genos_audit",
+    description: "Audit a snapshot or lineage trace.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        snapshot_id: { type: "string", description: "Snapshot ID to audit." },
+        output: { type: "string", description: "Audit output path." },
+      },
+      required: ["snapshot_id"],
+    },
+  },
+  {
+    name: "genos_biomimicry",
+    description: "Invoke a native biomimetic feature.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        feature: { type: "string", description: "Biomimetic feature name." },
+        action: { type: "string", description: "Feature action." },
+        params: { type: "object", description: "Optional feature parameters." },
+      },
+      required: ["feature", "action"],
+    },
+  },
+  {
     name: "genos_v2_init",
     description: "Initialize GenOS workspace state.",
     inputSchema: { type: "object", properties: {} },
@@ -312,6 +370,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "genos_worker_inbox":
         result = await runOrchestrator({ action: "organization_inbox", ...args });
         break;
+      case "genos_trinity_launch":
+        result = await runOrchestrator({ action: "dispatch_trinity", ...args });
+        break;
+      case "genos_a_team_preview":
+        result = await runOrchestrator({ action: "dispatch_team", ...args });
+        break;
       case "genos_snapshot":
         result = await runGenosCli(["snapshot", "create", "--agent", args.agent, "--out", args.out]);
         break;
@@ -320,7 +384,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await runGenosCli(["replay", "basic", "--snapshot", args.snapshot]);
         break;
       case "genos_capsule_create":
-        result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT"]);
+        result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT", ...(args.seed ? ["--seed", args.seed] : [])]);
+        break;
+      case "genos_merge":
+        result = await runGenosCli(["merge", args.branch_id, ...(args.conditions ? ["--conditions", args.conditions] : [])]);
+        break;
+      case "genos_audit":
+        result = await runGenosCli(["audit", args.snapshot_id, "--output", args.output || "audit.log"]);
+        break;
+      case "genos_biomimicry":
+        result = await runGenosCli(["biomimicry", "bio-feature", "--feature", args.feature, "--action", args.action]);
         break;
       case "genos_v2_init":
         result = await runGenosCli(["init"]);
