@@ -31,23 +31,52 @@ function normalizeVector(vec = [], targetDim = 768) {
 
 async function embedWithOpenAi(text, apiKey, endpoint, model) {
   const url = endpoint || 'https://api.openai.com/v1/embeddings';
+  const embeddingModel = model || 'text-embedding-3-small';
+  const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
+  const body = { model: embeddingModel, input: text };
+  if (embeddingModel.startsWith('text-embedding-3')) {
+    body.dimensions = targetDim;
+  }
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`
     },
-    body: JSON.stringify({ model: model || 'text-embedding-3-small', input: text }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
   });
   if (!response.ok) return null;
   const payload = await response.json();
   const rawVec = payload?.data?.[0]?.embedding || null;
-  return normalizeVector(rawVec, 768);
+  return normalizeVector(rawVec, targetDim);
+}
+
+async function embedWithGemini(text, apiKey, model) {
+  const embeddingModel = model || 'text-embedding-004';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${embeddingModel}:embedContent`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey
+    },
+    body: JSON.stringify({
+      model: `models/${embeddingModel}`,
+      content: { parts: [{ text }] }
+    }),
+    signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+  });
+  if (!response.ok) return null;
+  const payload = await response.json();
+  const rawVec = payload?.embedding?.values || null;
+  const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
+  return normalizeVector(rawVec, targetDim);
 }
 
 async function embedWithOllama(text, rawUrl, model) {
   const base = rawUrl.replace(/\/+$/, '');
+  const targetDim = Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768;
   // Try modern /api/embed first
   try {
     const embedUrl = base.endsWith('/api/embed') ? base : `${base}/api/embed`;
@@ -60,7 +89,7 @@ async function embedWithOllama(text, rawUrl, model) {
     if (response.ok) {
       const payload = await response.json();
       const rawVec = payload?.embeddings?.[0] || null;
-      if (rawVec) return normalizeVector(rawVec, 768);
+      if (rawVec) return normalizeVector(rawVec, targetDim);
     }
   } catch (_) {}
 
@@ -76,7 +105,7 @@ async function embedWithOllama(text, rawUrl, model) {
     if (response.ok) {
       const payload = await response.json();
       const rawVec = payload?.embedding || null;
-      if (rawVec) return normalizeVector(rawVec, 768);
+      if (rawVec) return normalizeVector(rawVec, targetDim);
     }
   } catch (_) {}
 
@@ -87,9 +116,9 @@ async function embed(text) {
   const cleanText = String(text || '').trim();
   if (!cleanText) return null;
 
-  // 1. Check for remote OpenAI/Gemini compatible embedding provider
+  // 1. Check for remote OpenAI / Gemini embedding provider
   const openAiKey = process.env.GENOS_EMBEDDING_API_KEY || process.env.OPENAI_API_KEY;
-  if (process.env.GENOS_EMBEDDING_PROVIDER === 'openai' && openAiKey) {
+  if ((process.env.GENOS_EMBEDDING_PROVIDER === 'openai' || (!process.env.GENOS_EMBEDDING_PROVIDER && openAiKey)) && openAiKey) {
     try {
       const vec = await embedWithOpenAi(
         cleanText,
@@ -97,6 +126,14 @@ async function embed(text) {
         process.env.GENOS_EMBEDDING_URL,
         process.env.GENOS_EMBEDDING_MODEL
       );
+      if (vec) return vec;
+    } catch (_) {}
+  }
+
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GENOS_EMBEDDING_API_KEY;
+  if (process.env.GENOS_EMBEDDING_PROVIDER === 'gemini' && geminiKey) {
+    try {
+      const vec = await embedWithGemini(cleanText, geminiKey, process.env.GENOS_EMBEDDING_MODEL);
       if (vec) return vec;
     } catch (_) {}
   }
@@ -123,7 +160,7 @@ async function embed(text) {
       const extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', { quantized: true });
       const output = await extractor(cleanText, { pooling: 'mean', normalize: true });
       if (output?.data) {
-        return normalizeVector(Array.from(output.data), 768);
+        return normalizeVector(Array.from(output.data), Number(process.env.GENOS_EMBEDDING_DIMENSIONS) || 768);
       }
     } catch (_) {}
   }
