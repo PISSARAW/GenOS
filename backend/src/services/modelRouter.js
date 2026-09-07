@@ -6,7 +6,7 @@ function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
 }
 
-const MODEL_URI = /^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\/[^\s/].+$/;
+const MODEL_URI = /^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\/[^\s/].*$/;
 
 function validateModelUri(value, field) {
   if (value === undefined || value === null || value === '') return null;
