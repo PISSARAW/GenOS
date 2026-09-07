@@ -142,6 +142,39 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
   return { text, usage };
 }
 
+async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
+  const reader = response.body?.getReader ? response.body.getReader() : null;
+  if (!reader) return { text: '', usage: {} };
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let text = '';
+  let usage = {};
+  const consume = async (chunk) => {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split(/\r?\n/);
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      const payload = JSON.parse(line);
+      const delta = payload.message?.content || payload.response || '';
+      if (delta) { text += delta; await onToken(delta); }
+      if (payload.prompt_eval_count != null || payload.eval_count != null) {
+        usage = { prompt_tokens: payload.prompt_eval_count, completion_tokens: payload.eval_count };
+      }
+    }
+  };
+  while (true) {
+    let idleTimer;
+    const idleTimeout = new Promise((_, reject) => { idleTimer = setTimeout(() => reject(new Error(`Model stream idle timeout after ${idleTimeoutMs}ms.`)), idleTimeoutMs); });
+    const next = await Promise.race([reader.read(), idleTimeout]);
+    clearTimeout(idleTimer);
+    if (next.done) break;
+    await consume(next.value);
+  }
+  if (buffer.trim()) await consume(new TextEncoder().encode(`${buffer}\n`));
+  return { text, usage };
+}
+
 async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080, computerUse = false }) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -167,6 +200,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
     const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
+    const nativeOllama = provider === 'ollama' && /\/api\/chat\/?$/i.test(endpoint);
     let body;
     if (provider === 'anthropic') {
       body = {
@@ -181,13 +215,9 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
         ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {})
       };
     } else {
-      body = {
-        model: modelName,
-        messages: [{ role: 'user', content: prompt }],
-        stream,
-        ...(outputLimit ? { max_tokens: outputLimit } : {}),
-        ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {})
-      };
+      body = nativeOllama
+        ? { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit || seed != null ? { options: { ...(outputLimit ? { num_predict: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) } } : {}) }
+        : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) };
     }
     const response = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: controller.signal });
     if (!response.ok) {
@@ -195,11 +225,15 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       throw new Error(`Model provider returned HTTP ${response.status}.${detail ? ` ${detail.slice(0, 500)}` : ''}`);
     }
     const contentType = response.headers?.get?.('content-type') || '';
+    if (nativeOllama && stream) {
+      const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
+    }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider };
     }
-    const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.type === 'tool_use' ? JSON.stringify(part) : (part.text || '')).join('\n') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : (payload.choices?.[0]?.message?.content || '');
+    const payload = await response.json(); const text = provider === 'anthropic' ? (payload.content?.map((part) => part.type === 'tool_use' ? JSON.stringify(part) : (part.text || '')).join('\n') || '') : provider === 'gemini' ? (payload.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '') : nativeOllama ? (payload.message?.content || payload.response || '') : (payload.choices?.[0]?.message?.content || '');
     for (const token of tokenize(text)) await onToken(token);
     return { text, inputTokens: payload.usage?.input_tokens || payload.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: payload.usage?.output_tokens || payload.usage?.completion_tokens || tokenize(text).length, provider };
   } catch (error) {
