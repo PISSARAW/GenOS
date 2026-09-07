@@ -287,6 +287,9 @@ function calculateParetoFront(candidateSolutions = []) {
       paretoFrontCount: 0,
       paretoFront: [],
       dominatedSolutions: [],
+      validEvaluated: 0,
+      invalidSolutions: [],
+      evaluationStatus: 'no_candidates',
       kneePointRecommendation: null
     };
   }
@@ -331,6 +334,9 @@ function calculateParetoFront(candidateSolutions = []) {
     totalEvaluated: solutions.length,
     validEvaluated: validSolutions.length,
     invalidSolutions,
+    evaluationStatus: invalidSolutions.length > 0
+      ? (validSolutions.length > 0 ? 'partial_invalid_candidates' : 'all_candidates_invalid')
+      : 'complete',
     paretoFrontCount: paretoFront.length,
     paretoFront,
     dominatedSolutions,
