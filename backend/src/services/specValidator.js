@@ -14,6 +14,14 @@ const path = require('path');
 const repositoryRoot = path.resolve(__dirname, '../../..');
 const SPEC_DIR = path.join(repositoryRoot, 'spec');
 
+function schemaFilename(value) {
+  const name = String(value || '').trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json$/.test(name) || path.basename(name) !== name) {
+    throw new Error('Schema name must be a simple .schema.json filename.');
+  }
+  return name;
+}
+
 const TYPE_CHECKS = {
   object: (v) => v !== null && typeof v === 'object' && !Array.isArray(v),
   array: (v) => Array.isArray(v),
@@ -107,6 +115,7 @@ function validateAgainstSchema(value, schema, pathSoFar, errors) {
  * missing schema files surface as an explicit `available:false` result.
  */
 function validateSpec(schemaFile, value) {
+  schemaFile = schemaFilename(schemaFile);
   const schemaPath = path.join(SPEC_DIR, schemaFile);
   if (!fs.existsSync(schemaPath)) {
     return { available: false, schema: schemaFile, valid: false, errors: [`spec file not found: ${schemaFile}`] };
