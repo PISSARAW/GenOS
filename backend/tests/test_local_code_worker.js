@@ -1,5 +1,8 @@
 const assert = require('assert');
-const { parseProposal, safePath } = require('./src/services/localCodeWorkerService');
+const fs = require('fs/promises');
+const os = require('os');
+const path = require('path');
+const { parseProposal, safePath, executeProposal } = require('../src/services/localCodeWorkerService');
 assert.equal(safePath('src/lib.rs'), true);
 assert.equal(safePath('tests/security.rs'), false);
 assert.equal(safePath('src/lib.test.js'), false);
@@ -7,4 +10,20 @@ assert.equal(safePath('Cargo.toml'), false);
 assert.throws(() => parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"tests/x.rs","content":"x"}],"tests":["cargo test --quiet"],"evidence":"x"}'));
 const proposal = parseProposal('{"format":"genos.file-replacement/v1","patches":[{"path":"src/lib.rs","content":"pub fn x() {}"}],"tests":["cargo test --quiet"],"evidence":"unit test"}');
 assert.equal(proposal.patches[0].path, 'src/lib.rs');
-console.log('Local code worker safety checks passed.');
+
+(async () => {
+	const root = await fs.mkdtemp(path.join(os.tmpdir(), 'genos-local-worker-test-'));
+	try {
+		await assert.rejects(
+			executeProposal({ workspaceRoot: root, text: JSON.stringify({ ...proposal, tests: ['node malicious.js'] }) }),
+			/not allow-listed/
+		);
+		await assert.rejects(fs.access(path.join(root, 'src', 'lib.rs')));
+	} finally {
+		await fs.rm(root, { recursive: true, force: true });
+	}
+	console.log('Local code worker safety checks passed.');
+})().catch((error) => {
+	console.error(error);
+	process.exitCode = 1;
+});
