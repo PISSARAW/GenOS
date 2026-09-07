@@ -6,6 +6,7 @@ const originalGenerate = modelRouter.generate;
 const statements = [];
 let generationCount = 0;
 const db = {
+  get: async () => ({ status: 'running' }),
   run: async (sql, ...params) => {
     statements.push({ sql, params });
     return { changes: 1 };
