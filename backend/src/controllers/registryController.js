@@ -3,8 +3,60 @@ const { getDatabase } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 
 const KINDS = new Set(['model', 'prompt', 'tool', 'workflow']);
-const digest = (manifest) => crypto.createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
+
+function canonicalJson(val) {
+  if (val === null || typeof val !== 'object') {
+    return JSON.stringify(val);
+  }
+  if (Array.isArray(val)) {
+    return '[' + val.map(canonicalJson).join(',') + ']';
+  }
+  const keys = Object.keys(val).sort();
+  const pairs = keys.map(k => `${JSON.stringify(k)}:${canonicalJson(val[k])}`);
+  return '{' + pairs.join(',') + '}';
+}
+
+const digest = (manifest) => crypto.createHash('sha256').update(canonicalJson(manifest)).digest('hex');
 const id = (prefix) => `${prefix}-${crypto.randomUUID()}`;
+
+function validateManifest(artifactKind, manifest) {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest) || Object.keys(manifest).length === 0) {
+    return { valid: false, message: 'manifest must be a non-empty object.' };
+  }
+  switch (artifactKind) {
+    case 'model': {
+      const hasModel = manifest.model_id || manifest.model || manifest.name || manifest.provider;
+      if (!hasModel) {
+        return { valid: false, message: 'model manifest must specify model_id, model, name, or provider.' };
+      }
+      break;
+    }
+    case 'prompt': {
+      const hasPrompt = manifest.template || manifest.prompt || manifest.messages || manifest.system_prompt;
+      if (!hasPrompt) {
+        return { valid: false, message: 'prompt manifest must specify template, prompt, messages, or system_prompt.' };
+      }
+      break;
+    }
+    case 'tool': {
+      const hasTool = manifest.name || manifest.runtime || manifest.handler || manifest.parameters;
+      if (!hasTool) {
+        return { valid: false, message: 'tool manifest must specify name, runtime, handler, or parameters.' };
+      }
+      break;
+    }
+    case 'workflow': {
+      const hasWorkflow = manifest.steps || manifest.nodes || manifest.entrypoint || manifest.tasks;
+      if (!hasWorkflow) {
+        return { valid: false, message: 'workflow manifest must specify steps, nodes, entrypoint, or tasks.' };
+      }
+      break;
+    }
+    default:
+      return { valid: false, message: `Unsupported artifact kind '${artifactKind}'.` };
+  }
+  return { valid: true };
+}
 
 function kind(value) {
   const normalized = String(value || '').toLowerCase().replace(/s$/, '');
@@ -33,13 +85,19 @@ async function create(req, res, next) {
     const artifactKind = kind(req.params.kind || req.body?.kind);
     const { name, description = '', manifest = {}, labels = [] } = req.body || {};
     if (!String(name || '').trim()) return res.status(400).json({ error: { code: 'INVALID_NAME', message: 'name is required.' } });
-    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return res.status(400).json({ error: { code: 'INVALID_MANIFEST', message: 'manifest must be an object.' } });
+    
+    const manifestCheck = validateManifest(artifactKind, manifest);
+    if (!manifestCheck.valid) {
+      return res.status(400).json({ error: { code: 'INVALID_MANIFEST', message: manifestCheck.message } });
+    }
+
     const scope = scopeSql(req);
     const artifactId = id('registry');
     const versionId = id('registry-version');
-    const manifestDigest = digest(manifest);
+    const canonicalManifestStr = canonicalJson(manifest);
+    const manifestDigest = crypto.createHash('sha256').update(canonicalManifestStr).digest('hex');
     await db.run('INSERT INTO registry_artifacts(id,organization_id,project_id,kind,name,description) VALUES(?,?,?,?,?,?)', artifactId, ...scope.params, artifactKind, name.trim(), description);
-    await db.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', versionId, artifactId, 1, JSON.stringify(manifest), manifestDigest, JSON.stringify(labels));
+    await db.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', versionId, artifactId, 1, canonicalManifestStr, manifestDigest, JSON.stringify(labels));
     res.status(201).json({ id: artifactId, kind: artifactKind, name: name.trim(), description, version: 1, digest: manifestDigest, manifest, labels });
   } catch (error) {
     if (String(error.message).includes('UNIQUE constraint failed')) return res.status(409).json({ error: { code: 'ARTIFACT_EXISTS', message: 'An artifact with this kind and name already exists in the project.' } });
@@ -53,10 +111,16 @@ async function addVersion(req, res, next) {
     const item = await artifact(db, req, req.params.id);
     if (!item) return res.status(404).json({ error: { code: 'ARTIFACT_NOT_FOUND', message: 'Artifact is outside the tenant scope.' } });
     const { manifest, labels = [] } = req.body || {};
-    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) return res.status(400).json({ error: { code: 'INVALID_MANIFEST', message: 'manifest must be an object.' } });
+    
+    const manifestCheck = validateManifest(item.kind, manifest);
+    if (!manifestCheck.valid) {
+      return res.status(400).json({ error: { code: 'INVALID_MANIFEST', message: manifestCheck.message } });
+    }
+
     const version = Number(item.current_version) + 1;
-    const manifestDigest = digest(manifest);
-    await db.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', id('registry-version'), item.id, version, JSON.stringify(manifest), manifestDigest, JSON.stringify(labels));
+    const canonicalManifestStr = canonicalJson(manifest);
+    const manifestDigest = crypto.createHash('sha256').update(canonicalManifestStr).digest('hex');
+    await db.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', id('registry-version'), item.id, version, canonicalManifestStr, manifestDigest, JSON.stringify(labels));
     await db.run('UPDATE registry_artifacts SET current_version = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', version, item.id);
     res.status(201).json({ id: item.id, version, digest: manifestDigest, manifest, labels });
   } catch (error) { next(error); }
@@ -99,4 +163,4 @@ async function install(req, res, next) {
   } catch (error) { next(error); }
 }
 
-module.exports = { list, create, addVersion, publish, marketplace, install };
+module.exports = { list, create, addVersion, publish, marketplace, install, canonicalJson, digest, validateManifest };
