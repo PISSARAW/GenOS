@@ -32,6 +32,11 @@ assert.equal(isAllowedSandboxTestCommand(`npm test -- ${'a'.repeat(513)}`), fals
 			executeProposal({ workspaceRoot: root, text: JSON.stringify({ ...proposal, patches: [{ path: 'linked/escape.rs', content: 'x' }] }) }),
 			/symlink/
 		);
+		await fs.mkdir(path.join(root, 'src'), { recursive: true });
+		await fs.writeFile(path.join(root, 'src', 'lib.rs'), 'before');
+		const failed = await executeProposal({ workspaceRoot: root, text: JSON.stringify({ ...proposal, patches: [{ path: 'src/lib.rs', content: 'after' }], tests: ['pytest'] }) });
+		assert.equal(failed.rolledBack, true);
+		assert.equal(await fs.readFile(path.join(root, 'src', 'lib.rs'), 'utf8'), 'before');
 	} finally {
 		await fs.rm(root, { recursive: true, force: true });
 	}
