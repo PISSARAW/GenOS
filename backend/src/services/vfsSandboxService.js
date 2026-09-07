@@ -230,14 +230,21 @@ function dryRunPatch(workspaceId, patch, vfsState = {}) {
   if (!entries.length || entries.some((entry) => !entry || typeof entry.path !== 'string' || !entry.path.trim())) {
     throw new Error('patch must contain at least one file path.');
   }
-  for (const entry of entries) {
-    const normalized = entry.path.replace(/\\/g, '/');
+  const normalizedPaths = new Set();
+  const normalizedEntries = entries.map((entry) => {
+    const normalized = entry.path.replace(/\\/g, '/').replace(/^\.\//, '');
     if (normalized.startsWith('/') || /^[A-Za-z]:\//.test(normalized) || normalized.split('/').includes('..')) {
       throw new Error(`Patch path escapes the workspace: ${entry.path}`);
     }
-  }
+    const canonicalPath = normalized.split('/').filter(Boolean).join('/');
+    if (!canonicalPath || normalizedPaths.has(canonicalPath)) {
+      throw new Error(`Patch contains a duplicate target path: ${entry.path}`);
+    }
+    normalizedPaths.add(canonicalPath);
+    return { ...entry, path: canonicalPath };
+  });
   const state = { ...vfsState };
-  const simulations = entries.map((entry) => simulateDryRun('genos_create', { path: entry.path, content: entry.content || '' }, state));
+  const simulations = normalizedEntries.map((entry) => simulateDryRun('genos_create', { path: entry.path, content: entry.content || '' }, state));
   const sideEffects = simulations.reduce((result, simulation) => {
     for (const key of ['filesCreated', 'filesModified', 'filesDeleted', 'subprocesses', 'networkRequests']) result[key].push(...simulation.sideEffects[key]);
     return result;

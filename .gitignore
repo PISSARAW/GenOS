@@ -6,6 +6,7 @@ backend/node_modules/*
 node_modules/
 .genos/
 .genos-matrix/
+.genos-custom-studio/
 __pycache__/
 *.pyc
 capsules/
@@ -14,6 +15,7 @@ vault/
 *.db-shm
 *.db-wal
 genos_server.log
+mcp/mcp-debug.log
 .genos_server.pid
 .genos_thalamus_cache.json
 test-repo/
