@@ -263,5 +263,7 @@ module.exports = {
   createProposal,
   castVote,
   getMetrics,
-  getTopology
+  getTopology,
+  hasReachedQuorum,
+  hasBeenRejected
 };
