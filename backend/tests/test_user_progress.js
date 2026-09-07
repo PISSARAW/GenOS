@@ -1,5 +1,5 @@
 const assert = require('assert');
-const progress = require('./src/services/userProgressService');
+const progress = require('../src/services/userProgressService');
 
 assert.equal(progress.silenceRequested('Build the feature and keep me updated.'), false);
 assert.equal(progress.silenceRequested('Work silently and only return the final result.'), true);
