@@ -48,12 +48,12 @@ function configuredExecutable(mission = {}) {
     return LOCAL_RUNTIME_PATH;
   }
 
-  if (candidate === 'codex' || candidate === 'genos-agent-runtime') {
+  if (candidate === 'codex' || candidate === 'genos-agent-runtime' || !candidate) {
     return CODEX_RUNTIME_PATH;
   }
 
-  if (candidate) return candidate;
-
+  // Mission payloads may select a bundled runtime, but may not provide an
+  // arbitrary executable path or command to the process supervisor.
   return CODEX_RUNTIME_PATH;
 }
 
