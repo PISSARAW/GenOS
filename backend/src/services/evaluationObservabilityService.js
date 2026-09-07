@@ -36,9 +36,20 @@ async function overview(input = {}) {
   ]);
   const runsWithBrier = runs.filter(run => run.brier_score != null && Number.isFinite(Number(run.brier_score)));
   const fleetBrier = runsWithBrier.length ? runsWithBrier.reduce((sum, run) => sum + Number(run.brier_score), 0) / runsWithBrier.length : null;
-  // Brier-calibrated voting: linear penalty where Brier >= 0.5 results in 0 weight
-  const calibratedWeight = fleetBrier == null ? 1 : Number(Math.max(0, 1 - 2 * fleetBrier).toFixed(4));
-  const weightedVotes = agents.map((agent) => ({ agentId: agent.id, weight: calibratedWeight, brierScore: fleetBrier }));
+  // Brier-calibrated voting: individual agent score when available, fleet fallback otherwise
+  const weightedVotes = agents.map((agent) => {
+    const agentRuns = runsWithBrier.filter(run => run.agent_id && run.agent_id === agent.id);
+    const agentBrier = agentRuns.length
+      ? agentRuns.reduce((sum, run) => sum + Number(run.brier_score), 0) / agentRuns.length
+      : fleetBrier;
+    const weight = agentBrier == null ? 1 : Number(Math.max(0, 1 - 2 * agentBrier).toFixed(4));
+    return {
+      agentId: agent.id,
+      weight,
+      brierScore: agentBrier == null ? null : Number(agentBrier.toFixed(4)),
+      runCount: agentRuns.length
+    };
+  });
   return {
     mcts: { nodes: nodes.map(n => ({ ...n, score: Number(n.score || 0), visits: Number(n.visits || 0), pruned: Boolean(parse(n.metadata, {}).pruned) })), edges },
     swarm: { agents, messages: events.filter(e => ['MESSAGE_SENT', 'AGENT_MESSAGE', 'TOOL_CALL_COMPLETED'].includes(e.event_type)).map(e => ({ ...e, payload: parse(e.payload_json, {}) })), weightedVotes },
