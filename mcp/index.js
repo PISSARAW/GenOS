@@ -111,7 +111,7 @@ const ALL_TOOLS = [
       type: "object",
       properties: {
         mission: { type: "string", description: "Goal or user request to achieve." },
-        strategy: { type: "string", description: "Optional strategy hint from the 77 available." },
+        strategy: { type: "string", description: "Optional strategy hint from the 78 available." },
         background: { type: "boolean", description: "True to run detached in the background." },
       },
       required: ["mission"],
@@ -166,7 +166,7 @@ const ALL_TOOLS = [
   },
   {
     name: "genos_execute_primitive",
-    description: "Execute one of the 96 GenOS strategic primitives directly with telemetry and verification.",
+    description: "Execute one of the 97 GenOS strategic primitives directly with telemetry and verification.",
     inputSchema: {
       type: "object",
       properties: {
