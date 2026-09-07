@@ -41,6 +41,10 @@ async function main() {
     assert.equal(typeof db.exec, 'function');
     await fs.writeFile(path.join(root, 'source.txt'), 'version one');
     await fs.writeFile(path.join(root, '.env'), 'TOKEN=must-not-leak');
+    await fs.mkdir(path.join(root, '.aws'));
+    await fs.writeFile(path.join(root, '.aws', 'credentials'), '[default]\naws_access_key_id=must-not-leak');
+    await fs.writeFile(path.join(root, '.npmrc'), '//registry.example/:_authToken=must-not-leak');
+    await fs.writeFile(path.join(root, 'vault.json'), '{"token":"must-not-leak"}');
     const first = await snapshots.capture({ db, workspace });
     const firstManifest = await snapshots.readManifest(db.rows[0]);
     assert.deepEqual(firstManifest.files.map((file) => file.path), ['source.txt']);
