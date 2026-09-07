@@ -230,14 +230,20 @@ async function weightedQuorum(context) {
       try {
         const payload = JSON.parse(row.payload_json);
         if (payload.issue === issue && payload.vote) {
-          // Poids inversement proportionnel au Brier Score (plus le Brier est bas, plus le poids est fort)
-          const brier = bScores[row.sender_agent_id] || 0.5;
-          const weight = 1 / (1 + brier); 
-          
-          weightedVotes[payload.vote] = (weightedVotes[payload.vote] || 0) + weight;
+          if (payload.vote !== 'abstain') {
+            const brier = bScores[row.sender_agent_id] || 0.25; // Default to random guesser
+            // Penalize high Brier scores heavily. Score >= 0.5 gets 0 weight.
+            const weight = Math.max(0, 1 - 2 * brier); 
+            weightedVotes[payload.vote] = (weightedVotes[payload.vote] || 0) + weight;
+          }
           hasVoted.add(row.sender_agent_id);
         }
       } catch (e) {}
+    }
+    
+    const minParticipation = context.minParticipation || 3;
+    if (hasVoted.size < minParticipation) {
+      return { success: true, issue, decision: null, weightedVotes, totalVotes: hasVoted.size, error: 'Quorum not reached' };
     }
     
     const sortedOptions = Object.keys(weightedVotes).sort((a, b) => weightedVotes[b] - weightedVotes[a]);
