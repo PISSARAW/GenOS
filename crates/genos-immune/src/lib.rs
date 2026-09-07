@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_circuit_breaker_recovers_through_half_open() {
-        let mut breaker = CircuitBreaker::new(2);
+        let mut breaker = CircuitBreaker::new_with_cooldown(2, std::time::Duration::ZERO);
         breaker.record_failure();
         breaker.record_failure();
         assert_eq!(breaker.state, CircuitState::Open);
@@ -70,7 +70,7 @@ mod tests {
 
     #[test]
     fn test_circuit_breaker_rejects_zero_threshold() {
-        let mut breaker = CircuitBreaker::new(0);
+        let mut breaker = CircuitBreaker::new_with_cooldown(0, std::time::Duration::ZERO);
         breaker.record_failure();
         assert_eq!(breaker.state, CircuitState::Open);
     }

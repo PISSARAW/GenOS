@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct AutotomyModule {
@@ -105,15 +106,23 @@ pub struct CircuitBreaker {
     failure_count: u32,
     threshold: u32,
     probe_in_flight: bool,
+    cooldown: Duration,
+    opened_at: Option<Instant>,
 }
 
 impl CircuitBreaker {
     pub fn new(threshold: u32) -> Self {
+        Self::new_with_cooldown(threshold, Duration::from_secs(60))
+    }
+
+    pub fn new_with_cooldown(threshold: u32, cooldown: Duration) -> Self {
         Self {
             state: CircuitState::Closed,
             failure_count: 0,
             threshold: threshold.max(1),
             probe_in_flight: false,
+            cooldown,
+            opened_at: None,
         }
     }
 
@@ -121,6 +130,7 @@ impl CircuitBreaker {
         self.failure_count = 0;
         self.state = CircuitState::Closed;
         self.probe_in_flight = false;
+        self.opened_at = None;
     }
 
     pub fn record_failure(&mut self) {
@@ -128,11 +138,15 @@ impl CircuitBreaker {
         if self.state == CircuitState::HalfOpen || self.failure_count >= self.threshold {
             self.state = CircuitState::Open;
             self.probe_in_flight = false;
+            self.opened_at = Some(Instant::now());
         }
     }
 
     pub fn begin_recovery_probe(&mut self) -> bool {
         if self.state != CircuitState::Open {
+            return false;
+        }
+        if self.opened_at.map(|opened| opened.elapsed() < self.cooldown).unwrap_or(false) {
             return false;
         }
         self.state = CircuitState::HalfOpen;
