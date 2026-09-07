@@ -15,6 +15,14 @@ const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_MCP_BUFFER_BYTES = 1024 * 1024;
 const MAX_MCP_ERROR_BYTES = 4096;
+const SAFE_MCP_ENV = new Set([
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'LANG', 'LC_ALL', 'NODE_ENV'
+]);
+
+function isSensitiveEnvironmentName(name) {
+  return /(?:TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name);
+}
 
 function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
   const numeric = Number(value);
@@ -75,8 +83,14 @@ function assertRpcResponse(payload, id, phase) {
 }
 
 function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
+  const environment = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (SAFE_MCP_ENV.has(name) || (name.startsWith('GENOS_') && !isSensitiveEnvironmentName(name))) {
+      environment[name] = value;
+    }
+  }
   return {
-    ...process.env,
+    ...environment,
     GENOS_WORKSPACE_ROOT: workspaceRoot,
     GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
     GENOS_MCP_CLIENT: 'genos-backend',
