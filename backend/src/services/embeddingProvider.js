@@ -11,15 +11,8 @@ function cosine(a = [], b = []) {
 
 function normalizeVector(vec = [], targetDim = 768) {
   if (!Array.isArray(vec) || !vec.length) return null;
-  let adjusted = vec;
-  if (targetDim && vec.length !== targetDim) {
-    if (vec.length > targetDim) {
-      adjusted = vec.slice(0, targetDim);
-    } else {
-      adjusted = new Array(targetDim).fill(0);
-      for (let i = 0; i < vec.length; i++) adjusted[i] = vec[i];
-    }
-  }
+  if (targetDim && vec.length !== targetDim) return null;
+  const adjusted = vec;
   let sum = 0;
   for (let i = 0; i < adjusted.length; i++) sum += adjusted[i] * adjusted[i];
   const norm = Math.sqrt(sum);
