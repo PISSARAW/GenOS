@@ -89,14 +89,6 @@ process.stdin.on('end', async () => {
     process.exitCode = 2;
     return;
   }
-  const unsafeBypassRequested = /^(1|true)$/i.test(String(process.env.GENOS_CODEX_UNSAFE_BYPASS || ''));
-  const nonProductionProfile = /^(test|demo)$/i.test(String(process.env.GENOS_RUNTIME_PROFILE || ''));
-  if (unsafeBypassRequested && (!nonProductionProfile || /^production$/i.test(String(process.env.NODE_ENV || '')))) {
-    process.stderr.write('GENOS_CODEX_UNSAFE_BYPASS is restricted to non-production test/demo profiles.\n');
-    process.exitCode = 2;
-    return;
-  }
-
   // Resolve the repository relative to this bridge rather than the caller's cwd.
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
   const resolveBin = (p) => fs.existsSync(p) ? p : (fs.existsSync(`${p}.exe`) ? `${p}.exe` : p);
@@ -246,9 +238,6 @@ process.stdin.on('end', async () => {
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
-  }
-  if (unsafeBypassRequested) {
-    args.push('--dangerously-bypass-approvals-and-sandbox');
   }
   args.push('-C', workspace, '-');
   const child = spawn(codexCommand, args, {
