@@ -22,6 +22,7 @@ const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
+const { normalizeRelativePath, resolveContainedPath } = require('./pathSafety');
 
 const activeWorktrees = new Map();
 const gitRepoMutexes = new Map();
@@ -132,9 +133,16 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
   const resolvedRoot = path.resolve(workspaceRoot || '');
   const filesystemRoot = path.parse(resolvedRoot).root;
   if (!workspaceRoot || resolvedRoot === filesystemRoot) throw new Error('Refusing to clean a filesystem root.');
-  
-  const isAllowedDir = resolvedRoot.includes('.genos-agent-worlds') || resolvedRoot.includes('.genos-snapshot-worktrees') || resolvedRoot.includes('snapshot-worktrees') || resolvedRoot.includes('genos-snapshots');
-  if (!isAllowedDir) {
+
+  const configuredCapsuleRoot = process.env.GENOS_CAPSULE_ROOT ? path.resolve(process.env.GENOS_CAPSULE_ROOT) : null;
+  const markers = new Set(['.genos-agent-worlds', '.genos-snapshot-worktrees', 'snapshot-worktrees', 'genos-snapshots']);
+  let markerRoot = null;
+  for (let current = resolvedRoot; current !== filesystemRoot; current = path.dirname(current)) {
+    if (markers.has(path.basename(current))) { markerRoot = current; break; }
+  }
+  const relativeToConfigured = configuredCapsuleRoot ? path.relative(configuredCapsuleRoot, resolvedRoot) : null;
+  const insideConfigured = configuredCapsuleRoot && relativeToConfigured !== '' && !relativeToConfigured.startsWith('..') && !path.isAbsolute(relativeToConfigured);
+  if (!markerRoot && !insideConfigured) {
     throw new Error(`Refusing to clean workspace '${resolvedRoot}': not inside an allowed capsule directory.`);
   }
 
@@ -254,6 +262,8 @@ function runCommand(command, args, { cwd, input, timeoutMs = 120000 } = {}) {
 
 async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride) {
   const source = path.resolve(sourceRoot);
+  const normalizedWorkerId = normalizeRelativePath(String(workerId || ''), 'worker id');
+  if (normalizedWorkerId.includes('/')) throw new Error('worker id must be a single safe path segment.');
   // Keep capsules beside (not inside) the source workspace: fs.cp rejects a
   // destination nested under its source and this also keeps the parent clean.
   const capsuleRoot = capsuleRootOverride || process.env.GENOS_CAPSULE_ROOT || path.join(path.dirname(source), '.genos-agent-worlds');
@@ -261,8 +271,8 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   // be its siblings: nesting them below the orchestrator source makes fs.cp
   // recursively copy a directory into itself for non-Git workspaces.
   const destination = capsuleRootOverride
-    ? path.join(capsuleRoot, workerId)
-    : path.join(capsuleRoot, path.basename(source), workerId);
+    ? resolveContainedPath(capsuleRoot, normalizedWorkerId, 'capsule path')
+    : resolveContainedPath(path.join(capsuleRoot, path.basename(source)), normalizedWorkerId, 'capsule path');
   await fs.mkdir(path.dirname(destination), { recursive: true });
   // Git worktrees share the object database and prevent a multi-gigabyte copy
   // of dependencies. Replay the tracked dirty diff so the capsule starts from
@@ -291,11 +301,12 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
       await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
     }
     const { stdout: untracked } = await runCommand('git', ['ls-files', '--others', '--exclude-standard'], { cwd: source });
-    const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean);
+    const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean).map((file) => normalizeRelativePath(file, 'untracked file'));
     for (const file of untrackedFiles) {
       const srcPath = path.join(source, file);
       const destPath = path.join(destination, file);
       try {
+        if ((await fs.lstat(srcPath)).isSymbolicLink()) continue;
         await fs.mkdir(path.dirname(destPath), { recursive: true });
         await fs.cp(srcPath, destPath, { recursive: true });
       } catch (_) {}
@@ -326,6 +337,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     await fs.cp(source, destination, {
       recursive: true,
       filter: (entry) => {
+        try { if (require('fs').lstatSync(entry).isSymbolicLink()) return false; } catch (_) { return false; }
         if (excluded.has(path.basename(entry))) return false;
         const relative = path.relative(source, entry);
         const depth = relative ? relative.split(path.sep).length : 0;
