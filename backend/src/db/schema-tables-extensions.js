@@ -130,6 +130,7 @@ const TABLES_EXTENSIONS = [
 "    brier_score REAL,",
 "    abstained INTEGER DEFAULT 0,",
 "    result_json TEXT DEFAULT '{}',",
+"    agent_id TEXT,",
 "    organization_id TEXT,",
 "    project_id TEXT,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
