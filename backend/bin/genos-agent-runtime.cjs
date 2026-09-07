@@ -17,6 +17,7 @@ const strategyAdapter = require('../src/services/strategyExecutionAdapter');
 const agentMemory = require('../src/services/agentMemoryContext');
 const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
+const { terminateChild } = require('../src/services/processTermination');
 const immune = require('../src/services/immuneSystem');
 
 function compactStrategyContract(contract = {}, worker = false) {
@@ -301,12 +302,10 @@ process.stdin.on('end', async () => {
     try { child.stdin.destroy(); } catch (_) {}
     setImmediate(() => {
       try {
-        child.kill('SIGTERM');
-        const forceKillTimer = setTimeout(() => {
-          try { child.kill('SIGKILL'); } catch (_) {}
-        }, 2000);
-        forceKillTimer.unref();
-      } catch (_) {}
+        terminateChild(child);
+      } catch (_) {
+        try { child.kill('SIGTERM'); } catch (_) {}
+      }
     });
   };
   const accountEvent = (event, rawLine) => {
