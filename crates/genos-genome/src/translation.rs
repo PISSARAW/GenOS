@@ -129,6 +129,34 @@ impl Ribosome {
                 }
             }
         }
+        if amino_acids.is_empty() {
+            for chunk in rna.sequence.chunks(3) {
+                if chunk.len() == 3 {
+                    let codon = Codon(chunk[0].clone(), chunk[1].clone(), chunk[2].clone());
+                    match codon.read_universal_dictionary() {
+                        AminoAcidToken::MethionineStart => amino_acids.push(10),
+                        AminoAcidToken::Token(val) => amino_acids.push(val),
+                        AminoAcidToken::Stop => break,
+                    }
+                }
+            }
+        }
         UnfoldedProtein { amino_acids }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dna::{DnaStrand, RnaPolymerase};
+
+    #[test]
+    fn test_translate_non_canonical_mrna() {
+        let dna = DnaStrand::synthesize("PROTEIN_INSTRUCTION");
+        let rna = RnaPolymerase::transcribe(&dna);
+        let protein = Ribosome::translate(&rna);
+        assert!(!protein.amino_acids.is_empty());
+        let folded = protein.fold().unwrap();
+        assert!(!folded.is_empty());
     }
 }
