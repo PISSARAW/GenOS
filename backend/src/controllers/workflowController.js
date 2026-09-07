@@ -18,7 +18,7 @@ function validateGraph(graph) {
   const ids = new Set(validNodes.map((node) => node.id).filter((id) => typeof id === 'string' && id.trim()));
   if (nodes.length === 0) errors.push('Workflow must contain at least one node.');
   if (nodes.some((node) => !node || typeof node.id !== 'string' || !node.id.trim())) errors.push('Every workflow node must have a non-empty string id.');
-  if (new Set(nodes.map((node) => node.id)).size !== nodes.length) errors.push('Node ids must be unique.');
+  if (new Set(validNodes.map((node) => node.id)).size !== validNodes.length) errors.push('Node ids must be unique.');
   const edgeIds = new Set();
   const edgeKeys = new Set();
   edges.forEach((edge) => {
