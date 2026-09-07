@@ -5,6 +5,9 @@ const { getDatabase, closeDatabase } = require('../src/db');
 const strategyExecutionController = require('../src/controllers/strategyExecutionController');
 const strategyContracts = require('../src/services/strategyContractService');
 const strategyService = require('../src/services/strategyExecutionService');
+process.env.NODE_ENV = 'test';
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password-generated-for-suite';
+process.env.GENOS_PROMOTION_SECRET = process.env.GENOS_PROMOTION_SECRET || 'test-promotion-secret-generated-for-suite';
 const signatureService = require('../src/services/promotionSignatureService');
 
 async function run() {
