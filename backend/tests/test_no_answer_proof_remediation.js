@@ -59,3 +59,14 @@ const opDecision = recovery.decideRecovery(opFailureReport);
 assert.notEqual(opDecision.action, 'conclude_no_answer', 'Operational failure must not conclude conclude_no_answer');
 
 console.log('✓ Point 5 verified.');
+// Test Point 6: Local worker no_answer parsing and emission logic
+const localReport = {
+  outcome: 'no_answer',
+  claims: [],
+  noAnswerProof: { method: 'local bounded verification', evidence: ['exhaustive local check completed'] }
+};
+const localParsedProof = recovery.proofOfNoAnswer(localReport);
+assert.ok(localParsedProof, 'Local worker no_answer proof must be recognized as valid');
+assert.equal(localReport.outcome === 'no_answer' && Boolean(localParsedProof), true);
+
+console.log('✓ Point 6 verified.');

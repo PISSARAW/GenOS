@@ -122,12 +122,35 @@ async function runLocalWorker(db, mission, executionRun) {
     try {
       evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
     } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
-    if (!Array.isArray(evidenceReport.claims)) throw new Error('Local worker evidence report requires a claims array.');
-    if (evidenceReport.claims.some((claim) => !claim || !Array.isArray(claim.evidence) || claim.evidence.length === 0)) {
-      throw new Error('Local worker evidence report contains claims without evidence.');
+    const workerRecovery = require('./workerFailureRecoveryService');
+    const noAnswerProof = workerRecovery.proofOfNoAnswer(evidenceReport);
+    const isNoAnswer = evidenceReport.outcome === 'no_answer' && Boolean(noAnswerProof);
+    if (!isNoAnswer) {
+      if (!Array.isArray(evidenceReport.claims)) throw new Error('Local worker evidence report requires a claims array.');
+      if (evidenceReport.claims.some((claim) => !claim || !Array.isArray(claim.evidence) || claim.evidence.length === 0)) {
+        throw new Error('Local worker evidence report contains claims without evidence.');
+      }
     }
-    await updateAgent(mission.agentId, 'completed', 'Local review completed');
-    const completed = emit(mission.agentId, 'AGENT_COMPLETED', codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW', codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.', { executionRunId: executionRun.id, model: result.model, provider: result.provider, evidenceReport, proposal, usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens } }, 'info', 'completed');
+    await updateAgent(mission.agentId, 'completed', isNoAnswer ? 'No answer proven' : 'Local review completed');
+    const completed = emit(
+      mission.agentId,
+      isNoAnswer ? 'WORKER_NO_ANSWER_PROVEN' : 'AGENT_COMPLETED',
+      isNoAnswer ? 'REPORT_NO_ANSWER' : (codeWorker ? 'LOCAL_CODE_PROPOSAL' : 'LOCAL_REVIEW'),
+      isNoAnswer
+        ? 'Local worker returned an evidence-backed proof that no answer exists in the stated scope.'
+        : (codeWorker ? 'Local worker produced a non-merged capsule diff and test evidence.' : 'Local-model worker completed its evidence review.'),
+      {
+        executionRunId: executionRun.id,
+        model: result.model,
+        provider: result.provider,
+        evidenceReport,
+        noAnswerProof: isNoAnswer ? noAnswerProof : undefined,
+        proposal,
+        usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens }
+      },
+      'info',
+      'completed'
+    );
     recordWorkerEvidence(mission, completed);
     const milestone = userProgress.milestoneFromEvent(completed, { agentId: mission.agentId, agentName: mission.name, task: mission.prompt });
     if (milestone) userProgress.report({ orchestratorId: mission.orchestratorAgentId || mission.agentId, sourceAgentId: mission.agentId, ...milestone, silent: mission.executionPolicy?.silentUpdates === true });
