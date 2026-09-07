@@ -41,14 +41,18 @@ function recordWorkerEvidence(mission, event) {
   const report = extractEvidenceReport(event.payload);
   let failure = event.payload?.failure;
   if (!failure && (
-    ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED'].includes(event.eventType)
+    ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(event.eventType)
     || event.severity === 'error'
     || event.payload?.error
+    || event.payload?.autopsy
   )) {
+    const isApoptosis = ['APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(event.eventType) || Boolean(event.payload?.autopsy);
     failure = {
-      category: event.payload?.category || (event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure'),
-      reason: String(event.detail || event.payload?.error || 'Worker execution failed').slice(0, 500),
-      evidence: Array.isArray(event.payload?.evidence) ? event.payload.evidence : []
+      category: event.payload?.category || (isApoptosis ? 'apoptosis' : (event.eventType === 'WORKER_TASK_FAILED' ? 'unresolved_task' : 'runtime_failure')),
+      reason: String(event.detail || event.payload?.triggerReason || event.payload?.error || (isApoptosis ? 'Worker terminated via cellular apoptosis' : 'Worker execution failed')).slice(0, 500),
+      evidence: Array.isArray(event.payload?.evidence)
+        ? event.payload.evidence
+        : (event.payload?.autopsy?.triggerReason ? [event.payload.autopsy.triggerReason] : [])
     };
   }
   events.push({

@@ -25,6 +25,24 @@ const dossiers = workerEvidenceDossiers('orch-1', [{ agentId: 'worker-1' }]);
 assert.equal(dossiers.length, 1);
 assert.ok(dossiers[0].events[0].evidenceReport, 'evidenceReport must be preserved even from direct payload');
 validateWorkerDossiers(dossiers, [{ agentId: 'worker-1' }]);
+// Test recording apoptosis event into workerEvidenceRounds
+workerEvidenceRounds.set('orch-apop', {
+  workerIds: new Set(['worker-apop']),
+  participants: new Map([['worker-apop', { workerId: 'worker-apop', role: 'specialist', assignedBranch: 'branch-apop' }]]),
+  events: new Map()
+});
+recordWorkerEvidence({ orchestratorAgentId: 'orch-apop', agentId: 'worker-apop' }, {
+  eventType: 'APOPTOSIS_TRIGGERED',
+  action: 'HALLUCINATION_LIMIT',
+  detail: 'Hallucination limit reached',
+  payload: { autopsy: { triggerReason: 'Hallucination threshold breached' } }
+});
+const apopDossiers = workerEvidenceDossiers('orch-apop', [{ agentId: 'worker-apop' }]);
+assert.equal(apopDossiers.length, 1);
+assert.equal(apopDossiers[0].events[0].failure?.category, 'apoptosis');
+assert.equal(apopDossiers[0].events[0].failure?.reason, 'Hallucination limit reached');
+validateWorkerDossiers(apopDossiers, [{ agentId: 'worker-apop' }]);
+workerEvidenceRounds.delete('orch-apop');
 workerEvidenceRounds.delete('orch-1');
 
 assert.throws(
