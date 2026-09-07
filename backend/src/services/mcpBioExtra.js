@@ -25,6 +25,54 @@ function handleBioCall(cmd) {
 function executeBioExtra(toolName, args = {}) {
   if (!toolName.startsWith('genos_')) return null;
 
+  if (toolName === 'genos_get_conscience_state' || toolName === 'genos_biomimicry_conscience_state') {
+    const agentId = args.agent_id || args.agentId || 'griot-01';
+    const agentConscience = require('./agentConscienceService');
+    const { getDatabase } = require('../db');
+    return (async () => {
+      try {
+        const db = await getDatabase();
+        const state = await agentConscience.loadConscienceState(db, agentId);
+        return {
+          configured: true,
+          success: true,
+          status: 'completed',
+          transport: 'local',
+          output: JSON.stringify({ agentId, conscience: state }),
+          agentId,
+          conscience: state
+        };
+      } catch (e) {
+        return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+      }
+    })();
+  }
+
+  if (toolName === 'genos_get_conscience_history' || toolName === 'genos_biomimicry_conscience_history') {
+    const agentId = args.agent_id || args.agentId || 'griot-01';
+    const limit = Number(args.limit) || 20;
+    const offset = Number(args.offset) || 0;
+    const agentConscience = require('./agentConscienceService');
+    const { getDatabase } = require('../db');
+    return (async () => {
+      try {
+        const db = await getDatabase();
+        const transitions = await agentConscience.getConscienceTransitions(db, agentId, { limit, offset });
+        return {
+          configured: true,
+          success: true,
+          status: 'completed',
+          transport: 'local',
+          output: JSON.stringify({ agentId, count: transitions.length, transitions }),
+          agentId,
+          transitions
+        };
+      } catch (e) {
+        return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
+      }
+    })();
+  }
+
   if (toolName === 'genos_biomimicry_spore') {
     const action = args.action || 'create';
     const agentId = args.agent_id || 'griot-01';
