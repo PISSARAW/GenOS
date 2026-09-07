@@ -7,6 +7,7 @@ router.use(requireTenantScope());
 
 router.get('/', controller.listPrompts);
 router.get('/jobs', controller.listJobs);
+router.post('/jobs/:id/cancel', requirePermission('experiment:run'), requireTenantScope({ write: true }), controller.cancelJob);
 router.get('/jobs/:id/stream', requirePermission('read'), controller.streamJob);
 router.post('/', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.createPrompt);
 router.get('/:id', controller.getPrompt);

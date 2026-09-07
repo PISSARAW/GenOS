@@ -12,6 +12,7 @@ const lastScopeByTable = new Map();
 const MAX_WORKFLOW_NODES = 10000;
 const MAX_WORKFLOW_DEPTH = 256;
 const MAX_PARALLEL_BRANCHES = 32;
+const MAX_WORKFLOW_DURATION_MS = 30 * 60 * 1000;
 
 function workflowScopeKey(row) {
   return `${row.organization_id || 'global'}:${row.project_id || 'global'}`;
@@ -40,7 +41,7 @@ async function recoverInterruptedJobs(db) {
 }
 
 async function claim(db, table, id) {
-  const result = await db.run(`UPDATE ${table} SET status = 'running' WHERE id = ? AND status = 'queued'`, id);
+  const result = await db.run(`UPDATE ${table} SET status = 'running', claimed_at = CURRENT_TIMESTAMP, started_at = COALESCE(started_at, CURRENT_TIMESTAMP) WHERE id = ? AND status = 'queued'`, id);
   return result.changes === 1;
 }
 
@@ -53,6 +54,9 @@ async function executeWorkflow(db, run) {
   }
   const workflow = await db.get('SELECT * FROM workflows WHERE id = ?', run.workflow_id);
   if (!workflow) throw new Error('Workflow no longer exists.');
+    if (!['staging', 'published'].includes(workflow.status)) {
+      throw new Error(`Workflow status '${workflow.status}' is not runnable.`);
+    }
   if (Number(workflow.version) !== Number(run.workflow_version)) {
     throw new Error(`Workflow version mismatch: run requested v${run.workflow_version}, current definition is v${workflow.version}.`);
   }
@@ -60,6 +64,16 @@ async function executeWorkflow(db, run) {
   if ((graph.nodes || []).length > MAX_WORKFLOW_NODES) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_NODES}-node execution limit.`);
   const traceId = `trace-${run.id}`;
   const started = Date.now();
+  const metadata = (() => { try { return JSON.parse(workflow.metadata_json || '{}'); } catch (_) { return {}; } })();
+  const requestedDuration = Number(metadata.workflowTimeoutMs ?? metadata.timeoutMs ?? MAX_WORKFLOW_DURATION_MS);
+  const workflowDeadline = started + (Number.isFinite(requestedDuration) ? Math.max(1, Math.min(requestedDuration, MAX_WORKFLOW_DURATION_MS)) : MAX_WORKFLOW_DURATION_MS);
+  const assertWorkflowDeadline = () => {
+    if (Date.now() > workflowDeadline) {
+      const error = new Error(`Workflow exceeded its total deadline of ${workflowDeadline - started}ms.`);
+      error.code = 'WORKFLOW_DEADLINE_EXCEEDED';
+      throw error;
+    }
+  };
   const input = JSON.parse(run.input_json || '{}');
   const nodes = new Map((graph.nodes || []).map((node) => [node.id, node]));
   const edges = graph.edges || [];
@@ -71,7 +85,8 @@ async function executeWorkflow(db, run) {
     try { return parseWorkflowCondition(condition)(input); } catch (_) { throw new Error(`Unsupported workflow condition on node ${node.id}.`); }
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
-  const runNode = async (node, depth = 0, blocked = false) => {
+  const runNode = async (node, depth = 0, blocked = false, options = {}) => {
+    assertWorkflowDeadline();
     if (depth > MAX_WORKFLOW_DEPTH) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_DEPTH}-level execution depth limit.`);
     const currentRun = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
     if (currentRun?.status === 'cancelled') {
@@ -79,18 +94,19 @@ async function executeWorkflow(db, run) {
       error.code = 'WORKFLOW_CANCELLED';
       throw error;
     }
-    if (!node || visited.has(node.id) || skipped.has(node.id)) return;
+    if (!node || ((!options.force) && (visited.has(node.id) || skipped.has(node.id)))) return;
     if (blocked || !shouldRun(node)) {
       skipped.add(node.id);
       output[node.id] = { status: 'skipped', reason: 'condition_not_satisfied' };
       const children = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
-      for (const child of children) await runNode(child, depth + 1, true);
+      for (const child of children) await runNode(child, depth + 1, true, options);
       return;
     }
     visited.add(node.id);
     const spanId = `span-${crypto.randomUUID()}`;
     const spanStart = Date.now();
     let nodeOutput = { status: 'completed' };
+    let childrenHandled = false;
     const kind = node.kind || node.data?.kind || node.type || node.data?.label || '';
     try {
       if (/\b(llm|agent|model)\b/i.test(kind)) {
@@ -100,14 +116,25 @@ async function executeWorkflow(db, run) {
           db,
           agentId: node.agentId || node.data?.agentId || node.id,
           model,
-          prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {} }),
-          timeoutMs: Number(node.timeout_ms || node.data?.timeoutMs || 30000),
+          prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {}, outputs: output }),
+          timeoutMs: Math.min(Number(node.timeout_ms || node.data?.timeoutMs || 30000), Math.max(1, workflowDeadline - Date.now())),
           policy: node.modelRouting || node.data?.modelRouting,
           onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model: selectedModel } })
         });
         nodeOutput = { status: 'completed', model: generated.model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, route: generated.route };
       }
-      if (/loop/i.test(kind)) { const configured = node.max_iterations ?? node.data?.maxIterations ?? 3; const count = Number(configured); if (!Number.isInteger(count) || count < 0 || count > 20) throw new Error(`Invalid maxIterations for node ${node.id}.`); for (let i = 0; i < count; i++) output[`${node.id}.${i}`] = { iteration: i }; nodeOutput = { status: 'completed', iterations: count }; }
+      if (/loop/i.test(kind)) {
+              const configured = node.max_iterations ?? node.data?.maxIterations ?? 3;
+              const count = Number(configured);
+              if (!Number.isInteger(count) || count < 0 || count > 20) throw new Error(`Invalid maxIterations for node ${node.id}.`);
+              const loopChildren = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
+              for (let iteration = 0; iteration < count; iteration++) {
+                output[`${node.id}.${iteration}`] = { iteration };
+                for (const child of loopChildren) await runNode(child, depth + 1, false, { force: true, iteration });
+              }
+              childrenHandled = true;
+              nodeOutput = { status: 'completed', iterations: count };
+            }
       if (/tool/i.test(kind)) { const toolName = node.tool || node.data?.tool || node.data?.toolName || 'genos_inspect'; const toolResult = await mcpExecutor.execute({ agentId: node.id, toolName, args: node.args || node.data?.args || {}, taints: node.taints || [] }); if (!toolResult.success) throw new Error(toolResult.error || toolResult.policy?.reason || `MCP tool '${toolName}' is unavailable (${toolResult.status || 'unknown status'}).`); nodeOutput = { ...toolResult, tool: toolName, toolCall: true }; }
       if (/parallel/i.test(kind)) {
         const branches = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
@@ -127,12 +154,27 @@ async function executeWorkflow(db, run) {
       throw error;
     }
     const next = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
-    if (!/parallel/i.test(kind)) for (const child of next) await runNode(child, depth + 1);
+    assertWorkflowDeadline();
+    if (!childrenHandled && !/parallel/i.test(kind)) for (const child of next) await runNode(child, depth + 1, false, options);
   };
   const roots = (graph.nodes || []).filter((node) => !edges.some((edge) => edge.target === node.id));
   for (const root of roots.length ? roots : (graph.nodes || []).slice(0, 1)) await runNode(root, 0);
-  const unvisited = (graph.nodes || []).filter((node) => !visited.has(node.id) && !skipped.has(node.id)).map((node) => node.id);
-  if (unvisited.length > 0) throw new Error(`Workflow contains unreachable nodes: ${unvisited.join(', ')}`);
+  const structurallyReachable = new Set();
+  const pending = [...(roots.length ? roots : (graph.nodes || []).slice(0, 1))];
+  while (pending.length) {
+    const node = pending.pop();
+    if (!node || structurallyReachable.has(node.id)) continue;
+    structurallyReachable.add(node.id);
+    for (const edge of edges.filter((candidate) => candidate.source === node.id)) pending.push(nodes.get(edge.target));
+  }
+  const unreachable = (graph.nodes || []).filter((node) => !structurallyReachable.has(node.id)).map((node) => node.id);
+  if (unreachable.length > 0) throw new Error(`Workflow contains unreachable nodes: ${unreachable.join(', ')}`);
+  for (const node of graph.nodes || []) {
+    if (structurallyReachable.has(node.id) && !visited.has(node.id) && !skipped.has(node.id)) {
+      skipped.add(node.id);
+      output[node.id] = { status: 'skipped', reason: 'ancestor_skipped' };
+    }
+  }
   await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, skippedNodes: [...skipped], output }), run.id);
 }
 
@@ -197,6 +239,10 @@ async function executeModelJob(db, job) {
   const outputs = Array.isArray(checkpoint.outputs) ? checkpoint.outputs : [];
   const completedModels = new Set(Array.isArray(checkpoint.completedModels) ? checkpoint.completedModels : outputs.map((output) => output.model));
   for (const model of (models.length ? models : [null])) {
+    const current = await db.get('SELECT status FROM model_jobs WHERE id = ?', job.id);
+    if (current?.status === 'cancelled') {
+      const error = new Error('Model job was cancelled.'); error.code = 'MODEL_JOB_CANCELLED'; throw error;
+    }
     const modelKey = String(model || config.model || 'auto');
     if (completedModels.has(modelKey)) continue;
     await db.run('DELETE FROM model_job_tokens WHERE job_id = ? AND model = ?', job.id, modelKey);
@@ -213,7 +259,7 @@ async function executeModelJob(db, job) {
     completedModels.add(modelKey);
     await db.run('UPDATE model_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
   }
-  await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
+  await db.run("UPDATE model_jobs SET status = 'completed', result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
 }
 
 function isRetryableJobError(error = {}) {
@@ -234,7 +280,7 @@ async function withRetry(db, table, job, executor) {
       if (attempt === max || !isRetryableJobError(error)) {
         await db.run(`UPDATE ${table} SET status = 'failed', error_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?`, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error) }), job.id);
       } else {
-        const baseDelay = Math.min(1000, 50 * (2 ** (attempt - 1)));
+        const baseDelay = Math.min(30000, 250 * (2 ** (attempt - 1)));
         const jitter = Math.floor(Math.random() * Math.max(1, Math.floor(baseDelay / 2)));
         await new Promise((resolve) => setTimeout(resolve, baseDelay + jitter));
       }
@@ -250,12 +296,7 @@ async function processOnce() {
     if (!recovered) { await recoverInterruptedJobs(db); recovered = true; }
     const queuedWorkflows = await db.all("SELECT r.*, w.organization_id, w.project_id FROM workflow_runs r JOIN workflows w ON w.id = r.workflow_id WHERE r.status = 'queued' ORDER BY r.created_at");
     const workflow = selectFairWorkflow(queuedWorkflows, 'workflow_runs');
-    if (workflow && await claim(db, 'workflow_runs', workflow.id)) {
-      try { await executeWorkflow(db, workflow); } catch (error) {
-        const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
-        await db.run('UPDATE workflow_runs SET status = ?, error_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', status, JSON.stringify({ message: error.message, cancelled: status === 'cancelled' }), workflow.id);
-      }
-    }
+    if (workflow && await claim(db, 'workflow_runs', workflow.id)) await withRetry(db, 'workflow_runs', workflow, () => executeWorkflow(db, workflow));
     const queuedEvaluations = await db.all("SELECT * FROM evaluation_jobs WHERE status = 'queued' ORDER BY created_at LIMIT 50");
     const evaluation = selectFairWorkflow(queuedEvaluations, 'evaluation_jobs');
     if (evaluation && await claim(db, 'evaluation_jobs', evaluation.id)) {
@@ -271,7 +312,7 @@ async function processOnce() {
 
 function startJobWorker(intervalMs = 250) {
   if (timer) return timer;
-  timer = setInterval(() => processOnce().catch(() => {}), intervalMs);
+  timer = setInterval(() => processOnce().catch((error) => telemetry.emitEvent({ eventType: 'JOB_WORKER_TICK_FAILED', agentId: 'system', action: 'JOB_WORKER', detail: error.message, severity: 'error', payload: { code: error.code || null } })), intervalMs);
   timer.unref?.();
   return timer;
 }
@@ -286,4 +327,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeModelJob };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeWorkflow, executeModelJob };
