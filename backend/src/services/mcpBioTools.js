@@ -166,10 +166,29 @@ async function executeBioTool(toolName, args) {
 
   if (toolName === 'genos_biomimicry_stigmergy_deposit') {
     try {
-      const out = runGenosSync(`genos biomimicry stigmergy-deposit --agent-id ${args.agent_id} --target-file "${args.target_file}" --pheromone-type "${args.pheromone_type}"`);
+      let cmd = `genos biomimicry stigmergy-deposit --agent-id ${args.agent_id} --target-file "${args.target_file}" --pheromone-type "${args.pheromone_type || 'trace'}"`;
+      if (args.amount !== undefined) cmd += ` --amount ${args.amount}`;
+      if (args.is_repellent || args.isRepellent) cmd += ` --is-repellent`;
+      const out = runGenosSync(cmd);
       return { configured: true, success: true, status: 'completed', transport: 'local', output: out.toString() };
     } catch (e) {
       return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.stdout ? e.stdout.toString() : e.message };
+    }
+  }
+
+  if (toolName === 'genos_biomimicry_trail_selection') {
+    try {
+      const strategyAdapter = require('./strategyExecutionAdapter');
+      const res = await strategyAdapter.executePrimitive('trail_selection', args || {});
+      return {
+        configured: true,
+        success: res.success !== false,
+        status: res.success ? 'completed' : 'tool_error',
+        transport: 'local',
+        output: JSON.stringify(res)
+      };
+    } catch (e) {
+      return { configured: true, success: false, status: 'tool_error', transport: 'local', output: e.message };
     }
   }
 
