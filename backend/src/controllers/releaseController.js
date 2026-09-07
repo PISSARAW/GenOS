@@ -105,7 +105,7 @@ async function recordRolloutMetric(req, res, next) {
     const scope = scopeSql(req);
     const rollout = await db.get(`SELECT * FROM release_rollouts WHERE id = ? AND ${scope.clause}`, req.params.rolloutId, ...scope.params);
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
-    if (rollout.status !== 'running') return res.status(409).json({ error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running rollout.' } });
+    if (rollout.status !== 'running' && rollout.status !== 'paused') return res.status(409).json({ error: { code: 'ROLLOUT_CLOSED', message: 'Metrics can only be recorded on a running or paused rollout.' } });
     const { variant, requests = 0, errors = 0, latencyMs = 0, tokens = 0, costUsd = 0 } = req.body || {};
     const metric = await db.get('SELECT variant FROM release_rollout_metrics WHERE rollout_id = ? AND variant = ?', rollout.id, variant);
     if (!metric) return res.status(400).json({ error: { code: 'UNKNOWN_VARIANT', message: 'variant is not configured for this rollout.' } });
@@ -113,6 +113,9 @@ async function recordRolloutMetric(req, res, next) {
     const errorCount = Math.min(requestCount, Math.max(0, Math.floor(number(errors))));
     await db.run(`UPDATE release_rollout_metrics SET requests = requests + ?, errors = errors + ?, latency_ms_total = latency_ms_total + ?, tokens = tokens + ?, cost_usd = cost_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE rollout_id = ? AND variant = ?`, requestCount, errorCount, Math.max(0, number(latencyMs)) * requestCount, Math.max(0, Math.floor(number(tokens))), Math.max(0, number(costUsd)), rollout.id, variant);
     await db.run('INSERT INTO usage_ledger(id,organization_id,project_id,release_id,category,quantity,cost_usd,metadata_json) VALUES(?,?,?,?,?,?,?,?)', id('usage'), ...scope.params, rollout.release_id, 'rollout', requestCount, Math.max(0, number(costUsd)), JSON.stringify({ rolloutId: rollout.id, variant, tokens: Math.max(0, Math.floor(number(tokens))) }));
+    if (rollout.status === 'paused' && requestCount > 0) {
+      await db.run("UPDATE release_rollouts SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.id);
+    }
     res.status(202).json({ rolloutId: rollout.id, variant, accepted: true });
   } catch (error) { next(error); }
 }
