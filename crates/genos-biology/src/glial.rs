@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::neurobiology::{C3_PRUNING_THRESHOLD, CD47_PROTECTION_THRESHOLD};
 
 use self::glial_cell::{GlialCell, Myelinator, NervousSystemLocation};
 
@@ -210,7 +211,7 @@ impl GlialProcessor for MicrogliaProcessor {
                     let local_c3 = synapse.c3_opsonization
                         + if c4_over { 0.5 } else { 0.0 }
                         + if pro_inflam { 0.25 } else { 0.0 };
-                    !(local_c3 > 0.5 && synapse.cd47_expression < 0.5)
+                    !(local_c3 > C3_PRUNING_THRESHOLD && synapse.cd47_expression < CD47_PROTECTION_THRESHOLD)
                 });
 
                 // Trogocytose microgliale postsynaptique : élagage des épines opsonisées par C3
@@ -220,7 +221,7 @@ impl GlialProcessor for MicrogliaProcessor {
                             let local_c3 = spine.c3_opsonization
                                 + if c4_over { 0.5 } else { 0.0 }
                                 + if pro_inflam { 0.25 } else { 0.0 };
-                            !(local_c3 > 0.5 && spine.cd47_expression < 0.5)
+                            !(local_c3 > C3_PRUNING_THRESHOLD && spine.cd47_expression < CD47_PROTECTION_THRESHOLD)
                         });
                     }
                 }
