@@ -1,6 +1,7 @@
 const { getDatabase } = require('../db');
 const strategyExecution = require('../services/strategyExecutionService');
 const telemetry = require('../services/telemetryObserver');
+const signatureService = require('../services/promotionSignatureService');
 
 async function scopedAgent(db, req, agentId) {
   const tenant = req.tenant;
@@ -32,11 +33,20 @@ async function approve(req, res) {
   try {
     const candidate = await db.get('SELECT agent_id FROM strategy_execution_runs WHERE id=?', req.params.runId);
     if (!candidate || !await scopedAgent(db, req, candidate.agent_id)) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Execution run not found' } });
+    
+    // Cryptographic signature validation for human approval gate
+    const { signature, timestamp, signerId } = req.body || {};
+    try {
+      signatureService.validateSignature({ runId: req.params.runId, timestamp, signerId }, signature);
+    } catch (sigErr) {
+      return res.status(403).json({ error: { code: 'UNAUTHORIZED_PROMOTION', message: sigErr.message } });
+    }
+
     const run = await strategyExecution.approveRun(db, req.params.runId);
     telemetry.emitEvent({
       eventType: 'STRATEGY_PROMOTION_APPROVED', agentId: run.agentId, action: 'APPROVE',
       detail: `Execution run ${run.id} approved for promotion.`,
-      payload: { runId: run.id, contractId: run.contractId, approvedBy: req.user?.username || 'studio' }
+      payload: { runId: run.id, contractId: run.contractId, approvedBy: signerId || req.user?.username || 'studio' }
     });
     res.json(run);
   } catch (error) {
