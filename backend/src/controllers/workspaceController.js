@@ -309,6 +309,7 @@ async function rollback(req, res, next) {
     const reference = snapshotId ?? stepNumber ?? step;
     if (reference == null) return res.status(400).json({ error: { code: 'SNAPSHOT_REQUIRED', message: 'A snapshot step or id is required.' } });
     const result = await snapshotStore.restore({ db, workspace, reference, author: req.user?.username || 'studio' });
+    telemetry.emitEvent({ eventType: 'WORKSPACE_ROLLBACK_COMPLETED', agentId: req.user?.username || 'studio', action: 'ROLLBACK', detail: `Rolled back ${workspace.id} to ${result.restoredSnapshot.id}`, payload: { workspaceId: workspace.id, snapshotId: result.restoredSnapshot.id, safetySnapshotId: result.safetySnapshot.id, strategy: result.strategy } });
     res.json({ ...result, rollback: true });
   } catch (error) { next(error); }
 }
