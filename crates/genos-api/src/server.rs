@@ -12,6 +12,25 @@ use std::thread;
 use uuid::Uuid;
 use reqwest::blocking::Client;
 use std::env;
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+fn thalamus_cache_lock() -> &'static Mutex<()> {
+    static CACHE_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    CACHE_LOCK.get_or_init(|| Mutex::new(()))
+}
+
+fn thalamus_cache_file() -> PathBuf {
+    env::var_os("GENOS_WORKSPACE_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
+        .join(".genos_thalamus_cache.json")
+}
+
+fn thalamus_cache_key(prompt: &str, cache_scope: &str, provider: &str, model: &str, rethink: bool, system_level: u8) -> String {
+    serde_json::to_string(&(prompt, cache_scope, provider, model, rethink, system_level))
+        .unwrap_or_else(|_| prompt.to_string())
+}
 
 fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<String> {
     let url = format!("{}/api/tags", ollama_url);
@@ -71,11 +90,11 @@ fn evaluate_prompt_complexity(prompt: &str) -> u32 {
     score
 }
 
-fn thalamus_cache_lookup(prompt: &str) -> Option<String> {
-    let cache_file = ".genos_thalamus_cache.json";
-    if let Ok(content) = std::fs::read_to_string(cache_file) {
+fn thalamus_cache_lookup(key: &str) -> Option<String> {
+    let _guard = thalamus_cache_lock().lock().ok()?;
+    if let Ok(content) = std::fs::read_to_string(thalamus_cache_file()) {
         if let Ok(cache) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
-            if let Some(answer) = cache.get(prompt) {
+            if let Some(answer) = cache.get(key) {
                 return Some(answer.clone());
             }
         }
@@ -83,29 +102,41 @@ fn thalamus_cache_lookup(prompt: &str) -> Option<String> {
     None
 }
 
-fn thalamus_cache_store(prompt: &str, response: &str) {
-    let cache_file = ".genos_thalamus_cache.json";
+fn thalamus_cache_store(key: &str, response: &str) {
+    let _guard = match thalamus_cache_lock().lock() {
+        Ok(guard) => guard,
+        Err(_) => return,
+    };
+    let cache_file = thalamus_cache_file();
     let mut cache = std::collections::HashMap::new();
-    if let Ok(content) = std::fs::read_to_string(cache_file) {
+    if let Ok(content) = std::fs::read_to_string(&cache_file) {
         if let Ok(existing) = serde_json::from_str::<std::collections::HashMap<String, String>>(&content) {
             cache = existing;
         }
     }
-    cache.insert(prompt.to_string(), response.to_string());
+    cache.insert(key.to_string(), response.to_string());
     if let Ok(json) = serde_json::to_string_pretty(&cache) {
         let _ = std::fs::write(cache_file, json);
     }
 }
 
-fn call_llm_api(prompt: &str, rethink: bool, system_level: u8) -> String {
+fn call_llm_api(prompt: &str, rethink: bool, system_level: u8, cache_scope: &str) -> String {
     if prompt == "Ping" || env::var("GENOS_MOCK_LLM").is_ok() {
         return format!("Echo: {}", prompt);
     }
+    dotenv::dotenv().ok();
     
     // 1. LE CACHE (Le Par Cœur - Réponse instantanée)
     // Le cache n'est utilisé que pour le Système 1, ou si non forcé
     if system_level == 1 && !rethink {
-        if let Some(cached_response) = thalamus_cache_lookup(prompt) {
+        if let Some(cached_response) = thalamus_cache_lookup(&thalamus_cache_key(
+            prompt,
+            cache_scope,
+            &env::var("LLM_PROVIDER").unwrap_or_else(|_| "auto".to_string()),
+            &env::var("OLLAMA_MODEL").unwrap_or_else(|_| "auto".to_string()),
+            rethink,
+            system_level,
+        )) {
             return format!("⚡ [Mémoire Sémantique] Résultat mis en cache :\n{}", cached_response);
         }
     }
@@ -119,7 +150,6 @@ fn call_llm_api(prompt: &str, rethink: bool, system_level: u8) -> String {
         }
     }
 
-    dotenv::dotenv().ok();
     let client = Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
 
     let ollama_url = env::var("OLLAMA_API_URL").unwrap_or_else(|_| "http://127.0.0.1:11434".to_string());
@@ -203,7 +233,17 @@ fn call_llm_api(prompt: &str, rethink: bool, system_level: u8) -> String {
     // 4. SAUVEGARDE EN MÉMOIRE
     // On ne met en cache que les réponses qui ne sont pas des erreurs Thalamus, et seulement pour le Système 1
     if system_level == 1 && !final_response.starts_with("Thalamus Error") {
-        thalamus_cache_store(prompt, &final_response);
+        thalamus_cache_store(
+            &thalamus_cache_key(
+                prompt,
+                cache_scope,
+                &chosen_provider,
+                &chosen_model,
+                rethink,
+                system_level,
+            ),
+            &final_response,
+        );
     }
     
     final_response
@@ -276,14 +316,17 @@ pub fn handle_http_request(
 
     // 3. OpenAI Chat Completions
     if method == "POST" && (path == "/v1/chat/completions" || path == "/chat/completions") {
-        // Authenticate if TenantAuth has registered keys
-        if let Some(token) = auth_header.and_then(|h| h.strip_prefix("Bearer ").map(|s| s.trim().to_string())) {
+        // Authenticate if TenantAuth has registered keys and derive a non-secret cache scope.
+        let cache_scope = if let Some(token) = auth_header.and_then(|h| h.strip_prefix("Bearer ").map(|s| s.trim().to_string())) {
             if auth.verify_key(&token).is_none() {
                 return (401, vec![("Content-Type".into(), "application/json".into())], json!({
                     "error": { "message": "Invalid or unauthorized API key", "type": "authentication_error" }
                 }).to_string());
             }
-        }
+            auth.verify_key(&token).unwrap_or("anonymous").to_string()
+        } else {
+            "anonymous".to_string()
+        };
 
         // Rate Limiter
         {
@@ -307,7 +350,7 @@ pub fn handle_http_request(
 
         let last_prompt = chat_req.messages.last().map(|m| m.content.as_str()).unwrap_or("Hello from client");
         
-        let completion_text = call_llm_api(last_prompt, rethink, system_level);
+        let completion_text = call_llm_api(last_prompt, rethink, system_level, &cache_scope);
         
         let prompt_tokens = (last_prompt.len() / 4).max(1) as u64;
         let completion_tokens = (completion_text.len() / 4).max(1) as u64;
