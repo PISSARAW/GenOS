@@ -233,16 +233,29 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     if (path.resolve(gitTopLevel.trim()) !== source) {
       throw new Error(`Mission workspace ${source} is nested inside ${gitTopLevel.trim()}; copy only the mission scope.`);
     }
+    let hasHead = true;
+    try {
+      await runCommand('git', ['rev-parse', '--verify', 'HEAD'], { cwd: source });
+    } catch (_) {
+      hasHead = false;
+    }
+    if (!hasHead) {
+      throw new Error(`Git repository at ${source} has no commits yet; cannot create detached worktree.`);
+    }
     const { stdout: diff } = await runCommand('git', ['diff', 'HEAD', '--binary'], { cwd: source });
     await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
-    if (diff) await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
+    if (diff && diff.trim()) {
+      await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
+    }
     const { stdout: untracked } = await runCommand('git', ['ls-files', '--others', '--exclude-standard'], { cwd: source });
     const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean);
     for (const file of untrackedFiles) {
       const srcPath = path.join(source, file);
       const destPath = path.join(destination, file);
-      await fs.mkdir(path.dirname(destPath), { recursive: true });
-      await fs.cp(srcPath, destPath, { recursive: true });
+      try {
+        await fs.mkdir(path.dirname(destPath), { recursive: true });
+        await fs.cp(srcPath, destPath, { recursive: true });
+      } catch (_) {}
     }
     return destination;
   } catch (gitError) {
