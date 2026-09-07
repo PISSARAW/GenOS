@@ -167,7 +167,7 @@ async function changeOrganization(db, { orchestratorId, organization, reason, ch
 function routeMessage({ state, sender, recipientAgentId, kind }) {
   const policy = state.policy;
   if (policy.routing === 'critical_only' && !['critical', 'success'].includes(kind)) {
-    return { recipientAgentId: null, channel: 'local_buffer', delivery: 'buffered' };
+    return { recipientAgentId: recipientAgentId || null, channel: 'local_buffer', delivery: 'buffered' };
   }
   const isOrchestrator = sender.id === state.orchestratorId;
   if (policy.routing === 'orchestrator') {

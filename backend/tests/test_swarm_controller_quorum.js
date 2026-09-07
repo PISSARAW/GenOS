@@ -35,16 +35,18 @@ test('swarmController quorum and abstention semantics', async (t) => {
     const db = await getDatabase();
     const ws1 = `ws-test-${Date.now()}-1`;
     const ws2 = `ws-test-${Date.now()}-2`;
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'ws1', '/ws1')", ws1);
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'ws2', '/ws2')", ws2);
 
-    // Insert agents in ws1: 1 running, 1 idle, 1 ready, 1 terminated
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a1', ?, 'running')", `ag-1-${Date.now()}`, ws1);
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a2', ?, 'idle')", `ag-2-${Date.now()}`, ws1);
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a3', ?, 'ready')", `ag-3-${Date.now()}`, ws1);
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'a4', ?, 'terminated')", `ag-4-${Date.now()}`, ws1);
+    // Insert agents in ws1: 1 running, 1 idle, 1 Active, 1 terminated
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'a1', ?, 'running', 'worker')", `ag-1-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'a2', ?, 'idle', 'worker')", `ag-2-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'a3', ?, 'Active', 'worker')", `ag-3-${Date.now()}`, ws1);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'a4', ?, 'terminated', 'worker')", `ag-4-${Date.now()}`, ws1);
 
     // Insert agents in ws2: 2 running
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'b1', ?, 'running')", `bg-1-${Date.now()}`, ws2);
-    await db.run("INSERT INTO agents (id, name, workspace_id, status) VALUES (?, 'b2', ?, 'running')", `bg-2-${Date.now()}`, ws2);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'b1', ?, 'running', 'worker')", `bg-1-${Date.now()}`, ws2);
+    await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'b2', ?, 'running', 'worker')", `bg-2-${Date.now()}`, ws2);
 
     const countWs1 = await getActiveNodeCount(db, ws1, null);
     assert.strictEqual(countWs1, 3, 'Should count 3 active/idle/ready agents in ws1, excluding terminated');
