@@ -8,7 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const zlib = require('zlib');
 const protobuf = require('protobufjs');
-const { studioBridgeRoot, phagocytizeExosomes } = require('./genosCli');
+const { studioBridgeRoot, phagocytizeExosomes, runGenosSync } = require('./genosCli');
 const { getDatabase } = require('../db');
 const { textToVector } = require('./memoryScoring');
 
@@ -174,6 +174,14 @@ async function absorbExosomes(db = null) {
           exo.project_id || exo.projectId || null
         );
         plasmidsAssimilated += 1;
+
+        // Synchronisation bidirectionnelle : assimilation formelle dans le génome Rust
+        try {
+          const targetAgent = exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || 'global';
+          const sourceAgent = exo.source_agent_id || exo.sourceAgentId || exo.sender_id || 'donor';
+          const safeName = (pName || 'plasmid_core').replace(/[^a-zA-Z0-9_\-]/g, '_');
+          runGenosSync(`genos evolution assimilate-plasmid --agent-id ${targetAgent} --source ${sourceAgent} --plasmid-name "${safeName}"`);
+        } catch (_) {}
       } catch (error) {
         errors.push(`Plasmid insertion failed: ${error.message}`);
       }
