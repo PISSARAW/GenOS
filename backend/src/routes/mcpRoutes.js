@@ -6,6 +6,9 @@ const express = require('express');
 const router = express.Router();
 const mcpController = require('../controllers/mcpController');
 const { requirePermission } = require('../middleware/auth');
+const { requireTenantScope } = require('../middleware/tenant');
+
+router.use(requireTenantScope());
 
 router.get('/tools', requirePermission('read'), mcpController.listTools);
 router.post('/tools/dry-run', requirePermission('mcp:execute_safe'), mcpController.dryRun);
