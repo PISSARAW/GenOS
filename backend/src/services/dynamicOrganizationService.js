@@ -217,9 +217,9 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
             delivery, created_at as createdAt
      FROM agent_organization_messages
     WHERE orchestrator_id = ? AND organization_version = ? AND id > ? AND sender_agent_id <> ?
-       AND (? = 1 OR (delivery = 'delivered' AND (recipient_agent_id IS NULL OR recipient_agent_id = ?)))
+       AND delivery = 'delivered' AND (recipient_agent_id IS NULL OR recipient_agent_id = ?)
      ORDER BY id LIMIT ?`,
-    orchestratorId, state.version, Math.max(0, Number(afterId || 0)), requesterAgentId, orchestrator ? 1 : 0,
+    orchestratorId, state.version, Math.max(0, Number(afterId || 0)), requesterAgentId,
     requesterAgentId, Math.min(50, Math.max(1, Number(limit || 20)))
   );
   return {
