@@ -13,6 +13,22 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 const strategyTools = require("../backend/src/services/mcpStrategyTools");
+const { terminateChild, clearTerminationTimer } = require("../backend/src/services/processTermination");
+
+const DEFAULT_TOOL_TIMEOUT_MS = 120000;
+const MAX_OUTPUT_BYTES = 1024 * 1024;
+
+function toolTimeoutMs() {
+  const configured = Number(process.env.GENOS_MCP_TOOL_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured > 0
+    ? Math.min(Math.floor(configured), 30 * 60 * 1000)
+    : DEFAULT_TOOL_TIMEOUT_MS;
+}
+
+function appendBounded(value, chunk) {
+  const next = value + chunk.toString();
+  return next.length > MAX_OUTPUT_BYTES ? next.slice(-MAX_OUTPUT_BYTES) : next;
+}
 
 const server = new Server(
   { name: "genos-mcp", version: "3.0.0" },
@@ -36,18 +52,35 @@ function resolveGenosBin() {
   return null;
 }
 
-function runExecutable(cmd, args, cwd) {
+function runExecutable(cmd, args, cwd, timeoutMs = toolTimeoutMs()) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, shell: false });
     let out = "";
     let err = "";
-    child.stdout.on("data", (d) => (out += d.toString()));
-    child.stderr.on("data", (d) => (err += d.toString()));
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      terminateChild(child);
+      reject(new Error(`MCP tool timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    child.stdout.on("data", (d) => { out = appendBounded(out, d); });
+    child.stderr.on("data", (d) => { err = appendBounded(err, d); });
     child.on("close", (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTerminationTimer(child);
       if (code === 0) resolve(out);
       else reject(new Error(`Process exited with code ${code}: ${err || out}`));
     });
-    child.on("error", (err) => reject(err));
+    child.on("error", (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      clearTerminationTimer(child);
+      reject(error);
+    });
   });
 }
 
@@ -106,6 +139,17 @@ const ALL_TOOLS = [
         out: { type: "string", description: "Output path for the snapshot JSON." },
       },
       required: ["agent", "out"],
+    },
+  },
+  {
+    name: "genos_replay",
+    description: "Replay a validated snapshot and return its reproduction receipt.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        snapshot: { type: "string", description: "Snapshot path relative to the GenOS workspace root." },
+      },
+      required: ["snapshot"],
     },
   },
   {
@@ -270,6 +314,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "genos_snapshot":
         result = await runGenosCli(["snapshot", "create", "--agent", args.agent, "--out", args.out]);
+        break;
+      case "genos_replay":
+        if (!args.snapshot) throw new Error("genos_replay requires a snapshot reference.");
+        result = await runGenosCli(["replay", "basic", "--snapshot", args.snapshot]);
         break;
       case "genos_capsule_create":
         result = await runGenosCli(["capsule", "create", "--snapshot", args.snapshot_id || "ROOT"]);
