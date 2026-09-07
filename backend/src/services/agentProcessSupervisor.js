@@ -31,41 +31,39 @@ const { terminateChild, clearTerminationTimer } = require('./processTermination'
 function runtimeExitOutcome(termination, code, options = {}, domainState = {}) {
   const signal = typeof options === 'object' && options !== null ? options.signal : options;
   const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
-  const extra = (typeof options === 'object' && options !== null && options.domainVerdict) ? options : (arguments[4] || domainState || {});
-  
+  const extra = (typeof options === 'object' && options !== null && options.domainVerdict)
+    ? options
+    : (arguments[4] || domainState || {});
   const hasDomainFailure = Boolean(extra.hasDomainFailure);
   const unverified = Boolean(extra.unverified);
   const explicitFailed = extra.domainVerdict === 'failed' || hasDomainFailure;
-
   if (termination) {
     return {
       status: 'blocked', eventType: 'AGENT_HALTED', action: 'GUARDRAIL', severity: 'warning',
       task: `Runtime halted: ${termination.reason}`,
       detail: `Runtime halted by ${termination.kind}: ${termination.reason}`,
-      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim(), executionStatus: 'halted', domainVerdict: 'failed' }
+      payload: { code, signal, terminationKind: termination.kind, terminationReason: termination.reason, stderr: String(stderr).trim() }
     };
   }
-
   const executionStatus = code === 0 ? 'exit_zero' : 'exit_nonzero';
   let domainVerdict = 'completed';
   if (explicitFailed) domainVerdict = 'failed';
   else if (unverified) domainVerdict = 'unverified';
-
   if (code === 0) {
     const finalStatus = explicitFailed ? 'failed' : (unverified ? 'unverified' : 'completed');
     const finalEventType = explicitFailed ? 'AGENT_FAILED' : 'AGENT_COMPLETED';
     const severity = explicitFailed ? 'error' : (unverified ? 'warning' : 'info');
     return {
       status: finalStatus, eventType: finalEventType, action: 'COMPLETE', severity, task: 'Execution completed',
-      detail: `Runtime completed (process: success, domain: ${domainVerdict}).`, payload: { code, executionStatus, domainVerdict }
+      detail: `Runtime completed (process: success, domain: ${domainVerdict}).`,
+      payload: { code, executionStatus, domainVerdict }
     };
   }
-
   const lastError = String(stderr).trim().split(/\r?\n/).filter(Boolean).pop();
   return {
     status: 'error', eventType: 'AGENT_FAILED', action: 'ERROR', severity: 'error',
     task: `Runtime exited with code ${code ?? 'unknown'}${signal ? ` (${signal})` : ''}`,
-    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'} (domain: failed)`,
+    detail: `Runtime exited unsuccessfully${lastError ? `: ${lastError}` : '.'}`,
     payload: { code, signal, stderr: String(stderr).trim(), executionStatus, domainVerdict: 'failed' }
   };
 }
@@ -204,7 +202,8 @@ async function superviseMission(options) {
             validateDossierInfluence(report, autonomyPlan.completedWorkerIds || []);
           } catch (error) {
             emit(agentId, 'DOSSIER_INFLUENCE_INVALID', 'EVIDENCE_GATE', error.message, { error: error.code }, 'critical', 'error');
-            // We do not halt here; the evidence gate will block the strategy promotion gate later.
+            haltRuntime('evidence_gate', error.message, 'Runtime halted because the final synthesis did not account for every worker dossier.', { error: error.code });
+            continue;
           }
         }
         if (observation.monitored && observation.detected) {
@@ -261,8 +260,7 @@ async function superviseMission(options) {
           || (currentEvent.severity === 'error' && !['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType));
         const isSuccessEvent = ['EVIDENCE_REPORT', 'DOSSIER_INFLUENCE_VERIFIED'].includes(eventType)
           && currentEvent.severity !== 'error'
-          && !isHallucinationEvent
-          && missionDomainState.domainVerdict === 'completed';
+          && !isHallucinationEvent;
 
         if (isErrorEvent || isHallucinationEvent) {
           const detailText = String(currentEvent.detail || '') + ' ' + (typeof currentEvent.payload === 'string' ? currentEvent.payload : JSON.stringify(currentEvent.payload || {}));
