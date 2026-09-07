@@ -22,8 +22,17 @@
  */
 const telemetry = require('./telemetryObserver');
 
-const LOCAL_PROVIDERS = new Set(['ollama', 'lmstudio', 'vllm', 'openai-compatible']);
+const LOCAL_PROVIDERS = new Set(['ollama', 'lmstudio', 'vllm']);
 const PRIORITIES = { interactive: 0, bulk: 1 };
+
+function isLocalProvider(provider, endpoint = '') {
+  if (LOCAL_PROVIDERS.has(provider)) return true;
+  if (provider === 'openai-compatible') {
+    const ep = String(endpoint || process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || '').toLowerCase();
+    return Boolean(ep && /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0|http:\/\/\[::1\])/.test(ep));
+  }
+  return false;
+}
 
 const state = {
   running: 0,
@@ -221,7 +230,7 @@ function reset() {
 
 module.exports = {
   LOCAL_PROVIDERS,
-  isLocalProvider: (provider) => LOCAL_PROVIDERS.has(provider),
+  isLocalProvider,
   schedule,
   stats,
   reset
