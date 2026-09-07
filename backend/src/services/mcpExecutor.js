@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
+const { resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { validateToolArguments } = require('./mcpArgumentValidation');
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
@@ -137,11 +138,11 @@ function resolveMcpOutputPath(outputFile) {
     throw Object.assign(new Error('output_file must be a non-empty relative path.'), { code: 'INVALID_OUTPUT_PATH' });
   }
   const root = path.resolve(process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..'));
-  const resolved = path.resolve(root, outputFile);
-  if (resolved !== root && !resolved.startsWith(`${root}${path.sep}`)) {
-    throw Object.assign(new Error('output_file must remain inside the GenOS workspace.'), { code: 'INVALID_OUTPUT_PATH' });
+  try {
+    return resolveContainedPathNoSymlinkSync(root, outputFile, 'output_file');
+  } catch (_) {
+    throw Object.assign(new Error('output_file must remain inside the GenOS workspace and avoid symlinks.'), { code: 'INVALID_OUTPUT_PATH' });
   }
-  return resolved;
 }
 
 function withTimeout(promise, timeoutMs) {
@@ -191,7 +192,7 @@ async function callStdio(transport, toolName, options = {}) {
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
-  const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) });
+  const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, detached: process.platform !== 'win32', stdio: ['pipe', 'pipe', 'pipe'], env: mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) });
   let buffer = ''; let stderr = ''; let protocolErrors = ''; let pending = null; let closed = false;
   child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
