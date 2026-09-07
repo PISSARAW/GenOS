@@ -446,15 +446,25 @@ process.stdin.on('end', async () => {
       report.author = report.author || { name: agentName, meaning: nameMeaning, role: mission.role };
       if (typeof report.artifactText === 'string') report.artifactText = immune.chaperoneAgentOutput(report.artifactText, { prompt: mission.prompt }).purifiedText;
       const expectedDossiers = autonomyPlan.synthesisOnly ? (autonomyPlan.completedWorkerIds || []) : [];
-      const influences = new Map((Array.isArray(report.dossierInfluence) ? report.dossierInfluence : [])
-        .filter((entry) => entry && typeof entry.workerId === 'string')
-        .map((entry) => [entry.workerId, entry]));
+      const entries = (Array.isArray(report.dossierInfluence) ? report.dossierInfluence : [])
+        .filter((entry) => entry && typeof entry.workerId === 'string');
+      const influences = new Map(entries.map((entry) => [entry.workerId, entry]));
+      const expectedSet = new Set(expectedDossiers);
       const uninfluential = expectedDossiers.filter((workerId) => {
         const entry = influences.get(workerId);
-        return !entry || typeof entry.influence !== 'string' || !entry.influence.trim() || !Array.isArray(entry.usedClaims);
+        return !entry
+          || typeof entry.influence !== 'string'
+          || entry.influence.trim().length < 3
+          || /^[.\-_ /\\#*]+$/.test(entry.influence.trim())
+          || !Array.isArray(entry.usedClaims)
+          || entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim());
       });
-      if (uninfluential.length) {
-        emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'DOSSIER_INFLUENCE', detail: `Final synthesis did not account for every worker dossier: ${uninfluential.join(', ')}.`, severity: 'error', status: 'error', payload: { expectedDossiers, uninfluential } });
+      const unexpected = entries.filter((entry) => !expectedSet.has(entry.workerId)).map((entry) => entry.workerId);
+      if (uninfluential.length || unexpected.length) {
+        const reasons = [];
+        if (uninfluential.length) reasons.push(`missing or invalid influence for: ${uninfluential.join(', ')}`);
+        if (unexpected.length) reasons.push(`unexpected worker dossiers: ${unexpected.join(', ')}`);
+        emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'DOSSIER_INFLUENCE', detail: `Final synthesis did not account for every worker dossier: ${reasons.join('; ')}.`, severity: 'error', status: 'error', payload: { expectedDossiers, uninfluential, unexpected } });
         process.exitCode = 1;
         cleanup();
         return;
@@ -472,9 +482,36 @@ process.stdin.on('end', async () => {
             ? 'Worker returned an evidence-backed proof that no answer exists in the stated scope.'
             : 'Orchestrator returned an evidence-backed proof that no answer exists in the stated scope.',
           status: 'completed',
-          currentTask: 'No answer proven',
-          payload: { code, observedTools: [...observedTools], evidenceReport: report, noAnswerProof: classified.noAnswerProof }
+          payload: {
+            code,
+            observedTools: [...observedTools],
+            evidenceReport: report,
+            noAnswerProof: classified.noAnswerProof,
+            usage: { tokens: exactTokens || estimatedTokens, events: eventCount, cost_usd: observedCostUsd },
+            conscienceState
+          }
         });
+        try {
+          const proofSummary = classified.noAnswerProof?.method
+            ? `Preuve d'impossibilité (${classified.noAnswerProof.method}): ${Array.isArray(classified.noAnswerProof.evidence) ? classified.noAnswerProof.evidence.join('; ') : 'validée'}`
+            : (finalReportText || 'Aucune réponse n\'existe dans le périmètre spécifié.');
+          await agentMemory.compileExecutionMemory(
+            agentName,
+            mission.prompt,
+            proofSummary,
+            { outcome: 'no_answer', isFailure: false, organizationId: mission.organizationId, projectId: mission.projectId }
+          );
+          const db = await getDatabase();
+          await trajectoryService.recordMissionTrajectory(db, {
+            agentId: mission.agentId,
+            workspaceId: mission.workspaceId || 'ws-genos-core',
+            task: mission.prompt,
+            report,
+            turns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true, detail: 'no_answer_proof' })),
+            usage: { tokens: exactTokens || estimatedTokens, events: eventCount, cost_usd: observedCostUsd },
+            status: 'approved'
+          });
+        } catch (_) {}
       } else if (classified.outcome === 'failed') {
         emit({
           eventType: isWorker ? 'WORKER_TASK_FAILED' : 'AGENT_FAILED',
