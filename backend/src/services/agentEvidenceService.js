@@ -86,7 +86,31 @@ function workerEvidenceDossiers(orchestratorId, workers) {
   }));
 }
 
-function validateWorkerDossiers(dossiers, workers) {
+function validateWorkerDossierCoherence(dossier, worker, contract = {}) {
+  if (!dossier || !worker) {
+    throw Object.assign(new Error('Cannot validate dossier coherence without dossier and worker.'), { code: 'INVALID_DOSSIER_COHERENCE' });
+  }
+  if (dossier.workerId !== worker.agentId) {
+    throw Object.assign(new Error(`Dossier workerId '${dossier.workerId}' does not match worker agentId '${worker.agentId}'.`), { code: 'INVALID_DOSSIER_COHERENCE' });
+  }
+  const portfolio = Array.isArray(contract?.strategy_portfolio) ? contract.strategy_portfolio : [];
+  const assignedStrategy = portfolio.find((s) => s.role === worker.role || s.id === worker.strategyId)
+    || contract?.selected_strategy;
+  const contractedPrimitives = new Set(Array.isArray(assignedStrategy?.primitives) ? assignedStrategy.primitives : []);
+
+  const reports = (dossier.events || []).map((e) => e.evidenceReport || (e.payload?.claims ? e.payload : null)).filter(Boolean);
+  for (const rep of reports) {
+    if (rep.outcome === 'success') {
+      const claims = Array.isArray(rep.claims) ? rep.claims : [];
+      if (claims.length === 0 && !rep.artifactText) {
+        throw Object.assign(new Error(`Worker '${worker.agentId}' reported success but provided no verifiable claims or artifact in its dossier.`), { code: 'UNSUBSTANTIATED_WORKER_DOSSIER' });
+      }
+    }
+  }
+  return true;
+}
+
+function validateWorkerDossiers(dossiers, workers, options = {}) {
   const expected = new Set(workers.map((worker) => worker.agentId));
   const actual = new Set(dossiers.map((dossier) => dossier.workerId));
   
@@ -117,6 +141,17 @@ function validateWorkerDossiers(dossiers, workers) {
     error.emptyWorkerIds = empty;
     throw error;
   }
+
+  if (options.contract) {
+    const workersMap = new Map(workers.map((w) => [w.agentId, w]));
+    for (const dossier of dossiers) {
+      const worker = workersMap.get(dossier.workerId);
+      if (worker) {
+        validateWorkerDossierCoherence(dossier, worker, options.contract);
+      }
+    }
+  }
+
   return true;
 }
 
@@ -233,6 +268,9 @@ function boundedEvidenceScore(value) {
 
 function evidenceScore(payload = {}, context = {}) {
   const report = extractEvidenceReport(payload) || {};
+  if (report.outcome === 'failed' || payload.failure || report.failure) {
+    return 0;
+  }
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const creative = report.artifact === 'creative'
     || context.artifact === 'creative'
