@@ -7,7 +7,7 @@ function normalizeToolName(toolName) {
 }
 
 function declaredToolNames() {
-  return (MCP_TOOLS_LIST || []).map((tool) => normalizeToolName(tool.name)).filter(Boolean);
+  return [...new Set((MCP_TOOLS_LIST || []).map((tool) => normalizeToolName(tool.name)).filter(Boolean))];
 }
 
 function isRegisteredTool(toolName) {
@@ -29,9 +29,7 @@ function isSupportedTool(toolName) {
   const normalized = normalizeToolName(toolName);
   if (!normalized) return false;
 
-  if (isRegisteredTool(normalized)) return true;
-  if (detectExecutionKind(normalized) !== 'unsupported') return true;
-  return false;
+  return isRegisteredTool(normalized);
 }
 
 async function dispatchTool(toolName, args = {}) {
