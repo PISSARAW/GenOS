@@ -4,6 +4,7 @@
  */
 
 const { normalizeRelativePath } = require('./pathSafety');
+const virtualFiles = new Map();
 
 // Tool metadata registry for the 40 MCP tools
 const TOOL_SCHEMAS = {
@@ -267,10 +268,45 @@ function dryRunPatch(workspaceId, patch, vfsState = {}) {
   return { clean: true, workspaceId, blastRadius, blastRadiusScore: blastRadius, sideEffects, simulations };
 }
 
+function virtualPath(value) {
+  if (!value || value === '/') return '';
+  return normalizeWorkspacePath(value);
+}
+
+async function executeVfsOperation(operation, filePath, content = '') {
+  const target = virtualPath(filePath);
+  if (!target) throw new Error('A file path is required.');
+  const op = String(operation || '').toLowerCase();
+  if (['create', 'write', 'replace', 'write_file', 'replace_file_content'].includes(op)) {
+    if (op === 'create' && virtualFiles.has(target)) return { success: false, message: `File already exists: ${target}` };
+    virtualFiles.set(target, String(content));
+    return { success: true, message: `Wrote ${target}` };
+  }
+  if (['delete', 'remove', 'delete_file'].includes(op)) {
+    if (!virtualFiles.delete(target)) return { success: false, message: `File not found: ${target}` };
+    return { success: true, message: `Deleted ${target}` };
+  }
+  throw new Error(`Unsupported VFS operation: ${operation}`);
+}
+
+function inspectVfs(directory = '/') {
+  const prefix = virtualPath(directory);
+  const entries = new Set();
+  for (const filePath of virtualFiles.keys()) {
+    if (!prefix || filePath === prefix || filePath.startsWith(`${prefix}/`)) {
+      const remainder = prefix ? filePath.slice(prefix.length).replace(/^\//, '') : filePath;
+      if (remainder) entries.add(remainder.split('/')[0]);
+    }
+  }
+  return [...entries].sort();
+}
+
 module.exports = {
   getToolSchema,
   simulateDryRun,
   getToolMetrics,
   calculateBlastRadius,
-  dryRunPatch
+  dryRunPatch,
+  executeVfsOperation,
+  inspectVfs
 };

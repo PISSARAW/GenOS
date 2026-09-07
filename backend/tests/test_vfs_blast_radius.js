@@ -1,5 +1,6 @@
 const assert = require('assert');
 const { dryRunPatch } = require('../src/services/vfsSandboxService');
+const vfs = require('../src/services/vfsSandboxService');
 
 assert.throws(
   () => dryRunPatch('workspace', [
@@ -22,3 +23,11 @@ for (const unsafePath of ['../secret', '/tmp/x', 'C:/tmp/x', 'safe/../secret']) 
 }
 
 console.log('VFS blast-radius collision checks passed.');
+
+(async () => {
+  await vfs.executeVfsOperation('create', 'src/ide.js', 'module.exports = 1;');
+  assert.deepStrictEqual(vfs.inspectVfs('/'), ['src']);
+  assert.deepStrictEqual(vfs.inspectVfs('src'), ['ide.js']);
+  assert.equal((await vfs.executeVfsOperation('delete', 'src/ide.js')).success, true);
+  console.log('VFS virtual edit operations passed.');
+})().catch((error) => { console.error(error); process.exitCode = 1; });
