@@ -158,7 +158,7 @@ process.stdin.on('end', async () => {
     memoryBlock ? `${memoryBlock}` : '',
     authorityInstruction,
     'Work directly in the assigned repository and implement the mission completely.',
-    `Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"author":{"name":"${agentName}","meaning":"${nameMeaning}"},"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"counterexamples":["anything proving a prior claim false"],"uncertainties":["anything not verified"],"tests":["command and result"],"dossierInfluence":[{"workerId":"delegated worker id","usedClaims":["claim used or rejected"],"influence":"how this dossier changed or constrained the synthesis"}],"artifact":"creative when applicable","artifactText":"creative work when applicable","creativeEvaluation":{"rubric":{"craft":0,"coherence":0,"originality":0,"emotionalImpact":0,"constraintCoverage":0},"constraintCoverage":0,"revisions":[],"criticEvidence":[]},"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.`,
+    `Keep changes scoped to the repository, inspect existing code before editing, run relevant tests, and report concrete progress. Your final response must be a single JSON object with this schema: {"author":{"name":"${agentName}","meaning":"${nameMeaning}"},"outcome":"success|failed|no_answer","claims":[{"statement":"specific conclusion","evidence":["test output, receipt, or inspected artifact"]}],"uncertainties":["anything not verified"],"tests":["command and result"],"dossierInfluence":[{"workerId":"delegated worker id","usedClaims":["claim used or rejected"],"influence":"how this dossier changed or constrained the synthesis"}],"artifact":"creative when applicable","artifactText":"creative work when applicable","creativeEvaluation":{"rubric":{"craft":0,"coherence":0,"originality":0,"emotionalImpact":0,"constraintCoverage":0},"constraintCoverage":0,"revisions":[],"criticEvidence":[]},"failure":{"category":"unresolved_task|falsified_hypothesis|capability_mismatch|transient_runtime","reason":"why the mission failed","evidence":["concrete observations"]},"noAnswerProof":{"method":"bounded exhaustive method","evidence":["proof artifacts"]}}. If you cannot complete the mission, set outcome=failed and explain it explicitly; do not hide failure behind a successful process exit. Set outcome=no_answer only with concrete proof that no answer exists in the stated scope. Do not state a conclusion as fact without at least one evidence entry; use uncertainties instead.`,
     strategyContract.selected_strategy?.primary
       ? `Follow this auditable GenOS strategy contract. Primary strategy: ${strategyContract.selected_strategy.primary}.\nContract:\n${JSON.stringify(runtimeContract, null, 2)}\n\nExecutable Strategy Primitives: The 7 lots of GenOS primitives are executable via MCP tools (e.g. genos_strat_mcts_select, genos_strat_compile_memory, genos_strat_mutate, genos_strat_stdp_update, genos_strat_evaluate, genos_strat_bisect_agent, genos_strat_vfs_dry_run) or genos_execute_primitive. Invoke them at appropriate stages of the mission.`
       : 'No explicit strategy contract was attached; use the safest verified execution path.',
@@ -229,7 +229,7 @@ process.stdin.on('end', async () => {
       '-c', `mcp_servers.genos.command=${JSON.stringify(mcpCommand)}`,
       '-c', `mcp_servers.genos.args=${JSON.stringify(mcpArgs)}`,
       '-c', `mcp_servers.genos.cwd=${JSON.stringify(workspace)}`,
-      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_MCP_EXPOSE_ALL="true",GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
+      '-c', `mcp_servers.genos.env={GENOS_WORKSPACE_ROOT=${JSON.stringify(workspace)},GENOS_BIN=${JSON.stringify(genosBinary)},GENOS_ORCHESTRATOR_BRIDGE=${JSON.stringify(orchestratorBridge)},GENOS_EXECUTION_MODE=${JSON.stringify(executionMode)},GENOS_AGENT_ID=${JSON.stringify(mission.agentId)},GENOS_ORCHESTRATOR_AGENT_ID=${JSON.stringify(orchestratorAgentId)},GENOS_ALLOWED_COMMANDS_JSON=${JSON.stringify(JSON.stringify(allowedCommands))},GENOS_ALLOW_FILE_EDITS=${JSON.stringify(allowFileEdits ? 'true' : 'false')},GENOS_SILENT_UPDATES=${JSON.stringify(executionPolicy.silentUpdates === true ? 'true' : 'false')}${toolLease.length ? `,GENOS_MCP_LEASE=${JSON.stringify(toolLease.join(','))}` : ''}}`,
       '-c', `mcp_servers.genos.enabled_tools=${JSON.stringify(toolLease)}`,
       '-c', 'mcp_servers.genos.disabled_tools=["genos_orchestrate"]',
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
@@ -479,6 +479,22 @@ process.stdin.on('end', async () => {
       const unprovenClaims = allClaims.filter((c) => !c || !evidencePresent(c.evidence || c.receipts || c.sourceRefs));
       const explicitUnverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims : [];
       if (unprovenClaims.length > 0 || explicitUnverified.length > 0) {
+        const db = await getDatabase();
+        let evidenceBlocker = null;
+        try {
+          const run = await db.get('SELECT id, created_at FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1', mission.agentId);
+          if (run) {
+            const incidents = await db.all(`
+              SELECT detail FROM telemetry_events
+              WHERE agent_id = ? AND event_type IN ('HALLUCINATION_DETECTED', 'DOSSIER_INFLUENCE_INVALID')
+                AND created_at >= ?
+            `, mission.agentId, run.created_at);
+            if (incidents.length > 0) {
+              evidenceBlocker = 'Evidence discordance detected: ' + incidents.map((incident) => incident.detail).join('; ');
+            }
+          }
+        } catch (_) {}
+
         emit({
           eventType: 'UNVERIFIED_CLAIM',
           action: 'EVIDENCE_AUDIT',
@@ -590,22 +606,6 @@ process.stdin.on('end', async () => {
             conclusionProvenance
           }
         });
-        const db = await getDatabase();
-        let evidenceBlocker = null;
-        try {
-          const run = await db.get('SELECT id, created_at FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1', mission.agentId);
-          if (run) {
-            const incidents = await db.all(`
-              SELECT detail FROM telemetry_events 
-              WHERE agent_id = ? AND event_type IN ('HALLUCINATION_DETECTED', 'DOSSIER_INFLUENCE_INVALID')
-                AND created_at >= ?
-            `, mission.agentId, run.created_at);
-            if (incidents.length > 0) {
-              evidenceBlocker = "Evidence discordance detected: " + incidents.map(i => i.detail).join("; ");
-            }
-          }
-        } catch (_) {}
-
         if (strategyContract.promotion?.require_human_approval === true || evidenceBlocker) {
           emit({
             eventType: 'AGENT_AWAITING_APPROVAL',
