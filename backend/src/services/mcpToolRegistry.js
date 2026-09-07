@@ -18,6 +18,7 @@ function isRegisteredTool(toolName) {
 function detectExecutionKind(toolName) {
   const normalized = normalizeToolName(toolName);
   if (!normalized) return 'unsupported';
+  if (!isRegisteredTool(normalized)) return 'unsupported';
 
   if (mcpStrategyTools.isStrategyTool(normalized)) return 'strategy';
   if (normalized.startsWith('genos_biomimicry_') || normalized.includes('conscience') || normalized.includes('entropy')) return 'bio';
