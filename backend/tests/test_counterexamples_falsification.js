@@ -105,9 +105,92 @@ async function testPoint2() {
   console.log('  ✅ PASS: Point 2 dead-end persistence & counterfactual replay tests succeeded');
 }
 
+async function testPoint3() {
+  console.log('--- Test Point 3: Connectome GABAergique & Contre-Exemples ---');
+  const { getDatabase } = require('../src/db');
+  const memoryController = require('../src/controllers/memoryController');
+  const vectorMemoryService = require('../src/services/vectorMemoryService');
+
+  const db = await getDatabase();
+  const testOrg = 'test-org-ce-' + Date.now();
+  const testProj = 'test-proj-ce-' + Date.now();
+
+  // 1. Ingest initial belief
+  const req1 = {
+    body: {
+      title: 'Algorithm A performance invariant',
+      content: 'Algorithm A is guaranteed optimal O(N) performance for all binary search trees',
+      category: 'Experience',
+      organizationId: testOrg,
+      projectId: testProj
+    },
+    tenant: { organizationId: testOrg, projectId: testProj },
+    headers: {}
+  };
+  let res1Data = null;
+  const res1 = {
+    status: () => ({
+      json: (d) => { res1Data = d; }
+    })
+  };
+  await memoryController.ingestMemory(req1, res1, (e) => { if (e) throw e; });
+  assert.ok(res1Data && res1Data.decisionId, 'Initial memory must be ingested');
+  const initialDecisionId = res1Data.decisionId;
+
+  // 2. Ingest counterexample
+  const req2 = {
+    body: {
+      title: 'Counterexample to Algorithm A invariant',
+      content: 'Contre-exemple: sur les arbres dégénérés, Algorithme A s\'effondre en O(N^2) et viole l\'invariant',
+      category: 'counterexample',
+      organizationId: testOrg,
+      projectId: testProj
+    },
+    tenant: { organizationId: testOrg, projectId: testProj },
+    headers: {}
+  };
+  let res2Data = null;
+  const res2 = {
+    status: () => ({
+      json: (d) => { res2Data = d; }
+    })
+  };
+  await memoryController.ingestMemory(req2, res2, (e) => { if (e) throw e; });
+  assert.ok(res2Data && res2Data.decisionId, 'Counterexample must be ingested');
+  const counterexampleId = res2Data.decisionId;
+
+  // 3. Verify GABAergic synapse with negative weight
+  const synapse = await db.get(
+    'SELECT * FROM memory_synapses WHERE source_id = ? AND target_id = ?',
+    counterexampleId, initialDecisionId
+  );
+  assert.ok(synapse, 'GABAergic synapse must be created between counterexample and refuted belief');
+  assert.strictEqual(synapse.transmitter_type, 'gaba');
+  assert.ok(synapse.weight < 0, `Synaptic weight must be negative for GABAergic inhibition (got ${synapse.weight})`);
+
+  // 4. Verify searchMemory marks refuted memory with inhibitorySignal = 'active'
+  // even when queried by a DIFFERENT agent (not the creator)
+  const searchResults = await vectorMemoryService.searchMemory(
+    'Algorithm A optimal binary search tree',
+    { organizationId: testOrg, projectId: testProj, ownerId: 'totally_different_worker_agent', limit: 10 },
+    db
+  );
+
+  const foundRefuted = (searchResults.allScoredExperiences || []).find(e => e.id === initialDecisionId);
+  assert.ok(foundRefuted, 'Initial memory should still be visible in scored experiences');
+  assert.strictEqual(foundRefuted.inhibitorySignal, 'active', 'Refuted memory must have inhibitorySignal = active');
+
+  // Verify refuted memory is excluded from topSuccessfulGoldenPaths
+  const inGolden = (searchResults.topSuccessfulGoldenPaths || []).some(g => g.id === initialDecisionId);
+  assert.strictEqual(inGolden, false, 'Inhibited memory must not be in topSuccessfulGoldenPaths');
+
+  console.log('  ✅ PASS: Point 3 GABAergic inhibition & counterexample connectome tests succeeded');
+}
+
 async function runAll() {
   await testPoint1();
   await testPoint2();
+  await testPoint3();
 }
 
 if (require.main === module) {
@@ -117,5 +200,6 @@ if (require.main === module) {
   });
 }
 
-module.exports = { testPoint1, testPoint2 };
+module.exports = { testPoint1, testPoint2, testPoint3 };
+
 

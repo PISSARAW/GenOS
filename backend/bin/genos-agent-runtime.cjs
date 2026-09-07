@@ -472,6 +472,25 @@ process.stdin.on('end', async () => {
       if (expectedDossiers.length) {
         emit({ eventType: 'DOSSIER_INFLUENCE_VERIFIED', action: 'VERIFY_SYNTHESIS', detail: `Verified explicit influence records for all ${expectedDossiers.length} worker dossiers.`, payload: { workerIds: expectedDossiers } });
       }
+
+      // Pre-emission evidence audit: detect and signal unproven claims
+      const { evidencePresent } = require('../src/services/hallucinationMonitoringService');
+      const allClaims = Array.isArray(report.claims) ? report.claims : [];
+      const unprovenClaims = allClaims.filter((c) => !c || !evidencePresent(c.evidence || c.receipts || c.sourceRefs));
+      const explicitUnverified = Array.isArray(report.unverifiedClaims) ? report.unverifiedClaims : [];
+      if (unprovenClaims.length > 0 || explicitUnverified.length > 0) {
+        emit({
+          eventType: 'UNVERIFIED_CLAIM',
+          action: 'EVIDENCE_AUDIT',
+          detail: `Agent report contains ${unprovenClaims.length} unproven claim(s) and ${explicitUnverified.length} declared unverified claim(s).`,
+          severity: 'warning',
+          payload: {
+            unprovenClaims: unprovenClaims.map((c) => c?.statement || 'unnamed claim'),
+            unverifiedClaims: explicitUnverified
+          }
+        });
+      }
+
       emit({ eventType: 'EVIDENCE_REPORT', action: 'VERIFY_CLAIMS', detail: 'Validated the agent final evidence report.', payload: report });
       const classified = workerRecovery.classifyFinalReport(report, isWorker);
       if (classified.outcome === 'no_answer') {
