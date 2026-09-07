@@ -686,4 +686,15 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout };
+async function listTools() {
+  const registry = getToolRegistry();
+  return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: { type: 'object' } }));
+}
+
+async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
+  const result = await executeConfiguredTransport({ toolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
+  if (!result.success) throw new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
+  return result.output;
+}
+
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool };

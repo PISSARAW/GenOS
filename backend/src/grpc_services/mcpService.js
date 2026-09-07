@@ -19,9 +19,9 @@ module.exports = {
 
   CallTool: async (call, callback) => {
     try {
-      const { tool_name, arguments_json } = call.request || {};
+      const { tool_name, arguments_json, timeout_ms } = call.request || {};
       const args = arguments_json ? JSON.parse(arguments_json) : {};
-      const res = await mcpExecutor.callTool(tool_name, args);
+      const res = await mcpExecutor.callTool(tool_name, args, timeout_ms);
       callback(null, {
         success: true,
         content_json: JSON.stringify(res),
