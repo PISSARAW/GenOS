@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { actionArguments } = require('./src/services/orchestrationActionExecutor');
+const { actionArguments } = require('../src/services/orchestrationActionExecutor');
 const root = '/tmp/genos-capsule';
 assert.equal(actionArguments({ tool: 'genos_replay' }, { payload: {} }, root), null);
 assert.equal(actionArguments({ tool: 'genos_replay' }, { payload: { branchId: 'branch-1' } }, root), null);
