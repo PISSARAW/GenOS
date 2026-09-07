@@ -11,8 +11,8 @@ function actionArguments(decision, event, workspaceRoot) {
     // A replay without an event source is not evidence. Keep the decision
     // visible but defer it until the worker returns a concrete branch or
     // snapshot rather than issuing a guaranteed-failing CLI call.
-    if (!payload.snapshot && !payload.branchId) return null;
-    return { root: workspaceRoot, ...(payload.snapshot ? { snapshot: payload.snapshot } : {}), ...(payload.branchId ? { branch_id: payload.branchId } : {}) };
+    if (!payload.snapshot) return null;
+    return { root: workspaceRoot, snapshot: payload.snapshot };
   }
   if (decision.tool === 'genos_record_experience' && payload.strategy && payload.outcome) {
     return { root: workspaceRoot, strategy: payload.strategy, context: payload.context || event.detail || 'Autonomous worker event', outcome: payload.outcome, successful: event.eventType === 'AGENT_COMPLETED', evidence: payload.evidence || [event.id], source_branch: payload.branchId };
@@ -45,13 +45,26 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
   if (sourceEventId && decision.tool) {
     db = await getDatabase();
     const receiptKey = `${orchestratorId}:${sourceEventId}:${decision.tool}`;
-    const receipt = await db.run(
+    const existing = await db.get(
+      'SELECT status FROM orchestration_action_receipts WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?',
+      orchestratorId, sourceEventId, decision.tool
+    );
+    if (existing && existing.status !== 'deferred') {
+      telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
+      return { executed: false, duplicate: true };
+    }
+    const receipt = existing
+      ? await db.run(
+        "UPDATE orchestration_action_receipts SET status = 'started', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?",
+        orchestratorId, sourceEventId, decision.tool
+      )
+      : await db.run(
       `INSERT OR IGNORE INTO orchestration_action_receipts
         (receipt_key, orchestrator_id, source_event_id, tool, status)
        VALUES (?, ?, ?, ?, 'started')`,
       receiptKey, orchestratorId, sourceEventId, decision.tool
     );
-    if (receipt.changes !== 1) {
+    if (receipt.changes !== 1 && !existing) {
       telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEDUPLICATED', agentId: orchestratorId, action: decision.action, detail: 'Duplicate orchestration action suppressed.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, eventId: sourceEventId } });
       return { executed: false, duplicate: true };
     }
@@ -59,7 +72,7 @@ async function execute({ orchestratorId, sourceAgentId, decision, event, workspa
   const args = actionArguments(decision, event, workspaceRoot);
   if (!args) {
     telemetry.emitEvent({ eventType: 'ORCHESTRATION_ACTION_DEFERRED', agentId: orchestratorId, action: decision.action, detail: 'Decision retained until its required evidence is available.', severity: 'info', payload: { sourceAgentId, tool: decision.tool, reason: decision.reason, eventId: event.id } });
-    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'failed', completed_at = CURRENT_TIMESTAMP WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
+    if (db && sourceEventId) await db.run("UPDATE orchestration_action_receipts SET status = 'deferred', completed_at = NULL WHERE orchestrator_id = ? AND source_event_id = ? AND tool = ?", orchestratorId, sourceEventId, decision.tool);
     return { executed: false, deferred: true, reason: 'missing_required_evidence' };
   }
   const result = await mcp.execute({ agentId: orchestratorId, toolName: decision.tool, args });
