@@ -54,6 +54,7 @@ async function providers(req, res) {
 }
 async function registerProvider(req, res) {
   const provider = req.body || {};
+  if (!modelProvider.isSupportedProvider(provider.provider)) return res.status(400).json({ error: { code: 'UNSUPPORTED_PROVIDER', message: `Provider '${provider.provider || ''}' is not supported by the model runtime.` } });
   if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model must be valid non-empty identifiers.' } });
   if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
   provider.capabilities = normalizeCapabilities(provider.capabilities);
