@@ -81,7 +81,8 @@ async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30
   // Local inference goes through the gateway's bounded queue: concurrent
   // agents must queue for the GPU instead of stampeding it. Cloud providers
   // have their own rate limits and bypass the queue.
-  if (inferenceGateway.isLocalProvider(configuration.provider)) {
+  const targetEndpoint = endpointOverride || configuration.endpoint;
+  if (inferenceGateway.isLocalProvider(configuration.provider, targetEndpoint)) {
     return inferenceGateway.schedule(
       () => generateDirect({ model, prompt, onToken, timeoutMs: effectiveTimeout, maxTokens, endpoint: endpointOverride, agentId, seed, stream, signal, displayWidth, displayHeight }),
       { provider: configuration.provider, priority, agentId, organizationId, projectId }
