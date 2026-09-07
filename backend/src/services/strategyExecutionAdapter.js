@@ -39,10 +39,13 @@ const HANDLERS = {
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   evaluate: fundamentals.evaluate,
-  verify: fundamentals.evaluate,
+  verify: fundamentals.verify,
   vfs_dry_run: fundamentals.vfsDryRun,
   safe_revert: fundamentals.safeRevert,
   run: fundamentals.run,
+  worktree_cleanup: fundamentals.worktreeCleanup,
+  cas_gc: fundamentals.casGc,
+  dag_mark_sweep: fundamentals.dagMarkSweep,
 
   // Lot 2 — Mémoire
   record_experience: memory.recordExperience,
