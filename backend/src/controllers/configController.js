@@ -86,8 +86,12 @@ function getBudget(req, res) {
 
 function updateBudget(req, res) {
   const { maxTokens: newMax } = req.body || {};
-  if (newMax) {
-    maxTokens = parseInt(newMax, 10);
+  if (newMax !== undefined) {
+    const parsed = Number(newMax);
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 10_000_000) {
+      return res.status(400).json({ error: { code: 'INVALID_MAX_TOKENS', message: 'maxTokens must be a positive integer no greater than 10000000.' } });
+    }
+    maxTokens = parsed;
   }
   res.json({
     success: true,

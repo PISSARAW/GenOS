@@ -1,5 +1,6 @@
 const { getDatabase } = require('../db');
 const agentConscience = require('../services/agentConscienceService');
+const { boundedInteger } = require('./argumentBounds');
 
 async function getAgentConscience(req, res, next) {
   try {
@@ -28,8 +29,8 @@ async function getConscienceTransitions(req, res, next) {
     if (!agent) {
       return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Agent ${req.params.id} not found` } });
     }
-    const limit = Number(req.query.limit) || 50;
-    const offset = Number(req.query.offset) || 0;
+    const limit = boundedInteger(req.query.limit, 50, 1, 200);
+    const offset = boundedInteger(req.query.offset, 0, 0, 1_000_000);
     const transitions = await agentConscience.getConscienceTransitions(db, req.params.id, { limit, offset });
     res.json({
       agentId: req.params.id,

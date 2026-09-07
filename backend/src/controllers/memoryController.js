@@ -6,11 +6,12 @@
 const { getDatabase } = require('../db');
 const vectorMemoryService = require('../services/vectorMemoryService');
 const telemetry = require('../services/telemetryObserver');
+const { boundedInteger } = require('./argumentBounds');
 
 async function search(req, res, next) {
   try {
     const query = req.body?.query || req.query?.q || '';
-    const limit = parseInt(req.body?.limit || req.query?.limit || '5', 10);
+    const limit = boundedInteger(req.body?.limit ?? req.query?.limit, 5, 1, 100);
     const organizationId = req.tenant?.organizationId || req.headers?.['x-organization-id'];
     const projectId = req.tenant?.projectId || req.headers?.['x-project-id'];
     const db = await getDatabase();
