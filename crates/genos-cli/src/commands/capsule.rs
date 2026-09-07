@@ -64,16 +64,185 @@ pub fn handle_merge(branch_id: &str, conditions: Option<&str>) -> Result<(), Str
     Ok(())
 }
 
+fn extract_action_signature(val: &serde_json::Value) -> String {
+    match val {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Object(map) => {
+            for key in &["action", "type", "command", "tool", "name", "step"] {
+                if let Some(serde_json::Value::String(s)) = map.get(*key) {
+                    return s.clone();
+                }
+            }
+            if let Some(cmd) = map.get("payload").and_then(|p| p.get("command")).and_then(|c| c.as_str()) {
+                return cmd.to_string();
+            }
+            serde_json::to_string(val).unwrap_or_default()
+        }
+        _ => serde_json::to_string(val).unwrap_or_default(),
+    }
+}
+
+fn calculate_jaccard_similarity(a: &str, b: &str) -> f64 {
+    if a == b {
+        return 1.0;
+    }
+    let a_tokens: std::collections::HashSet<&str> = a.split_whitespace().collect();
+    let b_tokens: std::collections::HashSet<&str> = b.split_whitespace().collect();
+    if a_tokens.is_empty() && b_tokens.is_empty() {
+        return 1.0;
+    }
+    let intersection = a_tokens.intersection(&b_tokens).count();
+    let union = a_tokens.union(&b_tokens).count();
+    if union == 0 {
+        0.0
+    } else {
+        intersection as f64 / union as f64
+    }
+}
+
 pub fn handle_loop_detection(cmd: &crate::args::LoopDetectionCmd) -> Result<(), String> {
-    let exists = Path::new(&cmd.history_file).exists();
+    let path = Path::new(&cmd.history_file);
+    let exists = path.exists();
+    if !exists {
+        let output = json!({
+            "history_file": cmd.history_file,
+            "file_exists": false,
+            "exact_match_threshold": cmd.exact_match,
+            "stagnation_threshold": cmd.stagnation,
+            "similarity_threshold": cmd.similarity,
+            "loop_detected": false,
+            "recommendation": "FILE_NOT_FOUND"
+        });
+        println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        return Ok(());
+    }
+
+    let content = fs::read_to_string(path).map_err(|e| format!("Failed to read history file: {}", e))?;
+    let mut actions: Vec<String> = Vec::new();
+
+    // 1. Try JSON array
+    if let Ok(serde_json::Value::Array(arr)) = serde_json::from_str::<serde_json::Value>(&content) {
+        for item in arr {
+            actions.push(extract_action_signature(&item));
+        }
+    } else {
+        // 2. Try line by line (JSONL or plain text)
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(trimmed) {
+                actions.push(extract_action_signature(&val));
+            } else {
+                actions.push(trimmed.to_string());
+            }
+        }
+    }
+
+    let mut loop_detected = false;
+    let mut loop_type = "NONE";
+    let mut reason = "No loop detected".to_string();
+
+    let n = actions.len();
+    let exact_thresh = cmd.exact_match.max(2);
+    let stag_thresh = cmd.stagnation.max(3);
+
+    // Check 1: Consecutive exact match repetition
+    if n >= exact_thresh {
+        let last_action = &actions[n - 1];
+        let mut consecutive = 0;
+        for action in actions.iter().rev() {
+            if action == last_action {
+                consecutive += 1;
+            } else {
+                break;
+            }
+        }
+        if consecutive >= exact_thresh {
+            loop_detected = true;
+            loop_type = "EXACT_MATCH_REPETITION";
+            reason = format!("Action '{}' repeated {} consecutive times (threshold: {})", last_action, consecutive, exact_thresh);
+        }
+    }
+
+    // Check 2: Periodic alternating cycles (period 2 or 3)
+    if !loop_detected {
+        for period in [2, 3] {
+            if n >= period * 2 {
+                let check_len = (period * exact_thresh).min(n);
+                let slice = &actions[n - check_len..];
+                let mut matches = 0;
+                let mut comps = 0;
+                for i in period..slice.len() {
+                    comps += 1;
+                    if slice[i] == slice[i - period] {
+                        matches += 1;
+                    }
+                }
+                if comps >= period && matches == comps {
+                    loop_detected = true;
+                    loop_type = "PERIODIC_CYCLE";
+                    reason = format!("Periodic cycle of period {} detected across {} actions", period, check_len);
+                    break;
+                }
+            }
+        }
+    }
+
+    // Check 3: Stagnation within recent window
+    if !loop_detected && n >= stag_thresh {
+        let window_size = (stag_thresh + 2).min(n);
+        let window = &actions[n - window_size..];
+        let mut counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+        for act in window {
+            *counts.entry(act.as_str()).or_insert(0) += 1;
+        }
+        for (act, count) in counts {
+            if count >= stag_thresh {
+                loop_detected = true;
+                loop_type = "STAGNATION";
+                reason = format!("Action '{}' appeared {} times in last {} steps (threshold: {})", act, count, window_size, stag_thresh);
+                break;
+            }
+        }
+    }
+
+    // Check 4: High similarity repetition
+    if !loop_detected && n >= exact_thresh && cmd.similarity > 0.0 {
+        let window = &actions[n - exact_thresh..];
+        let mut all_similar = true;
+        for i in 1..window.len() {
+            let sim = calculate_jaccard_similarity(&window[i - 1], &window[i]);
+            if sim < cmd.similarity {
+                all_similar = false;
+                break;
+            }
+        }
+        if all_similar {
+            loop_detected = true;
+            loop_type = "HIGH_SIMILARITY";
+            reason = format!("Consecutive actions exceeded similarity threshold {:.2} over {} steps", cmd.similarity, exact_thresh);
+        }
+    }
+
+    let recommendation = if loop_detected {
+        "BREAK_LOOP_OR_HALT"
+    } else {
+        "PROCEED"
+    };
+
     let output = json!({
         "history_file": cmd.history_file,
-        "file_exists": exists,
+        "file_exists": true,
+        "total_actions": n,
         "exact_match_threshold": cmd.exact_match,
         "stagnation_threshold": cmd.stagnation,
         "similarity_threshold": cmd.similarity,
-        "loop_detected": false,
-        "recommendation": "PROCEED"
+        "loop_detected": loop_detected,
+        "loop_type": loop_type,
+        "reason": reason,
+        "recommendation": recommendation
     });
     println!("{}", serde_json::to_string_pretty(&output).unwrap());
     Ok(())
