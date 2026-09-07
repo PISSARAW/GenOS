@@ -14,7 +14,7 @@ function catalogProviders() {
   const filePath = path.resolve(__dirname, '../../../config/providers.json');
   try {
     const catalogs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    return catalogs.flatMap((catalog) => Object.entries(catalog.profiles || {}).map(([model, profile]) => ({
+    const configuredCatalog = catalogs.flatMap((catalog) => Object.entries(catalog.profiles || {}).map(([model, profile]) => ({
       provider: catalog.format === 'ollama' ? 'ollama' : catalog.name.toLowerCase(),
       model,
       capabilities: normalizeCapabilities([...(profile.advantages || []), ...(profile.disadvantages || []).map((item) => `not:${item}`)]),
@@ -25,6 +25,12 @@ function catalogProviders() {
       enabled: true,
       source: 'config/providers.json'
     })));
+    const cloudProfiles = [
+      { provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', capabilities: ['reasoning', 'tools'], key: process.env.OPENAI_API_KEY || process.env.GENOS_MODEL_API_KEY },
+      { provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet', capabilities: ['reasoning', 'tools', 'long-context'], key: process.env.ANTHROPIC_API_KEY },
+      { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-1.5-flash', capabilities: ['reasoning', 'long-context'], key: process.env.GEMINI_API_KEY }
+    ].filter((profile) => profile.key).map(({ key, ...profile }) => ({ ...profile, costInput: 0, costOutput: 0, latencyMs: 0, endpoint: null, enabled: true, source: 'environment' }));
+    return [...configuredCatalog, ...cloudProfiles.filter((cloud) => !configuredCatalog.some((entry) => entry.provider === cloud.provider && entry.model === cloud.model))];
   } catch (_) { return []; }
 }
 
@@ -189,4 +195,4 @@ async function decideApproval(req, res, next) {
   } catch (error) { next(error); }
 }
 async function pareto(req, res) { res.json(safety.paretoFrontier(req.body?.items || [])); }
-module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, configuredProviderRows };
+module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, configuredProviderRows, catalogProviders };
