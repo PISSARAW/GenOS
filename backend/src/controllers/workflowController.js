@@ -193,7 +193,7 @@ async function createRun(req, res, next) {
 async function listRuns(req, res, next) {
   try {
     const db = await getDatabase();
-    const s = scopeSql(req); const rows = await db.all(`SELECT r.* FROM workflow_runs r JOIN workflows w ON w.id=r.workflow_id WHERE r.workflow_id = ? AND w.organization_id=? AND w.project_id=? ORDER BY r.created_at DESC`, req.params.id, ...s.params);
+    const s = scopeSql(req, 'w'); const rows = await db.all(`SELECT r.* FROM workflow_runs r JOIN workflows w ON w.id=r.workflow_id WHERE r.workflow_id = ? AND ${s.clause} ORDER BY r.created_at DESC`, req.params.id, ...s.params);
     res.json(rows.map((row) => ({ ...row, input: parseJson(row.input_json, {}), output: parseJson(row.output_json, null), error: parseJson(row.error_json, null) })));
   } catch (error) { next(error); }
 }
