@@ -185,8 +185,11 @@ async function applyVersionedMigrations(db) {
     if (table === 'workflow_runs' && !columnNames.has('max_attempts')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
     if (table === 'workflow_runs' && !columnNames.has('timeout_ms')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN timeout_ms INTEGER NOT NULL DEFAULT 30000');
     if (table === 'workflow_runs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN claimed_at DATETIME');
+    if (table === 'workflow_runs' && !columnNames.has('next_attempt_at')) await db.exec('ALTER TABLE workflow_runs ADD COLUMN next_attempt_at DATETIME');
     if (table === 'model_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE model_jobs ADD COLUMN claimed_at DATETIME');
+    if (table === 'model_jobs' && !columnNames.has('next_attempt_at')) await db.exec('ALTER TABLE model_jobs ADD COLUMN next_attempt_at DATETIME');
     if (table === 'evaluation_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN claimed_at DATETIME');
+    if (table === 'evaluation_jobs' && !columnNames.has('next_attempt_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN next_attempt_at DATETIME');
   }
     for (const table of ['workflow_runs', 'evaluation_jobs', 'model_jobs']) {
       const columns = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
