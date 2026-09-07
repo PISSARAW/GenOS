@@ -2,11 +2,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const crypto = require('node:crypto');
 
 const databasePath = path.join(os.tmpdir(), `genos-health-${process.pid}-${Date.now()}.db`);
 process.env.NODE_ENV = 'test';
 process.env.GENOS_DB_PATH = databasePath;
-process.env.GENOS_ADMIN_TOKEN = 'health-test-admin-token';
+process.env.GENOS_ADMIN_TOKEN = `health-test-${crypto.randomBytes(24).toString('hex')}`;
 
 const { closeDatabase } = require('./src/db');
 const health = require('./src/controllers/healthController');
