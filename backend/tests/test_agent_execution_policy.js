@@ -18,4 +18,6 @@ assert.match(deniedCommand.hookSpecificOutput.permissionDecisionReason, /outside
 const deniedEdit = JSON.parse(invoke('apply_patch', '*** Begin Patch').stdout);
 assert.strictEqual(deniedEdit.hookSpecificOutput.permissionDecision, 'deny');
 assert.strictEqual(invoke('apply_patch', '*** Begin Patch', { GENOS_ALLOW_FILE_EDITS: 'true' }).stdout, '');
+const malformed = JSON.parse(invoke('Bash', 'node --test dp_partition.test.mjs', { GENOS_ALLOWED_COMMANDS_JSON: '[null]' }).stdout);
+assert.strictEqual(malformed.hookSpecificOutput.permissionDecision, 'deny');
 console.log('GenOS execution-policy hook checks passed.');

@@ -19,6 +19,7 @@ const trajectoryService = require('../src/services/trajectoryService');
 const { getDatabase } = require('../src/db');
 const { terminateChild } = require('../src/services/processTermination');
 const immune = require('../src/services/immuneSystem');
+const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
 
 function compactStrategyContract(contract = {}, worker = false) {
   if (worker) {
@@ -124,9 +125,7 @@ process.stdin.on('end', async () => {
   try { executionPolicy = JSON.parse(mission.executionPolicyJson || '{}'); } catch {}
   let executionBudget = {};
   try { executionBudget = JSON.parse(mission.executionBudgetJson || '{}'); } catch {}
-  const allowedCommands = Array.isArray(executionPolicy.allowedCommands)
-    ? [...new Set(executionPolicy.allowedCommands.map((value) => String(value).trim()).filter(Boolean))]
-    : [];
+  const allowedCommands = normalizeAllowedCommands(executionPolicy.allowedCommands) || [];
   const allowFileEdits = executionPolicy.allowFileEdits === true;
   const isWorker = mission.executionMode === 'worker';
   const executionMode = isWorker ? 'worker' : 'orchestrator';
