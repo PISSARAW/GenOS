@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod accounting;
 pub mod api_server;
 pub mod biomimicry;
 pub mod biomimicry_features;
@@ -15,3 +16,4 @@ pub mod store_ops;
 pub mod swarm_alleles;
 pub mod root_resolver;
 pub mod desktop;
+pub mod world_runner;
