@@ -68,7 +68,14 @@ function dossierToCandidate(dossier, options = {}) {
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
   const claimScore = Math.min(40, claims.reduce((acc, c) => acc + (Array.isArray(c.evidence) && c.evidence.length > 0 ? 15 : 5), 0));
   const uncertaintyPenalty = uncertainties.length * 3;
-  const calculatedFitness = Math.max(0, Math.min(100, 50 + claimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  let calculatedFitness = Math.max(0, Math.min(100, 50 + claimScore + ((passRate - 50) * 0.4) - uncertaintyPenalty));
+  const isFailed = report.outcome === 'failed'
+    || Boolean(dossier?.failure)
+    || Boolean(report.failure)
+    || (Array.isArray(dossier?.events) && dossier.events.some((e) => e.failure || e.payload?.failure || ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR'].includes(e.eventType)));
+  if (isFailed) {
+    calculatedFitness = Math.min(15, calculatedFitness);
+  }
   const rawFitness = suppliedFitness === null ? calculatedFitness : suppliedFitness;
 
   const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
