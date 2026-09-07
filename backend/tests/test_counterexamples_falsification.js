@@ -76,6 +76,14 @@ async function testPoint2() {
   assert.strictEqual(cf.comparison.counterfactualTimeline.steps[1].action, 'iterative_loop', 'Step 2 must be replaced with alteration');
   assert.strictEqual(cf.comparison.counterfactualTimeline.steps[1].counterfactual, true);
   assert.strictEqual(cf.comparison.counterfactualTimeline.finalStatus, 'SUCCESS');
+  const cfRepeat = trajectoryService.counterfactualReplay(
+    { id: 'traj_test', turns: sampleTurns, status: 'FAILURE' },
+    2,
+    { action: 'iterative_loop', success: true, detail: 'Used iterative loop instead of recursion' }
+  );
+  assert.strictEqual(cf.replayId, cfRepeat.replayId, 'Identical replays must have identical IDs');
+  assert.throws(() => trajectoryService.counterfactualReplay({ turns: sampleTurns }, 0, {}), /stepIndex must be an integer/);
+  assert.throws(() => trajectoryService.counterfactualReplay({ turns: sampleTurns }, 4, {}), /stepIndex must be an integer/);
 
   // 3. Dual persistence of dead-ends as Failure in genome_decisions
   const db = await getDatabase();

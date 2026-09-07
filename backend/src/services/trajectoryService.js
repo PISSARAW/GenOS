@@ -3,6 +3,8 @@
  * Cherry-picking breakthrough trajectories and Counterfactual What-If replay
  */
 
+const crypto = require('crypto');
+
 const SEED_TRAJECTORY = Object.freeze({
   id: 'seed-trajectory-refactor',
   title: 'Parser refactor with guard clauses',
@@ -90,7 +92,15 @@ function cherryPickGoldenPath(rawTurns = [], globalStatus = 'success') {
  * @param {object} alterations
  * @returns {object}
  */
-function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alterations = {}) {
+function stableSerialize(value) {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (value && typeof value === 'object') {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function counterfactualReplay(originalTrajectory = {}, stepIndex = 1, alterations = {}) {
   const source = (originalTrajectory && (originalTrajectory.id || originalTrajectory.turns)) ? originalTrajectory : {
     id: 'traj_default_simulation',
     turns: [
@@ -105,7 +115,11 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
     throw new Error('A persisted trajectory with recorded steps is required for counterfactual replay.');
   }
 
-  const step = Math.min(Math.max(1, Number(stepIndex) || 1), turns.length);
+  const requestedStep = Number(stepIndex);
+  if (!Number.isInteger(requestedStep) || requestedStep < 1 || requestedStep > turns.length) {
+    throw new Error(`stepIndex must be an integer between 1 and ${turns.length}.`);
+  }
+  const step = requestedStep;
   const alt = alterations || {};
   const originalTimeline = {
     stepBranched: step,
@@ -139,9 +153,14 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
     finalStatus: alt.error || alt.failed || alt.success === false ? 'FAILURE' : 'SUCCESS'
   };
 
+  const replayFingerprint = crypto.createHash('sha256')
+    .update(stableSerialize({ sourceTrajectoryId: source.id || 'traj_default_simulation', step, alterations: alt, steps: counterfactualSteps }))
+    .digest('hex');
+
   return {
-    replayId: `what-if-${Date.now()}`,
-    timestamp: new Date().toISOString(),
+    replayId: `what-if-${replayFingerprint.slice(0, 24)}`,
+    timestamp: source.created_at || null,
+    replayFingerprint,
     branchingPoint: step,
     comparison: {
       mode: 'recorded-trajectory-branch',
@@ -156,8 +175,6 @@ function counterfactualReplay(originalTrajectory = {}, stepIndex = 2, alteration
 const telemetry = require('./telemetryObserver');
 const { embed } = require('./embeddingProvider');
 const { textToVector } = require('./memoryScoring');
-const crypto = require('crypto');
-
 async function recordMissionTrajectory(db, options = {}) {
   if (!db) return null;
   let turns = Array.isArray(options.turns) ? options.turns : (options.trajectory || []);
