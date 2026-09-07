@@ -3,6 +3,7 @@ const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const modelRouter = require('./modelRouter');
 const mcpExecutor = require('./mcpExecutor');
+const { parseWorkflowCondition } = require('./workflowConditions');
 
 let timer = null;
 let busy = false;
@@ -67,15 +68,10 @@ async function executeWorkflow(db, run) {
   const skipped = new Set();
   const shouldRun = (node) => {
     const condition = node.when || node.data?.when;
-    if (!condition) return true;
-    if (/^false$/i.test(String(condition).trim())) return false;
-    if (/^true$/i.test(String(condition).trim())) return true;
-    const match = String(condition).match(/^input\.([\w-]+)\s*={2,3}\s*["']?([^"']+)["']?$/);
-    if (!match) throw new Error(`Unsupported workflow condition on node ${node.id}.`);
-    return String(input[match[1]]) === match[2];
+    try { return parseWorkflowCondition(condition)(input); } catch (_) { throw new Error(`Unsupported workflow condition on node ${node.id}.`); }
   };
   const resolveTemplate = (template, context) => String(template || '').replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, key) => key.split('.').reduce((value, part) => value == null ? '' : value[part], context) ?? '');
-  const runNode = async (node, depth = 0) => {
+  const runNode = async (node, depth = 0, blocked = false) => {
     if (depth > MAX_WORKFLOW_DEPTH) throw new Error(`Workflow exceeds the ${MAX_WORKFLOW_DEPTH}-level execution depth limit.`);
     const currentRun = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
     if (currentRun?.status === 'cancelled') {
@@ -84,9 +80,11 @@ async function executeWorkflow(db, run) {
       throw error;
     }
     if (!node || visited.has(node.id) || skipped.has(node.id)) return;
-    if (!shouldRun(node)) {
+    if (blocked || !shouldRun(node)) {
       skipped.add(node.id);
       output[node.id] = { status: 'skipped', reason: 'condition_not_satisfied' };
+      const children = edges.filter((edge) => edge.source === node.id).map((edge) => nodes.get(edge.target)).filter(Boolean);
+      for (const child of children) await runNode(child, depth + 1, true);
       return;
     }
     visited.add(node.id);
