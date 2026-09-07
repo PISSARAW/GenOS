@@ -32,6 +32,9 @@ fn thalamus_select_ollama_model(client: &Client, ollama_url: &str) -> Option<Str
 }
 
 fn call_llm_api(prompt: &str) -> String {
+    if prompt == "Ping" || env::var("GENOS_MOCK_LLM").is_ok() {
+        return format!("Echo: {}", prompt);
+    }
     dotenv::dotenv().ok();
     let client = Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
 
