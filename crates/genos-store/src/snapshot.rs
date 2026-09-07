@@ -83,8 +83,12 @@ impl SnapshotStore {
     }
 
     pub fn with_dir(store_dir: impl Into<std::path::PathBuf>) -> Self {
+        Self::try_with_dir(store_dir).expect("failed to initialize snapshot store directory")
+    }
+
+    pub fn try_with_dir(store_dir: impl Into<std::path::PathBuf>) -> std::io::Result<Self> {
         let store_dir = store_dir.into();
-        let _ = std::fs::create_dir_all(&store_dir);
+        std::fs::create_dir_all(&store_dir)?;
         
         let mut snapshots = HashMap::new();
         if let Ok(entries) = std::fs::read_dir(&store_dir) {
@@ -97,13 +101,13 @@ impl SnapshotStore {
             }
         }
         
-        Self {
+        Ok(Self {
             snapshots,
             store_dir,
-        }
+        })
     }
 
-    pub fn save(&mut self, mut manifest: SnapshotManifest) -> Uuid {
+    pub fn save(&mut self, mut manifest: SnapshotManifest) -> Result<Uuid, String> {
         let id = if manifest.storage_id == Uuid::nil() {
             default_storage_id()
         } else {
@@ -115,12 +119,11 @@ impl SnapshotStore {
         }
         
         let file_path = self.store_dir.join(format!("{}.json", manifest.snapshot_id));
-        if let Ok(json) = serde_json::to_string_pretty(&manifest) {
-            let _ = std::fs::write(file_path, json);
-        }
+        let json = serde_json::to_string_pretty(&manifest).map_err(|error| error.to_string())?;
+        std::fs::write(file_path, json).map_err(|error| error.to_string())?;
         
         self.snapshots.insert(id, manifest);
-        id
+        Ok(id)
     }
 
     pub fn get(&self, id: &Uuid) -> Option<&SnapshotManifest> {
@@ -145,7 +148,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("genos-store-{}", Uuid::new_v4()));
         let mut store = SnapshotStore::with_dir(&root);
         let manifest = SnapshotManifest::new("agent-1", "branch-1", serde_json::json!({}));
-        let id = store.save(manifest);
+        let id = store.save(manifest).unwrap();
         assert!(store.get(&id).is_some());
 
         let reloaded = SnapshotStore::with_dir(&root);
