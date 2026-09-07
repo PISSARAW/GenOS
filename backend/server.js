@@ -13,6 +13,7 @@ const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
+const circuitBreaker = require('./src/services/circuitBreaker');
 
 const PORT = process.env.PORT || 4000;
 
@@ -40,6 +41,7 @@ async function startServer() {
     // 1. Initialize SQLite Database & Schema (WAL mode allows concurrent processes!)
     console.log(`[GenOS Backend] Worker ${process.pid} connecting to SQLite...`);
     const db = await getDatabase();
+    await circuitBreaker.hydrateToolLocks(db);
     await runtimeAdapter.reconcilePersistedRuntimes(db);
     const detachedTable = await db.get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'detached_processes'");
     if (detachedTable) {
