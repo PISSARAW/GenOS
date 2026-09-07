@@ -34,14 +34,15 @@ async function overview(input = {}) {
     db.all(tenant ? 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 30' : 'SELECT id, subject_type, subject_id, payload_hash, parent_hash, algorithm, created_at FROM provenance_records ORDER BY created_at DESC LIMIT 30', ...tenantParams),
     db.all(tenant ? 'SELECT * FROM notification_preferences WHERE organization_id = ? AND project_id = ? ORDER BY event_type' : "SELECT * FROM notification_preferences WHERE organization_id = '' AND project_id = '' ORDER BY event_type", ...tenantParams)
   ]);
-  const fleetBrier = runs.length ? runs.reduce((sum, run) => sum + Number(run.brier_score || 0), 0) / runs.length : null;
-  // Brier-calibrated voting: a lower error gives a higher (bounded) vote weight.
-  const calibratedWeight = fleetBrier == null ? 1 : Number((1 / (1 + fleetBrier)).toFixed(4));
+  const runsWithBrier = runs.filter(run => run.brier_score != null && Number.isFinite(Number(run.brier_score)));
+  const fleetBrier = runsWithBrier.length ? runsWithBrier.reduce((sum, run) => sum + Number(run.brier_score), 0) / runsWithBrier.length : null;
+  // Brier-calibrated voting: linear penalty where Brier >= 0.5 results in 0 weight
+  const calibratedWeight = fleetBrier == null ? 1 : Number(Math.max(0, 1 - 2 * fleetBrier).toFixed(4));
   const weightedVotes = agents.map((agent) => ({ agentId: agent.id, weight: calibratedWeight, brierScore: fleetBrier }));
   return {
     mcts: { nodes: nodes.map(n => ({ ...n, score: Number(n.score || 0), visits: Number(n.visits || 0), pruned: Boolean(parse(n.metadata, {}).pruned) })), edges },
     swarm: { agents, messages: events.filter(e => ['MESSAGE_SENT', 'AGENT_MESSAGE', 'TOOL_CALL_COMPLETED'].includes(e.event_type)).map(e => ({ ...e, payload: parse(e.payload_json, {}) })), weightedVotes },
-    evaluations: { runs: runs.map(r => ({ ...r, result: parse(r.result_json, {}) })), brierScore: fleetBrier == null ? null : Number(fleetBrier.toFixed(4)), quorumWeightFormula: '1 / (1 + Brier)' },
+    evaluations: { runs: runs.map(r => ({ ...r, result: parse(r.result_json, {}) })), brierScore: fleetBrier == null ? null : Number(fleetBrier.toFixed(4)), quorumWeightFormula: 'max(0, 1 - 2 * Brier)' },
     provenance,
     notifications: notifications.map(n => ({ ...n, enabled: Boolean(n.enabled), channels: parse(n.channels_json, ['studio']) }))
   };
