@@ -12,12 +12,10 @@ modelRouter.generate = async ({ timeoutMs }) => {
 };
 
 const job = { id: 'job-deadline', models_json: JSON.stringify(['a', 'b']), config_json: '{}', prompt: 'test', timeout_ms: 25, result_json: null };
-jobWorker.executeModelJob(db, job)
-  .then(() => { throw new Error('expected the total model-job deadline to be enforced'); })
-  .then(() => console.log('Model job total deadline checks passed.'))
-  .catch((error) => {
-    assert.equal(error.code, 'MODEL_JOB_TIMEOUT');
-    assert.ok(timeouts.length < 2 || timeouts[1] < timeouts[0], 'each model must receive the remaining total deadline');
-    console.log('Model job total deadline checks passed.');
-  })
-  .finally(() => { modelRouter.generate = originalGenerate; });
+(async () => {
+  let failure;
+  try { await jobWorker.executeModelJob(db, job); } catch (error) { failure = error; }
+  assert.equal(failure?.code, 'MODEL_JOB_TIMEOUT');
+  assert.ok(timeouts.length < 2 || timeouts[1] < timeouts[0], 'each model must receive the remaining total deadline');
+  console.log('Model job total deadline checks passed.');
+})().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => { modelRouter.generate = originalGenerate; });

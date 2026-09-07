@@ -7,7 +7,7 @@ let now = 1000;
 Date.now = () => now;
 modelRouter.generate = async () => { now += 5; return { model: 'test', provider: 'test', text: 'ok' }; };
 const db = {
-  get: async (sql) => sql.includes('SELECT * FROM workflows') ? { id: 'wf', version: 1, status: 'published', metadata_json: JSON.stringify({ workflowTimeoutMs: 1 }), graph_json: JSON.stringify({ nodes: [{ id: 'model', kind: 'model', model: 'test' }], edges: [] }) } : { status: 'running' },
+  get: async (sql) => sql.includes('FROM workflows') ? { id: 'wf', version: 1, status: 'published', metadata_json: JSON.stringify({ workflowTimeoutMs: 1 }), graph_json: JSON.stringify({ nodes: [{ id: 'model', kind: 'model', model: 'test' }], edges: [] }) } : { status: 'running' },
   run: async () => ({ changes: 1 })
 };
 (async () => {
