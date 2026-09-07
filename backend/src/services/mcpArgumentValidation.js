@@ -26,6 +26,7 @@ const REQUIRED_STRINGS = {
 
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
 const NON_NEGATIVE_FIELDS = new Set(['budget_steps', 'exact_match', 'stagnation', 'similarity', 'expected', 'observed', 'tolerance', 'injection_step', 'iteration', 'tokens', 'elapsed', 'uncertainty', 'confidence']);
+const FREEFORM_FIELDS = new Set(['command', 'conditions', 'document', 'query', 'predicate', 'claim', 'source', 'artifact', 'strategies', 'focus', 'request', 'details', 'task', 'role', 'description', 'plan_action', 'expected', 'option_a', 'option_b', 'threat_context', 'target_path', 'target_process', 'target_file', 'action_id', 'payload', 'signals_json', 'intensity_or_signal', 'action_script', 'substrate_signature']);
 const MAX_STRING_LENGTH = 64 * 1024;
 
 function invalid(field, message) {
@@ -63,8 +64,12 @@ function validateToolArguments(toolName, args = {}) {
   }
 
   for (const [field, value] of Object.entries(args)) {
+    if (typeof value === 'string') {
+      if (value.includes('\0') || /[\r\n]/.test(value) || /["'`\\;|&<>$]/.test(value)) return invalid(field, 'contains forbidden command characters.');
+      if (!FREEFORM_FIELDS.has(field) && /\s/.test(value)) return invalid(field, 'must not contain whitespace.');
+    }
     if (ARRAY_FIELDS.has(field) && value !== undefined && !Array.isArray(value)) return invalid(field, 'must be an array.');
-    if (ARRAY_FIELDS.has(field) && Array.isArray(value) && value.some((item) => typeof item !== 'string')) return invalid(field, 'must contain only strings.');
+    if (ARRAY_FIELDS.has(field) && Array.isArray(value) && value.some((item) => typeof item !== 'string' || /[\r\n"'`\\;|&<>$]/.test(item))) return invalid(field, 'must contain only safe strings.');
     if (NON_NEGATIVE_FIELDS.has(field) && value !== undefined) {
       const numeric = Number(value);
       if (!Number.isFinite(numeric) || numeric < 0) return invalid(field, 'must be a finite non-negative number.');
