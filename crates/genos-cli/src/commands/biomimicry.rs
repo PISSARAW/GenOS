@@ -409,7 +409,7 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
                 "expression_level": "UP_REGULATED"
             }));
         }
-        BiomimicrySubcommands::EpigeneticChromatin { agent_id, locus, state } => {
+        BiomimicrySubcommands::EpigeneticChromatin { agent_id, locus, state, pioneer_factor } => {
             let chromatin_state = parse_chromatin_state(&state)?;
             let state_path = chromatin_state_path(&agent_id)?;
             let mut genome = if state_path.exists() {
@@ -418,6 +418,19 @@ pub fn execute(cmd: BiomimicrySubcommands) -> Result<(), String> {
             } else {
                 Genome::new(&agent_id)
             };
+
+            if let Some(existing_gene) = genome.genes.get(&locus) {
+                if existing_gene.chromatin_state == ChromatinState::HeterochromatinConstitutive
+                    && chromatin_state == ChromatinState::Euchromatin
+                    && !pioneer_factor
+                {
+                    return Err(format!(
+                        "Epigenetic Violation: locus '{}' is locked in HeterochromatinConstitutive and cannot be transitioned to Euchromatin without a pioneer_factor",
+                        locus
+                    ));
+                }
+            }
+
             let (is_methylated, developmentally_locked) = {
                 let gene = genome.genes.entry(locus.clone()).or_insert_with(|| Gene::new(&locus, &agent_id));
                 gene.chromatin_state = chromatin_state.clone();
