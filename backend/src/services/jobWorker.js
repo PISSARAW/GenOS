@@ -192,6 +192,8 @@ async function updateCampaignStatus(db, campaignId) {
 
 async function executeModelJob(db, job) {
   const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}');
+  const totalTimeoutMs = Math.max(1, Number(job.timeout_ms) || 30000);
+  const deadlineAt = Date.now() + totalTimeoutMs;
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
   const outputs = Array.isArray(checkpoint.outputs) ? checkpoint.outputs : [];
@@ -201,7 +203,13 @@ async function executeModelJob(db, job) {
     if (completedModels.has(modelKey)) continue;
     await db.run('DELETE FROM model_job_tokens WHERE job_id = ? AND model = ?', job.id, modelKey);
     const tokens = []; const started = Date.now();
-    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: job.timeout_ms, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
+    const remainingTimeout = deadlineAt - Date.now();
+    if (remainingTimeout <= 0) {
+      const error = new Error(`Model job exceeded its total timeout of ${totalTimeoutMs}ms.`);
+      error.code = 'MODEL_JOB_TIMEOUT';
+      throw error;
+    }
+    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
     const output = { model: generated.model || modelKey, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length };
     outputs.push(output);
     completedModels.add(modelKey);
