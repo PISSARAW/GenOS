@@ -8,6 +8,12 @@ pub fn public_tool_specs() -> Vec<Value> {
             .filter(|t| !t.is_empty())
             .collect::<Vec<String>>()
     });
+    let disabled = env::var("GENOS_MCP_DISABLED_TOOLS").ok().map(|s| {
+        s.split(',')
+            .map(|t| t.trim().to_string())
+            .filter(|t| !t.is_empty())
+            .collect::<Vec<String>>()
+    }).unwrap_or_default();
 
     let expose_all = matches!(
         env::var("GENOS_MCP_EXPOSE_ALL").as_deref(),
@@ -209,18 +215,23 @@ pub fn public_tool_specs() -> Vec<Value> {
         })
     ];
 
+    let filter_disabled = |tool: &Value| {
+        let name = tool.get("name").and_then(Value::as_str).unwrap_or("");
+        !disabled.iter().any(|entry| entry == name || name.strip_prefix("genos_") == Some(entry))
+    };
+
     if let Some(ref leased) = lease {
         all_tools
             .into_iter()
             .filter(|t| {
                 let name = t.get("name").and_then(Value::as_str).unwrap_or("");
-                leased.iter().any(|l| l == name || name.strip_prefix("genos_") == Some(l))
+                filter_disabled(t) && leased.iter().any(|l| l == name || name.strip_prefix("genos_") == Some(l))
             })
             .collect()
     } else if expose_all {
-        all_tools
+        all_tools.into_iter().filter(filter_disabled).collect()
     } else {
-        vec![all_tools[0].clone()] // Default to genos_orchestrate only
+        all_tools.into_iter().filter(filter_disabled).take(1).collect()
     }
 }
 
