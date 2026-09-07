@@ -203,9 +203,9 @@ async function decideRollout(req, res, next) {
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
     const metrics = await db.all('SELECT * FROM release_rollout_metrics WHERE rollout_id = ? ORDER BY variant', rollout.id);
     const outcome = decide(metrics, JSON.parse(rollout.config_json), rollout.strategy);
-    await db.run('UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', outcome.status, JSON.stringify(outcome), rollout.id);
-    if (outcome.status === 'promoted') await db.run("UPDATE releases SET status = 'active', environment = 'production', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.release_id);
-    if (outcome.status === 'rolled_back') await db.run("UPDATE releases SET status = 'rolled_back', updated_at = CURRENT_TIMESTAMP WHERE id = ?", rollout.release_id);
+    await db.run(`UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, outcome.status, JSON.stringify(outcome), rollout.id, ...scope.params);
+    if (outcome.status === 'promoted') await db.run(`UPDATE releases SET status = 'active', environment = 'production', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, rollout.release_id, ...scope.params);
+    if (outcome.status === 'rolled_back') await db.run(`UPDATE releases SET status = 'rolled_back', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, rollout.release_id, ...scope.params);
     res.json({ id: rollout.id, strategy: rollout.strategy, metrics, ...outcome });
   } catch (error) { next(error); }
 }
