@@ -3,11 +3,18 @@ const path = require('path');
 const { spawn } = require('child_process');
 const snapshotStore = require('./workspaceSnapshotStore');
 const { terminateChild } = require('./processTermination');
+const { normalizeRelativePath } = require('./pathSafety');
 
 const FORBIDDEN_PARTS = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', 'tests', 'test']);
 const FORBIDDEN_NAMES = /(^|\/)(Cargo\.toml|Cargo\.lock|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|\.env[^/]*|.*\.config\.[^/]+|.*(?:^|[._-])(test|spec)(?:[._-]|$).*|.*secret.*|.*credential.*)$/i;
 function safePath(relative) {
-  return typeof relative === 'string' && relative.length > 0 && relative.length < 240 && !path.isAbsolute(relative) && !relative.split(/[\\/]/).some((part) => !part || part === '.' || part === '..' || FORBIDDEN_PARTS.has(part.toLowerCase())) && !FORBIDDEN_NAMES.test(relative);
+  if (typeof relative !== 'string' || relative.length >= 240 || FORBIDDEN_NAMES.test(relative)) return false;
+  try {
+    const normalized = normalizeRelativePath(relative, 'patch path');
+    return !normalized.split('/').some((part) => FORBIDDEN_PARTS.has(part.toLowerCase()));
+  } catch (_) {
+    return false;
+  }
 }
 function parseProposal(text) {
   const match = String(text || '').match(/\{[\s\S]*\}/);
@@ -39,16 +46,18 @@ async function runTest(command, root) {
 }
 async function executeProposal({ workspaceRoot, text }) {
   const proposal = parseProposal(text);
+  for (const command of proposal.tests) {
+    if (!allowedTest(command, workspaceRoot)) throw new Error(`Test command is not allow-listed: ${command}`);
+  }
   const before = new Map((await snapshotStore.collectFiles(workspaceRoot)).map((file) => [file.path, file.hash]));
   for (const patch of proposal.patches) {
-    const destination = path.resolve(workspaceRoot, patch.path);
+    const destination = path.resolve(workspaceRoot, normalizeRelativePath(patch.path, 'patch path'));
     if (!destination.startsWith(`${path.resolve(workspaceRoot)}${path.sep}`)) throw new Error('Patch escaped its isolated capsule.');
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.writeFile(destination, patch.content, 'utf8');
   }
   const tests = [];
   for (const command of proposal.tests) {
-    if (!allowedTest(command, workspaceRoot)) throw new Error(`Test command is not allow-listed: ${command}`);
     tests.push(await runTest(command, workspaceRoot));
   }
   const after = await snapshotStore.collectFiles(workspaceRoot);
