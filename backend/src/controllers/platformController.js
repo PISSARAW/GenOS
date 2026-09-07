@@ -7,7 +7,7 @@ const { resolveTenant } = require('../middleware/tenant');
 const fs = require('fs');
 const path = require('path');
 const { boundedInteger } = require('./argumentBounds');
-const { validateProviderEndpoint } = require('../services/providerEndpointPolicy');
+const { validateProviderEndpointAsync } = require('../services/providerEndpointPolicy');
 const { normalizeCapabilities } = require('../services/modelCapabilities');
 
 function catalogProviders() {
@@ -68,7 +68,7 @@ async function registerProvider(req, res) {
     return res.status(400).json({ error: { code: error.code, message: error.message } });
   }
   if (provider.endpoint) {
-    try { validateProviderEndpoint(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
+    try { await validateProviderEndpointAsync(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
   }
   const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
   const db = await getDatabase();
