@@ -30,3 +30,18 @@ const emptyProofScore = evidenceScore({
 assert.equal(emptyProofScore, 0, 'Empty proof evidence must score 0');
 
 console.log('✓ Point 1 & Point 3 verified.');
+// Test Point 4: Strict validation of method and trimmed evidence
+const withoutMethod = recovery.proofOfNoAnswer({ noAnswerProof: { evidence: ['valid evidence'] } });
+assert.equal(withoutMethod, null, 'proofOfNoAnswer without method must return null');
+
+const blankMethod = recovery.proofOfNoAnswer({ noAnswerProof: { method: '   ', evidence: ['valid evidence'] } });
+assert.equal(blankMethod, null, 'proofOfNoAnswer with whitespace method must return null');
+
+const blankEvidence = recovery.proofOfNoAnswer({ noAnswerProof: { method: 'enumeration', evidence: ['   ', ''] } });
+assert.equal(blankEvidence, null, 'proofOfNoAnswer with whitespace-only evidence must return null');
+
+const validProof = recovery.proofOfNoAnswer({ noAnswerProof: { method: 'enumeration', evidence: ['  state 1 verified  '] } });
+assert.equal(validProof.method, 'enumeration');
+assert.deepEqual(validProof.evidence, ['state 1 verified']);
+
+console.log('✓ Point 4 verified.');
