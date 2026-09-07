@@ -62,6 +62,16 @@ class CircuitBreakerService {
     return DESTRUCTIVE_TOOLS.includes(toolName);
   }
 
+  argumentSignature(args) {
+    if (args == null) return '';
+    if (typeof args !== 'object') return String(args);
+    try {
+      return JSON.stringify(args);
+    } catch (_) {
+      return '[unserializable-arguments]';
+    }
+  }
+
   checkState(scope = 'global') {
     const state = this.context(scope);
     const now = Date.now();
@@ -90,7 +100,7 @@ class CircuitBreakerService {
     }
 
     // Anti-loop protection: detect identical consecutive executions even for non-destructive tools
-    const argSig = args ? (typeof args === 'object' ? JSON.stringify(args) : String(args)) : '';
+    const argSig = this.argumentSignature(args);
     const callSig = `${toolName}:${argSig}`;
     const history = this.executionHistory.get(scope) || { callSig: '', count: 0 };
 
