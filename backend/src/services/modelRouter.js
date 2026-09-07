@@ -6,11 +6,29 @@ function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
 }
 
+const MODEL_URI = /^(openai|anthropic|gemini|mistral|groq|deepseek|together|openrouter|ollama|lmstudio|vllm|openai-compatible):\/\/[^\s/].+$/;
+
+function validateModelUri(value, field) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !MODEL_URI.test(value.trim())) {
+    const error = new Error(`${field} must be a supported provider URI.`);
+    error.code = 'INVALID_MODEL_ROUTE';
+    throw error;
+  }
+  return value.trim();
+}
+
 function policyFrom(value = {}) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw Object.assign(new Error('Model routing policy must be an object.'), { code: 'INVALID_MODEL_ROUTE' });
+  if (value.fallbacks !== undefined && !Array.isArray(value.fallbacks)) throw Object.assign(new Error('fallbacks must be an array.'), { code: 'INVALID_MODEL_ROUTE' });
+  if (value.parallelReview !== undefined && !Array.isArray(value.parallelReview)) throw Object.assign(new Error('parallelReview must be an array.'), { code: 'INVALID_MODEL_ROUTE' });
+  const primary = validateModelUri(value.primary, 'primary');
+  const fallbacks = (value.fallbacks || []).map((item, index) => validateModelUri(item, `fallbacks[${index}]`)).filter(Boolean);
+  const parallelReview = (value.parallelReview || []).map((item, index) => validateModelUri(item, `parallelReview[${index}]`)).filter(Boolean);
   return {
-    primary: String(value.primary || '').trim() || null,
-    fallbacks: list(value.fallbacks),
-    parallelReview: list(value.parallelReview),
+    primary: primary || null,
+    fallbacks,
+    parallelReview,
     mode: value.mode === 'parallel' ? 'parallel' : 'fallback',
     preferLocal: value.preferLocal === true
   };
@@ -26,8 +44,11 @@ function envPolicy() {
   });
 }
 
-function isLocal(uri) {
-  return /^(ollama|lmstudio|vllm|openai-compatible):\/\//.test(uri);
+function isLocal(uri, endpoint = '') {
+  if (/^(ollama|lmstudio|vllm):\/\//.test(uri)) return true;
+  if (!/^openai-compatible:\/\//.test(uri)) return false;
+  const target = String(endpoint || process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || '').toLowerCase();
+  return /^(http:\/\/localhost|http:\/\/127\.0\.0\.1|http:\/\/0\.0\.0\.0|http:\/\/\[::1\])/.test(target);
 }
 
 function unique(values) { return [...new Set(values.filter(Boolean))]; }
@@ -137,7 +158,7 @@ function parseSize(name) {
   return value * multiplier;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
   const timeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : 30000;
   const deadline = deadlineAt != null
     ? Number(deadlineAt)
@@ -186,7 +207,8 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   const attempt = async (uri) => {
     const configuration = modelProvider.modelConfiguration(uri);
     const registered = db ? await db.get('SELECT endpoint, cost_input, cost_output, latency_ms FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', configuration.provider, configuration.modelName) : null;
-    if (isLocal(uri)) {
+    const localCandidate = isLocal(uri, registered?.endpoint);
+    if (localCandidate) {
       const discovered = await localModelDiscovery.discoverLocalModels();
       if (!registered?.endpoint && discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
         // If not found in cached discovery, try a force refresh before failing
@@ -219,11 +241,15 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
       organizationId,
       projectId,
       seed,
+      stream,
+      signal,
+      displayWidth,
+      displayHeight,
       onToken: (token) => { bufferedTokens.push(token); }
     }), attemptTimeout, uri);
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
-    const enriched = { ...result, model: uri, latencyMs, costUsd, bufferedTokens };
+    const enriched = { ...result, model: uri, requestedModel: uri, servedModel: result.servedModel || result.model || configuration.modelName, endpoint: result.endpoint || registered?.endpoint || discoveredEndpoint || configuration.endpoint, latencyMs, costUsd, bufferedTokens };
     await recordModelUsage(db, { organizationId, projectId }, enriched);
     return enriched;
   };
