@@ -188,6 +188,10 @@ async function applyVersionedMigrations(db) {
     if (table === 'model_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE model_jobs ADD COLUMN claimed_at DATETIME');
     if (table === 'evaluation_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN claimed_at DATETIME');
   }
+    for (const table of ['workflow_runs', 'evaluation_jobs', 'model_jobs']) {
+      const columns = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
+      if (!columns.has('priority')) await db.exec(`ALTER TABLE ${table} ADD COLUMN priority INTEGER NOT NULL DEFAULT 0`);
+    }
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_telemetry_event_id ON telemetry_events(event_id) WHERE event_id IS NOT NULL');
   await migrateDatasetNameConstraint(db);
   await migrateNotificationPreferenceScope(db);
@@ -224,6 +228,9 @@ async function applyVersionedMigrations(db) {
     }
   }
   await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_workflow_runs_queue ON workflow_runs(status, priority DESC, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_evaluation_jobs_queue ON evaluation_jobs(status, priority DESC, created_at ASC);
+    CREATE INDEX IF NOT EXISTS idx_model_jobs_queue ON model_jobs(status, priority DESC, created_at ASC);
     CREATE INDEX IF NOT EXISTS idx_synapses_target ON memory_synapses(target_id);
     CREATE INDEX IF NOT EXISTS idx_synapses_weight ON memory_synapses(weight);
     CREATE INDEX IF NOT EXISTS idx_synapses_pruning ON memory_synapses(c3_opsonization, cd47_expression);
