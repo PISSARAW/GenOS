@@ -52,23 +52,27 @@ function report(input = {}, observer = telemetry) {
 }
 
 function milestoneFromEvent(event = {}, context = {}) {
-  const terminal = new Set(['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED', 'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN']);
+  const terminal = new Set([
+    'AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'AGENT_HALTED',
+    'WORKER_TASK_FAILED', 'WORKER_NO_ANSWER_PROVEN', 'MISSION_NO_ANSWER_PROVEN'
+  ]);
   if (!terminal.has(event.eventType)) return null;
   const success = event.eventType === 'AGENT_COMPLETED';
-  const noAnswer = event.eventType === 'WORKER_NO_ANSWER_PROVEN';
+  const noAnswer = event.eventType === 'WORKER_NO_ANSWER_PROVEN' || event.eventType === 'MISSION_NO_ANSWER_PROVEN';
   const claims = event.payload?.evidenceReport?.claims || event.payload?.claims || [];
   const summary = claims.map((claim) => claim?.statement).filter(Boolean).slice(0, 2).join(' ');
   const actor = context.agentName || context.agentId || 'The agent';
+  const proofMethod = event.payload?.noAnswerProof?.method || event.payload?.evidenceReport?.noAnswerProof?.method;
   return {
-    phase: success ? 'completed' : noAnswer ? 'blocked' : 'blocked',
-    severity: success ? 'info' : 'warning',
+    phase: (success || noAnswer) ? 'completed' : 'blocked',
+    severity: (success || noAnswer) ? 'info' : 'warning',
     message: success
       ? `${actor} finished${summary ? `: ${summary}` : '.'}`
       : noAnswer
-        ? `${actor} proved that no answer exists in the assigned scope.`
+        ? `${actor} proved that no answer exists in the assigned scope${proofMethod ? ` via ${proofMethod}` : ''}.`
         : `${actor} stopped before completion: ${event.detail || 'the runtime reported a failure.'}`,
-    completed: success ? [context.task || 'assigned work'] : [],
-    blockers: success ? [] : [event.detail || event.eventType]
+    completed: (success || noAnswer) ? [context.task || 'assigned work'] : [],
+    blockers: (success || noAnswer) ? [] : [event.detail || event.eventType]
   };
 }
 

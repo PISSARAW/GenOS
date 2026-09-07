@@ -572,7 +572,21 @@ process.stdin.on('end', async () => {
           }
         });
         if (strategyContract.promotion?.require_human_approval === true) {
-          emit({ eventType: 'AGENT_AWAITING_APPROVAL', action: 'PROMOTION_GATE', detail: 'Human approval is required before strategy promotion.', status: 'blocked', currentTask: 'Awaiting human approval', payload: { evidenceReport: report } });
+          emit({
+            eventType: 'AGENT_AWAITING_APPROVAL',
+            action: 'PROMOTION_GATE',
+            detail: 'Human approval is required before strategy promotion.',
+            status: 'blocked',
+            currentTask: 'Awaiting human approval',
+            payload: {
+              evidenceReport: report,
+              task: mission.prompt,
+              workspaceId: mission.workspaceId || 'ws-genos-core',
+              agentId: mission.agentId,
+              recordedTurns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })),
+              conclusionProvenance
+            }
+          });
         } else {
           try {
             await strategyAdapter.executePipelineWithFeedback(

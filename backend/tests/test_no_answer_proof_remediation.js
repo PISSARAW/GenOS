@@ -102,3 +102,24 @@ assert.equal(candidate.adversarialPassRate, 85, 'No-answer candidate must have 8
 assert(candidate.fitnessScore >= 80, `No-answer candidate fitness must be >= 80% (got ${candidate.fitnessScore})`);
 
 console.log('✓ Point 8 verified.');
+// Test Point 9: User progress reporting qualifies no_answer as completed
+const userProgress = require('../src/services/userProgressService');
+const workerMilestone = userProgress.milestoneFromEvent({
+  eventType: 'WORKER_NO_ANSWER_PROVEN',
+  payload: { noAnswerProof: { method: 'finite contradiction' } }
+}, { agentName: 'Analyst', task: 'Evaluate impossibility' });
+assert.equal(workerMilestone.phase, 'completed');
+assert.equal(workerMilestone.severity, 'info');
+assert.deepEqual(workerMilestone.blockers, []);
+assert.deepEqual(workerMilestone.completed, ['Evaluate impossibility']);
+assert.match(workerMilestone.message, /via finite contradiction/);
+
+const missionMilestone = userProgress.milestoneFromEvent({
+  eventType: 'MISSION_NO_ANSWER_PROVEN',
+  payload: { noAnswerProof: { method: 'exhaustive proof' } }
+}, { agentName: 'RootOrchestrator', task: 'Root Mission' });
+assert.equal(missionMilestone.phase, 'completed');
+assert.equal(missionMilestone.severity, 'info');
+
+console.log('✓ Point 9 verified.');
+console.log('=== All No-Answer Proof Remediation Tests Passed Successfully! ===');

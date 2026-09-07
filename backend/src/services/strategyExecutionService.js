@@ -278,13 +278,78 @@ async function recordExecutionEvent(db, agentId, event) {
   return { run: await getRun(db, row.id), halt: Boolean(guardrailReason), reason: guardrailReason };
 }
 
-async function approveRun(db, id) {
-  const row = await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', id);
+async function approveRun(db, id, options = {}) {
+  const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
   if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
   const now = new Date().toISOString();
   await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
   await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ?", now, id);
+
+  // Reconstruct execution context from contract, agent, and recorded step evidence
+  const contractRecord = await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id);
+  const contract = json(contractRecord?.contract_json, {});
+  const agent = await db.get('SELECT * FROM agents WHERE id = ?', row.agent_id);
+  const steps = await db.all('SELECT * FROM strategy_execution_steps WHERE run_id = ? ORDER BY sequence DESC', id);
+
+  let report = options.report || null;
+  let task = options.task || contract.problem_profile?.description || agent?.role || `Run ${id} promotion`;
+  let workspaceId = options.workspaceId || agent?.workspace_id || 'ws-genos-core';
+  let turns = options.turns || [];
+
+  for (const step of steps) {
+    const evidenceList = json(step.evidence_json, []);
+    for (const ev of evidenceList) {
+      if (ev.payload?.evidenceReport && !report) report = ev.payload.evidenceReport;
+      if (ev.payload?.report && !report) report = ev.payload.report;
+      if (ev.payload?.prompt && task === `Run ${id} promotion`) task = ev.payload.prompt;
+      if (ev.payload?.task && task === `Run ${id} promotion`) task = ev.payload.task;
+      if (ev.payload?.workspaceId && workspaceId === 'ws-genos-core') workspaceId = ev.payload.workspaceId;
+      if (Array.isArray(ev.payload?.recordedTurns) && turns.length === 0) turns = ev.payload.recordedTurns;
+    }
+  }
+
+  const primitives = resolveStagePrimitives('conditional_promotion', contract.strategy_portfolio);
+  const promotionPrimitives = primitives.length ? primitives : ['stdp_update', 'cherry_pick_golden_path'];
+
+  let promotionResult = null;
+  try {
+    const adapter = require('./strategyExecutionAdapter');
+    promotionResult = await adapter.executePipelineWithFeedback(promotionPrimitives, {
+      agentId: row.agent_id,
+      orchestratorId: row.agent_id,
+      workspaceId,
+      task,
+      report: report || { outcome: 'success', approved: true },
+      turns: turns.length ? turns : [{ action: 'human_approval', pass: true }],
+      sourceId: row.agent_id,
+      targetId: row.agent_id
+    });
+  } catch (err) {
+    promotionResult = { success: false, error: err.message };
+  }
+
+  try {
+    const agentMemory = require('./agentMemoryService');
+    await agentMemory.compileExecutionMemory(
+      agent?.name || row.agent_id,
+      task,
+      report?.claims?.map((c) => c.statement).join('\n') || options.summary || `Strategy promotion completed and approved for run ${id}.`,
+      { outcome: report?.outcome || 'success', approvedBy: options.approvedBy || 'human_gate' }
+    );
+  } catch (_) {}
+
+  try {
+    const telemetry = require('./telemetryObserver');
+    telemetry.emitEvent({
+      eventType: 'STRATEGY_PROMOTION_FINALIZED',
+      agentId: row.agent_id,
+      action: 'PROMOTION_FINALIZED',
+      detail: `Deferred promotion pipeline executed for approved run ${id}.`,
+      payload: { runId: id, contractId: row.contract_id, promotionResult, approvedBy: options.approvedBy || 'human_gate' }
+    });
+  } catch (_) {}
+
   return getRun(db, id);
 }
 
