@@ -294,33 +294,46 @@ async function removeWorkspaceFiles(workspacePath) {
   for (const directory of directories.sort((a, b) => b.length - a.length)) await fsp.rm(directory, { recursive: true, force: true });
 }
 
+async function copyMaterializedFiles(sourceRoot, files, destination) {
+  for (const file of files) {
+    const source = containedJoin(sourceRoot, file.path);
+    const target = containedJoin(destination, file.path);
+    await fsp.mkdir(path.dirname(target), { recursive: true });
+    await fsp.copyFile(source, target);
+    await fsp.chmod(target, file.mode).catch(() => {});
+  }
+}
+
 async function restore({ db, workspace, reference, author = 'studio' }) {
   const target = await getSnapshot(db, workspace.id, reference);
   const backup = await capture({ db, workspace, label: 'Pre-restore safety snapshot', reason: `Before restoring ${target.id}`, author });
 
   const staging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-'));
+  const backupStaging = await fsp.mkdtemp(path.join(os.tmpdir(), 'genos-restore-backup-'));
   try {
-    await materialize(target, staging);
+    const verified = await materialize(target, staging);
+    await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id }, backupStaging);
     await removeWorkspaceFiles(workspace.path);
-    const verified = await readManifest(target);
-    for (const file of verified.files) {
-      const source = containedJoin(staging, file.path);
-      const destinationPath = containedJoin(workspace.path, file.path);
-      await fsp.mkdir(path.dirname(destinationPath), { recursive: true });
-      await fsp.copyFile(source, destinationPath);
-      await fsp.chmod(destinationPath, file.mode).catch(() => {});
+    await copyMaterializedFiles(staging, verified.files, workspace.path);
+    if (manifestHash(await collectFiles(workspace.path)) !== verified.hash) {
+      throw new Error(`Snapshot restore checksum mismatch for ${workspace.path}.`);
     }
     return { success: true, restoredSnapshot: target, safetySnapshot: backup, strategy: 'manifest-copy' };
   } catch (error) {
     try {
       await removeWorkspaceFiles(workspace.path);
-      await materialize({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id }, workspace.path);
+      const backupManifest = await readManifest({ metadata: backup.metadata, snapshot_hash: backup.snapshotHash, id: backup.id });
+      await copyMaterializedFiles(backupStaging, backupManifest.files, workspace.path);
+      if (manifestHash(await collectFiles(workspace.path)) !== backupManifest.hash) {
+        throw new Error(`Safety snapshot checksum mismatch for ${workspace.path}.`);
+      }
     } catch (rollbackError) {
       error.message += ` Recovery snapshot restore also failed: ${rollbackError.message}`;
     }
     throw error;
   } finally {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+    await fsp.rm(backupStaging, { recursive: true, force: true }).catch(() => {});
   }
 }
 
