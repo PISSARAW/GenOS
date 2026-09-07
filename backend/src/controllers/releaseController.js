@@ -42,7 +42,22 @@ async function promote(req, res, next) {
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
     const active = await db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'running'", release.id);
     if (active) return res.status(409).json({ error: { code: 'ROLLOUT_IN_PROGRESS', message: 'Decide the active rollout before promotion.' } });
+    
     const environment = req.body?.environment || 'production';
+
+    if (environment === 'production') {
+      if (['draft', 'pending', 'failed', 'rolled_back'].includes(release.status)) {
+        return res.status(400).json({ error: { code: 'INVALID_RELEASE_STATUS', message: `Cannot promote release in status ${release.status} to production.` } });
+      }
+
+      const promotedRollout = await db.get("SELECT id FROM release_rollouts WHERE release_id = ? AND status = 'promoted'", release.id);
+      const isOverride = req.body?.force === true && typeof req.body?.overrideReason === 'string' && req.body.overrideReason.length > 0;
+
+      if (!promotedRollout && !isOverride) {
+        return res.status(403).json({ error: { code: 'ROLLOUT_REQUIRED', message: 'Promotion to production requires a successful rollout or an explicit force override with overrideReason.' } });
+      }
+    }
+
     const scope = scopeSql(req);
     await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', release.id, ...scope.params);
     res.json({ id: release.id, status: 'active', environment });
