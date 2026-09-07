@@ -49,8 +49,7 @@ module.exports = {
       startPromise.catch(async (error) => {
         await db.run("UPDATE agents SET status='idle', current_task=?, updated_at=CURRENT_TIMESTAMP WHERE id=?", `Dispatch failed: ${error.message}`, worker_id).catch(() => {});
       });
-      const result = await Promise.race([startPromise, new Promise((resolve) => setTimeout(() => resolve({ queued: true }), 25))]);
-      startPromise.catch((error) => console.error(`[gRPC] Worker ${worker_id} failed:`, error.message));
+      await startPromise;
       callback(null, {
         success: true,
         status: `Worker ${worker_id} dispatched for ${orchestrator_id}`,
