@@ -1,8 +1,6 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
-const { withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
-const telemetry = require('../services/telemetryObserver');
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
 function number(value, fallback = 0) {
@@ -72,15 +70,7 @@ async function rollback(req, res, next) {
     const release = await scopedRelease(db, req, req.params.id);
     if (!release) return res.status(404).json({ error: { code: 'RELEASE_NOT_FOUND', message: 'Release is outside the tenant scope.' } });
     if (release.status === 'rolled_back') return res.status(409).json({ error: { code: 'RELEASE_ALREADY_ROLLED_BACK', message: 'Release is already rolled back.' } });
-    const scope = scopeSql(req);
-    const result = await withTransaction(db, async (tx) => {
-      const updated = await tx.run(`UPDATE releases SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, 'rolled_back', release.id, ...scope.params);
-      if (updated.changes !== 1) throw new Error('Release rollback lost its tenant-scoped row.');
-      const rollouts = await tx.run("UPDATE release_rollouts SET status = 'rolled_back', updated_at = CURRENT_TIMESTAMP WHERE release_id = ? AND status IN ('running', 'paused')", release.id);
-      return { rolloutCount: rollouts.changes || 0 };
-    });
-    telemetry.emitEvent({ eventType: 'RELEASE_ROLLED_BACK', agentId: req.user?.username || 'release_controller', action: 'ROLLBACK', detail: `Release ${release.id} marked rolled back.`, severity: 'warning', payload: { releaseId: release.id, rolloutCount: result.rolloutCount } });
-    res.json({ id: release.id, status: 'rolled_back', ...result });
+    return res.status(501).json({ error: { code: 'RELEASE_ROLLBACK_UNAVAILABLE', message: 'Release rollback requires a deployment adapter; no production state was changed.' }, id: release.id });
   } catch (error) { next(error); }
 }
 
