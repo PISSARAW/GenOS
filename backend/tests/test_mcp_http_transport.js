@@ -80,8 +80,42 @@ async function testNotificationFailure() {
   }
 }
 
+async function testMultilineSse() {
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      const message = JSON.parse(body || '{}');
+      if (message.method === 'initialize') {
+        response.writeHead(200, { 'content-type': 'text/event-stream', 'mcp-session-id': 'sse-session' });
+        response.end('data: {"jsonrpc":"2.0","id":' + message.id + ',"result":{\n' + 'data: "protocolVersion":"2025-06-18","capabilities":{},"serverInfo":{}}}\n\n');
+        return;
+      }
+      if (message.method === 'notifications/initialized') {
+        response.writeHead(202);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.end('data: {"jsonrpc":"2.0","id":' + message.id + ',"result":{}}\n\n');
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const previousUrl = process.env.GENOS_MCP_URL;
+  try {
+    process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 1000 });
+    assert.deepStrictEqual(result.output, {});
+  } finally {
+    if (previousUrl === undefined) delete process.env.GENOS_MCP_URL;
+    else process.env.GENOS_MCP_URL = previousUrl;
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 main()
   .then(testNotificationFailure)
+  .then(testMultilineSse)
   .then(() => console.log('MCP HTTP notification failure checks passed.'))
   .catch((error) => {
   console.error(error);

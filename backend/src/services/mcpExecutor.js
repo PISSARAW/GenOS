@@ -56,12 +56,14 @@ async function readMcpHttpResponse(response) {
   const text = await response.text();
   const payloads = [];
   for (const event of text.split(/\r?\n\r?\n/)) {
-    for (const line of event.split(/\r?\n/)) {
-      if (!line.startsWith('data:')) continue;
-      const data = line.slice(5).trim();
-      if (!data || data === '[DONE]') continue;
-      try { payloads.push(JSON.parse(data)); } catch (_) {}
-    }
+    const data = event.split(/\r?\n/)
+      .filter((line) => line.startsWith('data:'))
+      .map((line) => line.slice(5).replace(/^ /, ''))
+      .join('\n')
+      .trim();
+    if (!data || data === '[DONE]') continue;
+    try { payloads.push(JSON.parse(data)); }
+    catch (_) { throw new Error('MCP HTTP SSE response contained invalid JSON-RPC data.'); }
   }
   if (!payloads.length) throw new Error('MCP HTTP SSE response contained no JSON-RPC payload.');
   return payloads[payloads.length - 1];
@@ -147,7 +149,9 @@ async function callStdio(transport, toolName, options = {}) {
     buffer = lines.pop() || '';
     for (const line of lines) {
       if (!line.trim()) continue;
-      let payload; try { payload = JSON.parse(line); } catch (_) { continue; }
+      let payload;
+      try { payload = JSON.parse(line); }
+      catch (_) { throw new Error(`MCP STDIO returned invalid JSON-RPC data: ${line.slice(0, 200)}`); }
       if (pending && payload.id === pending.id) {
         const { resolve, timer } = pending;
         pending = null;
