@@ -122,10 +122,7 @@ async function trailSelection(context) {
     const excludeRepellent = Boolean(context.excludeRepellent || context.exclude_repellent || context.avoidRepellent || context.avoid_repellent);
     let candidateTrails = sortedTrails;
     if (excludeRepellent) {
-      const nonRepellent = sortedTrails.filter(t => trailStrengths[t] > 0);
-      if (nonRepellent.length > 0) {
-        candidateTrails = nonRepellent;
-      }
+      candidateTrails = sortedTrails.filter(t => trailStrengths[t] > 0);
     }
 
     let mode = String(context.mode || context.selection_mode || '').toLowerCase();
