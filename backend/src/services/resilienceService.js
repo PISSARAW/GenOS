@@ -273,8 +273,15 @@ async function freezeCryptobiosisInDatabase(db, workspaceId = 'fleet', reason = 
   const state = snapshotState(statePayload);
   
   if (db) {
+    if (workspaceId) {
+      const workspace = await db.get('SELECT id FROM workspaces WHERE id = ?', workspaceId);
+      if (!workspace) workspaceId = null;
+    }
     const agents = state.agents || [];
-    let agentId = agents[0]?.id;
+    let agentId = agents[0]?.id || state.agentId;
+    if (agentId && !(await db.get('SELECT id FROM agents WHERE id = ?', agentId))) {
+      await db.run("INSERT OR IGNORE INTO agents(id, workspace_id, name, role, status) VALUES (?, ?, ?, 'System', 'idle')", agentId, workspaceId, agentId);
+    }
     if (!agentId) {
       agentId = 'agent_system';
       const existing = await db.get('SELECT id FROM agents WHERE id = ?', agentId);
