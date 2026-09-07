@@ -216,6 +216,7 @@ mod tests {
             daughter_volume: 0.5,
             merozoite_count: 2,
             hayflick_limit: None,
+            genes: Some(r#"{"role":"worker","efficiency":"0.95"}"#.to_string()),
             seed: Some("test-seed".to_string()),
         });
         assert!(res_mitosis.is_ok());
@@ -227,6 +228,7 @@ mod tests {
             daughter_volume: 0.5,
             merozoite_count: 2,
             hayflick_limit: None,
+            genes: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_fission.is_ok());
@@ -238,6 +240,7 @@ mod tests {
             daughter_volume: 0.5,
             merozoite_count: 4,
             hayflick_limit: None,
+            genes: None,
             seed: Some("test-seed".to_string()),
         });
         assert!(res_meiosis.is_ok());
@@ -249,6 +252,7 @@ mod tests {
             daughter_volume: 0.3,
             merozoite_count: 4,
             hayflick_limit: Some(10),
+            genes: Some(r#"{"tool_a":"genos_inspect","tool_b":"genos_verify"}"#.to_string()),
             seed: Some("test-seed".to_string()),
         });
         assert!(res_budding.is_ok());
@@ -260,6 +264,7 @@ mod tests {
             daughter_volume: 0.5,
             merozoite_count: 4,
             hayflick_limit: None,
+            genes: None,
             seed: Some("test-schizogony-seed".to_string()),
         });
         assert!(res_schizogony.is_ok());
@@ -348,6 +353,7 @@ mod tests {
             daughter_volume: 0.25,
             merozoite_count: 1,
             hayflick_limit: Some(5),
+            genes: None,
             seed: None,
         });
         assert!(res.is_ok());
@@ -359,8 +365,27 @@ mod tests {
             daughter_volume: 1.5,
             merozoite_count: 1,
             hayflick_limit: Some(5),
+            genes: None,
             seed: None,
         });
         assert!(res_invalid.is_ok());
+    }
+
+    #[test]
+    fn test_cell_division_gene_inheritance() {
+        use crate::args::EvolutionSubcommands;
+        use crate::commands::reproduction;
+
+        let res = reproduction::execute(EvolutionSubcommands::Division {
+            agent_id: "agent_parent_inherited".to_string(),
+            mode: "budding".to_string(),
+            mutation_rate: 0.0,
+            daughter_volume: 0.25,
+            merozoite_count: 1,
+            hayflick_limit: Some(10),
+            genes: Some(r#"{"cognition_engine":"deep_thought","policy_safety":"0.99"}"#.to_string()),
+            seed: Some("repro-inheritance-seed".to_string()),
+        });
+        assert!(res.is_ok());
     }
 }

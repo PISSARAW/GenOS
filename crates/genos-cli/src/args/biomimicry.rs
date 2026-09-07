@@ -214,6 +214,14 @@ pub enum BiomimicrySubcommands {
         #[arg(long, default_value_t = 37.0)]
         temperature: f64,
     },
+    NetworkQuorum {
+        #[arg(long)]
+        agent_id: String,
+        #[arg(long)]
+        threshold: f64,
+        #[arg(long)]
+        action_id: String,
+    },
 }
 
 #[derive(Args, Debug)]
@@ -263,6 +271,8 @@ pub enum EvolutionSubcommands {
         merozoite_count: usize,
         #[arg(long)]
         hayflick_limit: Option<u32>,
+        #[arg(long)]
+        genes: Option<String>,
         #[arg(long)]
         seed: Option<String>,
     },

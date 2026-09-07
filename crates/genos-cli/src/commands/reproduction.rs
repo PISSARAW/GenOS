@@ -15,8 +15,8 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
         EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, speciation_threshold, genes_a, genes_b, seed } => {
             handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, speciation_threshold, genes_a.as_deref(), genes_b.as_deref(), seed.as_deref());
         }
-        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed } => {
-            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, seed.as_deref());
+        EvolutionSubcommands::Division { agent_id, mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, genes, seed } => {
+            handle_division(&agent_id, &mode, mutation_rate, daughter_volume, merozoite_count, hayflick_limit, genes.as_deref(), seed.as_deref());
         }
         EvolutionSubcommands::Phylogeny { action, genome_a, genome_b, mutation_rate, is_plant } => {
             handle_phylogeny(&action, &genome_a, genome_b.as_deref(), mutation_rate, is_plant);
