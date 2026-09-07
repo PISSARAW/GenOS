@@ -56,6 +56,12 @@ async function main() {
     assert.equal(webhooks.accepts({ events: '["AGENT_COMPLETED"]' }, { eventType: 'AGENT_COMPLETED' }), true);
     assert.equal(webhooks.accepts({ events: '["AGENT_COMPLETED"]' }, { eventType: 'AGENT_FAILED' }), false);
     assert.equal(webhooks.accepts({ events: '["*"]' }, { eventType: 'ANYTHING' }), true);
+    assert.equal(snapshots.isAllowedTestCommand('npm test -- backend/tests/test_backend.js'), true);
+    assert.equal(snapshots.isAllowedTestCommand('cargo test --workspace'), true);
+    assert.equal(snapshots.isAllowedTestCommand('node -e "process.exit(1)"'), false);
+    assert.equal(snapshots.isAllowedTestCommand('npx @attacker/pkg'), false);
+    assert.equal(snapshots.isAllowedTestCommand('npm test & whoami'), false);
+    assert.equal(snapshots.isAllowedTestCommand('cargo test; whoami'), false);
     console.log('Snapshot and webhook logic: all assertions passed.');
   } finally {
     await fs.rm(root, { recursive: true, force: true });
