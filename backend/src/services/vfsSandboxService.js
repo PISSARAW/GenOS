@@ -99,6 +99,9 @@ function getToolSchema(toolName) {
  * Calculates Blast Radius Risk Score (0 - 100) based on simulated side-effects
  */
 function calculateBlastRadius(filesModified, isDestructive, requiredRole) {
+  if (!Number.isFinite(filesModified) || !Number.isInteger(filesModified) || filesModified < 0) {
+    throw new TypeError('filesModified must be a non-negative integer.');
+  }
   let score = 5; // Baseline read risk
   score += Math.min(45, filesModified * 15);
   if (isDestructive) score += 35;
