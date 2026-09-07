@@ -7,6 +7,8 @@ async function testTimeoutNormalization() {
   assert.strictEqual(mcpExecutor.normalizeMcpTimeout(Number.NaN), 30000);
   assert.strictEqual(mcpExecutor.normalizeMcpTimeout(12.9), 12);
   assert.strictEqual(mcpExecutor.normalizeMcpTimeout(Number.MAX_SAFE_INTEGER), 1800000);
+  const environment = mcpExecutor.mcpTransportEnvironment('genos_snapshot', 'C:/repo', 'C:/workspace');
+  assert.strictEqual(environment.GENOS_MCP_LEASE, 'genos_snapshot');
 }
 
 async function testStdioTimeout() {
