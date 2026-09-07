@@ -1,4 +1,5 @@
 const inferenceGateway = require('./inferenceGatewayService');
+const { validateProviderEndpoint } = require('./providerEndpointPolicy');
 const fs = require('fs');
 const path = require('path');
 
@@ -51,6 +52,31 @@ function resolveProviderApiKey(provider) {
   }
 }
 
+function assertSafeProviderEndpoint(endpoint) {
+  let parsed;
+  try { parsed = new URL(String(endpoint)); } catch (_) { throw new Error('Model provider endpoint must be a valid URL.'); }
+  const hostname = parsed.hostname.toLowerCase();
+  const blocked = hostname === 'metadata.google.internal'
+    || hostname === '169.254.169.254'
+    || hostname === '100.100.100.200'
+    || /^169\.254\.(?:\d{1,3}\.)\d{1,3}$/.test(hostname);
+  if (blocked) throw new Error('Model provider endpoint targets a blocked metadata or link-local address.');
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Model provider endpoint must use HTTP or HTTPS.');
+  return endpoint;
+}
+
+function validateProviderEndpoint(endpoint, { localOnly = false } = {}) {
+  const parsed = new URL(String(endpoint));
+  if (localOnly) {
+    const host = parsed.hostname.toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || host === '::1';
+    if (!isLocalHost) throw new Error('Local model providers must use a loopback endpoint.');
+  } else if (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(parsed.hostname.toLowerCase())) {
+    throw new Error('Remote model providers must use HTTPS endpoints.');
+  }
+  return endpoint;
+}
+
 function modelConfiguration(model) {
   const uri = configuredModel(model);
   const match = uri.match(/^([\w-]+):\/\/(.+)$/);
@@ -72,7 +98,9 @@ function modelConfiguration(model) {
                   : provider === 'lmstudio' ? (process.env.GENOS_LMSTUDIO_ENDPOINT || 'http://localhost:1234/v1/chat/completions')
                     : provider === 'vllm' ? (process.env.GENOS_VLLM_ENDPOINT || 'http://localhost:8000/v1/chat/completions')
                       : (process.env.GENOS_OPENAI_COMPATIBLE_ENDPOINT || process.env.GENOS_MODEL_ENDPOINT || 'https://api.openai.com/v1/chat/completions');
-  return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
+    validateProviderEndpoint(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
+    assertSafeProviderEndpoint(endpoint);
+    return { uri, provider, modelName, endpoint, configured: local || Boolean(apiKey), keySource: apiKey ? `${provider.toUpperCase()}_API_KEY` : null };
 }
 
 async function generate({ model, prompt = '', onToken = () => {}, timeoutMs = 30000, maxTokens, endpoint: endpointOverride, priority = 'bulk', agentId, organizationId, projectId, seed, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
@@ -136,6 +164,8 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const configuration = modelConfiguration(model);
     const { uri: resolvedModel, provider, modelName, endpoint: configuredEndpoint, configured: isConfigured } = configuration;
     const endpoint = endpointOverride || configuredEndpoint;
+    validateProviderEndpoint(endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider) });
+    assertSafeProviderEndpoint(endpoint);
     const apiKey = resolveProviderApiKey(provider);
     if (!isConfigured || (!apiKey && !['ollama', 'lmstudio', 'vllm', 'openai-compatible'].includes(provider))) throw new Error(`No API key configured for model ${resolvedModel}.`);
     const headers = { 'Content-Type': 'application/json' };
@@ -201,4 +231,4 @@ function getModelStatus(model) {
   } catch (error) { return { configured: false, apiKeyConfigured: false, error: error.message }; }
 }
 
-module.exports = { generate, tokenize, configuredModel, modelConfiguration, getModelStatus };
+module.exports = { generate, tokenize, configuredModel, modelConfiguration, getModelStatus, assertSafeProviderEndpoint };
