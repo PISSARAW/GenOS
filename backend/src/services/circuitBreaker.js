@@ -37,6 +37,7 @@ class CircuitBreakerService {
     this.halfOpenProbe = null;
     this.scopedStates = new Map();
     this.executionHistory = new Map();
+    this.maxExecutionScopes = 1000;
     this.maxConsecutiveToolCalls = 6;
   }
 
@@ -109,6 +110,10 @@ class CircuitBreakerService {
     } else {
       history.callSig = callSig;
       history.count = 1;
+    }
+    if (!this.executionHistory.has(scope) && this.executionHistory.size >= this.maxExecutionScopes) {
+      const oldestScope = this.executionHistory.keys().next().value;
+      this.executionHistory.delete(oldestScope);
     }
     this.executionHistory.set(scope, history);
 
