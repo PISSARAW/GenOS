@@ -43,7 +43,7 @@ async function listTools(req, res) {
 }
 
 async function testTool(req, res) {
-  const { toolName = 'genos_inspect', args = {} } = req.body || {};
+  const { toolName = 'genos_inspect', args = {}, timeoutMs } = req.body || {};
   const db = await getDatabase();
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return res.status(404).json({ success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` });
@@ -61,7 +61,7 @@ async function testTool(req, res) {
   const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer', 'global', args);
   if (!check.allowed) return res.status(503).json({ success: false, status: 'blocked', error: check.message });
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 15000 });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs, 15000) });
     if (result.success) circuitBreaker.recordSuccess(toolName);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || 'MCP test failed.');
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
@@ -110,7 +110,7 @@ async function equipTool(req, res) {
 }
 
 async function executeTool(req, res) {
-  const { toolName, args = {} } = req.body || {};
+  const { toolName, args = {}, timeoutMs } = req.body || {};
   const userRole = (req.user && req.user.role) || 'viewer';
 
   // Zero Trust gate is deliberately before the circuit breaker: a healthy
@@ -146,7 +146,7 @@ async function executeTool(req, res) {
   }
 
   try {
-    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 30000 });
+    const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs) });
     if (result.success) circuitBreaker.recordSuccess(toolName);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`);
     telemetry.emitEvent({ eventType: result.success ? 'MCP_TOOL_EXECUTED' : 'MCP_TOOL_EXECUTION_FAILED', agentId, action: 'MCP_EXECUTE', detail: result.success ? `Executed '${toolName}' over ${result.transport}.` : (result.error || `MCP tool '${toolName}' failed.`), severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
