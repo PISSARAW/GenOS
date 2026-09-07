@@ -6,8 +6,8 @@ function maxOutputBytes(value = process.env.GENOS_MAX_PROCESS_OUTPUT_BYTES) {
 }
 
 function appendBounded(current, chunk, limit = maxOutputBytes()) {
-  const next = `${current || ''}${chunk || ''}`;
-  return next.length <= limit ? next : next.slice(-limit);
+  const next = Buffer.concat([Buffer.from(String(current || '')), Buffer.from(String(chunk || ''))]);
+  return next.length <= limit ? next.toString('utf8') : next.subarray(next.length - limit).toString('utf8');
 }
 
 module.exports = { DEFAULT_MAX_OUTPUT_BYTES, maxOutputBytes, appendBounded };
