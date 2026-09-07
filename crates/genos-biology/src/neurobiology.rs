@@ -53,6 +53,12 @@ pub enum SpineMorphology {
     Mushroom,  // Épine de mémoire consolidée, large tête PSD-95, haute densité AMPA, protégée par CD47
 }
 
+/// Seuil d'opsonisation par le complément C3 au-delà duquel l'élimination est enclenchée ("Eat Me")
+pub const C3_PRUNING_THRESHOLD: f64 = 0.5;
+
+/// Seuil d'expression du signal de protection CD47 en deçà duquel l'élimination est permise ("Don't Eat Me")
+pub const CD47_PROTECTION_THRESHOLD: f64 = 0.5;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DendriticSpine {
     pub source_id: String,             // L'axone afférent du neurone voisin
@@ -275,7 +281,7 @@ impl DendriticTree {
             let initial_len = compartment.spines.len();
             compartment.spines.retain(|s| {
                 s.receptor_density > minimum_density
-                    && !(s.c3_opsonization > 0.8 && s.cd47_expression < 0.2)
+                    && !(s.c3_opsonization > C3_PRUNING_THRESHOLD && s.cd47_expression < CD47_PROTECTION_THRESHOLD)
             });
             pruned_count += initial_len - compartment.spines.len();
         }
@@ -649,8 +655,8 @@ impl NervousSystem {
         }
 
         // 4. Nettoyage : On détruit définitivement les synapses mortes (weight <= 0)
-        // ou phagocytées suite au marquage opsonisant ("Eat Me" C3 > 0.8 et "Don't Eat Me" CD47 < 0.2)
-        self.axon.terminals.retain(|s| s.weight > 0.0 && !(s.c3_opsonization > 0.8 && s.cd47_expression < 0.2));
+        // ou phagocytées suite au marquage opsonisant ("Eat Me" C3 > 0.5 et "Don't Eat Me" CD47 < 0.5)
+        self.axon.terminals.retain(|s| s.weight > 0.0 && !(s.c3_opsonization > C3_PRUNING_THRESHOLD && s.cd47_expression < CD47_PROTECTION_THRESHOLD));
     }
 }
 

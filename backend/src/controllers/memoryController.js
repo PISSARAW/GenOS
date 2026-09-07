@@ -276,22 +276,25 @@ async function sleepCycle(req, res, next) {
 
 async function pruneSynapses(req, res, next) {
   try {
-    const { agentId, threshold = 0.5, scale = 1.0 } = req.body || {};
+    const { agentId, threshold = 0.5, scale = 1.0, c3Threshold = 0.5, cd47Threshold = 0.5 } = req.body || {};
     const db = await getDatabase();
     const th = Number(threshold) * Number(scale);
+    const c3Th = Number(c3Threshold);
+    const cd47Th = Number(cd47Threshold);
 
     let resDb;
     if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
       resDb = await db.run(`
         DELETE FROM memory_synapses
-        WHERE ABS(weight) < ?
+        WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))
           AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?)
                OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))
-      `, th, agentId, agentId);
+      `, th, c3Th, cd47Th, agentId, agentId);
     } else {
       resDb = await db.run(`
-        DELETE FROM memory_synapses WHERE ABS(weight) < ?
-      `, th);
+        DELETE FROM memory_synapses
+        WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))
+      `, th, c3Th, cd47Th);
     }
 
     const prunedCount = resDb?.changes || 0;
@@ -300,6 +303,8 @@ async function pruneSynapses(req, res, next) {
       operation: 'agent_prune',
       agent_id: agentId || 'global',
       threshold: th,
+      c3_threshold: c3Th,
+      cd47_threshold: cd47Th,
       pruned_synapses: prunedCount
     });
   } catch (err) {
