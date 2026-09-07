@@ -397,6 +397,11 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
     autonomyPlan.completedWorkerIds = dossiers.map((dossier) => dossier.workerId);
     autonomyPlan.dispatchWorkers = [];
     autonomyPlan.mandatoryTools = (autonomyPlan.mandatoryTools || []).filter((tool) => !delegationTools.has(tool));
+    emit(agentId, 'WORKER_EVIDENCE_DOSSIERS_ATTACHED', 'ATTACH_DOSSIERS', `Persisted and attached ${dossiers.length} worker evidence dossiers to synthesis prompt.`, {
+      workerIds: autonomousWorkers.map((worker) => worker.agentId),
+      dossierCount: dossiers.length,
+      dossiers
+    }, 'info', 'running');
     emit(agentId, 'WORKER_EVIDENCE_BARRIER_SATISFIED', 'SYNTHESIZE', 'Every delegated worker is terminal and all collected dossiers were attached to the official root synthesis.', {
       workerIds: autonomousWorkers.map((worker) => worker.agentId),
       dossierCount: dossiers.length,
