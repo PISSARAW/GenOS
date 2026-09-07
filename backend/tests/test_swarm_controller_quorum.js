@@ -35,8 +35,8 @@ test('swarmController quorum and abstention semantics', async (t) => {
     const db = await getDatabase();
     const ws1 = `ws-test-${Date.now()}-1`;
     const ws2 = `ws-test-${Date.now()}-2`;
-    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'ws1', '/ws1')", ws1);
-    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, 'ws2', '/ws2')", ws2);
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)", ws1, `ws-name-${ws1}`, `/path/${ws1}`);
+    await db.run("INSERT INTO workspaces (id, name, path) VALUES (?, ?, ?)", ws2, `ws-name-${ws2}`, `/path/${ws2}`);
 
     // Insert agents in ws1: 1 running, 1 idle, 1 Active, 1 terminated
     await db.run("INSERT INTO agents (id, name, workspace_id, status, role) VALUES (?, 'a1', ?, 'running', 'worker')", `ag-1-${Date.now()}`, ws1);
@@ -53,5 +53,18 @@ test('swarmController quorum and abstention semantics', async (t) => {
 
     const countWs2 = await getActiveNodeCount(db, ws2, null);
     assert.strictEqual(countWs2, 2, 'Should count 2 agents in ws2 without leakage from ws1');
+  });
+
+  await t.test('hasBeenRejected detects mathematically impossible approval', () => {
+    // 10 active nodes, approvalThreshold = 0.60
+    // Case 1: 0 yes, 5 no, 5 total votes out of 10 nodes. Remaining votes = 5.
+    // Max possible yes = 5. Max possible valid = 10. Max approval = 5/10 = 50% < 60% -> REJECTED!
+    const rejected = hasBeenRejected(0, 5, 5, 10, 0.60);
+    assert.strictEqual(rejected, true);
+
+    // Case 2: 3 yes, 2 no, 5 total votes out of 10 nodes. Remaining = 5.
+    // Max possible yes = 8. Max valid = 10. Max approval = 80% >= 60% -> NOT rejected yet.
+    const notYetRejected = hasBeenRejected(3, 2, 5, 10, 0.60);
+    assert.strictEqual(notYetRejected, false);
   });
 });

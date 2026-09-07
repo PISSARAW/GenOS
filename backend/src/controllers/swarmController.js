@@ -171,7 +171,7 @@ async function getConsensus(req, res) {
 }
 
 async function createProposal(req, res) {
-  const { title, description, quorumThreshold = 0.66, workspaceId = 'ws-genos-core', consensusType = 'simple' } = req.body || {};
+  const { title, description, quorumThreshold = 0.66, workspaceId = 'ws-genos-core', consensusType = 'simple', expiresAt: inputExpiresAt, ttlHours } = req.body || {};
   const safeTitle = sanitizeString(String(title || 'Swarm Proposal')).trim();
   const safeDescription = sanitizeString(String(description || ''));
   const safeProposer = sanitizeString(String(req.user?.username || 'operator')).trim();
@@ -182,6 +182,15 @@ async function createProposal(req, res) {
   if (!safeTitle || !Number.isFinite(threshold) || threshold <= 0 || threshold > 1) {
     return res.status(400).json({ error: { code: 'INVALID_PROPOSAL', message: 'A title and a quorumThreshold in (0, 1] are required.' } });
   }
+
+  let expiresAt = null;
+  if (inputExpiresAt) {
+    const parsed = new Date(inputExpiresAt);
+    if (!isNaN(parsed.getTime())) expiresAt = parsed.toISOString();
+  } else if (Number.isFinite(Number(ttlHours)) && Number(ttlHours) > 0) {
+    expiresAt = new Date(Date.now() + Number(ttlHours) * 3600000).toISOString();
+  }
+
   const id = `prop-${Date.now()}`;
 
   const db = await getDatabase();
@@ -192,19 +201,19 @@ async function createProposal(req, res) {
     return res.status(404).json({ error: { code: 'WORKSPACE_NOT_FOUND', message: 'Workspace was not found in the current scope.' } });
   }
   await db.run(
-    `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold, consensus_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, workspaceId, proposerAgentId, safeProposer, safeTitle, safeDescription, 'open', threshold, safeConsensusType
+    `INSERT INTO swarm_proposals (id, workspace_id, proposer_agent_id, proposer_name, title, description, status, quorum_threshold, consensus_type, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, workspaceId, proposerAgentId, safeProposer, safeTitle, safeDescription, 'open', threshold, safeConsensusType, expiresAt
   );
 
   telemetry.emitEvent({
     eventType: 'QUORUM_PROPOSAL_CREATED',
     agentId: safeProposer,
     action: 'PROPOSE_QUORUM',
-    detail: `New swarm consensus proposal created: ${safeTitle} (${safeConsensusType})`,
+    detail: `New swarm consensus proposal created: ${safeTitle} (${safeConsensusType})${expiresAt ? ` [expires: ${expiresAt}]` : ''}`,
     severity: 'info'
   });
 
-  res.status(201).json({ success: true, proposalId: id, consensusType: safeConsensusType });
+  res.status(201).json({ success: true, proposalId: id, consensusType: safeConsensusType, expiresAt });
 }
 
 async function castVote(req, res) {
@@ -267,13 +276,26 @@ async function castVote(req, res) {
     totalVal += (isWeighted ? w : 1);
   }
 
-  const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
-  const activeCount = Number(activeNodeRow?.count || 0);
+  const activeCount = await getActiveNodeCount(db, proposal.workspace_id, req.tenant);
 
   if (hasReachedQuorum(yesVal, noVal, totalVal, activeCount, proposal.quorum_threshold)) {
     await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", safeProposalId);
+    telemetry.emitEvent({
+      eventType: 'QUORUM_PROPOSAL_PASSED',
+      agentId,
+      action: 'PASS_QUORUM',
+      detail: `Swarm consensus proposal passed: ${safeProposalId}`,
+      severity: 'info'
+    });
   } else if (hasBeenRejected(yesVal, noVal, totalVal, activeCount, proposal.quorum_threshold)) {
     await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", safeProposalId);
+    telemetry.emitEvent({
+      eventType: 'QUORUM_PROPOSAL_REJECTED',
+      agentId,
+      action: 'REJECT_QUORUM',
+      detail: `Swarm consensus proposal rejected: ${safeProposalId}`,
+      severity: 'warn'
+    });
   }
 
   telemetry.emitEvent({
