@@ -1,5 +1,19 @@
 const path = require('path');
 
+function resolveWorkspaceRoot(value, label = 'workspace root') {
+  if (typeof value !== 'string' || !value.trim() || value.includes('\0')) {
+    throw new Error(`${label} must be an existing directory.`);
+  }
+  const resolved = path.resolve(value);
+  const filesystemRoot = path.parse(resolved).root;
+  if (resolved === filesystemRoot) throw new Error(`${label} must not be a filesystem root.`);
+  const fs = require('fs');
+  const stat = fs.statSync(resolved);
+  if (!stat.isDirectory()) throw new Error(`${label} must be a directory.`);
+  if (fs.realpathSync(resolved) !== resolved) throw new Error(`${label} must not be a symbolic link.`);
+  return resolved;
+}
+
 function normalizeRelativePath(value, label = 'path') {
   if (typeof value !== 'string' || value.length === 0 || value.includes('\0')) {
     throw new Error(`${label} must be a non-empty relative path.`);
@@ -48,4 +62,4 @@ function resolveContainedPathNoSymlinkSync(root, relativePath, label = 'path') {
   return resolved;
 }
 
-module.exports = { normalizeRelativePath, resolveContainedPath, resolveContainedPathNoSymlinkSync };
+module.exports = { normalizeRelativePath, resolveContainedPath, resolveContainedPathNoSymlinkSync, resolveWorkspaceRoot };
