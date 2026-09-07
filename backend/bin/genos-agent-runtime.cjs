@@ -20,6 +20,7 @@ const { getDatabase } = require('../src/db');
 const { terminateChild } = require('../src/services/processTermination');
 const immune = require('../src/services/immuneSystem');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { resolveWorkspaceRoot } = require('../src/services/pathSafety');
 const MAX_RUNTIME_LINE_BYTES = 4 * 1024 * 1024;
 
 function compactStrategyContract(contract = {}, worker = false) {
@@ -90,7 +91,14 @@ process.stdin.on('end', async () => {
     return;
   }
   // Resolve the repository relative to this bridge rather than the caller's cwd.
-  const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
+  let workspace;
+  try {
+    workspace = resolveWorkspaceRoot(process.env.GENOS_WORKSPACE_ROOT, 'GENOS_WORKSPACE_ROOT');
+  } catch (error) {
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 2;
+    return;
+  }
   const resolveBin = (p) => fs.existsSync(p) ? p : (fs.existsSync(`${p}.exe`) ? `${p}.exe` : p);
   const genosBinary = resolveBin(process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos'));
   const mcpBinary = resolveBin(process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp'));
