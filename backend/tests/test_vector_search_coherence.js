@@ -1,3 +1,8 @@
+const nodeAssert = require('assert');
+const { normalizeVector } = require('../src/services/embeddingProvider');
+nodeAssert.equal(normalizeVector(new Array(768).fill(1), 768).length, 768);
+nodeAssert.equal(normalizeVector(new Array(384).fill(1), 768), null);
+nodeAssert.equal(normalizeVector(new Array(1536).fill(1), 768), null);
 /**
  * Test Suite: Vector Search Coherence, sqlite-vec, and Cognitive Vector Memory
  */
