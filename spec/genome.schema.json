@@ -27,8 +27,7 @@
     "models": { "type": "object" },
     "tools": { "type": "object" },
     "policies": {
-      "type": "array",
-      "items": { "type": "string" }
+      "type": ["array", "object"]
     }
   },
   "additionalProperties": true

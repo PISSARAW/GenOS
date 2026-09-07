@@ -124,4 +124,10 @@ function validateSpec(schemaFile, value) {
   return { available: true, schema: schemaFile, title: schema.title || null, valid: errors.length === 0, errors };
 }
 
-module.exports = { validateSpec };
+function validateWithSchema(value, schema) {
+  const errors = [];
+  validateAgainstSchema(value, schema, '', errors);
+  return { valid: errors.length === 0, errors };
+}
+
+module.exports = { validateSpec, validateWithSchema, validateAgainstSchema };
