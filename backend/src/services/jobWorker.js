@@ -191,13 +191,23 @@ async function updateCampaignStatus(db, campaignId) {
 }
 
 async function executeModelJob(db, job) {
-  const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}'); const outputs = [];
+  const models = JSON.parse(job.models_json || '[]'); const config = JSON.parse(job.config_json || '{}');
+  let checkpoint = {};
+  try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
+  const outputs = Array.isArray(checkpoint.outputs) ? checkpoint.outputs : [];
+  const completedModels = new Set(Array.isArray(checkpoint.completedModels) ? checkpoint.completedModels : outputs.map((output) => output.model));
   for (const model of (models.length ? models : [null])) {
+    const modelKey = String(model || config.model || 'auto');
+    if (completedModels.has(modelKey)) continue;
+    await db.run('DELETE FROM model_job_tokens WHERE job_id = ? AND model = ?', job.id, modelKey);
     const tokens = []; const started = Date.now();
-    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: job.timeout_ms, policy: config.modelRouting, onToken: async (token, selectedModel) => { tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, selectedModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: selectedModel, index: tokens.length - 1 } }); } });
-    outputs.push({ model: generated.model, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length });
+    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: job.timeout_ms, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
+    const output = { model: generated.model || modelKey, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length };
+    outputs.push(output);
+    completedModels.add(modelKey);
+    await db.run('UPDATE model_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
   }
-  await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs }), job.id);
+  await db.run('UPDATE model_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
 }
 
 function isRetryableJobError(error = {}) {
@@ -270,4 +280,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, executeModelJob };
