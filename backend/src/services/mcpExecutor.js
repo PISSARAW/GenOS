@@ -595,6 +595,18 @@ async function execute({ agentId, toolName, args = {}, taints = [] }) {
   if (!circuit.allowed) return { success: false, status: 'circuit_open', error: circuit.message };
   try {
     const result = await executeConfiguredTransport({ toolName, args });
+    
+    if (result.success && (toolName.includes('test') || toolName.includes('verify') || toolName.includes('lint') || toolName.includes('check'))) {
+        const outText = String(result.output || '').toLowerCase();
+        if (outText.includes('failed') || outText.includes('failing') || outText.includes('error')) {
+            result.domainVerdict = 'failure';
+        } else if (outText.includes('pass') || outText.includes('success') || outText.includes('ok')) {
+            result.domainVerdict = 'success';
+        } else {
+            result.domainVerdict = 'unverified';
+        }
+    }
+
     if (result.success) circuitBreaker.recordSuccess(toolName, circuitScope);
     else if (result.configured) circuitBreaker.recordFailure(toolName, result.error || `MCP tool '${toolName}' failed.`, circuitScope);
     telemetry.emitEvent({ eventType: result.success ? 'WORKFLOW_MCP_TOOL_COMPLETED' : 'WORKFLOW_MCP_TOOL_FAILED', agentId, action: 'MCP_EXECUTE', detail: `MCP tool '${toolName}' ${result.status}.`, severity: result.success ? 'info' : 'warning', payload: { toolName, args, result } });
