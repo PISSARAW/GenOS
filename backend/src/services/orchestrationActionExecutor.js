@@ -29,6 +29,12 @@ function actionArguments(decision, event, workspaceRoot) {
     const output = path.resolve(root, payload.output);
     if (input.startsWith(`${root}${path.sep}`) && output.startsWith(`${root}${path.sep}`)) return { input, output, evolve: 'true' };
   }
+  if (decision.tool === 'genos_snapshot' && decision.action === 'quarantine_and_fork') {
+    const root = path.resolve(workspaceRoot);
+    const agent = path.resolve(root, payload.agent || 'agent.json');
+    const out = path.resolve(root, payload.out || `snapshot_quarantine_${Date.now()}.json`);
+    return { agent, out };
+  }
   return null;
 }
 function sourceBranch(payload) { return payload.branchId || payload.executionRunId || undefined; }
