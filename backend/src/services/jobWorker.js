@@ -175,7 +175,18 @@ async function executeWorkflow(db, run) {
       output[node.id] = { status: 'skipped', reason: 'ancestor_skipped' };
     }
   }
-  await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, skippedNodes: [...skipped], output }), run.id);
+  const finalState = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
+  if (finalState?.status === 'cancelled') {
+    const error = new Error('Workflow run was cancelled.');
+    error.code = 'WORKFLOW_CANCELLED';
+    throw error;
+  }
+  const completion = await db.run('UPDATE workflow_runs SET status = ?, output_json = ?, started_at = COALESCE(started_at, CURRENT_TIMESTAMP), completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?', 'completed', JSON.stringify({ ok: true, traceId, nodes: visited.size, skippedNodes: [...skipped], output }), run.id, 'running');
+  if (!completion.changes) {
+    const error = new Error('Workflow run changed state before completion.');
+    error.code = 'WORKFLOW_STATE_CHANGED';
+    throw error;
+  }
 }
 
 async function executeEvaluation(db, job) {
@@ -257,6 +268,7 @@ async function executeModelJob(db, job) {
     const output = { model: generated.model || modelKey, ...generated, latencyMs: Date.now() - started, streamedTokens: tokens.length };
     outputs.push(output);
     completedModels.add(modelKey);
+    if (generated.model) completedModels.add(String(generated.model));
     await db.run('UPDATE model_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
   }
   await db.run("UPDATE model_jobs SET status = 'completed', result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", JSON.stringify({ outputs, completedModels: [...completedModels] }), job.id);
