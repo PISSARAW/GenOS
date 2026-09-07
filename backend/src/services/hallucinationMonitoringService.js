@@ -47,20 +47,41 @@ function evidencePresent(value) {
 
 function extractClaims(payload) {
   if (!payload || typeof payload !== 'object') return [];
-  if (Array.isArray(payload.claims)) return payload.claims;
-  if (Array.isArray(payload.evidenceReport?.claims)) return payload.evidenceReport.claims;
-  if (Array.isArray(payload.report?.claims)) return payload.report.claims;
-  if (Array.isArray(payload.result?.claims)) return payload.result.claims;
-  return [];
+  const list = [];
+  const seen = new Set();
+  const add = (c) => {
+    if (c && typeof c === 'object') {
+      const key = `${c.statement || c.claim || c.id || JSON.stringify(c)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(c);
+      }
+    }
+  };
+  if (Array.isArray(payload.claims)) payload.claims.forEach(add);
+  if (Array.isArray(payload.evidenceReport?.claims)) payload.evidenceReport.claims.forEach(add);
+  if (Array.isArray(payload.report?.claims)) payload.report.claims.forEach(add);
+  if (Array.isArray(payload.result?.claims)) payload.result.claims.forEach(add);
+  if (Array.isArray(payload.data?.claims)) payload.data.claims.forEach(add);
+  return list;
 }
 
 function extractUnverifiedClaims(payload) {
   if (!payload || typeof payload !== 'object') return [];
   const list = [];
-  if (Array.isArray(payload.unverifiedClaims)) list.push(...payload.unverifiedClaims);
-  if (Array.isArray(payload.evidenceReport?.unverifiedClaims)) list.push(...payload.evidenceReport.unverifiedClaims);
-  if (Array.isArray(payload.report?.unverifiedClaims)) list.push(...payload.report.unverifiedClaims);
-  if (Array.isArray(payload.result?.unverifiedClaims)) list.push(...payload.result.unverifiedClaims);
+  const seen = new Set();
+  const add = (c) => {
+    const key = typeof c === 'string' ? c : JSON.stringify(c);
+    if (!seen.has(key)) {
+      seen.add(key);
+      list.push(c);
+    }
+  };
+  if (Array.isArray(payload.unverifiedClaims)) payload.unverifiedClaims.forEach(add);
+  if (Array.isArray(payload.evidenceReport?.unverifiedClaims)) payload.evidenceReport.unverifiedClaims.forEach(add);
+  if (Array.isArray(payload.report?.unverifiedClaims)) payload.report.unverifiedClaims.forEach(add);
+  if (Array.isArray(payload.result?.unverifiedClaims)) payload.result.unverifiedClaims.forEach(add);
+  if (Array.isArray(payload.data?.unverifiedClaims)) payload.data.unverifiedClaims.forEach(add);
   return list;
 }
 
