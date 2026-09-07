@@ -1,4 +1,4 @@
-const { generate } = require("../src/services/modelProvider");
+﻿const { generate } = require("../src/services/modelProvider");
 const { runGenosSync } = require("../src/services/genosCli");
 const fs = require("fs");
 const path = require("path");
@@ -14,7 +14,7 @@ async function runComputerUseLoop(mission) {
         // 1. Capture screen to file to avoid ENOBUFS (maxBuffer exceeded) in spawnSync
         console.log("Capturing screen...");
         let base64Image;
-        const screenPath = path.join(process.cwd(), ".genos", "current_screen.png");
+        const screenPath = path.join(process.cwd(), ".genos", "current_screen.png").replace(/\\/g, "/");
         try {
             // Ensure .genos dir exists
             if (!fs.existsSync(path.dirname(screenPath))) fs.mkdirSync(path.dirname(screenPath), { recursive: true });
@@ -89,6 +89,6 @@ async function runComputerUseLoop(mission) {
 }
 
 const args = process.argv.slice(2);
-const mission = args[0] || "Ouvre le bloc note et �crit GenOS V3.";
+const mission = args[0] || "Ouvre le bloc note et écrit GenOS V3.";
 runComputerUseLoop(mission).catch(console.error);
 
