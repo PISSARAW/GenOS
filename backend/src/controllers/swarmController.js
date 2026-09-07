@@ -14,6 +14,27 @@ async function expireOpenProposals(db) {
   `);
 }
 
+async function getActiveNodeCount(db, workspaceId, tenant) {
+  if (workspaceId) {
+    const row = await db.get(
+      "SELECT COUNT(*) AS count FROM agents WHERE workspace_id = ? AND status IN ('running', 'Active', 'idle', 'ready')",
+      workspaceId
+    );
+    if (row && row.count > 0) return Number(row.count);
+  }
+  if (tenant) {
+    const row = await db.get(`
+      SELECT COUNT(*) AS count FROM agents a
+      JOIN workspaces w ON w.id = a.workspace_id
+      WHERE w.organization_id = ? AND w.project_id = ?
+        AND a.status IN ('running', 'Active', 'idle', 'ready')
+    `, tenant.organizationId, tenant.projectId);
+    return Number(row?.count || 0);
+  }
+  const row = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active', 'idle', 'ready')");
+  return Number(row?.count || 0);
+}
+
 function hasReachedQuorum(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
   const participationThreshold = 0.5; // Require at least 50% participation
   const requiredVotes = Math.max(1, Math.ceil(activeNodeCount * participationThreshold));
@@ -22,7 +43,7 @@ function hasReachedQuorum(yesCount, noCount, totalVotes, activeNodeCount, approv
 }
 
 function hasBeenRejected(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
-  const remainingVotes = activeNodeCount - totalVotes;
+  const remainingVotes = Math.max(0, activeNodeCount - totalVotes);
   const maxPossibleYes = yesCount + remainingVotes;
   const maxPossibleValid = (yesCount + noCount) + remainingVotes;
   return maxPossibleValid > 0 && (maxPossibleYes / maxPossibleValid) < approvalThreshold;
@@ -40,7 +61,7 @@ async function getConsensus(req, res) {
     `, req.tenant.organizationId, req.tenant.projectId)
     : await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
   const votes = await db.all('SELECT * FROM swarm_votes');
-  const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
+  const globalActiveCount = await getActiveNodeCount(db, null, req.tenant);
   const votesByProposal = new Map();
   for (const vote of votes) {
     const proposalVotes = votesByProposal.get(vote.proposal_id) || [];
@@ -59,6 +80,7 @@ async function getConsensus(req, res) {
 
     return {
       id: p.id,
+      workspace_id: p.workspace_id,
       title: p.title,
       description: p.description,
       status: p.status,
@@ -79,11 +101,12 @@ async function getConsensus(req, res) {
 
   for (const proposal of formatted) {
     if (proposal.status === 'open') {
+      const activeCount = await getActiveNodeCount(db, proposal.workspace_id, req.tenant);
       if (hasReachedQuorum(
         proposal.yesCount,
         proposal.noCount,
         proposal.totalVotes,
-        Number(activeNodeRow?.count || 0),
+        activeCount,
         proposal.quorumThreshold
       )) {
         proposal.status = 'passed';
@@ -92,7 +115,7 @@ async function getConsensus(req, res) {
         proposal.yesCount,
         proposal.noCount,
         proposal.totalVotes,
-        Number(activeNodeRow?.count || 0),
+        activeCount,
         proposal.quorumThreshold
       )) {
         proposal.status = 'rejected';
@@ -109,7 +132,7 @@ async function getConsensus(req, res) {
   res.json({
     proposals: formatted,
     quorumState: {
-      activeNodes: Number(activeNodeRow?.count || 0),
+      activeNodes: globalActiveCount,
       currentConsensus,
       biomimicryModel: 'Database-backed quorum'
     }
@@ -165,11 +188,11 @@ async function castVote(req, res) {
   await expireOpenProposals(db);
   const proposal = req.tenant
     ? await db.get(`
-      SELECT p.id, p.status, p.quorum_threshold FROM swarm_proposals p
+      SELECT p.id, p.workspace_id, p.status, p.quorum_threshold FROM swarm_proposals p
       JOIN workspaces w ON w.id = p.workspace_id
       WHERE p.id = ? AND w.organization_id = ? AND w.project_id = ?
     `, safeProposalId, req.tenant.organizationId, req.tenant.projectId)
-    : await db.get('SELECT id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', safeProposalId);
+    : await db.get('SELECT id, workspace_id, status, quorum_threshold FROM swarm_proposals WHERE id = ?', safeProposalId);
   if (!proposal) {
     return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
   }
@@ -192,11 +215,11 @@ async function castVote(req, res) {
   const yesCount = proposalVotes.filter((item) => item.vote === 'yes').length;
   const noCount = proposalVotes.filter((item) => item.vote === 'no').length;
   const totalVotes = proposalVotes.length;
-  const activeNodeRow = await db.get("SELECT COUNT(*) AS count FROM agents WHERE status IN ('running', 'Active')");
+  const activeCount = await getActiveNodeCount(db, proposal.workspace_id, req.tenant);
   
-  if (hasReachedQuorum(yesCount, noCount, totalVotes, Number(activeNodeRow?.count || 0), proposal.quorum_threshold)) {
+  if (hasReachedQuorum(yesCount, noCount, totalVotes, activeCount, proposal.quorum_threshold)) {
     await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", safeProposalId);
-  } else if (hasBeenRejected(yesCount, noCount, totalVotes, Number(activeNodeRow?.count || 0), proposal.quorum_threshold)) {
+  } else if (hasBeenRejected(yesCount, noCount, totalVotes, activeCount, proposal.quorum_threshold)) {
     await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", safeProposalId);
   }
 
@@ -264,6 +287,7 @@ module.exports = {
   castVote,
   getMetrics,
   getTopology,
+  getActiveNodeCount,
   hasReachedQuorum,
   hasBeenRejected
 };

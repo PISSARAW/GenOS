@@ -491,6 +491,7 @@ dependencies = [
  "genos-reproduction",
  "genos-signal",
  "genos-store",
+ "rand",
  "reqwest",
  "serde",
  "serde_json",
@@ -507,6 +508,7 @@ version = "0.1.0"
 name = "genos-genome"
 version = "0.1.0"
 dependencies = [
+ "rand",
  "serde",
  "serde_json",
  "sha2",
@@ -518,6 +520,7 @@ name = "genos-immune"
 version = "0.1.0"
 dependencies = [
  "genos-genome",
+ "rand",
  "serde",
  "serde_json",
  "uuid",
@@ -553,6 +556,7 @@ dependencies = [
  "genos-genome",
  "rand",
  "serde",
+ "sha2",
  "uuid",
 ]
 
@@ -561,6 +565,7 @@ name = "genos-signal"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "serde_json",
  "uuid",
 ]
 
@@ -580,6 +585,7 @@ name = "genos-store"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "genos-common",
  "serde",
  "serde_json",
  "sha2",

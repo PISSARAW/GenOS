@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { decodeEvents } = require('./src/services/runtimeProtocol');
+const { decodeEvents } = require('../src/services/runtimeProtocol');
 
 function eventsFrom(buffer) {
   const events = [];
@@ -13,7 +13,7 @@ function eventsFrom(buffer) {
 }
 
 function runRuntime(directory, fakeCodex, mission, extraEnv = {}) {
-  return spawnSync(process.execPath, [path.resolve(__dirname, 'bin/genos-agent-runtime.cjs')], {
+  return spawnSync(process.execPath, [path.resolve(__dirname, '../bin/genos-agent-runtime.cjs')], {
     cwd: directory,
     input: JSON.stringify({
       agentId: 'root-test', executionMode: 'orchestrator', prompt: 'Synthesize.',
@@ -56,6 +56,7 @@ let input=''; process.stdin.on('data', c => input += c); process.stdin.on('end',
   }, { RUNTIME_CASE: 'budget' });
   assert.equal(budget.status, 1);
   const budgetEvents = eventsFrom(budget.stdout);
+  console.log('EVENT TYPES:', budgetEvents.map(e => e.eventType));
   assert(budgetEvents.some((event) => event.eventType === 'BUDGET_EXHAUSTED'));
   assert(budgetEvents.some((event) => event.eventType === 'AGENT_HALTED' && event.status === 'blocked'));
 

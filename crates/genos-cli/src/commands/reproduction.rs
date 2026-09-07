@@ -165,17 +165,48 @@ fn handle_division(
     daughter_volume: f64,
     merozoite_count: usize,
     hayflick_limit: Option<u32>,
+    genes: Option<&str>,
     seed: Option<&str>,
 ) {
-    let mut parent = Genome::new(agent_id);
+    let root = crate::commands::root_resolver::resolve_matrix_root();
+    let chromatin_dir = root.join("chromatin");
+    let parent_path = chromatin_dir.join(format!("{}.json", agent_id));
+    let mut parent = if parent_path.exists() {
+        std::fs::read_to_string(&parent_path)
+            .ok()
+            .and_then(|s| serde_json::from_str::<Genome>(&s).ok())
+            .unwrap_or_else(|| Genome::new(agent_id))
+    } else {
+        Genome::new(agent_id)
+    };
+
+    if let Some(json_str) = genes {
+        if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
+            if let Some(obj) = parsed.as_object() {
+                for (k, v) in obj {
+                    let val_str = match v {
+                        serde_json::Value::String(s) => s.clone(),
+                        _ => v.to_string(),
+                    };
+                    parent.insert_gene(Gene::new(k, &val_str));
+                }
+            }
+        }
+    }
+
     if let Some(limit) = hayflick_limit {
         parent.hayflick_limit = limit;
     }
+
+    let _ = std::fs::create_dir_all(&chromatin_dir);
 
     match mode.to_lowercase().as_str() {
         "binary_fission" | "fission" => {
             match CellDivision::binary_fission_with_seed(&parent, mutation_rate, seed.unwrap_or("genos-default-fission")) {
                 Ok((p, c)) => {
+                    let _ = std::fs::write(&parent_path, serde_json::to_string_pretty(&p).unwrap_or_default());
+                    let child_path = chromatin_dir.join(format!("{}.json", c.genome_id()));
+                    let _ = std::fs::write(&child_path, serde_json::to_string_pretty(&c).unwrap_or_default());
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
@@ -184,6 +215,8 @@ fn handle_division(
                         "child_genome_id": c.genome_id().to_string(),
                         "daughter_a_id": p.genome_id().to_string(),
                         "daughter_b_id": c.genome_id().to_string(),
+                        "parent_genes_count": parent.genes.len(),
+                        "child_genes_count": c.genes.len(),
                         "mutation_rate_applied": mutation_rate,
                         "seed": seed.unwrap_or("genos-default-fission"),
                         "progeny_count": 2,
@@ -197,6 +230,9 @@ fn handle_division(
             let limit = hayflick_limit.unwrap_or(parent.hayflick_limit);
             match CellDivision::budding_with_limit(&parent, daughter_volume, parent.bud_scars.len() as u32, limit) {
                 Ok(res) => {
+                    let _ = std::fs::write(&parent_path, serde_json::to_string_pretty(&res.mother).unwrap_or_default());
+                    let daughter_path = chromatin_dir.join(format!("{}.json", res.daughter.genome_id()));
+                    let _ = std::fs::write(&daughter_path, serde_json::to_string_pretty(&res.daughter).unwrap_or_default());
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
@@ -205,6 +241,8 @@ fn handle_division(
                         "daughter_genome_id": res.daughter.genome_id().to_string(),
                         "daughter_volume": res.daughter_volume,
                         "mother_scars_count": res.bud_scars,
+                        "mother_genes_count": res.mother.genes.len(),
+                        "daughter_genes_count": res.daughter.genes.len(),
                         "hayflick_limit": res.hayflick_limit,
                         "remaining_buds": res.remaining_divisions,
                         "is_senescent": res.is_senescent,
@@ -221,6 +259,10 @@ fn handle_division(
             match CellDivision::schizogony_with_seed(&parent, merozoite_count, mutation_rate, actual_seed) {
                 Ok(res) => {
                     let ids: Vec<String> = res.merozoites.iter().map(|d| d.genome_id().to_string()).collect();
+                    for d in &res.merozoites {
+                        let path = chromatin_dir.join(format!("{}.json", d.genome_id()));
+                        let _ = std::fs::write(&path, serde_json::to_string_pretty(d).unwrap_or_default());
+                    }
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",
@@ -229,6 +271,7 @@ fn handle_division(
                         "mother_lysed": res.mother_lysed,
                         "progeny_count": ids.len(),
                         "progeny_genome_ids": ids,
+                        "mother_genes_count": parent.genes.len(),
                         "mutation_rate_applied": res.mutation_rate_applied,
                         "seed": actual_seed,
                         "status": "schizogony_completed"
@@ -242,6 +285,10 @@ fn handle_division(
             match CellDivision::meiosis_with_seed_and_mutation(&parent, None, actual_seed, mutation_rate) {
                 Ok(result) => {
                     let ids: Vec<String> = result.gametes.iter().map(|d| d.genome_id().to_string()).collect();
+                    for g in &result.gametes {
+                        let path = chromatin_dir.join(format!("{}.json", g.genome_id()));
+                        let _ = std::fs::write(&path, serde_json::to_string_pretty(g).unwrap_or_default());
+                    }
                     print_json(json!({
                         "success": true,
                         "operation": "cell_division",

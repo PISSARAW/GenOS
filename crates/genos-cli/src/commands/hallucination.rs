@@ -118,38 +118,42 @@ mod tests {
     #[test]
     fn test_parse_snapshot_metadata_nested_schemas() {
         let temp_dir = std::env::temp_dir();
-        let file_path = temp_dir.join("test_conscience_snapshot.json");
+        let file_path1 = temp_dir.join("test_conscience_snapshot_1.json");
+        let file_path2 = temp_dir.join("test_conscience_snapshot_2.json");
+        let file_path3 = temp_dir.join("test_conscience_snapshot_3.json");
 
         // Cas 1: Schema avec state.conscience.dissonance_level
-        let mut file = fs::File::create(&file_path).unwrap();
+        let mut file1 = fs::File::create(&file_path1).unwrap();
         writeln!(
-            file,
+            file1,
             r#"{{"agent_id": "agent-alpha", "state": {{"conscience": {{"dissonance_level": 35.5}}}}}}"#
         ).unwrap();
-        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
-        assert_eq!(agent, "agent-alpha");
-        assert_eq!(dissonance, 35.5);
+        let (agent1, dissonance1) = parse_snapshot_metadata(file_path1.to_str().unwrap());
+        assert_eq!(agent1, "agent-alpha");
+        assert_eq!(dissonance1, 35.5);
 
         // Cas 2: Schema avec conscience direct au niveau racine
-        let mut file = fs::File::create(&file_path).unwrap();
+        let mut file2 = fs::File::create(&file_path2).unwrap();
         writeln!(
-            file,
+            file2,
             r#"{{"agent_id": "agent-beta", "conscience": {{"dissonance_level": 42.0}}}}"#
         ).unwrap();
-        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
-        assert_eq!(agent, "agent-beta");
-        assert_eq!(dissonance, 42.0);
+        let (agent2, dissonance2) = parse_snapshot_metadata(file_path2.to_str().unwrap());
+        assert_eq!(agent2, "agent-beta");
+        assert_eq!(dissonance2, 42.0);
 
         // Cas 3: Schema historique state.dissonance
-        let mut file = fs::File::create(&file_path).unwrap();
+        let mut file3 = fs::File::create(&file_path3).unwrap();
         writeln!(
-            file,
+            file3,
             r#"{{"agent_id": "agent-gamma", "state": {{"dissonance": 15.0}}}}"#
         ).unwrap();
-        let (agent, dissonance) = parse_snapshot_metadata(file_path.to_str().unwrap());
-        assert_eq!(agent, "agent-gamma");
-        assert_eq!(dissonance, 15.0);
+        let (agent3, dissonance3) = parse_snapshot_metadata(file_path3.to_str().unwrap());
+        assert_eq!(agent3, "agent-gamma");
+        assert_eq!(dissonance3, 15.0);
 
-        let _ = fs::remove_file(file_path);
+        let _ = fs::remove_file(file_path1);
+        let _ = fs::remove_file(file_path2);
+        let _ = fs::remove_file(file_path3);
     }
 }

@@ -23,8 +23,8 @@ function parseSqliteUtcTimestamp(ts) {
 async function pheromoneDeposit(context) {
   // Stigmergie : Un agent dépose une "phéromone" (trace) sur un chemin/artefact.
   const db = await getDatabase();
-  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.orchestrator;
-  const agentId = context.agentId || context.agent_id || context.senderId || context.sender_agent_id;
+  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.orchestrator || context.workspaceId || context.workspace_id || context.agentId || context.agent_id;
+  const agentId = context.agentId || context.agent_id || context.senderId || context.sender_agent_id || orchestratorId;
   const path = context.path || context.trail || context.target_file || context.targetFile || 'default_trail';
   const rawStrength = context.strength === undefined ? 1 : Number(context.strength);
   const isRepellent = Boolean(context.isRepellent || context.is_repellent || context.repellent || rawStrength < 0);
@@ -32,8 +32,8 @@ async function pheromoneDeposit(context) {
   if (!orchestratorId || !agentId) {
     return { success: false, error: 'orchestratorId and agentId required for pheromone_deposit.' };
   }
-  if (!Number.isFinite(rawStrength) || rawStrength < -1 || rawStrength > 1) {
-    return { success: false, error: 'pheromone strength must be a finite value in [-1, 1].' };
+  if (!Number.isFinite(rawStrength) || Math.abs(rawStrength) > 1000) {
+    return { success: false, error: 'pheromone strength must be a finite numerical value.' };
   }
 
   const finalStrength = isRepellent ? -Math.abs(rawStrength === 0 ? 1 : rawStrength) : Math.abs(rawStrength);
@@ -71,10 +71,7 @@ async function trailSelection(context) {
   
   try {
     const state = await dynOrg.getState(db, orchestratorId);
-    const allVersions = context.allVersions !== false && context.all_versions !== false;
-    if (!state && !allVersions) {
-      return { success: false, error: `Orchestrator '${orchestratorId}' has no active organization.` };
-    }
+    if (!state) return { success: false, error: `Orchestrator '${orchestratorId}' has no active organization.` };
     const evaporationHalfLifeMs = Number(context.evaporationHalfLifeMs || context.evaporation_half_life_ms || context.halfLifeMs || 3600000);
     if (!Number.isFinite(evaporationHalfLifeMs) || evaporationHalfLifeMs <= 0) {
       return { success: false, error: 'evaporationHalfLifeMs must be positive.' };
@@ -87,30 +84,25 @@ async function trailSelection(context) {
     if (!Number.isInteger(traceLimit) || traceLimit < 1 || traceLimit > 10000) {
       return { success: false, error: 'traceLimit must be an integer between 1 and 10000.' };
     }
+    const explicitVersion = context.organizationVersion ?? context.organization_version ?? context.version;
+    const versionFilter = explicitVersion != null ? 'AND organization_version = ?' : '';
+    const queryParams = explicitVersion != null
+      ? [orchestratorId, explicitVersion, traceLimit]
+      : [orchestratorId, traceLimit];
+    const countParams = explicitVersion != null
+      ? [orchestratorId, explicitVersion]
+      : [orchestratorId];
 
-    let rows;
-    let totalTraceCount;
-    if (allVersions || !state) {
-      rows = await db.all(
-        `SELECT payload_json, created_at FROM agent_organization_messages 
-          WHERE orchestrator_id = ? AND kind = 'trace' ORDER BY id DESC LIMIT ?`,
-        orchestratorId, traceLimit
-      );
-      totalTraceCount = await db.get(
-        `SELECT COUNT(*) AS count FROM agent_organization_messages WHERE orchestrator_id = ? AND kind = 'trace'`,
-        orchestratorId
-      );
-    } else {
-      rows = await db.all(
-        `SELECT payload_json, created_at FROM agent_organization_messages 
-          WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace' ORDER BY id DESC LIMIT ?`,
-        orchestratorId, state.version, traceLimit
-      );
-      totalTraceCount = await db.get(
-        `SELECT COUNT(*) AS count FROM agent_organization_messages WHERE orchestrator_id = ? AND organization_version = ? AND kind = 'trace'`,
-        orchestratorId, state.version
-      );
-    }
+    const rows = await db.all(
+      `SELECT payload_json, created_at FROM agent_organization_messages 
+        WHERE orchestrator_id = ? ${versionFilter} AND kind = 'trace' ORDER BY id DESC LIMIT ?`,
+      ...queryParams
+    );
+    const totalTraceCount = await db.get(
+      `SELECT COUNT(*) AS count FROM agent_organization_messages
+       WHERE orchestrator_id = ? ${versionFilter} AND kind = 'trace'`,
+      ...countParams
+    );
     
     const trailStrengths = {};
     for (const row of rows) {

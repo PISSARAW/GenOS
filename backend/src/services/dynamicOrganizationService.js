@@ -169,8 +169,9 @@ function routeMessage({ state, sender, recipientAgentId, kind }) {
   if (policy.routing === 'critical_only' && !['critical', 'success'].includes(kind)) {
     return { recipientAgentId: null, channel: 'local_buffer', delivery: 'buffered' };
   }
+  const isOrchestrator = sender.id === state.orchestratorId;
   if (policy.routing === 'orchestrator') {
-    return { recipientAgentId: state.orchestratorId, channel: 'orchestrator_handoff', delivery: 'delivered' };
+    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : state.orchestratorId, channel: 'orchestrator_handoff', delivery: 'delivered' };
   }
   if (policy.routing === 'shared_trail') {
     return { recipientAgentId: null, channel: 'stigmergic_trail', delivery: 'delivered' };
@@ -179,7 +180,7 @@ function routeMessage({ state, sender, recipientAgentId, kind }) {
     return { recipientAgentId: recipientAgentId || null, channel: 'capability_mesh', delivery: 'delivered' };
   }
   if (policy.routing === 'ranked') {
-    return { recipientAgentId: recipientAgentId || state.orchestratorId, channel: 'ranked_handoff', delivery: 'delivered' };
+    return { recipientAgentId: isOrchestrator ? (recipientAgentId || null) : (recipientAgentId || state.orchestratorId), channel: 'ranked_handoff', delivery: 'delivered' };
   }
   return { recipientAgentId: recipientAgentId || null, channel: policy.topology, delivery: 'delivered' };
 }
