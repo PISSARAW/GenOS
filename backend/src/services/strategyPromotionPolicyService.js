@@ -84,11 +84,18 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
       action: 'auto_merge_workspace',
       winner: executionContext.winnerWorkspaceRoot,
       target: executionContext.targetWorkspaceRoot,
-      merged: true
+      merged: false,
+      status: 'requires_explicit_merge',
+      reason: 'Automatic workspace merge is not implemented; no merge was performed.'
     });
   }
 
-  return { success: true, actionsTaken };
+  const mergeBlocked = actionsTaken.some((action) => action.action === 'auto_merge_workspace' && action.merged === false);
+  return {
+    success: !mergeBlocked,
+    actionsTaken,
+    ...(mergeBlocked ? { error: 'Automatic workspace merge is unavailable; explicit merge required.' } : {})
+  };
 }
 
 module.exports = {

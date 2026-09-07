@@ -20,6 +20,12 @@ async function run() {
     }
   };
 
+  const mergeBlocked = await promotionPolicy.applyPostPromotionPolicies(null, {
+    promotion: { merge_workspace_automatically: true }
+  }, { winnerWorkspaceRoot: '/tmp/winner', targetWorkspaceRoot: '/tmp/target' });
+  assert.equal(mergeBlocked.success, false);
+  assert.equal(mergeBlocked.actionsTaken[0].merged, false);
+
   const evalFail = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: false,
     independentVerification: false,
