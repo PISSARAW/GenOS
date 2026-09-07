@@ -66,6 +66,22 @@ async function readMcpHttpResponse(response) {
   return payloads[payloads.length - 1];
 }
 
+async function fetchHttpPhase(url, options, deadlineAt, phase, readResponse = (response) => response) {
+  const remaining = deadlineAt - Date.now();
+  if (remaining <= 0) throw new Error(`MCP HTTP ${phase} timed out.`);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), remaining);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return await readResponse(response);
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error(`MCP HTTP ${phase} timed out.`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function runSafeSync(commandLine, options = {}) {
   return runGenosSync(commandLine, options);
 }
@@ -85,24 +101,24 @@ function withTimeout(promise, timeoutMs) {
 async function callHttp(url, toolName, options = {}) {
   const { args = {} } = options;
   const timeoutMs = normalizeMcpTimeout(options.timeoutMs);
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const deadlineAt = Date.now() + timeoutMs;
   const auth = process.env.GENOS_MCP_TOKEN ? { authorization: `Bearer ${process.env.GENOS_MCP_TOKEN}` } : {};
   try {
-    const initialize = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } })), signal: controller.signal });
-    if (!initialize.ok) throw new Error(`MCP HTTP initialize returned ${initialize.status}.`);
-    const initPayload = await readMcpHttpResponse(initialize);
+    const initPayload = await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(1, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'genos-backend', version: '1.0.0' } })) }, deadlineAt, 'initialize', async (response) => {
+      if (!response.ok) throw new Error(`MCP HTTP initialize returned ${response.status}.`);
+      return readMcpHttpResponse(response);
+    });
     if (initPayload.error) throw new Error(initPayload.error.message || 'MCP initialize failed.');
-    await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }), signal: controller.signal }).catch(() => {});
-    const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: args })), signal: controller.signal });
-    if (!response.ok) throw new Error(`MCP HTTP tools/call returned ${response.status}.`);
-    const payload = await readMcpHttpResponse(response);
+    await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', ...auth }, body: JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) }, deadlineAt, 'initialized notification').catch(() => {});
+    const payload = await fetchHttpPhase(url, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream', ...auth }, body: JSON.stringify(rpcRequest(2, 'tools/call', { name: toolName, arguments: args })) }, deadlineAt, 'tools/call', async (response) => {
+      if (!response.ok) throw new Error(`MCP HTTP tools/call returned ${response.status}.`);
+      return readMcpHttpResponse(response);
+    });
     if (payload.error) throw new Error(payload.error.message || 'MCP tools/call failed.');
     return payload.result || payload;
   } catch (error) {
-    if (error.name === 'AbortError') throw new Error(`MCP request timed out after ${timeoutMs}ms.`);
     throw error;
-  } finally { clearTimeout(timer); }
+  }
 }
 
 async function callStdio(transport, toolName, options = {}) {
