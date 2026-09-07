@@ -3,8 +3,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { getDatabase, closeDatabase } = require('./src/db');
-const registry = require('./src/controllers/registryController');
+const { getDatabase, closeDatabase } = require('../src/db');
+const registry = require('../src/controllers/registryController');
 
 function response() { return { code: 200, body: null, status(code) { this.code = code; return this; }, json(body) { this.body = body; return this; } }; }
 async function call(handler, req) { const res = response(); await handler(req, res, error => { throw error; }); return res; }
