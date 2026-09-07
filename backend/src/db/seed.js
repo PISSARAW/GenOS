@@ -164,7 +164,10 @@ async function ensureDefaultUser(db) {
   if (existing && existing.count > 0) return;
 
   const username = String(process.env.GENOS_ADMIN_USERNAME || 'admin').trim() || 'admin';
-  const password = String(process.env.GENOS_ADMIN_PASSWORD || 'genos-admin');
+  if (!process.env.GENOS_ADMIN_PASSWORD && process.env.NODE_ENV !== 'test') {
+    throw new Error('GENOS_ADMIN_PASSWORD must be configured before creating the default administrator.');
+  }
+  const password = String(process.env.GENOS_ADMIN_PASSWORD || `genos_test_password_${crypto.randomBytes(24).toString('hex')}`);
   const { hashPassword } = require('../controllers/password');
   await db.run(
     'INSERT INTO users (id, username, password_hash, role) VALUES (?, ?, ?, ?)',
@@ -174,9 +177,6 @@ async function ensureDefaultUser(db) {
     'admin'
   );
   console.warn(`[GenOS Bootstrap] Default local user created: ${username} (role: admin).`);
-  if (!process.env.GENOS_ADMIN_PASSWORD) {
-    console.warn('[GenOS Bootstrap] Default password is "genos-admin" — change it or set GENOS_ADMIN_PASSWORD.');
-  }
 }
 
 async function seedDatabase(db) {
