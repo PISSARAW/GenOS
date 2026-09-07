@@ -14,6 +14,7 @@ const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
 const { terminateChild } = require('./processTermination');
+const { normalizeRelativePath } = require('./pathSafety');
 const { normalizeSandboxCommand, isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
 
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
@@ -61,6 +62,24 @@ function containedJoin(base, relativePath) {
   return resolved;
 }
 
+async function assertNoSymlinkPath(root, relativePath) {
+  const normalized = normalizeRelativePath(relativePath, 'snapshot path');
+  const realRoot = await fsp.realpath(root);
+  let current = realRoot;
+  for (const segment of normalized.split('/')) {
+    current = path.join(current, segment);
+    try {
+      if ((await fsp.lstat(current)).isSymbolicLink()) {
+        throw new Error(`Snapshot path traverses a symbolic link: ${relativePath}`);
+      }
+    } catch (error) {
+      if (error.code === 'ENOENT') break;
+      throw error;
+    }
+  }
+  return path.join(realRoot, normalized);
+}
+
 function shouldIgnore(relativePath, entry) {
   const parts = relativePath.split(path.sep);
   return parts.some((part) => IGNORED_DIRECTORIES.has(part)) || IGNORED_FILES.has(entry.name) || entry.name.startsWith('genos.db') || SENSITIVE_FILES.test(entry.name);
@@ -101,7 +120,7 @@ async function copyManifestPayload(workspacePath, root, hash, files, manifestDat
   const staging = await fsp.mkdtemp(path.join(root, `.snapshot-${hash.slice(0, 12)}-`));
   try {
     for (const file of files) {
-      const source = path.join(workspacePath, file.path);
+      const source = await assertNoSymlinkPath(workspacePath, file.path);
       const destination = containedJoin(staging, path.join('files', file.path));
       await fsp.mkdir(path.dirname(destination), { recursive: true });
       await fsp.copyFile(source, destination);
@@ -283,8 +302,8 @@ async function materialize(snapshot, destination) {
   await fsp.mkdir(destination, { recursive: true });
   for (const file of manifest.files) {
     if (!isSafeRelative(file.path)) throw new Error(`Snapshot manifest contains an unsafe path: ${file.path}`);
-    const source = containedJoin(manifest.payloadRoot, file.path);
-    const target = containedJoin(destination, file.path);
+    const source = await assertNoSymlinkPath(manifest.payloadRoot, file.path);
+    const target = await assertNoSymlinkPath(destination, file.path);
     const bytes = await fsp.readFile(source);
     if (sha256(bytes) !== file.hash) throw new Error(`Snapshot payload checksum mismatch for ${file.path}.`);
     await fsp.mkdir(path.dirname(target), { recursive: true });
@@ -304,6 +323,10 @@ async function removeWorkspaceFiles(workspacePath) {
     for (const entry of await fsp.readdir(directory, { withFileTypes: true })) {
       const relative = path.relative(workspacePath, path.join(directory, entry.name));
       if (shouldIgnore(relative, entry)) continue;
+      if (entry.isSymbolicLink()) {
+        await fsp.rm(path.join(directory, entry.name), { recursive: true, force: true });
+        continue;
+      }
       if (entry.isDirectory() && !entry.isSymbolicLink()) { await walk(path.join(directory, entry.name)); directories.push(path.join(directory, entry.name)); }
     }
   }
@@ -313,8 +336,8 @@ async function removeWorkspaceFiles(workspacePath) {
 
 async function copyMaterializedFiles(sourceRoot, files, destination) {
   for (const file of files) {
-    const source = containedJoin(sourceRoot, file.path);
-    const target = containedJoin(destination, file.path);
+    const source = await assertNoSymlinkPath(sourceRoot, file.path);
+    const target = await assertNoSymlinkPath(destination, file.path);
     await fsp.mkdir(path.dirname(target), { recursive: true });
     await fsp.copyFile(source, target);
     await fsp.chmod(target, file.mode).catch(() => {});
