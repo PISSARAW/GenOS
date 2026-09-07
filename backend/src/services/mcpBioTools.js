@@ -306,6 +306,20 @@ async function executeBioTool(toolName, args) {
         }
         const res = await db.run(sql, ...params);
         prunedCount = res?.changes || 0;
+
+        // Cleanup orphaned weak decisions
+        const doomed = await db.all(`
+          SELECT g.id FROM genome_decisions g
+          LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
+          WHERE g.synaptic_weight < 0.1
+          GROUP BY g.id
+          HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
+        `);
+        if (doomed && doomed.length > 0) {
+          const doomedIds = doomed.map(d => d.id);
+          const placeholders = doomedIds.map(() => '?').join(',');
+          await db.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, ...doomedIds);
+        }
       }
       return {
         configured: true,

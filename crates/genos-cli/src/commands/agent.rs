@@ -267,14 +267,38 @@ fn handle_validate(file_path: &str) -> Result<(), String> {
         errors.push("Missing required object 'identity'".to_string());
     }
 
-    for section in ["cognition", "objectives", "policies", "memory_policy", "model_policy", "tool_policy"] {
-        if val.get(section).and_then(|v| v.as_object()).is_none() {
-            errors.push(format!("Missing required object '{}'", section));
+    if val.get("cognition").and_then(|v| v.as_object()).is_none() {
+        errors.push("Missing required object 'cognition'".to_string());
+    }
+
+    let has_memory = val.get("memory").and_then(|v| v.as_object()).is_some()
+        || val.get("memory_policy").and_then(|v| v.as_object()).is_some();
+    if !has_memory {
+        errors.push("Missing required object 'memory' or 'memory_policy'".to_string());
+    }
+
+    let has_models = val.get("models").and_then(|v| v.as_object()).is_some()
+        || val.get("model_policy").and_then(|v| v.as_object()).is_some();
+    if !has_models {
+        errors.push("Missing required object 'models' or 'model_policy'".to_string());
+    }
+
+    let has_tools = val.get("tools").and_then(|v| v.as_object()).is_some()
+        || val.get("tool_policy").and_then(|v| v.as_object()).is_some();
+    if !has_tools {
+        errors.push("Missing required object 'tools' or 'tool_policy'".to_string());
+    }
+
+    if let Some(policies) = val.get("policies") {
+        if !policies.is_object() && !policies.is_array() {
+            errors.push("Field 'policies' must be an object or an array".to_string());
         }
     }
 
-    if val.get("capabilities").and_then(|v| v.as_array()).is_none() {
-        errors.push("Missing required array 'capabilities'".to_string());
+    if let Some(caps) = val.get("capabilities") {
+        if !caps.is_array() {
+            errors.push("Field 'capabilities' must be an array".to_string());
+        }
     }
 
     if !errors.is_empty() {
