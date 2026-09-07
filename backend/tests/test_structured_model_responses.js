@@ -16,7 +16,7 @@ global.fetch = async (_url, options) => {
   return {
     ok: true,
     headers: { get: () => 'application/json' },
-    json: async () => ({ choices: [{ message: { content: '{"ok":true}' } }], usage: {} })
+    json: async () => ({ choices: [{ message: { content: '{"ok":true}' } }], usage: { input_tokens: 0, output_tokens: 0 } })
   };
 };
 
@@ -29,6 +29,8 @@ global.fetch = async (_url, options) => {
   });
   assert.deepEqual(requestBody.response_format, { type: 'json_object' });
   assert.deepEqual(result.structured, { ok: true });
+  assert.equal(result.inputTokens, 0);
+  assert.equal(result.outputTokens, 0);
   global.fetch = async () => ({
     ok: true,
     headers: { get: () => 'application/json' },
