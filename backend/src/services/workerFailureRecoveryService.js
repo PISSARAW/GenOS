@@ -42,15 +42,30 @@ function classifyFinalReport(report = {}, isWorker = true) {
     };
   }
   if (!isWorker) return { outcome: 'success' };
+  const claims = Array.isArray(report.claims) ? report.claims : [];
+  const hasUnevidencedClaims = claims.some((c) => {
+    if (!c) return true;
+    if (Array.isArray(c.evidence)) return c.evidence.length === 0;
+    if (typeof c.evidence === 'string') return !c.evidence.trim();
+    return true;
+  });
+
   if (
     report.outcome === 'no_answer'
-    || (!report.outcome && (!Array.isArray(report.claims) || report.claims.length === 0))
+    || claims.length === 0
+    || hasUnevidencedClaims
   ) {
     return {
       outcome: 'failed',
       failure: report.failure && typeof report.failure === 'object'
         ? report.failure
-        : { category: 'unresolved_task', reason: 'Worker returned no verified claim.', evidence: [] }
+        : {
+            category: 'unresolved_task',
+            reason: claims.length === 0
+              ? 'Worker returned no verified claim.'
+              : (hasUnevidencedClaims ? 'Worker returned claims lacking verifiable evidence.' : 'Worker did not produce verified proof.'),
+            evidence: []
+          }
     };
   }
   return { outcome: 'success' };
