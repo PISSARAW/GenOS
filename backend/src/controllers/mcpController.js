@@ -45,9 +45,20 @@ async function listTools(req, res) {
 async function testTool(req, res) {
   const { toolName = 'genos_inspect', args = {} } = req.body || {};
   const db = await getDatabase();
-  const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+  const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return res.status(404).json({ success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` });
-  const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
+  if (tool.is_locked === 1) return res.status(503).json({ success: false, status: 'blocked', error: `Tool '${toolName}' is persisted in quarantine.` });
+  const agentId = req.body.agentId || (req.user && req.user.username) || 'mcp_controller';
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  const permissions = req.user?.role === 'admin'
+    ? ['*']
+    : req.user?.permissions?.includes('mcp:execute_safe')
+      ? ['tool:execute']
+      : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
+  const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
+  const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
+  if (policy.decision !== 'allow') return res.status(policy.decision === 'approval_required' ? 202 : 403).json({ success: false, status: policy.decision, policy });
+  const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer', 'global', args);
   if (!check.allowed) return res.status(503).json({ success: false, status: 'blocked', error: check.message });
   try {
     const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: 15000 });
@@ -151,6 +162,9 @@ const vfsSandboxService = require('../services/vfsSandboxService');
 async function dryRun(req, res, next) {
   try {
     const { toolName, args = {}, vfsState = {} } = req.body || {};
+    const db = await getDatabase();
+    const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
+    if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
     const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
     if (!check.allowed) return res.status(503).json({ error: { code: check.reason, message: check.message } });
     const result = vfsSandboxService.simulateDryRun(toolName, args, vfsState);
