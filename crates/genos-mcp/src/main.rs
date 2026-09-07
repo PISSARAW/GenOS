@@ -2,9 +2,71 @@ mod tools;
 
 use serde_json::{json, Value};
 use std::env;
-use std::io::{self, BufRead, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
+
+const DEFAULT_TOOL_TIMEOUT_MS: u64 = 120_000;
+const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+
+fn tool_timeout_ms() -> u64 {
+    env::var("GENOS_MCP_TOOL_TIMEOUT_MS")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .map(|value| value.min(30 * 60 * 1000))
+        .unwrap_or(DEFAULT_TOOL_TIMEOUT_MS)
+}
+
+fn bounded_output(bytes: Vec<u8>) -> String {
+    let start = bytes.len().saturating_sub(MAX_OUTPUT_BYTES);
+    String::from_utf8_lossy(&bytes[start..]).to_string()
+}
+
+fn execute_command(mut command: Command) -> Result<(i32, String), String> {
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| error.to_string())?;
+    let stdout = child.stdout.take().map(|mut stream| thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = stream.read_to_end(&mut bytes);
+        bytes
+    }));
+    let stderr = child.stderr.take().map(|mut stream| thread::spawn(move || {
+        let mut bytes = Vec::new();
+        let _ = stream.read_to_end(&mut bytes);
+        bytes
+    }));
+    let deadline = Instant::now() + Duration::from_millis(tool_timeout_ms());
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => break status,
+            Ok(None) if Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(format!("MCP tool timed out after {}ms.", tool_timeout_ms()));
+            }
+            Ok(None) => thread::sleep(Duration::from_millis(10)),
+            Err(error) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(error.to_string());
+            }
+        }
+    };
+    let stdout = stdout.and_then(|thread| thread.join().ok()).unwrap_or_default();
+    let stderr = stderr.and_then(|thread| thread.join().ok()).unwrap_or_default();
+    let text = if stderr.is_empty() {
+        bounded_output(stdout)
+    } else {
+        format!("{}\n{}", bounded_output(stdout), bounded_output(stderr))
+    };
+    Ok((status.code().unwrap_or(-1), text))
+}
 
 fn find_genos_binary(workspace: &Path) -> Option<PathBuf> {
     if let Ok(path_str) = env::var("GENOS_BIN") {
@@ -56,15 +118,9 @@ fn execute_orchestrator(bridge: &Path, payload: &Value, workspace: &Path) -> (i3
         cmd.env("GENOS_ORCHESTRATOR_AGENT_ID", orch);
     }
 
-    match cmd.output() {
-        Ok(output) => {
-            let code = output.status.code().unwrap_or(-1);
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            let combined = if stderr.is_empty() { stdout } else { format!("{stdout}\n{stderr}") };
-            (code, combined)
-        }
-        Err(e) => (-1, format!("Failed to invoke orchestrator bridge: {e}")),
+    match execute_command(cmd) {
+        Ok(result) => result,
+        Err(error) => (-1, format!("Failed to invoke orchestrator bridge: {error}")),
     }
 }
 
@@ -126,15 +182,9 @@ fn execute_cli(workspace: &Path, name: &str, args: &Value) -> (i32, String) {
     };
 
     cmd.current_dir(workspace);
-    match cmd.output() {
-        Ok(output) => {
-            let code = output.status.code().unwrap_or(-1);
-            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-            let combined = if stderr.is_empty() { stdout } else { format!("{stdout}\n{stderr}") };
-            (code, combined)
-        }
-        Err(e) => (-1, format!("Failed to execute GenOS CLI: {e}")),
+    match execute_command(cmd) {
+        Ok(result) => result,
+        Err(error) => (-1, format!("Failed to execute GenOS CLI: {error}")),
     }
 }
 
