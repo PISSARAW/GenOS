@@ -202,6 +202,14 @@ async function superviseMission(options) {
           }, 'warning');
         }
 
+        if (currentEvent.payload?.recipient && currentEvent.payload?.sender) {
+          swarmSentinel.recordInteraction(
+            currentEvent.payload.sender,
+            currentEvent.payload.recipient,
+            Boolean(currentEvent.payload.hasDiff || currentEvent.payload.diff)
+          );
+        }
+
         // Évaluation de la Conscience Cognitive
         const isHallucinationEvent = Boolean(observation?.monitored && observation?.detected);
         const isErrorEvent = ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(eventType)

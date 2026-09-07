@@ -317,16 +317,22 @@ async function getMetrics(req, res, next) {
   try {
     const db = await getDatabase();
     const events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
-    const entropyResult = swarmMetricsService.calculateShannonEntropy(events);
-    const messageQueue = events.map((event) => {
+    const chronologicalEvents = [...events].reverse();
+    const entropyResult = swarmMetricsService.calculateShannonEntropy(chronologicalEvents);
+    const messageQueue = [];
+    for (const event of events) {
       let payload = {};
       try { payload = JSON.parse(event.payload_json || '{}'); } catch {}
-      return {
-        sender: payload.sender || event.agent_id || 'unknown',
-        recipient: payload.recipient || payload.targetAgentId || 'telemetry',
-        hasDiff: Boolean(payload.hasDiff || payload.diff)
-      };
-    });
+      const sender = payload.sender || event.agent_id;
+      const recipient = payload.recipient || payload.targetAgentId;
+      if (sender && recipient && recipient !== 'telemetry' && recipient !== 'system' && sender !== recipient) {
+        messageQueue.push({
+          sender,
+          recipient,
+          hasDiff: Boolean(payload.hasDiff || payload.diff)
+        });
+      }
+    }
     const deadlockResult = swarmMetricsService.detectDeadlocks(messageQueue);
 
     res.json({
