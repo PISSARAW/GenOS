@@ -1,8 +1,12 @@
 const CACHE_MS = 5000;
 let cache = { expiresAt: 0, models: [] };
 
-function endpointOrigin(endpoint) {
-  try { return new URL(endpoint).origin; } catch (_) { return null; }
+function endpointBase(endpoint) {
+  try {
+    const url = new URL(endpoint);
+    const strippedPath = url.pathname.replace(/\/v1\/chat\/completions\/?$/, '').replace(/\/chat\/completions\/?$/, '').replace(/\/+$/, '');
+    return `${url.origin}${strippedPath}`;
+  } catch (_) { return null; }
 }
 
 function isChatCapable(model) {
@@ -20,10 +24,10 @@ async function readJson(url, timeoutMs = 2500) {
 }
 
 async function discoverProvider({ provider, endpoint, modelsPath, map }) {
-  const origin = endpointOrigin(endpoint);
-  if (!origin) return [];
+  const base = endpointBase(endpoint);
+  if (!base) return [];
   try {
-    const payload = await readJson(`${origin}${modelsPath}`);
+    const payload = await readJson(`${base}${modelsPath}`);
     return map(payload).map((model) => ({ ...model, provider, endpoint, local: true, chatCapable: isChatCapable(model.model) }));
   } catch (_) { return []; }
 }
