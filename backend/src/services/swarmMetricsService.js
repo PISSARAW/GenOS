@@ -162,8 +162,8 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
     if (!msg.hasDiff) {
       interactions[key] = (interactions[key] || 0) + 1;
     }
-    if (!messageGraph[msg.sender]) messageGraph[msg.sender] = [];
-    messageGraph[msg.sender].push(msg.recipient);
+    if (!messageGraph[msg.sender]) messageGraph[msg.sender] = new Set();
+    messageGraph[msg.sender].add(msg.recipient);
   }
 
   // Detect chatty loops (> threshold messages without code diff)
@@ -180,21 +180,29 @@ function detectDeadlocks(messageQueue = [], chattyThreshold = 6) {
   const circularDeadlocks = [];
   const visited = new Set();
   const recStack = new Set();
+  const seenCycles = new Set();
 
   function checkCycle(node, path) {
     visited.add(node);
     recStack.add(node);
 
-    const neighbors = messageGraph[node] || [];
+    const neighbors = Array.from(messageGraph[node] || []);
     for (const neighbor of neighbors) {
       if (!visited.has(neighbor)) {
         checkCycle(neighbor, [...path, neighbor]);
       } else if (recStack.has(neighbor)) {
-        circularDeadlocks.push({
-          cycle: [...path, neighbor].join(' -> '),
-          culprits: [...path, neighbor],
-          detectedAt: new Date().toISOString()
-        });
+        const cycleNodes = [...path, neighbor];
+        const cycleStartIndex = cycleNodes.indexOf(neighbor);
+        const canonicalCycleSlice = cycleNodes.slice(cycleStartIndex);
+        const cycleKey = canonicalCycleSlice.join(' -> ');
+        if (!seenCycles.has(cycleKey)) {
+          seenCycles.add(cycleKey);
+          circularDeadlocks.push({
+            cycle: cycleKey,
+            culprits: canonicalCycleSlice,
+            detectedAt: new Date().toISOString()
+          });
+        }
       }
     }
     recStack.delete(node);
