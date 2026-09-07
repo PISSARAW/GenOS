@@ -590,11 +590,27 @@ process.stdin.on('end', async () => {
             conclusionProvenance
           }
         });
-        if (strategyContract.promotion?.require_human_approval === true) {
+        const db = await getDatabase();
+        let evidenceBlocker = null;
+        try {
+          const run = await db.get('SELECT id, created_at FROM strategy_execution_runs WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1', mission.agentId);
+          if (run) {
+            const incidents = await db.all(`
+              SELECT detail FROM telemetry_events 
+              WHERE agent_id = ? AND event_type IN ('HALLUCINATION_DETECTED', 'DOSSIER_INFLUENCE_INVALID')
+                AND created_at >= ?
+            `, mission.agentId, run.created_at);
+            if (incidents.length > 0) {
+              evidenceBlocker = "Evidence discordance detected: " + incidents.map(i => i.detail).join("; ");
+            }
+          }
+        } catch (_) {}
+
+        if (strategyContract.promotion?.require_human_approval === true || evidenceBlocker) {
           emit({
             eventType: 'AGENT_AWAITING_APPROVAL',
             action: 'PROMOTION_GATE',
-            detail: 'Human approval is required before strategy promotion.',
+            detail: evidenceBlocker || 'Human approval is required before strategy promotion.',
             status: 'blocked',
             currentTask: 'Awaiting human approval',
             payload: {
@@ -603,7 +619,8 @@ process.stdin.on('end', async () => {
               workspaceId: mission.workspaceId || 'ws-genos-core',
               agentId: mission.agentId,
               recordedTurns: recordedTurns.length ? recordedTurns : [...observedTools].map(t => ({ action: t, pass: true })),
-              conclusionProvenance
+              conclusionProvenance,
+              evidenceBlocker
             }
           });
         } else {

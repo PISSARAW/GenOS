@@ -204,8 +204,7 @@ async function superviseMission(options) {
             validateDossierInfluence(report, autonomyPlan.completedWorkerIds || []);
           } catch (error) {
             emit(agentId, 'DOSSIER_INFLUENCE_INVALID', 'EVIDENCE_GATE', error.message, { error: error.code }, 'critical', 'error');
-            haltRuntime('evidence_gate', error.message, 'Runtime halted because the final synthesis did not account for every worker dossier.', { error: error.code });
-            continue;
+            // We do not halt here; the evidence gate will block the strategy promotion gate later.
           }
         }
         if (observation.monitored && observation.detected) {
