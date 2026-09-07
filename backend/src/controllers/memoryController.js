@@ -274,6 +274,35 @@ async function sleepCycle(req, res, next) {
   }
 }
 
+function getTenantScope(req, prefix = '') {
+  const p = prefix ? `${prefix}.` : '';
+  const orgId = req.tenant?.organizationId || req.body?.organizationId || req.body?.organization_id || null;
+  const projId = req.tenant?.projectId || req.body?.projectId || req.body?.project_id || null;
+
+  if (orgId && projId) {
+    return {
+      clause: `${p}organization_id = ? AND ${p}project_id = ?`,
+      params: [orgId, projId],
+      orgId,
+      projId
+    };
+  } else if (orgId) {
+    return {
+      clause: `${p}organization_id = ?`,
+      params: [orgId],
+      orgId,
+      projId: null
+    };
+  } else {
+    return {
+      clause: `(${p}organization_id IS NULL AND ${p}project_id IS NULL)`,
+      params: [],
+      orgId: null,
+      projId: null
+    };
+  }
+}
+
 async function pruneSynapses(req, res, next) {
   try {
     const { agentId, threshold = 0.5, scale = 1.0, c3Threshold = 0.5, cd47Threshold = 0.5 } = req.body || {};
@@ -281,27 +310,30 @@ async function pruneSynapses(req, res, next) {
     const th = Number(threshold) * Number(scale);
     const c3Th = Number(c3Threshold);
     const cd47Th = Number(cd47Threshold);
+    const scope = getTenantScope(req);
 
-    let resDb;
+    let sql = `
+      DELETE FROM memory_synapses
+      WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))
+        AND ${scope.clause}
+    `;
+    const params = [th, c3Th, cd47Th, ...scope.params];
+
     if (agentId && agentId !== 'global' && agentId !== 'default-agent') {
-      resDb = await db.run(`
-        DELETE FROM memory_synapses
-        WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))
-          AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?)
-               OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))
-      `, th, c3Th, cd47Th, agentId, agentId);
-    } else {
-      resDb = await db.run(`
-        DELETE FROM memory_synapses
-        WHERE (ABS(weight) < ? OR (c3_opsonization > ? AND cd47_expression < ?))
-      `, th, c3Th, cd47Th);
+      sql += ` AND (source_id IN (SELECT id FROM genome_decisions WHERE created_by = ?)
+               OR target_id IN (SELECT id FROM genome_decisions WHERE created_by = ?))`;
+      params.push(agentId, agentId);
     }
 
+    const resDb = await db.run(sql, ...params);
     const prunedCount = resDb?.changes || 0;
+
     res.json({
       success: true,
       operation: 'agent_prune',
       agent_id: agentId || 'global',
+      organization_id: scope.orgId,
+      project_id: scope.projId,
       threshold: th,
       c3_threshold: c3Th,
       cd47_threshold: cd47Th,
