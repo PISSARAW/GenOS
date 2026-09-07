@@ -109,6 +109,26 @@ async function exists(filePath) {
   try { await fsp.access(filePath); return true; } catch (_) { return false; }
 }
 
+async function pruneSnapshotArtifacts({ db, workspaceId, workspacePath, maxAgeMs = 60 * 60 * 1000 }) {
+  const root = snapshotRoot(workspacePath, workspaceId);
+  if (!(await exists(root))) return { removed: 0 };
+  const referenced = new Set((await db.all('SELECT snapshot_hash FROM workspace_snapshots WHERE workspace_id = ?', workspaceId)).map((row) => row.snapshot_hash));
+  const cutoff = Date.now() - Math.max(0, Number(maxAgeMs) || 0);
+  let removed = 0;
+  for (const entry of await fsp.readdir(root, { withFileTypes: true })) {
+    const entryPath = path.join(root, entry.name);
+    if (!entry.isDirectory()) continue;
+    const stat = await fsp.stat(entryPath);
+    const abandonedStaging = entry.name.startsWith('.snapshot-') && stat.mtimeMs < cutoff;
+    const orphanedPayload = /^[a-f0-9]{64}$/.test(entry.name) && !referenced.has(entry.name);
+    if (abandonedStaging || orphanedPayload) {
+      await fsp.rm(entryPath, { recursive: true, force: true });
+      removed += 1;
+    }
+  }
+  return { removed };
+}
+
 async function readManifest(snapshot) {
   const metadata = parseMetadata(snapshot.metadata);
   const manifestPath = metadata.manifestPath || path.join(metadata.storagePath || '', 'manifest.json');
@@ -186,6 +206,7 @@ async function materializeGitWorktree(workspacePath, commit, destination) {
 
 async function capture({ db, workspace, label = 'Workspace snapshot', reason = 'Manual snapshot', author = 'studio', agentId = 'system', branchId = 'main', genome = {}, state = { status: 'quiescent' }, worldId = 'world-matrix-0' }) {
   if (!workspace?.path || !fs.existsSync(workspace.path)) throw new Error(`Workspace path does not exist: ${workspace?.path || '<empty>'}`);
+  await pruneSnapshotArtifacts({ db, workspaceId: workspace.id, workspacePath: workspace.path });
   const root = snapshotRoot(workspace.path, workspace.id);
   await fsp.mkdir(root, { recursive: true });
   const files = await collectFiles(workspace.path);
@@ -407,4 +428,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, isAllowedTestCommand, isSafeRelative };
+module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, pruneSnapshotArtifacts, isAllowedTestCommand, isSafeRelative };
