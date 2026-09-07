@@ -150,30 +150,33 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
 /**
  * Generates an invariant-preserving surgical auto-remediation patch and atomic rollback
  */
-function remediateRollback(workspaceId = 'ws-genos-core', culpritReport = {}, currentFiles = []) {
-  const step = culpritReport.stepNumber || 3;
-  const culpritFile = culpritReport.targetFile || 'src/services/parser.js';
-
-  const reversePatch = {
-    file: culpritFile,
-    patchType: 'SURGICAL_REVERSE_DIFF',
-    preservedAgentFiles: ['src/app.js', 'src/services/circuitBreaker.js'],
-    restoredInvariants: ['AST Max Recursion Depth <= 10', 'Early return guard enabled']
-  };
-
-  const rollbackHash = `snap-rollback-from-${step}-${Date.now()}`;
-
+async function remediateRollback(db, workspaceId, culpritReport = {}) {
+  if (!db || typeof db.get !== 'function') throw new Error('A database handle is required for causal rollback.');
+  const workspace = await db.get('SELECT * FROM workspaces WHERE id = ?', workspaceId);
+  if (!workspace) throw new Error(`Workspace '${workspaceId}' not found for causal rollback.`);
+  const reference = culpritReport.snapshotHash || culpritReport.snapshotId || culpritReport.stepNumber;
+  if (reference == null) throw new Error('Culprit snapshot reference is required for causal rollback.');
+  const snapshotStore = require('./workspaceSnapshotStore');
+  const preview = await snapshotStore.preview({ db, workspace, reference });
+  const restored = await snapshotStore.restore({ db, workspace, reference, author: 'causal-bisection' });
+  const culpritFile = culpritReport.targetFile || preview.affectedFiles[0] || null;
   return {
     success: true,
     remediated: true,
     workspaceId,
-    rolledBackCulpritStep: step,
-    rollbackSnapshotHash: rollbackHash,
+    rolledBackCulpritStep: culpritReport.stepNumber,
+    rollbackSnapshotHash: restored.restoredSnapshot.snapshot_hash,
     executedAt: new Date().toISOString(),
-    remediationPatch: reversePatch,
-    affectedFilesCount: 1,
-    unaffectedParallelFilesPreserved: 5,
-    message: 'Invariant-preserving atomic rollback executed cleanly without disturbing parallel branch work.'
+    remediationPatch: {
+      file: culpritFile,
+      patchType: 'DURABLE_SNAPSHOT_RESTORE',
+      preservedAgentFiles: preview.affectedFiles.filter((file) => file !== culpritFile),
+      restoredInvariants: ['Snapshot manifest checksum verified']
+    },
+    affectedFilesCount: preview.affectedFilesCount,
+    unaffectedParallelFilesPreserved: Math.max(0, (preview.targetSnapshot.file_count || 0) - preview.affectedFilesCount),
+    safetySnapshotId: restored.safetySnapshot.id,
+    message: 'Durable snapshot restore completed with checksum verification.'
   };
 }
 
@@ -277,8 +280,18 @@ async function autoBisectWorkspaceAnomaly(db, options = {}) {
   const bisectionResult = await bisectAnomalyAsync(history, failurePredicate);
 
   let remediation = null;
-  if (bisectionResult.anomalyFound && autoRollback) {
-    remediation = remediateRollback(workspaceId || 'workspace_recovery', bisectionResult.culpritReport);
+  if (bisectionResult.anomalyFound && autoRollback && db && workspaceId) {
+    try {
+      remediation = await remediateRollback(db, workspaceId || 'workspace_recovery', bisectionResult.culpritReport);
+    } catch (error) {
+      remediation = { success: false, remediated: false, reason: error.message };
+    }
+  } else if (bisectionResult.anomalyFound && autoRollback) {
+    remediation = {
+      success: false,
+      remediated: false,
+      reason: 'Durable rollback requires a database-backed workspace.'
+    };
   }
 
   return {
