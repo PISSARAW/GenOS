@@ -337,11 +337,29 @@ async function cycleDetection(context = {}) {
 async function diagnose(context = {}) {
   const task = context.task || context.incident || context.prompt || 'System incident';
   const error = context.error || context.failure || context.detail || '';
-  const hypotheses = Array.isArray(context.hypotheses) ? context.hypotheses : [
-    { id: 'hyp-1', statement: `Issue caused by state invalidation during "${String(task).slice(0, 50)}"`, falsified: false, confidence: 0.7 },
-    { id: 'hyp-2', statement: `Resource exhaustion or concurrency collision: ${String(error).slice(0, 50)}`, falsified: false, confidence: 0.5 },
-    { id: 'hyp-3', statement: 'Contract precondition or boundary violation', falsified: false, confidence: 0.4 }
-  ];
+  let hypotheses = context.hypotheses;
+  if (!Array.isArray(hypotheses) || hypotheses.length === 0) {
+    try {
+      const modelRouter = require('../modelRouter');
+      const res = await modelRouter.generate({
+        prompt: `Diagnose the following failure and provide exactly 3 falsifiable hypotheses.\nTask: ${task}\nError: ${error}\nOutput a JSON array of objects with keys: id, statement, confidence.`,
+        priority: 'bulk',
+        maxTokens: 500
+      });
+      const parsed = JSON.parse(res.content.replace(/```json|```/g, '').trim());
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        hypotheses = parsed;
+      } else {
+        throw new Error('Invalid JSON array');
+      }
+    } catch (e) {
+      hypotheses = [
+        { id: 'hyp-1', statement: `Issue caused by state invalidation during "${String(task).slice(0, 50)}"`, falsified: false, confidence: 0.7 },
+        { id: 'hyp-2', statement: `Resource exhaustion or concurrency collision: ${String(error).slice(0, 50)}`, falsified: false, confidence: 0.5 },
+        { id: 'hyp-3', statement: 'Contract precondition or boundary violation', falsified: false, confidence: 0.4 }
+      ];
+    }
+  }
 
   telemetry.emitEvent({
     eventType: 'INCIDENT_DIAGNOSIS_GENERATED',
@@ -375,10 +393,11 @@ async function hypothesisEvidence(context = {}) {
       const hypText = (item.statement || '').toLowerCase();
       const explicitFalsified = e.falsifies === item.id || e.refutes === item.id || (e.status === 'success' && e.provesNot === item.id);
       if (explicitFalsified) return true;
-      const words = hypText.split(/\s+/).filter(w => w.length > 3 && !['issue', 'caused', 'error', 'failed', 'during'].includes(w));
+      const hypHealthy = hypText.includes('passed') || hypText.includes('no error') || hypText.includes('success') || hypText.includes('healthy') || hypText.includes('clean');
+      const words = hypText.split(/\s+/).filter(w => w.length > 3 && !['issue', 'caused', 'error', 'failed', 'during', 'success', 'passed', 'healthy', 'clean'].includes(w));
       const mentionsComponent = words.some(w => text.includes(w));
       const confirmsHealthy = text.includes('passed') || text.includes('no error') || text.includes('success') || text.includes('healthy') || text.includes('clean');
-      return mentionsComponent && confirmsHealthy;
+      return mentionsComponent && !hypHealthy && confirmsHealthy;
     });
 
     return {
