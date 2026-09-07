@@ -73,7 +73,7 @@ const fs = require('fs'); let input = ''; process.stdin.on('data', chunk => inpu
       cwd: directory,
       input: JSON.stringify({
         agentId: 'orchestrator-local-review-test', executionMode: 'orchestrator', prompt: 'audit local advice',
-        strategyContractJson: '{}', executionPolicyJson: '{}', toolLeaseJson: '[]', genosCapsuleJson: '{}',
+        strategyContractJson: '{}', executionPolicyJson: '{}', toolLeaseJson: JSON.stringify(['genos_status']), genosCapsuleJson: '{}',
         autonomyPlanJson: JSON.stringify({ schema: 'test', localModelReview: { consulted: true, selectedModel: 'ollama://test', provider: 'ollama', advice: 'USE_THIS_LOCAL_EVIDENCE' } })
       }),
       env: { ...process.env, CODEX_EXECUTABLE: fakeCodex, PROMPT_CAPTURE: capture, GENOS_BIN: path.join(directory, 'missing-genos'), GENOS_MCP_BIN: path.join(directory, 'missing-mcp'), GENOS_WORKSPACE_ROOT: directory },
