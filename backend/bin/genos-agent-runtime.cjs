@@ -131,10 +131,16 @@ process.stdin.on('end', async () => {
   const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
   let conscienceState = agentConscience.createConscienceState();
   let db = null;
+  let hasAgentInDb = false;
+  let pendingConscienceOp = Promise.resolve();
   try {
     db = await getDatabase();
     if (mission.agentId) {
-      conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
+      const row = await db.get('SELECT id FROM agents WHERE id = ?', mission.agentId);
+      if (row) {
+        hasAgentInDb = true;
+        conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
+      }
     }
   } catch (_) {}
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
@@ -290,9 +296,16 @@ process.stdin.on('end', async () => {
       severity: 'warning', status: 'blocked', currentTask: 'Execution stopped by budget guard',
       payload: budgetStopped
     });
+    try { child.stdout.destroy(); } catch (_) {}
+    try { child.stderr.destroy(); } catch (_) {}
+    try { child.stdin.destroy(); } catch (_) {}
     setImmediate(() => {
       try {
         child.kill('SIGTERM');
+        const forceKillTimer = setTimeout(() => {
+          try { child.kill('SIGKILL'); } catch (_) {}
+        }, 2000);
+        forceKillTimer.unref();
       } catch (_) {}
     });
   };
@@ -366,16 +379,20 @@ process.stdin.on('end', async () => {
           });
           child.kill('SIGTERM');
         }
-        if (db && mission.agentId) {
-          agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'item_completed' }).catch(() => {});
+        if (db && hasAgentInDb) {
+          pendingConscienceOp = pendingConscienceOp
+            .then(() => agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'item_completed' }))
+            .catch(() => {});
         }
       }
       else if (type === 'turn.completed') {
         const drift = finalReportText ? immune.evaluateCognitiveDrift(finalReportText) : null;
         if (drift?.warning) emit({ eventType: 'INFLAMMATION_DETECTED', action: 'MACROPHAGE', detail: 'Dérive cognitive ou répétition excessive observée.', severity: 'warning', payload: drift });
         emit({ eventType: 'AGENT_STEP', action: 'VERIFY', detail: 'Implementation turn completed.', payload: event });
-        if (db && mission.agentId) {
-          agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'turn_completed' }).catch(() => {});
+        if (db && hasAgentInDb) {
+          pendingConscienceOp = pendingConscienceOp
+            .then(() => agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: 'turn_completed' }))
+            .catch(() => {});
         }
       }
     });
@@ -398,20 +415,21 @@ process.stdin.on('end', async () => {
     process.exit(1);
   });
   child.on('close', async (code, signal) => {
-    const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
-    if (db && mission.agentId) {
-      if (code === 0 && !budgetStopped && !missingTools.length) {
-        agentConscience.triggerEureka(conscienceState);
-      }
-      try {
-        await agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: code === 0 ? 'mission_completed' : 'mission_failed' });
-      } catch (_) {}
-    }
     if (budgetStopped) {
       emit({ eventType: 'AGENT_HALTED', action: 'BUDGET_GUARD', detail: 'Runtime stopped at the active execution budget boundary.', severity: 'warning', status: 'blocked', currentTask: 'Budget exhausted', payload: { code, signal, budget: budgetStopped } });
       process.exitCode = 1;
       cleanup();
       process.exit(1);
+    }
+    const missingTools = [...requiredTools].filter((tool) => !observedTools.has(tool));
+    if (db && hasAgentInDb) {
+      if (code === 0 && !missingTools.length) {
+        agentConscience.triggerEureka(conscienceState);
+      }
+      try {
+        await pendingConscienceOp;
+        await agentConscience.persistConscienceState(db, mission.agentId, conscienceState, { reason: code === 0 ? 'mission_completed' : 'mission_failed' });
+      } catch (_) {}
     } else if (code === 0 && missingTools.length) {
       emit({ eventType: 'HARD_INVARIANT_FAILURE', action: 'ORCHESTRATION_POLICY', detail: `Required GenOS orchestration tools were not observed: ${missingTools.join(', ')}.`, severity: 'error', status: 'error', payload: { missingTools, observedTools: [...observedTools] } });
       process.exitCode = 1;
@@ -470,6 +488,7 @@ process.stdin.on('end', async () => {
             status: 'rejected'
           });
         } catch (_) {}
+      } else {
         emit({
           eventType: 'AGENT_COMPLETED',
           action: 'COMPLETE',
@@ -523,6 +542,7 @@ process.stdin.on('end', async () => {
       } catch (_) {}
     }
     if (process.exitCode === undefined) process.exitCode = code || 0;
+    try { await pendingConscienceOp; } catch (_) {}
     cleanup();
     process.exit(process.exitCode || 0);
   });
