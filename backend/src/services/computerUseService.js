@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Computer Use Service — desktop GUI control loop (screenshot -> model -> action plan).
  *
  * Extracted so it can be driven both as a standalone CLI script
@@ -110,14 +110,19 @@ function screenPath() {
     return path.join(process.cwd(), ".genos", "current_screen.png").replace(/\\/g, "/");
 }
 
-/** Captures the desktop and returns it as a base64 PNG string. */
+/** Captures the desktop and returns it as a { base64, width, height } object. */
 async function captureScreenshot() {
     const out = screenPath();
     if (!fs.existsSync(path.dirname(out))) fs.mkdirSync(path.dirname(out), { recursive: true });
-    runGenosSync(`genos desktop capture --out "${out}"`, { maxBuffer: 1024 * 1024 * 50 });
+    const stdout = runGenosSync(`genos desktop capture --out "${out}"`, { maxBuffer: 1024 * 1024 * 50 }).toString();
+    const meta = JSON.parse(stdout.trim());
     // `genos desktop capture --out` writes the base64 string itself (not raw PNG
     // bytes), so read it as text - re-encoding it as base64 would double-encode it.
-    return fs.readFileSync(out, "utf8").trim();
+    return {
+        base64: fs.readFileSync(out, "utf8").trim(),
+        width: meta.width || 1920,
+        height: meta.height || 1080
+    };
 }
 
 /**
@@ -148,9 +153,9 @@ async function runMission(mission, options = {}) {
         log(`\n--- Iteration ${iterations} ---`);
 
         log("Capturing screen...");
-        let base64Image;
+        let capture;
         try {
-            base64Image = await captureScreenshot();
+            capture = await captureScreenshot();
         } catch (e) {
             log(`Failed to capture screen: ${e.message}`);
             outcome = 'capture_failed';
@@ -162,16 +167,23 @@ async function runMission(mission, options = {}) {
             : "";
         const prompt = isAnthropic
             ? [
-                { type: "image", source: { type: "base64", media_type: "image/png", data: base64Image } },
+                { type: "image", source: { type: "base64", media_type: "image/png", data: capture.base64 } },
                 { type: "text", text: `Mission: ${mission}\n\nObserve the screen and use the computer tool to make progress. You may call the tool multiple times in this turn to chain steps (e.g. open a launcher, type a command, press Enter) - they all run before the next screenshot.${historyText}` }
             ]
             : [
-                { type: "image_url", image_url: { url: `data:image/png;base64,${base64Image}` } },
+                { type: "image_url", image_url: { url: `data:image/png;base64,${capture.base64}` } },
                 { type: "text", text: `Mission: ${mission}\n\n${LOCAL_VISION_INSTRUCTIONS}${historyText}` }
             ];
 
         log("Thinking...");
-        const result = await generate({ model, prompt, stream: false, maxTokens: 4096 });
+        const result = await generate({ 
+            model, 
+            prompt, 
+            stream: false, 
+            maxTokens: 4096,
+            displayWidth: capture.width,
+            displayHeight: capture.height
+        });
         const text = result.text;
         lastResponse = text;
         log(`Model responded with raw text:\n${text}\n-----------------`);

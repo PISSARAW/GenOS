@@ -119,7 +119,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const headers = provider === 'anthropic' ? { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-beta': 'computer-use-2024-10-22' } : { 'Content-Type': 'application/json', ...(provider === 'gemini' ? {} : (apiKey ? { Authorization: `Bearer ${apiKey}` } : {})) };
     const outputLimit = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : null;
     const body = provider === 'anthropic'
-      ? { model: modelName, max_tokens: outputLimit || 2048, messages: [{ role: 'user', content: prompt }], tools: [{ type: "computer_20241022", name: "computer", display_width_px: 1920, display_height_px: 1080, display_number: 1 }] }
+      ? { model: modelName, max_tokens: outputLimit || 2048, messages: [{ role: 'user', content: prompt }], tools: [{ type: "computer_20241022", name: "computer", display_width_px: options.displayWidth || 1920, display_height_px: options.displayHeight || 1080, display_number: 1 }] }
       : provider === 'gemini'
         ? { contents: [{ parts: Array.isArray(prompt) ? prompt.map(p => p.text ? {text: p.text} : p) : [{ text: prompt }] }], ...(outputLimit ? { generationConfig: { maxOutputTokens: outputLimit } } : {}) }
         : { model: modelName, messages: [{ role: 'user', content: prompt }], stream, ...(outputLimit ? { max_tokens: outputLimit } : {}), ...(Number.isInteger(Number(seed)) ? { seed: Number(seed) } : {}) };

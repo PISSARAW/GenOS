@@ -6,12 +6,12 @@ pub fn execute(cmd: DesktopSubcommands) -> Result<(), String> {
     match cmd {
         DesktopSubcommands::Capture { out } => {
             match capture_screen_base64() {
-                Ok(b64) => {
+                Ok((b64, width, height)) => {
                     if let Some(path) = out {
                         std::fs::write(&path, &b64).map_err(|e| format!("Failed to write base64: {}", e))?;
-                        println!("{}", json!({ "success": true, "path": path }));
+                        println!("{}", json!({ "success": true, "path": path, "width": width, "height": height }));
                     } else {
-                        println!("{}", json!({ "success": true, "base64": b64 }));
+                        println!("{}", json!({ "success": true, "base64": b64, "width": width, "height": height }));
                     }
                     Ok(())
                 },

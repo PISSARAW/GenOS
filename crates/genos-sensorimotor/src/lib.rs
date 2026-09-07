@@ -5,18 +5,20 @@ use serde::Deserialize;
 use std::thread;
 use std::time::Duration;
 
-pub fn capture_screen_base64() -> Result<String, String> {
+pub fn capture_screen_base64() -> Result<(String, u32, u32), String> {
     let monitors = Monitor::all().map_err(|e| format!("Failed to get monitors: {}", e))?;
     let monitor = monitors.into_iter().next().ok_or_else(|| "No monitor found".to_string())?;
     
     let image = monitor.capture_image().map_err(|e| format!("Failed to capture image: {}", e))?;
+    let width = image.width();
+    let height = image.height();
     
     // Save to memory buffer as PNG
     let mut buffer = Vec::new();
     let mut cursor = std::io::Cursor::new(&mut buffer);
     image.write_to(&mut cursor, image::ImageFormat::Png).map_err(|e| format!("Failed to encode image: {}", e))?;
     
-    Ok(general_purpose::STANDARD.encode(&buffer))
+    Ok((general_purpose::STANDARD.encode(&buffer), width, height))
 }
 
 #[derive(Deserialize, Debug)]
