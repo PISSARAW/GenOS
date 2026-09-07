@@ -14,6 +14,7 @@ const fsp = fs.promises;
 const os = require('os');
 const path = require('path');
 const { terminateChild } = require('./processTermination');
+const { normalizeSandboxCommand, isAllowedSandboxTestCommand } = require('./sandboxCommandPolicy');
 
 const IGNORED_DIRECTORIES = new Set(['.git', '.genos', 'node_modules', 'target', 'dist', 'coverage', '.next']);
 const IGNORED_FILES = new Set(['genos.db', 'genos.db-shm', 'genos.db-wal']);
@@ -376,23 +377,8 @@ async function preview({ db, workspace, reference }) {
 // Commands executed inside snapshots run through a platform shell, so the
 // input must be constrained to a fixed vocabulary of test commands. Anything
 // else would be arbitrary remote code execution for the caller.
-const ALLOWED_TEST_COMMANDS = new Set(['npm test', 'npm run check', 'pytest', 'cargo test']);
-
 function isAllowedTestCommand(command) {
-  const normalized = String(command || '').trim().replace(/\s+/g, ' ');
-  if (ALLOWED_TEST_COMMANDS.has(normalized)) return true;
-  const safeOptions = /^(?:--lib|--workspace|--quiet|--offline|--all-features)$/;
-  const safeArgument = /^[A-Za-z0-9_./:-]+$/;
-  const parts = normalized.split(' ');
-  if (!['npm', 'pytest', 'cargo'].includes(parts[0])) return false;
-  if (parts[0] === 'npm') {
-    if (parts[1] !== 'test' && !(parts[1] === 'run' && parts[2] === 'check')) return false;
-    const args = parts.slice(parts[1] === 'test' ? 2 : 3);
-    return args.length === 0 || (args[0] === '--' && args.slice(1).length > 0 && args.slice(1).every((argument) => safeArgument.test(argument)));
-  }
-  if (parts[0] === 'pytest') return false;
-  if (parts[1] !== 'test') return false;
-  return parts.slice(2).length > 0 && parts.slice(2).every((option) => safeOptions.test(option) || safeArgument.test(option));
+  return isAllowedSandboxTestCommand(command);
 }
 
 function assertAllowedTestCommand(command) {
@@ -402,7 +388,7 @@ function assertAllowedTestCommand(command) {
       { code: 'TEST_COMMAND_NOT_ALLOWED' }
     );
   }
-  return String(command).trim().replace(/\s+/g, ' ');
+  return normalizeSandboxCommand(command);
 }
 
 async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBytes = 1024 * 1024, workspacePath }) {
