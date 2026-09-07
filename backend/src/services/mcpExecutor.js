@@ -50,6 +50,16 @@ function rpcRequest(id, method, params = {}) {
   return { jsonrpc: '2.0', id, method, params };
 }
 
+function mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) {
+  return {
+    ...process.env,
+    GENOS_WORKSPACE_ROOT: workspaceRoot,
+    GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'),
+    GENOS_MCP_CLIENT: 'genos-backend',
+    GENOS_MCP_LEASE: process.env.GENOS_MCP_LEASE || toolName
+  };
+}
+
 async function readMcpHttpResponse(response) {
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.includes('text/event-stream')) return response.json();
@@ -140,7 +150,7 @@ async function callStdio(transport, toolName, options = {}) {
   if (!executable) throw new Error('GENOS_MCP_COMMAND is empty.');
   const repositoryRoot = path.resolve(__dirname, '../../..');
   const workspaceRoot = process.env.GENOS_WORKSPACE_ROOT || repositoryRoot;
-  const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, GENOS_WORKSPACE_ROOT: workspaceRoot, GENOS_BIN: process.env.GENOS_BIN || path.join(repositoryRoot, 'target/debug/genos'), GENOS_MCP_CLIENT: 'genos-backend' } });
+  const child = spawn(executable, [...tokens, ...cmdArgs], { cwd: workspaceRoot, stdio: ['pipe', 'pipe', 'pipe'], env: mcpTransportEnvironment(toolName, repositoryRoot, workspaceRoot) });
   let buffer = ''; let stderr = ''; let protocolErrors = ''; let pending = null; let closed = false;
   child.stderr.on('data', (chunk) => { stderr = appendBounded(stderr, chunk); });
   child.stdout.on('data', (chunk) => {
@@ -721,4 +731,4 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   return result.output;
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment };
