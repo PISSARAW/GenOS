@@ -88,3 +88,17 @@ assert.equal(digest[0].reports[0].outcome, 'no_answer');
 assert.ok(digest[0].reports[0].noAnswerProof);
 
 console.log('✓ Point 7 verified.');
+// Test Point 8: Arena Pareto evaluation for no_answer proofs
+const { dossierToCandidate } = require('../src/services/arenaTaskEvaluation');
+const candidate = dossierToCandidate({
+  workerId: 'worker-proof',
+  evidenceReport: {
+    outcome: 'no_answer',
+    claims: [],
+    noAnswerProof: { method: 'finite domain search', evidence: ['e1', 'e2'] }
+  }
+});
+assert.equal(candidate.adversarialPassRate, 85, 'No-answer candidate must have 85% pass rate');
+assert(candidate.fitnessScore >= 80, `No-answer candidate fitness must be >= 80% (got ${candidate.fitnessScore})`);
+
+console.log('✓ Point 8 verified.');
