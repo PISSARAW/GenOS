@@ -14,4 +14,5 @@ assert.deepEqual(
   ["genos_snapshot"]
 );
 assert.equal(toolIsLeased("genos_snapshot", tools, { GENOS_MCP_LEASE: "snapshot" }), true);
+assert.equal(toolIsLeased("genos_orchestrate", tools, { GENOS_MCP_EXPOSE_ALL: "true", GENOS_MCP_DISABLED_TOOLS: "genos_orchestrate" }), false);
 console.log("MCP lease checks passed.");
