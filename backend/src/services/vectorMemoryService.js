@@ -21,6 +21,7 @@ const {
   cherryPickGoldenPath,
   counterfactualReplay
 } = require('./trajectoryService');
+const sleepCycleService = require('./sleepCycle');
 
 const SEED_EXPERIENCES = [
   { id: 'exp-001', title: 'Enabled SQLite WAL for concurrent agents', category: 'Database', status: 'SUCCESS', summary: 'Switched the journal mode to wal so multiple agent workers can read while one writes without locking timeouts.', tags: ['sqlite', 'wal', 'concurrency'], author: 'memory_seed', createdAt: '2026-09-01T08:00:00.000Z' },
@@ -442,93 +443,7 @@ class VectorMemoryService {
   }
 
   async sleepCycle(db = null) {
-    const database = db || (await this.initDb());
-    if (!database) return { success: false, consolidated: false, memoriesDecayed: false, apoptosisCount: 0, error: 'Database unavailable.' };
-
-    try {
-      let doomedIds = [];
-      let exosomeStats;
-      await withTransaction(database, async (tx) => {
-        // 1. Natural asymptotic decay on decisions without artificial 0.15 clamp
-        await tx.run(
-          'UPDATE genome_decisions SET synaptic_weight = ROUND(synaptic_weight * 0.9, 4)'
-        );
-
-        // 2. Differential synaptic consolidation:
-        // Active synapses (activity_history > 0): LTP reinforcement, receptor insertion, CD47 "don't eat me" protection, C3 clearance
-        await tx.run(`
-          UPDATE memory_synapses
-          SET weight = CASE WHEN weight < 0 THEN MAX(-20.0, weight - 0.05 * activity_history) ELSE MIN(20.0, weight + 0.05 * activity_history) END,
-              receptor_density = MIN(3.0, receptor_density + 0.05),
-              c3_opsonization = 0.0,
-              cd47_expression = MIN(2.0, cd47_expression + 0.1),
-              spine_morphology = CASE WHEN receptor_density + 0.05 >= 1.5 THEN 'mushroom' ELSE 'thin' END
-          WHERE activity_history > 0
-        `);
-
-        // Inactive synapses (activity_history = 0 or NULL): LTD depression, receptor internalization, CD47 down-regulation, C3 opsonization
-        await tx.run(`
-          UPDATE memory_synapses
-          SET weight = ROUND(weight * 0.95, 4),
-              receptor_density = MAX(0.0, receptor_density - 0.05),
-              c3_opsonization = MIN(2.0, c3_opsonization + 0.1),
-              cd47_expression = MAX(0.0, cd47_expression - 0.05),
-              spine_morphology = CASE WHEN receptor_density - 0.05 < 0.6 THEN 'filopodia' WHEN receptor_density - 0.05 < 1.3 THEN 'stubby' ELSE spine_morphology END
-          WHERE activity_history IS NULL OR activity_history = 0
-        `);
-
-        // 3. Prune dead synapses below transmission threshold OR tagged for microglial elimination (C3 > 0.5 & CD47 < 0.5)
-        await tx.run('DELETE FROM memory_synapses WHERE ABS(weight) < 0.05 OR (c3_opsonization > 0.5 AND cd47_expression < 0.5)');
-
-        // Reset activity history across all remaining synapses for the next wake cycle
-        await tx.run('UPDATE memory_synapses SET activity_history = 0');
-
-        // 4. Select orphaned weak memories (< 0.1) with no remaining active synapses
-        const doomed = await tx.all(`
-          SELECT g.id 
-          FROM genome_decisions g
-          LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
-          WHERE g.synaptic_weight < 0.1 
-          GROUP BY g.id
-          HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-        `);
-        doomedIds = doomed.map(d => d.id);
-
-        if (doomedIds.length > 0) {
-          const placeholders = doomedIds.map(() => '?').join(',');
-          await tx.run(`DELETE FROM genome_decisions WHERE id IN (${placeholders})`, doomedIds);
-        }
-
-        // 5. Trajectory retention & pruning: remove stale rejected non-exceptional trajectories
-        let prunedTrajectories = 0;
-        try {
-          const res = await tx.run(`
-            DELETE FROM trajectories 
-            WHERE is_exceptional = 0 
-              AND status = 'rejected' 
-              AND datetime(created_at) < datetime('now', '-7 days')
-          `);
-          prunedTrajectories = res?.changes || 0;
-        } catch (_) {}
-
-        exosomeStats = await synapticTransmission.absorbExosomes(tx);
-        exosomeStats.prunedTrajectories = prunedTrajectories;
-      });
-
-      return {
-        success: exosomeStats.success !== false,
-        consolidated: true,
-        memoriesDecayed: true,
-        apoptosisCount: doomedIds.length,
-        prunedTrajectories: exosomeStats.prunedTrajectories || 0,
-        exosomesAbsorbed: exosomeStats.absorbedCount,
-        engramsStored: exosomeStats.engramsStored,
-        plasmidsAssimilated: exosomeStats.plasmidsAssimilated,
-        errors: exosomeStats.errors || []
-      };
-    } catch (error) {
-      return { success: false, consolidated: false, memoriesDecayed: false, apoptosisCount: 0, error: error.message };
-    }
+    return sleepCycleService.runSleepCycle(db || (await this.initDb()));
   }
 
   async releaseVesicles(engrams = [], options = {}) {
