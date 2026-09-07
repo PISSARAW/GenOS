@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test": "npm --prefix backend test"
+  },
   "dependencies": {
     "puppeteer": "^25.10.0"
   }
