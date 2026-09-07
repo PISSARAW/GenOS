@@ -113,9 +113,34 @@ async function testMultilineSse() {
   }
 }
 
+async function testMalformedSse() {
+  const server = http.createServer((request, response) => {
+    let body = '';
+    request.on('data', (chunk) => { body += chunk; });
+    request.on('end', () => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.end('data: {not-json}\n\n');
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const previousUrl = process.env.GENOS_MCP_URL;
+  try {
+    process.env.GENOS_MCP_URL = `http://127.0.0.1:${server.address().port}`;
+    await assert.rejects(
+      mcpExecutor.executeConfiguredTransport({ toolName: 'genos_snapshot', timeoutMs: 1000 }),
+      /invalid JSON-RPC data/
+    );
+  } finally {
+    if (previousUrl === undefined) delete process.env.GENOS_MCP_URL;
+    else process.env.GENOS_MCP_URL = previousUrl;
+    await new Promise((resolve) => server.close(resolve));
+  }
+}
+
 main()
   .then(testNotificationFailure)
   .then(testMultilineSse)
+  .then(testMalformedSse)
   .then(() => console.log('MCP HTTP notification failure checks passed.'))
   .catch((error) => {
   console.error(error);
