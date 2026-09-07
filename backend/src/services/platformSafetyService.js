@@ -4,7 +4,7 @@ const DEFAULT_PROVIDERS = [
   { provider: 'openai', model: 'gpt-4o-mini', capabilities: ['reasoning', 'tools'], costInput: 0.15, costOutput: 0.60, latencyMs: 700 },
   { provider: 'anthropic', model: 'claude-3-5-sonnet', capabilities: ['reasoning', 'tools', 'long-context'], costInput: 3, costOutput: 15, latencyMs: 1100 },
   { provider: 'ollama', model: 'llama3.1:8b', capabilities: ['local', 'reasoning'], costInput: 0, costOutput: 0, latencyMs: 450 },
-  { provider: 'local', model: 'genos-local', capabilities: ['local', 'replay'], costInput: 0, costOutput: 0, latencyMs: 120 }
+  { provider: 'vllm', model: 'genos-local', capabilities: ['local', 'replay'], costInput: 0, costOutput: 0, latencyMs: 120 }
 ];
 
 function normalizeProvider(p) {
