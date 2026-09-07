@@ -24,10 +24,42 @@ const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
 
 const activeWorktrees = new Map();
+const gitRepoMutexes = new Map();
 const DEFAULT_GC_DELAY_MS = 10 * 60 * 1000;
 const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 const MAX_COPY_DEPTH = 32;
 const MAX_COPY_ENTRIES = 100000;
+
+async function withGitRepoLock(repoPath, fn) {
+  const key = path.resolve(repoPath);
+  let previous = gitRepoMutexes.get(key) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  gitRepoMutexes.set(key, previous.then(() => current, () => current));
+
+  try {
+    await previous;
+    let attempts = 0;
+    const maxAttempts = 5;
+    while (attempts < maxAttempts) {
+      try {
+        return await fn();
+      } catch (err) {
+        attempts++;
+        if (attempts < maxAttempts && /index\.lock|cannot lock ref/i.test(err.message || '')) {
+          await new Promise((r) => setTimeout(r, 100 * Math.pow(2, attempts - 1)));
+          continue;
+        }
+        throw err;
+      }
+    }
+  } finally {
+    release();
+    if (gitRepoMutexes.get(key) === current) {
+      gitRepoMutexes.delete(key);
+    }
+  }
+}
 
 async function ensureCleanupTable(db) {
   await db.exec(`
@@ -244,7 +276,9 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     }
     const { stdout: diff } = await runCommand('git', ['diff', 'HEAD', '--binary'], { cwd: source });
     let worktreeCreated = false;
-    await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
+    await withGitRepoLock(source, async () => {
+      await runCommand('git', ['worktree', 'add', '--detach', destination, 'HEAD'], { cwd: source });
+    });
     worktreeCreated = true;
     if (diff && diff.trim()) {
       await runCommand('git', ['apply', '--whitespace=nowarn', '-'], { cwd: destination, input: diff });
