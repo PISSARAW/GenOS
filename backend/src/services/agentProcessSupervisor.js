@@ -176,7 +176,7 @@ async function superviseMission(options) {
             sourceEventId: currentEvent.id, sourceEventType: eventType, total: observation.total, reasons: observation.reasons
           }, 'warning');
           const autopsy = await resilienceService.evaluateApoptosis(agentId, { hallucinations: observation.total }, db);
-          if (autopsy.apoptosisExecuted && !termination && !finalEvent) {
+          if (autopsy.apoptosisExecuted && !termination) {
             emit(agentId, 'APOPTOSIS_TRIGGERED', 'HALLUCINATION_LIMIT', autopsy.triggerReason, { autopsy }, 'critical', 'apoptosis');
             haltRuntime('apoptosis', autopsy.triggerReason, 'Runtime halted after the hallucination limit was reached.', { autopsy });
             continue;
@@ -209,16 +209,18 @@ async function superviseMission(options) {
         if (isErrorEvent) {
           const evalResult = agentConscience.evaluateBranch(conscienceState, { errorsInLoop: 1 });
           emit(agentId, 'CONSCIENCE_STATE_UPDATED', 'CONSCIENCE', `Dissonance cognitive augmentée à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'warning');
-          if (evalResult.apoptoticTriggered && !termination && !finalEvent) {
+          if (evalResult.apoptoticTriggered && !termination) {
             emit(agentId, 'COGNITIVE_APOPTOSIS', 'CONSCIENCE_LIMIT', `Dissonance cognitive critique (${conscienceState.dissonanceLevel.toFixed(1)} >= ${conscienceState.maxDissonanceThreshold}). Apoptose déclenchée.`, { conscienceState }, 'critical', 'apoptosis');
+            await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'cognitive_apoptosis' });
             haltRuntime('cognitive_apoptosis', 'Dissonance cognitive critique.', 'Runtime halted by Cognitive Conscience Apoptosis.', { conscienceState });
             continue;
           }
+          await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_error' });
         } else if (isSuccessEvent) {
           agentConscience.triggerEureka(conscienceState);
           emit(agentId, 'COGNITIVE_EUREKA', 'EUREKA', `Événement Eurêka enregistré ! Dissonance réduite à ${conscienceState.dissonanceLevel.toFixed(1)}.`, { conscienceState }, 'info');
+          await agentConscience.persistConscienceState(db, agentId, conscienceState, { reason: 'supervisor_eureka' });
         }
-        await agentConscience.persistConscienceState(db, agentId, conscienceState);
 
         await advanceAutonomousRound(normalizedMission, currentEvent);
       } catch (err) {

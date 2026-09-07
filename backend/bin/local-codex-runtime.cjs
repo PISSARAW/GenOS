@@ -65,7 +65,14 @@ process.stdin.on('end', async () => {
     selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
   }
 
-  const conscienceState = agentConscience.createConscienceState();
+  let conscienceState = agentConscience.createConscienceState();
+  try {
+    const { getDatabase } = require('../src/db');
+    const db = await getDatabase();
+    if (mission.agentId) {
+      conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
+    }
+  } catch (_) {}
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
 
   const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');

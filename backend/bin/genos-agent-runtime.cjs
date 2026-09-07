@@ -129,7 +129,13 @@ process.stdin.on('end', async () => {
   const agentName = mission.name || mission.agentId;
   const nameMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Autonomous implementation agent');
   const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
-  const conscienceState = agentConscience.createConscienceState();
+  let conscienceState = agentConscience.createConscienceState();
+  try {
+    const db = await getDatabase();
+    if (mission.agentId) {
+      conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
+    }
+  } catch (_) {}
   const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
 
   let memoryBlock = '';
