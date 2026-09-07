@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const safety = require('./src/services/platformSafetyService');
+const safety = require('../src/services/platformSafetyService');
 
 test('routes complex uncertain workloads to a capable model and requests approval', () => {
   const result = safety.routeModel({ complexity: 0.95, uncertainty: 0.9, requiredCapabilities: ['reasoning'] });
