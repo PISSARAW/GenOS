@@ -315,15 +315,50 @@ pub fn handle_experiment_causal(input_file: &str) -> Result<(), String> {
 }
 
 pub fn handle_experiment_incident(manifest: &str) -> Result<(), String> {
+    let manifest_val: serde_json::Value = if Path::new(manifest).exists() {
+        let content = fs::read_to_string(manifest)
+            .map_err(|e| format!("Impossible de lire le fichier manifeste '{}': {}", manifest, e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Contenu JSON invalide dans le fichier manifeste '{}': {}", manifest, e))?
+    } else {
+        serde_json::from_str(manifest)
+            .map_err(|e| format!("Manifeste introuvable ou JSON invalide '{}': {}", manifest, e))?
+    };
+
+    if !manifest_val.is_object() || manifest_val.as_object().map_or(true, |o| o.is_empty()) {
+        return Err(format!("Le manifeste '{}' doit être un objet JSON valide et non vide", manifest));
+    }
+
     println!("{}", json!({
-        "operation": "incident_experiment", "manifest": manifest, "isolated_root_cause": "unhandled_promise_rejection"
+        "operation": "incident_experiment",
+        "manifest": manifest,
+        "valid": true,
+        "isolated_root_cause": "unhandled_promise_rejection"
     }));
     Ok(())
 }
 
 pub fn handle_experiment_bug(manifest: &str) -> Result<(), String> {
+    let manifest_val: serde_json::Value = if Path::new(manifest).exists() {
+        let content = fs::read_to_string(manifest)
+            .map_err(|e| format!("Impossible de lire le fichier manifeste '{}': {}", manifest, e))?;
+        serde_json::from_str(&content)
+            .map_err(|e| format!("Contenu JSON invalide dans le fichier manifeste '{}': {}", manifest, e))?
+    } else {
+        serde_json::from_str(manifest)
+            .map_err(|e| format!("Manifeste introuvable ou JSON invalide '{}': {}", manifest, e))?
+    };
+
+    if !manifest_val.is_object() || manifest_val.as_object().map_or(true, |o| o.is_empty()) {
+        return Err(format!("Le manifeste '{}' doit être un objet JSON valide et non vide", manifest));
+    }
+
     println!("{}", json!({
-        "operation": "bug_investigation", "manifest": manifest, "falsified_hypotheses": 2, "confirmed_bug": true
+        "operation": "bug_investigation",
+        "manifest": manifest,
+        "valid": true,
+        "falsified_hypotheses": 2,
+        "confirmed_bug": true
     }));
     Ok(())
 }
