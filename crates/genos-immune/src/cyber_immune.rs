@@ -104,6 +104,7 @@ pub struct CircuitBreaker {
     pub state: CircuitState,
     failure_count: u32,
     threshold: u32,
+    probe_in_flight: bool,
 }
 
 impl CircuitBreaker {
@@ -111,19 +112,22 @@ impl CircuitBreaker {
         Self {
             state: CircuitState::Closed,
             failure_count: 0,
-            threshold,
+            threshold: threshold.max(1),
+            probe_in_flight: false,
         }
     }
 
     pub fn record_success(&mut self) {
         self.failure_count = 0;
         self.state = CircuitState::Closed;
+        self.probe_in_flight = false;
     }
 
     pub fn record_failure(&mut self) {
         self.failure_count += 1;
         if self.state == CircuitState::HalfOpen || self.failure_count >= self.threshold {
             self.state = CircuitState::Open;
+            self.probe_in_flight = false;
         }
     }
 
@@ -132,10 +136,19 @@ impl CircuitBreaker {
             return false;
         }
         self.state = CircuitState::HalfOpen;
+        self.probe_in_flight = false;
         true
     }
 
     pub fn is_allowed(&self) -> bool {
-        matches!(self.state, CircuitState::Closed | CircuitState::HalfOpen)
+        self.state == CircuitState::Closed || (self.state == CircuitState::HalfOpen && !self.probe_in_flight)
+    }
+
+    pub fn acquire_probe(&mut self) -> bool {
+        if self.state != CircuitState::HalfOpen || self.probe_in_flight {
+            return false;
+        }
+        self.probe_in_flight = true;
+        true
     }
 }

@@ -61,8 +61,18 @@ mod tests {
         assert!(breaker.begin_recovery_probe());
         assert_eq!(breaker.state, CircuitState::HalfOpen);
         assert!(breaker.is_allowed());
+        assert!(breaker.acquire_probe());
+        assert!(!breaker.acquire_probe());
+        assert!(!breaker.is_allowed());
         breaker.record_success();
         assert_eq!(breaker.state, CircuitState::Closed);
+    }
+
+    #[test]
+    fn test_circuit_breaker_rejects_zero_threshold() {
+        let mut breaker = CircuitBreaker::new(0);
+        breaker.record_failure();
+        assert_eq!(breaker.state, CircuitState::Open);
     }
 
     #[test]
