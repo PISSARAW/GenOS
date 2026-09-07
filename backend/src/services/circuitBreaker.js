@@ -5,6 +5,8 @@
 
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const fs = require('fs');
+const path = require('path');
 
 const DESTRUCTIVE_TOOLS = [
   'genos_run',
@@ -26,14 +28,27 @@ class CircuitBreakerService {
     this.cooldownMs = 60000;
     this.lastFailureTime = 0;
     this.lastStateChange = Date.now();
-    this.isHalted = false;
-    this.haltReason = null;
-    this.haltTimestamp = null;
+    const persistedHalt = this.loadPersistedHalt();
+    this.isHalted = Boolean(persistedHalt);
+    this.haltReason = persistedHalt?.reason || null;
+    this.haltTimestamp = persistedHalt?.haltedAt || null;
     this.toolLockOverrides = new Map(); // toolName -> boolean
     this.halfOpenProbe = null;
     this.scopedStates = new Map();
     this.executionHistory = new Map();
     this.maxConsecutiveToolCalls = 6;
+  }
+
+  loadPersistedHalt() {
+    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    const haltFile = path.join(root, '.genos', 'mcp.halted');
+    try {
+      if (!fs.existsSync(haltFile)) return null;
+      const data = JSON.parse(fs.readFileSync(haltFile, 'utf8'));
+      return { reason: data.reason || 'Persisted emergency halt', haltedAt: data.haltedAt || null };
+    } catch (_) {
+      return { reason: 'Persisted emergency halt', haltedAt: null };
+    }
   }
 
   context(scope = 'global') {
