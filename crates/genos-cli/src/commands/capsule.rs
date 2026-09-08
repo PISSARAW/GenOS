@@ -53,15 +53,11 @@ pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), Strin
 }
 
 pub fn handle_merge(branch_id: &str, conditions: Option<&str>) -> Result<(), String> {
-    let output = json!({
-        "operation": "merge",
-        "branch_id": branch_id,
-        "conditions_applied": conditions.unwrap_or("none"),
-        "merge_status": "MERGED_CLEAN",
-        "conflicts_resolved": 0
-    });
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
-    Ok(())
+    Err(format!(
+        "Merge is unavailable: branch '{}' was not persisted or merged{}.",
+        branch_id,
+        conditions.map(|value| format!(" (conditions: {})", value)).unwrap_or_default()
+    ))
 }
 
 fn extract_action_signature(val: &serde_json::Value) -> String {
@@ -249,15 +245,10 @@ pub fn handle_loop_detection(cmd: &crate::args::LoopDetectionCmd) -> Result<(), 
 }
 
 pub fn handle_causality_fork(boundary_id: &str, new_boundary_id: &str) -> Result<(), String> {
-    let output = json!({
-        "operation": "causality_fork",
-        "boundary_id": boundary_id,
-        "new_boundary_id": new_boundary_id,
-        "branch_point": "verified_causal_ancestor",
-        "status": "FORKED"
-    });
-    println!("{}", serde_json::to_string_pretty(&output).unwrap());
-    Ok(())
+    Err(format!(
+        "Causal fork is unavailable: boundary '{}' cannot be persisted as '{}'.",
+        boundary_id, new_boundary_id
+    ))
 }
 
 pub struct PhenotypeValues {
