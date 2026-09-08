@@ -101,6 +101,7 @@ const candidate = dossierToCandidate({
 assert.equal(candidate.adversarialPassRate, 0, 'No-answer candidate without executed tests must not receive a fabricated pass rate');
 assert.equal(candidate.adversarialPassRateSource, 'not_measured');
 assert.equal(candidate.qualityGuarantee, false);
+assert(candidate.fitnessScore < 80, 'Unverified textual proof must not produce a high fitness score');
 
 console.log('✓ Point 8 verified.');
 // Test Point 9: User progress reporting qualifies no_answer as completed
