@@ -1,0 +1,50 @@
+name: GenOS validation
+
+on:
+  push:
+    branches: [v3]
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --workspace --locked
+
+  node:
+    runs-on: ubuntu-latest
+    env:
+      GENOS_ADMIN_PASSWORD: ci-test-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm ci --prefix backend
+      - run: npm test
+      - run: npm --prefix backend run test:grpc
+      - run: npm --prefix backend run test:quality
+      - run: npm --prefix backend run test:mcp
+      - run: npm --prefix backend run test:tenancy
+      - run: npm --prefix backend run test:migration
+      - run: npm --prefix backend run test:recovery
+      - run: npm --prefix backend run test:concurrency
+
+  windows:
+    runs-on: windows-latest
+    env:
+      GENOS_ADMIN_PASSWORD: ci-test-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm ci --prefix backend
+      - run: cargo test -p genos-cli --bin genos
+      - run: npm --prefix backend run test:validation
