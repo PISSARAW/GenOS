@@ -83,7 +83,8 @@ async function promote(req, res, next) {
     }
 
     const scope = scopeSql(req);
-    await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', release.id, ...scope.params);
+    const updated = await db.run(`UPDATE releases SET environment = ?, status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, environment, 'active', release.id, ...scope.params);
+    if (updated.changes !== 1) return res.status(409).json({ error: { code: 'RELEASE_STATE_CHANGED', message: 'Release changed before promotion could be applied.' } });
     res.json({ id: release.id, status: 'active', environment });
   } catch (error) { next(error); }
 }
