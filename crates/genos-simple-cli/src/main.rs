@@ -49,7 +49,7 @@ fn cargo_program() -> String {
 #[command(
     name = "g",
     about = "GenOS Simple CLI - Interface unifiée pour l'écosystème biomimétique GenOS",
-    version = "1.0",
+    version = env!("CARGO_PKG_VERSION"),
     after_help = "MANUEL D'UTILISATION :
   Tapez `g <COMMANDE> --help` pour consulter le manuel détaillé (SYNOPSIS, DESCRIPTION, EXEMPLES).
   Les commandes relayent automatiquement leurs arguments vers le moteur natif `genos-cli`.
