@@ -30,7 +30,7 @@ function normalizeAgentType(value) {
   return AGENT_TYPES.includes(candidate) ? candidate : 'Other';
 }
 
-async function deployAgent(req, res) {
+async function deployAgent(req, res, next) {
   try {
     let executionMode = agentAuthority.normalizeExecutionMode(req.body?.executionMode);
     const resolvedAgentType = normalizeAgentType(req.body?.agentType);
@@ -74,11 +74,11 @@ async function deployAgent(req, res) {
       dispatchRequired: executionMode === 'worker'
     });
   } catch (error) {
-    res.status(500).json({ error: { message: error.message } });
+    next(error);
   }
 }
 
-async function deployTrinity(req, res) {
+async function deployTrinity(req, res, next) {
   try {
     const resolvedAgentType = normalizeAgentType(req.body?.agentType);
     const runtime = runtimeAdapter.runtimeAvailability();
@@ -106,7 +106,7 @@ async function deployTrinity(req, res) {
       agents: result.agentIds
     });
   } catch (error) {
-    res.status(500).json({ error: { message: error.message } });
+    next(error);
   }
 }
 
