@@ -237,16 +237,24 @@ impl AgentCell {
 
     pub fn mitosis(&self) -> Result<(Self, Self), String> {
         self.can_divide()?;
+        let current_budget = self.conscience.current_budget;
+        let baseline_budget = self.conscience.baseline_budget;
+        let divided_current_budget = (current_budget / 2.0).max(0.0);
+        let divided_baseline_budget = (baseline_budget / 2.0).max(0.0);
         let mut parent = self.clone();
         parent.bud_scars += 1;
         if parent.bud_scars >= parent.hayflick_limit {
             parent.is_senescent = true;
         }
+        parent.conscience.current_budget = divided_current_budget;
+        parent.conscience.baseline_budget = divided_baseline_budget;
 
         let mut clone = self.clone();
         clone.cell_id = Uuid::new_v4();
         clone.bud_scars = parent.bud_scars;
         clone.is_senescent = parent.is_senescent;
+        clone.conscience.current_budget = divided_current_budget;
+        clone.conscience.baseline_budget = divided_baseline_budget;
         clone.regenerate_organelle_ids();
         Ok((parent, clone))
     }
@@ -405,6 +413,28 @@ mod tests {
         // Invalid mutation rates
         assert!(parent.binary_fission(-0.1).is_err());
         assert!(parent.binary_fission(1.1).is_err());
+    }
+
+    #[test]
+    fn test_mitosis_preserves_total_metabolic_budget() {
+        let mut parent = AgentCell::new("Parent", "Symmetric division", "Worker");
+        parent.conscience.current_budget = 70.0;
+        parent.conscience.baseline_budget = 100.0;
+
+        let (daughter_a, daughter_b) = parent.mitosis().expect("mitosis must succeed");
+
+        assert_eq!(daughter_a.conscience.current_budget, 35.0);
+        assert_eq!(daughter_b.conscience.current_budget, 35.0);
+        assert_eq!(daughter_a.conscience.baseline_budget, 50.0);
+        assert_eq!(daughter_b.conscience.baseline_budget, 50.0);
+        assert_eq!(
+            daughter_a.conscience.current_budget + daughter_b.conscience.current_budget,
+            70.0
+        );
+        assert_eq!(
+            daughter_a.conscience.baseline_budget + daughter_b.conscience.baseline_budget,
+            100.0
+        );
     }
 
     #[test]
