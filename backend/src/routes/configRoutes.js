@@ -16,13 +16,12 @@ async function requireConfigTenant(req, res, next) {
 	});
 }
 
-router.use(requireConfigTenant);
-router.get('/config', requirePermission('read'), configController.getConfig);
-router.get('/model', requirePermission('read'), configController.getModelStatus);
-router.get('/model/local', requirePermission('read'), configController.getLocalModels);
-router.post('/model/test', requirePermission('experiment:run'), configController.testModel);
-router.post('/profile', requirePermission('workspace:write'), configController.updateProfile);
-router.get('/budget', requirePermission('read'), configController.getBudget);
-router.post('/budget', requirePermission('security:manage'), configController.updateBudget);
+router.get('/config', requirePermission('read'), requireConfigTenant, configController.getConfig);
+router.get('/model', requirePermission('read'), requireConfigTenant, configController.getModelStatus);
+router.get('/model/local', requirePermission('read'), requireConfigTenant, configController.getLocalModels);
+router.post('/model/test', requirePermission('experiment:run'), requireConfigTenant, configController.testModel);
+router.post('/profile', requirePermission('workspace:write'), requireConfigTenant, configController.updateProfile);
+router.get('/budget', requirePermission('read'), requireConfigTenant, configController.getBudget);
+router.post('/budget', requirePermission('security:manage'), requireConfigTenant, configController.updateBudget);
 
 module.exports = router;

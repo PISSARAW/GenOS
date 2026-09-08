@@ -9,8 +9,6 @@ const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const { asyncHandler } = require('../middleware/asyncHandler');
 
-router.use(requireTenantScope());
-
 async function requireMcpTenant(req, res, next) {
 	await requireTenantScope()(req, res, (error) => {
 		if (error) return next(error);
