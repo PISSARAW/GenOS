@@ -67,7 +67,7 @@ impl Conscience {
         if state.is_apoptotic {
             return;
         }
-        state.eureka_moments += 1;
+        state.eureka_moments = state.eureka_moments.saturating_add(1);
         state.dissonance_level /= 2.0;
         state.current_budget = (state.current_budget + 50.0).min(state.baseline_budget);
         state.revision += 1;

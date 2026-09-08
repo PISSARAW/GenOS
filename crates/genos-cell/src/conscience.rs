@@ -59,7 +59,7 @@ impl ConscienceState {
         if self.is_apoptotic {
             return;
         }
-        self.eureka_moments += 1;
+        self.eureka_moments = self.eureka_moments.saturating_add(1);
         self.dissonance_level = (self.dissonance_level / 2.0).max(0.0);
         self.current_budget = (self.current_budget + 50.0).min(self.baseline_budget);
         self.revision += 1;
@@ -108,5 +108,15 @@ mod tests {
         conscience.trigger_eureka();
         assert_eq!(conscience.eureka_moments, 1);
         assert_eq!(conscience.dissonance_level, 10.0);
+    }
+
+    #[test]
+    fn test_eureka_counter_saturates() {
+        let mut conscience = ConscienceState::default();
+        conscience.eureka_moments = u32::MAX;
+
+        conscience.trigger_eureka();
+
+        assert_eq!(conscience.eureka_moments, u32::MAX);
     }
 }
