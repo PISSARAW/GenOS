@@ -198,7 +198,7 @@ async function main() {
     if (action === 'organization_publish') {
       const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId;
       const published = await dynamicOrganization.publish(db, {
-        orchestratorId, senderAgentId, recipientAgentId: request.recipient_agent_id,
+        orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
         kind: request.kind, content: request.content, payload: request.payload
       });
       telemetry.emitEvent({
