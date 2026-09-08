@@ -35,8 +35,9 @@ function extractDossierReport(dossier) {
 function testResultPassed(test) {
   if (typeof test === 'boolean') return test;
   if (test && typeof test === 'object') {
-    if (test.passed === true || test.ok === true || test.exitCode === 0) return true;
-    if (test.passed === false || test.ok === false || (test.exitCode !== null && test.exitCode !== undefined && Number(test.exitCode) !== 0)) return false;
+    const exitCode = test.exitCode ?? test.exit_code;
+    if (test.passed === true || test.ok === true || (exitCode !== null && exitCode !== undefined && Number(exitCode) === 0)) return true;
+    if (test.passed === false || test.ok === false || (exitCode !== null && exitCode !== undefined && Number(exitCode) !== 0)) return false;
     return false;
   }
   const text = String(test || '').trim().toLowerCase();
