@@ -48,7 +48,10 @@ function summarizeEvaluationGraders(results, graders, expectedTotal = results.le
       missing: Math.max(0, expectedTotal - values.length),
       complete: values.length === expectedTotal,
       score: expectedTotal ? Number((passed / expectedTotal).toFixed(4)) : 0,
-      meanScore
+      meanScore,
+      kind: 'metric',
+      qualityGuarantee: false,
+      interpretation: 'descriptive grader signal; not proof of factual or safety correctness'
     }];
   }));
 }
@@ -310,10 +313,10 @@ async function executeEvaluation(db, job) {
       }
     }
     const graderResults = {
-      exact_match: { passed: exact, score: exact ? 1 : 0 },
-      groundedness: grounding,
-      safety: safetyResult,
-      ...(judge ? { llm_judge: judge } : {})
+      exact_match: { passed: exact, score: exact ? 1 : 0, kind: 'metric', qualityGuarantee: false },
+      groundedness: { ...grounding, kind: 'metric', qualityGuarantee: false },
+      safety: { ...safetyResult, kind: 'metric', qualityGuarantee: false },
+      ...(judge ? { llm_judge: { ...judge, kind: 'metric', qualityGuarantee: false } } : {})
     };
     const ok = graders.every((grader) => graderResults[grader]?.passed === true);
     if (ok) passed++;
