@@ -19,6 +19,7 @@ router.post('/agents/commit', requirePermission('workspace:write'), lineageContr
 router.post('/agents/branch', requirePermission('workspace:write'), lineageController.branchAgentState);
 router.post('/agents/checkout', requirePermission('workspace:write'), lineageController.checkoutAgentState);
 router.post('/agents/reset', requirePermission('workspace:write'), lineageController.checkoutAgentState);
+router.post('/agents/cherry-pick', requirePermission('workspace:write'), lineageController.cherryPickAgentState);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
