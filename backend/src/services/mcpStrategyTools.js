@@ -78,6 +78,8 @@ async function executeStrategyTool(toolName, args = {}) {
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
       const res = await strategyExecutionAdapter.executePrimitive('mutate', {
         ...args,
+        agentId: args.agentId || args.agent_id,
+        orchestratorId: args.orchestratorId || args.orchestrator_id,
         mutations,
         hypermutation: true,
         mutationRate: args.mutationRate ?? 0.35
