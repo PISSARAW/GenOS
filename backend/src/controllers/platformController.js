@@ -128,20 +128,21 @@ async function saveRoutingPolicy(req, res, next) {
 }
 async function graph(req, res) {
   const db = await getDatabase();
+  const scope = req.tenant;
   let [nodes, edges] = await Promise.all([
-    db.all('SELECT id,label,node_type,score,visits,state_summary,agent_id FROM lineage_nodes ORDER BY created_at'),
-    db.all('SELECT id,source_node_id AS source,target_node_id AS target,edge_type AS type FROM lineage_edges ORDER BY created_at')
+    db.all('SELECT n.id,n.label,n.node_type,n.score,n.visits,n.state_summary,n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY n.created_at', scope.organizationId, scope.projectId),
+    db.all('SELECT e.id,e.source_node_id AS source,e.target_node_id AS target,e.edge_type AS type FROM lineage_edges e JOIN workspaces w ON w.id = e.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at', scope.organizationId, scope.projectId)
   ]);
   // A fresh runtime may not have emitted lineage rows yet. Agents are still a
   // valid causal source, so expose their parent relationships immediately.
   if (!nodes.length) {
-    const agents = await db.all('SELECT id,name,role,status,parent_agent_id,current_task FROM agents ORDER BY created_at');
+    const agents = await db.all('SELECT a.id,a.name,a.role,a.status,a.parent_agent_id,a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY a.created_at', scope.organizationId, scope.projectId);
     nodes = agents.map(a => ({ id: a.id, label: a.name, node_type: 'agent', status: a.status, state_summary: a.current_task || a.role, agent_id: a.id }));
     edges = agents.filter(a => a.parent_agent_id).map((a, i) => ({ id: `agent-edge-${i}`, source: a.parent_agent_id, target: a.id, type: 'parent' }));
   }
   res.json({ nodes, edges, generatedAt: new Date().toISOString() });
 }
-async function telemetrySummary(req, res) { const db = await getDatabase(); const rows = await db.all('SELECT agent_id, json_extract(payload_json, "$.model") model, COUNT(*) events, SUM(COALESCE(json_extract(payload_json, "$.tokens"),0)) tokens, SUM(COALESCE(json_extract(payload_json, "$.costUsd"),0)) costUsd, AVG(COALESCE(json_extract(payload_json, "$.latencyMs"),0)) latencyMs FROM telemetry_events GROUP BY agent_id, model ORDER BY costUsd DESC'); res.json({ byAgent: rows, totals: rows.reduce((a, r) => ({ events: a.events + r.events, tokens: a.tokens + (r.tokens || 0), costUsd: a.costUsd + (r.costUsd || 0) }), { events: 0, tokens: 0, costUsd: 0 }), window: req.query.window || 'all' }); }
+async function telemetrySummary(req, res) { const db = await getDatabase(); const rows = await db.all('SELECT agent_id, json_extract(payload_json, "$.model") model, COUNT(*) events, SUM(COALESCE(json_extract(payload_json, "$.tokens"),0)) tokens, SUM(COALESCE(json_extract(payload_json, "$.costUsd"),0)) costUsd, AVG(COALESCE(json_extract(payload_json, "$.latencyMs"),0)) latencyMs FROM telemetry_events WHERE organization_id = ? AND project_id = ? GROUP BY agent_id, model ORDER BY costUsd DESC', req.tenant.organizationId, req.tenant.projectId); res.json({ byAgent: rows, totals: rows.reduce((a, r) => ({ events: a.events + r.events, tokens: a.tokens + (r.tokens || 0), costUsd: a.costUsd + (r.costUsd || 0) }), { events: 0, tokens: 0, costUsd: 0 }), window: req.query.window || 'all' }); }
 async function audit(req, res) { const db = await getDatabase(); res.json(await db.all('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?', boundedInteger(req.query.limit, 100, 1, 500))); }
 async function permissions(req, res) { const db = await getDatabase(); if (req.method === 'GET') return res.json(await db.all('SELECT agent_id, permissions_json AS permissions, denied_tools_json AS deniedTools, taint_policy AS taintPolicy FROM agent_permissions')); const { agentId, permissions = [], deniedTools = [], taintPolicy = 'block_external' } = req.body || {}; if (!agentId) return res.status(400).json({ error: { code: 'INVALID_AGENT', message: 'agentId is required' } }); await db.run('INSERT OR REPLACE INTO agent_permissions VALUES (?, ?, ?, ?)', agentId, JSON.stringify(permissions), JSON.stringify(deniedTools), taintPolicy); res.status(201).json({ success: true, agentId, permissions, deniedTools, taintPolicy }); }
 async function validateTool(req, res) { const db = await getDatabase(); const { agentId, toolName, args, taints = [] } = req.body || {}; const row = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId); const result = safety.validateToolCall({ agentId, toolName, args, taints, permissions: row ? JSON.parse(row.permissions_json) : [], deniedTools: row ? JSON.parse(row.denied_tools_json) : [] }); await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'platform', agentId, 'TOOL_CALL_VALIDATE', toolName, result.decision, result.reason, JSON.stringify(result)); res.status(result.decision === 'deny' ? 403 : 200).json(result); }
