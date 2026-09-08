@@ -338,7 +338,15 @@ mod tests {
         });
         assert!(cap_res.is_ok());
 
-        let audit_res = capsule::handle_audit("snap_test_101", None);
+        let audit_capsule = genos_store::Capsule::create(
+            "sandbox_boundary",
+            serde_json::json!({ "state": "immutable", "epoch": 1 }),
+        );
+        let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
+        std::fs::create_dir_all(&capsule_dir).unwrap();
+        let capsule_path = capsule_dir.join(format!("{}.json", audit_capsule.capsule_id));
+        std::fs::write(&capsule_path, serde_json::to_string_pretty(&audit_capsule).unwrap()).unwrap();
+        let audit_res = capsule::handle_audit(&audit_capsule.capsule_id.to_string(), None);
         assert!(audit_res.is_ok());
     }
 
