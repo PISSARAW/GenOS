@@ -54,6 +54,7 @@ async function run() {
   );
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayVerified: false, replayReceipt: {} }).eligible, false);
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');
 
   // Test 2: applyPostPromotionPolicies
@@ -105,6 +106,37 @@ async function run() {
     assert.equal(failRes.halt, true);
     assert.match(failRes.reason, /Promotion gate blocked.*require_replay/);
     console.log('✓ Point 3.3: Missing replay verification blocks execution completion');
+
+    const bypassRun = await strategyService.createExecutionRun(db, {
+      agentId: 'agent-policy-test',
+      contractRecord: { ...contractRecord, contract },
+      budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+    });
+    const bypassRes = await strategyService.recordExecutionEvent(db, 'agent-policy-test', {
+      eventType: 'AGENT_COMPLETED',
+      action: 'COMPLETE',
+      detail: 'Empty replay receipt must not pass',
+      payload: { executionRunId: bypassRun.id, replayReceipt: {}, independentVerification: true }
+    });
+    assert.equal(bypassRes.halt, true);
+    assert.match(bypassRes.reason, /Promotion gate blocked.*require_replay/);
+    console.log('✓ Point 3.4: Empty replay receipts cannot bypass the promotion gate');
+
+    const evidenceBypassRun = await strategyService.createExecutionRun(db, {
+      agentId: 'agent-policy-test',
+      contractRecord: { ...contractRecord, contract },
+      budget: { tokens: 10000, costUsd: 1, latencyMs: 30000, events: 50 }
+    });
+    await db.run("UPDATE strategy_execution_steps SET status = 'completed' WHERE run_id = ?", evidenceBypassRun.id);
+    const evidenceBypassRes = await strategyService.recordExecutionEvent(db, 'agent-policy-test', {
+      eventType: 'AGENT_COMPLETED',
+      action: 'COMPLETE',
+      detail: 'Unsupported claims must not pass',
+      payload: { executionRunId: evidenceBypassRun.id, replayVerified: true, independentVerification: true, evidenceReport: { claims: [{ statement: 'unsupported' }] } }
+    });
+    assert.equal(evidenceBypassRes.halt, true);
+    assert.match(evidenceBypassRes.reason, /Promotion gate blocked.*require_independent_verification/);
+    console.log('✓ Point 3.5: Unsupported claims cannot satisfy independent verification');
 
   } finally {
     await closeDatabase();
