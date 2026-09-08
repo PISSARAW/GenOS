@@ -1,8 +1,8 @@
 const http = require('http');
-const { TEST_ADMIN_TOKEN, TEST_VIEWER_TOKEN } = require('./testAuth');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const circuitBreaker = require('./src/services/circuitBreaker');
+const { TEST_ADMIN_TOKEN, TEST_VIEWER_TOKEN } = require('../testAuth');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const circuitBreaker = require('../src/services/circuitBreaker');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4199;
