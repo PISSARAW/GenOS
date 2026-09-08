@@ -375,6 +375,8 @@ const TABLES_CORE = [
 "    uncertainty REAL NOT NULL DEFAULT 0,",
 "    status TEXT NOT NULL DEFAULT 'pending',",
 "    requested_by TEXT NOT NULL,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    decision_by TEXT,",
 "    reason TEXT,",
 "    payload_json TEXT DEFAULT '{}',",
