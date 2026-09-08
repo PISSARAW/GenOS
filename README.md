@@ -1,263 +1,318 @@
-<p align="center">
-  <img src="assets/brand/genos-logo.png" width="160" alt="GenOS official logo">
-</p>
+# GenOS V3
 
-<h1 align="center">GenOS V3</h1>
+GenOS est un système d’exploitation contre-factuel et biomimétique pour agents multi-agents, conçu pour gérer l’exécution, la mémoire, la validation, la reprise et la promotion de décisions d’IA dans un cadre explicite, traçable et contrôlé.
 
-<p align="center">
-  <strong>Biomimetic Counterfactual Operating System & Runtime for Multi-Agent AI</strong>
-</p>
+Il ne prétend pas à une IA générale ni à une simulation biologique scientifique. Il met en œuvre une architecture de runtime dans laquelle les agents sont pensés comme des cellules d’exécution avec:
 
-<p align="center">
-  Cellular embryogenesis, epistemic stigmergy, deterministic state branching, and cognitive immunity for resilient AI agent fleets.
-</p>
-
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="Apache-2.0 license"></a>
-  <img src="https://img.shields.io/badge/Rust-1.88%2B-orange.svg" alt="Rust 1.88 or newer">
-  <img src="https://img.shields.io/badge/Node.js-20%2B-green.svg" alt="Node.js 20 or newer">
-  <a href="https://github.com/PISSARAW/GenOS/releases/tag/v3.0.0-alpha.1"><img src="https://img.shields.io/badge/release-v3.0.0--alpha.1-blue.svg" alt="GenOS v3.0.0 alpha 1"></a>
-</p>
+- identité et génome définis ;
+- budget cognitif et contraintes de ressources ;
+- mémoire, synapses, liaisons de provenance ;
+- branches d’état isolées ;
+- mécanismes de preuve avant promotion ;
+- mécanismes de reprise et de sélection de survivants.
 
 ---
 
-## What is GenOS V3?
+## Ce que fait GenOS
 
-Traditional AI agent frameworks force workflows along a single, mutable timeline. When a tool call, belief update, or prompt hallucination occurs, the failure propagates downstream, state becomes difficult to reconstruct, and multi-agent coordination quickly devolves into token-saturating message storms.
+### 1. Une runtime d’agentic computation
+GenOS transforme des workflows d’agent en un système de contrôle avec branches, snapshots, preuve, validation et isolation. L’objectif est de rendre l’exécution agentique plus reproductible et moins vulnérable aux hallucinations de chaîne ou à la propagation d’un état corrompu.
 
-**GenOS V3** re-architects agentic computation as a **biomimetic, counterfactual operating system**:
-- **Agents as Biological Cells:** Agents are not just prompt loops; they are cellular units (`AgentCell`) with an immutable genome, epigenetic chromatin states, metabolic budgets (ATP/tokens), synaptic dendritic trees, and cognitive conscience monitors.
-- **Git-like State Branching & Replay:** Snapshot workspace and agent state, fork competing hypotheses across isolated counterfactual worlds, execute in sandboxes, evaluate outcomes, and preserve replay evidence. `genos replay basic` re-derives a SHA-256 hash chain from a snapshot's identity and its recorded `working_memory` steps (written via `genos snapshot record-step`) and fails if any step's hash does not match what was recorded. It verifies that the causal trace is exactly what was captured, but it does not re-execute arbitrary agent work outside of that recorded trace.
-- **Epistemic Stigmergy:** Agents collaborate like social insects via digital pheromone trails deposited on shared graphs, eliminating expensive inter-agent natural language chatter.
-- **Cellular Division & Evolution:** Controlled replication through 5 biological modes (Mitosis, Binary Fission, Budding, Schizogony, Meiosis) while strictly rejecting non-deterministic amitosis.
-- **The Evidence Arbiter:** Promotion is gated by explicit tool results, tests, compiler feedback, provenance, and sandbox checks. Missing evidence is a failure; the runtime does not claim AGI or formal proof.
+### 2. Un modèle biologique orienté runtime
+Les notions de cellule, génome, épigénétique, synapse, phéromone, apoptose, chaperone, cryptobiose, etc., servent à modéliser les invariants fonctionnels du système. Elles permettent de structurer :
 
-### Current Scope and Non-Goals
+- la spécialisation des agents ;
+- la gestion de budgets ;
+- la sélection, la conservation ou la suppression de branches ;
+- la protection contre la dérive de décision ou la propagation de mauvaises preuves.
 
-GenOS is an orchestration and verification runtime for multi-agent software work. It provides state branching, model routing, memory retrieval, tool execution, provenance, and experimental search strategies.
+### 3. Un système de preuve avant décision
+Le cœur de la plateforme est l’arbitre de réalité et les gates de promotion. Une action n’est pas supposée correcte simplement parce que l’outil a répondu sans erreur. Elle doit être compatible avec la provenance, les tests, la sécurité, le contexte et le modèle d’évaluation.
 
-It is not currently an AGI system. The repository does not provide autonomous model training, a general sensorimotor loop, a learned predictive world model, demonstrated cross-domain generalization, or machine consciousness. Biological terms such as genome, apoptosis, STDP, pheromone, and eureka describe runtime abstractions and heuristics; they are not claims of biological equivalence.
-
-Experimental primitives must expose missing evidence as an error. A successful result means that the registered operation completed with the supplied inputs, not that an agent learned, reasoned causally, or proved a proposition.
-
-### Explicit non-goals and operational limits
-
-- **No determinism across external boundaries:** GenOS does not guarantee identical results when an LLM, wall clock, random source, filesystem state, operating-system scheduler, external file, network tool, remote model, or remote embedding provider participates. Hash-chain replay validates the recorded trace; it does not re-execute those dependencies. Local state operations can still be reproducible only under their stated inputs and runtime contract.
-- **No security from biological naming:** `immune`, `chaperone`, `apoptosis`, `zero_trust`, and similar names are implementation labels. They do not provide a security certification, isolation guarantee, threat-model coverage, or protection against a malicious model, host, dependency, operator, or tool. Security must be assessed from the concrete policy, permissions, sandbox, TLS, audit, and deployment configuration.
-- **`success` is not correctness:** `success: true` means that the handler completed and accepted its inputs. It does not mean that a proposal, diagnosis, merge, model answer, causal explanation, evaluation score, or generated patch is correct. Correctness requires independent evidence such as tests, compiler output, provenance, human approval, or an explicitly documented domain oracle.
-- **Resource and retention limits are finite:** The defaults are operational guardrails, not capacity promises. A workspace snapshot is limited to 100,000 files, 1 GiB total, and 128 MiB per file (`GENOS_MAX_SNAPSHOT_FILES`, `GENOS_MAX_SNAPSHOT_BYTES`, `GENOS_MAX_SNAPSHOT_FILE_BYTES`). A stigmergy read returns 1,000 traces by default and accepts at most 10,000 (`traceLimit`). Worker evidence keeps the last 32 events per worker (`GENOS_MAX_WORKER_DOSSIER_EVENTS`, minimum 4). The sleep cycle prunes rejected, non-exceptional trajectories older than 7 days and prunes weak or C3-tagged synapses according to its weight/C3/CD47 thresholds. Embeddings, accepted snapshots, audit rows, and most journals have no universal time-to-live: they consume SQLite/filesystem capacity until an operator or a feature-specific cleanup removes them. Embedding dimensions default to 768; this is not a storage or quality guarantee.
-
-### Applied versus simulated operation matrix
-
-The strategy maturity label (`implemented`, `experimental`, or `prototype`) is not an effect label. The following is the execution contract of the shipped adapters; a returned `success` still has the meaning above.
-
-| Operation family | Actually applied by the runtime | Simulated, derived, or evidence-only |
-| :--- | :--- | :--- |
-| Workspace control | `snapshot` persists a SQLite index plus a content-addressed filesystem payload; `fork` creates a worker and isolated workspace; `safe_revert`/restore writes the selected workspace state; allow-listed `run` executes a bounded local command; `vfs_dry_run` intentionally does not write | `diff`, `inspect`, `evaluate`, `bisect_agent`, and replay reports calculate or validate observations; they do not prove the proposed fix |
-| Memory and synapses | `compile_memory`, `stdp_update`, sleep consolidation, synapse decay/pruning, and accepted experience writes update SQLite state | Retrieval, reranking, `search_failures`, and a replay of a stored trajectory produce rankings or reconstructions; they do not create knowledge or establish causality |
-| Evolution and lineage | `mutate`, `select`, `pareto_select`, reproduction limits, lineage records, and configured Rust crossover/division calls can persist state or create workers when their prerequisites are present | Strategy search, MCTS/beam/PRM scores, and proposed alternatives are candidate selection, not verified solutions; a missing native Rust binary is an error, not a simulated native result |
-| Safety and governance | Permission checks, circuit breakers, quarantine/apoptosis state changes, bounded sandboxes, evidence gates, and human approval gates can block or persist a decision | Biological labels, heuristic risk scores, entropy signals, and model/provider claims do not certify safety |
-| Collective and temporal | Pheromone/trail records, quorum records, and explicit merge decisions can be persisted; causal fork/rebase tools execute only when their configured MCP/tool boundary is available | `causal_replay`, `mutated_universes`, counterfactual trajectory replay, and incident/scientific experiments primarily construct alternative states or reports; they are not deterministic re-execution of the outside world |
-| Native Rust bridge | Snapshot/agent/replay/diff commands are real CLI calls when `target/debug/genos` exists; non-zero exit codes and a missing binary are surfaced | No Rust binary means these operations are unavailable (`503`/`BIN_NOT_FOUND`), never silently emulated by the Node backend |
-
-This matrix deliberately describes effects, not biological metaphors. To claim that a particular operation was applied, inspect its response, persisted record, process exit code, and independent verification artifact.
-
-### Supported deployment profiles
-
-| Profile | Supported behavior | Required caveat |
-| :--- | :--- | :--- |
-| Windows host | Node.js backend, SQLite, PowerShell/`g.cmd` wrappers, bounded command execution, and the Rust workspace are supported. The Rust CLI still requires Rust/Cargo or a prebuilt binary. | Shell commands and path/process behavior follow Windows policy; do not assume POSIX shell semantics. |
-| Docker | `backend/Dockerfile` builds the Node control plane, uses `GENOS_AGENT_EXECUTOR=local`, persists `/data`, and declares HTTP 4000 plus gRPC 50051. | The gRPC service still binds to loopback unless configured; publishing port 50051 does not by itself make it remotely reachable. The image does not compile or copy the Rust `genos`/`genos-mcp` binaries, so native CLI bridge operations remain unavailable unless an external binary/transport is supplied. Publish plaintext gRPC only on a trusted network; use TLS for non-loopback exposure. |
-| Node without compiled Rust | REST/gRPC control-plane features, SQLite persistence, pure-JS handlers, and configured local/remote model or embedding providers can run. | Rust CLI commands, native MCP wrappers, and Rust-backed reproduction paths fail explicitly with an unavailable-binary error. The top-level `g.cmd` and `g.ps1` wrappers intentionally refuse to run without Cargo. |
-
-LLM, clock, filesystem, network, and provider dependencies must be pinned or replaced with recorded fixtures by an operator who needs reproducible tests. No deployment profile changes the non-goals above.
-
-### Guarantee vocabulary
-
-Terms such as genome, cell, synapse, apoptosis, pheromone, stem cell, and cryptobiosis name runtime data structures, policies, or workflows. They do not establish biological equivalence, consciousness, learning, causal understanding, or safety certification. Words such as deterministic, verified, cryptographic, immediate, and guaranteed apply only when the response includes the corresponding runtime evidence and contract; otherwise the result is an observation, simulation, reconstruction, or request for recovery.
+### 4. Une architecture de travail et de contre-factuel
+GenOS manipule des états de workspace, des snapshots, des forks, des bisections et des restorations. Cela permet d’exécuter plusieurs hypothèses sans polluer le flux principal et d’évaluer les effets d’une mutation ou d’une réécriture avant de la promouvoir.
 
 ---
 
-## Core Pillars of the V3 Architecture
+## Ce que GenOS n’est pas
 
+GenOS n’est pas :
+
+- un système de pensée générale autonome ;
+- une promesse d’équivalence biologique parfaite ;
+- une garantie de sécurité absolue par l’usage de mots biologiques ;
+- un runtime où “success: true” suffit à prouver la vérité métier ;
+- un moteur de calcul déterministe sur des dépendances externes non capturées.
+
+Sa vraie valeur est surtout technique et opératoire : offrir un cadre solide pour exécuter, comparer, sauvegarder, valider et reprendre un travail d’agents complexes.
+
+---
+
+## Piliers du système
+
+### 1. Génome et épigénétique
+Les agents et les workflows portent des états internes structurés, des contraintes et des capacités spécialisées, avec différenciation et partage de responsabilités. Voir :
+
+- [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
+- [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+
+### 2. Mémoire, synapses et apprentissage
+Le système dispose d’un moteur de mémoire hybride, de connectome synaptique, de plasticité, de consolidation et de gestion de l’oubli. Voir :
+
+- [docs/MEMOIRE_APPRENTISSAGE.md](docs/MEMOIRE_APPRENTISSAGE.md)
+- [docs/NEUROBIOLOGIE_PLASTICITE.md](docs/NEUROBIOLOGIE_PLASTICITE.md)
+- [docs/SWARM_INTELLIGENCE.md](docs/SWARM_INTELLIGENCE.md)
+
+### 3. Orchestration et primitives exécutables
+Les agents ne sont pas exécutés “à l’aveugle” ; ils passent par des plans, des budgets, des fires, des sélections de survivants et des barrières de preuve. Voir :
+
+- [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
+- [docs/PRIMITIVES_EXECUTABLES.md](docs/PRIMITIVES_EXECUTABLES.md)
+- [docs/WORKFLOWS_JOBS.md](docs/WORKFLOWS_JOBS.md)
+
+### 4. Workspaces, snapshots et contre-factuel
+Le dépôt met en place une logique de workspace isolation, de fork, de diff, de bisection et de restore. Voir :
+
+- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
+- [docs/REPRODUCTION_REPLICATION.md](docs/REPRODUCTION_REPLICATION.md)
+
+### 5. Sécurité, identité, confiance et preuves
+La plateforme construit ses garde-fous sur l’authentification, les permissions, le Zero Trust, la sandbox, les circuits breakers, les journaux et la vérification d’évidence. Voir :
+
+- [docs/SECURITE.md](docs/SECURITE.md)
+- [docs/IDENTITY_AUTHORITY.md](docs/IDENTITY_AUTHORITY.md)
+- [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md)
+
+### 6. Contrats, intégration et exploitation
+GenOS expose plusieurs surfaces : REST, gRPC, MCP, CLI et intégrations IDE. Voir :
+
+- [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
+- [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)
+- [docs/INTEGRATIONS_IDE.md](docs/INTEGRATIONS_IDE.md)
+- [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
+
+---
+
+## Vue d’architecture
+
+```text
++-----------------------------------------------------------------------------------+
+|                                UTILISATEURS / CLIENTS                              |
+|  IDE / UI / CLI / scripts / agents / intégrateurs / opérateurs                   |
++---------------------------------------------+-------------------------------------+
+                                              |
+                                              v
++---------------------------------------------+-------------------------------------+
+|                         GENOS CONTROL PLANE                                     |
+|  REST / gRPC / MCP / CLI / orchestration / policies / evidence gates            |
++---------------------------------------------+-------------------------------------+
+                                              |
+                    +-------------------------+-------------------------+
+                    |                                               |
+                    v                                               v
++-------------------------------+                 +--------------------------------+
+| Runtime agentique             |                 | Persistance & workspace state   |
+| - workers / plans / budgets   |                 | - SQLite / snapshots / history  |
+| - retry / selection           |                 | - branches / restore / diff     |
+| - provenance / gates          |                 | - capsules / worktrees          |
++-------------------------------+                 +--------------------------------+
+                    |                                               |
+                    v                                               v
++-------------------------------+                 +--------------------------------+
+| Mémoire & intelligence        |                 | Sécurité & gouvernance         |
+| - embeddings / vector search  |                 | - auth / RBAC / zero trust     |
+| - synapses / pheromones       |                 | - circuit breaker / sandbox   |
+| - swarm / STDP / rewards      |                 | - audit / approvals / sealing  |
++-------------------------------+                 +--------------------------------+
+                    |
+                    v
++---------------------------------------------+
+| Rust core / crates biologiques / moteurs    |
+| - genos-cell / genos-biology / genos-store  |
+| - genos-reproduction / genos-immune / etc. |
++---------------------------------------------+
 ```
-                                  +--------------------------------------------------+
-                                  |                THE REALITY ARBITER               |
-                                  |    (Compiler, Unit Tests, Thermodynamic Gate)    |
-                                  +--------------------------------------------------+
-                                                           ^
-                                                           | Verifies survival
-                                                           v
-+-------------------------------------------------------------------------------------------------------------------------+
-|                                              GENOS RUNTIME & STRATEGY ENGINE                                            |
-|                                                                                                                         |
-|  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
-|  |     Strategy Dispatcher      |  |    Swarm & Dynamic Org        |  |          Cognitive Immune System             |  |
-|  |  79 Strategies / 189 Referenced Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
-|  |  - Fundamentals   - Safety   |  |  - Digital Pheromones (Stigm) |  |  - Phagocytosis (Exosome digestion)         |  |
-|  |  - Memory (STDP)  - Swarm    |  |  - Quorum & Brier Consensus   |  |  - Apoptosis (Caspase cascade)               |  |
-|  |  - Evolution      - Causal   |  |  - Contact Inhibition Locks   |  |  - Stem Cell Fallback                        |  |
-|  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
-+-------------------------------------------------------------------------------------------------------------------------+
-                                                           ^
-                                                           | Powered by
-                                                           v
-+-------------------------------------------------------------------------------------------------------------------------+
-|                                              NATIVE RUST BIOLOGICAL CRATES                                              |
-|                                                                                                                         |
-|  [genos-biology]          [genos-reproduction]         [genos-orchestrator]       [genos-genome]         [genos-cell]   |
-|  - Embryology (Zygote)    - Mitosis (Attested Fork)    - Conscience State         - Chromatin Locking    - AgentCell    |
-|  - HOX Differentiation    - Binary Fission (Scale-Out) - Dissonance Monitoring    - Loci & Alleles       - Organelles   |
-|  - Synaptic Plasticity    - Budding (Hayflick Limit)   - Eureka Illumination      - Epigenetics                         |
-|  - Glial Pipeline         - Schizogony (MCTS Burst)    - Apoptotic Triggers                                             |
-|  - Tissues & Desmosomes   - Meiosis (Crossover)                                                                         |
-+-------------------------------------------------------------------------------------------------------------------------+
-```
 
 ---
 
-## Detailed Capabilities
+## Documentation officielle du dépôt
 
-### 1. Embryogenesis & HOX Gene Differentiation
-Agents do not remain in an undifferentiated "zygote" state. They undergo structured developmental biology:
-- **Acte 1 : Cleavage & Mitosis (`cleave_zygote`)**: Starts from a single totipotent zygote root and divides into stem-cell clones with full euchromatin (all tools accessible).
-- **Acte 2 : HOX Coordinate System (`differentiate_swarm`)**: A spatial morphogenetic gradient assigns architectural responsibilities:
-  - `HOX-1 (Head)`: UI / Frontend interfaces.
-  - `HOX-2 (Thorax)`: Business logic, backend APIs, and services.
-  - `HOX-3 (Tail)`: Persistence, database schema, and storage.
-- **Acte 3 : Epigenetic Locking**: Specialization locks non-essential genes into facultative heterochromatin (`developmentally_locked = true`), stripping unused tools to minimize attack surfaces and token waste.
-- **Acte 4 : Sculptural Apoptose (`sculpt_architecture_via_apoptosis`)**: Prunes intermediate and redundant cells to carve the final clean software architecture.
+Le dépôt contient une documentation structurée selon un même niveau de formalisation : définition, mathématiques, biologie, cas d’usage, exemple, schéma, architecture, processus, et comparaison avec le marché.
 
-### 2. The 5 Biological Division Modes
-GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reproduction`](file:///c:/Users/Shadow/Documents/GitHub/GenOS/crates/genos-reproduction)):
+Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 
-| Division Mode | Biological Mechanism | GenOS Technical Function |
-| :--- | :--- | :--- |
-| **Mitosis** | Symmetric duplication with chromosomal spindle alignment | Attested counterfactual fork. Creates twin clones with identical state and budget to explore parallel hypotheses and neutralize LLM stochasticity. |
-| **Binary Fission** | Fast prokaryotic division without heavy nucleus | Lightweight scale-out for Map-Reduce tasks. Divides the remaining parent budget equally among workers without heavy metadata. |
-| **Budding** | Asymmetric division leaving a scar on the mother cell | Safe delegation to ephemeral workers. Strictly constrained by the **Hayflick Limit** (max buds per agent) to prevent recursive spawn storms. |
-| **Schizogony** | Multiple internal nuclear divisions before synchronous burst release | Atomic speculative fan-out for Monte Carlo Tree Search (MCTS). Multiple hypothesis branches evaluate in memory and commit in a single atomic transaction. |
-| **Meiosis** | Two-step reductional division with crossing-over (chiasmata), gametic epigenetic reprogramming, and Mendelian segregation | Cellular gametogenesis via `genos evolution division --mode meiosis` generating 4 recombinant haploid gametes (quarter budget, epigenetic demethylation), and sexual amphimixis via `genos evolution crossover` / primitive `breed` between two agent parents, gated by phylogenetic speciation barriers (`--speciation-threshold`). |
+### Catégories principales
 
-> **Anti-Pattern Banned:** **Amitosis** (uncontrolled splitting) is rejected by the runtime policy because it lacks the configured attestation and provenance path. This is a software governance rule, not a biological claim.
+#### Fondations conceptuelles
+- [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+- [docs/GENOME_EPIGENETIQUE.md](docs/GENOME_EPIGENETIQUE.md)
+- [docs/RUNTIME_AGENTIQUE.md](docs/RUNTIME_AGENTIQUE.md)
+- [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md)
 
-### 3. Neurobiology & Synaptic Growth
-- **Structural Plasticity:** The runtime updates axonal-terminal and dendritic-spine records (`DendriticTree`, including `spine.receptor_density += 0.05`) after selected successful paths. This is a software state update, not physical neural growth.
-- **Synaptic Pruning & Sleep Cycles:** Inactive connections are marked by C3 opsonization ("eat-me" signals) and CD47 markers, then engulfed by microglial processors during automated sleep cycles (`sleepCycle.js`), freeing working memory.
-- **3-Factor Spike-Timing-Dependent Plasticity (STDP):** Causal pathways are reinforced or depressed in Rust (`crates/genos-biology/src/neurobiology.rs`) and persisted to the SQLite connectome (`synaptic_receptors`, `synaptic_edges`) based on dopaminergic outcome rewards, LTP (long-term potentiation), and LTD (long-term depression).
-- **Time Cells & Ebbinghaus Curve:** Chronological memory ordering with contextual workspace isolation and continuous temporal decay modeled by the Ebbinghaus forgetting curve.
-- **Unified 768-D Multi-Model Embeddings:** Hybrid vector/BM25 retrieval engine (`embeddingProvider.js`) supporting local Xenova Transformers (`all-MiniLM-L6-v2`), local Ollama (`nomic-embed-text`), and OpenAI (`text-embedding-3-small`), rejecting degenerate zero-vectors and powering Reciprocal Rank Fusion (RRF) with accent-preserving FTS5 tokenization.
+#### Mémoire, apprentissage et swarm
+- [docs/MEMOIRE_APPRENTISSAGE.md](docs/MEMOIRE_APPRENTISSAGE.md)
+- [docs/NEUROBIOLOGIE_PLASTICITE.md](docs/NEUROBIOLOGIE_PLASTICITE.md)
+- [docs/SWARM_INTELLIGENCE.md](docs/SWARM_INTELLIGENCE.md)
 
-### 4. Epistemic Stigmergy & Swarm Intelligence
-- **Digital Pheromones (`pheromoneDeposit`, `trailSelection`):** Agents mark code artifacts with digital scents (recruitment, alert, verified). Pheromones experience temporal evaporation, letting the swarm self-organize on hot paths without conversational overhead.
-- **Quorum Sensing & Brier-Weighted Consensus:** Collective decision-making supports 1-agent-1-vote quorums or weighted voting calibrated against each agent's historical predictive reliability (**Brier Score**).
-- **Contact Inhibition:** Juxtacrine signaling via extracellular matrix locks files being modified, preventing race conditions and concurrent write collisions without heavy distributed locking.
-- **Cognitive Drift Sentinel:** Real-time computation of **Shannon Entropy** $H(A)$ across action distributions to detect confusion spikes (erratic tool thrashing) and low-entropy collapse (infinite repetition deadlocks).
+#### Orchestration, jobs et workspaces
+- [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
+- [docs/PRIMITIVES_EXECUTABLES.md](docs/PRIMITIVES_EXECUTABLES.md)
+- [docs/WORKFLOWS_JOBS.md](docs/WORKFLOWS_JOBS.md)
+- [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
 
-### 5. Cellular Immunity & Resilience
-- **Molecular Chaperones:** Intercept malformed LLM outputs and repair JSON structures before parsing.
-- **Phagocytosis of Exosomes:** Digest and assimilate compressed binary packages across extracellular boundaries.
-- **Caspase Apoptosis Cascade:** Controlled destruction of corrupted or runaway agents, logging terminal post-mortem dossiers.
-- **Stem Cell Fallback:** If policy marks an essential worker as unrecoverable, the recovery service may dispatch a checkpoint-based replacement. Dispatch is bounded and can end in escalation; continuity is not guaranteed.
-- **Cryptobiosis:** Persists an agent state capsule and marks it frozen until an authorized thaw operation. It is durable state management, not biological stasis.
+#### Sécurité et gouvernance
+- [docs/SECURITE.md](docs/SECURITE.md)
+- [docs/IDENTITY_AUTHORITY.md](docs/IDENTITY_AUTHORITY.md)
+- [docs/COMPLIANCE_GOUVERNANCE.md](docs/COMPLIANCE_GOUVERNANCE.md)
+- [docs/OBSERVABILITE.md](docs/OBSERVABILITE.md)
+- [docs/RESILIENCE_REPRISE.md](docs/RESILIENCE_REPRISE.md)
 
-### 6. Strategy Registry & Execution Primitives
-GenOS ships with a strategy registry and an execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) covering documented strategies across 7 core lots. Some strategies are experimental and require concrete evidence in their context; an unknown or under-specified primitive fails explicitly rather than returning a simulated success.
-1. **Fundamentals:** `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
-2. **Memory:** `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
-3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`, `plasmid_divergent_fork`.
-4. **Safety & Resilience:** `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
-5. **Collective Swarm:** `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
-6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`, and explicit state merge operations. Replay status must be checked: validation or trace reconstruction is not deterministic execution.
-7. **Deep Search & Budget:** `mcts_select` (UCB1), `prune` (recursive Beam Search), `reallocate`, `budget_limit`, `prm_evaluate`.
+#### API, intégration et exploitation
+- [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
+- [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)
+- [docs/MODELES_PROVIDERS.md](docs/MODELES_PROVIDERS.md)
+- [docs/INTEGRATIONS_IDE.md](docs/INTEGRATIONS_IDE.md)
+- [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
+- [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md)
 
 ---
 
-## Repository Map
+## Structure du dépôt
 
 ```text
 GenOS/
-├── crates/                    # Core Rust Biomimetic Engine (13 Crates)
-│   ├── genos-biology/         # Embryology, HOX differentiation, glial, neurobiology (STDP), tissue
-│   ├── genos-cell/            # Cellular agent definitions, metabolism, organelles
-│   ├── genos-genome/          # Epigenetics, chromatin states, loci, crossover
-│   ├── genos-reproduction/    # Mitosis, binary fission, budding, schizogony, meiosis
-│   ├── genos-orchestrator/    # Conscience, cognitive dissonance, eureka, task dispatch
-│   ├── genos-immune/          # Macrophage phagocytosis, fever, cellular defense
-│   ├── genos-signal/          # Juxtacrine, paracrine, endocrine communication mesh
-│   ├── genos-store/           # Merkle snapshots, versioned world capsules
-│   ├── genos-common/          # Shared traits, errors, and biological interfaces
-│   ├── genos-api/             # Native API endpoints
-│   ├── genos-cli/             # Native CLI binary (genos)
-│   ├── genos-mcp/             # Native biological Model Context Protocol server
-│   └── genos-simple-cli/      # User-friendly quick command CLI (g)
-├── backend/                   # Node.js Control Plane & Runtime API
-│   ├── bin/                   # Runtime binaries (genos-orchestrate, genos-agent-runtime, etc.)
-│   ├── proto/                 # Protocol Buffers definitions (lineage.proto)
-│   ├── src/
-│   │   ├── controllers/       # HTTP REST controllers (memory, tools, arena, genome, workspaces)
-│   │   ├── grpc_services/     # gRPC microservices (lineageService.js)
-│   │   ├── db/                # SQLite WAL, sqlite-vec 768-D, FTS5 triggers, 67+ tables
-│   │   ├── services/          # Memory, embeddings, STDP connectome, sleep cycles, fleet
-│   │   │   ├── primitiveHandlers/      # Concrete handlers for all 7 lots
-│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 79 strategies
-│   │   │   ├── embeddingProvider.js    # Unified 768-D multi-backend embeddings
-│   │   │   ├── budgetCoherenceService.js # 60/40 budget validation & envelope checks
-│   │   │   ├── mcpToolRegistry.js      # 260 tools typed dispatcher
-│   │   │   └── sleepCycle.js           # Hippocampal consolidation & microglial pruning
-│   │   └── strategies/        # Strategy catalog and classification families
-│   └── tests/                 # Comprehensive test suite (unit, integration, budget, human gate)
-├── mcp/                       # Model Context Protocol server bridge for IDEs & agents
-├── integrations/              # IDE extension contracts and integration schemas
-├── examples/                  # Standalone executable scenarios
-│   └── safe-debugging-demo/   # Zero-token parallel debugging benchmark
-├── scripts/                   # Orchestration, code analysis, and maintenance scripts
-├── strategies.md              # Catalog of 79 implemented, partial, experimental, and prototype strategies
-├── runtime_arbiter.js         # The Thermodynamic Reality Arbiter
-└── .genos.md                  # Strict code generation & complexity governance rules
+├── README.md                       # Vue d’ensemble du projet
+├── docs/                           # Documentation technique et fonctionnelle
+│   ├── README.md                   # Index documentaire et niveaux de lecture
+│   ├── API_CONTRATS.md             # REST / gRPC / MCP / CLI
+│   ├── BIOLOGIE_COMPUTATIONNELLE.md
+│   ├── CLI_EXPERIENCE_OPERATEUR.md
+│   ├── COMPLIANCE_GOUVERNANCE.md
+│   ├── DEPLOIEMENT_EXPLOITATION.md
+│   ├── EPISTEMOLOGIE_EVIDENCE.md
+│   ├── EVALUATION_QUALITE.md
+│   ├── GENOME_EPIGENETIQUE.md
+│   ├── gestion-projet-multi-tenant.md
+│   ├── IDENTITY_AUTHORITY.md
+│   ├── INTEGRATIONS_IDE.md
+│   ├── MEMOIRE_APPRENTISSAGE.md
+│   ├── MODELES_PROVIDERS.md
+│   ├── NEUROBIOLOGIE_PLASTICITE.md
+│   ├── OBSERVABILITE.md
+│   ├── OPERATIONS_RECOVERY.md
+│   ├── ORCHESTRATION.md
+│   ├── OUTILS_MCP.md
+│   ├── PERSISTANCE_DONNEES.md
+│   ├── PRIMITIVES_EXECUTABLES.md
+│   ├── REPRODUCTION_REPLICATION.md
+│   ├── RESILIENCE_REPRISE.md
+│   ├── RUNTIME_AGENTIQUE.md
+│   ├── SANDBOX_EXECUTION_CODE.md
+│   ├── SECURITE.md
+│   ├── SWARM_INTELLIGENCE.md
+│   ├── TESTS_VALIDATION_DEPOT.md
+│   ├── WORKFLOWS_JOBS.md
+│   └── WORKSPACES_ETAT_CONTRE_FACTUEL.md
+├── backend/                       # Contrôle applicatif Node.js et services
+├── crates/                        # Core Rust du runtime biomimétique
+├── examples/                      # Démonstrations et scénarios
+├── integrations/                  # Contrats IDE et intégration
+├── mcp/                           # Serveur MCP et ponts d’intégration
+├── scripts/                       # Outils d’orchestration, fix, validation
+├── assets/                        # Brand, visuels et supports
+├── Cargo.toml                     # Workspace Rust
+├── package.json                   # Dépendances racine et scripts
+├── runtime_arbiter.js             # Arbitre de réalité / validation de preuve
+├── strategies.md                  # Catalogues de stratégies
+├── arch_snapshot.json              # Snapshot d’architecture
+├── arch_agent.json                 # Description agentique du système
+├── LICENSE                        # Licence Apache 2.0
+└── .genos.md                      # Règles de gouvernance de génération de code
 ```
 
 ---
 
-## Quick Start
+## Démarrage rapide
 
-### Prerequisites
-- **Rust:** 1.88 or newer
-- **Node.js:** 20.x or 22.x LTS
-- **Git**
+### Prérequis
+- Rust 1.88+
+- Node.js 20+
+- Git
 
-### 1. Build and Test the Rust Engine
+### 1. Cloner et construire
 
 ```bash
-# Clone the repository
 git clone https://github.com/PISSARAW/GenOS.git
 cd GenOS
-git checkout v3
-
-# Build and verify the biological workspace crates
 cargo build --workspace
-cargo test --workspace
 ```
 
-### 2. Start the Backend Control Plane
+### 2. Lancer le backend
 
 ```bash
 cd backend
 npm install
 npm start
 ```
-The runtime initializes SQLite in WAL mode with `sqlite-vec`, sets up FTS5 BM25 search with triggers, and exposes both the HTTP REST API (port 4000) and the gRPC Lineage service (port 50051).
 
-The `g.cmd` and `g.ps1` wrappers intentionally target the user-friendly
-`genos-simple-cli` binary (`g`). The native `genos-cli` binary (`genos`) is
-invoked through the Cargo commands above or directly from `target/debug` after
-building the workspace; the two CLIs expose different command surfaces.
+### 3. Vérifier les API et les endpoints
 
-### 3. Connect via MCP (Model Context Protocol)
+Le backend expose généralement les endpoints de santé et le control plane sur le port configuré, avec les routes d’API protégées par identités, permissions et règles de scope.
 
-GenOS provides an integrated MCP server and a 260-tool backend dispatcher. Public MCP clients receive only the leased server subset:
+### 4. Utiliser la CLI
 
 ```bash
+cargo run -p genos-cli -- --help
+```
+
+Le dépôt contient aussi une CLI simplifiée `g` pour les usages opérateurs. La distinction est explicitement documentée dans [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md).
+
+---
+
+## Principes de gouvernance et de preuve
+
+GenOS applique une logique de preuve et de responsabilité que l’on retrouve partout :
+
+- un résultat ne vaut pas comme preuve de vérité ;
+- le transport réussi n’est pas équivalent à une décision valide ;
+- l’absence de preuve est un échec fonctionnel ;
+- les risques, budgets et permissions doivent être explicités ;
+- les actions sensibles demandent approbation, contrôle et journalisation.
+
+Cela est central dans [docs/EPISTEMOLOGIE_EVIDENCE.md](docs/EPISTEMOLOGIE_EVIDENCE.md) et dans [docs/SECURITE.md](docs/SECURITE.md).
+
+---
+
+## Comparaison rapide avec l’écosystème du marché
+
+| Domaine | GenOS | Systèmes du marché | Positionnement |
+| --- | --- | --- | --- |
+| Orchestration d’agents | Branches, budgets, preuves, contrôles de promotion | Orchestration linéaire ou pilotée par prompts | GenOS ajoute la validation de l’état et la reprise explicite |
+| Counterfactual state | Snapshots, diff, fork, rollback, bisection | Outils de sandbox ou de GitOps souvent plus simples | GenOS suit l’historique causal et la blast radius |
+| Mémoire agentique | Hybride vectoriel + lexical + synaptique + decay | Memory stores souvent centrés sur embedding simple | GenOS combine mémoire, contexte, résultat et preuve |
+| Sécurité | Auth, RBAC, contrôles de tool, sandbox, circuit breaker | Labels ou tooling partiel | GenOS tente un contrôle en couches, vérifiable |
+| Intégration IDE / MCP | Contrats explicites, leased tools, scopes, validation | Outils plus ad hoc ou trop permissives | GenOS impose un cadre de surface explicite |
+
+Le détail complet est dans les sections “Comparaison avec le marché” des documents de chaque domaine.
+
+---
+
+## Licence
+
+Le projet est distribué sous la licence [LICENSE](LICENSE) Apache 2.0.
+
+---
+
+## Points d’entrée recommandés
+
+- Comprendre le produit : [docs/BIOLOGIE_COMPUTATIONNELLE.md](docs/BIOLOGIE_COMPUTATIONNELLE.md)
+- Comprendre l’orchestration : [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
+- Comprendre les workspaces : [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
+- Comprendre les API : [docs/API_CONTRATS.md](docs/API_CONTRATS.md)
+- Comprendre la sécurité : [docs/SECURITE.md](docs/SECURITE.md)
+- Déployer et exploiter : [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
+
+Si vous souhaitez un point d’entrée plus opérationnel, commencez par [docs/README.md](docs/README.md).bash
 cd mcp
 npm install
 node index.js
