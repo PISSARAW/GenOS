@@ -52,7 +52,7 @@ function groundedness(actual, input = {}) {
   const validCitations = citations.every((citation) => sources.some((source) => source.id === citation));
   if (!validCitations) return { passed: false, reason: 'The answer cites an unknown source.' };
   const citedTerms = text.replace(/\[(?:source|citation):[^\]]+\]/gi, '').toLowerCase().split(/[^a-z0-9]+/i).filter((term) => term.length >= 4);
-  const unsupported = citedTerms.filter((term, index) => index < 20 && !sourceCorpus.includes(term));
+  const unsupported = citedTerms.filter((term) => !sourceCorpus.includes(term));
   return unsupported.length === 0
     ? { passed: true, reason: 'Citations resolve to the provided sources.' }
     : { passed: false, reason: `Unsupported answer terms: ${unsupported.slice(0, 3).join(', ')}` };
