@@ -6,18 +6,11 @@
  * 2. Strategy transitions maintain coherence of previously collected evidence
  * 3. Strategy contract signatures detect mutations
  */
-const crypto = require('crypto');
+const { hashContract } = require('./strategyContractService');
 
 function hashStrategyContract(contract) {
   if (!contract) return null;
-  const canonical = JSON.stringify({
-    primary: contract.selected_strategy?.primary,
-    portfolio: (contract.strategy_portfolio || []).map((s) => s.id).sort(),
-    profile: contract.problem_profile,
-    execution_pipeline: contract.execution_pipeline,
-    stop_conditions: contract.stop_conditions
-  });
-  return `sha256:${crypto.createHash('sha256').update(canonical).digest('hex')}`;
+  return hashContract(contract);
 }
 
 function validateWorkerDossierCoherence(workerDossier, contractPortfolio = []) {
