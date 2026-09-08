@@ -15,7 +15,7 @@ router.get('/platform/permissions', requirePermission('security:manage'), c.perm
 router.post('/platform/permissions', requirePermission('security:manage'), c.permissions);
 router.post('/platform/tool-calls/validate', requirePermission('mcp:execute_safe'), c.validateTool);
 router.post('/platform/incidents/:incidentId/replay', requirePermission('read'), requireTenantScope(), c.replay);
-router.post('/platform/incidents/bisect', requirePermission('workspace:write'), c.bisect);
+router.post('/platform/incidents/bisect', requirePermission('workspace:write'), requireTenantScope({ write: true }), c.bisect);
 router.get('/platform/approvals', requirePermission('security:manage'), c.approvals);
 router.post('/platform/approvals', requirePermission('mcp:execute_safe'), c.approvals);
 router.post('/platform/approvals/:id/decision', requirePermission('security:manage'), requireTenantScope({ write: true }), c.decideApproval);
