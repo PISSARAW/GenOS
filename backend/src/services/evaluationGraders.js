@@ -47,7 +47,9 @@ function scoreResult(passed, reason, score = passed ? 1 : 0) {
   return {
     passed: Boolean(passed),
     reason: String(reason),
-    score: Number.isFinite(numericScore) ? Math.max(0, Math.min(1, numericScore)) : (passed ? 1 : 0)
+    score: Number.isFinite(numericScore) ? Math.max(0, Math.min(1, numericScore)) : (passed ? 1 : 0),
+    kind: 'metric',
+    qualityGuarantee: false
   };
 }
 

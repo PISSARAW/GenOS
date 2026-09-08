@@ -13,6 +13,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
 const strategyTools = require("../backend/src/services/mcpStrategyTools");
+const { getToolInputSchema } = require("../backend/src/services/mcpContract");
 const { terminateChild, clearTerminationTimer } = require("../backend/src/services/processTermination");
 
 const DEFAULT_TOOL_TIMEOUT_MS = 120000;
@@ -315,6 +316,8 @@ const ALL_TOOLS = [
     },
   },
 ];
+
+for (const tool of ALL_TOOLS) tool.inputSchema = getToolInputSchema(tool.name, tool.inputSchema);
 
 function getFilteredTools() {
   return filterLeasedTools(ALL_TOOLS);
