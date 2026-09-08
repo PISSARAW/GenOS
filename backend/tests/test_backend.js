@@ -90,12 +90,19 @@ async function runTests() {
     fs.writeFileSync(path.join(coreWorkspacePath, 'src', 'parser.js'), 'function parse(input){ if (!input) return null; return input; }\n');
     // Bisection runs only allow-listed test commands now, so give the
     // workspace an npm test script that reproduces the regression.
-    fs.writeFileSync(path.join(coreWorkspacePath, 'package.json'), JSON.stringify({ name: 'ws-genos-core', version: '0.0.0', scripts: { test: 'node -e "process.exit(1)"' } }, null, 2));
+    fs.writeFileSync(path.join(coreWorkspacePath, 'package.json'), JSON.stringify({
+      name: 'ws-genos-core',
+      version: '0.0.0',
+      scripts: { test: 'node -e "const fs=require(\'fs\'); process.exit(fs.readFileSync(\'src/parser.js\', \'utf8\').includes(\'deep.property\') ? 1 : 0)"' }
+    }, null, 2));
+    await db.run("INSERT OR IGNORE INTO organizations (id, name) VALUES ('org-smoke', 'Smoke Test Organization')");
+    await db.run("INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES ('project-smoke', 'org-smoke', 'Smoke Test Project')");
     await db.run(
-      "INSERT INTO workspaces (id, name, path) VALUES ('ws-genos-core', 'GenOS Core', ?) " +
-      'ON CONFLICT(id) DO UPDATE SET path = excluded.path',
+      "INSERT INTO workspaces (id, name, path, organization_id, project_id) VALUES ('ws-genos-core', 'GenOS Core', ?, 'org-smoke', 'project-smoke') " +
+      'ON CONFLICT(id) DO UPDATE SET path = excluded.path, organization_id = excluded.organization_id, project_id = excluded.project_id',
       coreWorkspacePath
     );
+    const smokeTenantHeaders = { 'X-Organization-Id': 'org-smoke', 'X-Project-Id': 'project-smoke' };
 
     // 2. 18 Tables Verification
     console.log('\n--- 2. Database Schema & Tables Verification ---');
@@ -172,14 +179,14 @@ async function runTests() {
     const freezeRes = await request({
       method: 'POST',
       path: '/api/resilience/cryptobiosis/freeze',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN }
+      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN, ...smokeTenantHeaders }
     }, { workspaceId: 'ws-genos-core', reason: 'Verification Freeze' });
     assert(freezeRes.status === 200 && freezeRes.body.snapshotId.startsWith('cryptobiosis_'), 'POST /api/resilience/cryptobiosis/freeze created instant state snapshot');
 
     const thawRes = await request({
       method: 'POST',
       path: '/api/resilience/cryptobiosis/thaw',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, ...smokeTenantHeaders }
     }, { snapshotId: freezeRes.body.snapshotId });
     assert(thawRes.status === 200 && thawRes.body.success === true, 'POST /api/resilience/cryptobiosis/thaw revived runtime state');
 
@@ -200,7 +207,7 @@ async function runTests() {
     const crossRes = await request({
       method: 'POST',
       path: '/api/genome/crossover',
-      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+      headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, ...smokeTenantHeaders }
     }, {
       parentA: { name: 'API Parent A', genes: { role: 'worker', strategy: 'tree-search', tools: ['genos_inspect'], temp: 0.4, topP: 0.9 } },
       parentB: { name: 'API Parent B', genes: { role: 'reviewer', strategy: 'evidence', tools: ['genos_test'], temp: 0.5, topP: 0.9 } },
@@ -212,51 +219,56 @@ async function runTests() {
     console.log('\n--- 9. Memory & Experience: Vector Search, Cherry-Pick & What-If ---');
     const memSearchRes = await request({
       method: 'POST',
-      path: '/api/memory/search'
+      path: '/api/memory/search',
+      headers: smokeTenantHeaders
     }, { query: 'sqlite wal concurrency locking' });
     assert(memSearchRes.status === 200 && memSearchRes.body.topSuccessfulGoldenPaths.length > 0, 'POST /api/memory/search executed hybrid cosine vector search');
 
     const cherryRes = await request({
       method: 'POST',
-      path: '/api/memory/cherry-pick'
+      path: '/api/memory/cherry-pick',
+      headers: smokeTenantHeaders
     }, { turns: [{ step: 1, action: 'view_file' }, { step: 2, error: 'fail' }, { step: 3, success: true, action: 'replace_file_content' }] });
     assert(cherryRes.status === 200 && cherryRes.body.prunedStepCount < cherryRes.body.originalStepCount, 'POST /api/memory/cherry-pick pruned dead-ends into Golden Path');
 
     const whatIfRes = await request({
       method: 'POST',
-      path: '/api/memory/counterfactual'
+      path: '/api/memory/counterfactual',
+      headers: smokeTenantHeaders
     }, { stepIndex: 2, alterations: { ruleInjected: 'Strict validation' } });
     assert(whatIfRes.status === 200 && whatIfRes.body.comparison.counterfactualTimeline.finalStatus === 'SUCCESS', 'POST /api/memory/counterfactual simulated branching timeline comparison');
 
     // 10. Workspace & Causal Incidents: Diff, O(log N) Bisect & Rollback
     console.log('\n--- 10. Workspace: Multi-Branch Diff, Causal Bisection & Rollback ---');
     const authHeaders = { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Access-Key': MILITARY_OVERRIDE_TOKEN };
-    await request({
+    const baselineSnapshotRes = await request({
       method: 'POST',
       path: '/api/workspaces/ws-genos-core/snapshots',
-      headers: authHeaders
+      headers: { ...authHeaders, ...smokeTenantHeaders }
     }, { label: 'Step 1 baseline', reason: 'Bisection baseline' });
+    assert(baselineSnapshotRes.status === 201 || baselineSnapshotRes.status === 200, `Baseline snapshot creation succeeded (${baselineSnapshotRes.status}: ${JSON.stringify(baselineSnapshotRes.body)})`);
     fs.writeFileSync(path.join(__dirname, '.tmp-ws-genos-core', 'src', 'parser.js'), 'function parse(input){ return input.deep.property; }\n');
-    await request({
+    const regressionSnapshotRes = await request({
       method: 'POST',
       path: '/api/workspaces/ws-genos-core/snapshots',
-      headers: authHeaders
+      headers: { ...authHeaders, ...smokeTenantHeaders }
     }, { label: 'Step 2 regression', reason: 'Introduced null dereference' });
+    assert(regressionSnapshotRes.status === 201 || regressionSnapshotRes.status === 200, `Regression snapshot creation succeeded (${regressionSnapshotRes.status}: ${JSON.stringify(regressionSnapshotRes.body)})`);
 
-    const diffRes = await request({ method: 'GET', path: '/api/workspaces/diff?base=ws-genos-core&target=ws-genos-core' });
-    assert(diffRes.status === 200 && Array.isArray(diffRes.body.diffEntries) && diffRes.body.churnHeatmap.length > 0, 'GET /api/workspaces/diff returned multi-branch diff & churn heatmap');
+    const diffRes = await request({ method: 'GET', path: '/api/workspaces/diff?base=ws-genos-core&target=ws-genos-core', headers: smokeTenantHeaders });
+    assert(diffRes.status === 200 && Array.isArray(diffRes.body.diffEntries) && diffRes.body.churnHeatmap.length > 0, `GET /api/workspaces/diff returned multi-branch diff & churn heatmap (${diffRes.status}: ${JSON.stringify(diffRes.body)})`);
 
     const bisectRes = await request({
       method: 'POST',
       path: '/api/workspaces/bisect',
-      headers: authHeaders
+      headers: { ...authHeaders, ...smokeTenantHeaders }
     }, { workspaceId: 'ws-genos-core', testCommand: 'npm test', timeoutMs: 30000 });
-    assert(bisectRes.status === 200 && bisectRes.body.bisectionComplete && bisectRes.body.culpritReport.stepNumber > 0, 'POST /api/workspaces/bisect isolated culprit step in O(log N) iterations');
+    assert(bisectRes.status === 200 && bisectRes.body.bisectionComplete && bisectRes.body.culpritReport.stepNumber > 0, `POST /api/workspaces/bisect isolated culprit step in O(log N) iterations (${bisectRes.status}: ${JSON.stringify(bisectRes.body)})`);
 
     const rollbackRes = await request({
       method: 'POST',
       path: '/api/workspaces/rollback',
-      headers: authHeaders
+      headers: { ...authHeaders, ...smokeTenantHeaders }
     }, { workspaceId: 'ws-genos-core', stepNumber: bisectRes.body.culpritReport.stepNumber });
     assert(rollbackRes.status === 200 && rollbackRes.body.rollback === true && rollbackRes.body.restoredSnapshot?.id !== undefined, 'POST /api/workspaces/rollback restored the pre-regression snapshot atomically');
 

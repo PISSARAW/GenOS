@@ -279,8 +279,9 @@ async function getDiff(req, res, next) {
     const targetWorkspace = await findWorkspace(db, req, target);
     if (!targetWorkspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${target}` } });
     if (baseWorkspace) {
+      const sameWorkspace = baseWorkspace.id === targetWorkspace.id;
       const [baseSnapshot, targetSnapshot] = await Promise.all([
-        db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number DESC LIMIT 1', baseWorkspace.id),
+        db.get(`SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number ${sameWorkspace ? 'ASC' : 'DESC'} LIMIT 1`, baseWorkspace.id),
         db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number DESC LIMIT 1', targetWorkspace.id)
       ]);
       if (baseSnapshot && targetSnapshot) {
