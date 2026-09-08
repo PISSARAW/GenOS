@@ -83,7 +83,7 @@ async function formatCognitiveMemoryPrompt(agentId = '', task = '', options = {}
     // Uptake synaptic vesicles from the synaptic cleft
     let vesicleEngrams = [];
     try {
-      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId, { peek: true });
+      vesicleEngrams = await vectorMemory.uptakeVesicles(agentId, { peek: options.peekVesicles === true });
     } catch {}
 
     let epistemicShield = null;
