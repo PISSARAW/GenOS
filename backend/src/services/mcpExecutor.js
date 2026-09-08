@@ -197,6 +197,20 @@ function resolveMcpOutputPath(outputFile) {
   }
 }
 
+function validateMcpInputPaths(args = {}) {
+  for (const field of ['graph_file', 'history_file', 'input_file', 'manifest']) {
+    if (args[field] === undefined) continue;
+    if (typeof args[field] !== 'string' || !args[field].trim() || path.isAbsolute(args[field])) {
+      throw Object.assign(new Error(`${field} must be a relative workspace path.`), { code: 'INVALID_INPUT_PATH' });
+    }
+    try {
+      resolveContainedPathNoSymlinkSync(path.resolve(process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..')), args[field], field);
+    } catch (_) {
+      throw Object.assign(new Error(`${field} must remain inside the GenOS workspace and avoid symlinks.`), { code: 'INVALID_INPUT_PATH' });
+    }
+  }
+}
+
 function withTimeout(promise, timeoutMs) {
   const timeout = normalizeMcpTimeout(timeoutMs);
   return Promise.race([
@@ -338,6 +352,7 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
   if (argumentError) {
     return { configured: false, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
   }
+  try { validateMcpInputPaths(args); } catch (error) { return { configured: false, success: false, status: 'invalid_args', error: error.message, code: error.code }; }
 
   const runLocal = (cmd) => {
     try { return { configured: true, success: true, status: 'completed', transport: 'local', output: runSafeSync(cmd, { timeoutMs }).toString() }; }
@@ -865,4 +880,4 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath, directToolLeaseAllows };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath, validateMcpInputPaths, directToolLeaseAllows };
