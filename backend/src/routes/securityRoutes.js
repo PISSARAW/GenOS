@@ -12,6 +12,6 @@ router.get('/security/csrf', issueCsrfToken);
 router.post('/security/kill-switch', requirePermission('emergency_kill'), securityController.triggerKillSwitch);
 router.post('/security/kill-switch/reset', requireRole(['admin']), securityController.resetKillSwitch);
 router.post('/halt', requirePermission('emergency_kill'), securityController.globalHalt);
-router.get('/security/status', securityController.getSecurityStatus);
+router.get('/security/status', requireRole(['admin']), securityController.getSecurityStatus);
 
 module.exports = router;
