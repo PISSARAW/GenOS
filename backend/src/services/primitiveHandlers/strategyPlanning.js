@@ -78,4 +78,49 @@ async function conditionalMutation(context = {}) {
   return { ...result, evidence: evidenceResult.evidence, conditional: true };
 }
 
-module.exports = { plan, roleForks, commonProbes, evidence, conditionalMutation };
+async function beliefUpdate(context = {}) {
+  const hypotheses = Array.isArray(context.hypotheses) ? context.hypotheses : [];
+  const evidence = Array.isArray(context.evidence) ? context.evidence : [];
+  if (!hypotheses.length) return { success: false, error: 'hypotheses are required.', code: 'HYPOTHESES_REQUIRED' };
+  const updates = hypotheses.map((hypothesis) => {
+    const prior = Math.min(1, Math.max(0, Number(hypothesis.confidence ?? hypothesis.probability ?? 0.5)));
+    const related = evidence.filter((item) => String(item.hypothesisId || item.targetHypothesisId || '') === String(hypothesis.id));
+    const refutations = related.filter((item) => item.falsifies === true || item.refutes === true).length;
+    const confirmations = related.filter((item) => item.confirms === true || item.supports === true).length;
+    const posterior = Math.min(1, Math.max(0, prior + confirmations * 0.15 - refutations * 0.25));
+    return { ...hypothesis, prior, posterior, evidenceCount: related.length, falsified: posterior === 0 };
+  });
+  return { success: true, hypotheses: updates, best: [...updates].sort((left, right) => right.posterior - left.posterior)[0] };
+}
+
+async function expectedInformationGain(context = {}) {
+  const probes = Array.isArray(context.probes) ? context.probes : [];
+  if (!probes.length) return { success: false, error: 'probes are required.', code: 'PROBES_REQUIRED' };
+  const scored = probes.map((probe, index) => {
+    const outcomes = Array.isArray(probe.outcomes) ? probe.outcomes : [];
+    const probabilities = outcomes.map((outcome) => Number(outcome.probability)).filter((value) => Number.isFinite(value) && value > 0);
+    const entropy = probabilities.reduce((sum, probability) => sum - probability * Math.log2(probability), 0);
+    return { ...probe, id: String(probe.id || `probe-${index + 1}`), expectedInformationGain: Number(entropy.toFixed(6)) };
+  }).sort((left, right) => right.expectedInformationGain - left.expectedInformationGain || left.id.localeCompare(right.id));
+  return { success: true, probes: scored, best: scored[0] };
+}
+
+async function nextProbe(context = {}) {
+  const result = await expectedInformationGain(context);
+  if (!result.success) return result;
+  return { success: true, selectedProbe: result.best, candidates: result.probes };
+}
+
+async function analyzeTrajectory(context = {}) {
+  const actions = context.actionHistory || context.actions || context.trajectory;
+  if (!Array.isArray(actions) || !actions.length) return { success: false, error: 'actionHistory is required.', code: 'ACTION_HISTORY_REQUIRED' };
+  const counts = new Map();
+  for (const action of actions) {
+    const key = String(typeof action === 'string' ? action : action.action || action.tool || action.type || 'unknown');
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  const repeated = [...counts.entries()].filter(([, count]) => count > 1).sort((left, right) => right[1] - left[1]);
+  return { success: true, sampleSize: actions.length, uniqueActions: counts.size, repeatedActions: repeated, repetitionRate: Number((1 - counts.size / actions.length).toFixed(6)), loopDetected: repeated.length > 0 && (1 - counts.size / actions.length) >= Number(context.threshold ?? 0.5) };
+}
+
+module.exports = { plan, roleForks, commonProbes, evidence, conditionalMutation, beliefUpdate, expectedInformationGain, nextProbe, analyzeTrajectory };
