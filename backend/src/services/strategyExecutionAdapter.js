@@ -161,6 +161,8 @@ const HANDLERS = {
 
   // Lot 7 — Recherche Profonde & Budget
   mcts_select: search.mctsSelect,
+  beam_search: search.prune,
+  budget_allocation: search.reallocate,
   expand: search.mctsSelect,
   schizogony: search.schizogonyBurst,
   schizogony_burst: search.schizogonyBurst,
