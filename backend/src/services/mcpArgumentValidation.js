@@ -63,6 +63,16 @@ function validateToolArguments(toolName, args = {}) {
       const values = [...new Set(provided.map((alias) => String(args[alias])))];
       if (values.length > 1) return invalid(aliases[0], `conflicting aliases supplied: ${provided.join(', ')}.`);
     }
+    const legacyAliases = ['sourceId', 'targetId', 'preSpikeAt', 'postSpikeAt', 'learningRate', 'transmitterType', 'agentId'];
+    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
+      return invalid('args', `MCP uses snake_case fields; use ${legacyAliases.map((field) => field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)).join(', ')}.`);
+    }
+  }
+  if (toolName === 'genos_cell_division') {
+    const legacyAliases = ['agentId', 'daughterVolume', 'mutationRate', 'hayflickLimit', 'merozoiteCount'];
+    if (legacyAliases.some((field) => Object.prototype.hasOwnProperty.call(args, field))) {
+      return invalid('args', 'MCP uses snake_case fields for cell division.');
+    }
   }
 
   for (const field of REQUIRED_STRINGS[toolName] || []) {
