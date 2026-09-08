@@ -4,6 +4,8 @@ The GenOS backend is the core control plane and runtime engine for GenOS V3. It 
 1. **REST & gRPC Runtime:** Exposes the comprehensive REST API (Express) and gRPC microservices consumed by the GenOS Studio, CLI, and external agent runtimes.
 2. **Cognitive Memory & Biological Strategy Engine:** Houses the STDP synaptic connectome, hybrid vector/lexical search, autonomous orchestration pipelines, budget coherence validators, and the 7-lot execution primitives.
 
+For the agent-state Git API, its correspondence with Git, and the boundary between agent snapshots and real repository worktrees, see [../docs/GIT_AGENTS.md](../docs/GIT_AGENTS.md).
+
 ---
 
 ## Architecture & Subsystems

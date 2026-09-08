@@ -39,6 +39,7 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 ### 3. Orchestration, primitives et workspaces
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) — orchestration de branches, preuve avant validation, gestion de survivants et fan-out contrôlé.
+- [GIT_AGENTS.md](GIT_AGENTS.md) — transposition de Git aux états d’agents, opérations agentiques, worktrees et comparaison directe avec Git.
 - [PRIMITIVES_EXECUTABLES.md](PRIMITIVES_EXECUTABLES.md) — primitives formelles, contrats, budgets, promotion, sélection et sécurité des actions.
 - [WORKFLOWS_JOBS.md](WORKFLOWS_JOBS.md) — workflows, jobs, graphes d’états, transitions, validation, machine d’état et robustesse.
 - [WORKSPACES_ETAT_CONTRE_FACTUEL.md](WORKSPACES_ETAT_CONTRE_FACTUEL.md) — workspaces, snapshots, bisection, restore, divergence causale, blast radius.
@@ -79,8 +80,9 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 1. [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md)
 2. [ORCHESTRATION.md](ORCHESTRATION.md)
 3. [WORKSPACES_ETAT_CONTRE_FACTUEL.md](WORKSPACES_ETAT_CONTRE_FACTUEL.md)
-4. [API_CONTRATS.md](API_CONTRATS.md)
-5. [SECURITE.md](SECURITE.md)
+4. [GIT_AGENTS.md](GIT_AGENTS.md)
+5. [API_CONTRATS.md](API_CONTRATS.md)
+6. [SECURITE.md](SECURITE.md)
 
 ### Pour opérer le runtime
 
@@ -95,8 +97,9 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 1. [API_CONTRATS.md](API_CONTRATS.md)
 2. [OUTILS_MCP.md](OUTILS_MCP.md)
 3. [INTEGRATIONS_IDE.md](INTEGRATIONS_IDE.md)
-4. [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md)
-5. [PERSISTANCE_DONNEES.md](PERSISTANCE_DONNEES.md)
+4. [GIT_AGENTS.md](GIT_AGENTS.md)
+5. [MODELES_PROVIDERS.md](MODELES_PROVIDERS.md)
+6. [PERSISTANCE_DONNEES.md](PERSISTANCE_DONNEES.md)
 
 ---
 
