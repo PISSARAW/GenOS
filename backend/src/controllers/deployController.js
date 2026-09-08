@@ -127,7 +127,7 @@ async function deleteAgent(req, res, next) {
     const persistedRuntime = await db.get('SELECT runtime_pid FROM agents WHERE id = ?', req.params.id);
     const stopped = runtimeAdapter.stopMission(req.params.id) || Boolean(persistedRuntime?.runtime_pid);
     await db.run("DELETE FROM agents WHERE id = ?", req.params.id);
-    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.username || 'operator'}.`, severity: 'warning', payload: { actor: req.user?.username || null, tenant: req.tenant || null, stopped } });
+    telemetry.emitEvent({ eventType: 'AGENT_AUTHORITY_ACTION', agentId: req.params.id, action: 'DELETE', detail: `Agent deleted by ${req.user?.keyId || req.user?.username || 'operator'}.`, severity: 'warning', payload: { actorPrincipalId: req.user?.keyId || null, actorLabel: req.user?.username || null, tenant: req.tenant || null, stopped } });
     res.json({ success: true, agentId: req.params.id, stopped });
   } catch (error) { next(error); }
 }
