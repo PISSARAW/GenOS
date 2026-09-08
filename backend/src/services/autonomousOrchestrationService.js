@@ -107,6 +107,11 @@ function buildAutonomyPlan(contract, budget = {}) {
     totalTokens, workerShare: dispatchWorkers.length ? workerShare : 0, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, mode: allocation
   });
+  const executionStatus = realizable.length === 0
+    ? 'blocked'
+    : omittedPhases.length
+      ? 'degraded'
+      : 'ready';
 
   return {
     schema: 'genos.autonomous-orchestration/v1alpha1',
@@ -167,6 +172,10 @@ function buildAutonomyPlan(contract, budget = {}) {
       }
     ],
     phases: realizable,
+    executionStatus,
+    executionBlockers: executionStatus === 'blocked'
+      ? [{ code: 'NO_REALIZABLE_PHASES', message: 'The selected strategy portfolio cannot execute any autonomy phase.' }]
+      : [],
     omittedPhases,
     exploration: {
       requestedBranches: workers.length,
