@@ -9,5 +9,6 @@ router.post('/integrations', requireTenantScope({ write: true }), controller.con
 router.post('/integrations/:id/heartbeat', requirePermission('read'), requireTenantScope(), controller.heartbeat);
 router.get('/integrations/:id/status', requirePermission('read'), requireTenantScope(), controller.status);
 router.post('/integrations/:id/disconnect', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.disconnect);
+router.post('/integrations/:id/progress', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.progress);
 router.post('/commands/:command', requirePermission('read'), requireTenantScope(), controller.execute);
 module.exports = router;
