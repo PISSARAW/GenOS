@@ -221,9 +221,12 @@ async function castVote(req, res) {
   const safeProposalId = sanitizeString(String(proposalId || '')).trim();
   const normalizedVote = String(vote).trim().toLowerCase();
   const safeReason = sanitizeString(String(reason || '')).trim();
-  const rawAgentId = req.body?.agentId || req.body?.agent_id || req.user?.keyId || req.user?.username;
+  if (Object.prototype.hasOwnProperty.call(req.body || {}, 'agent_id') || Object.prototype.hasOwnProperty.call(req.body || {}, 'agent_name')) {
+    return res.status(400).json({ error: { code: 'INVALID_FIELD_NAMING', message: 'Swarm vote requests require agentId and agentName in camelCase.' } });
+  }
+  const rawAgentId = req.body?.agentId || req.user?.keyId || req.user?.username;
   const agentId = sanitizeString(String(rawAgentId || `worker-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`)).trim();
-  const rawAgentName = req.body?.agentName || req.body?.agent_name || req.user?.username || agentId;
+  const rawAgentName = req.body?.agentName || req.user?.username || agentId;
   const agentName = sanitizeString(String(rawAgentName)).trim();
   if (!safeProposalId || !['yes', 'no', 'abstain'].includes(normalizedVote)) {
     return res.status(400).json({ error: { code: 'INVALID_VOTE', message: 'proposalId and a vote of yes, no, or abstain are required.' } });
