@@ -20,7 +20,11 @@ module.exports = {
         detail: event.detail || '',
         severity: event.severity || 'info',
         status: event.status || 'active',
-        payload
+        payload: {
+          ...payload,
+          ...(event.organization_id ? { organizationId: event.organization_id } : {}),
+          ...(event.project_id ? { projectId: event.project_id } : {})
+        }
       });
       callback(null, { success: true });
     } catch (err) {
