@@ -265,14 +265,14 @@ function heuristicReconstruction(raw, err) {
         return null;
     }
 
-    const outcome = outcomeMatch ? outcomeMatch[1] : (/réussi|success|completed/i.test(text) ? 'success' : 'failed');
+    const outcome = 'failed';
     let claims = parsedClaims || [];
     if (!claims.length && statementMatches.length) {
         claims = statementMatches.map(m => ({ statement: m[1], evidence: [] }));
     }
     return {
         author: { name: 'ChaperoneRestored', meaning: 'Restauré par le Chaperon Moléculaire' },
-        outcome: outcome || 'success',
+        outcome,
         claims: claims.length ? claims : [{ statement: 'Sortie extraite par le Chaperon Moléculaire.', evidence: [] }],
         unverifiedClaims: claims.some(c => !c.evidence || c.evidence.length === 0)
             ? ['Affirmation(s) extraite(s) par le Chaperon Moléculaire sans preuve structurelle']
