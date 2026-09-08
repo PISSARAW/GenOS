@@ -66,7 +66,7 @@ Normalizes all vector inputs to **768 dimensions** with automatic detection and 
   - *Lot 3 Evolution:* `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`.
   - *Lot 4 Safety & Resilience:* `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
   - *Lot 5 Swarm:* `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
-  - *Lot 6 Temporal & Causal:* 3-way merge, causal rebase, mutated universes, counterfactual replay.
+  - *Lot 6 Temporal & Causal:* explicit state merge operations, causal rebase, mutated universes, and replay evidence. Automatic workspace merge is unavailable and never claims to have merged files.
   - *Lot 7 Search & Budget:* Recursive MCTS branch pruning, UCB1 selection, PRM step evaluation.
 - **Budget Coherence (`src/services/budgetCoherenceService.js`):** Enforces a strict 60% worker pool / 40% orchestrator reserve split, preventing token exhaustion and budget overruns.
 - **Human Approval Promotion Gate:** High-impact mutations and autonomous promotions require cryptographically signed human approval before merging.
