@@ -86,7 +86,8 @@ async function applyVersionedMigrations(db) {
     ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing'],
     ['015-synapse-indexes', 'Add B-Tree indexes on memory_synapses for target, weight, pruning and tenant scoping'],
     ['016-workflow-version-snapshots', 'Persist immutable workflow definitions for queued and historical runs'],
-    ['017-reversible-episodic-retention', 'Keep purged episodic memories as restorable tombstones']
+    ['017-reversible-episodic-retention', 'Keep purged episodic memories as restorable tombstones'],
+    ['018-ide-client-identity', 'Persist IDE client identity for idempotent reconnection']
   ];
   await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
     id TEXT PRIMARY KEY,
@@ -218,6 +219,9 @@ async function applyVersionedMigrations(db) {
   if (!evaluationNames.has('attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0');
   if (!evaluationNames.has('max_attempts')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN max_attempts INTEGER NOT NULL DEFAULT 3');
   if (!evaluationNames.has('campaign_id')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN campaign_id TEXT');
+  const ideColumns = new Set((await db.all('PRAGMA table_info(ide_integrations)')).map(column => column.name));
+  if (!ideColumns.has('client_id')) await db.exec('ALTER TABLE ide_integrations ADD COLUMN client_id TEXT');
+  await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_ide_client_workspace ON ide_integrations(client_id, workspace_id) WHERE client_id IS NOT NULL');
   const synapseColumns = new Set((await db.all('PRAGMA table_info(memory_synapses)')).map(column => column.name));
   const synapseAlterations = [
     ['transmitter_type', "ALTER TABLE memory_synapses ADD COLUMN transmitter_type TEXT NOT NULL DEFAULT 'glutamate'"],
