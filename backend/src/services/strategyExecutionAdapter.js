@@ -22,6 +22,7 @@ const search = require('./primitiveHandlers/search');
 const computerUse = require('./primitiveHandlers/computerUse');
 const resilience = require('./resilienceService');
 const modelRouter = require('./modelRouter');
+const advanced = require('./primitiveHandlers/strategyAdvanced');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -75,6 +76,10 @@ const HANDLERS = {
   provider_fallback: providerFallback,
   fallback_chain: providerFallback,
   degraded_mode: providerFallback,
+  independent_reports: advanced.independentReports,
+  neutral_observer: advanced.neutralObserver,
+  synthesis: advanced.synthesizeReports,
+  security_coevolution: advanced.securityCoevolution,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
