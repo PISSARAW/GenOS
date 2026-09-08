@@ -23,6 +23,10 @@ impl Plasmid {
             instruction: instruction.to_string(),
         }
     }
+
+    pub fn express(&self, ctx: ExpressionContext) -> Result<String, String> {
+        Gene::new(&format!("PLASMID_{}", self.id), &self.instruction).express(ctx)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -145,5 +149,22 @@ impl Gene {
             micro_rnas: &empty_rnas,
         })
         .is_ok()
+    }
+}
+
+#[cfg(test)]
+mod plasmid_tests {
+    use super::{ExpressionContext, Plasmid};
+
+    #[test]
+    fn plasmid_expression_uses_the_gene_regulation_pipeline() {
+        let plasmid = Plasmid::new("ATG_GENE");
+        let empty_tfs = Vec::new();
+        let empty_rnas = Vec::new();
+        assert!(plasmid.express(ExpressionContext {
+            active_tfs: &empty_tfs,
+            alternative_splicing: None,
+            micro_rnas: &empty_rnas,
+        }).is_ok());
     }
 }
