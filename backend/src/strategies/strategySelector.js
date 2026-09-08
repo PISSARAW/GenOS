@@ -126,15 +126,28 @@ function scoreStrategy(strategy, profile) {
 }
 
 function choosePortfolio(decisions, profile) {
+  const options = arguments[2] || {};
+  const portfolioSize = Math.max(4, Math.min(16, Math.floor(Number(options.portfolioSize) || 12)));
+  const inhibited = new Set(options.inhibitedStrategyIds || []);
   const eligible = decisions.filter((item) => item.eligible).sort((a, b) => b.score - a.score || a.strategy.id.localeCompare(b.strategy.id));
   const ids = new Set([PREFERRED_PRIMARY[profile.type], 'retrieval_first', 'negative_knowledge', 'zero_trust', 'tool_output_validation', 'execution_guardrails']);
   if (profile.requires_reproducibility) ids.add('deterministic_replay');
   ids.add(profile.objectives_conflict ? 'pareto_frontier' : 'successive_halving');
   if (profile.complexity >= 0.7) ids.add(profile.risk === 'high' ? 'blind_adversarial_review' : 'specialist_expert_committee');
-  const portfolio = [...ids].map(getStrategy).filter(Boolean).filter((strategy) => decisions.find((item) => item.strategy.id === strategy.id)?.eligible);
+  const portfolio = [...ids].map(getStrategy).filter(Boolean).filter((strategy) => !inhibited.has(strategy.id) && decisions.find((item) => item.strategy.id === strategy.id)?.eligible);
+  const families = new Set(portfolio.map((strategy) => strategy.family));
   for (const candidate of eligible) {
-    if (portfolio.length >= 10) break;
-    if (!portfolio.some((item) => item.family === candidate.strategy.family)) portfolio.push(candidate.strategy);
+    if (portfolio.length >= portfolioSize) break;
+    if (!inhibited.has(candidate.strategy.id) && !families.has(candidate.strategy.family)) {
+      portfolio.push(candidate.strategy);
+      families.add(candidate.strategy.family);
+    }
+  }
+  for (const candidate of eligible) {
+    if (portfolio.length >= portfolioSize) break;
+    if (!inhibited.has(candidate.strategy.id) && !portfolio.some((item) => item.id === candidate.strategy.id)) {
+      portfolio.push(candidate.strategy);
+    }
   }
   return portfolio;
 }
@@ -169,13 +182,15 @@ function selectStrategyPortfolio(input = {}) {
     maxCostLevel: input.maxCostLevel ?? 5,
     allowExperimental: input.allowExperimental ?? false,
     allowPrototype: input.allowPrototype ?? false,
-    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk ?? false
+    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk ?? false,
+    portfolioSize: Math.max(4, Math.min(16, Math.floor(Number(input.portfolioSize) || 12))),
+    inhibitedStrategyIds: [...new Set([...(input.inhibitedStrategyIds || []), ...(input.memorySignals?.inhibitedStrategyIds || [])].map(String))]
   };
   const decisions = listStrategies().map((strategy) => {
     const constraint = eligibility(strategy, profile, options);
     return { strategy, eligible: constraint.eligible, score: constraint.eligible ? scoreStrategy(strategy, profile) : null, reason: constraint.reason };
   });
-  const portfolio = choosePortfolio(decisions, profile);
+  const portfolio = choosePortfolio(decisions, profile, options);
   const requestedPrimary = PREFERRED_PRIMARY[profile.type];
   const requestedDecision = decisions.find((item) => item.strategy.id === requestedPrimary);
   const primary = portfolio.find((strategy) => strategy.id === requestedPrimary)
