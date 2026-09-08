@@ -355,6 +355,17 @@ async function approveRun(db, id, options = {}) {
   if (!promotionResult?.success) {
     throw new Error(`Execution run ${id} promotion failed: ${promotionResult?.error || 'unknown error'}`);
   }
+  const promotionPolicy = require('./strategyPromotionPolicyService');
+  const postPromotion = await promotionPolicy.applyPostPromotionPolicies(db, contract, {
+    agentId: row.agent_id,
+    rejectedBranchIds: options.rejectedBranchIds || [],
+    winnerWorkspaceRoot: options.winnerWorkspaceRoot,
+    targetWorkspaceRoot: options.targetWorkspaceRoot,
+    causalBaseWorkspaceRoot: options.causalBaseWorkspaceRoot
+  });
+  if (!postPromotion.success) {
+    throw new Error(`Execution run ${id} workspace promotion failed: ${postPromotion.error || 'unknown error'}`);
+  }
   const now = new Date().toISOString();
   await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
   await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'awaiting_approval'", now, id);
@@ -377,16 +388,6 @@ async function approveRun(db, id, options = {}) {
       action: 'PROMOTION_FINALIZED',
       detail: `Deferred promotion pipeline executed for approved run ${id}.`,
       payload: { runId: id, contractId: row.contract_id, promotionResult, approvedBy: options.approvedBy || 'human_gate' }
-    });
-  } catch (_) {}
-
-  try {
-    const promotionPolicy = require('./strategyPromotionPolicyService');
-    await promotionPolicy.applyPostPromotionPolicies(db, contract, {
-      agentId: row.agent_id,
-      rejectedBranchIds: options.rejectedBranchIds || [],
-      winnerWorkspaceRoot: options.winnerWorkspaceRoot,
-      targetWorkspaceRoot: options.targetWorkspaceRoot
     });
   } catch (_) {}
 

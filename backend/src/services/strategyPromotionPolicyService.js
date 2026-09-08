@@ -35,7 +35,7 @@ async function readWorkspaceFiles(root) {
 }
 
 function sameFile(left, right) {
-  return Buffer.isBuffer(left) && Buffer.isBuffer(right) && left.equals(right);
+  return left === right || (Buffer.isBuffer(left) && Buffer.isBuffer(right) && left.equals(right));
 }
 
 function rootsOverlap(left, right) {

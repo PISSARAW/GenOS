@@ -37,6 +37,17 @@ async function run() {
     assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'nested', 'promoted.txt'), 'utf8'), 'winner change');
     assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'existing.txt'), 'utf8'), 'target content');
 
+    const causalBaseWorkspaceRoot = path.join(mergeRoot, 'base');
+    fs.mkdirSync(causalBaseWorkspaceRoot, { recursive: true });
+    fs.writeFileSync(path.join(causalBaseWorkspaceRoot, 'causal.txt'), 'base version');
+    fs.writeFileSync(path.join(targetWorkspaceRoot, 'causal.txt'), 'base version');
+    fs.writeFileSync(path.join(winnerWorkspaceRoot, 'causal.txt'), 'winner version');
+    const causallyMerged = await promotionPolicy.applyPostPromotionPolicies(null, {
+      promotion: { merge_workspace_automatically: true }
+    }, { winnerWorkspaceRoot, targetWorkspaceRoot, causalBaseWorkspaceRoot });
+    assert.equal(causallyMerged.success, true);
+    assert.equal(fs.readFileSync(path.join(targetWorkspaceRoot, 'causal.txt'), 'utf8'), 'winner version');
+
     fs.writeFileSync(path.join(winnerWorkspaceRoot, 'conflict.txt'), 'winner version');
     fs.writeFileSync(path.join(targetWorkspaceRoot, 'conflict.txt'), 'target version');
     const conflicted = await promotionPolicy.applyPostPromotionPolicies(null, {
