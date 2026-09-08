@@ -22,7 +22,8 @@ function evaluationScope(input = {}) {
 function calculateMetricScore(metricName, values = []) {
   const numericValues = Array.isArray(values) ? values.map(Number).filter(Number.isFinite) : [];
   if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
-  const value = Number(Math.max(0, Math.min(1, numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length)).toFixed(4));
+  if (numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metricName || 'unknown'}' values must be between 0 and 1.`);
+  const value = Number((numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length).toFixed(4));
   return { metric: metricName || 'unnamed', value, evaluation: value >= 0.8 ? 'NOMINAL' : value >= 0.5 ? 'DEGRADED' : 'CRITICAL' };
 }
 
