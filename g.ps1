@@ -6,3 +6,5 @@ if (-not (Test-Path $cargo)) {
 	throw "Cargo introuvable. Installez Rust ou ajoutez cargo.exe au PATH."
 }
 & $cargo run -q -p genos-simple-cli -- $args
+$exitCode = $LASTEXITCODE
+exit $exitCode

@@ -10,3 +10,4 @@ if errorlevel 1 (
 	set "CARGO=cargo"
 )
 "%CARGO%" run -q -p genos-simple-cli -- %*
+exit /b %ERRORLEVEL%

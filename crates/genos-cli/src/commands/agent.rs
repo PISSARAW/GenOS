@@ -127,6 +127,7 @@ fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), S
         std::path::PathBuf::from(format!(".genos/agents/{}.json", agent_id)),
     ];
     let mut modified_file = None;
+    let mut write_error = None;
     for path in &candidate_paths {
         if path.exists() {
             if let Ok(content) = fs::read_to_string(path) {
@@ -138,8 +139,7 @@ fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), S
                         }
                     }
                     if let Ok(saved) = serde_json::to_string_pretty(&val) {
-                        let _ = fs::write(path, saved);
-                        modified_file = Some(path.to_string_lossy().to_string());
+                        fs::write(path, saved).map_err(|error| error.to_string()).map(|()| modified_file = Some(path.to_string_lossy().to_string())).unwrap_or_else(|error| write_error = Some(error));
                     }
                     break;
                 } else if let Ok(mut val) = serde_yaml::from_str::<serde_json::Value>(&content) {
@@ -147,14 +147,16 @@ fn handle_mutate(agent_id: &str, trait_name: &str, outcome: f64) -> Result<(), S
                         obj.insert(format!("trait_{}", trait_name), json!(outcome));
                     }
                     if let Ok(saved) = serde_yaml::to_string(&val) {
-                        let _ = fs::write(path, saved);
-                        modified_file = Some(path.to_string_lossy().to_string());
+                        fs::write(path, saved).map_err(|error| error.to_string()).map(|()| modified_file = Some(path.to_string_lossy().to_string())).unwrap_or_else(|error| write_error = Some(error));
                     }
                     break;
                 }
             }
         }
     }
+
+    if let Some(error) = write_error { return Err(format!("Failed to persist mutation: {}", error)); }
+    let modified_file = modified_file.ok_or_else(|| format!("Agent file not found or unsupported: {}", agent_id))?;
 
     let output = json!({
         "success": true,

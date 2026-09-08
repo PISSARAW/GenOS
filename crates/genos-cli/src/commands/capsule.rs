@@ -47,7 +47,7 @@ pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), Strin
 
     let rendered = serde_json::to_string_pretty(&audit_data).unwrap();
     if let Some(out) = output {
-        let _ = fs::write(out, &rendered);
+        fs::write(out, &rendered).map_err(|error| format!("Failed to write audit report '{}': {}", out, error))?;
     }
     println!("{}", rendered);
     Ok(())

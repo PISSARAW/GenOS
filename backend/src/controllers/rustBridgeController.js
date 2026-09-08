@@ -37,6 +37,9 @@ function sendResult(res, operation, run, { validated } = {}) {
     payload.specValidation = validateSpec(validated, run.json);
   }
 
+  if (run.ok === false || (Number.isInteger(run.exitCode) && run.exitCode !== 0)) {
+    return res.status(502).json({ error: { code: 'CLI_COMMAND_FAILED', message: run.stderr?.trim() || `CLI exited with code ${run.exitCode}.` }, ...payload });
+  }
   res.json(payload);
 }
 
@@ -54,6 +57,7 @@ async function getStatus(req, res) {
     return res.json(status);
   }
   const run = await cli.runGenos(['--version'], { timeoutMs: 10000, root });
+  if (!run.ok) return res.status(503).json({ error: { code: 'CLI_UNAVAILABLE', message: run.stderr?.trim() || run.error || 'Unable to execute genos --version.' }, ...status });
   status.version = run.ok ? run.stdout.trim() : null;
   res.json(status);
 }
@@ -95,7 +99,7 @@ async function createSnapshot(req, res) {
   return sendResult(res, 'snapshot_create', snapshot);
 }
 
-function listSnapshotsDir() {
+function listSnapshotsDir(req) {
   const dir = path.join(tenantBridgeRoot(req), 'snapshots');
   fs.mkdirSync(dir, { recursive: true });
   return fs.readdirSync(dir)
@@ -108,7 +112,7 @@ function listSnapshotsDir() {
 }
 
 async function listSnapshots(req, res) {
-  res.json({ root: cli.studioBridgeRoot(), snapshots: listSnapshotsDir() });
+  res.json({ root: tenantBridgeRoot(req), snapshots: listSnapshotsDir(req) });
 }
 
 const HALLUCINATION_OPS = ['detect', 'analyze', 'extract'];
