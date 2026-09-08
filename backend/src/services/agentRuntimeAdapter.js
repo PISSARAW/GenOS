@@ -38,7 +38,7 @@ const {
 } = require('./agentFleetService');
 const { buildAutonomyPlanForMission } = require('./agentAutonomyPlanService');
 const { superviseMission, runtimeExitOutcome } = require('./agentProcessSupervisor');
-const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability } = require('./agentRuntimeExecutable');
+const { bundledRuntimeEnvironment, configuredExecutable, runtimeAvailability, isLocalRuntime } = require('./agentRuntimeExecutable');
 const { terminateChild, terminatePid, processMatches } = require('./processTermination');
 const { validateBudgetCoherence, normalizeMissionBudget } = require('./budgetCoherenceService');
 
@@ -159,7 +159,7 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel) {
+  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel && (normalizedMission.localRuntime === true || isLocalRuntime(executable))) {
     await trackWorkspace(agentId, normalizedMission.workspaceRoot);
     return runLocalWorker(db, normalizedMission, executionRun);
   }
