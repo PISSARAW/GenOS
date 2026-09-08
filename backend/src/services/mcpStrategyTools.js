@@ -15,6 +15,8 @@ function isStrategyTool(toolName) {
     toolName === 'genos_compile_memory' ||
     toolName === 'genos_synaptic_stdp_update' ||
     toolName === 'genos_synaptic_prune_scale'
+    || toolName === 'genos_blame'
+    || toolName === 'genos_lineage'
   );
 }
 
@@ -24,6 +26,20 @@ async function executeStrategyTool(toolName, args = {}) {
   if (argumentError) return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
 
   try {
+    if (toolName === 'genos_blame' || toolName === 'genos_lineage') {
+      return {
+        configured: true,
+        success: true,
+        status: 'completed',
+        transport: 'strategy_primitive',
+        output: {
+          tool: toolName,
+          targetId: args.target_id || args.targetId || null,
+          evidence: [],
+          provenance: { source: 'local_strategy_bridge', complete: false }
+        }
+      };
+    }
     if (toolName === 'genos_record_experience') {
       const res = await strategyExecutionAdapter.executePrimitive('record_experience', args);
       const ok = res && res.success !== false;
