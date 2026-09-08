@@ -153,7 +153,10 @@ async function readStreamingResponse(response, onToken, idleTimeoutMs = 30000) {
       if (!line.startsWith('data:')) continue;
       const data = line.slice(5).trim();
       if (!data || data === '[DONE]') continue;
-      const payload = JSON.parse(data);
+      let payload;
+      try { payload = JSON.parse(data); } catch (_) {
+        throw Object.assign(new Error('Model provider returned malformed SSE JSON.'), { code: 'MODEL_PROVIDER_MALFORMED_STREAM' });
+      }
       if (payload.model) servedModel = payload.model;
       const delta = payload.choices?.[0]?.delta?.content || payload.response || '';
       if (delta) { text += delta; await onToken(delta); }
@@ -188,7 +191,10 @@ async function readOllamaStream(response, onToken, idleTimeoutMs = 30000) {
     buffer = lines.pop() || '';
     for (const line of lines) {
       if (!line.trim()) continue;
-      const payload = JSON.parse(line);
+      let payload;
+      try { payload = JSON.parse(line); } catch (_) {
+        throw Object.assign(new Error('Model provider returned malformed NDJSON.'), { code: 'MODEL_PROVIDER_MALFORMED_STREAM' });
+      }
       if (payload.model) servedModel = payload.model;
       const delta = payload.message?.content || payload.response || '';
       if (delta) { text += delta; await onToken(delta); }
@@ -263,7 +269,7 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
     }
-    if (stream && provider !== 'anthropic' && provider !== 'gemini' && /text\/event-stream/i.test(contentType)) {
+    if (stream && provider !== 'anthropic' && provider !== 'gemini' && /(?:text\/event-stream|application\/x-ndjson|application\/ndjson)/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
       return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName };
     }
