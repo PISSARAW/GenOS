@@ -45,11 +45,8 @@ async function list(req, res) {
     `SELECT i.* FROM ide_integrations i
      LEFT JOIN workspaces w ON w.id = i.workspace_id
      WHERE i.status = 'connected'
-       AND ((i.workspace_id IS NULL AND ? IS NULL AND ? IS NULL)
-         OR (w.organization_id = ? AND w.project_id = ?))
+       AND w.organization_id = ? AND w.project_id = ?
     ORDER BY i.last_seen_at DESC LIMIT ?`,
-    req.tenant?.organizationId || null,
-    req.tenant?.projectId || null,
     req.tenant?.organizationId || null,
     req.tenant?.projectId || null,
     limit
@@ -110,8 +107,12 @@ async function progress(req, res) {
   res.status(202).json({ accepted: true, event });
 }
 async function execute(req, res) {
+  const db = await getDatabase();
+  const integration = await scopedIntegration({ ...req, params: { id: req.body?.integrationId } }, db);
+  if (!integration || integration.status !== 'connected') return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'A connected integrationId in this project is required.' } });
   const command = CONTRACT.commands.find((item) => item.id === req.params.command);
   if (!command) return res.status(404).json({ error: { code: 'IDE_COMMAND_NOT_FOUND', message: 'Unknown GenOS IDE command' } });
+  await db.run('UPDATE ide_integrations SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', integration.id);
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
   return res.status(501).json({ error: { code: 'IDE_COMMAND_NOT_IMPLEMENTED', message: `IDE command '${command.id}' is registered but has no execution handler.` }, action: command.id });
 }
