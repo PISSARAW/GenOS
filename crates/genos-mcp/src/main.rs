@@ -4,11 +4,13 @@ use serde_json::{json, Value};
 use std::env;
 use std::io::{self, BufRead, Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
-const DEFAULT_TOOL_TIMEOUT_MS: u64 = 120_000;
+const DEFAULT_TOOL_TIMEOUT_MS: u64 = 30_000;
 const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
 const PATH_ARGUMENTS: &[&str] = &["agent", "out", "output", "history_file", "input_file", "manifest", "graph_file"];
 
@@ -59,7 +61,25 @@ fn bounded_output(bytes: Vec<u8>) -> String {
     String::from_utf8_lossy(&bytes[start..]).to_string()
 }
 
+fn terminate_process_group(child: &mut Child) {
+    #[cfg(unix)]
+    {
+        unsafe { libc::kill(-(child.id() as i32), libc::SIGTERM); }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = child.kill();
+    }
+}
+
 fn execute_command(mut command: Command) -> Result<(i32, String), String> {
+    #[cfg(unix)]
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setsid() == -1 { return Err(std::io::Error::last_os_error()); }
+            Ok(())
+        });
+    }
     let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -72,13 +92,13 @@ fn execute_command(mut command: Command) -> Result<(i32, String), String> {
         match child.try_wait() {
             Ok(Some(status)) => break status,
             Ok(None) if Instant::now() >= deadline => {
-                let _ = child.kill();
+                terminate_process_group(&mut child);
                 let _ = child.wait();
                 return Err(format!("MCP tool timed out after {}ms.", tool_timeout_ms()));
             }
             Ok(None) => thread::sleep(Duration::from_millis(10)),
             Err(error) => {
-                let _ = child.kill();
+                terminate_process_group(&mut child);
                 let _ = child.wait();
                 return Err(error.to_string());
             }
