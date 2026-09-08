@@ -56,6 +56,12 @@ function validateToolArguments(toolName, args = {}) {
   if (toolName === 'genos_replay' && args.snapshot === undefined && args.snapshot_id === undefined) {
     return invalid('snapshot', 'snapshot or snapshot_id is required.');
   }
+  if (toolName === 'genos_execute_primitive' && typeof args.primitive !== 'string' && typeof args.primitive_name !== 'string' && typeof args.name !== 'string') {
+    return invalid('primitive', 'primitive, primitive_name, or name is required.');
+  }
+  if (toolName === 'genos_execute_strategy_pipeline' && !Array.isArray(args.primitives || args.pipeline)) {
+    return invalid('primitives', 'primitives or pipeline must be an array.');
+  }
   if (toolName === 'genos_deterministic_sha256_rag') {
     if (!['ingest', 'search'].includes(args.action)) return invalid('action', 'must be ingest or search.');
     const field = args.action === 'ingest' ? 'document' : 'query';

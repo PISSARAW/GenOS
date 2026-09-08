@@ -1,6 +1,7 @@
 const { MCP_TOOLS_LIST } = require('../db/seedTools');
 const mcpStrategyTools = require('./mcpStrategyTools');
 const mcpBioTools = require('./mcpBioTools');
+const { validateToolArguments } = require('./mcpArgumentValidation');
 
 function normalizeToolName(toolName) {
   return String(toolName || '').trim();
@@ -36,6 +37,8 @@ function isSupportedTool(toolName) {
 async function dispatchTool(toolName, args = {}) {
   const normalized = normalizeToolName(toolName);
   const kind = detectExecutionKind(normalized);
+  const argumentError = validateToolArguments(normalized, args);
+  if (argumentError) return { kind, result: { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code } };
 
   if (kind === 'strategy') {
     const result = await mcpStrategyTools.executeStrategyTool(normalized, args || {});

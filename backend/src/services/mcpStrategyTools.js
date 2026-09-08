@@ -2,6 +2,7 @@
  * GenOS MCP Strategy Tools — Direct execution bridge for 79 strategies & 97 primitives.
  */
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
+const { validateToolArguments } = require('./mcpArgumentValidation');
 
 function isStrategyTool(toolName) {
   if (!toolName || typeof toolName !== 'string') return false;
@@ -19,6 +20,8 @@ function isStrategyTool(toolName) {
 
 async function executeStrategyTool(toolName, args = {}) {
   if (!isStrategyTool(toolName)) return null;
+  const argumentError = validateToolArguments(toolName, args);
+  if (argumentError) return { configured: true, success: false, status: 'invalid_args', error: argumentError.message, code: argumentError.code };
 
   try {
     if (toolName === 'genos_record_experience') {
