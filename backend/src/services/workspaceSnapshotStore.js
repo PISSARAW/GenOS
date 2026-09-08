@@ -305,6 +305,12 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
   };
   
   await copyManifestPayload(workspace.path, root, hash, files, manifestData);
+  const finalFiles = await collectFiles(workspace.path);
+  if (manifestHash(finalFiles) !== hash) {
+    const reference = await db.get('SELECT 1 FROM workspace_snapshots WHERE snapshot_hash = ? LIMIT 1').catch(() => null);
+    if (!reference) await fsp.rm(path.join(root, hash), { recursive: true, force: true }).catch(() => {});
+    throw new Error('Workspace changed while snapshotting; capture aborted.');
+  }
   const manifestPath = path.join(root, hash, 'manifest.json');
   const gitCommit = await resolveGitCommit(workspace.path);
   const metadata = {
