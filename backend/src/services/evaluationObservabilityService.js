@@ -1,15 +1,21 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const { canonicalize } = require('./evaluationGraders');
 
-const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
 function evaluationScope(input = {}) {
-  if (input.organizationId && input.projectId) return { clause: 'organization_id = ? AND project_id = ?', params: [input.organizationId, input.projectId] };
+  const organizationId = input.organizationId ?? input.organization_id;
+  const projectId = input.projectId ?? input.project_id;
+  if (organizationId || projectId) {
+    if (!organizationId || !projectId) throw new Error('organizationId and projectId must be provided together.');
+    return { clause: 'organization_id = ? AND project_id = ?', params: [organizationId, projectId] };
+  }
   return { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
 }
 
@@ -137,10 +143,12 @@ async function runImpossibleBench(input = {}) {
 async function recordProvenance(subjectType, subjectId, payload, parentHash = null, scope = {}) {
   const db = await getDatabase();
   if (parentHash) {
-    const parent = await db.get('SELECT id FROM provenance_records WHERE payload_hash = ?', parentHash);
+    const parent = scope.organizationId && scope.projectId
+      ? await db.get('SELECT id FROM provenance_records WHERE payload_hash = ? AND organization_id = ? AND project_id = ?', parentHash, scope.organizationId, scope.projectId)
+      : await db.get('SELECT id FROM provenance_records WHERE payload_hash = ? AND organization_id IS NULL AND project_id IS NULL', parentHash);
     if (!parent) throw Object.assign(new Error(`Provenance parent '${parentHash}' was not found.`), { code: 'PROVENANCE_PARENT_NOT_FOUND' });
   }
-  const payloadJson = JSON.stringify(payload);
+  const payloadJson = JSON.stringify(canonicalize(payload));
   const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
   const id = `prov-${crypto.randomUUID()}`;
   await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson, scope.organizationId || null, scope.projectId || null);
@@ -236,4 +244,4 @@ async function updateNotifications(preferences, scope = {}) {
   return overview(scope);
 }
 
-module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance };
+module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance, __testHash: hash };
