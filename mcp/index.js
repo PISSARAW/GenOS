@@ -16,7 +16,7 @@ const strategyTools = require("../backend/src/services/mcpStrategyTools");
 const { getToolInputSchema } = require("../backend/src/services/mcpContract");
 const { terminateChild, clearTerminationTimer } = require("../backend/src/services/processTermination");
 
-const DEFAULT_TOOL_TIMEOUT_MS = 120000;
+const DEFAULT_TOOL_TIMEOUT_MS = 30000;
 const MAX_OUTPUT_BYTES = 1024 * 1024;
 
 function toolTimeoutMs() {
