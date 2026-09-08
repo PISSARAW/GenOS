@@ -33,12 +33,12 @@ function resolveGenosBin() {
   return repoDebug;
 }
 
-function studioBridgeRoot() {
-  return process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-matrix');
+function studioBridgeRoot(rootOverride = null) {
+  return rootOverride || process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-matrix');
 }
 
-function ensureRoot() {
-  const root = studioBridgeRoot();
+function ensureRoot(rootOverride = null) {
+  const root = studioBridgeRoot(rootOverride);
   fs.mkdirSync(root, { recursive: true });
   return root;
 }
@@ -97,7 +97,7 @@ function runGenosSync(commandLine, options = {}) {
  * structured result — never rejects — so controllers can surface exit
  * codes and stderr to the operator.
  */
-function runGenos(args, { timeoutMs = 60000 } = {}) {
+function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
   return new Promise((resolvePromise) => {
     const bin = resolveGenosBin();
     if (!fs.existsSync(bin)) {
@@ -111,7 +111,7 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const root = ensureRoot();
+    const root = ensureRoot(rootOverride);
     const child = spawn(bin, args, {
       cwd: root,
       env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
@@ -153,8 +153,8 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
 }
 
 /** Resolves a user-supplied snapshot reference inside the bridge root. */
-function resolveInRoot(reference) {
-  const root = path.resolve(studioBridgeRoot());
+function resolveInRoot(reference, rootOverride = null) {
+  const root = path.resolve(studioBridgeRoot(rootOverride));
   const resolved = path.resolve(root, reference);
   if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     return null;
