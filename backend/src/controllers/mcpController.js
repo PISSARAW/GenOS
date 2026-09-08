@@ -7,7 +7,7 @@ const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
-const { getToolInputSchema } = require('../services/mcpContract');
+const { MCP_CONTRACT_VERSION, getToolInputSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
 
 function mcpError(res, status, code, message, details = undefined) {
   return res.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
@@ -56,11 +56,13 @@ async function listTools(req, res) {
     };
   });
 
+  res.setHeader?.('X-GenOS-MCP-Contract-Version', MCP_CONTRACT_VERSION);
   res.json(formatted);
 }
 
 async function testTool(req, res) {
-  const { toolName = 'genos_inspect', args = {}, timeoutMs } = req.body || {};
+  const { toolName: requestedToolName, args = {}, timeoutMs } = normalizeMcpEnvelope(req.body || {});
+  const toolName = requestedToolName || 'genos_inspect';
   const db = await getDatabase();
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
   if (!tool) return mcpError(res, 404, 'MCP_TOOL_NOT_FOUND', `Unknown MCP tool: ${toolName}`);
@@ -127,7 +129,7 @@ async function equipTool(req, res) {
 }
 
 async function executeTool(req, res) {
-  const { toolName, args = {}, timeoutMs } = req.body || {};
+  const { toolName, args, timeoutMs } = normalizeMcpEnvelope(req.body || {});
   const userRole = (req.user && req.user.role) || 'viewer';
 
   // Zero Trust gate is deliberately before the circuit breaker: a healthy
@@ -199,6 +201,7 @@ async function getSchema(req, res, next) {
     const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
     if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
     const schema = getToolInputSchema(toolName, vfsSandboxService.getToolSchema(toolName));
+    res.setHeader?.('X-GenOS-MCP-Contract-Version', MCP_CONTRACT_VERSION);
     res.json(schema);
   } catch (err) {
     next(err);

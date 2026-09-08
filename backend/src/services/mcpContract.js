@@ -24,6 +24,7 @@ const REQUIRED_STRINGS = {
 const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
 const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']);
 const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
+const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
 
 function getToolInputSchema(toolName, baseSchema = {}) {
   const schema = {
@@ -72,4 +73,12 @@ function getToolInputSchema(toolName, baseSchema = {}) {
   return schema;
 }
 
-module.exports = { getToolInputSchema };
+function normalizeMcpEnvelope(body = {}) {
+  return {
+    toolName: body.toolName ?? body.tool_name,
+    args: body.args || {},
+    timeoutMs: body.timeoutMs ?? body.timeout_ms
+  };
+}
+
+module.exports = { MCP_CONTRACT_VERSION, getToolInputSchema, normalizeMcpEnvelope };
