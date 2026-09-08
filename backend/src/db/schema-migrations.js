@@ -166,7 +166,10 @@ async function applyVersionedMigrations(db) {
       FROM workflows;
     CREATE INDEX IF NOT EXISTS idx_workflow_versions_workflow ON workflow_versions(workflow_id, version DESC);
   `);
-  const organization = await db.get('SELECT id FROM organizations ORDER BY created_at ASC LIMIT 1');
+  const organizationCount = await db.get('SELECT COUNT(*) AS count FROM organizations');
+  const organization = Number(organizationCount?.count) === 1
+    ? await db.get('SELECT id FROM organizations LIMIT 1')
+    : null;
   const projectColumns = await db.all('PRAGMA table_info(projects)');
   if (!projectColumns.some((column) => column.name === 'status')) await db.exec("ALTER TABLE projects ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
   if (organization) {
@@ -191,7 +194,10 @@ async function applyVersionedMigrations(db) {
     if (table === 'evaluation_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN claimed_at DATETIME');
     if (table === 'evaluation_jobs' && !columnNames.has('next_attempt_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN next_attempt_at DATETIME');
   }
-  await db.run(`UPDATE global_alerts SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name LIMIT 1), project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name LIMIT 1) WHERE organization_id IS NULL OR project_id IS NULL`);
+  await db.run(`UPDATE global_alerts
+    SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1),
+        project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name GROUP BY workspaces.name HAVING COUNT(*) = 1)
+    WHERE organization_id IS NULL OR project_id IS NULL`);
     for (const table of ['workflow_runs', 'evaluation_jobs', 'model_jobs']) {
       const columns = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
       if (!columns.has('priority')) await db.exec(`ALTER TABLE ${table} ADD COLUMN priority INTEGER NOT NULL DEFAULT 0`);
