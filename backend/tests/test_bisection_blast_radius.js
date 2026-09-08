@@ -40,6 +40,10 @@ Promise.resolve(bisection.bisectAnomalyAsync([
 }).then((result) => {
   assert.strictEqual(result.bisectionComplete, false);
   assert.match(result.reason, /unstable/);
+  return bisection.bisectAnomalyAsync([{ step: 1, healthy: true }, { step: 2, healthy: false }]);
+}).then((result) => {
+  assert.equal(result.evidenceLevel, 'regression_indicator');
+  assert.equal(result.causalGuarantee, false);
   console.log('Bisection monotonicity, evidence, and stability checks passed.');
 }).catch((error) => {
   console.error(error);

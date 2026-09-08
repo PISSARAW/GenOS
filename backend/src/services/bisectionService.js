@@ -144,6 +144,8 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
     return {
       bisectionComplete: true,
       anomalyFound: false,
+      evidenceLevel: 'regression_indicator',
+      causalGuarantee: false,
       totalSnapshotsSearched: history.length,
       bisectionIterationsRequired: bisectionSteps.length,
       bisectionSteps: bisectionSteps.length,
@@ -158,6 +160,8 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
   return {
     bisectionComplete: true,
     anomalyFound: true,
+    evidenceLevel: 'regression_indicator',
+    causalGuarantee: false,
     totalSnapshotsSearched: history.length,
     bisectionIterationsRequired: bisectionSteps.length,
     bisectionSteps: bisectionSteps.length,
@@ -193,7 +197,8 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
     if (healthy) low = mid + 1; else { culpritIdx = mid; high = mid - 1; }
   }
   const base = { bisectionComplete: true, anomalyFound: culpritIdx >= 0, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: steps.length, bisectionSteps: steps.length, theoreticalComplexity: `O(log ${snapshotHistory.length}) = ${Math.ceil(Math.log2(snapshotHistory.length || 1))} steps`, bisectionAuditTrace: steps };
-  return culpritIdx < 0 ? { ...base, reason: 'All available snapshots satisfy the invariant.' } : { ...base, culpritReport: { stepNumber: snapshotHistory[culpritIdx].step, snapshotHash: snapshotHistory[culpritIdx].hash, culpritAgentId: snapshotHistory[culpritIdx].agent || 'worker_fast_coder', actionDescription: snapshotHistory[culpritIdx].desc, toolCall: 'isolated_test_runner', targetFile: null, rootCauseSummary: snapshotHistory[culpritIdx].reason || snapshotHistory[culpritIdx].label } };
+  const annotated = { ...base, evidenceLevel: 'regression_indicator', causalGuarantee: false };
+  return culpritIdx < 0 ? { ...annotated, reason: 'All available snapshots satisfy the invariant.' } : { ...annotated, culpritReport: { stepNumber: snapshotHistory[culpritIdx].step, snapshotHash: snapshotHistory[culpritIdx].hash, culpritAgentId: snapshotHistory[culpritIdx].agent || 'worker_fast_coder', actionDescription: snapshotHistory[culpritIdx].desc, toolCall: 'isolated_test_runner', targetFile: null, rootCauseSummary: snapshotHistory[culpritIdx].reason || snapshotHistory[culpritIdx].label } };
 }
 
 /**
