@@ -16,6 +16,25 @@ fn command_error(message: impl std::fmt::Display) -> ! {
     std::process::exit(1);
 }
 
+fn api_base_url() -> String {
+    std::env::var("GENOS_API_URL")
+        .or_else(|_| std::env::var("GENOS_PORT").map(|port| format!("http://127.0.0.1:{}", port)))
+        .unwrap_or_else(|_| "http://127.0.0.1:8085".to_string())
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn api_port() -> u16 {
+    std::env::var("GENOS_PORT").ok().and_then(|value| value.parse().ok()).unwrap_or(8085)
+}
+
+fn apply_api_auth(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    match std::env::var("GENOS_API_KEY").or_else(|_| std::env::var("GENOS_API_TOKEN")) {
+        Ok(token) if !token.trim().is_empty() => request.bearer_auth(token),
+        _ => request,
+    }
+}
+
 #[derive(Parser)]
 #[command(
     name = "g",
@@ -1153,8 +1172,9 @@ async fn main() {
     match command {
         Commands::Start => {
             println!("Démarrage du serveur GenOS API...");
-            if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
-                command_error("le serveur GenOS est déjà en ligne sur le port 8085");
+            let port = api_port();
+            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                command_error(format!("le serveur GenOS est déjà en ligne sur le port {}", port));
             }
 
             let log_file = std::fs::File::create("genos_server.log")
@@ -1164,7 +1184,7 @@ async fn main() {
                 .unwrap_or_else(|error| command_error(format!("impossible de préparer le journal d'erreurs: {}", error)));
 
             let child = std::process::Command::new("cargo")
-                .args(["run", "-q", "-p", "genos-cli", "--", "serve"])
+                .args(["run", "-q", "-p", "genos-cli", "--", "serve", "--port", &port.to_string()])
                 .stdout(std::process::Stdio::from(log_file))
                 .stderr(std::process::Stdio::from(err_file))
                 .spawn()
@@ -1176,12 +1196,13 @@ async fn main() {
         }
         Commands::Stop => {
             println!("Arrêt du serveur GenOS...");
+            let port = api_port();
             if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
                 let pid = pid_str
                     .trim()
                     .parse::<u32>()
                     .unwrap_or_else(|error| command_error(format!("PID invalide dans .genos_server.pid: {}", error)));
-                if std::net::TcpStream::connect("127.0.0.1:8085").is_err() {
+                if std::net::TcpStream::connect(("127.0.0.1", port)).is_err() {
                     let _ = std::fs::remove_file(".genos_server.pid");
                     command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
                 }
@@ -1200,8 +1221,8 @@ async fn main() {
                     Ok(status) => command_error(format!("impossible d'arrêter le serveur (code {})", status.code().unwrap_or(1))),
                     Err(error) => command_error(format!("impossible d'arrêter le serveur: {}", error)),
                 }
-                if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
-                    command_error("le port 8085 est encore ouvert après l'arrêt");
+                if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                    command_error(format!("le port {} est encore ouvert après l'arrêt", port));
                 }
                     let _ = std::fs::remove_file(".genos_server.pid");
             } else {
@@ -1211,10 +1232,11 @@ async fn main() {
         }
         Commands::Status => {
             println!("Vérification du statut du serveur GenOS...");
+            let port = api_port();
             if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
                 println!("Le serveur semble être en cours d'exécution (PID: {}).", pid_str.trim());
-                if std::net::TcpStream::connect("127.0.0.1:8085").is_ok() {
-                    println!("Statut: EN LIGNE (Port 8085 ouvert)");
+                if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                    println!("Statut: EN LIGNE (Port {} ouvert)", port);
                 } else {
                     println!("Statut: HORS LIGNE (Port 8085 inaccessible)");
                     let _ = std::fs::remove_file(".genos_server.pid");
@@ -1914,13 +1936,17 @@ async fn main() {
                 println!("Usage: .\\g generate <Dossier> <Prompt...>");
                 return;
             }
-            let target_dir = format!("../{}", args[0]);
+            let target_dir = std::path::PathBuf::from(&args[0]);
+            if target_dir.is_absolute() || target_dir.components().any(|component| matches!(component, std::path::Component::ParentDir)) {
+                command_error("le dossier de génération doit rester relatif au workspace courant");
+            }
             let prompt = args[1..].join(" ");
             
             println!("🧬 [GenOS] Éveil de l'Agent de Génération (World: {})...", args[0]);
-            let _ = std::fs::create_dir_all(&target_dir);
-            let genos_dir = format!("{}/.genos", target_dir);
-            let _ = std::fs::create_dir_all(&genos_dir);
+            std::fs::create_dir_all(&target_dir).unwrap_or_else(|error| command_error(format!("impossible de créer le dossier cible: {}", error)));
+            let genos_dir = target_dir.join(".genos");
+            std::fs::create_dir_all(&genos_dir).unwrap_or_else(|error| command_error(format!("impossible de créer .genos: {}", error)));
+            let api_url = api_base_url();
             
             let client = reqwest::Client::builder().timeout(std::time::Duration::from_secs(300)).build().unwrap();
 
@@ -1935,11 +1961,12 @@ async fn main() {
                 "messages": [{ "role": "user", "content": blueprint_prompt }]
             });
             let mut blueprint_text = String::new();
-            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body1).send().await {
+            if let Ok(res) = apply_api_auth(client.post(format!("{}/v1/chat/completions", api_url))).json(&body1).send().await {
+                if !res.status().is_success() { command_error(format!("phase blueprint: HTTP {}", res.status())); }
                 if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                     if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
                         blueprint_text = text.to_string();
-                        let _ = std::fs::write(format!("{}/blueprint.md", genos_dir), &blueprint_text);
+                        std::fs::write(genos_dir.join("blueprint.md"), &blueprint_text).unwrap_or_else(|error| command_error(format!("impossible d'écrire le blueprint: {}", error)));
                         println!("✔️ Cahier des charges enregistré dans .genos/blueprint.md");
                     }
                 }
@@ -1956,7 +1983,8 @@ async fn main() {
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": full_prompt }]
             });
-            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body2).send().await {
+            if let Ok(res) = apply_api_auth(client.post(format!("{}/v1/chat/completions", api_url))).json(&body2).send().await {
+                if !res.status().is_success() { command_error(format!("phase génération: HTTP {}", res.status())); }
                 if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                     if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
                         let clean_text = text.trim().strip_prefix("```json").unwrap_or(text.trim()).strip_suffix("```").unwrap_or(text.trim());
@@ -1964,8 +1992,13 @@ async fn main() {
                             if let Some(file_array) = files.as_array() {
                                 for file in file_array {
                                     if let (Some(name), Some(content)) = (file["filename"].as_str(), file["content"].as_str()) {
-                                        let file_path = std::path::Path::new(&target_dir).join(name);
-                                        if let Ok(_) = std::fs::write(&file_path, content) {
+                                        let file_path = target_dir.join(name);
+                                        let canonical_target = target_dir.canonicalize().unwrap_or_else(|_| target_dir.clone());
+                                        let parent = file_path.parent().unwrap_or(&target_dir);
+                                        std::fs::create_dir_all(parent).unwrap_or_else(|error| command_error(format!("impossible de créer le parent du fichier: {}", error)));
+                                        let canonical_parent = parent.canonicalize().unwrap_or_else(|_| parent.to_path_buf());
+                                        if !canonical_parent.starts_with(&canonical_target) { command_error("le fichier généré sort du dossier cible"); }
+                                        if std::fs::write(&file_path, content).is_ok() {
                                             println!("✔️ Créé : {}", file_path.display());
                                         }
                                     }
@@ -1987,10 +2020,11 @@ async fn main() {
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": audit_prompt }]
             });
-            if let Ok(res) = client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body3).send().await {
+            if let Ok(res) = apply_api_auth(client.post(format!("{}/v1/chat/completions", api_url))).json(&body3).send().await {
+                if !res.status().is_success() { command_error(format!("phase audit: HTTP {}", res.status())); }
                 if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                     if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
-                        let _ = std::fs::write(format!("{}/audit.md", genos_dir), text);
+                        std::fs::write(genos_dir.join("audit.md"), text).unwrap_or_else(|error| command_error(format!("impossible d'écrire l'audit: {}", error)));
                         println!("✔️ Audit enregistré dans .genos/audit.md");
                     }
                 }
@@ -2004,7 +2038,9 @@ async fn main() {
                 println!("Exemple : .\\g ask Quelle est la capitale du Burundi ?");
                 return;
             }
-            if std::net::TcpStream::connect("127.0.0.1:8085").is_err() {
+            let api_url = api_base_url();
+            let api_host = api_url.strip_prefix("http://").or_else(|| api_url.strip_prefix("https://")).unwrap_or(&api_url);
+            if std::net::TcpStream::connect(api_host).is_err() {
                 eprintln!("⚠️ Le serveur GenOS n'est pas démarré sur le port 8085.");
                 eprintln!("💡 Lancez d'abord './g start' pour éveiller le cortex GenOS.");
                 std::process::exit(1);
@@ -2020,7 +2056,7 @@ async fn main() {
                 "model": "genos-core-v3",
                 "messages": [{ "role": "user", "content": prompt }]
             });
-            let mut req = client.post("http://127.0.0.1:8085/v1/chat/completions")
+            let mut req = apply_api_auth(client.post(format!("{}/v1/chat/completions", api_url)))
                 .json(&body)
                 .header("X-GenOS-System", "1");
             if rethink {
@@ -2038,12 +2074,14 @@ async fn main() {
                         eprintln!("⚠️ Impossible de lire la réponse JSON du serveur.");
                     }
                 }
-                Ok(res) => eprintln!("⚠️ Erreur HTTP du serveur : {}", res.status()),
-                Err(err) => eprintln!("⚠️ Erreur de communication : {}", err),
+                Ok(res) => command_error(format!("erreur HTTP du serveur: {}", res.status())),
+                Err(err) => command_error(format!("erreur de communication: {}", err)),
             }
         }
         Commands::Chat => {
-            if std::net::TcpStream::connect("127.0.0.1:8085").is_err() {
+            let api_url = api_base_url();
+            let api_host = api_url.strip_prefix("http://").or_else(|| api_url.strip_prefix("https://")).unwrap_or(&api_url);
+            if std::net::TcpStream::connect(api_host).is_err() {
                 eprintln!("⚠️ Le serveur GenOS n'est pas démarré sur le port 8085.");
                 eprintln!("💡 Lancez d'abord './g start' pour éveiller le cortex GenOS.");
                 std::process::exit(1);
@@ -2071,7 +2109,7 @@ async fn main() {
                 });
                 print!("🧠 GenOS > ");
                 let _ = std::io::stdout().flush();
-                match client.post("http://127.0.0.1:8085/v1/chat/completions").json(&body).send().await {
+                match apply_api_auth(client.post(format!("{}/v1/chat/completions", api_url))).json(&body).send().await {
                     Ok(res) if res.status().is_success() => {
                         if let Ok(json_resp) = res.json::<serde_json::Value>().await {
                             if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {

@@ -10,7 +10,6 @@ const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 const { resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { validateToolArguments } = require('./mcpArgumentValidation');
-const { getToolInputSchema } = require('./mcpContract');
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
@@ -820,17 +819,13 @@ async function execute({ agentId, organizationId, projectId, toolName, args = {}
 
 async function listTools() {
   const registry = getToolRegistry();
+  const { getToolInputSchema } = require('./mcpContract');
   return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: getToolInputSchema(name) }));
 }
 
 async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
   const result = await executeConfiguredTransport({ toolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
-  if (!result.success) {
-    const error = new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
-    error.code = result.code || `MCP_${String(result.status || 'TOOL_ERROR').toUpperCase()}`;
-    error.status = result.status || 'failed';
-    throw error;
-  }
+  if (!result.success) throw new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
   return result.output;
 }
 
