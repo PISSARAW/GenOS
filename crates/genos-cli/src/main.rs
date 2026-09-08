@@ -81,8 +81,8 @@ fn main() {
         },
         Some(Commands::Experiment(cmd)) => match cmd.subcommand {
             ExperimentSubcommands::CausalReplay { input_file } => experiments::handle_experiment_causal(&input_file),
-            ExperimentSubcommands::Incident { manifest } => experiments::handle_experiment_incident(&manifest),
-            ExperimentSubcommands::BugInvestigation { manifest } => experiments::handle_experiment_bug(&manifest),
+            ExperimentSubcommands::Incident { manifest, offline } => experiments::handle_experiment_incident(&manifest, offline),
+            ExperimentSubcommands::BugInvestigation { manifest, offline } => experiments::handle_experiment_bug(&manifest, offline),
         },
         Some(Commands::Phenotype(cmd)) => match cmd.subcommand {
             PhenotypeSubcommands::MeasureDivergence { trait_name, expected, observed, tolerance } => {

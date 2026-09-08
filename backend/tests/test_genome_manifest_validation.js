@@ -197,11 +197,11 @@ async function runTests() {
     fs.writeFileSync(emptyManifestFile, JSON.stringify({}));
 
     // Succès avec fichier manifeste valide
-    const incValidRes = runCli(['experiment', 'incident', validManifestFile]);
+    const incValidRes = runCli(['experiment', 'incident', validManifestFile, '--offline']);
     assert.equal(incValidRes.status, 0, 'incident doit réussir avec un manifeste valide');
     assert.ok(incValidRes.stdout.includes('"valid":true'), 'Sortie JSON doit confirmer la validité');
 
-    const bugValidRes = runCli(['experiment', 'bug-investigation', validManifestFile]);
+    const bugValidRes = runCli(['experiment', 'bug-investigation', validManifestFile, '--offline']);
     assert.equal(bugValidRes.status, 0, 'bug-investigation doit réussir avec un manifeste valide');
     assert.ok(bugValidRes.stdout.includes('"valid":true'), 'Sortie JSON doit confirmer la validité');
 
