@@ -48,10 +48,10 @@ function setAutostart(req, res, next) {
   }
 }
 
-function runAudit(req, res, next) {
+async function runAudit(req, res, next) {
   try {
-    const cycle = daemon.runProactiveCycle(req.body || {});
-    res.json({ success: true, config: cycle.config, audit: cycle.audit });
+    const cycle = await daemon.runProactiveCycle(req.body || {});
+    res.json({ success: true, config: cycle.config, audit: cycle.audit, maintenance: cycle.maintenance });
   } catch (err) {
     next(err);
   }
