@@ -193,7 +193,13 @@ async function executeWorkflow(db, run) {
         nodeOutput = { status: 'completed', parallelBranches: branches.length };
       }
       output[node.id] = nodeOutput;
-      await db.run('UPDATE workflow_runs SET output_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = \'running\'', JSON.stringify({ traceId, completedNodes: [...visited], skippedNodes: [...skipped], output }), run.id);
+      const checkpointUpdate = await db.run('UPDATE workflow_runs SET output_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = \'running\'', JSON.stringify({ traceId, completedNodes: [...visited], skippedNodes: [...skipped], output }), run.id);
+      if (checkpointUpdate.changes !== 1) {
+        const state = await db.get('SELECT status FROM workflow_runs WHERE id = ?', run.id);
+        const error = new Error(state?.status === 'cancelled' ? 'Workflow run was cancelled.' : 'Workflow checkpoint could not be persisted.');
+        error.code = state?.status === 'cancelled' ? 'WORKFLOW_CANCELLED' : 'WORKFLOW_CHECKPOINT_CONFLICT';
+        throw error;
+      }
       await db.run('INSERT INTO trace_spans (id, trace_id, agent_id, name, start_time, inputs_json, outputs_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', spanId, traceId, node.id, `workflow.${node.id}`, spanStart, JSON.stringify(input), JSON.stringify(nodeOutput), run.organization_id || workflow.organization_id || null, run.project_id || workflow.project_id || null);
       await db.run('UPDATE trace_spans SET end_time = ? WHERE id = ?', Date.now(), spanId);
       telemetry.emitEvent({ eventType: 'WORKFLOW_NODE_COMPLETED', agentId: node.id, action: 'WORKFLOW_STEP', detail: `Completed workflow node ${node.id}`, payload: { runId: run.id, traceId, nodeId: node.id } });
