@@ -27,6 +27,7 @@ const { workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
 const agentEvolution = require('./agentEvolutionService');
+const immuneSystem = require('./immuneSystem');
 
 async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWorkerIds, options = {}) {
   const timeoutMs = Number(options.timeoutMs || process.env.GENOS_WORKER_BARRIER_TIMEOUT_MS || 60 * 1000);
@@ -130,9 +131,13 @@ async function runLocalWorker(db, mission, executionRun) {
     }
     let evidenceReport;
     let partialBarrier = false;
-    try {
-      evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
-    } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
+    const immuneReport = immuneSystem.phagocytoseCodexReport(String(result.text || ''), {
+      agentName,
+      nameMeaning,
+      role: mission.role
+    });
+    if (!immuneReport.ok) throw Object.assign(new Error(immuneReport.error || 'Local worker did not return a repairable evidence report.'), { code: 'IMMUNE_OUTPUT_REJECTED', painSignal: immuneReport.painSignal });
+    evidenceReport = immuneReport.report;
     if (proposal?.tests?.length) evidenceReport.tests = proposal.tests;
     const workerRecovery = require('./workerFailureRecoveryService');
     const { evidencePresent } = require('./hallucinationMonitoringService');
