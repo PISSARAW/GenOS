@@ -40,7 +40,7 @@ async function run() {
     replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) },
     independentVerification: { verifierId: 'independent-verifier', verificationHash: 'b'.repeat(64), verifiedAt: new Date().toISOString() },
     agentId: 'worker-agent',
-    report: { claims: [{ statement: 'verified', evidence: [{ receiptHash: 'c'.repeat(64) }] }] },
+    report: { claims: [{ statement: 'verified', evidence: [{ receiptHash: 'c'.repeat(64), source: 'verification-run' }] }] },
     humanApproved: true
   });
   assert.equal(evalPass.eligible, true);
@@ -53,6 +53,17 @@ async function run() {
     }).eligible,
     false,
     'Claims without evidence must not satisfy independent verification'
+  );
+  assert.equal(
+    promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
+      replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) },
+      independentVerification: { verifierId: 'independent-verifier', verificationHash: 'b'.repeat(64), verifiedAt: new Date().toISOString() },
+      agentId: 'worker-agent',
+      report: { claims: [{ statement: 'text only', evidence: ['/tmp/nonexistent-proof.txt'] }] },
+      humanApproved: true
+    }).eligible,
+    false,
+    'Textual evidence must not satisfy a promotion guarantee'
   );
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, false);
