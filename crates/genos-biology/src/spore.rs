@@ -63,6 +63,7 @@ impl Spore {
             SporeType::FungalReproductive => "Fungal Colony Cell".to_string(),
             SporeType::BacterialEndospore => "Bacterial Vegetative Cell".to_string(),
         };
+        new_cell.genome_id = Some(self.genome.genome_id());
         new_cell.conscience = self.conscience;
         new_cell.organelles = self.organelles;
         Ok(new_cell)
@@ -114,5 +115,16 @@ mod tests {
         let spore = Spore::from_cell(SporeType::BacterialEndospore, &cell, Genome::new("CELL"), 9999);
         let revived = spore.germinate(true, true).unwrap();
         assert_eq!(revived.organelles.len(), 1);
+    }
+
+    #[test]
+    fn test_germination_restores_genome_identity() {
+        let genome = Genome::new("PERSISTED_GENOME");
+        let genome_id = genome.genome_id();
+        let spore = Spore::create_bacterial_endospore(&genome);
+
+        let revived = spore.germinate(true, true).unwrap();
+
+        assert_eq!(revived.genome_id, Some(genome_id));
     }
 }
