@@ -68,7 +68,17 @@ function groundedness(actual, input = {}) {
   const citedSources = citations.map((citation) => sources.find((source) => source.id === citation));
   const validCitations = citedSources.every(Boolean);
   if (!validCitations) return scoreResult(false, 'The answer cites an unknown source.', 0);
-  const tokenize = (value) => String(value).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((term) => term.length >= 4 && !GROUNDEDNESS_STOPWORDS.has(term));
+  const normalizeToken = (term) => {
+    let normalized = term.toLowerCase();
+    if (normalized.length > 6 && normalized.endsWith('ation')) normalized = normalized.slice(0, -5);
+    else if (normalized.length > 6 && normalized.endsWith('ed')) normalized = normalized.slice(0, -2);
+    else if (normalized.length > 5 && normalized.endsWith('ing')) normalized = normalized.slice(0, -3);
+    else if (normalized.length > 4 && normalized.endsWith('s')) normalized = normalized.slice(0, -1);
+    return normalized;
+  };
+  const tokenize = (value) => String(value).toLowerCase().split(/[^\p{L}\p{N}]+/u)
+    .map(normalizeToken)
+    .filter((term) => term.length >= 4 && !GROUNDEDNESS_STOPWORDS.has(term));
   const citedTerms = tokenize(text.replace(/\[(?:source|citation):[^\]]+\]/gi, ''));
   const sourceTerms = new Set(citedSources.flatMap((source) => tokenize(source.text)));
   const unsupported = citedTerms.filter((term) => !sourceTerms.has(term));
