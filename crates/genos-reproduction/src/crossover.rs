@@ -124,14 +124,10 @@ impl MeioticCrossover {
                     recombined_genes.insert(locus, Self::reprogram_inherited_gene(chosen.clone()));
                 }
                 (Some(ga), None) => {
-                    if rng.random_bool(1.0 - swap_prob * 0.5) {
-                        recombined_genes.insert(locus, Self::reprogram_inherited_gene(ga.clone()));
-                    }
+                    recombined_genes.insert(locus, Self::reprogram_inherited_gene(ga.clone()));
                 }
                 (None, Some(gb)) => {
-                    if rng.random_bool(swap_prob) {
-                        recombined_genes.insert(locus, Self::reprogram_inherited_gene(gb.clone()));
-                    }
+                    recombined_genes.insert(locus, Self::reprogram_inherited_gene(gb.clone()));
                 }
                 (None, None) => {}
             }
@@ -203,6 +199,19 @@ impl MeioticCrossover {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn uniform_crossover_preserves_unilateral_loci() {
+        let mut parent_a = Genome::new("PARENT_A");
+        parent_a.insert_gene(Gene::new("only_a", "A_GENE"));
+        let mut parent_b = Genome::new("PARENT_B");
+        parent_b.insert_gene(Gene::new("only_b", "B_GENE"));
+
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.0, "unilateral-loci");
+
+        assert!(child.genes.contains_key("only_a"));
+        assert!(child.genes.contains_key("only_b"));
+    }
 
     #[test]
     fn test_meiotic_crossover_epigenetic_reprogramming() {
