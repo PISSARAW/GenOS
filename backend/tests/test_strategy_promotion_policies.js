@@ -84,6 +84,9 @@ async function run() {
     const preservedEvents = await db.all("SELECT * FROM telemetry_events WHERE event_type = 'BRANCH_PRESERVED'");
     assert.equal(preservedEvents.length, 2);
     console.log('✓ Point 3.2: applyPostPromotionPolicies preserves rejected branches');
+    const failedPreservation = await promotionPolicy.applyPostPromotionPolicies({ run: async () => { throw new Error('telemetry unavailable'); } }, contractWithPolicies, { rejectedBranchIds: ['branch-failed'] });
+    assert.equal(failedPreservation.success, false);
+    assert.equal(failedPreservation.actionsTaken[0].preserved, false);
 
     // Test 3: Integration with recordExecutionEvent
     await db.run("INSERT OR REPLACE INTO agents (id, name, role, status, execution_mode) VALUES ('agent-policy-test', 'Policy Agent', 'orchestrator', 'running', 'orchestrator')");

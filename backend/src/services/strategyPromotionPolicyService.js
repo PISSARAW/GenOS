@@ -82,7 +82,9 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
           JSON.stringify({ branchId, reason: 'contract_promotion_policy', preserved: true })
         );
         actionsTaken.push({ action: 'preserve_branch', branchId });
-      } catch (_) {}
+      } catch (error) {
+        actionsTaken.push({ action: 'preserve_branch', branchId, preserved: false, error: error.message });
+      }
     }
   }
 
@@ -99,10 +101,15 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
   }
 
   const mergeBlocked = actionsTaken.some((action) => action.action === 'auto_merge_workspace' && action.merged === false);
+  const preservationFailed = actionsTaken.some((action) => action.action === 'preserve_branch' && action.preserved === false);
   return {
-    success: !mergeBlocked,
+    success: !mergeBlocked && !preservationFailed,
     actionsTaken,
-    ...(mergeBlocked ? { error: 'Automatic workspace merge is unavailable; explicit merge required.' } : {})
+    ...((mergeBlocked || preservationFailed) ? {
+      error: mergeBlocked
+        ? 'Automatic workspace merge is unavailable; explicit merge required.'
+        : 'One or more rejected branches could not be preserved.'
+    } : {})
   };
 }
 
