@@ -26,25 +26,41 @@ async function requireOrchestrator(db, agentId, workspaceId = null) {
   return agent;
 }
 
-async function authorizeMission(db, agentId, orchestratorAgentId, workspaceId = null) {
-  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode FROM agents WHERE id = ?', agentId);
+function normalizeMissionArgs(agentOrOptions, legacyArgs) {
+  if (typeof agentOrOptions === 'object') return agentOrOptions;
+  return { agentId: agentOrOptions, orchestratorAgentId: legacyArgs[0], workspaceId: legacyArgs[1] || null };
+}
+
+function assertMissionAgent(agent, agentId, workspaceId) {
   if (!agent) throw authorityError('AGENT_NOT_FOUND', `Agent '${agentId}' was not found.`);
   if (agent.status === 'quarantined' || agent.isolation_mode === 'Quarantine') throw authorityError('AGENT_QUARANTINED', `Agent '${agentId}' is quarantined and cannot execute.`);
   if (workspaceId && agent.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${agentId}' is not assigned to workspace '${workspaceId}'.`);
-  if (agent.execution_mode === 'orchestrator') return agent;
-  if (!orchestratorAgentId) {
-    throw authorityError('WORKER_REQUIRES_ORCHESTRATOR', `Worker '${agent.name}' cannot start itself; its orchestrator must dispatch the mission.`);
-  }
-  if (agent.parent_agent_id !== orchestratorAgentId) {
-    throw authorityError('WORKER_ORCHESTRATOR_MISMATCH', `Worker '${agent.name}' is not assigned to orchestrator '${orchestratorAgentId}'.`);
-  }
+}
+
+async function authorizeWorker(db, agent, orchestratorAgentId) {
+  if (!orchestratorAgentId) throw authorityError('WORKER_REQUIRES_ORCHESTRATOR', `Worker '${agent.name}' cannot start itself; its orchestrator must dispatch the mission.`);
+  if (agent.parent_agent_id !== orchestratorAgentId) throw authorityError('WORKER_ORCHESTRATOR_MISMATCH', `Worker '${agent.name}' is not assigned to orchestrator '${orchestratorAgentId}'.`);
   const parent = await db.get('SELECT workspace_id FROM agents WHERE id = ? AND execution_mode = \'orchestrator\'', orchestratorAgentId);
-  if (!parent || parent.workspace_id !== agent.workspace_id) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agentId}' and orchestrator '${orchestratorAgentId}' are not in the same workspace.`);
+  if (!parent || parent.workspace_id !== agent.workspace_id) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Worker '${agent.id}' and orchestrator '${orchestratorAgentId}' are not in the same workspace.`);
   await requireOrchestrator(db, orchestratorAgentId);
   return agent;
 }
 
-async function authorizeAgentControl(db, targetId, actorId, workspaceId = null) {
+async function authorizeMission(db, agentOrOptions, ...legacyArgs) {
+  const { agentId, orchestratorAgentId, workspaceId } = normalizeMissionArgs(agentOrOptions, legacyArgs);
+  const agent = await db.get('SELECT id, name, execution_mode, parent_agent_id, workspace_id, status, isolation_mode FROM agents WHERE id = ?', agentId);
+  assertMissionAgent(agent, agentId, workspaceId);
+  if (agent.execution_mode === 'orchestrator') return agent;
+  return authorizeWorker(db, agent, orchestratorAgentId);
+}
+
+function normalizeControlArgs(targetOrOptions, legacyArgs) {
+  if (typeof targetOrOptions === 'object') return targetOrOptions;
+  return { targetId: targetOrOptions, actorId: legacyArgs[0], workspaceId: legacyArgs[1] || null };
+}
+
+async function authorizeAgentControl(db, targetOrOptions, ...legacyArgs) {
+  const { targetId, actorId, workspaceId } = normalizeControlArgs(targetOrOptions, legacyArgs);
   const target = await db.get('SELECT id, parent_agent_id, execution_mode, workspace_id FROM agents WHERE id = ?', targetId);
   if (!target) throw authorityError('AGENT_NOT_FOUND', `Agent '${targetId}' was not found.`);
   if (workspaceId && target.workspace_id !== workspaceId) throw authorityError('AGENT_WORKSPACE_MISMATCH', `Agent '${targetId}' is outside the requested workspace.`);
