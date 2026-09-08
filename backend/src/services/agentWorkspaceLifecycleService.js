@@ -31,6 +31,7 @@ const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 const MAX_COPY_DEPTH = 32;
 const MAX_COPY_ENTRIES = 100000;
 const DEFAULT_MAX_COPY_BYTES = 1024 * 1024 * 1024;
+const SENSITIVE_BASENAME = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 
 function maxCopyBytes() {
   const configured = Number(process.env.GENOS_MAX_WORKSPACE_COPY_BYTES);
@@ -44,6 +45,25 @@ function addCopyBytes(state, bytes) {
     error.code = 'WORKSPACE_COPY_SIZE_LIMIT';
     throw error;
   }
+}
+
+function isSensitivePath(relativePath) {
+  return String(relativePath).split(/[\\/]/).some((part) => SENSITIVE_BASENAME.test(part));
+}
+
+async function removeSensitiveFiles(root) {
+  async function walk(directory, relative = '') {
+    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+      const childRelative = relative ? path.join(relative, entry.name) : entry.name;
+      const childPath = path.join(directory, entry.name);
+      if (isSensitivePath(childRelative)) {
+        await fs.rm(childPath, { recursive: true, force: true });
+      } else if (entry.isDirectory() && !entry.isSymbolicLink()) {
+        await walk(childPath, childRelative);
+      }
+    }
+  }
+  await walk(root);
 }
 
 async function withGitRepoLock(repoPath, fn) {
@@ -348,6 +368,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     const untrackedFiles = untracked.split(/\r?\n/).filter(Boolean).map((file) => normalizeRelativePath(file, 'untracked file'));
     const copyState = { bytes: 0, limit: maxCopyBytes() };
     for (const file of untrackedFiles) {
+      if (isSensitivePath(file)) continue;
       const srcPath = path.join(source, file);
       const destPath = path.join(destination, file);
       try {
@@ -360,6 +381,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
         if (error.code === 'WORKSPACE_COPY_SIZE_LIMIT') throw error;
       }
     }
+    await removeSensitiveFiles(destination);
     return destination;
   } catch (gitError) {
     // Rollback partially initialized worktree to avoid orphaned registrations in .git/worktrees
@@ -386,7 +408,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   const copyState = { bytes: 0, limit: maxCopyBytes() };
   async function copyTree(sourcePath, destinationPath, relative = '') {
     const baseName = path.basename(sourcePath);
-    if (isExcluded(baseName)) return;
+    if (isExcluded(baseName) || isSensitivePath(relative || baseName)) return;
     const sourceStat = await fs.lstat(sourcePath);
     if (sourceStat.isSymbolicLink()) return;
     if (sourceStat.isDirectory()) {
@@ -409,6 +431,7 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
   }
   try {
     await copyTree(source, destination);
+    await removeSensitiveFiles(destination);
   } catch (error) {
     await fs.rm(destination, { recursive: true, force: true }).catch(() => {});
     throw error;
