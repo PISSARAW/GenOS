@@ -82,6 +82,34 @@ mod tests {
     }
 
     #[test]
+    fn test_server_defaults_to_thalamic_triage() {
+        let auth = TenantAuth::new();
+        let limiter = Mutex::new(RateLimiter::new(10, 1));
+        let payload = r#"{"model":"genos-core-v3","messages":[{"role":"user","content":"Build a complete distributed architecture for a complex swarm of agents."}]}"#;
+        let req = format!(
+            "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nContent-Length: {}\r\n\r\n{}",
+            payload.len(), payload
+        );
+        let (status, _, body) = handle_http_request(&req, &auth, &limiter);
+        assert_eq!(status, 200);
+        assert!(body.contains("Requête ultra-complexe détectée"));
+    }
+
+    #[test]
+    fn test_server_allows_explicit_system_two() {
+        let auth = TenantAuth::new();
+        let limiter = Mutex::new(RateLimiter::new(10, 1));
+        let payload = r#"{"model":"genos-core-v3","messages":[{"role":"user","content":"Ping"}]}"#;
+        let req = format!(
+            "POST /v1/chat/completions HTTP/1.1\r\nHost: localhost\r\nX-GenOS-System: 2\r\nContent-Length: {}\r\n\r\n{}",
+            payload.len(), payload
+        );
+        let (status, _, body) = handle_http_request(&req, &auth, &limiter);
+        assert_eq!(status, 200);
+        assert!(body.contains("Echo: Ping"));
+    }
+
+    #[test]
     fn test_server_poisoned_mutex_recovery() {
         let mut auth = TenantAuth::new();
         auth.register_tenant("test_client", "sk-secret-token");
