@@ -57,7 +57,7 @@ Experimental primitives must expose missing evidence as an error. A successful r
 |                                                                                                                         |
 |  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
 |  |     Strategy Dispatcher      |  |    Swarm & Dynamic Org        |  |          Cognitive Immune System             |  |
-|  |  78 Strategies / 97 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
+|  |  79 Strategies / 97 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
 |  |  - Fundamentals   - Safety   |  |  - Digital Pheromones (Stigm) |  |  - Phagocytosis (Exosome digestion)         |  |
 |  |  - Memory (STDP)  - Swarm    |  |  - Quorum & Brier Consensus   |  |  - Apoptosis (Caspase cascade)               |  |
 |  |  - Evolution      - Causal   |  |  - Contact Inhibition Locks   |  |  - Stem Cell Fallback                        |  |
@@ -164,7 +164,7 @@ GenOS/
 │   │   ├── db/                # SQLite WAL, sqlite-vec 768-D, FTS5 triggers, 67+ tables
 │   │   ├── services/          # Memory, embeddings, STDP connectome, sleep cycles, fleet
 │   │   │   ├── primitiveHandlers/      # Concrete handlers for all 7 lots
-│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 78 strategies
+│   │   │   ├── strategyExecutionAdapter.js # Dispatcher for 79 strategies
 │   │   │   ├── embeddingProvider.js    # Unified 768-D multi-backend embeddings
 │   │   │   ├── budgetCoherenceService.js # 60/40 budget validation & envelope checks
 │   │   │   ├── mcpToolRegistry.js      # 259 tools typed dispatcher
@@ -176,7 +176,7 @@ GenOS/
 ├── examples/                  # Standalone executable scenarios
 │   └── safe-debugging-demo/   # Zero-token parallel debugging benchmark
 ├── scripts/                   # Orchestration, code analysis, and maintenance scripts
-├── strategies.md              # Detailed catalog of all 78 implemented & experimental strategies
+├── strategies.md              # Catalog of 79 implemented, partial, experimental, and prototype strategies
 ├── runtime_arbiter.js         # The Thermodynamic Reality Arbiter
 └── .genos.md                  # Strict code generation & complexity governance rules
 ```
