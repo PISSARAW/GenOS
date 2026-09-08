@@ -45,6 +45,16 @@ fn cargo_program() -> String {
     })
 }
 
+fn api_is_healthy() -> bool {
+    reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .ok()
+        .and_then(|client| client.get(format!("{}/healthz", api_base_url())).send().ok())
+        .map(|response| response.status().is_success())
+        .unwrap_or(false)
+}
+
 #[derive(Parser)]
 #[command(
     name = "g",
@@ -1183,7 +1193,7 @@ async fn main() {
         Commands::Start => {
             println!("Démarrage du serveur GenOS API...");
             let port = api_port();
-            if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+            if api_is_healthy() {
                 command_error(format!("le serveur GenOS est déjà en ligne sur le port {}", port));
             }
 
@@ -1212,7 +1222,7 @@ async fn main() {
                     .trim()
                     .parse::<u32>()
                     .unwrap_or_else(|error| command_error(format!("PID invalide dans .genos_server.pid: {}", error)));
-                if std::net::TcpStream::connect(("127.0.0.1", port)).is_err() {
+                if !api_is_healthy() {
                     let _ = std::fs::remove_file(".genos_server.pid");
                     command_error(format!("le serveur est déjà arrêté; PID stale supprimé ({})", pid));
                 }
@@ -1231,7 +1241,7 @@ async fn main() {
                     Ok(status) => command_error(format!("impossible d'arrêter le serveur (code {})", status.code().unwrap_or(1))),
                     Err(error) => command_error(format!("impossible d'arrêter le serveur: {}", error)),
                 }
-                if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                if api_is_healthy() {
                     command_error(format!("le port {} est encore ouvert après l'arrêt", port));
                 }
                     let _ = std::fs::remove_file(".genos_server.pid");
@@ -1245,7 +1255,7 @@ async fn main() {
             let port = api_port();
             if let Ok(pid_str) = std::fs::read_to_string(".genos_server.pid") {
                 println!("Le serveur semble être en cours d'exécution (PID: {}).", pid_str.trim());
-                if std::net::TcpStream::connect(("127.0.0.1", port)).is_ok() {
+                if api_is_healthy() {
                     println!("Statut: EN LIGNE (Port {} ouvert)", port);
                 } else {
                     println!("Statut: HORS LIGNE (Port 8085 inaccessible)");
