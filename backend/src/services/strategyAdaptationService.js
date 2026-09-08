@@ -2,6 +2,7 @@ const strategyContracts = require('./strategyContractService');
 const strategyExecution = require('./strategyExecutionService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const { withTransaction } = require('../db');
+const { validateStrategyTransitionContinuity } = require('./strategyCoherenceValidator');
 
 function strategySignature(contract = {}) {
   return JSON.stringify({
@@ -103,6 +104,12 @@ async function changeStrategy(db, input = {}) {
   }
 
   const activeRun = await strategyExecution.getLatestRun(db, orchestratorId);
+  if (activeRun && ['planned', 'running'].includes(activeRun.status) && input.allowEvidenceReset !== true) {
+    const continuity = validateStrategyTransitionContinuity(current.contract, planned.candidate);
+    if (!continuity.coherent) {
+      throw Object.assign(new Error(`${continuity.reason} Set allowEvidenceReset=true to start a fresh evidence lineage.`), { code: 'STRATEGY_TRANSITION_INCOHERENT', continuity });
+    }
+  }
   const budget = activeRun && ['planned', 'running'].includes(activeRun.status)
     ? remainingBudget(activeRun)
     : input.executionBudget;
