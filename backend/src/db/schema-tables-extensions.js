@@ -84,6 +84,8 @@ const TABLES_EXTENSIONS = [
 "    id TEXT PRIMARY KEY,",
 "    framework TEXT NOT NULL CHECK (framework IN ('EU_AI_ACT', 'SOC_2', 'HIPAA')),",
 "    workspace_id TEXT,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    status TEXT NOT NULL DEFAULT 'generated' CHECK (status IN ('generated', 'archived')),",
 "    score REAL NOT NULL,",
 "    findings_json TEXT NOT NULL DEFAULT '[]',",
