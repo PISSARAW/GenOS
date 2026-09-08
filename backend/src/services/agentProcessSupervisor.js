@@ -54,8 +54,8 @@ function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdate
   };
 }
 
-function buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, workspaceRoot, resolvedExecutable }) {
-  const safeEnvironment = buildRuntimeEnvironment(normalizedMission.runtimeEnvironment, workspaceRoot, false);
+function buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable }) {
+  const safeEnvironment = buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, false);
   return {
     sessionId: executionRun.id,
     agentId,
@@ -421,7 +421,7 @@ async function superviseMission(options) {
     executable: resolvedExecutable,
     executionRunId: executionRun.id,
     autonomyPlan,
-    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, workspaceRoot, resolvedExecutable })
+    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, runtimeEnvironment, workspaceRoot, resolvedExecutable })
   }, 'info', 'running');
   if (isLocalRuntime(resolvedExecutable) && !normalizedMission.localRoutingPolicy) {
     const workspace = normalizedMission.workspaceId
