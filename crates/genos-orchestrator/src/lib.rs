@@ -60,4 +60,13 @@ mod tests {
             ("TRANSLATION_SUCCESS", "Synthèse protéique achevée"),
         );
     }
+
+    #[test]
+    fn test_orchestrator_uses_immune_selection() {
+        let mut orch = BiomimeticOrchestrator::new("Immune_Prime", 50.0, 100.0);
+        orch.immune_selection.detectors.push(genos_immune::AntibodyDetector::new("SQL", "SQL_INJECTION", 0.8));
+        let antigen = genos_immune::Antigen { id: "threat-1".into(), epitope: "SQL_INJECTION".into(), danger_level: 0.9 };
+        assert!(orch.detect_immune_threat(&antigen));
+        assert_eq!(orch.immune_selection.memory_pool.len(), 1);
+    }
 }

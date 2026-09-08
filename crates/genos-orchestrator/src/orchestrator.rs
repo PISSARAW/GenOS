@@ -10,6 +10,7 @@ use genos_biology::spore::{Spore, SporeType};
 use genos_biology::tissue::{TaskDelegation, Tissue};
 use genos_cell::AgentCell;
 use genos_genome::Genome;
+use genos_immune::{Antigen, ClonalSelection};
 
 use crate::conscience::{Conscience, ConscienceState};
 
@@ -26,6 +27,7 @@ pub struct BiomimeticOrchestrator {
     pub redundancy: RedundancySystem,
     pub active_cells: HashMap<Uuid, AgentCell>,
     pub conscience: Conscience,
+    pub immune_selection: ClonalSelection,
 }
 
 impl BiomimeticOrchestrator {
@@ -44,7 +46,13 @@ impl BiomimeticOrchestrator {
             redundancy: RedundancySystem::new(),
             active_cells,
             conscience: Conscience::new(max_dissonance, baseline_budget),
+            immune_selection: ClonalSelection::new(),
         }
+    }
+
+    /// Evaluates a threat antigen through the orchestrator's persistent clonal selection.
+    pub fn detect_immune_threat(&mut self, antigen: &Antigen) -> bool {
+        self.immune_selection.recognize(antigen)
     }
 
     /// Crée et enregistre un nouveau Tissu cellulaire dirigé par la racine ou une cellule souche
