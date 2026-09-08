@@ -89,6 +89,7 @@ function parseJudgeResponse(raw) {
   const score = Number(parsed.score);
   if (!Number.isFinite(score) || score < 0 || score > 1) throw new Error('Judge score must be a finite number in [0, 1].');
   if (typeof parsed.passed !== 'boolean') throw new Error('Judge passed must be a boolean.');
+  if (parsed.passed !== (score >= 0.5)) throw new Error('Judge score and passed verdict are inconsistent.');
   if (typeof parsed.reason !== 'string' || !parsed.reason.trim()) throw new Error('Judge reason must be a non-empty string.');
   return { score, passed: parsed.passed, reason: parsed.reason.trim() };
 }
