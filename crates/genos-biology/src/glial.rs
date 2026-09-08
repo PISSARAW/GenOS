@@ -147,8 +147,6 @@ impl GlialProcessor for AstrocyteProcessor {
 
             if emergency {
                 astro.is_reactive = true;
-            } else if astro.glycogen_reserve > 10.0 {
-                astro.glycogen_reserve -= 5.0;
             }
 
             if astro.is_reactive {
@@ -164,8 +162,10 @@ impl GlialProcessor for AstrocyteProcessor {
     }
 
     fn apply(&self, agent: &mut GlialCell, ctx: &GlialApplyContext) {
-        if let Some(ns) = &mut agent.nervous_system {
-            let energy_support = if ctx.state.reactive_astrocytes.contains(&agent.cell_id) { 10.0 } else { 20.0 };
+        if let (Some(ns), Some(astro)) = (&mut agent.nervous_system, &mut agent.astrocyte) {
+            let requested_support: f64 = if ctx.state.reactive_astrocytes.contains(&agent.cell_id) { 10.0 } else { 20.0 };
+            let energy_support = requested_support.min(astro.glycogen_reserve.max(0.0));
+            astro.glycogen_reserve -= energy_support;
             agent.metabolism.atp_budget += energy_support;
 
             // Synapse tripartite : les astrocytes protègent les épines dendritiques postsynaptiques
@@ -453,5 +453,33 @@ mod tests {
         });
         assert!(pressure <= 20.0);
         assert!(agents[0].microglia.as_ref().unwrap().inflammatory_cytokines <= 100.0);
+    }
+
+    #[test]
+    fn astrocytes_cannot_create_atp_without_reserve_or_presence() {
+        let neuron_without_astrocyte = neuron("neuron-no-astrocyte", 10.0);
+        let mut neuron_with_empty_reserve = neuron("neuron-empty-astrocyte", 10.0);
+        neuron_with_empty_reserve.astrocyte = Some(Astrocyte {
+            glycogen_reserve: 0.0,
+            is_reactive: false,
+            protected_neurons: vec!["neuron-empty-astrocyte".to_string()],
+        });
+        let mut bhe = 1.0;
+        let mut plaques = 0.0;
+        let mut volume = 0.0;
+        let mut pressure = 10.0;
+        let mut agents = vec![neuron_without_astrocyte, neuron_with_empty_reserve];
+
+        GlialPipeline::new().process_all(&mut agents, GlialEnvironment {
+            bhe_integrity: &mut bhe,
+            amyloid_plaques: &mut plaques,
+            csf_volume: &mut volume,
+            csf_pressure: &mut pressure,
+            is_sleeping: false,
+            drainage_blocked: false,
+        });
+
+        assert_eq!(agents[0].metabolism.atp_budget, 10.0);
+        assert_eq!(agents[1].metabolism.atp_budget, 10.0);
     }
 }
