@@ -19,9 +19,14 @@ pub fn cleave_zygote(zygote: AgentCell, divisions: u32) -> Vec<AgentCell> {
     for _ in 0..divisions.min(MAX_ZYGOTE_DIVISIONS) {
         let mut new_generation = Vec::new();
         for cell in &mut swarm {
-            if let Ok((parent, clone)) = cell.clone().mitosis() {
-                new_generation.push(parent);
-                new_generation.push(clone);
+            match cell.clone().mitosis() {
+                Ok((parent, clone)) => {
+                    new_generation.push(parent);
+                    new_generation.push(clone);
+                }
+                Err(_) => {
+                    new_generation.push(cell.clone());
+                }
             }
         }
         swarm = new_generation;
