@@ -63,6 +63,8 @@ function createApp() {
       const traceId = req.headers['x-trace-id'] || `trace-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
       const requestId = req.id || req.headers['x-request-id'] || `req-${crypto.randomUUID()}`;
       req.id = requestId;
+      res.setHeader('X-Request-Id', requestId);
+      res.setHeader('X-Trace-Id', traceId);
       asyncLocalStorage.run(new Map([['traceId', traceId], ['requestId', requestId]]), () => {
           next();
       });
