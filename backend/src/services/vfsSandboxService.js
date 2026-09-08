@@ -4,8 +4,7 @@
  */
 
 const { normalizeRelativePath } = require('./pathSafety');
-const virtualFiles = new Map();
-let virtualFileBytes = 0;
+const virtualFilesByWorkspace = new Map();
 const DEFAULT_MAX_VFS_FILE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_MAX_VFS_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_VFS_FILES = 10000;
@@ -300,7 +299,19 @@ function virtualPath(value) {
   return normalizeWorkspacePath(value);
 }
 
-async function executeVfsOperation(operation, filePath, content = '') {
+function workspaceVfs(workspaceId = 'legacy') {
+  const key = String(workspaceId || 'legacy');
+  let state = virtualFilesByWorkspace.get(key);
+  if (!state) {
+    state = { files: new Map(), bytes: 0 };
+    virtualFilesByWorkspace.set(key, state);
+  }
+  return state;
+}
+
+async function executeVfsOperation(operation, filePath, content = '', workspaceId = 'legacy') {
+  const state = workspaceVfs(workspaceId);
+  const virtualFiles = state.files;
   const target = virtualPath(filePath);
   if (!target) throw new Error('A file path is required.');
   const op = String(operation || '').toLowerCase();
@@ -312,21 +323,22 @@ async function executeVfsOperation(operation, filePath, content = '') {
     if (bytes > limits.maxFileBytes) throw new Error(`VFS file exceeds the ${limits.maxFileBytes}-byte limit.`);
     if (!virtualFiles.has(target) && virtualFiles.size >= limits.maxFiles) throw new Error(`VFS exceeds the ${limits.maxFiles}-file limit.`);
     const previousBytes = virtualFiles.has(target) ? Buffer.byteLength(virtualFiles.get(target), 'utf8') : 0;
-    if (virtualFileBytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
+    if (state.bytes - previousBytes + bytes > limits.maxBytes) throw new Error(`VFS exceeds the ${limits.maxBytes}-byte limit.`);
     virtualFiles.set(target, value);
-    virtualFileBytes = virtualFileBytes - previousBytes + bytes;
+    state.bytes = state.bytes - previousBytes + bytes;
     return { success: true, message: `Wrote ${target}` };
   }
   if (['delete', 'remove', 'delete_file'].includes(op)) {
     if (!virtualFiles.has(target)) return { success: false, message: `File not found: ${target}` };
-    virtualFileBytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
+    state.bytes -= Buffer.byteLength(virtualFiles.get(target), 'utf8');
     virtualFiles.delete(target);
     return { success: true, message: `Deleted ${target}` };
   }
   throw new Error(`Unsupported VFS operation: ${operation}`);
 }
 
-function inspectVfs(directory = '/') {
+function inspectVfs(directory = '/', workspaceId = 'legacy') {
+  const virtualFiles = workspaceVfs(workspaceId).files;
   const prefix = virtualPath(directory);
   const entries = new Set();
   for (const filePath of virtualFiles.keys()) {
