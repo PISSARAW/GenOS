@@ -48,13 +48,15 @@ function toPublicStrategy(strategy) {
   const handlers = require('../services/strategyExecutionAdapter').getHandlers();
   const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
   const executionStatus = missingPrimitives.length ? 'partial' : 'ready';
+  const maturity = executionStatus === 'partial' ? 'partial' : strategy.maturity;
   return {
     ...strategy,
+    maturity,
     problemTypes: [...strategy.problemTypes],
     traits: [...strategy.traits],
     primitives: [...strategy.primitives],
     executionStatus,
-    effectiveMaturity: executionStatus === 'ready' ? strategy.maturity : 'partial',
+    effectiveMaturity: maturity,
     missingPrimitives
   };
 }
