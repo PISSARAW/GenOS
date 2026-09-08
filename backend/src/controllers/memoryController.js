@@ -12,8 +12,8 @@ async function search(req, res, next) {
   try {
     const query = req.body?.query || req.query?.q || '';
     const limit = boundedInteger(req.body?.limit ?? req.query?.limit, 5, 1, 100);
-    const organizationId = req.tenant?.organizationId || req.headers?.['x-organization-id'];
-    const projectId = req.tenant?.projectId || req.headers?.['x-project-id'];
+    const organizationId = req.tenant.organizationId;
+    const projectId = req.tenant.projectId;
     const db = await getDatabase();
 
     const results = await vectorMemoryService.searchMemory(query, { limit, organizationId, projectId }, db);
@@ -35,8 +35,8 @@ async function cherryPick(req, res, next) {
     const vec = (await embed(summaryText)) || textToVector(summaryText);
     const float32Array = new Float32Array(vec);
     const buffer = Buffer.from(float32Array.buffer);
-    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
-    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
+    const orgId = req.tenant.organizationId;
+    const projId = req.tenant.projectId;
 
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -89,8 +89,8 @@ async function counterfactual(req, res, next) {
 async function ingestMemory(req, res, next) {
   try {
     const { content, title = 'Turn Context', category = 'Conversation' } = req.body;
-    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
-    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
+    const orgId = req.tenant.organizationId;
+    const projId = req.tenant.projectId;
     const db = await getDatabase();
     
     // Convert to Float32Array
@@ -304,8 +304,8 @@ async function sleepCycle(req, res, next) {
 
 function getTenantScope(req, prefix = '') {
   const p = prefix ? `${prefix}.` : '';
-  const orgId = req.tenant?.organizationId || req.body?.organizationId || req.body?.organization_id || null;
-  const projId = req.tenant?.projectId || req.body?.projectId || req.body?.project_id || null;
+  const orgId = req.tenant.organizationId;
+  const projId = req.tenant.projectId;
 
   if (orgId && projId) {
     return {
