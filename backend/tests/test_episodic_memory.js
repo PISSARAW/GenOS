@@ -196,11 +196,8 @@ async function runTests() {
   };
 
   await memoryController.ingestMemory(mockReqAttack, mockResAttack, (err) => { if (err) throw err; });
-  assert.equal(attackRes.status, 'Ingested');
-  assert.equal(attackRes.initialWeight, 0.5, 'Prompt injection should be penalized to weight 0.5');
-
-  const storedAttack = await db.get('SELECT content FROM genome_decisions WHERE id = ?', attackRes.id);
-  assert(storedAttack.content.includes('ADVERSARIAL_THREAT'), 'Attack must be labeled with ADVERSARIAL_THREAT');
+  assert.equal(attackRes.code, 400);
+  assert.equal(attackRes.error.code, 'ADVERSARIAL_INPUT_REJECTED');
 
   // 5c. Retrieval Reconsolidation (Synaptic Potentiation)
   const preSearchRow = await db.get('SELECT synaptic_weight FROM genome_decisions WHERE id = ?', decRecentId);

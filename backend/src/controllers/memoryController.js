@@ -35,8 +35,8 @@ async function cherryPick(req, res, next) {
     const vec = (await embed(summaryText)) || textToVector(summaryText);
     const float32Array = new Float32Array(vec);
     const buffer = Buffer.from(float32Array.buffer);
-    const orgId = req.tenant.organizationId;
-    const projId = req.tenant.projectId;
+    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
+    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
 
     await db.run(
       `INSERT INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, embedding_blob, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -89,8 +89,8 @@ async function counterfactual(req, res, next) {
 async function ingestMemory(req, res, next) {
   try {
     const { content, title = 'Turn Context', category = 'Conversation' } = req.body;
-    const orgId = req.tenant.organizationId;
-    const projId = req.tenant.projectId;
+    const orgId = req.tenant?.organizationId || req.headers?.['x-organization-id'] || null;
+    const projId = req.tenant?.projectId || req.headers?.['x-project-id'] || null;
     const db = await getDatabase();
     
     // Convert to Float32Array
