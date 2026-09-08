@@ -134,6 +134,12 @@ impl MeioticCrossover {
         }
         child.genes = recombined_genes;
 
+        for chromosome in &parent_b.extra_chromosomes {
+            if !child.extra_chromosomes.iter().any(|existing| existing == chromosome) {
+                child.extra_chromosomes.push(chromosome.clone());
+            }
+        }
+
         for plasmid in &parent_b.plasmids {
             if rng.random_bool(swap_prob) && !child.plasmids.contains(plasmid) {
                 child.plasmids.push(plasmid.clone());
@@ -211,6 +217,18 @@ mod tests {
 
         assert!(child.genes.contains_key("only_a"));
         assert!(child.genes.contains_key("only_b"));
+    }
+
+    #[test]
+    fn uniform_crossover_preserves_unique_extra_chromosomes() {
+        let mut parent_a = Genome::new("PARENT_A");
+        parent_a.extra_chromosomes.push(genos_genome::DnaStrand::synthesize("EXTRA_A"));
+        let mut parent_b = Genome::new("PARENT_B");
+        parent_b.extra_chromosomes.push(genos_genome::DnaStrand::synthesize("EXTRA_B"));
+
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.5, "extra-chromosomes");
+
+        assert_eq!(child.extra_chromosomes.len(), 2);
     }
 
     #[test]
