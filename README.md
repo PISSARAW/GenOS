@@ -40,6 +40,38 @@ It is not currently an AGI system. The repository does not provide autonomous mo
 
 Experimental primitives must expose missing evidence as an error. A successful result means that the registered operation completed with the supplied inputs, not that an agent learned, reasoned causally, or proved a proposition.
 
+### Explicit non-goals and operational limits
+
+- **No determinism across external boundaries:** GenOS does not guarantee identical results when an LLM, wall clock, random source, filesystem state, operating-system scheduler, external file, network tool, remote model, or remote embedding provider participates. Hash-chain replay validates the recorded trace; it does not re-execute those dependencies. Local state operations can still be reproducible only under their stated inputs and runtime contract.
+- **No security from biological naming:** `immune`, `chaperone`, `apoptosis`, `zero_trust`, and similar names are implementation labels. They do not provide a security certification, isolation guarantee, threat-model coverage, or protection against a malicious model, host, dependency, operator, or tool. Security must be assessed from the concrete policy, permissions, sandbox, TLS, audit, and deployment configuration.
+- **`success` is not correctness:** `success: true` means that the handler completed and accepted its inputs. It does not mean that a proposal, diagnosis, merge, model answer, causal explanation, evaluation score, or generated patch is correct. Correctness requires independent evidence such as tests, compiler output, provenance, human approval, or an explicitly documented domain oracle.
+- **Resource and retention limits are finite:** The defaults are operational guardrails, not capacity promises. A workspace snapshot is limited to 100,000 files, 1 GiB total, and 128 MiB per file (`GENOS_MAX_SNAPSHOT_FILES`, `GENOS_MAX_SNAPSHOT_BYTES`, `GENOS_MAX_SNAPSHOT_FILE_BYTES`). A stigmergy read returns 1,000 traces by default and accepts at most 10,000 (`traceLimit`). Worker evidence keeps the last 32 events per worker (`GENOS_MAX_WORKER_DOSSIER_EVENTS`, minimum 4). The sleep cycle prunes rejected, non-exceptional trajectories older than 7 days and prunes weak or C3-tagged synapses according to its weight/C3/CD47 thresholds. Embeddings, accepted snapshots, audit rows, and most journals have no universal time-to-live: they consume SQLite/filesystem capacity until an operator or a feature-specific cleanup removes them. Embedding dimensions default to 768; this is not a storage or quality guarantee.
+
+### Applied versus simulated operation matrix
+
+The strategy maturity label (`implemented`, `experimental`, or `prototype`) is not an effect label. The following is the execution contract of the shipped adapters; a returned `success` still has the meaning above.
+
+| Operation family | Actually applied by the runtime | Simulated, derived, or evidence-only |
+| :--- | :--- | :--- |
+| Workspace control | `snapshot` persists a SQLite index plus a content-addressed filesystem payload; `fork` creates a worker and isolated workspace; `safe_revert`/restore writes the selected workspace state; allow-listed `run` executes a bounded local command; `vfs_dry_run` intentionally does not write | `diff`, `inspect`, `evaluate`, `bisect_agent`, and replay reports calculate or validate observations; they do not prove the proposed fix |
+| Memory and synapses | `compile_memory`, `stdp_update`, sleep consolidation, synapse decay/pruning, and accepted experience writes update SQLite state | Retrieval, reranking, `search_failures`, and a replay of a stored trajectory produce rankings or reconstructions; they do not create knowledge or establish causality |
+| Evolution and lineage | `mutate`, `select`, `pareto_select`, reproduction limits, lineage records, and configured Rust crossover/division calls can persist state or create workers when their prerequisites are present | Strategy search, MCTS/beam/PRM scores, and proposed alternatives are candidate selection, not verified solutions; a missing native Rust binary is an error, not a simulated native result |
+| Safety and governance | Permission checks, circuit breakers, quarantine/apoptosis state changes, bounded sandboxes, evidence gates, and human approval gates can block or persist a decision | Biological labels, heuristic risk scores, entropy signals, and model/provider claims do not certify safety |
+| Collective and temporal | Pheromone/trail records, quorum records, and explicit merge decisions can be persisted; causal fork/rebase tools execute only when their configured MCP/tool boundary is available | `causal_replay`, `mutated_universes`, counterfactual trajectory replay, and incident/scientific experiments primarily construct alternative states or reports; they are not deterministic re-execution of the outside world |
+| Native Rust bridge | Snapshot/agent/replay/diff commands are real CLI calls when `target/debug/genos` exists; non-zero exit codes and a missing binary are surfaced | No Rust binary means these operations are unavailable (`503`/`BIN_NOT_FOUND`), never silently emulated by the Node backend |
+
+This matrix deliberately describes effects, not biological metaphors. To claim that a particular operation was applied, inspect its response, persisted record, process exit code, and independent verification artifact.
+
+### Supported deployment profiles
+
+| Profile | Supported behavior | Required caveat |
+| :--- | :--- | :--- |
+| Windows host | Node.js backend, SQLite, PowerShell/`g.cmd` wrappers, bounded command execution, and the Rust workspace are supported. The Rust CLI still requires Rust/Cargo or a prebuilt binary. | Shell commands and path/process behavior follow Windows policy; do not assume POSIX shell semantics. |
+| Docker | `backend/Dockerfile` builds the Node control plane, uses `GENOS_AGENT_EXECUTOR=local`, persists `/data`, and declares HTTP 4000 plus gRPC 50051. | The gRPC service still binds to loopback unless configured; publishing port 50051 does not by itself make it remotely reachable. The image does not compile or copy the Rust `genos`/`genos-mcp` binaries, so native CLI bridge operations remain unavailable unless an external binary/transport is supplied. Publish plaintext gRPC only on a trusted network; use TLS for non-loopback exposure. |
+| Node without compiled Rust | REST/gRPC control-plane features, SQLite persistence, pure-JS handlers, and configured local/remote model or embedding providers can run. | Rust CLI commands, native MCP wrappers, and Rust-backed reproduction paths fail explicitly with an unavailable-binary error. The top-level `g.cmd` and `g.ps1` wrappers intentionally refuse to run without Cargo. |
+
+LLM, clock, filesystem, network, and provider dependencies must be pinned or replaced with recorded fixtures by an operator who needs reproducible tests. No deployment profile changes the non-goals above.
+
 ### Guarantee vocabulary
 
 Terms such as genome, cell, synapse, apoptosis, pheromone, stem cell, and cryptobiosis name runtime data structures, policies, or workflows. They do not establish biological equivalence, consciousness, learning, causal understanding, or safety certification. Words such as deterministic, verified, cryptographic, immediate, and guaranteed apply only when the response includes the corresponding runtime evidence and contract; otherwise the result is an observation, simulation, reconstruction, or request for recovery.
