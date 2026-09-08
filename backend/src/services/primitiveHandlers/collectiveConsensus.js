@@ -119,10 +119,12 @@ async function brierScores(context = {}) {
 async function recordConsensusMessage(db, orchestratorId, kind, issue, decision, quorumReached, data = {}) {
   if (!db) return;
   try {
+    const state = await db.get('SELECT organization, version FROM agent_organization_state WHERE orchestrator_id = ?', orchestratorId);
     await db.run(
       `INSERT INTO agent_organization_messages (orchestrator_id, organization, organization_version, sender_agent_id, recipient_agent_id, channel, kind, content, payload_json)
-       VALUES (?, 'collective', 1, ?, 'broadcast', 'consensus', ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, NULL, 'consensus', ?, ?, ?)`,
       orchestratorId,
+      state?.organization || 'collective', state?.version || 1,
       orchestratorId,
       kind,
       quorumReached ? `Consensus reached on ${issue}: ${decision}` : `Consensus not reached on ${issue}`,
@@ -192,6 +194,7 @@ async function quorum(context = {}) {
     const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
 
     const totalExpressed = Object.values(votes).reduce((sum, val) => sum + val, 0);
+    const abstentions = hasVoted.size - totalExpressed;
     const sortedOptions = Object.keys(votes).sort((a, b) => {
       const diff = votes[b] - votes[a];
       if (diff !== 0) return diff;
@@ -210,11 +213,11 @@ async function quorum(context = {}) {
       action: 'QUORUM',
       detail: quorumReached ? `Quorum reached on ${issue}: ${decision}` : `Quorum not reached on ${issue}`,
       severity: 'info',
-      payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, approvalRate }
+      payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate }
     });
 
     await recordConsensusMessage(db, orchestratorId, 'consensus_resolution', issue, decision, quorumReached, {
-      votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, approvalRate
+      votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate
     });
 
     return {
@@ -225,6 +228,7 @@ async function quorum(context = {}) {
       votes,
       totalVotes: hasVoted.size,
       expressedVotes: totalExpressed,
+      abstentions,
       approvalRate,
       ...(quorumReached ? {} : { error: 'Quorum not reached' })
     };
@@ -271,6 +275,7 @@ async function weightedQuorum(context = {}) {
 
     const weightedVotes = {};
     const hasVoted = new Set();
+    let expressedVoters = 0;
 
     for (const row of rows) {
       if (hasVoted.has(row.sender_agent_id)) continue;
@@ -282,6 +287,7 @@ async function weightedQuorum(context = {}) {
             const brier = bScores[row.sender_agent_id] !== undefined ? bScores[row.sender_agent_id] : 0.25;
             const weight = brierScoreToWeight(brier);
             weightedVotes[voteStr] = (weightedVotes[voteStr] || 0) + weight;
+            expressedVoters += 1;
           }
           hasVoted.add(row.sender_agent_id);
         }
@@ -312,6 +318,7 @@ async function weightedQuorum(context = {}) {
                   weight = Number(rv.weight);
                 }
                 weightedVotes[rvVoteStr] = (weightedVotes[rvVoteStr] || 0) + weight;
+                expressedVoters += 1;
               }
               hasVoted.add(rv.agent_id);
             }
@@ -324,6 +331,7 @@ async function weightedQuorum(context = {}) {
     const threshold = Number.isFinite(context.threshold) ? context.threshold : (Number.isFinite(context.quorumThreshold) ? context.quorumThreshold : 0.5);
 
     const totalExpressedWeight = Object.values(weightedVotes).reduce((sum, w) => sum + w, 0);
+    const abstentions = Math.max(0, hasVoted.size - expressedVoters);
     const sortedOptions = Object.keys(weightedVotes).sort((a, b) => {
       const diff = weightedVotes[b] - weightedVotes[a];
       if (Math.abs(diff) > 1e-9) return diff;
@@ -342,11 +350,11 @@ async function weightedQuorum(context = {}) {
       action: 'WEIGHTED_QUORUM',
       detail: quorumReached ? `Weighted quorum reached on ${issue}: ${decision}` : `Weighted quorum not reached on ${issue}`,
       severity: 'info',
-      payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate }
+      payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate }
     });
 
     await recordConsensusMessage(db, orchestratorId, 'weighted_consensus_resolution', issue, decision, quorumReached, {
-      weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
+      weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate
     });
     await recordConsensusMessage(db, orchestratorId, 'consensus_resolution', issue, decision, quorumReached, {
       weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
@@ -360,6 +368,7 @@ async function weightedQuorum(context = {}) {
       weightedVotes,
       weightedTally: weightedVotes,
       totalVotes: hasVoted.size,
+      abstentions,
       totalWeight: totalExpressedWeight,
       approvalRate,
       ...(quorumReached ? {} : { error: 'Quorum not reached' })
