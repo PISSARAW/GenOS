@@ -1,8 +1,10 @@
 const assert = require('assert');
 const fs = require('fs');
+const path = require('path');
 
-const nodeSource = fs.readFileSync('mcp/index.js', 'utf8');
-const rustTools = fs.readFileSync('crates/genos-mcp/src/tools.rs', 'utf8');
+const repositoryRoot = path.resolve(__dirname, '..', '..');
+const nodeSource = fs.readFileSync(path.join(repositoryRoot, 'mcp', 'index.js'), 'utf8');
+const rustTools = fs.readFileSync(path.join(repositoryRoot, 'crates', 'genos-mcp', 'src', 'tools.rs'), 'utf8');
 
 for (const tool of ['genos_replay', 'genos_execute_primitive']) {
   assert(nodeSource.includes(`name: "${tool}"`), `${tool} must be exposed by Node MCP`);
