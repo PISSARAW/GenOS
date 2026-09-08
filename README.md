@@ -93,7 +93,7 @@ Terms such as genome, cell, synapse, apoptosis, pheromone, stem cell, and crypto
 |                                                                                                                         |
 |  +------------------------------+  +-------------------------------+  +----------------------------------------------+  |
 |  |     Strategy Dispatcher      |  |    Swarm & Dynamic Org        |  |          Cognitive Immune System             |  |
-|  |  79 Strategies / 97 Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
+|  |  79 Strategies / 189 Referenced Primitives|  |  - Shannon Entropy Sentinel   |  |  - Molecular Chaperones (JSON Repair)        |  |
 |  |  - Fundamentals   - Safety   |  |  - Digital Pheromones (Stigm) |  |  - Phagocytosis (Exosome digestion)         |  |
 |  |  - Memory (STDP)  - Swarm    |  |  - Quorum & Brier Consensus   |  |  - Apoptosis (Caspase cascade)               |  |
 |  |  - Evolution      - Causal   |  |  - Contact Inhibition Locks   |  |  - Stem Cell Fallback                        |  |
