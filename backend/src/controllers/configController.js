@@ -87,9 +87,8 @@ async function testModel(req, res, next) {
 function updateProfile(req, res) {
   const config = configFor(req);
   const { username } = req.body || {};
-  if (username) {
-    config.customUsername = String(username).trim();
-  }
+  if (username === undefined || !String(username).trim()) return res.status(400).json({ error: { code: 'USERNAME_REQUIRED', message: 'username is required.' } });
+  config.customUsername = String(username).trim();
   res.json({ success: true, username: config.customUsername || 'operator' });
 }
 
@@ -97,7 +96,7 @@ function getBudget(req, res) {
   getConfig(req, res);
 }
 
-function updateBudget(req, res) {
+async function updateBudget(req, res, next) {
   const config = configFor(req);
   const { maxTokens: newMax } = req.body || {};
   if (newMax !== undefined) {
@@ -107,11 +106,12 @@ function updateBudget(req, res) {
     }
     config.maxTokens = parsed;
   }
-  res.json({
-    success: true,
-    maxTokens: config.maxTokens,
-    percent: 0
-  });
+  try {
+    const db = await getDatabase();
+    const usageRow = await db.get(`SELECT COALESCE(SUM(COALESCE(json_extract(payload_json, '$.tokens'), 0) + COALESCE(json_extract(payload_json, '$.totalTokens'), 0) + COALESCE(json_extract(payload_json, '$.usage.total_tokens'), 0)), 0) AS usedTokens FROM telemetry_events WHERE organization_id = ? AND project_id = ?`, req.tenant.organizationId, req.tenant.projectId);
+    const usedTokens = Number(usageRow?.usedTokens || 0);
+    return res.json({ success: true, maxTokens: config.maxTokens, usedTokens: usedTokens > 0 ? usedTokens : null, percent: usedTokens > 0 ? Math.min(100, Math.round((usedTokens / config.maxTokens) * 100)) : null });
+  } catch (error) { return next(error); }
 }
 
 module.exports = {
