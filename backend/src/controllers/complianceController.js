@@ -11,12 +11,12 @@ async function createReport(req, res) {
 }
 async function getReport(req, res) {
   const report = await compliance.getReport(req.params.id);
-  if (!report) return res.status(404).json({ error: { message: 'Compliance report not found' } });
+  if (!report) return res.status(404).json({ error: { code: 'COMPLIANCE_REPORT_NOT_FOUND', message: 'Compliance report not found' } });
   res.json(report);
 }
 async function exportReport(req, res) {
   const report = await compliance.getReport(req.params.id);
-  if (!report) return res.status(404).json({ error: { message: 'Compliance report not found' } });
+  if (!report) return res.status(404).json({ error: { code: 'COMPLIANCE_REPORT_NOT_FOUND', message: 'Compliance report not found' } });
   const format = req.query.format || 'json';
   if (format === 'markdown' || format === 'md') {
     res.type('text/markdown').set('Content-Disposition', `attachment; filename="${report.id}.md"`).send(compliance.toMarkdown(report));
