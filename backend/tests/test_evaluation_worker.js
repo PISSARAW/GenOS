@@ -36,6 +36,7 @@ async function main() {
   const result = JSON.parse(completion.args[1]);
   assert.equal(result.score, 1);
   assert.equal(result.graderSummary.exact_match.score, 1);
+  assert.equal(result.graderSummary.exact_match.meanScore, 1);
   assert.equal(result.graderSummary.groundedness.score, 1);
   assert.equal(result.graderSummary.safety.score, 1);
   console.log('evaluation worker: PASS');

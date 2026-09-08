@@ -307,7 +307,7 @@ async function executeEvaluation(db, job) {
       }
     }
     const graderResults = {
-      exact_match: { passed: exact },
+      exact_match: { passed: exact, score: exact ? 1 : 0 },
       groundedness: grounding,
       safety: safetyResult,
       ...(judge ? { llm_judge: judge } : {})
