@@ -91,13 +91,21 @@ async function depositExosome(params = {}) {
   const engramsList = params.new_engrams || params.newEngrams || [];
   const pName = params.plasmid_name || params.plasmidName || '';
   const pCode = params.plasmid_code || params.plasmidCode || '';
+  const plasmidVector = Array.isArray(params.plasmid_vector || params.plasmidVector)
+    ? (params.plasmid_vector || params.plasmidVector).map(Number).filter(Number.isFinite)
+    : [];
   const payload = {
     new_engrams: engramsList,
     newEngrams: engramsList,
     plasmid_name: pName,
     plasmidName: pName,
     plasmid_code: pCode,
-    plasmidCode: pCode
+    plasmidCode: pCode,
+    plasmid_vector: plasmidVector,
+    source_agent_id: params.source_agent_id || params.sourceAgentId || params.sender_id || '',
+    recipient_agent_id: params.recipient_agent_id || params.recipientAgentId || params.target_agent_id || '',
+    organization_id: params.organization_id || params.organizationId || '',
+    project_id: params.project_id || params.projectId || ''
   };
 
   const message = Exosome.create(payload);
