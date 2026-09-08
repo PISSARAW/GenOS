@@ -10,6 +10,21 @@ use std::time::{Duration, Instant};
 
 const DEFAULT_TOOL_TIMEOUT_MS: u64 = 120_000;
 const MAX_OUTPUT_BYTES: usize = 1024 * 1024;
+const PATH_ARGUMENTS: &[&str] = &["agent", "out", "output", "history_file", "input_file", "manifest", "graph_file"];
+
+fn validate_path_arguments(args: &Value) -> Result<(), String> {
+    let Some(object) = args.as_object() else { return Err("Tool arguments must be a JSON object.".into()); };
+    for key in PATH_ARGUMENTS {
+        let Some(value) = object.get(*key).and_then(Value::as_str) else { continue; };
+        let path = std::path::Path::new(value);
+        let has_parent_segment = value.split(['/', '\\']).any(|segment| segment == "..");
+        let is_absolute = path.is_absolute() || value.starts_with('/') || value.starts_with('\\') || value.as_bytes().get(1) == Some(&b':');
+        if value.is_empty() || value.contains('\0') || is_absolute || has_parent_segment {
+            return Err(format!("{key} must be a safe workspace-relative path."));
+        }
+    }
+    Ok(())
+}
 
 fn tool_timeout_ms() -> u64 {
     env::var("GENOS_MCP_TOOL_TIMEOUT_MS")
@@ -88,7 +103,8 @@ fn execute_command(mut command: Command) -> Result<(i32, String), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{read_bounded, MAX_OUTPUT_BYTES};
+    use super::{read_bounded, validate_path_arguments, MAX_OUTPUT_BYTES};
+    use serde_json::json;
     use std::io::Cursor;
 
     #[test]
@@ -97,6 +113,14 @@ mod tests {
         let output = read_bounded(Cursor::new(input));
         assert_eq!(output.len(), MAX_OUTPUT_BYTES);
         assert!(output.iter().all(|byte| *byte == b'x'));
+    }
+
+    #[test]
+    fn path_arguments_reject_traversal_and_absolute_paths() {
+        assert!(validate_path_arguments(&json!({ "out": "../../outside.json" })).is_err());
+        assert!(validate_path_arguments(&json!({ "agent": "/etc/passwd" })).is_err());
+        assert!(validate_path_arguments(&json!({ "output": "C:/outside.log" })).is_err());
+        assert!(validate_path_arguments(&json!({ "out": "reports/result.json" })).is_ok());
     }
 }
 
@@ -361,6 +385,16 @@ fn process_request(line: &str, workspace: &Path) -> Option<Value> {
             let name = params.and_then(|p| p.get("name")).and_then(Value::as_str).unwrap_or("");
             let empty_args = json!({});
             let args = params.and_then(|p| p.get("arguments")).unwrap_or(&empty_args);
+            if let Err(error) = validate_path_arguments(args) {
+                return Some(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "content": [{ "type": "text", "text": error }],
+                        "isError": true
+                    }
+                }));
+            }
 
             if !tools::is_tool_allowed(name) {
                 return Some(json!({
