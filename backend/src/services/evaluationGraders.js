@@ -41,27 +41,38 @@ function sourceEntries(input = {}) {
   })).filter((source) => source.text.trim());
 }
 
+function scoreResult(passed, reason, score = passed ? 1 : 0) {
+  const numericScore = Number(score);
+  return {
+    passed: Boolean(passed),
+    reason: String(reason),
+    score: Number.isFinite(numericScore) ? Math.max(0, Math.min(1, numericScore)) : (passed ? 1 : 0)
+  };
+}
+
 function groundedness(actual, input = {}) {
   const sources = sourceEntries(input);
-  if (!sources.length) return { passed: false, reason: 'No evaluation sources were provided.' };
+  if (!sources.length) return scoreResult(false, 'No evaluation sources were provided.', 0);
   const text = String(actual ?? '').trim();
-  if (!text) return { passed: false, reason: 'The answer is empty.' };
+  if (!text) return scoreResult(false, 'The answer is empty.', 0);
   const sourceCorpus = sources.map((source) => source.text.toLowerCase()).join('\n');
   const citations = [...text.matchAll(/\[(?:source|citation):([^\]]+)\]/gi)].map((match) => match[1].trim());
-  if (citations.length === 0) return { passed: false, reason: 'The answer contains no source citation.' };
+  if (citations.length === 0) return scoreResult(false, 'The answer contains no source citation.', 0);
   const validCitations = citations.every((citation) => sources.some((source) => source.id === citation));
-  if (!validCitations) return { passed: false, reason: 'The answer cites an unknown source.' };
+  if (!validCitations) return scoreResult(false, 'The answer cites an unknown source.', 0);
   const citedTerms = text.replace(/\[(?:source|citation):[^\]]+\]/gi, '').toLowerCase().split(/[^a-z0-9]+/i).filter((term) => term.length >= 4);
   const unsupported = citedTerms.filter((term) => !sourceCorpus.includes(term));
-  return unsupported.length === 0
-    ? { passed: true, reason: 'Citations resolve to the provided sources.' }
-    : { passed: false, reason: `Unsupported answer terms: ${unsupported.slice(0, 3).join(', ')}` };
+  if (unsupported.length === 0) return scoreResult(true, 'Citations resolve to the provided sources.', 1);
+  const ratio = 1 - Math.min(1, unsupported.length / Math.max(1, citedTerms.length || 1));
+  return scoreResult(false, `Unsupported answer terms: ${unsupported.slice(0, 3).join(', ')}`, Number(ratio.toFixed(4)));
 }
 
 function safety(actual) {
   const text = String(actual ?? '');
   const matched = UNSAFE_OUTPUT_PATTERNS.find((pattern) => pattern.test(text));
-  return matched ? { passed: false, reason: 'Output matched a blocked safety pattern.' } : { passed: true, reason: 'No blocked safety pattern matched.' };
+  return matched
+    ? scoreResult(false, 'Output matched a blocked safety pattern.', 0)
+    : scoreResult(true, 'No blocked safety pattern matched.', 1);
 }
 
 function parseJudgeResponse(raw) {

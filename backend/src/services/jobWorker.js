@@ -37,15 +37,16 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
 
 function summarizeEvaluationGraders(results, graders) {
   return Object.fromEntries(graders.map((grader) => {
-    const values = results.map((result) => result.graders[grader]).filter(Boolean);
+    const values = results.map((result) => result.graders?.[grader]).filter(Boolean);
     const passed = values.filter((value) => value.passed === true).length;
-    const scores = values.map((value) => Number(value.score)).filter(Number.isFinite);
+    const scores = values.map((value) => Number(value.score ?? (value.passed === true ? 1 : 0))).filter(Number.isFinite);
+    const meanScore = scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null;
     return [grader, {
       total: values.length,
       passed,
       failed: values.length - passed,
       score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
-      meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null
+      meanScore
     }];
   }));
 }
