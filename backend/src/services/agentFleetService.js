@@ -209,6 +209,7 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
   }
   const parent = await db.get(
         `SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode, a.current_task,
+          a.cognitive_budget, a.cognitive_baseline_budget,
           w.path AS workspace_path, w.organization_id, w.project_id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?`,
     orchestrator.id
   );
@@ -219,6 +220,11 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     throw Object.assign(new Error('Initial worker allocation does not match dispatch assignments.'), { code: 'INVALID_WORKER_ALLOCATION' });
   }
   const perWorkerTokens = Math.max(1, initialRound?.perWorkerTokens || Math.floor(((plan.tokenPolicy?.total || 10000) * (plan.tokenPolicy?.workerShare || 0.6)) / assignments.length));
+  const perWorkerCognitiveBudget = calculateInheritedCognitiveBudget(
+    parent.cognitive_budget,
+    plan.tokenPolicy?.workerShare,
+    assignments.length
+  );
   const splitBudget = (value, index) => {
     const total = Number(value);
     if (!Number.isFinite(total) || total <= 0) return undefined;
@@ -246,7 +252,10 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     const evolution = agentEvolution.evolveWorkerGenome(parent, assignment, {
       strategy: plan.strategyContract?.primary || 'tree-search'
     });
-    const initialConscience = agentConscience.createConscienceState();
+    const initialConscience = agentConscience.createConscienceState({
+      currentBudget: perWorkerCognitiveBudget,
+      baselineBudget: perWorkerCognitiveBudget
+    });
     const localRoute = await localWorkerRoute(db, parent.id, assignment.role, assignment.modelTier || parent.model_tier, { organizationId: parent.organization_id, projectId: parent.project_id });
     const prompt = [
       identity.introduction,
@@ -286,6 +295,18 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
       `${identity.introduction} Budget round: initial; allocation: ${assignedTokens} tokens.`, prompt,
       initialConscience.dissonanceLevel, initialConscience.eurekaMoments, initialConscience.currentBudget, initialConscience.isApoptotic ? 1 : 0
     );
+    const debit = await db.run(
+      `UPDATE agents
+       SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 0) - ?), updated_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND cognitive_budget >= ?`,
+      perWorkerCognitiveBudget,
+      parent.id,
+      perWorkerCognitiveBudget
+    );
+    if (debit.changes !== 1) {
+      await db.run('DELETE FROM agents WHERE id = ?', id).catch(() => {});
+      throw Object.assign(new Error(`Unable to debit inherited cognitive budget from orchestrator '${parent.id}'.`), { code: 'BUDGET_INHERITANCE_FAILURE' });
+    }
     workers.push({
       agentId: id, label: assignment.label || id, name, nameMeaning, introduction: identity.introduction, role: assignment.role, prompt,
       branchAssignment: `${assignment.label}: ${assignment.hypothesis}`,
@@ -306,6 +327,15 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     });
   }
   return workers;
+}
+
+function calculateInheritedCognitiveBudget(parentBudget, workerShare, workerCount) {
+  const normalizedParentBudget = Math.max(0, Number(parentBudget ?? 100));
+  const normalizedWorkerShare = Number.isFinite(Number(workerShare))
+    ? Math.max(0, Math.min(1, Number(workerShare)))
+    : 0.6;
+  const normalizedWorkerCount = Math.max(1, Math.floor(Number(workerCount) || 1));
+  return (normalizedParentBudget * normalizedWorkerShare) / normalizedWorkerCount;
 }
 
 async function executeWorkerPipeline({ db, orchestratorId, workers, contract, barrier, timeoutMs }) {
@@ -442,4 +472,4 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
   }
 }
 
-module.exports = { waitForAutonomousWorkerQuiescence, runLocalWorker, createAutonomousWorkers, executeWorkerPipeline, runEvidenceBarrier };
+module.exports = { waitForAutonomousWorkerQuiescence, runLocalWorker, createAutonomousWorkers, calculateInheritedCognitiveBudget, executeWorkerPipeline, runEvidenceBarrier };
