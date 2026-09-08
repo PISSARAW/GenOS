@@ -12,10 +12,14 @@ const telemetry = require('./src/services/telemetryObserver');
 const jobWorker = require('./src/services/jobWorker');
 const { enableGriotAutostart } = require('./src/services/griotAutostart');
 const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
+const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
 
 const PORT = process.env.PORT || 4000;
+    await workspaceSnapshotStore.reconcileSnapshotArtifacts(db).catch((error) => {
+      console.warn('[GenOS Snapshots] Startup artifact reconciliation failed:', error.message);
+    });
 
 async function startServer() {
   if (cluster.isPrimary) {
