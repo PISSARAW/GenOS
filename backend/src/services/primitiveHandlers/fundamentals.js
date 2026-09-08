@@ -73,7 +73,7 @@ async function fork(context) {
   }
   try {
     const db = await getDatabase();
-    const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
+    const parent = await db.get(`SELECT a.id, a.name, a.name_meaning, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
       a.language, a.isolation_mode, a.current_task, w.path AS workspace_root
       FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
     if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found or has no workspace.` };
@@ -82,8 +82,8 @@ async function fork(context) {
     if (!reproductionGuard.allowed) return { success: false, ...reproductionGuard };
     const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     await db.run(
-      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'fork', ?)",
-      id, 'Forked Worker of ' + context.orchestratorId, parent.agent_type || 'GenOS', parent.workspace_id, parent.fleet_id,
+      "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'fork', ?)",
+      id, 'Forked Worker of ' + context.orchestratorId, parent.name_meaning || `Fork identity of ${parent.name || context.orchestratorId}`, parent.agent_type || 'GenOS', parent.workspace_id, parent.fleet_id,
       parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', context.orchestratorId,
       context.mission || 'strategy_fork'
     );

@@ -153,10 +153,10 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ?", targetId);
     } else {
       await db.run(
-        `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id,
+        `INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id,
           model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
          VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        targetId, name, role, source.agent_type || 'GenOS', source.workspace_id || null, source.fleet_id || null,
+        targetId, name, source.name_meaning || `Recovery identity of ${source.name || sourceAgentId || targetId}`, role, source.agent_type || 'GenOS', source.workspace_id || null, source.fleet_id || null,
         source.model_tier || mission.modelTier || 'standard', source.language || 'TypeScript', source.isolation_mode || 'Branch',
         orchestratorId, decision.action, `Recovery scope: ${report.mission}`, prompt
       );

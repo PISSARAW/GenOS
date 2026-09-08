@@ -62,7 +62,7 @@ async function mutate(context) {
   if (!agentId) {
     return { success: false, error: 'agentId required for mutation.' };
   }
-  const parent = await db.get('SELECT id, name, role, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
+  const parent = await db.get('SELECT id, name, name_meaning, role, current_task, workspace_id, model_tier FROM agents WHERE id = ?', agentId);
   if (!parent) {
     return { success: false, error: 'Parent agent not found: ' + agentId };
   }
@@ -112,8 +112,8 @@ async function mutate(context) {
   let lineageResult;
   try {
     await db.run(
-      "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
-      mutantId, 'Mutant of ' + agentId, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
+      "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'mutant', 'idle', 'GenOS', 'worker', ?, ?, ?, 'mutation', ?)",
+      mutantId, 'Mutant of ' + agentId, parent.name_meaning || `Descendant identity of ${parent.name || agentId}`, parent.workspace_id, parent.model_tier || 'standard', agentId, mutatedTask
     );
     lineageResult = await agentEvolutionService.recordWorkerLineage(
       db,
@@ -144,8 +144,8 @@ async function breed(context) {
   if (!parentA || !parentB) {
     return { success: false, error: 'parentA and parentB required for breeding.' };
   }
-  const rowA = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
-  const rowB = await db.get('SELECT id, name, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentB);
+  const rowA = await db.get('SELECT id, name, name_meaning, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentA);
+  const rowB = await db.get('SELECT id, name, name_meaning, role, current_task, model_tier, workspace_id FROM agents WHERE id = ?', parentB);
   if (!rowA || !rowB) {
     return { success: false, error: 'One or both parents not found.' };
   }
@@ -226,8 +226,8 @@ async function breed(context) {
 
   const childId = childRecomb.childId || `child_${crypto.randomUUID()}`;
   await db.run(
-    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
-    childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
+    "INSERT INTO agents (id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, model_tier, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, ?, 'offspring', 'idle', 'GenOS', 'worker', ?, ?, ?, 'crossover', ?)",
+    childId, 'Offspring of ' + (rowA.name || parentA) + ' x ' + (rowB.name || parentB), `Combined identity of ${rowA.name || parentA} and ${rowB.name || parentB}`, rowA.workspace_id, rowA.model_tier || 'standard', parentA, crossoverTask
   );
   const lineageResult = await agentEvolutionService.recordWorkerLineage(db, {
     agentId: childId,
