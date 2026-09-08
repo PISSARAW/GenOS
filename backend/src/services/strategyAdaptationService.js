@@ -44,9 +44,9 @@ async function useFallbackStrategyIfPrimaryFailed(db, orchestratorId) {
   const fallback = currentContract.contract.selected_strategy?.fallback;
   if (!fallback) return null;
   const activeRun = await strategyExecution.getLatestRun(db, orchestratorId);
-  const hasFailed = activeRun && activeRun.status === 'cancelled'
-    && activeRun.guardrailReason
-    && activeRun.guardrailReason.includes('Primary strategy failed or produced insufficient evidence');
+  const hasFailed = activeRun && ['cancelled', 'failed', 'blocked'].includes(activeRun.status)
+    && (activeRun.status !== 'cancelled'
+      || (activeRun.guardrailReason && activeRun.guardrailReason.includes('Primary strategy failed or produced insufficient evidence')));
   if (!hasFailed) return null;
   return changeStrategy(db, {
     orchestratorId,

@@ -293,7 +293,15 @@ async function recordExecutionEvent(db, agentId, event) {
     status, JSON.stringify(metrics), guardrailReason, now,
     ['awaiting_approval', 'completed', 'failed', 'blocked'].includes(status) ? now : null, row.id
   );
-  return { run: await getRun(db, row.id), halt: Boolean(guardrailReason), reason: guardrailReason };
+  let fallback = null;
+  if (failed || guardrailReason) {
+    try {
+      fallback = await require('./strategyAdaptationService').useFallbackStrategyIfPrimaryFailed(db, agentId);
+    } catch (error) {
+      fallback = { changed: false, error: error.message };
+    }
+  }
+  return { run: await getRun(db, row.id), halt: Boolean(guardrailReason), reason: guardrailReason, fallback };
 }
 
 async function approveRun(db, id, options = {}) {
