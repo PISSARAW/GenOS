@@ -21,23 +21,31 @@ function tenantBridgeRoot(req) {
   return path.join(root, 'tenants', safe(scope.organizationId), safe(scope.projectId));
 }
 
-function sendResult(res, operation, run, { validated } = {}) {
-  if (run.code === 'BIN_NOT_FOUND' || run.code === 'SPAWN_FAILED' || run.code === 'TIMEOUT') {
-    return res.status(503).json({ error: { code: run.code, message: run.error }, operation });
-  }
+function isUnavailable(run) {
+  return ['BIN_NOT_FOUND', 'SPAWN_FAILED', 'TIMEOUT'].includes(run.code);
+}
 
-  const payload = {
+function resultPayload(operation, run) {
+  return {
     operation,
     exitCode: run.exitCode,
     result: run.json !== null ? run.json : run.stdout.trim(),
     stderr: run.stderr.trim() || undefined
   };
+}
 
+function addSpecValidation(payload, validated, run) {
   if (validated && run.json && typeof run.json === 'object' && !Array.isArray(run.json)) {
     payload.specValidation = validateSpec(validated, run.json);
   }
+}
 
-  if (run.ok === false || (Number.isInteger(run.exitCode) && run.exitCode !== 0)) {
+function sendResult({ res, operation, run, validated } = {}) {
+  if (isUnavailable(run)) return res.status(503).json({ error: { code: run.code, message: run.error }, operation });
+  const payload = resultPayload(operation, run);
+  addSpecValidation(payload, validated, run);
+
+  if (!run.ok || (Number.isInteger(run.exitCode) && run.exitCode !== 0)) {
     return res.status(502).json({ error: { code: 'CLI_COMMAND_FAILED', message: run.stderr?.trim() || `CLI exited with code ${run.exitCode}.` }, ...payload });
   }
   res.json(payload);
@@ -74,7 +82,7 @@ async function createSnapshot(req, res) {
     'agent', 'create', '--name', name, '--role', role, '--out', agentFile
   ], { root });
   if (!createAgent.ok) {
-    return sendResult(res, 'agent_create', createAgent);
+    return sendResult({ res, operation: 'agent_create', run: createAgent });
   }
 
   const snapshot = await cli.runGenos([
@@ -96,7 +104,7 @@ async function createSnapshot(req, res) {
     } catch {}
   }
 
-  return sendResult(res, 'snapshot_create', snapshot);
+  return sendResult({ res, operation: 'snapshot_create', run: snapshot });
 }
 
 function listSnapshotsDir(req) {
@@ -117,52 +125,55 @@ async function listSnapshots(req, res) {
 
 const HALLUCINATION_OPS = ['detect', 'analyze', 'extract'];
 
+function isSnapshotReferenceValid(reference, root) {
+  const resolved = cli.resolveInRoot(reference, root);
+  return Boolean(reference && resolved && fs.existsSync(resolved));
+}
+
 async function runHallucination(req, res) {
   const op = req.params.op;
   if (!HALLUCINATION_OPS.includes(op)) {
     return res.status(400).json({ error: { code: 'UNSUPPORTED_OP', message: `op must be one of ${HALLUCINATION_OPS.join(', ')}` } });
   }
   const reference = String(req.body?.snapshot || '');
-  const resolved = cli.resolveInRoot(reference, tenantBridgeRoot(req));
-  if (!reference || !resolved || !fs.existsSync(resolved)) {
+  const root = tenantBridgeRoot(req);
+  if (!isSnapshotReferenceValid(reference, root)) {
     return res.status(400).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `snapshot '${reference}' does not exist in the bridge root` } });
   }
-  const run = await cli.runGenos(['hallucination', op, '--snapshot', reference], { root: tenantBridgeRoot(req) });
-  return sendResult(res, `hallucination_${op}`, run);
+  const run = await cli.runGenos(['hallucination', op, '--snapshot', reference], { root });
+  return sendResult({ res, operation: `hallucination_${op}`, run });
 }
 
 async function simulateHallucination(req, res) {
   const reference = String(req.body?.snapshot || '');
-  const resolved = cli.resolveInRoot(reference, tenantBridgeRoot(req));
-  if (!reference || !resolved || !fs.existsSync(resolved)) {
+  const root = tenantBridgeRoot(req);
+  if (!isSnapshotReferenceValid(reference, root)) {
     return res.status(400).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `snapshot '${reference}' does not exist in the bridge root` } });
   }
   const model = String(req.body?.model || 'studio-simulation').slice(0, 60);
-  const run = await cli.runGenos(['hallucination', 'simulate', '--model', model, '--snapshot', reference], { root: tenantBridgeRoot(req) });
-  return sendResult(res, 'hallucination_simulate', run);
+  const run = await cli.runGenos(['hallucination', 'simulate', '--model', model, '--snapshot', reference], { root });
+  return sendResult({ res, operation: 'hallucination_simulate', run });
 }
 
 async function replayBranch(req, res) {
   const reference = String(req.body?.snapshot || '');
-  const resolved = cli.resolveInRoot(reference, tenantBridgeRoot(req));
-  if (!resolved || !fs.existsSync(resolved)) {
+  const root = tenantBridgeRoot(req);
+  if (!isSnapshotReferenceValid(reference, root)) {
     return res.status(400).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: `snapshot '${reference}' does not exist in the bridge root` } });
   }
-  const run = await cli.runGenos(['replay', 'basic', '--snapshot', reference], { root: tenantBridgeRoot(req) });
-  return sendResult(res, 'replay_basic', run);
+  const run = await cli.runGenos(['replay', 'basic', '--snapshot', reference], { root });
+  return sendResult({ res, operation: 'replay_basic', run });
 }
 
 async function diffSnapshots(req, res) {
   const a = String(req.body?.a || '');
   const b = String(req.body?.b || '');
   const root = tenantBridgeRoot(req);
-  const resolvedA = cli.resolveInRoot(a, root);
-  const resolvedB = cli.resolveInRoot(b, root);
-  if (!a || !b || !resolvedA || !resolvedB || !fs.existsSync(resolvedA) || !fs.existsSync(resolvedB)) {
+  if (!isSnapshotReferenceValid(a, root) || !isSnapshotReferenceValid(b, root)) {
     return res.status(400).json({ error: { code: 'SNAPSHOT_NOT_FOUND', message: 'both a and b must be existing snapshot references in the bridge root' } });
   }
   const run = await cli.runGenos(['diff', a, b], { root });
-  return sendResult(res, 'diff', run);
+  return sendResult({ res, operation: 'diff', run });
 }
 
 module.exports = {
