@@ -52,6 +52,19 @@ async function testHayflickSync() {
   assert.equal(progenyEdges.length, schizoRes.json.progeny_count, 'Every schizogony progeny must have a mother edge');
   console.log('  ✅ PASS: Schizogony lysis synchronized with agents and lineage_nodes tables');
 
+  const fissionMotherId = `cell_fission_${Date.now()}`;
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, is_apoptotic) VALUES (?, 'Fission Mother', 'worker', 'running', 'GenOS', 'worker', ?, 0)",
+    fissionMotherId, wsId
+  );
+  const fissionRes = await genosCli.runCellDivision({ agentId: fissionMotherId, mode: 'binary_fission', mutationRate: 0, seed: 'sync-fission' });
+  assert.ok(fissionRes.ok, `Binary fission CLI failed: ${fissionRes.stderr}`);
+  const fissionNode = await db.get('SELECT node_type FROM lineage_nodes WHERE id = ?', fissionRes.json.daughter_b_id);
+  const fissionEdge = await db.get('SELECT edge_type FROM lineage_edges WHERE source_node_id = ? AND target_node_id = ?', fissionMotherId, fissionRes.json.daughter_b_id);
+  assert.equal(fissionNode.node_type, 'binary_fission');
+  assert.equal(fissionEdge.edge_type, 'binary_fission');
+  console.log('  ✅ PASS: Binary fission descendant and parent edge persisted');
+
   // 2. Test recursive_fork senescence sync
   const orchHayflickId = `orch_senescence_${Date.now()}`;
   await db.run(
