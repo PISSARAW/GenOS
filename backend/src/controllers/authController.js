@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { verifyPassword } = require('./password');
+const telemetry = require('../services/telemetryObserver');
 const verifyAttempts = new Map();
 const VERIFY_WINDOW_MS = 60 * 1000;
 const VERIFY_LIMIT = 20;
@@ -56,6 +57,7 @@ async function verifyToken(req, res) {
     } catch (e) {}
 
     await db.run('UPDATE access_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?', keyRecord.id);
+    telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Access key verified.', payload: { principalId: keyRecord.id, kind: 'access_key' } });
     return res.json({
       valid: true,
       role: keyRecord.role,
@@ -69,6 +71,7 @@ async function verifyToken(req, res) {
     tokenHash
   );
   if (session) {
+      telemetry.emitEvent({ eventType: 'AUTH_TOKEN_VERIFIED', action: 'AUTH', detail: 'Session verified.', payload: { principalId: session.id, kind: 'session' } });
     verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
     return res.json({
       valid: true,
@@ -78,6 +81,7 @@ async function verifyToken(req, res) {
     });
   }
 
+  telemetry.emitEvent({ eventType: 'AUTH_TOKEN_REJECTED', action: 'AUTH', detail: 'Invalid credential rejected.', severity: 'warning', payload: { ip: req.ip || null } });
   return res.status(401).json({
     valid: false,
     error: { code: 'INVALID_TOKEN', message: 'Supplied token or access key is invalid or inactive' }
@@ -132,6 +136,7 @@ async function loginWithPassword(req, res) {
      VALUES (?, ?, ?, ?, datetime('now', '+${SESSION_TTL_HOURS} hours'))`,
     id, hashKey(rawToken), user.role, user.username
   );
+  telemetry.emitEvent({ eventType: 'AUTH_KEY_CREATED', action: 'CREDENTIAL', detail: `Access key ${id} created.`, payload: { principalId: id, role, label } });
   await db.run('UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?', user.id);
 
   return res.json({
@@ -185,6 +190,7 @@ async function revokeKey(req, res, next) {
     const db = await getDatabase();
     const result = await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ? AND is_active = 1', req.params.id);
     if (result.changes !== 1) return res.status(404).json({ error: { code: 'KEY_NOT_FOUND', message: 'Active access key not found.' } });
+    telemetry.emitEvent({ eventType: 'AUTH_KEY_REVOKED', action: 'CREDENTIAL', detail: `Access key ${req.params.id} revoked.`, payload: { principalId: req.params.id } });
     res.json({ success: true, id: req.params.id, revoked: true });
   } catch (error) { next(error); }
 }
@@ -198,6 +204,7 @@ async function rotateKey(req, res, next) {
     const id = `key-${crypto.randomUUID()}`;
     await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ?', req.params.id);
     await db.run('INSERT INTO access_keys (id, key_hash, label, role, permissions, expires_at) VALUES (?, ?, ?, ?, ?, ?)', id, hashKey(rawKey), existing.label, existing.role, existing.permissions, existing.expires_at);
+    telemetry.emitEvent({ eventType: 'AUTH_KEY_ROTATED', action: 'CREDENTIAL', detail: `Access key ${req.params.id} rotated.`, payload: { principalId: id, rotatedFrom: req.params.id } });
     res.status(201).json({ key: { id, label: existing.label, role: existing.role, permissions: JSON.parse(existing.permissions || '[]'), expiresAt: existing.expires_at, rawKey }, rotatedFrom: req.params.id });
   } catch (error) { next(error); }
 }
@@ -207,6 +214,7 @@ async function revokeSession(req, res, next) {
     const db = await getDatabase();
     const result = await db.run('UPDATE sessions SET revoked = 1 WHERE id = ? AND revoked = 0', req.params.id);
     if (result.changes !== 1) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Active session not found.' } });
+    telemetry.emitEvent({ eventType: 'AUTH_SESSION_REVOKED', action: 'CREDENTIAL', detail: `Session ${req.params.id} revoked.`, payload: { principalId: req.params.id } });
     res.json({ success: true, id: req.params.id, revoked: true });
   } catch (error) { next(error); }
 }
