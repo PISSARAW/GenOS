@@ -217,6 +217,24 @@ async function snapshotAgentState(req, res) {
   return res.status(201).json({ success: true, snapshotId, agentId: agent.id, createdAt: new Date().toISOString() });
 }
 
+async function commitAgentState(req, res) {
+  const agentId = String(req.body?.agentId || '').trim();
+  const message = String(req.body?.message || '').trim();
+  const refName = String(req.body?.refName || 'main').trim();
+  if (!agentId || !message) return res.status(400).json({ error: { code: 'AGENT_COMMIT_REQUIRED', message: 'agentId and message are required.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const agent = await db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
+  if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
+  const parent = await db.get('SELECT id FROM agent_state_snapshots WHERE agent_id = ? AND ref_name = ? ORDER BY created_at DESC, id DESC LIMIT 1', agentId, refName);
+  const commitId = `agent-commit-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await db.run(
+    'INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, commit_message, parent_snapshot_id, ref_name, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    commitId, agent.id, agent.workspace_id, JSON.stringify(agent), 'Agent commit', message, parent?.id || null, refName, req.user?.username || 'agent-operation'
+  );
+  return res.status(201).json({ success: true, commitId, parentCommitId: parent?.id || null, agentId, refName, message });
+}
+
 async function restoreAgentState(req, res) {
   const agentId = String(req.body?.agentId || '').trim();
   const snapshotId = String(req.body?.snapshotId || '').trim();
@@ -564,6 +582,7 @@ module.exports = {
   diffAgents,
   mergeAgents,
   snapshotAgentState,
+  commitAgentState,
   restoreAgentState,
   replayAgentState,
   bisectAgentState,
