@@ -43,7 +43,7 @@ module.exports = {
       const rows = await db.all('SELECT * FROM global_alerts WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 50', scope.organizationId, scope.projectId);
       callback(null, { history_json: JSON.stringify(rows), count: rows.length });
     } catch (err) {
-      callback({ code: grpc.status.INTERNAL, message: err.message });
+      callback({ code: err.code || grpc.status.INTERNAL, message: err.message });
     }
   }
 };
