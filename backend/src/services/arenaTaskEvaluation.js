@@ -5,7 +5,6 @@
  */
 
 const { calculateParetoFront, calculateElo } = require('./arenaService');
-const { evidencePresent } = require('./hallucinationMonitoringService');
 
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
@@ -39,13 +38,23 @@ function testResultPassed(test) {
   return /\b(?:ok|passed|pass|successful|success|exit\s+code\s+0)\b/.test(text);
 }
 
+function tangibleEvidence(value) {
+  const items = Array.isArray(value) ? value : [value];
+  return items.filter((item) => item && typeof item === 'object').filter((item) =>
+    typeof item.receiptHash === 'string'
+      && /^[a-f0-9]{64}$/i.test(item.receiptHash)
+      && typeof item.source === 'string'
+      && item.source.trim()
+  );
+}
+
 function dossierToCandidate(dossier, options = {}) {
   const report = extractDossierReport(dossier);
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const uncertainties = Array.isArray(report.uncertainties) ? report.uncertainties : [];
   const tests = Array.isArray(report.tests) ? report.tests : [];
   const noAnswerEvidence = report.outcome === 'no_answer' && report.noAnswerProof && Array.isArray(report.noAnswerProof.evidence)
-    ? report.noAnswerProof.evidence.filter((item) => typeof item === 'string' && item.trim()).length
+    ? tangibleEvidence(report.noAnswerProof.evidence).length
     : 0;
 
   // Compute adversarial pass rate from verified tests
@@ -60,7 +69,7 @@ function dossierToCandidate(dossier, options = {}) {
   // Compute fitness score based on verified claims and penalty on uncertainties
   const suppliedFitness = boundedPercentage(options.fitnessScore ?? dossier.fitnessScore);
   const claimScore = noAnswerEvidence > 0 ? Math.min(40, 20 + noAnswerEvidence * 10) : Math.max(-40, Math.min(40, claims.reduce((acc, c) => {
-    const hasEvidence = evidencePresent(c?.evidence || c?.receipts || c?.sourceRefs);
+    const hasEvidence = tangibleEvidence(c?.evidence || c?.receipts || c?.sourceRefs).length > 0;
     return acc + (hasEvidence ? 15 : -10);
   }, 0)));
   const uncertaintyPenalty = uncertainties.length * 3;
