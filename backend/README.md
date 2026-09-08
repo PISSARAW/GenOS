@@ -35,7 +35,7 @@ The GenOS backend is the core control plane and runtime engine for GenOS V3. It 
 |                                                        |                                                          |
 |  +-------------------------------------------------------------------------------------------------------------+  |
 |  |                                         SQLite High-Performance WAL Engine                                  |  |
-|  |       - 67+ Normalized Tables  - sqlite-vec 768-D Indexing  - FTS5 BM25 Hybrid Search Triggers - mmap 30GB  |  |
+|  |       - 67+ Normalized Tables  - sqlite-vec 768-D Indexing  - FTS5 BM25 Hybrid Search Triggers - bounded mmap (256 MiB default, 1 GiB max)  |  |
 |  +-------------------------------------------------------------------------------------------------------------+  |
 +-------------------------------------------------------------------------------------------------------------------+
 ```
