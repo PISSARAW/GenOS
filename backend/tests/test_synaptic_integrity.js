@@ -138,8 +138,8 @@ async function runSynapticIntegritySuite() {
   const ltpTgt = `dec-ltp-t-${Date.now()}`;
   const ltdSrc = `dec-ltd-s-${Date.now()}`;
   const ltdTgt = `dec-ltd-t-${Date.now()}`;
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltpSrc, 'LTP S', 'LTP test', testAgent, 1.0);
-  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltpTgt, 'LTP T', 'LTP test', testAgent, 1.0);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpSrc, 'LTP S', 'LTP test', testAgent, 1.0, testOrg, testProj);
+  await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', ltpTgt, 'LTP T', 'LTP test', testAgent, 1.0, testOrg, testProj);
   await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdSrc, 'LTD S', 'LTD test', testAgent, 1.0);
   await db.run('INSERT INTO genome_decisions (id, title, content, created_by, synaptic_weight) VALUES (?, ?, ?, ?, ?)', ltdTgt, 'LTD T', 'LTD test', testAgent, 1.0);
 
