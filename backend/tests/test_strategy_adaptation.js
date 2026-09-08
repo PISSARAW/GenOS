@@ -4,6 +4,7 @@ const path = require('path');
 const contracts = require('../src/services/strategyContractService');
 const execution = require('../src/services/strategyExecutionService');
 const adaptation = require('../src/services/strategyAdaptationService');
+const { listStrategies } = require('../src/strategies/strategyRegistry');
 const { getDatabase, closeDatabase } = require('../src/db');
 
 async function run() {
@@ -13,7 +14,7 @@ async function run() {
     reason: 'The implementation is complete but production evidence shows an intermittent outage.'
   });
   assert.equal(transition.changed, true);
-  assert.equal(transition.registryEvaluated, 78);
+  assert.equal(transition.registryEvaluated, listStrategies().length);
   assert.equal(transition.candidate.strategy_registry.selection_complete, true);
   assert.notEqual(transition.candidate.selected_strategy.primary, current.selected_strategy.primary);
 
@@ -41,10 +42,11 @@ async function run() {
     const changed = await adaptation.changeStrategy(db, {
       orchestratorId: 'adaptive-root',
       need: 'Diagnose an intermittent production outage with unknown cause.',
-      reason: 'Repeated runtime failures invalidate the implementation profile.'
+      reason: 'Repeated runtime failures invalidate the implementation profile.',
+      allowEvidenceReset: true
     });
     assert.equal(changed.changed, true);
-    assert.equal(changed.registryEvaluated, 78);
+    assert.equal(changed.registryEvaluated, listStrategies().length);
     assert.equal(changed.current.version, 2);
     assert.notEqual(changed.current.primary, changed.previous.primary);
     assert.equal((await execution.getRun(db, firstRun.id)).status, 'cancelled');
