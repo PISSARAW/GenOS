@@ -7,6 +7,7 @@ const router = express.Router();
 const lineageController = require('../controllers/lineageController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
+const agentGitController = require('../controllers/agentGitController');
 
 router.use(requireTenantScope());
 
@@ -20,6 +21,13 @@ router.post('/agents/branch', requirePermission('workspace:write'), lineageContr
 router.post('/agents/checkout', requirePermission('workspace:write'), lineageController.checkoutAgentState);
 router.post('/agents/reset', requirePermission('workspace:write'), lineageController.checkoutAgentState);
 router.post('/agents/cherry-pick', requirePermission('workspace:write'), lineageController.cherryPickAgentState);
+router.post('/agents/git/commit', requirePermission('workspace:write'), agentGitController.commit);
+router.post('/agents/git/push', requirePermission('workspace:write'), agentGitController.push);
+router.post('/agents/git/fetch', requirePermission('read'), agentGitController.fetch);
+router.post('/agents/git/pull', requirePermission('workspace:write'), agentGitController.pull);
+router.post('/agents/git/stash', requirePermission('workspace:write'), agentGitController.stash);
+router.post('/agents/git/tag', requirePermission('workspace:write'), agentGitController.tag);
+router.post('/agents/git/cherry-pick', requirePermission('workspace:write'), agentGitController.cherryPick);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
