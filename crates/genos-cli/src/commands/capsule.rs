@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 use uuid::Uuid;
 use crate::args::CapsuleSubcommands;
 
@@ -15,6 +14,10 @@ pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), Strin
     let audit_id = format!("audit-{}", Uuid::new_v4().simple());
     let capsule_dir = crate::commands::root_resolver::resolve_matrix_root().join("capsules");
     let capsule_file = capsule_dir.join(format!("{}.json", snapshot_id));
+
+    if !capsule_file.exists() {
+        return Err(format!("Capsule not found for snapshot: {}", snapshot_id));
+    }
 
     let (hash, compliance_score, status) = if capsule_file.exists() {
         if let Ok(content) = fs::read_to_string(&capsule_file) {
@@ -30,9 +33,7 @@ pub fn handle_audit(snapshot_id: &str, output: Option<&str>) -> Result<(), Strin
             ("unreadable".into(), 0.0, "ERROR")
         }
     } else {
-        let mut hasher = Sha256::new();
-        hasher.update(snapshot_id.as_bytes());
-        (format!("{:x}", hasher.finalize()), 1.0, "APPROVED")
+        unreachable!("capsule existence was checked above");
     };
 
     let audit_data = json!({
