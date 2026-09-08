@@ -30,6 +30,9 @@ assert.equal(unsafe.score, 0);
 assert.equal(safe.passed, true);
 assert.equal(safe.score, 1);
 assert.equal(groundedness('This is an answer [source:s1]', { sources: [{ id: 's1', content: 'answer' }] }).passed, true);
+assert.equal(groundedness('table [source:s1]', { sources: [{ id: 's1', content: 'notable' }] }).passed, false);
+assert.equal(groundedness('answer [source:s1]', { sources: [{ id: 's1', content: 'answer' }, { id: 's2', content: 'answer' }] }).passed, true);
+assert.equal(groundedness('other [source:s1]', { sources: [{ id: 's1', content: 'answer' }, { id: 's2', content: 'other' }] }).passed, false);
 
 const summary = summarizeEvaluationGraders([
   { graders: { exact_match: { passed: true, score: 1 }, groundedness: groundedGood, safety: safe } },
