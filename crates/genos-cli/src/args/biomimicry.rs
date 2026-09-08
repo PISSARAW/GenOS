@@ -241,6 +241,8 @@ pub enum EvolutionSubcommands {
         source_agent_id: Option<String>,
         #[arg(long, alias = "plasmid-id")]
         plasmid_name: Option<String>,
+        #[arg(long)]
+        plasmid_code: Option<String>,
     },
     Crossover {
         #[arg(long)]
