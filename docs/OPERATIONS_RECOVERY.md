@@ -44,9 +44,9 @@ For queued jobs, inspect `evaluation_jobs`, `model_jobs`, and their `error_json`
 
 ## 5. Replay and evidence interpretation
 
-`genos replay basic` currently validates snapshot structure and working-memory step count. Trace replay reconstructs recorded spans and exposes a replay hash, but `replayVerified` remains false unless a real deterministic execution proof is produced.
+`genos replay basic` validates the snapshot structure and recomputes the SHA-256 hash chain for every recorded `working_memory` step. It verifies that the recorded causal trace was not altered, but it does not re-execute arbitrary model, filesystem, network, or provider work. Trace replay only reconstructs recorded spans and exposes a replay hash; its `replayVerified` value remains false.
 
-Never use `VALIDATED_ONLY`, `RECONSTRUCTED`, `simulated`, or `unsupported` results as evidence of causal reproduction. Promotion gates must receive structured evidence and an explicit human approval receipt where required.
+Never use `RECONSTRUCTED`, `simulated`, or `unsupported` results as evidence of causal reproduction. A hash-chain `VERIFIED` result proves trace integrity, not correctness of the original work. Promotion gates must receive structured evidence and an explicit human approval receipt where required.
 
 ## 6. Incident record
 
