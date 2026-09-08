@@ -18,5 +18,8 @@ router.post('/login', (req, res, next) => {
 router.post('/login/password', authController.loginWithPassword);
 router.get('/keys', requireRole(['admin']), authController.listKeys);
 router.post('/keys', requireRole(['admin']), authController.createKey);
+router.post('/keys/:id/revoke', requireRole(['admin']), authController.revokeKey);
+router.post('/keys/:id/rotate', requireRole(['admin']), authController.rotateKey);
+router.post('/sessions/:id/revoke', requireRole(['admin']), authController.revokeSession);
 
 module.exports = router;
