@@ -2,6 +2,7 @@ const modelProvider = require('./modelProvider');
 const localModelDiscovery = require('./localModelDiscovery');
 const telemetry = require('./telemetryObserver');
 const crypto = require('crypto');
+const { capabilitiesSatisfy, normalizeCapabilities } = require('./modelCapabilities');
 
 function list(value) {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
@@ -138,7 +139,7 @@ function parseSize(name) {
   return value * multiplier;
 }
 
-async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080 }) {
+async function generate({ db, agentId, organizationId, projectId, model, prompt, timeoutMs, deadlineMs, deadlineAt, maxTokens, maxCostUsd, seed, onToken = () => {}, policy: suppliedPolicy, priority = 'bulk', complexity = 'medium', variantIndex = undefined, stream = true, signal, displayWidth = 1920, displayHeight = 1080, requiredCapabilities = [] }) {
   const timeout = Number.isFinite(Number(timeoutMs)) ? Math.max(1, Number(timeoutMs)) : 30000;
   const deadline = deadlineAt != null
     ? Number(deadlineAt)
@@ -189,8 +190,15 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   const attempt = async (uri) => {
     const normalizedUri = modelProvider.configuredModel(uri);
     const [, provider, modelName] = normalizedUri.match(/^([\w-]+):\/\/(.+)$/);
-    const registered = db ? await db.get('SELECT endpoint, cost_input, cost_output, latency_ms FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', provider, modelName) : null;
+    const registered = db ? await db.get('SELECT endpoint, capabilities_json, cost_input, cost_output, latency_ms FROM provider_configs WHERE provider = ? AND model = ? AND enabled = 1', provider, modelName) : null;
     const configuration = modelProvider.modelConfiguration(normalizedUri, registered?.endpoint);
+    if (requiredCapabilities.length > 0 && registered) {
+      let capabilities = [];
+      try { capabilities = normalizeCapabilities(JSON.parse(registered.capabilities_json || '[]')); } catch (_) {}
+      if (!capabilitiesSatisfy(capabilities, requiredCapabilities)) {
+        throw Object.assign(new Error(`Model '${uri}' does not satisfy required capabilities: ${requiredCapabilities.join(', ')}.`), { code: 'MODEL_CAPABILITY_MISMATCH' });
+      }
+    }
     if (isLocal(uri)) {
       const discovered = await localModelDiscovery.discoverLocalModels();
       if (!registered?.endpoint && discovered.length && !discovered.some((candidate) => candidate.uri === uri && candidate.chatCapable)) {
