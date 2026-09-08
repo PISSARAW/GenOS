@@ -224,7 +224,7 @@ async function stdpUpdate(context) {
       severity: 'info',
       payload: { agentId: context.agentId }
     });
-    return { success: true, skipped: true, reason: 'Distinct sourceId and targetId required for STDP.' };
+    return { success: false, skipped: true, status: 'skipped', reason: 'Distinct sourceId and targetId required for STDP.' };
   }
 
   if (!Number.isFinite(preSpikeAt) || !Number.isFinite(postSpikeAt) || preSpikeAt === postSpikeAt) {
