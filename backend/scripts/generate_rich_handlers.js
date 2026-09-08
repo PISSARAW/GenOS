@@ -401,10 +401,12 @@ module.exports = {
       callback(null, {
         success: true,
         content_json: JSON.stringify(res),
-        error: ''
+        error: '',
+        error_code: '',
+        status: 'completed'
       });
     } catch (err) {
-      callback(null, { success: false, content_json: '{}', error: err.message });
+      callback(null, { success: false, content_json: '{}', error: err.message, error_code: err.code || 'MCP_TOOL_ERROR', status: err.status || 'failed' });
     }
   }
 };
