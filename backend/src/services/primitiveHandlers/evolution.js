@@ -6,6 +6,7 @@ const { getDatabase } = require('../../db');
 const geneticsService = require('../geneticsService');
 const agentEvolutionService = require('../agentEvolutionService');
 const genosCli = require('../genosCli');
+const { enforceReproductionLimits } = require('./fundamentals');
 const crypto = require('crypto');
 
 const MUTABLE_GENES = new Set(['role', 'strategy', 'tools', 'temp', 'topP']);
@@ -444,6 +445,8 @@ async function plasmidDivergence(context) {
     agentId
   );
   if (!parent) return { success: false, error: `Parent agent not found: ${agentId}` };
+  const reproductionGuard = await enforceReproductionLimits(db, agentId, context);
+  if (!reproductionGuard.allowed) return { success: false, ...reproductionGuard };
   const workspaceId = parent?.workspace_id || context.workspaceId || null;
   const modelTier = parent?.model_tier || context.modelTier || 'standard';
   const baseTask = context.task || parent?.current_task || 'Plasmid-guided execution';
