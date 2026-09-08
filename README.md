@@ -74,6 +74,7 @@ Les agents ne sont pas exécutés “à l’aveugle” ; ils passent par des pla
 Le dépôt met en place une logique de workspace isolation, de fork, de diff, de bisection et de restore. Voir :
 
 - [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
+- [docs/GIT_AGENTS.md](docs/GIT_AGENTS.md) — transposition de Git aux états d’agents et séparation avec les worktrees de fichiers.
 - [docs/REPRODUCTION_REPLICATION.md](docs/REPRODUCTION_REPLICATION.md)
 
 ### 5. Sécurité, identité, confiance et preuves
@@ -156,6 +157,7 @@ Voir la carte documentaire complète dans [docs/README.md](docs/README.md).
 
 #### Orchestration, jobs et workspaces
 - [docs/ORCHESTRATION.md](docs/ORCHESTRATION.md)
+- [docs/GIT_AGENTS.md](docs/GIT_AGENTS.md)
 - [docs/PRIMITIVES_EXECUTABLES.md](docs/PRIMITIVES_EXECUTABLES.md)
 - [docs/WORKFLOWS_JOBS.md](docs/WORKFLOWS_JOBS.md)
 - [docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md](docs/WORKSPACES_ETAT_CONTRE_FACTUEL.md)
@@ -191,6 +193,7 @@ GenOS/
 │   ├── DEPLOIEMENT_EXPLOITATION.md
 │   ├── EPISTEMOLOGIE_EVIDENCE.md
 │   ├── EVALUATION_QUALITE.md
+│   ├── GIT_AGENTS.md
 │   ├── GENOME_EPIGENETIQUE.md
 │   ├── gestion-projet-multi-tenant.md
 │   ├── IDENTITY_AUTHORITY.md
