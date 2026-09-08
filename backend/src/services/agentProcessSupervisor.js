@@ -19,7 +19,7 @@ const workerGarage = require('./workerGarageService');
 const {
   activeProcesses, activeWorkerBarriers, workerEvidenceRounds, emit, updateAgent
 } = require('./agentOrchestrationState');
-const { recordWorkerEvidence, validateDossierInfluence, extractEvidenceReport } = require('./agentEvidenceService');
+const { recordWorkerEvidence, validateDossierInfluence, extractEvidenceReport, hasDecisionEvidence, decisionEvidenceFailure } = require('./agentEvidenceService');
 const { advanceAutonomousRound, dispatchPendingContinuation } = require('./agentRoundService');
 const { queueWorkerRecovery, dispatchWorkerRecovery, applyOrganizationDecision } = require('./agentRecoveryService');
 const workspaceLifecycle = require('./agentWorkspaceLifecycleService');
@@ -187,7 +187,12 @@ async function superviseMission(options) {
         workerId: agentId, proof: report.noAnswerProof
       }, 'info');
     }
-    const decision = workerFailure ? null : decideFromEvent(event);
+    const decision = workerFailure || !hasDecisionEvidence(event) ? null : decideFromEvent(event);
+    if (!workerFailure && !hasDecisionEvidence(event)) {
+      emit(normalizedMission.orchestratorAgentId || agentId, 'ORCHESTRATION_DECISION_BLOCKED', 'EVIDENCE_GATE', decisionEvidenceFailure(event), {
+        sourceAgentId: agentId, sourceEvent: eventType
+      }, 'warning', 'blocked');
+    }
     if (decision) {
       db.get('SELECT parent_agent_id FROM agents WHERE id = ?', agentId).then((agent) => {
         const ownerId = agent?.parent_agent_id || agentId;

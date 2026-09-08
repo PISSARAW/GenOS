@@ -165,6 +165,24 @@ function extractEvidenceReport(value) {
   return value;
 }
 
+function hasDecisionEvidence(event = {}) {
+  const payload = event.payload || {};
+  const report = extractEvidenceReport(payload);
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
+  const substantiatedClaim = claims.some((claim) => Array.isArray(claim?.evidence) && claim.evidence.some((item) => {
+    return (typeof item === 'string' && item.trim()) || (item && typeof item === 'object' && Object.keys(item).length > 0);
+  }));
+  const noAnswerProof = report?.outcome === 'no_answer' && Array.isArray(report.noAnswerProof?.evidence)
+    && report.noAnswerProof.evidence.some((item) => typeof item === 'string' && item.trim());
+  const failureEvidence = Boolean(payload.failure || payload.noAnswerProof)
+    || ['AGENT_FAILED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'AGENT_HALTED'].includes(event.eventType);
+  return substantiatedClaim || noAnswerProof || failureEvidence;
+}
+
+function decisionEvidenceFailure(event = {}) {
+  return `Collective decision blocked: agent event '${event.eventType || 'unknown'}' contains no substantiated evidence.`;
+}
+
 function boundedScore(value) {
   const number = Number(value);
   return Number.isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -213,6 +231,8 @@ function evidenceScore(payload = {}, context = {}) {
 module.exports = {
   MAX_WORKER_DOSSIER_EVENTS,
   extractEvidenceReport,
+  hasDecisionEvidence,
+  decisionEvidenceFailure,
   validateWorkerDossierCoherence,
   recordWorkerEvidence,
   workerEvidenceDossiers,
