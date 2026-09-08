@@ -39,6 +39,10 @@ function registerAllServices(grpcServer, protoDescriptor) {
     if (fs.existsSync(handlerPath)) {
       try {
         const handler = require(handlerPath);
+        const missingMethods = Object.keys(serviceDef).filter((methodName) => typeof handler[methodName] !== 'function');
+        if (missingMethods.length) {
+          throw new Error(`handler is missing RPC methods: ${missingMethods.join(', ')}`);
+        }
         grpcServer.addService(serviceDef, guardService(handler));
         registeredServices.add(serviceDef);
       } catch (err) {
