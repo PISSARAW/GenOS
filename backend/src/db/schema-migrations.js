@@ -138,6 +138,21 @@ async function applyVersionedMigrations(db) {
   if (!agentSnapshotColumns.has('commit_message')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN commit_message TEXT');
   if (!agentSnapshotColumns.has('parent_snapshot_id')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN parent_snapshot_id TEXT');
   if (!agentSnapshotColumns.has('ref_name')) await db.exec("ALTER TABLE agent_state_snapshots ADD COLUMN ref_name TEXT DEFAULT 'main'");
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_objects (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    workspace_id TEXT,
+    object_kind TEXT NOT NULL CHECK (object_kind IN ('commit', 'stash', 'tag', 'remote')),
+    ref_name TEXT,
+    remote_name TEXT,
+    state_hash TEXT NOT NULL,
+    state_json TEXT NOT NULL,
+    metadata_json TEXT DEFAULT '{}',
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_git_objects_agent ON agent_git_objects(agent_id, object_kind, created_at);
+  CREATE INDEX IF NOT EXISTS idx_agent_git_objects_remote ON agent_git_objects(remote_name, state_hash);`);
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
