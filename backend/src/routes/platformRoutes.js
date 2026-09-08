@@ -24,7 +24,7 @@ router.get('/platform/model-routing/policies', requirePermission('read'), c.rout
 router.put('/platform/model-routing/policies/:agentId', requirePermission('security:manage'), requireTenantScope({ write: true }), c.saveRoutingPolicy);
 router.get('/platform/causal-graph', requirePermission('read'), requirePlatformTenant, c.graph);
 router.get('/platform/telemetry/summary', requirePermission('telemetry:read'), requirePlatformTenant, c.telemetrySummary);
-router.get('/platform/audit', requirePermission('security:manage'), c.audit);
+router.get('/platform/audit', requirePermission('security:manage'), requirePlatformTenant, c.audit);
 router.get('/platform/permissions', requirePermission('security:manage'), c.permissions);
 router.post('/platform/permissions', requirePermission('security:manage'), c.permissions);
 router.post('/platform/tool-calls/validate', requirePermission('mcp:execute_safe'), c.validateTool);
