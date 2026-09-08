@@ -327,6 +327,8 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
     await db.exec('COMMIT;');
   } catch (error) {
     try { await db.exec('ROLLBACK;'); } catch (_) {}
+    const reference = await db.get('SELECT 1 FROM workspace_snapshots WHERE snapshot_hash = ? LIMIT 1', hash).catch(() => null);
+    if (!reference) await fsp.rm(path.join(root, hash), { recursive: true, force: true }).catch(() => {});
     throw error;
   }
   const step = inserted.step_number;
