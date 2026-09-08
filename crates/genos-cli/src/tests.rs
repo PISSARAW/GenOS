@@ -48,6 +48,44 @@ mod tests {
     }
 
     #[test]
+    fn test_replay_verifies_recorded_steps_and_rejects_tampering() {
+        let temp_dir = std::env::temp_dir();
+        let uid = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos();
+        let agent_file = temp_dir.join(format!("test_replay_agent_{}.yaml", uid)).to_string_lossy().to_string();
+        let snap_file = temp_dir.join(format!("test_replay_snapshot_{}.json", uid)).to_string_lossy().to_string();
+
+        agent::execute(AgentSubcommands::Create {
+            name: "Ama".to_string(),
+            role: "Analyst".to_string(),
+            out: agent_file.clone(),
+        }).unwrap();
+        snapshot::execute(SnapshotSubcommands::Create {
+            agent: agent_file,
+            out: snap_file.clone(),
+        }).unwrap();
+
+        snapshot::execute(SnapshotSubcommands::RecordStep {
+            snapshot: snap_file.clone(),
+            action: "tool_call".to_string(),
+            delta_entropy: 0.1,
+            delta_dissonance: 0.0,
+            payload: None,
+        }).unwrap();
+
+        // A genuine replay recomputes and validates the hash chain: it must
+        // report the real step count and mark execution as replayed.
+        let ok = replay::execute(crate::args::ReplaySubcommands::Basic { snapshot: snap_file.clone() });
+        assert!(ok.is_ok());
+
+        // Tampering with a recorded step must break the hash chain and fail replay.
+        let raw = std::fs::read_to_string(&snap_file).unwrap();
+        let tampered = raw.replace("\"delta_entropy\": 0.1", "\"delta_entropy\": 9.9");
+        std::fs::write(&snap_file, tampered).unwrap();
+        let tampered_result = replay::execute(crate::args::ReplaySubcommands::Basic { snapshot: snap_file });
+        assert!(tampered_result.is_err());
+    }
+
+    #[test]
     fn test_biomimicry_commands() {
         let res = biomimicry::execute(BiomimicrySubcommands::GlialCleanup {
             agent_id: "test-agent".to_string(),

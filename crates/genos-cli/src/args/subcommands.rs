@@ -63,6 +63,18 @@ pub enum SnapshotSubcommands {
         file: String,
     },
     List,
+    RecordStep {
+        #[arg(long)]
+        snapshot: String,
+        #[arg(long)]
+        action: String,
+        #[arg(long, default_value_t = 0.0)]
+        delta_entropy: f64,
+        #[arg(long, default_value_t = 0.0)]
+        delta_dissonance: f64,
+        #[arg(long)]
+        payload: Option<String>,
+    },
 }
 
 #[derive(Args, Debug)]

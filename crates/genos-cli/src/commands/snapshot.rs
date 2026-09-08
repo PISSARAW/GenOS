@@ -5,12 +5,15 @@ use serde_json::{json, Value};
 use uuid::Uuid;
 use genos_cell::AgentCell;
 use crate::args::SnapshotSubcommands;
+use crate::commands::replay_chain;
 
 pub fn execute(cmd: SnapshotSubcommands) -> Result<(), String> {
     match cmd {
         SnapshotSubcommands::Create { agent, out } => handle_create(&agent, &out),
         SnapshotSubcommands::Validate { file } => handle_validate(&file),
         SnapshotSubcommands::List => handle_list(),
+        SnapshotSubcommands::RecordStep { snapshot, action, delta_entropy, delta_dissonance, payload } =>
+            handle_record_step(&snapshot, &action, delta_entropy, delta_dissonance, payload.as_deref()),
     }
 }
 
@@ -52,19 +55,22 @@ fn handle_create(agent_path: &str, out: &str) -> Result<(), String> {
     let snapshot_id = format!("snap-{}", Uuid::new_v4().simple());
     let branch_id = format!("branch-{}", &snapshot_id[5..13]);
     let created_at = Utc::now().to_rfc3339();
+    let world_id = "world-matrix-0";
+    let genesis_hash = replay_chain::genesis_hash(&snapshot_id, &agent_id, &branch_id, world_id);
 
     let snapshot_payload = json!({
         "snapshot_id": snapshot_id,
         "agent_id": agent_id,
         "branch_id": branch_id,
-        "world_id": "world-matrix-0",
+        "world_id": world_id,
         "created_at": created_at,
         "genome": genome,
         "state": {
             "execution_status": "quiescent",
             "working_memory": [],
             "entropy": 0.42,
-            "dissonance": 0.0
+            "dissonance": 0.0,
+            "genesis_hash": genesis_hash
         }
     });
 
@@ -168,6 +174,67 @@ fn load_or_create_genome(agent_path: &str) -> (String, Value) {
     let id = cell.cell_id.to_string();
     let val = serde_json::to_value(&cell).unwrap_or(json!({ "name": "Griot" }));
     (id, normalize_to_agent_genome(val))
+}
+
+fn handle_record_step(snapshot: &str, action: &str, delta_entropy: f64, delta_dissonance: f64, payload_raw: Option<&str>) -> Result<(), String> {
+    let path = Path::new(snapshot);
+    let content = fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read snapshot file '{}': {}", snapshot, e))?;
+    let mut value: Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Invalid JSON format in '{}': {}", snapshot, e))?;
+
+    let snapshot_id = value.get("snapshot_id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let agent_id = value.get("agent_id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let branch_id = value.get("branch_id").and_then(Value::as_str).unwrap_or_default().to_string();
+    let world_id = value.get("world_id").and_then(Value::as_str).unwrap_or_default().to_string();
+
+    let payload: Value = match payload_raw {
+        Some(raw) => serde_json::from_str(raw).map_err(|e| format!("Invalid --payload JSON: {}", e))?,
+        None => json!({}),
+    };
+
+    let state = value.get_mut("state").ok_or_else(|| "Snapshot is missing required field 'state'".to_string())?;
+    let working_memory = state.get_mut("working_memory")
+        .and_then(Value::as_array_mut)
+        .ok_or_else(|| "Snapshot state.working_memory must be an array".to_string())?;
+
+    let genesis = replay_chain::genesis_hash(&snapshot_id, &agent_id, &branch_id, &world_id);
+    let prev_hash = working_memory.last()
+        .and_then(|last| last.get("step_hash"))
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .unwrap_or(genesis);
+    let step_index = working_memory.len() as u64 + 1;
+    let step_hash = replay_chain::step_hash(&prev_hash, step_index, action, delta_entropy, delta_dissonance, &payload);
+
+    working_memory.push(json!({
+        "step": step_index,
+        "action": action,
+        "delta_entropy": delta_entropy,
+        "delta_dissonance": delta_dissonance,
+        "payload": payload,
+        "prev_hash": prev_hash,
+        "step_hash": step_hash
+    }));
+
+    let entropy = state.get("entropy").and_then(Value::as_f64).unwrap_or(0.0) + delta_entropy;
+    let dissonance = state.get("dissonance").and_then(Value::as_f64).unwrap_or(0.0) + delta_dissonance;
+    state["entropy"] = json!(entropy);
+    state["dissonance"] = json!(dissonance);
+
+    let json_str = serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?;
+    fs::write(path, json_str).map_err(|e| e.to_string())?;
+
+    println!("{}", serde_json::to_string_pretty(&json!({
+        "success": true,
+        "operation": "snapshot_record_step",
+        "snapshot": snapshot,
+        "step": step_index,
+        "step_hash": step_hash,
+        "entropy": entropy,
+        "dissonance": dissonance
+    })).map_err(|e| e.to_string())?);
+    Ok(())
 }
 
 fn handle_list() -> Result<(), String> {

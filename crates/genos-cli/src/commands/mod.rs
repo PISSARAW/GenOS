@@ -10,6 +10,7 @@ pub mod hallucination;
 pub mod platform;
 pub mod experiments;
 pub mod replay;
+pub mod replay_chain;
 pub mod reproduction;
 pub mod snapshot;
 pub mod store_ops;
