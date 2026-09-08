@@ -90,8 +90,13 @@ impl CellDivision {
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
         }
+        if !genome.can_replicate() {
+            return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
+        }
         let parent = genome.clone();
         let mut child = genome.derive_child();
+        let mut parent = parent;
+        parent.add_bud_scar(child.genome_id())?;
         let mut rng = rng_from_seed(seed);
 
         // Procaryote : allègement des métadonnées lourdes eucaryotes (rétrovirus, chromosomes surnuméraires)
@@ -185,9 +190,13 @@ impl CellDivision {
     /// Mitose attestée : Division symétrique avec vérification du fuseau mitotique
     /// et génération d'une preuve d'attestation cryptographique éliminant l'amitose.
     pub fn mitosis_attested(genome: &Genome) -> Result<MitosisResult, String> {
+        if !genome.can_replicate() {
+            return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
+        }
         let spindle_hash = Self::verify_spindle_alignment(genome)?;
-        let parent = genome.clone();
         let clone = genome.derive_child();
+        let mut parent = genome.clone();
+        parent.add_bud_scar(clone.genome_id())?;
 
         let mut hasher = Sha256::new();
         hasher.update(parent.genome_id().as_bytes());
@@ -345,6 +354,9 @@ impl CellDivision {
         }
         if !(0.0..=1.0).contains(&mutation_rate) {
             return Err("Mutation rate must be between 0 and 1".to_string());
+        }
+        if !mother.can_replicate() {
+            return Err("Hayflick limit reached: genome is replicatively senescent".to_string());
         }
 
         let mut rng = rng_from_seed(seed);

@@ -256,7 +256,7 @@ fn handle_division(
                         "remaining_buds": res.remaining_divisions,
                         "is_senescent": res.is_senescent,
                         "is_ephemeral": true,
-                        "progeny_count": 1,
+                        "progeny_count": 2,
                         "status": "budding_completed"
                     }));
                 }

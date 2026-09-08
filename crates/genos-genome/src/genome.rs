@@ -63,6 +63,10 @@ impl Genome {
         (self.bud_scars.len() as u32) < self.hayflick_limit
     }
 
+    pub fn can_replicate(&self) -> bool {
+        self.can_bud()
+    }
+
     pub fn add_bud_scar(&mut self, daughter_id: Uuid) -> Result<(), String> {
         if !self.can_bud() {
             return Err(format!(
