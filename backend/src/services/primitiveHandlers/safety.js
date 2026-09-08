@@ -120,15 +120,17 @@ async function quarantine(context) {
     '[QUARANTINE] ' + reason,
     targetId
   );
+  const runtimeAdapter = require('../agentRuntimeAdapter');
+  const runtimeStopped = Boolean(runtimeAdapter.stopMission(targetId));
   telemetry.emitEvent({
     eventType: 'AGENT_QUARANTINED',
     agentId: targetId,
     action: 'QUARANTINE',
     detail: 'Agent ' + targetId + ' quarantined: ' + reason,
     severity: 'warning',
-    payload: { targetId, reason, previousStatus: agent.status }
+    payload: { targetId, reason, previousStatus: agent.status, runtimeStopped }
   });
-  return { success: true, quarantined: targetId, reason };
+  return { success: true, quarantined: targetId, reason, runtimeStopped };
 }
 
 async function sandbox(context) {
