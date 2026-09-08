@@ -186,7 +186,15 @@ function generateProactiveReport(analyses, agentConfig = {}) {
   return md;
 }
 
-function saveReport(reportContent, reportsDir = null) {
+function pruneReports(dir, maxReports = 30) {
+  const reportFiles = fs.readdirSync(dir)
+    .filter((name) => /^proactive-audit-\d+\.md$/.test(name))
+    .map((name) => ({ name, path: path.join(dir, name), modifiedAt: fs.statSync(path.join(dir, name)).mtimeMs }))
+    .sort((left, right) => right.modifiedAt - left.modifiedAt);
+  for (const report of reportFiles.slice(maxReports)) fs.unlinkSync(report.path);
+}
+
+function saveReport(reportContent, reportsDir = null, maxReports = 30) {
   const dir = reportsDir || path.resolve(__dirname, '../../../.genos/reports');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -195,6 +203,7 @@ function saveReport(reportContent, reportsDir = null) {
 
   fs.writeFileSync(latestFile, reportContent, 'utf8');
   fs.writeFileSync(timestampFile, reportContent, 'utf8');
+  pruneReports(dir, maxReports);
   return { latestFile, timestampFile };
 }
 
@@ -220,6 +229,7 @@ module.exports = {
   detectTechStack,
   analyzeRepository,
   generateProactiveReport,
+  pruneReports,
   saveReport,
   runFullAudit
 };
