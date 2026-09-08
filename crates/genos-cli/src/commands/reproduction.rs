@@ -71,8 +71,10 @@ fn handle_crossover(
     genes_b: Option<&str>,
     seed: Option<&str>,
 ) {
-    let mut g_a = Genome::new(parent_a);
-    let mut g_b = Genome::new(parent_b);
+    // IDs identify the parents; they must not manufacture unrelated DNA when
+    // no persisted genome payload was supplied by the caller.
+    let mut g_a = Genome::new(if genes_a.is_some() { parent_a } else { "genos-reproduction-baseline" });
+    let mut g_b = Genome::new(if genes_b.is_some() { parent_b } else { "genos-reproduction-baseline" });
 
     if let Some(json_str) = genes_a {
         if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(json_str) {
