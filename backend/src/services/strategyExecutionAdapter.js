@@ -28,6 +28,7 @@ const optimization = require('./primitiveHandlers/strategyOptimization');
 const swarm = require('./primitiveHandlers/strategySwarm');
 const governance = require('./primitiveHandlers/strategyGovernance');
 const collectiveAdvanced = require('./primitiveHandlers/strategyCollectiveAdvanced');
+const remaining = require('./primitiveHandlers/strategyRemaining');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -121,6 +122,18 @@ const HANDLERS = {
   local_buffer: collectiveAdvanced.networkSilence,
   critical_or_success_flush: collectiveAdvanced.networkSilence,
   solver_tournament: collectiveAdvanced.solverTournament,
+  frontier_escalation: remaining.frontierEscalation,
+  impact_graph: remaining.impactGraph,
+  invalidate_assumption: remaining.invalidateAssumption,
+  paired_evaluation: remaining.pairedEvaluation,
+  heredity_experiment: remaining.heredityExperiment,
+  branch_evolution: remaining.branchEvolution,
+  adversarial_review: remaining.adversarialReview,
+  blind_critics: remaining.blindCritics,
+  context_compaction: remaining.contextCompaction,
+  experience_packets: remaining.experiencePackets,
+  knowledge_graph: remaining.knowledgeGraph,
+  reviewed_apply: remaining.reviewedApply,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
