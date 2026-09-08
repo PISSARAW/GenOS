@@ -238,6 +238,15 @@ async function runGrpcSuite() {
 
     // --- 9. AgentService & OrchestratorService ---
     console.log('\n--- 9. Testing AgentService & OrchestratorService ---');
+    await db.run(
+      `INSERT INTO agents (id, name, role, status, execution_mode, workspace_id, parent_agent_id)
+       VALUES (?, ?, ?, 'idle', 'worker', ?, NULL)
+       ON CONFLICT(id) DO UPDATE SET name=excluded.name, role=excluded.role, status=excluded.status, execution_mode=excluded.execution_mode, workspace_id=excluded.workspace_id, parent_agent_id=excluded.parent_agent_id`,
+      'agent-stop-test',
+      'gRPC stop target',
+      'worker',
+      'ws-test-identity'
+    );
     const agentDesc = descriptors.agent.genos.agent.v1;
     const agentClient = createClient(agentDesc.AgentService);
     const stopRes = await callRpc(agentClient, 'StopMission', {
