@@ -54,21 +54,6 @@ async function migrateLegacySchema(db) {
   }
 }
 
-async function initializeSchema(db) {
-  await db.exec('PRAGMA journal_mode = WAL;');
-  await db.exec('PRAGMA busy_timeout = 5000;');
-  await db.exec('PRAGMA synchronous = NORMAL;');
-  await db.exec('PRAGMA foreign_keys = ON;');
-  await migrateLegacySchema(db);
-  await db.exec(CREATE_TABLES_SQL);
-  await applyVersionedMigrations(db);
-  await db.run('INSERT OR IGNORE INTO resilience_policies (id) VALUES (1)');
-  for (const eventType of ['error', 'cognitive_drift', 'budget', 'blocked', 'human_escalation']) {
-    await db.run('INSERT OR IGNORE INTO notification_preferences (event_type) VALUES (?)', eventType);
-  }
-  await db.exec(CREATE_INDEXES_SQL);
-}
-
 async function applyVersionedMigrations(db) {
   const migrations = [
     ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts'],
