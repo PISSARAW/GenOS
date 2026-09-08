@@ -273,6 +273,87 @@ async function rebase(req) {
   return { success: true, operation: 'rebase', ...result, ...commit, conflictsResolved: conflicts.length };
 }
 
+async function reflog(req) {
+  const db = await getDatabase(); const scope = scopeSql(req, 'w');
+  const rows = await db.all(`SELECT r.* FROM agent_git_reflog r LEFT JOIN agents a ON a.id = r.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE r.agent_id = ? AND ${scope.clause} ORDER BY r.created_at DESC LIMIT ?`, req.body?.agentId, ...scope.params, Math.min(1000, Number(req.body?.limit || 100)));
+  return { success: true, operation: 'reflog', entries: rows };
+}
+
+async function show(req) {
+  const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
+  if (!object) return { success: false, error: 'Agent object not found.' };
+  return { success: true, operation: 'show', object: { ...object, state: JSON.parse(object.state_json), metadata: json(object.metadata_json, {}), signatureValid: verifyObjectSignature(object) } };
+}
+
+async function fsck(req) {
+  const db = await getDatabase(); const scope = scopeSql(req, 'w');
+  const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scope.clause}`, req.body?.agentId, ...scope.params);
+  const issues = [];
+  for (const object of objects) {
+    let state; try { state = JSON.parse(object.state_json); } catch (_) { issues.push({ id: object.id, issue: 'invalid_json' }); continue; }
+    if (hashState(state) !== object.state_hash) issues.push({ id: object.id, issue: 'state_hash_mismatch' });
+    if (!verifyObjectSignature(object)) issues.push({ id: object.id, issue: 'invalid_signature' });
+    const metadata = json(object.metadata_json, {});
+    if (metadata.parentObjectId && !objects.some((candidate) => candidate.id === metadata.parentObjectId)) issues.push({ id: object.id, issue: 'missing_parent' });
+  }
+  return { success: true, operation: 'fsck', checked: objects.length, healthy: issues.length === 0, issues };
+}
+
+async function describe(req) {
+  const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
+  if (!object) return { success: false, error: 'Agent object not found.' };
+  const scope = scopeSql(req, 'w');
+  const count = await db.get(`SELECT COUNT(*) AS count FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND o.created_at <= ? AND ${scope.clause}`, object.agent_id, object.created_at, ...scope.params);
+  return { success: true, operation: 'describe', version: `${object.ref_name || 'main'}-${count?.count || 1}-g${object.state_hash.slice(0, 12)}`, objectId: object.id, stateHash: object.state_hash };
+}
+
+async function gc(req) {
+  const db = await getDatabase(); const keep = Math.max(1, Number(req.body?.keep || 20));
+  const scope = scopeSql(req, 'w'); const rows = await db.all(`SELECT o.id FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND o.object_kind IN ('stash', 'remote') AND ${scope.clause} ORDER BY o.created_at DESC`, req.body?.agentId, ...scope.params);
+  const stale = rows.slice(keep); for (const row of stale) await db.run('DELETE FROM agent_git_objects WHERE id = ?', row.id);
+  return { success: true, operation: 'gc', pruned: stale.length, kept: Math.min(keep, rows.length) };
+}
+
+async function blame(req) {
+  const db = await getDatabase(); const state = await collectState(db, req, req.body?.agentId);
+  if (!state) return { success: false, error: 'Agent not found.' };
+  const section = String(req.body?.section || 'decisions'); const rows = Array.isArray(state[section]) ? state[section] : [];
+  return { success: true, operation: 'blame', agentId: state.agent.id, section, entries: rows.map((item) => ({ id: item.id || item.event_id || item.action_input, sourceAgentId: item.created_by || item.agent_id || state.agent.id, createdAt: item.created_at })) };
+}
+
+async function note(req) {
+  const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
+  if (!object) return { success: false, error: 'Agent object not found.' };
+  const id = `agent-note-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  await db.run('INSERT INTO agent_git_notes (id, object_id, agent_id, note_json, created_by) VALUES (?, ?, ?, ?, ?)', id, object.id, object.agent_id, JSON.stringify(req.body?.note || {}), req.user?.username || 'agent-git');
+  return { success: true, operation: 'note', noteId: id, objectId: object.id };
+}
+
+async function hook(req) {
+  const db = await getDatabase(); const agentId = String(req.body?.agentId || '').trim(); const hookName = String(req.body?.hookName || '').trim();
+  if (!agentId || !['pre-commit', 'pre-push', 'merge-validation', 'signature-required'].includes(hookName)) return { success: false, error: 'Valid agentId and hookName are required.' };
+  await db.run('INSERT OR REPLACE INTO agent_git_hooks (hook_key, agent_id, hook_name, policy_json, enabled) VALUES (?, ?, ?, ?, ?)', `${agentId}:${hookName}`, agentId, hookName, JSON.stringify(req.body?.policy || {}), req.body?.enabled === false ? 0 : 1);
+  return { success: true, operation: 'hook', agentId, hookName, enabled: req.body?.enabled !== false };
+}
+
+async function mergeBase(req) {
+  const db = await getDatabase(); const left = await collectState(db, req, req.body?.leftAgentId); const right = await collectState(db, req, req.body?.rightAgentId);
+  if (!left || !right) return { success: false, error: 'Both agents must exist.' };
+  const objects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scopeSql(req, 'w').clause} ORDER BY o.created_at ASC`, left.agent.id, ...scopeSql(req, 'w').params);
+  const rightObjects = await db.all(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scopeSql(req, 'w').clause} ORDER BY o.created_at ASC`, right.agent.id, ...scopeSql(req, 'w').params);
+  const rightHashes = new Set(rightObjects.map((object) => object.state_hash)); const base = objects.reverse().find((object) => rightHashes.has(object.state_hash));
+  return { success: true, operation: 'diff-merge-base', mergeBaseObjectId: base?.id || null, leftHash: hashState(left), rightHash: hashState(right), changedSections: changedSections(left, right) };
+}
+
+async function archive(req) {
+  const db = await getDatabase(); const object = await getObject(db, req, req.body?.objectId);
+  if (!object) return { success: false, error: 'Agent object not found.' };
+  const payload = JSON.stringify({ objectId: object.id, state: JSON.parse(object.state_json), signature: object.signature }); const archiveHash = hashState(payload);
+  const id = `agent-archive-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+  await db.run('INSERT INTO agent_git_archives (id, agent_id, object_id, archive_hash, archive_json, created_by) VALUES (?, ?, ?, ?, ?, ?)', id, object.agent_id, object.id, archiveHash, payload, req.user?.username || 'agent-git');
+  return { success: true, operation: 'archive', archiveId: id, archiveHash, objectId: object.id };
+}
+
 async function bisect(req) {
   const db = await getDatabase();
   const agentId = req.body?.agentId;
@@ -288,4 +369,4 @@ async function bisect(req) {
   return { success: true, operation: 'bisect', agentId, field, expectedValue: expected, anomalyFound: culprit >= 0, culpritObjectId: culprit >= 0 ? objects[culprit].id : null, iterations, complexity: `O(log2(${objects.length}))` };
 }
 
-module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, revert, rebase, applyState, getObject };
+module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, applyState, getObject };

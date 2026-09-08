@@ -15,5 +15,15 @@ async function log(req, res, next) { try { res.json(await agentGit.log(req)); } 
 async function revert(req, res, next) { try { res.status(201).json(await agentGit.revert(req)); } catch (error) { next(error); } }
 async function rebase(req, res, next) { try { res.status(201).json(await agentGit.rebase(req)); } catch (error) { next(error); } }
 async function remoteReceive(req, res, next) { try { res.status(201).json(await agentGit.receiveRemote(req)); } catch (error) { next(error); } }
+async function reflog(req, res, next) { try { res.json(await agentGit.reflog(req)); } catch (error) { next(error); } }
+async function show(req, res, next) { try { res.json(await agentGit.show(req)); } catch (error) { next(error); } }
+async function fsck(req, res, next) { try { res.json(await agentGit.fsck(req)); } catch (error) { next(error); } }
+async function gc(req, res, next) { try { res.json(await agentGit.gc(req)); } catch (error) { next(error); } }
+async function blame(req, res, next) { try { res.json(await agentGit.blame(req)); } catch (error) { next(error); } }
+async function describe(req, res, next) { try { res.json(await agentGit.describe(req)); } catch (error) { next(error); } }
+async function note(req, res, next) { try { res.status(201).json(await agentGit.note(req)); } catch (error) { next(error); } }
+async function hook(req, res, next) { try { res.status(201).json(await agentGit.hook(req)); } catch (error) { next(error); } }
+async function mergeBase(req, res, next) { try { res.json(await agentGit.mergeBase(req)); } catch (error) { next(error); } }
+async function archive(req, res, next) { try { res.status(201).json(await agentGit.archive(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, remoteReceive };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive };
