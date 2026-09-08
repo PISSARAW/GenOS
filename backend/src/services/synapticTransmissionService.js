@@ -181,6 +181,16 @@ async function absorbExosomes(db = null) {
           exo.organization_id || exo.organizationId || null,
           exo.project_id || exo.projectId || null
         );
+        await database.run(
+          `INSERT INTO plasmid_bindings (plasmid_id, owner_agent_id, source_agent_id, organization_id, project_id)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(plasmid_id) DO UPDATE SET owner_agent_id = excluded.owner_agent_id, source_agent_id = excluded.source_agent_id, organization_id = excluded.organization_id, project_id = excluded.project_id, status = 'active', updated_at = CURRENT_TIMESTAMP`,
+          plasmidId,
+          exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || null,
+          exo.source_agent_id || exo.sourceAgentId || exo.sender_id || null,
+          exo.organization_id || exo.organizationId || null,
+          exo.project_id || exo.projectId || null
+        );
         plasmidsAssimilated += 1;
 
         // Synchronisation bidirectionnelle : assimilation formelle dans le génome Rust
