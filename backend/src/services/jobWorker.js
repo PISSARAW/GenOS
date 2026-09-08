@@ -35,7 +35,7 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
   return next;
 }
 
-function summarizeEvaluationGraders(results, graders) {
+function summarizeEvaluationGraders(results, graders, expectedTotal = results.length) {
   return Object.fromEntries(graders.map((grader) => {
     const values = results.map((result) => result.graders?.[grader]).filter(Boolean);
     const passed = values.filter((value) => value.passed === true).length;
@@ -44,8 +44,10 @@ function summarizeEvaluationGraders(results, graders) {
     return [grader, {
       total: values.length,
       passed,
-      failed: values.length - passed,
-      score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
+      failed: Math.max(0, expectedTotal - passed),
+      missing: Math.max(0, expectedTotal - values.length),
+      complete: values.length === expectedTotal,
+      score: expectedTotal ? Number((passed / expectedTotal).toFixed(4)) : 0,
       meanScore
     }];
   }));
@@ -319,7 +321,7 @@ async function executeEvaluation(db, job) {
     completed.add(item.id);
     await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results }), job.id);
   }
-  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
+  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders, cases.length), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
