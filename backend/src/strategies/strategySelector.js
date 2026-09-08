@@ -109,6 +109,15 @@ function scoreStrategy(strategy, profile) {
   if (traits.has('verification') && profile.evaluability === 'deterministic_tests') score += 13;
   if (traits.has('low_cost')) score += 6;
   if (traits.has('human_gate') && profile.risk === 'high') score += 11;
+  if (traits.has('deterministic') && profile.requires_reproducibility) score += 12;
+  if (traits.has('low_latency') && profile.complexity < 0.6) score += 10;
+  if (traits.has('causal') && profile.temporal_dependency) score += 12;
+  if (traits.has('parallel') && profile.complexity >= 0.7) score += 10;
+  if (traits.has('high_compute') && profile.complexity >= 0.7) score += 9;
+  if (traits.has('diversity') && profile.uncertainty >= 0.7) score += 9;
+  if (traits.has('specialization') && profile.type !== 'implementation') score += 7;
+  if (traits.has('adaptive') && profile.uncertainty >= 0.7) score += 8;
+  if (traits.has('mutation') && profile.objectives_conflict) score += 5;
   score -= strategy.costLevel * 1.8 + strategy.latencyLevel * 1.1 + strategy.riskLevel * (profile.risk === 'low' ? 1.4 : 0.4);
   if (strategy.maturity === 'experimental') score -= 10;
   if (strategy.maturity === 'prototype') score -= 28;
