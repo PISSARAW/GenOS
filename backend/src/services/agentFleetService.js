@@ -17,7 +17,8 @@ const {
   pendingContinuations, pendingWorkerRecoveries, activeWorkerRecoveryDispatches
 } = require('./agentOrchestrationState');
 const {
-  recordWorkerEvidence, workerEvidenceDossiers, validateWorkerDossiers, buildWorkerSynthesisPrompt
+  recordWorkerEvidence, workerEvidenceDossiers, validateWorkerDossiers, buildWorkerSynthesisPrompt,
+  hasDecisionEvidence, decisionEvidenceFailure
 } = require('./agentEvidenceService');
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundService');
@@ -174,7 +175,12 @@ async function runLocalWorker(db, mission, executionRun) {
     if (milestone) userProgress.report({ orchestratorId: mission.orchestratorAgentId || mission.agentId, sourceAgentId: mission.agentId, ...milestone, silent: mission.executionPolicy?.silentUpdates === true });
     await strategyExecution.recordExecutionEvent(db, mission.agentId, completed);
     await advanceAutonomousRound(mission, completed);
-    const decision = decideFromEvent(completed);
+    const decision = hasDecisionEvidence(completed) ? decideFromEvent(completed) : null;
+    if (!hasDecisionEvidence(completed)) {
+      emit(mission.orchestratorAgentId || mission.agentId, 'ORCHESTRATION_DECISION_BLOCKED', 'EVIDENCE_GATE', decisionEvidenceFailure(completed), {
+        sourceAgentId: mission.agentId, sourceEvent: completed.eventType
+      }, 'warning', 'blocked');
+    }
     if (decision) {
       const ownerId = mission.orchestratorAgentId || mission.agentId;
       emit(ownerId, 'ORCHESTRATION_DECISION_GATE', decision.action, decision.reason, { gateId: decision.gateId || null, sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
