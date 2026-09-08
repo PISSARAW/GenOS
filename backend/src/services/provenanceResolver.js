@@ -22,7 +22,7 @@ function parseJson(value, fallback = null) {
 /**
  * Traces cryptographic Merkle chain in provenance_records
  */
-async function traceMerkleProvenance(db, initialRecord, maxDepth) {
+async function traceMerkleProvenance(db, initialRecord, maxDepth, scope = {}) {
   const lineage = [];
   const visited = new Set();
   let current = initialRecord;
@@ -56,10 +56,9 @@ async function traceMerkleProvenance(db, initialRecord, maxDepth) {
 
     if (!current.parent_hash) break;
 
-    const parentRecord = await db.get(
-      'SELECT * FROM provenance_records WHERE payload_hash = ? ORDER BY created_at DESC LIMIT 1',
-      current.parent_hash
-    );
+    const parentRecord = scope.organizationId && scope.projectId
+      ? await db.get('SELECT * FROM provenance_records WHERE payload_hash = ? AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', current.parent_hash, scope.organizationId, scope.projectId)
+      : await db.get('SELECT * FROM provenance_records WHERE payload_hash = ? ORDER BY created_at DESC LIMIT 1', current.parent_hash);
 
     if (!parentRecord) break;
 
@@ -85,7 +84,7 @@ async function traceMerkleProvenance(db, initialRecord, maxDepth) {
 /**
  * Traces agent ancestry hierarchy in agents table and lineage_nodes/edges
  */
-async function traceAgentProvenance(db, targetId, maxDepth) {
+async function traceAgentProvenance(db, targetId, maxDepth, scope = {}) {
   const lineage = [];
   let currentId = targetId;
   const visited = new Set();
@@ -102,18 +101,16 @@ async function traceAgentProvenance(db, targetId, maxDepth) {
     }
     visited.add(currentId);
 
-    const agent = await db.get(
-      `SELECT a.id, a.name, a.parent_agent_id, a.workspace_id, a.lineage_relation, a.current_task FROM agents a WHERE a.id = ?`,
-      currentId
-    );
+    const agent = scope.organizationId && scope.projectId
+      ? await db.get('SELECT a.id, a.name, a.parent_agent_id, a.workspace_id, a.lineage_relation, a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?', currentId, scope.organizationId, scope.projectId)
+      : await db.get('SELECT a.id, a.name, a.parent_agent_id, a.workspace_id, a.lineage_relation, a.current_task FROM agents a WHERE a.id = ?', currentId);
 
     if (!agent) {
-      const lNode = await db.get(
-        `SELECT id, label, workspace_id, node_type, state_summary FROM lineage_nodes WHERE id = ?`,
-        currentId
-      );
+      const lNode = scope.organizationId && scope.projectId
+        ? await db.get('SELECT n.id, n.label, n.workspace_id, n.node_type, n.state_summary FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', currentId, scope.organizationId, scope.projectId)
+        : await db.get('SELECT id, label, workspace_id, node_type, state_summary FROM lineage_nodes WHERE id = ?', currentId);
       if (lNode) {
-        const edge = await db.get(`SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?`, currentId);
+        const edge = await db.get(`SELECT e.source_node_id, e.edge_type FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.target_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE e.target_node_id = ?${scope.organizationId && scope.projectId ? ' AND w.organization_id = ? AND w.project_id = ?' : ''}`, currentId, ...(scope.organizationId && scope.projectId ? [scope.organizationId, scope.projectId] : []));
         lineage.push({
           id: lNode.id,
           name: lNode.label,
@@ -133,7 +130,7 @@ async function traceAgentProvenance(db, targetId, maxDepth) {
       break;
     }
 
-    const edgeRows = await db.all(`SELECT source_node_id, edge_type FROM lineage_edges WHERE target_node_id = ?`, currentId).catch(() => []);
+    const edgeRows = await db.all(`SELECT e.source_node_id, e.edge_type FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.target_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE e.target_node_id = ?${scope.organizationId && scope.projectId ? ' AND w.organization_id = ? AND w.project_id = ?' : ''}`, currentId, ...(scope.organizationId && scope.projectId ? [scope.organizationId, scope.projectId] : [])).catch(() => []);
     const parentIds = edgeRows.length > 0
       ? edgeRows.map((e) => e.source_node_id)
       : (agent.parent_agent_id ? [agent.parent_agent_id] : []);
@@ -173,6 +170,9 @@ async function traceAgentProvenance(db, targetId, maxDepth) {
  */
 async function resolveProvenance(context = {}) {
   const db = await getDatabase();
+  const scope = context.organizationId && context.projectId
+    ? { organizationId: context.organizationId, projectId: context.projectId }
+    : {};
   const targetId = context.targetId || context.agentId || context.subjectId || context.payloadHash;
   if (!targetId) return { success: false, error: 'targetId required for provenance.' };
 
@@ -185,45 +185,53 @@ async function resolveProvenance(context = {}) {
     || (typeof targetId === 'string' && /^[0-9a-f]{64}$/i.test(targetId));
 
   if (isExplicitMerkle) {
-    const provRecord = await db.get(
-      'SELECT * FROM provenance_records WHERE id = ? OR payload_hash = ? OR subject_id = ? ORDER BY created_at DESC LIMIT 1',
-      targetId, targetId, targetId
-    );
+    const provRecord = scope.organizationId && scope.projectId
+      ? await db.get('SELECT * FROM provenance_records WHERE (id = ? OR payload_hash = ? OR subject_id = ?) AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', targetId, targetId, targetId, scope.organizationId, scope.projectId)
+      : await db.get('SELECT * FROM provenance_records WHERE id = ? OR payload_hash = ? OR subject_id = ? ORDER BY created_at DESC LIMIT 1', targetId, targetId, targetId);
     if (provRecord) {
-      const res = await traceMerkleProvenance(db, provRecord, maxDepth);
+      const res = await traceMerkleProvenance(db, provRecord, maxDepth, scope);
       emitTelemetry(context, targetId, res);
       return res;
     }
   }
 
   // 2. Check agents table first if not strictly merkle
-  const agentExists = await db.get('SELECT id FROM agents WHERE id = ?', targetId);
-  const lNodeExists = !agentExists ? await db.get('SELECT id FROM lineage_nodes WHERE id = ?', targetId) : null;
+  const agentExists = scope.organizationId
+    ? await db.get('SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND w.organization_id = ? AND w.project_id = ?', targetId, scope.organizationId, scope.projectId)
+    : await db.get('SELECT id FROM agents WHERE id = ?', targetId);
+  const lNodeExists = !agentExists
+    ? (scope.organizationId
+      ? await db.get('SELECT n.id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.organization_id = ? AND w.project_id = ?', targetId, scope.organizationId, scope.projectId)
+      : await db.get('SELECT id FROM lineage_nodes WHERE id = ?', targetId))
+    : null;
 
   if (agentExists || lNodeExists) {
-    const res = await traceAgentProvenance(db, targetId, maxDepth);
+    const res = await traceAgentProvenance(db, targetId, maxDepth, scope);
     emitTelemetry(context, targetId, res);
     return res;
   }
 
   // 3. Fallback: check provenance_records table (e.g. conclusion, evaluation, decision)
-  const provRecord = await db.get(
-    'SELECT * FROM provenance_records WHERE id = ? OR payload_hash = ? OR subject_id = ? ORDER BY created_at DESC LIMIT 1',
-    targetId, targetId, targetId
-  );
+  const provRecord = scope.organizationId
+    ? await db.get('SELECT * FROM provenance_records WHERE (id = ? OR payload_hash = ? OR subject_id = ?) AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', targetId, targetId, targetId, scope.organizationId, scope.projectId)
+    : await db.get('SELECT * FROM provenance_records WHERE id = ? OR payload_hash = ? OR subject_id = ? ORDER BY created_at DESC LIMIT 1', targetId, targetId, targetId);
   if (provRecord) {
-    const res = await traceMerkleProvenance(db, provRecord, maxDepth);
+    const res = await traceMerkleProvenance(db, provRecord, maxDepth, scope);
     emitTelemetry(context, targetId, res);
     return res;
   }
 
   // 4. Fallback: check genome_decisions table (episodic memory)
-  const decision = await db.get('SELECT * FROM genome_decisions WHERE id = ?', targetId);
+  const decision = scope.organizationId
+    ? await db.get('SELECT * FROM genome_decisions WHERE id = ? AND organization_id = ? AND project_id = ?', targetId, scope.organizationId, scope.projectId)
+    : await db.get('SELECT * FROM genome_decisions WHERE id = ?', targetId);
   if (decision) {
     // Check if decision has a corresponding provenance record
-    const decProv = await db.get('SELECT * FROM provenance_records WHERE subject_id = ? ORDER BY created_at DESC LIMIT 1', targetId);
+    const decProv = scope.organizationId
+      ? await db.get('SELECT * FROM provenance_records WHERE subject_id = ? AND organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1', targetId, scope.organizationId, scope.projectId)
+      : await db.get('SELECT * FROM provenance_records WHERE subject_id = ? ORDER BY created_at DESC LIMIT 1', targetId);
     if (decProv) {
-      const res = await traceMerkleProvenance(db, decProv, maxDepth);
+      const res = await traceMerkleProvenance(db, decProv, maxDepth, scope);
       emitTelemetry(context, targetId, res);
       return res;
     }
