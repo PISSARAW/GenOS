@@ -8,6 +8,96 @@
  * - merge_workspace_automatically
  */
 
+const fs = require('node:fs');
+const path = require('node:path');
+
+const WORKSPACE_MERGE_EXCLUSIONS = new Set(['.git', 'node_modules']);
+
+async function readWorkspaceFiles(root) {
+  const files = new Map();
+  async function visit(directory, relativeDirectory = '') {
+    const entries = await fs.promises.readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      if (WORKSPACE_MERGE_EXCLUSIONS.has(entry.name)) continue;
+      const relativePath = path.join(relativeDirectory, entry.name);
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await visit(absolutePath, relativePath);
+      } else if (entry.isFile()) {
+        files.set(relativePath, await fs.promises.readFile(absolutePath));
+      } else if (entry.isSymbolicLink()) {
+        throw new Error(`Symbolic links are not supported by automatic workspace merge: ${relativePath}`);
+      }
+    }
+  }
+  await visit(root);
+  return files;
+}
+
+function sameFile(left, right) {
+  return Buffer.isBuffer(left) && Buffer.isBuffer(right) && left.equals(right);
+}
+
+function rootsOverlap(left, right) {
+  const relative = path.relative(left, right);
+  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+}
+
+async function mergeWorkspaces(winnerWorkspaceRoot, targetWorkspaceRoot, causalBaseWorkspaceRoot) {
+  const winnerRoot = path.resolve(winnerWorkspaceRoot);
+  const targetRoot = path.resolve(targetWorkspaceRoot);
+  if (rootsOverlap(winnerRoot, targetRoot) || rootsOverlap(targetRoot, winnerRoot)) {
+    throw new Error('Winner and target workspaces must be separate directories.');
+  }
+  const [winnerStat, targetStat] = await Promise.all([fs.promises.stat(winnerRoot), fs.promises.stat(targetRoot)]);
+  if (!winnerStat.isDirectory() || !targetStat.isDirectory()) throw new Error('Winner and target workspaces must be directories.');
+
+  const [winnerFiles, targetFiles, baseFiles] = await Promise.all([
+    readWorkspaceFiles(winnerRoot),
+    readWorkspaceFiles(targetRoot),
+    causalBaseWorkspaceRoot ? readWorkspaceFiles(path.resolve(causalBaseWorkspaceRoot)) : Promise.resolve(null)
+  ]);
+  const changes = [];
+  const conflicts = [];
+  const filePaths = new Set([...winnerFiles.keys(), ...targetFiles.keys(), ...(baseFiles ? baseFiles.keys() : [])]);
+  for (const relativePath of [...filePaths].sort()) {
+    const winner = winnerFiles.get(relativePath);
+    const target = targetFiles.get(relativePath);
+    const base = baseFiles?.get(relativePath);
+    if (!baseFiles) {
+      if (!winner || sameFile(winner, target)) continue;
+      if (!target) changes.push({ type: 'copy', relativePath, contents: winner });
+      else conflicts.push(relativePath);
+      continue;
+    }
+    if (sameFile(winner, target)) continue;
+    if (sameFile(winner, base)) continue;
+    if (sameFile(target, base)) {
+      changes.push(winner ? { type: 'copy', relativePath, contents: winner } : { type: 'remove', relativePath });
+    } else {
+      conflicts.push(relativePath);
+    }
+  }
+  if (conflicts.length) return { merged: false, status: 'conflict', conflicts };
+
+  for (const change of changes) {
+    const destination = path.join(targetRoot, change.relativePath);
+    if (change.type === 'remove') {
+      await fs.promises.rm(destination, { force: true });
+    } else {
+      await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+      await fs.promises.writeFile(destination, change.contents);
+    }
+  }
+  return {
+    merged: true,
+    status: 'merged',
+    copiedFiles: changes.filter((change) => change.type === 'copy').map((change) => change.relativePath),
+    removedFiles: changes.filter((change) => change.type === 'remove').map((change) => change.relativePath),
+    unchangedFiles: filePaths.size - changes.length
+  };
+}
+
 function evaluatePromotionGate(contract = {}, executionContext = {}) {
   const policy = contract.promotion || {};
   const violations = [];
@@ -97,14 +187,28 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
 
   // 5. merge_workspace_automatically
   if (policy.merge_workspace_automatically && executionContext.winnerWorkspaceRoot && executionContext.targetWorkspaceRoot) {
-    actionsTaken.push({
-      action: 'auto_merge_workspace',
-      winner: executionContext.winnerWorkspaceRoot,
-      target: executionContext.targetWorkspaceRoot,
-      merged: false,
-      status: 'requires_explicit_merge',
-      reason: 'Automatic workspace merge is not implemented; no merge was performed.'
-    });
+    try {
+      const merge = await mergeWorkspaces(
+        executionContext.winnerWorkspaceRoot,
+        executionContext.targetWorkspaceRoot,
+        executionContext.causalBaseWorkspaceRoot
+      );
+      actionsTaken.push({
+        action: 'auto_merge_workspace',
+        winner: executionContext.winnerWorkspaceRoot,
+        target: executionContext.targetWorkspaceRoot,
+        ...merge
+      });
+    } catch (error) {
+      actionsTaken.push({
+        action: 'auto_merge_workspace',
+        winner: executionContext.winnerWorkspaceRoot,
+        target: executionContext.targetWorkspaceRoot,
+        merged: false,
+        status: 'failed',
+        error: error.message
+      });
+    }
   }
 
   const mergeBlocked = actionsTaken.some((action) => action.action === 'auto_merge_workspace' && action.merged === false);
@@ -114,7 +218,7 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
     actionsTaken,
     ...((mergeBlocked || preservationFailed) ? {
       error: mergeBlocked
-        ? 'Automatic workspace merge is unavailable; explicit merge required.'
+        ? 'Automatic workspace merge failed or has unresolved conflicts.'
         : 'One or more rejected branches could not be preserved.'
     } : {})
   };
@@ -122,5 +226,6 @@ async function applyPostPromotionPolicies(db, contract = {}, executionContext = 
 
 module.exports = {
   evaluatePromotionGate,
-  applyPostPromotionPolicies
+  applyPostPromotionPolicies,
+  mergeWorkspaces
 };
