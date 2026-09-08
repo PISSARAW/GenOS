@@ -69,6 +69,9 @@ async function testTool(req, res) {
   if (tool.is_locked === 1) return mcpError(res, 503, 'TOOL_LOCKED', `Tool '${toolName}' is persisted in quarantine.`);
   let agentId;
   try { agentId = resolveAgentId(req); } catch (error) { return mcpError(res, error.status || 403, error.code || 'AGENT_ID_FORBIDDEN', error.message); }
+  circuitBreaker.refreshPersistedHalt();
+  if (circuitBreaker.isHalted) return mcpError(res, 503, 'SYSTEM_HALTED', `Execution blocked. System is halted: ${circuitBreaker.haltReason}`);
+  if (circuitBreaker.state === 'OPEN') return mcpError(res, 503, 'CIRCUIT_OPEN', 'Execution blocked while the global circuit breaker is open.');
   const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
