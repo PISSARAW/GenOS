@@ -82,11 +82,18 @@ async function ensureTables(db) {
       content TEXT NOT NULL,
       payload_json TEXT NOT NULL DEFAULT '{}',
       delivery TEXT NOT NULL DEFAULT 'delivered',
+      organization_id TEXT,
+      project_id TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE INDEX IF NOT EXISTS idx_agent_org_messages_inbox
       ON agent_organization_messages(orchestrator_id, id);
-  `).catch((error) => {
+  `).then(async () => {
+    const columns = new Set((await db.all('PRAGMA table_info(agent_organization_messages)')).map((column) => column.name));
+    if (!columns.has('organization_id')) await db.exec('ALTER TABLE agent_organization_messages ADD COLUMN organization_id TEXT');
+    if (!columns.has('project_id')) await db.exec('ALTER TABLE agent_organization_messages ADD COLUMN project_id TEXT');
+    await db.exec('CREATE INDEX IF NOT EXISTS idx_agent_org_messages_scope ON agent_organization_messages(orchestrator_id, organization_id, project_id, id)');
+  }).catch((error) => {
     tableInitializations.delete(db);
     throw error;
   });
@@ -204,12 +211,17 @@ async function publish(db, { orchestratorId, senderAgentId, recipientAgentId, ki
     throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial worker messages require an explicit counterpart recipient.');
   }
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
+  const scope = await db.get(
+    'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    orchestratorId
+  );
   const result = await db.run(
     `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
-      recipient_agent_id, channel, kind, content, payload_json, delivery)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      recipient_agent_id, channel, kind, content, payload_json, delivery, organization_id, project_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     orchestratorId, state.organization, state.version, senderAgentId, route.recipientAgentId,
-    route.channel, normalizedKind, text, JSON.stringify(payload || {}), route.delivery
+    route.channel, normalizedKind, text, JSON.stringify(payload || {}), route.delivery,
+    scope?.organizationId || null, scope?.projectId || null
   );
   return { id: result.lastID, organization: state.organization, version: state.version, ...route, kind: normalizedKind };
 }
@@ -220,6 +232,10 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
   if (!state) throw organizationError('ORGANIZATION_NOT_INITIALIZED', `Orchestrator '${orchestratorId}' has no active organization.`);
   await assertMember(db, orchestratorId, requesterAgentId);
   const orchestrator = requesterAgentId === orchestratorId;
+  const scope = await db.get(
+    'SELECT w.organization_id as organizationId, w.project_id as projectId FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?',
+    orchestratorId
+  );
   const rows = await db.all(
     `SELECT m.id, m.organization, m.organization_version as organizationVersion, m.sender_agent_id as senderAgentId,
             recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
@@ -229,10 +245,10 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
      FROM agent_organization_messages m
      LEFT JOIN agents sender ON sender.id = m.sender_agent_id
      LEFT JOIN agents recipient ON recipient.id = m.recipient_agent_id
-    WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.id > ? AND m.sender_agent_id <> ?
+    WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.organization_id IS ? AND m.project_id IS ? AND m.id > ? AND m.sender_agent_id <> ?
        AND m.delivery = 'delivered' AND (m.recipient_agent_id IS NULL OR m.recipient_agent_id = ? OR m.recipient_agent_id = 'broadcast')
      ORDER BY m.id LIMIT ?`,
-    orchestratorId, state.version, Math.max(0, Number(afterId || 0)), requesterAgentId,
+    orchestratorId, state.version, scope?.organizationId || null, scope?.projectId || null, Math.max(0, Number(afterId || 0)), requesterAgentId,
     requesterAgentId, Math.min(50, Math.max(1, Number(limit || 20)))
   );
   const members = await db.all(
