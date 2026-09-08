@@ -417,6 +417,11 @@ async function superviseMission(options) {
     dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', normalizedMission.prompt);
+  emitTracked('WORKER_RUNTIME_CAPABILITIES', 'LEASE', 'Worker runtime capabilities activated.', {
+    toolLease: normalizedMission.toolLease || [],
+    runtimeMode: isLocalRuntime(resolvedExecutable) ? 'local' : 'supervised',
+    capabilityCount: Array.isArray(normalizedMission.toolLease) ? normalizedMission.toolLease.length : 0
+  }, 'info', 'running');
   emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
     executable: resolvedExecutable,
     executionRunId: executionRun.id,

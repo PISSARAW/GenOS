@@ -334,6 +334,12 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
       }, orchestratorAgentId: parent.id, budgetRound: { stage: 'initial', orchestratorId: parent.id },
       genome: evolution.genes, predictedFitness: evolution.predictedFitness
     });
+    emit(orchestrator.id, 'WORKER_CAPABILITY_LEASED', 'LEASE', `Worker '${name}' received ${workers[workers.length - 1].toolLease.length} leased tools.`, {
+      workerId: id,
+      role: assignment.role,
+      toolLease: workers[workers.length - 1].toolLease,
+      runtimeMode: workers[workers.length - 1].localRuntime === true ? 'local' : 'supervised'
+    }, 'info');
   }
   return workers;
 }
