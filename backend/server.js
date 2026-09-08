@@ -57,8 +57,13 @@ async function startServer() {
       for (const row of detached) {
         let alive = true;
         try { process.kill(Number(row.pid), 0); } catch (_) { alive = false; }
-        if (alive && processMatches(row.pid, row.command)) terminatePid(row.pid);
-        await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+        const matches = alive && processMatches(row.pid, row.command);
+        const terminated = matches ? terminatePid(row.pid) : false;
+        if (!alive || (matches && terminated)) {
+          await db.run('DELETE FROM detached_processes WHERE id = ?', row.id);
+        } else {
+          console.warn(`[GenOS Recovery] Could not terminate detached process ${row.pid}; retaining its recovery record.`);
+        }
       }
     }
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
