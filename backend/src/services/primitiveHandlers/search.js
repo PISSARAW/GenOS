@@ -245,8 +245,13 @@ async function prmEvaluate(context) {
     if (context.invariants && Array.isArray(context.invariants)) {
        let passed = 0;
        for (const inv of context.invariants) {
-          passed++;
-          criteria.push(`Passed invariant: ${inv}`);
+         const result = typeof inv === 'object' && inv !== null ? inv.passed : inv;
+         if (result !== true && !(typeof result === 'object' && result?.passed === true)) {
+           criteria.push(`Failed or unverified invariant: ${JSON.stringify(inv)}`);
+           continue;
+         }
+         passed++;
+         criteria.push(`Passed invariant: ${typeof inv === 'object' ? inv.name || inv.id || 'unnamed' : inv}`);
        }
        rewardScore = context.invariants.length > 0 ? passed / context.invariants.length : 1.0;
        isGoodStep = rewardScore > 0.6;
