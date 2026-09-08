@@ -25,6 +25,7 @@ const modelRouter = require('./modelRouter');
 const advanced = require('./primitiveHandlers/strategyAdvanced');
 const planning = require('./primitiveHandlers/strategyPlanning');
 const optimization = require('./primitiveHandlers/strategyOptimization');
+const swarm = require('./primitiveHandlers/strategySwarm');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -97,6 +98,14 @@ const HANDLERS = {
   variance_analysis: optimization.varianceAnalysis,
   temperature_schedule: optimization.temperatureSchedule,
   resource_shift: optimization.resourceShift,
+  separation: swarm.flocking,
+  alignment: swarm.flocking,
+  cohesion: swarm.flocking,
+  weighted_barycenter: swarm.weightedBarycenter,
+  path_conductivity: swarm.pathConductivity,
+  role_gradient: swarm.roleGradient,
+  energy_observe: swarm.energyObserve,
+  elo: swarm.elo,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
