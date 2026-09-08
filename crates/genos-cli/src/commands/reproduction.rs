@@ -108,20 +108,28 @@ fn handle_crossover(
     }
 
     let divergence = PhylogeneticTree::estimate_divergence_time(&g_a, &g_b);
-    if let Some(threshold) = speciation_threshold {
-        if divergence > threshold {
-            print_json(json!({
-                "success": false,
-                "operation": "meiotic_crossover",
-                "error": format!("Speciation barrier exceeded: phylogenetic divergence ({:.2} My) > threshold ({:.2} My)", divergence, threshold),
-                "parent_a": parent_a,
-                "parent_b": parent_b,
-                "phylogenetic_divergence_mya": divergence,
-                "speciation_threshold": threshold,
-                "status": "incompatible_barrier"
-            }));
-            return;
-        }
+    let threshold = speciation_threshold.unwrap_or(genos_reproduction::phylogeny::MAX_DIVERGENCE_INTROGRESSION);
+    if !threshold.is_finite() || threshold < 0.0 {
+        print_json(json!({
+            "success": false,
+            "operation": "meiotic_crossover",
+            "error": "speciation threshold must be a finite non-negative number",
+            "status": "invalid_speciation_threshold"
+        }));
+        return;
+    }
+    if divergence > threshold {
+        print_json(json!({
+            "success": false,
+            "operation": "meiotic_crossover",
+            "error": format!("Speciation barrier exceeded: phylogenetic divergence ({:.2} My) > threshold ({:.2} My)", divergence, threshold),
+            "parent_a": parent_a,
+            "parent_b": parent_b,
+            "phylogenetic_divergence_mya": divergence,
+            "speciation_threshold": threshold,
+            "status": "incompatible_barrier"
+        }));
+        return;
     }
 
     let (child_genome, strategy_name) = if let Some(pt) = crossover_point {
@@ -153,6 +161,7 @@ fn handle_crossover(
         "maternal_sequence_length": child_genome.chromosome_maternal.len(),
         "paternal_sequence_length": child_genome.chromosome_paternal.len(),
         "phylogenetic_divergence_mya": divergence,
+        "speciation_threshold": threshold,
         "speciation_barrier_satisfied": true,
         "status": "recombined"
     }));
