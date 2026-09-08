@@ -156,9 +156,11 @@ async function decideApproval(req, res, next) {
     const approval = await db.get('SELECT * FROM platform_approvals WHERE id = ? AND organization_id = ? AND project_id = ?', req.params.id, req.tenant.organizationId, req.tenant.projectId);
     if (!approval) return res.status(404).json({ error: { code: 'APPROVAL_NOT_FOUND', message: `Approval '${req.params.id}' was not found.` } });
     if (approval.status !== 'pending') return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' is already ${approval.status}.` } });
+    const decisionBy = req.user?.keyId || req.user?.username || 'platform';
+    if (approval.requested_by === decisionBy) return res.status(409).json({ error: { code: 'APPROVAL_SEPARATION_REQUIRED', message: 'The requester cannot approve the same action.' } });
     const approved = req.body?.decision === 'approve';
     const status = approved ? 'approved' : 'rejected';
-    const updated = await db.run("UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND organization_id=? AND project_id=? AND status='pending'", status, req.user?.username || 'platform', req.body?.reason || null, req.params.id, req.tenant.organizationId, req.tenant.projectId);
+    const updated = await db.run("UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND organization_id=? AND project_id=? AND status='pending'", status, decisionBy, req.body?.reason || null, req.params.id, req.tenant.organizationId, req.tenant.projectId);
     if (!updated.changes) return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' was decided concurrently.` } });
     await db.run('INSERT INTO audit_logs (actor,action,resource,decision,reason) VALUES (?, ?, ?, ?, ?)', req.user?.username || 'platform', 'APPROVAL_DECISION', req.params.id, status, req.body?.reason || 'operator decision');
 
