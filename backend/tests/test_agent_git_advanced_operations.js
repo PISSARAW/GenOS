@@ -22,7 +22,9 @@ dbModule.getDatabase = async () => ({
 delete require.cache[require.resolve('../src/services/agentGitService')];
 const service = require('../src/services/agentGitService');
 objects.source.state_hash = service.hashState(JSON.parse(objects.source.state_json));
-const req = { body: { leftAgentId: 'left', rightAgentId: 'right', agentId: 'left', objectId: 'obj-source', targetAgentId: 'right', field: 'agent.cognitive_budget', expectedValue: 80 }, tenant: { organizationId: 'org', projectId: 'project' }, user: { username: 'tester' } };
+objects.source.metadata_json = JSON.stringify({ locked: false });
+objects.source.signature = service.signObject(objects.source.state_hash, JSON.parse(objects.source.metadata_json));
+const req = { body: { leftAgentId: 'left', rightAgentId: 'right', agentId: 'left', objectId: 'obj-source', targetAgentId: 'right', field: 'agent.cognitive_budget', expectedValue: 80, resolution: 'ours' }, tenant: { organizationId: 'org', projectId: 'project' }, user: { username: 'tester' } };
 (async () => {
   const diff = await service.diff(req);
   assert.equal(diff.success, true);

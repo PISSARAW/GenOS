@@ -11,5 +11,9 @@ async function diff(req, res, next) { try { res.json(await agentGit.diff(req)); 
 async function merge(req, res, next) { try { res.status(201).json(await agentGit.merge(req)); } catch (error) { next(error); } }
 async function replay(req, res, next) { try { res.json(await agentGit.replay(req)); } catch (error) { next(error); } }
 async function bisect(req, res, next) { try { res.json(await agentGit.bisect(req)); } catch (error) { next(error); } }
+async function log(req, res, next) { try { res.json(await agentGit.log(req)); } catch (error) { next(error); } }
+async function revert(req, res, next) { try { res.status(201).json(await agentGit.revert(req)); } catch (error) { next(error); } }
+async function rebase(req, res, next) { try { res.status(201).json(await agentGit.rebase(req)); } catch (error) { next(error); } }
+async function remoteReceive(req, res, next) { try { res.status(201).json(await agentGit.receiveRemote(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, remoteReceive };

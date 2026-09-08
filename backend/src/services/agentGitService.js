@@ -5,6 +5,21 @@ function hashState(state) {
   return crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex');
 }
 
+function signingSecret() {
+  return process.env.GENOS_AGENT_GIT_SIGNING_SECRET || process.env.GENOS_GRPC_SHARED_SECRET || 'genos-agent-git-development-secret';
+}
+
+function signObject(stateHash, metadata) {
+  return crypto.createHmac('sha256', signingSecret()).update(`${stateHash}:${JSON.stringify(metadata || {})}`).digest('hex');
+}
+
+function verifyObjectSignature(object) {
+  if (!object.signature) return false;
+  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})));
+  const actual = Buffer.from(object.signature);
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
 function json(value, fallback) {
   try { return JSON.parse(value || ''); } catch (_) { return fallback; }
 }
@@ -51,15 +66,18 @@ function changedSections(left, right) {
   return sections.filter((section) => JSON.stringify(left?.[section]) !== JSON.stringify(right?.[section]));
 }
 
-async function storeObject(db, { agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {} }) {
+async function storeObject(db, { agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false }) {
   const id = `agent-git-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const stateJson = JSON.stringify(state);
+  const objectMetadata = { ...metadata, locked, stateSchema: state.schema };
+  const stateHash = hashState(state);
+  const signature = signObject(stateHash, objectMetadata);
   await db.run(
-    `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    id, agentId, workspaceId, kind, refName || null, remoteName || null, hashState(state), stateJson, JSON.stringify(metadata), createdBy || 'agent-git'
+    `INSERT INTO agent_git_objects (id, agent_id, workspace_id, object_kind, ref_name, remote_name, state_hash, state_json, metadata_json, signature, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id, agentId, workspaceId, kind, refName || null, remoteName || null, stateHash, stateJson, JSON.stringify(objectMetadata), signature, createdBy || 'agent-git'
   );
-  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash: hashState(state) };
+  return { id, agentId, workspaceId, kind, refName: refName || null, remoteName: remoteName || null, stateHash, signature };
 }
 
 async function getObject(db, req, objectId) {
@@ -116,7 +134,15 @@ async function createCommit(req, options = {}) {
 async function push(req) {
   const agentId = String(req.body?.agentId || '').trim();
   const remoteName = String(req.body?.remoteName || 'default').trim();
-  const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true } });
+  const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
+  if (req.body?.remoteUrl) {
+    const state = await collectState(await getDatabase(), req, agentId);
+    const response = await fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/push`, {
+      method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) },
+      body: JSON.stringify({ ...req.body, objectId: commit.id, object: commit, state })
+    });
+    if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
+  }
   return { success: true, operation: 'push', remoteName, ...commit };
 }
 
@@ -125,7 +151,22 @@ async function fetch(req) {
   const remoteName = String(req.body?.remoteName || 'default').trim();
   const scope = scopeSql(req, 'w');
   const objects = await db.all(`SELECT o.id, o.agent_id, o.state_hash, o.ref_name, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.object_kind = 'remote' AND o.remote_name = ? AND ${scope.clause} ORDER BY o.created_at DESC`, remoteName, ...scope.params);
+  if (req.body?.remoteUrl) {
+    const response = await fetch(`${String(req.body.remoteUrl).replace(/\/$/, '')}/api/lineage/agents/git/remote/fetch`, { method: 'POST', headers: { 'content-type': 'application/json', ...(req.body.remoteToken ? { authorization: `Bearer ${req.body.remoteToken}` } : {}) }, body: JSON.stringify({ ...req.body, remoteName }) });
+    if (!response.ok) throw new Error(`Remote fetch failed with HTTP ${response.status}.`);
+    return { success: true, operation: 'fetch', remoteName, remote: await response.json(), objects };
+  }
   return { success: true, operation: 'fetch', remoteName, objects };
+}
+
+async function receiveRemote(req) {
+  const incoming = req.body?.object;
+  if (!incoming?.id || !incoming.stateHash) return { success: false, error: 'Signed remote object is required.' };
+  const db = await getDatabase();
+  const state = req.body?.state || null;
+  if (!state) return { success: false, error: 'Remote state payload is required.' };
+  const stored = await storeObject(db, { agentId: incoming.agentId, workspaceId: incoming.workspaceId, kind: 'remote', refName: incoming.refName, remoteName: req.body?.remoteName || 'default', state, createdBy: req.user?.username || 'remote', metadata: { receivedFrom: req.ip || 'remote', sourceObjectId: incoming.id }, locked: true });
+  return { success: true, operation: 'remote-receive', ...stored };
 }
 
 async function pull(req) {
@@ -138,7 +179,12 @@ async function pull(req) {
 }
 
 async function stash(req) { return { success: true, operation: 'stash', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'stash', refName: req.body?.refName || 'stash' })) }; }
-async function tag(req) { return { success: true, operation: 'tag', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'tag', refName: req.body?.tagName, metadata: { stable: true } })) }; }
+async function tag(req) {
+  const db = await getDatabase();
+  const existing = await db.get('SELECT metadata_json FROM agent_git_objects WHERE agent_id = ? AND object_kind = \'tag\' AND ref_name = ?', req.body?.agentId, req.body?.tagName);
+  if (existing && json(existing.metadata_json, {}).locked) throw Object.assign(new Error('Tag is locked and cannot be overwritten.'), { code: 'AGENT_TAG_LOCKED' });
+  return { success: true, operation: 'tag', ...(await createCommit(req, { agentId: req.body?.agentId, kind: 'tag', refName: req.body?.tagName, metadata: { stable: true }, locked: req.body?.locked !== false })) };
+}
 
 async function cherryPick(req) {
   const db = await getDatabase();
@@ -165,9 +211,14 @@ async function merge(req) {
   if (!left || !right) return { success: false, error: 'Both agents must exist in the current tenant.' };
   if (left.agent.workspace_id !== right.agent.workspace_id) return { success: false, error: 'Agents must share a workspace.' };
   const unique = (items, key) => [...new Map(items.map((item) => [key(item), item])).values()];
+  const conflicts = [];
+  if (left.agent.role !== right.agent.role && req.body?.role == null) conflicts.push({ section: 'strategy', field: 'role', left: left.agent.role, right: right.agent.role });
+  if (left.agent.model_tier !== right.agent.model_tier && req.body?.modelTier == null) conflicts.push({ section: 'runtime', field: 'model_tier', left: left.agent.model_tier, right: right.agent.model_tier });
+  if (conflicts.length && req.body?.resolution !== 'ours' && req.body?.resolution !== 'theirs') return { success: false, operation: 'merge', conflict: true, conflicts, resolutionRequired: true };
+  const winner = req.body?.resolution === 'theirs' ? right : left;
   const merged = {
     ...left,
-    agent: { ...left.agent, name: req.body?.name || `Merge of ${left.agent.name} + ${right.agent.name}`, role: req.body?.role || `${left.agent.role}+${right.agent.role}`, cognitive_budget: Math.min(Number(left.agent.cognitive_budget || 0), Number(right.agent.cognitive_budget || 0)), dissonance_level: Math.max(Number(left.agent.dissonance_level || 0), Number(right.agent.dissonance_level || 0)) },
+    agent: { ...winner.agent, name: req.body?.name || `Merge of ${left.agent.name} + ${right.agent.name}`, role: req.body?.role || winner.agent.role, cognitive_budget: Math.min(Number(left.agent.cognitive_budget || 0), Number(right.agent.cognitive_budget || 0)), dissonance_level: Math.max(Number(left.agent.dissonance_level || 0), Number(right.agent.dissonance_level || 0)) },
     decisions: unique([...left.decisions, ...right.decisions], (item) => `${item.title}:${item.content}`),
     memories: unique([...left.memories, ...right.memories], (item) => `${item.action_input}:${item.observation_output}:${item.created_at}`),
     runs: unique([...left.runs, ...right.runs], (item) => item.id),
@@ -176,7 +227,7 @@ async function merge(req) {
   };
   const result = await applyState(db, req, req.body?.targetAgentId || left.agent.id, merged, ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
   const object = await storeObject(db, { agentId: result.targetAgentId, workspaceId: merged.agent.workspace_id, kind: 'commit', refName: 'merge', state: merged, createdBy: req.user?.username || 'agent-git', metadata: { mergeParents: [left.agent.id, right.agent.id] } });
-  return { success: true, operation: 'merge', ...result, ...object, parentAgentIds: [left.agent.id, right.agent.id] };
+  return { success: true, operation: 'merge', ...result, ...object, parentAgentIds: [left.agent.id, right.agent.id], conflictsResolved: conflicts.length };
 }
 
 async function replay(req) {
@@ -185,7 +236,41 @@ async function replay(req) {
   if (!object) return { success: false, error: 'Agent object not found.' };
   const state = JSON.parse(object.state_json);
   const digest = hashState(state);
-  return { success: true, operation: 'replay', objectId: object.id, replayVerified: digest === object.state_hash, state, stateHash: digest, applied: false };
+  const events = Array.isArray(state.events) ? state.events : [];
+  return { success: true, operation: 'replay', objectId: object.id, replayVerified: digest === object.state_hash && verifyObjectSignature(object), state, stateHash: digest, runtimeReplay: { eventCount: events.length, ordered: events.every((event, index, all) => index === 0 || String(all[index - 1].created_at) <= String(event.created_at)), events }, applied: false };
+}
+
+async function log(req) {
+  const db = await getDatabase();
+  const scope = scopeSql(req, 'w');
+  const rows = await db.all(`SELECT o.id, o.agent_id, o.object_kind, o.ref_name, o.remote_name, o.state_hash, o.signature, o.metadata_json, o.created_by, o.created_at FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.agent_id = ? AND ${scope.clause} ORDER BY o.created_at DESC, o.id DESC LIMIT ?`, req.body?.agentId, Math.min(1000, Math.max(1, Number(req.body?.limit || 100))), ...scope.params);
+  return { success: true, operation: 'log', agentId: req.body?.agentId, objects: rows.map((row) => ({ ...row, metadata: json(row.metadata_json, {}), signatureValid: verifyObjectSignature(row) })) };
+}
+
+async function revert(req) {
+  const db = await getDatabase();
+  const object = await getObject(db, req, req.body?.objectId);
+  if (!object) return { success: false, error: 'Agent object not found.' };
+  const current = await collectState(db, req, req.body?.targetAgentId || object.agent_id);
+  const target = JSON.parse(object.state_json);
+  const inverse = { ...current, agent: current.agent, decisions: (current.decisions || []).filter((item) => !(target.decisions || []).some((candidate) => candidate.id === item.id)), memories: (current.memories || []).filter((item) => !(target.memories || []).some((candidate) => candidate.id === item.id)) };
+  const result = await applyState(db, req, req.body?.targetAgentId || object.agent_id, inverse, ['decisions', 'memories']);
+  const commit = await storeObject(db, { agentId: result.targetAgentId, workspaceId: current.agent.workspace_id, kind: 'commit', refName: req.body?.refName || 'main', state: inverse, createdBy: req.user?.username || 'agent-git', metadata: { revertOf: object.id, inverse: true } });
+  return { success: true, operation: 'revert', revertedObjectId: object.id, ...result, ...commit };
+}
+
+async function rebase(req) {
+  const db = await getDatabase();
+  const ours = await getObject(db, req, req.body?.oursObjectId);
+  const onto = await getObject(db, req, req.body?.ontoObjectId);
+  if (!ours || !onto) return { success: false, error: 'Both rebase objects are required.' };
+  const oursState = JSON.parse(ours.state_json); const ontoState = JSON.parse(onto.state_json);
+  const conflicts = changedSections(oursState, ontoState).filter((section) => section !== 'capturedAt').map((section) => ({ section, ours: oursState[section], onto: ontoState[section] }));
+  if (conflicts.length && req.body?.resolution !== 'ours' && req.body?.resolution !== 'onto') return { success: false, operation: 'rebase', conflict: true, conflicts, resolutionRequired: true };
+  const base = req.body?.resolution === 'onto' ? ontoState : oursState;
+  const result = await applyState(db, req, req.body?.targetAgentId || ours.agent_id, base, req.body?.sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
+  const commit = await storeObject(db, { agentId: result.targetAgentId, workspaceId: base.agent.workspace_id, kind: 'commit', refName: req.body?.refName || ours.ref_name || 'main', state: base, createdBy: req.user?.username || 'agent-git', metadata: { rebaseFrom: ours.id, rebaseOnto: onto.id, conflictsResolved: conflicts.length } });
+  return { success: true, operation: 'rebase', ...result, ...commit, conflictsResolved: conflicts.length };
 }
 
 async function bisect(req) {
@@ -203,4 +288,4 @@ async function bisect(req) {
   return { success: true, operation: 'bisect', agentId, field, expectedValue: expected, anomalyFound: culprit >= 0, culpritObjectId: culprit >= 0 ? objects[culprit].id : null, iterations, complexity: `O(log2(${objects.length}))` };
 }
 
-module.exports = { hashState, collectState, changedSections, createCommit, push, fetch, pull, stash, tag, cherryPick, diff, merge, replay, bisect, applyState, getObject };
+module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, revert, rebase, applyState, getObject };

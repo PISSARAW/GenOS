@@ -153,6 +153,8 @@ async function applyVersionedMigrations(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_agent_git_objects_agent ON agent_git_objects(agent_id, object_kind, created_at);
   CREATE INDEX IF NOT EXISTS idx_agent_git_objects_remote ON agent_git_objects(remote_name, state_hash);`);
+  const agentGitColumns = new Set((await db.all('PRAGMA table_info(agent_git_objects)')).map((column) => column.name));
+  if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
