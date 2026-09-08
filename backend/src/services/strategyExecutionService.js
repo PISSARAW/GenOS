@@ -310,9 +310,6 @@ async function approveRun(db, id, options = {}) {
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
   if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
-  const now = new Date().toISOString();
-  await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
-  await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ?", now, id);
 
   // Reconstruct execution context from contract, agent, and recorded step evidence
   const contractRecord = await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id);
@@ -357,6 +354,12 @@ async function approveRun(db, id, options = {}) {
   } catch (err) {
     promotionResult = { success: false, error: err.message };
   }
+  if (!promotionResult?.success) {
+    throw new Error(`Execution run ${id} promotion failed: ${promotionResult?.error || 'unknown error'}`);
+  }
+  const now = new Date().toISOString();
+  await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
+  await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'awaiting_approval'", now, id);
 
   try {
     const agentMemory = require('./agentMemoryService');
