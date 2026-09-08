@@ -44,7 +44,7 @@ async function run() {
 
     const active = await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'red_blue_coevolution', reason: 'active challenge needed', changedBy: 'org-root' });
     assert.equal(active.version, 2);
-    await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', kind: 'challenge', content: 'counterexample' });
+    await organization.publish(db, { orchestratorId: 'org-root', senderAgentId: 'org-a', recipientAgentId: 'org-b', kind: 'challenge', content: 'counterexample' });
     assert.equal((await organization.inbox(db, { orchestratorId: 'org-root', requesterAgentId: 'org-b', afterId: indirect.id })).messages[0].content, 'counterexample');
 
     await organization.changeOrganization(db, { orchestratorId: 'org-root', organization: 'blind_adversarial_review', reason: 'remove reviewer anchoring', changedBy: 'org-root' });
