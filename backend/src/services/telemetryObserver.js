@@ -168,7 +168,7 @@ class TelemetryObserver extends EventEmitter {
           if (provenanceTypes.has(queuedEvent.eventType)) {
             const payloadJson = JSON.stringify({ eventId: queuedEvent.id, eventType: queuedEvent.eventType, agentId: queuedEvent.agentId, action: queuedEvent.action, detail: queuedEvent.detail, payload: queuedEvent.payload });
             const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json) VALUES (?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson);
+            await db.run('INSERT OR IGNORE INTO provenance_records (id, subject_type, subject_id, payload_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', `prov-event-${queuedEvent.id}`, queuedEvent.eventType.toLowerCase(), queuedEvent.id, payloadHash, payloadJson, queuedEvent.payload?.organizationId || null, queuedEvent.payload?.projectId || null);
           }
           await this.persistWorkspaceMilestone(db, queuedEvent);
           if (queuedEvent.eventType === 'AGENT_COMPLETED') await this.generateWorkspaceReadme(db, queuedEvent.agentId);

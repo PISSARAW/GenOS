@@ -8,6 +8,12 @@ let draining = false;
 
 function accepts(hook, event) { try { const events = JSON.parse(hook.events || '["*"]'); return Array.isArray(events) && (events.includes('*') || events.includes(event.eventType)); } catch (_) { return false; } }
 
+function matchesScope(hook, event) {
+  const organizationId = event.payload?.organizationId || event.payload?.organization_id;
+  const projectId = event.payload?.projectId || event.payload?.project_id;
+  return Boolean(organizationId && projectId && hook.organization_id === organizationId && hook.project_id === projectId);
+}
+
 // Webhook targets are fetched server-side on every matching event, so each
 // URL must point at a public HTTPS host. Loopback, private ranges and
 // link-local addresses (including cloud metadata endpoints) are refused both
@@ -57,7 +63,7 @@ async function dispatchEvent(event) {
     const db = await getDatabase();
     const hooks = await db.all('SELECT * FROM webhook_subscriptions WHERE enabled = 1');
     for (const hook of hooks) {
-      if (!accepts(hook, event)) continue;
+      if (!accepts(hook, event) || !matchesScope(hook, event)) continue;
       try { await assertPublicWebhookUrl(hook.url); } catch (_) { continue; }
       // Per-hook secrets always win: the global env secret must never be
       // handed to an endpoint registered by someone else.
