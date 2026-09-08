@@ -9,8 +9,8 @@ process.env.NODE_ENV = 'test';
 process.env.GENOS_DB_PATH = databasePath;
 process.env.GENOS_ADMIN_TOKEN = `health-test-${crypto.randomBytes(24).toString('hex')}`;
 
-const { closeDatabase } = require('./src/db');
-const health = require('./src/controllers/healthController');
+const { closeDatabase } = require('../src/db');
+const health = require('../src/controllers/healthController');
 
 function response() {
   return {
