@@ -339,7 +339,9 @@ function somaticHypermutate(genes = {}, options = {}) {
   const stressLevel = Math.max(0.1, Math.min(2.0, Number(options.stressLevel ?? 1.0)));
   const baseRate = Math.max(0.1, Math.min(1.0, Number(options.mutationRate ?? 0.4)));
   const effectiveRate = Math.min(1.0, baseRate * stressLevel);
-  const seed = options.seed ? String(options.seed) : `hyper_${Date.now()}_${Math.random()}`;
+  const seed = options.seed
+    ? String(options.seed)
+    : `hyper_${contentFingerprint({ genes, stressLevel, baseRate })}`;
 
   const mutatedGenes = {
     ...genes,
@@ -389,6 +391,7 @@ function somaticHypermutate(genes = {}, options = {}) {
   const hypermutationScore = Number((mutationsApplied.length * 0.25 * stressLevel).toFixed(2));
 
   return {
+    reproducibilitySeed: seed,
     originalGenes: genes,
     mutatedGenes,
     mutationsApplied,
