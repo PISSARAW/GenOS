@@ -6,10 +6,23 @@ const contractPath = process.env.GENOS_IDE_CONTRACT_PATH
   || path.resolve(__dirname, '../../../integrations/ide/genos-extension-contract.json');
 const CONTRACT = require(contractPath);
 
+function parseVersion(value) {
+  const match = String(value || '').trim().match(/^(\d+)\.(\d+)\.(\d+)$/);
+  return match ? match.slice(1).map(Number) : null;
+}
+
+function isCompatibleVersion(version) {
+  const server = parseVersion(CONTRACT.version);
+  const client = parseVersion(version);
+  return Boolean(server && client && client[0] === server[0] && client[1] >= server[1]);
+}
+
 async function contract(req, res) { res.json(CONTRACT); }
 async function connect(req, res) {
   const { ide, workspaceId, version = CONTRACT.version, metadata = {} } = req.body || {};
   if (!CONTRACT.ides.includes(ide)) return res.status(400).json({ error: { code: 'INVALID_IDE', message: 'ide must be vscode, jetbrains or antigravity' } });
+  if (!isCompatibleVersion(version)) return res.status(426).json({ error: { code: 'INCOMPATIBLE_IDE_VERSION', message: `IDE version '${version}' is incompatible with contract ${CONTRACT.version}.` } });
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return res.status(400).json({ error: { code: 'INVALID_IDE_METADATA', message: 'metadata must be an object.' } });
   const db = await getDatabase();
   if (workspaceId) {
     const workspace = await db.get(
@@ -44,6 +57,6 @@ async function execute(req, res) {
   const command = CONTRACT.commands.find((item) => item.id === req.params.command);
   if (!command) return res.status(404).json({ error: { code: 'IDE_COMMAND_NOT_FOUND', message: 'Unknown GenOS IDE command' } });
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
-  res.json({ accepted: true, action: command.id, payload: req.body || {} });
+  return res.status(501).json({ error: { code: 'IDE_COMMAND_NOT_IMPLEMENTED', message: `IDE command '${command.id}' is registered but has no execution handler.` }, action: command.id });
 }
-module.exports = { contract, connect, list, execute };
+module.exports = { contract, connect, list, execute, isCompatibleVersion };
