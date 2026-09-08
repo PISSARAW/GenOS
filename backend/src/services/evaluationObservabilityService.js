@@ -5,6 +5,19 @@ const { canonicalize } = require('./evaluationGraders');
 
 const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 
+function impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext) {
+  return {
+    benchmark: 'ImpossibleBench',
+    algorithmVersion: 'confidence-abstention-v1',
+    threshold,
+    modelVersion,
+    seed,
+    taskContext: taskContext || null,
+    casesHash: hash(cases),
+    modelRouting: input.modelRouting || null
+  };
+}
+
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
@@ -137,7 +150,7 @@ async function runImpossibleBench(input = {}) {
     const agentId = input.agentId || 'studio';
     const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
     const seed = input.seed ?? null;
-    const config = { threshold, modelVersion, seed };
+    const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
     const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: taskContext || null };
     await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
     await recordProvenance('evaluation', id, payload, null, input);
@@ -157,7 +170,7 @@ async function runImpossibleBench(input = {}) {
   const agentId = input.agentId || 'studio';
   const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
   const seed = input.seed ?? null;
-  const config = { threshold, modelVersion, seed };
+  const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
   const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: taskContext || null };
   await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), score, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload, null, input);
