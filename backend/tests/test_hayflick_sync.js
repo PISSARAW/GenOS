@@ -38,6 +38,18 @@ async function testHayflickSync() {
   // Verify lineage_nodes summary was updated
   const lysedNode = await db.get('SELECT state_summary FROM lineage_nodes WHERE id = ?', motherId);
   assert.ok(lysedNode.state_summary.includes('Lysed mother cell'));
+  const progenyNodes = await db.all(
+    "SELECT id, node_type FROM lineage_nodes WHERE workspace_id = ? AND node_type = 'speculative_merozoite' AND metadata LIKE ?",
+    wsId,
+    `%\"motherAgentId\":\"${motherId}\"%`
+  );
+  assert.equal(progenyNodes.length, schizoRes.json.progeny_count, 'Every schizogony progeny must be persisted as a lineage node');
+  const progenyEdges = await db.all(
+    "SELECT target_node_id FROM lineage_edges WHERE workspace_id = ? AND source_node_id = ? AND edge_type = 'schizogony'",
+    wsId,
+    motherId
+  );
+  assert.equal(progenyEdges.length, schizoRes.json.progeny_count, 'Every schizogony progeny must have a mother edge');
   console.log('  ✅ PASS: Schizogony lysis synchronized with agents and lineage_nodes tables');
 
   // 2. Test recursive_fork senescence sync
