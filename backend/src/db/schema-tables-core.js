@@ -367,6 +367,7 @@ const TABLES_CORE = [
 "    decision TEXT NOT NULL,",
 "    reason TEXT,",
 "    payload_json TEXT DEFAULT '{}',",
+"    payload_hash TEXT,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 ");",
 "CREATE TABLE IF NOT EXISTS platform_approvals (",
