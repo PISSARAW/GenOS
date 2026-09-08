@@ -280,6 +280,46 @@ async function checkoutAgentState(req, res) {
   return res.json({ success: true, agentId, snapshotId: snapshot.id, refName: snapshot.ref_name || refName || 'main', reset: req.body?.reset === true });
 }
 
+async function cherryPickAgentState(req, res) {
+  const sourceAgentId = String(req.body?.sourceAgentId || '').trim();
+  const targetAgentId = String(req.body?.targetAgentId || '').trim();
+  const snapshotId = String(req.body?.snapshotId || '').trim();
+  const sections = Array.isArray(req.body?.sections) && req.body.sections.length
+    ? req.body.sections
+    : ['conscience', 'task'];
+  const allowedSections = new Set(['identity', 'conscience', 'task', 'runtime']);
+  if (!sourceAgentId || !targetAgentId || sourceAgentId === targetAgentId) return res.status(400).json({ error: { code: 'AGENTS_REQUIRED', message: 'Distinct sourceAgentId and targetAgentId are required.' } });
+  if (sections.some((section) => !allowedSections.has(section))) return res.status(400).json({ error: { code: 'CHERRY_PICK_SECTION_INVALID', message: 'Unsupported cherry-pick section.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const loadAgent = (id) => db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, id, ...scope.params);
+  const [source, target] = await Promise.all([loadAgent(sourceAgentId), loadAgent(targetAgentId)]);
+  if (!source || !target) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Both agents must exist in the current tenant.' } });
+  if (source.workspace_id !== target.workspace_id) return res.status(409).json({ error: { code: 'AGENT_WORKSPACE_MISMATCH', message: 'Agents must belong to the same workspace.' } });
+  let state = source;
+  if (snapshotId) {
+    const snapshot = await db.get('SELECT state_json FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', snapshotId, sourceAgentId);
+    if (!snapshot) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Source snapshot is not available.' } });
+    state = JSON.parse(snapshot.state_json);
+  }
+  const identity = sections.includes('identity') ? {
+    name: state.name, name_meaning: state.name_meaning, role: state.role, model_tier: state.model_tier, language: state.language
+  } : {};
+  const conscience = sections.includes('conscience') ? {
+    dissonance_level: state.dissonance_level || 0, eureka_count: state.eureka_count || 0,
+    cognitive_budget: state.cognitive_budget ?? 0, cognitive_baseline_budget: state.cognitive_baseline_budget ?? 0,
+    cognitive_max_dissonance: state.cognitive_max_dissonance ?? 50, is_apoptotic: state.is_apoptotic || 0
+  } : {};
+  const task = sections.includes('task') ? { current_task: state.current_task } : {};
+  const runtime = sections.includes('runtime') ? { model_tier: state.model_tier, language: state.language, isolation_mode: state.isolation_mode } : {};
+  const patch = { ...identity, ...conscience, ...task, ...runtime };
+  const assignments = Object.keys(patch);
+  const values = assignments.map((field) => patch[field]);
+  await db.run(`UPDATE agents SET ${assignments.map((field) => `${field} = ?`).join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, ...values, targetAgentId);
+  telemetry.emitEvent({ eventType: 'AGENT_STATE_CHERRY_PICKED', agentId: targetAgentId, action: 'CHERRY_PICK', detail: `Cherry-picked ${sections.join(', ')} from ${sourceAgentId}`, severity: 'info', payload: { sourceAgentId, targetAgentId, snapshotId: snapshotId || null, sections } });
+  return res.json({ success: true, sourceAgentId, targetAgentId, snapshotId: snapshotId || null, sections, fieldsApplied: assignments });
+}
+
 async function restoreAgentState(req, res) {
   const agentId = String(req.body?.agentId || '').trim();
   const snapshotId = String(req.body?.snapshotId || '').trim();
@@ -630,6 +670,7 @@ module.exports = {
   commitAgentState,
   branchAgentState,
   checkoutAgentState,
+  cherryPickAgentState,
   restoreAgentState,
   replayAgentState,
   bisectAgentState,
