@@ -7,8 +7,11 @@ const { parseWorkflowCondition } = require('./workflowConditions');
 const { validateGraph } = require('../controllers/workflowController');
 const { exactMatch, groundedness, safety, parseJudgeResponse } = require('./evaluationGraders');
 const { jobTimeoutMs } = require('../controllers/argumentBounds');
+const vectorMemory = require('./vectorMemoryService');
 
 let timer = null;
+let memoryTimer = null;
+let memoryCycleRunning = false;
 let busy = false;
 const busyTables = new Set();
 let recovered = false;
@@ -497,10 +500,24 @@ function startJobWorker(intervalMs = 250) {
   if (timer) return timer;
   timer = setInterval(() => processOnce().catch((error) => telemetry.emitEvent({ eventType: 'JOB_WORKER_TICK_FAILED', agentId: 'system', action: 'JOB_WORKER', detail: error.message, severity: 'error', payload: { code: error.code || null } })), intervalMs);
   timer.unref?.();
+  const sleepInterval = Math.max(60_000, Number(process.env.GENOS_MEMORY_SLEEP_INTERVAL_MS) || 60 * 60 * 1000);
+  memoryTimer = setInterval(() => runMemoryConsolidationOnce().catch(() => {}), sleepInterval);
+  memoryTimer.unref?.();
   return timer;
 }
 
-function stopJobWorker() { if (timer) clearInterval(timer); timer = null; }
+function stopJobWorker() { if (timer) clearInterval(timer); if (memoryTimer) clearInterval(memoryTimer); timer = null; memoryTimer = null; }
+
+async function runMemoryConsolidationOnce() {
+  if (memoryCycleRunning) return { success: false, skipped: true, reason: 'cycle_in_progress' };
+  memoryCycleRunning = true;
+  try {
+    const db = await getDatabase();
+    const result = await vectorMemory.sleepCycle(db);
+    telemetry.emitEvent({ eventType: 'MEMORY_SLEEP_CYCLE_COMPLETED', agentId: 'memory_consolidator', action: 'CONSOLIDATE', detail: 'Automatic memory sleep cycle completed.', payload: result });
+    return result;
+  } finally { memoryCycleRunning = false; }
+}
 
 function getWorkerStatus() {
   return {
@@ -510,4 +527,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, runMemoryConsolidationOnce, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
