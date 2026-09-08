@@ -8,6 +8,8 @@ const {
   WORKER_EVIDENCE_EVENTS
 } = require('./agentOrchestrationState');
 
+const MAX_WORKER_DOSSIER_EVENTS = Math.max(4, Number(process.env.GENOS_MAX_WORKER_DOSSIER_EVENTS) || 32);
+
 function recordWorkerEvidence(mission, event) {
   const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId;
   if (!orchestratorId || !event || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
@@ -39,7 +41,7 @@ function recordWorkerEvidence(mission, event) {
     ...(normalizedFailure ? { failure: normalizedFailure } : {}),
     ...(event.payload?.noAnswerProof ? { noAnswerProof: event.payload.noAnswerProof } : {})
   });
-  round.events.set(workerId, events.slice(-4));
+  round.events.set(workerId, events.slice(-MAX_WORKER_DOSSIER_EVENTS));
 }
 
 function workerEvidenceDossiers(orchestratorId, workers) {
@@ -209,6 +211,7 @@ function evidenceScore(payload = {}, context = {}) {
 }
 
 module.exports = {
+  MAX_WORKER_DOSSIER_EVENTS,
   extractEvidenceReport,
   validateWorkerDossierCoherence,
   recordWorkerEvidence,
