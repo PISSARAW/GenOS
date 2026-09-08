@@ -15,7 +15,7 @@ async function testPlasmidDivergence() {
   assert.equal(strategy.name, 'Optimisation divergente sur plasmide');
   assert.equal(strategy.maturity, 'implemented');
   assert.deepEqual(strategy.primitives, ['plasmid_divergent_fork', 'pareto_select', 'assimilate_plasmid']);
-  console.log('  ✅ PASS: Strategy registry and metadata validated (78 total strategies).');
+  console.log('  ✅ PASS: Strategy registry and metadata validated (79 total strategies).');
 
   // 2. Database preparation
   const db = await getDatabase();
