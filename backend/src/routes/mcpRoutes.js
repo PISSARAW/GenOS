@@ -22,8 +22,8 @@ router.post('/tools/dry-run', requirePermission('mcp:execute_safe'), asyncHandle
 router.get('/tools/metrics', requirePermission('read'), asyncHandler(mcpController.getMetrics));
 router.get('/tools/:name/schema', requirePermission('read'), asyncHandler(mcpController.getSchema));
 router.post('/tools/test', requirePermission('mcp:execute_safe'), requireMcpTenant, asyncHandler(mcpController.testTool));
-router.post('/mcp/circuit-breaker', requirePermission('override_breaker'), asyncHandler(mcpController.toggleCircuitBreaker));
-router.post('/mcp/equip', requirePermission('workspace:write'), asyncHandler(mcpController.equipTool));
+router.post('/mcp/circuit-breaker', requirePermission('override_breaker'), requireMcpTenant, asyncHandler(mcpController.toggleCircuitBreaker));
+router.post('/mcp/equip', requirePermission('workspace:write'), requireMcpTenant, asyncHandler(mcpController.equipTool));
 router.post('/mcp/execute', requirePermission('mcp:execute_safe'), requireMcpTenant, asyncHandler(mcpController.executeTool));
 
 module.exports = router;

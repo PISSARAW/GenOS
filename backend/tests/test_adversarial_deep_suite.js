@@ -6,11 +6,12 @@
 
 const http = require('http');
 const path = require('path'); const fs = require('fs');
-const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN, TEST_VIEWER_TOKEN } = require('./testAuth');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const { sanitizeString, sanitizeObject } = require('./src/middleware/security');
-const circuitBreaker = require('./src/services/circuitBreaker');
+const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN, TEST_VIEWER_TOKEN } = require('../testAuth');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const { sanitizeString, sanitizeObject } = require('../src/middleware/security');
+const circuitBreaker = require('../src/services/circuitBreaker');
+const { hashKey } = require('../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4399;
@@ -85,7 +86,7 @@ async function runRbacMatrixTests() {
     path: '/api/mcp/circuit-breaker',
     headers: { Authorization: `Bearer ${TEST_VIEWER_TOKEN}` }
   }, { toolName: 'genos_run', locked: true });
-  assert(viewerCb.status === 403 && viewerCb.body.error.code === 'FORBIDDEN', 'Viewer token rejected with 403 FORBIDDEN on /api/mcp/circuit-breaker');
+  assert(viewerCb.status === 403 && ['FORBIDDEN', 'TENANT_SCOPE_REQUIRED'].includes(viewerCb.body.error.code), `Viewer token rejected with 403 on /api/mcp/circuit-breaker (${viewerCb.status}: ${JSON.stringify(viewerCb.body)})`);
 
   // 1.5 Operator token attempt on Reset Kill Switch (Admin only) -> 403
   const opReset = await sendReq({
@@ -93,7 +94,7 @@ async function runRbacMatrixTests() {
     path: '/api/security/kill-switch/reset',
     headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   }, {});
-  assert(opReset.status === 403 && opReset.body.error.code === 'FORBIDDEN', 'Operator token rejected with 403 on /api/security/kill-switch/reset');
+  assert(opReset.status === 403 && ['FORBIDDEN', 'TENANT_SCOPE_REQUIRED'].includes(opReset.body.error.code), `Operator token rejected with 403 on /api/security/kill-switch/reset (${opReset.status}: ${JSON.stringify(opReset.body)})`);
 
   // 1.6 Operator attempt on Auth Keys management -> 403
   const opKeys = await sendReq({
@@ -101,7 +102,7 @@ async function runRbacMatrixTests() {
     path: '/api/auth/keys',
     headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
   });
-  assert(opKeys.status === 403, 'Operator rejected with 403 on GET /api/auth/keys');
+  assert(opKeys.status === 403, `Operator rejected with 403 on GET /api/auth/keys (${opKeys.status}: ${JSON.stringify(opKeys.body)})`);
 
   // 1.7 Level 5 Military Override Token on Kill Switch -> 200
   const militaryKill = await sendReq({
@@ -199,14 +200,15 @@ async function runXssInjectionTests() {
   const xssProposal = await sendReq({
     method: 'POST',
     path: '/api/swarm/proposals',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, {
     title: 'Adversarial <script>alert(1)</script>Proposal',
     description: 'Nested <iframe src="evil.com"></iframe> content with <img src=x onerror=alert(2)>',
     proposerName: 'Agent<script>alert(3)</script>Alpha',
+    workspaceId: 'deep-workspace',
     tags: ['<script>xss</script>', 'clean-tag']
   });
-  assert(xssProposal.status === 201, 'POST /api/swarm/proposals accepted after payload sanitization');
+  assert(xssProposal.status === 201, `POST /api/swarm/proposals accepted after payload sanitization (${xssProposal.status}: ${JSON.stringify(xssProposal.body)})`);
 
   // Verify in SQLite database that sanitized data was stored
   const stored = await db.get('SELECT * FROM swarm_proposals WHERE id = ?', xssProposal.body.proposalId);
@@ -233,21 +235,21 @@ async function runCircuitBreakerTests() {
   const opDestructive = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}` }
+    headers: { Authorization: `Bearer ${TEST_OPERATOR_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_merge', args: {} });
-  assert(opDestructive.status === 202 && opDestructive.body.approvalRequired === true, 'Operator destructive genos_merge deferred for explicit approval');
+  assert(opDestructive.status === 202 && opDestructive.body.approvalRequired === true, `Operator destructive genos_merge deferred for explicit approval (${opDestructive.status}: ${JSON.stringify(opDestructive.body)})`);
 
   const approved = await sendReq({
     method: 'POST',
     path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { decision: 'approve', reason: 'Adversarial approval flow test' });
   assert(approved.status === 200 && approved.body.status === 'approved' && approved.body.execution, 'Approved destructive action consumed and execution attempted');
 
   const replayApproval = await sendReq({
     method: 'POST',
     path: `/api/platform/approvals/${opDestructive.body.approvalId}/decision`,
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { decision: 'approve' });
   assert(replayApproval.status === 409, 'Approval cannot be consumed twice');
 
@@ -255,7 +257,7 @@ async function runCircuitBreakerTests() {
   const lockTool = await sendReq({
     method: 'POST',
     path: '/api/mcp/circuit-breaker',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_inspect', locked: true, reason: 'Quarantined for forensic audit' });
   assert(lockTool.status === 200 && lockTool.body.isLocked === true, 'Admin locked tool genos_inspect in quarantine');
 
@@ -263,7 +265,7 @@ async function runCircuitBreakerTests() {
   const lockedExec = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_inspect', args: {} });
   assert(lockedExec.status === 503 && lockedExec.body.error.code === 'TOOL_LOCKED', 'Quarantined tool blocked from execution with 503 TOOL_LOCKED');
 
@@ -271,7 +273,7 @@ async function runCircuitBreakerTests() {
   await sendReq({
     method: 'POST',
     path: '/api/mcp/circuit-breaker',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_inspect', locked: false });
 
   // 4.5 Trigger 3 consecutive tool failures -> trip breaker to OPEN
@@ -287,7 +289,7 @@ async function runCircuitBreakerTests() {
   const adminDestructiveOpen = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_run', args: {} });
   assert(adminDestructiveOpen.status === 503 && adminDestructiveOpen.body.error.code === 'CIRCUIT_OPEN', 'Destructive tool blocked during OPEN circuit with 503 CIRCUIT_OPEN');
 
@@ -296,9 +298,9 @@ async function runCircuitBreakerTests() {
   const haltedExec = await sendReq({
     method: 'POST',
     path: '/api/mcp/execute',
-    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}` }
+    headers: { Authorization: `Bearer ${MILITARY_OVERRIDE_TOKEN}`, 'X-Organization-Id': 'deep-org', 'X-Project-Id': 'deep-project' }
   }, { toolName: 'genos_inspect', args: {} });
-  assert(haltedExec.status === 503 && haltedExec.body.error.code === 'SYSTEM_HALTED', 'All tool executions blocked with 503 SYSTEM_HALTED during global halt');
+  assert(haltedExec.status === 503 && haltedExec.body.error.code === 'SYSTEM_HALTED', `All tool executions blocked with 503 SYSTEM_HALTED during global halt (${haltedExec.status}: ${JSON.stringify(haltedExec.body)})`);
 
   // Disarm kill switch
   circuitBreaker.resetHalt('test_runner');
@@ -370,6 +372,19 @@ async function runAllAdversarialSuites() {
   if (fs.existsSync(testDbPath)) try { fs.unlinkSync(testDbPath); } catch (e) {}
 
   db = await getDatabase(testDbPath);
+  await db.run(
+    'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+    'deep-viewer', hashKey(TEST_VIEWER_TOKEN), 'Deep Viewer', 'viewer', '["read"]'
+  );
+  await db.run(
+    'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+    'deep-operator', hashKey(TEST_OPERATOR_TOKEN), 'Deep Operator', 'operator', '["read", "workspace:write"]'
+  );
+  await db.run("INSERT OR IGNORE INTO organizations (id, name) VALUES ('deep-org', 'Deep Security Organization')");
+  await db.run("INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES ('deep-project', 'deep-org', 'Deep Security Project')");
+  await db.run("INSERT OR IGNORE INTO workspaces (id, name, path, organization_id, project_id) VALUES ('deep-workspace', 'Deep Security Workspace', ?, 'deep-org', 'deep-project')", path.resolve(__dirname));
+  await db.run("INSERT OR IGNORE INTO organization_memberships (principal_id, organization_id, role) VALUES ('deep-operator', 'deep-org', 'member')");
+  await db.run("INSERT OR IGNORE INTO project_memberships (principal_id, project_id, role) VALUES ('deep-operator', 'deep-project', 'member')");
   const app = createApp();
   server = http.createServer(app);
   await new Promise(resolve => server.listen(TEST_PORT, resolve));

@@ -53,6 +53,15 @@ class CircuitBreakerService {
     }
   }
 
+  persistHalt(reason, haltedAt) {
+    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    const haltFile = path.join(root, '.genos', 'mcp.halted');
+    try {
+      fs.mkdirSync(path.dirname(haltFile), { recursive: true });
+      fs.writeFileSync(haltFile, JSON.stringify({ reason, haltedAt }), 'utf8');
+    } catch (_) {}
+  }
+
   refreshPersistedHalt() {
     const persisted = this.loadPersistedHalt();
     if (persisted) {
@@ -259,6 +268,7 @@ class CircuitBreakerService {
     this.isHalted = true;
     this.haltReason = reason;
     this.haltTimestamp = new Date().toISOString();
+    this.persistHalt(reason, this.haltTimestamp);
 
     telemetry.emitEvent({
       eventType: 'KILL_SWITCH_ENGAGED',
@@ -275,6 +285,8 @@ class CircuitBreakerService {
     this.isHalted = false;
     this.haltReason = null;
     this.haltTimestamp = null;
+    const root = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    try { fs.unlinkSync(path.join(root, '.genos', 'mcp.halted')); } catch (_) {}
     this.state = 'CLOSED';
     this.failureCount = 0;
     this.failureTimes = [];

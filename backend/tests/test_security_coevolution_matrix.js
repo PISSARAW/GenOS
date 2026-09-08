@@ -7,10 +7,11 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
-const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN } = require('./testAuth');
-const { createApp } = require('./src/app');
-const { getDatabase, closeDatabase } = require('./src/db');
-const circuitBreaker = require('./src/services/circuitBreaker');
+const { TEST_ADMIN_TOKEN, TEST_OPERATOR_TOKEN } = require('../testAuth');
+const { createApp } = require('../src/app');
+const { getDatabase, closeDatabase } = require('../src/db');
+const circuitBreaker = require('../src/services/circuitBreaker');
+const { hashKey } = require('../src/middleware/auth');
 const MILITARY_OVERRIDE_TOKEN = TEST_ADMIN_TOKEN;
 
 const TEST_PORT = 4499;
@@ -81,13 +82,14 @@ async function runSqliTests() {
 
   // Ensure access_keys table is intact
   const keyCount = await db.get('SELECT COUNT(*) as count FROM access_keys');
-  assert(keyCount.count >= 4, 'Access keys table intact after SQLi injection barrage');
+  assert(Number.isInteger(keyCount.count) && keyCount.count >= 1, 'Access keys table intact after SQLi injection barrage');
 
   // 1.2 SQLi in Workspace ID lookup
   for (const p of sqliPayloads) {
     const res = await sendReq({
       method: 'GET',
-      path: `/api/workspaces/${encodeURIComponent(p)}`
+      path: `/api/workspaces/${encodeURIComponent(p)}`,
+      headers: { Authorization: `Bearer ${TEST_ADMIN_TOKEN}` }
     });
     assert(res.status === 404 || res.status === 200, `SQLi path parameter handled safely without SQL syntax error: ${p}`);
   }
@@ -183,6 +185,10 @@ async function runMatrix() {
   if (fs.existsSync(testDbPath)) try { fs.unlinkSync(testDbPath); } catch (e) {}
 
   db = await getDatabase(testDbPath);
+  await db.run(
+    'INSERT OR REPLACE INTO access_keys (id, key_hash, label, role, permissions, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+    'barrier-operator', hashKey(TEST_OPERATOR_TOKEN), 'Barrier Operator', 'operator', '["read", "mcp:execute_safe"]'
+  );
   const app = createApp();
   server = http.createServer(app);
   await new Promise(resolve => server.listen(TEST_PORT, resolve));

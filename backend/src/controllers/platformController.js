@@ -10,6 +10,7 @@ const { boundedInteger } = require('./argumentBounds');
 const { validateProviderEndpointAsync } = require('../services/providerEndpointPolicy');
 const { normalizeCapabilities } = require('../services/modelCapabilities');
 const workspaceController = require('./workspaceController');
+const crypto = require('crypto');
 
 function catalogProviders() {
   const filePath = path.resolve(__dirname, '../../../config/providers.json');
