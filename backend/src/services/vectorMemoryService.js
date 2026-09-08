@@ -165,7 +165,7 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
-    const allScored = [...topItems, ...connectedItems];
+    const allScored = [...new Map([...scoredItems, ...connectedItems].map((item) => [item.id, item])).values()];
 
     // Reconsolidation par le rappel (Active Retrieval Potentiation)
     if (db && topItems.length > 0) {

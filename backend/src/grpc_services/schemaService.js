@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const grpc = require('@grpc/grpc-js');
 const specValidator = require('../services/specValidator');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
@@ -10,6 +11,9 @@ module.exports = {
 
   ValidateSchema: (call, callback) => {
     const { schema_name, data_json } = call.request || {};
+    if (!schema_name) {
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'schema_name is required.' });
+    }
     try {
       const data = data_json ? JSON.parse(data_json) : {};
       const result = specValidator.validateSpec(schema_name, data);
@@ -25,7 +29,7 @@ module.exports = {
       ? schemaName
       : `${schemaName}.schema.json`;
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.schema\.json$/.test(schemaFile) || path.basename(schemaFile) !== schemaFile) {
-      return callback(null, { json_schema: JSON.stringify({ error: 'Invalid schema name.', available: false }) });
+      return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'Invalid schema name.' });
     }
     const schemaPath = path.join(SPEC_DIR, schemaFile);
     if (fs.existsSync(schemaPath)) {

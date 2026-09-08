@@ -1291,6 +1291,7 @@ dependencies = [
  "genos-biology",
  "genos-cell",
  "genos-genome",
+ "genos-immune",
  "genos-signal",
  "serde",
  "serde_json",

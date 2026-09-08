@@ -28,7 +28,7 @@ const originalEndpoint = discovery.endpointForModel;
 
   await assert.rejects(
     router.generate({ db, model: 'openai://model', prompt: 'hello', maxCostUsd: 0.000001 }),
-    /Estimated model cost/
+    /cost.*budget/
   );
 
   await assert.rejects(
