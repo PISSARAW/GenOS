@@ -279,7 +279,10 @@ impl CellDivision {
 
         // Somatic mutation during budding if mutation_rate > 0
         if mutation_rate > 0.0 {
-            let seed = default_seed(&daughter.genome_id().to_string(), "budding_mutation");
+            let seed = default_seed(
+                &mother.genome_id().to_string(),
+                &format!("budding_mutation:{daughter_volume:.6}:{current_scars}:{hayflick_limit}:{mutation_rate:.6}"),
+            );
             let mut rng = rng_from_seed(&seed);
             let mut mat = daughter.chromosome_maternal.as_slice().to_vec();
             let mut pat = daughter.chromosome_paternal.as_slice().to_vec();
