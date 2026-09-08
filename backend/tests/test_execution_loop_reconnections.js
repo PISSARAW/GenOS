@@ -62,7 +62,7 @@ async function testSynapticVesiclesAndExosomes() {
   const vesiclePath = await synapticTransmission.releaseVesicles([
     { content: epistemicDirective, vector: new Array(768).fill(0.1) },
     { content: 'Contextual fact: server uses port 8080.', vector: new Array(768).fill(0.2) }
-  ]);
+  ], { targetAgentId: 'agent_test_vesicle' });
   assert.ok(fs.existsSync(vesiclePath), 'Vesicle file must exist in synaptic_cleft');
 
   // B. Uptake Vesicle in Agent Memory Context
