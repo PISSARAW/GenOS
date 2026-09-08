@@ -27,7 +27,7 @@ Traditional AI agent frameworks force workflows along a single, mutable timeline
 
 **GenOS V3** re-architects agentic computation as a **biomimetic, counterfactual operating system**:
 - **Agents as Biological Cells:** Agents are not just prompt loops; they are cellular units (`AgentCell`) with an immutable genome, epigenetic chromatin states, metabolic budgets (ATP/tokens), synaptic dendritic trees, and cognitive conscience monitors.
-- **Git-like State Branching & Replay:** Snapshot workspace and agent state, fork competing hypotheses across isolated counterfactual worlds, execute in sandboxes, evaluate outcomes, and merge only verified winners.
+- **Git-like State Branching & Replay:** Snapshot workspace and agent state, fork competing hypotheses across isolated counterfactual worlds, execute in sandboxes, evaluate outcomes, and preserve replay evidence. The current replay surfaces validate snapshot structure or reconstruct recorded traces; they do not claim deterministic re-execution of arbitrary work.
 - **Epistemic Stigmergy:** Agents collaborate like social insects via digital pheromone trails deposited on shared graphs, eliminating expensive inter-agent natural language chatter.
 - **Cellular Division & Evolution:** Controlled replication through 5 biological modes (Mitosis, Binary Fission, Budding, Schizogony, Meiosis) while strictly rejecting non-deterministic amitosis.
 - **The Evidence Arbiter:** Promotion is gated by explicit tool results, tests, compiler feedback, provenance, and sandbox checks. Missing evidence is a failure; the runtime does not claim AGI or formal proof.
@@ -132,7 +132,7 @@ GenOS ships with a strategy registry and an execution dispatcher (`backend/src/s
 3. **Evolution:** `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`, `plasmid_divergent_fork`.
 4. **Safety & Resilience:** `circuit_breaker`, `apoptosis`, `quarantine`, `sandbox`, `permission_check`.
 5. **Collective Swarm:** `pheromone_deposit`, `trail_selection`, `brier_scores`, `quorum`, `weighted_quorum`.
-6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`, 3-way merge.
+6. **Temporal & Causal:** `causal_replay`, `mutated_universes`, `causal_rebase`, `provenance`, and explicit state merge operations. Replay status must be checked: validation or trace reconstruction is not deterministic execution.
 7. **Deep Search & Budget:** `mcts_select` (UCB1), `prune` (recursive Beam Search), `reallocate`, `budget_limit`, `prm_evaluate`.
 
 ---
