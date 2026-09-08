@@ -1,4 +1,5 @@
 const runtimeAdapter = require('../services/agentRuntimeAdapter');
+const grpc = require('@grpc/grpc-js');
 const { getDatabase } = require('../db');
 const agentAuthority = require('../services/agentAuthorityService');
 const workerGarage = require('../services/workerGarageService');
@@ -11,7 +12,7 @@ module.exports = {
     try {
       const { orchestrator_id, worker_id, prompt } = call.request || {};
       if (!orchestrator_id || !worker_id || !prompt) {
-        return callback(null, { success: false, status: 'orchestrator_id, worker_id, and prompt are required.', garage_slot: 0 });
+        return callback({ code: grpc.status.INVALID_ARGUMENT, message: 'orchestrator_id, worker_id, and prompt are required.' });
       }
       const db = await getDatabase();
       const pair = await db.get(`SELECT worker.id, worker.name, worker.role, worker.model_tier, worker.agent_type, worker.isolation_mode, ww.id AS workspace_id, ww.path AS workspace_root
@@ -58,7 +59,8 @@ module.exports = {
         garage_slot: slot.slot || 0
       });
     } catch (err) {
-      callback(null, { success: false, status: err.message, garage_slot: 0 });
+      const code = err.code === 'INVALID_MISSION_SCOPE' ? grpc.status.PERMISSION_DENIED : err.code || grpc.status.INTERNAL;
+      callback({ code, message: err.message || 'Worker dispatch failed.' });
     }
   }
 };
