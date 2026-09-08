@@ -137,6 +137,15 @@ function normalizeWorkspacePath(value) {
   }
 }
 
+function normalizeFileArguments(args = {}) {
+  if (Object.prototype.hasOwnProperty.call(args, 'TargetFile') || Object.prototype.hasOwnProperty.call(args, 'CodeContent')) {
+    throw new Error('VFS file tools require canonical path and content fields.');
+  }
+  if (typeof args.path !== 'string' || !args.path.trim()) throw new Error('VFS file tools require a non-empty path field.');
+  if (typeof args.content !== 'string') throw new Error('VFS file tools require a string content field.');
+  return { path: normalizeWorkspacePath(args.path), content: args.content };
+}
+
 /**
  * Simulates dry-run execution against an in-memory Virtual File System (VFS)
  */
@@ -156,13 +165,14 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   // Intercept file and execution operations
   if (tool === 'genos_create' || tool === 'replace_file_content' || tool === 'write_to_file') {
     requiredRole = 'operator';
-    const targetPath = normalizeWorkspacePath(args.path || args.TargetFile || 'virtual_file.txt');
+    const fileArgs = normalizeFileArguments(args);
+    const targetPath = fileArgs.path;
     if (vfs[targetPath]) {
       filesModified.push(targetPath);
-      vfs[targetPath] = args.content || args.CodeContent || '';
+      vfs[targetPath] = fileArgs.content;
     } else {
       filesCreated.push(targetPath);
-      vfs[targetPath] = args.content || args.CodeContent || '';
+      vfs[targetPath] = fileArgs.content;
     }
   } else if (tool === 'genos_restore' || tool === 'genos_rollback') {
     requiredRole = 'operator';
@@ -350,5 +360,6 @@ module.exports = {
   dryRunPatch,
   executeVfsOperation,
   inspectVfs
-  ,executeSandboxed
+  ,executeSandboxed,
+  normalizeFileArguments
 };
