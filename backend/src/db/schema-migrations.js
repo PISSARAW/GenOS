@@ -173,7 +173,7 @@ async function applyVersionedMigrations(db) {
     await db.run('INSERT OR IGNORE INTO projects (id, organization_id, name) VALUES (?, ?, ?)', `project-${organization.id}`, organization.id, 'default');
     await db.run('UPDATE OR IGNORE workspaces SET organization_id = COALESCE(organization_id, ?), project_id = COALESCE(project_id, ?) WHERE organization_id IS NULL OR project_id IS NULL', organization.id, `project-${organization.id}`);
   }
-  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'workflow_runs', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
+  for (const table of ['prompts', 'datasets', 'rag_documents', 'integrations', 'workflows', 'workflow_runs', 'global_alerts', 'releases', 'model_jobs', 'evaluation_jobs', 'evaluation_runs', 'provenance_records', 'notification_preferences', 'genome_decisions', 'memory_synapses', 'trace_spans', 'telemetry_events']) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     const columnNames = new Set(columns.map(column => column.name));
     if (!columnNames.has('organization_id')) await db.exec(`ALTER TABLE ${table} ADD COLUMN organization_id TEXT`);
@@ -191,6 +191,7 @@ async function applyVersionedMigrations(db) {
     if (table === 'evaluation_jobs' && !columnNames.has('claimed_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN claimed_at DATETIME');
     if (table === 'evaluation_jobs' && !columnNames.has('next_attempt_at')) await db.exec('ALTER TABLE evaluation_jobs ADD COLUMN next_attempt_at DATETIME');
   }
+  await db.run(`UPDATE global_alerts SET organization_id = (SELECT organization_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name LIMIT 1), project_id = (SELECT project_id FROM workspaces WHERE workspaces.name = global_alerts.workspace_name LIMIT 1) WHERE organization_id IS NULL OR project_id IS NULL`);
     for (const table of ['workflow_runs', 'evaluation_jobs', 'model_jobs']) {
       const columns = new Set((await db.all(`PRAGMA table_info(${table})`)).map((column) => column.name));
       if (!columns.has('priority')) await db.exec(`ALTER TABLE ${table} ADD COLUMN priority INTEGER NOT NULL DEFAULT 0`);

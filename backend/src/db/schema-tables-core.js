@@ -341,6 +341,8 @@ const TABLES_CORE = [
 "    status TEXT NOT NULL CHECK (status IN ('blocked', 'question', 'running', 'resolved')),",
 "    agent_name TEXT NOT NULL,",
 "    workspace_name TEXT NOT NULL,",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    severity TEXT DEFAULT 'medium',",
 "    confidence TEXT DEFAULT '95%',",
 "    context_snapshot TEXT,",

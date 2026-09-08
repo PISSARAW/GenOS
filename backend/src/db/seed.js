@@ -50,18 +50,20 @@ async function ensureConfiguredWorkspace(db) {
 }
 
 async function ensureWorkspaceDashboardData(db) {
-  const workspaces = await db.all('SELECT id, name FROM workspaces ORDER BY created_at ASC');
+  const workspaces = await db.all('SELECT id, name, organization_id, project_id FROM workspaces ORDER BY created_at ASC');
 
   for (const workspace of workspaces) {
     const alert = await db.get('SELECT id FROM global_alerts WHERE workspace_name = ? LIMIT 1', workspace.name);
     if (!alert) {
       await db.run(
-        `INSERT INTO global_alerts (id, title, status, agent_name, workspace_name, severity, confidence, context_snapshot)
-         VALUES (?, ?, 'running', 'workspace_controller', ?, 'low', '100%', ?)
+        `INSERT INTO global_alerts (id, title, status, agent_name, workspace_name, organization_id, project_id, severity, confidence, context_snapshot)
+         VALUES (?, ?, 'running', 'workspace_controller', ?, ?, ?, 'low', '100%', ?)
          ON CONFLICT(id) DO NOTHING`,
         workspaceInitializationAlertId(workspace.id),
         `Workspace ${workspace.name} initialized`,
         workspace.name,
+        workspace.organization_id,
+        workspace.project_id,
         'Workspace dashboard is connected to the GenOS backend.'
       );
     }
