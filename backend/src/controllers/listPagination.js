@@ -10,7 +10,7 @@
  * above the 400-line repo limit and must not be edited casually.
  */
 
-function sliceArray(res, items, limit, offset) {
+function sliceArray({ res, items, limit, offset }) {
   const total = items.length;
   res.setHeader('X-Total-Count', String(total));
   return res.json(items.slice(offset, offset + limit));
@@ -48,7 +48,7 @@ function paginateList(handler) {
       return originalJson.call(capturedThis, captured);
     }
     const start = Number.isFinite(offset) && offset > 0 ? offset : 0;
-    return sliceArray(res, captured, limit, start);
+    return sliceArray({ res, items: captured, limit, offset: start });
   };
 }
 
