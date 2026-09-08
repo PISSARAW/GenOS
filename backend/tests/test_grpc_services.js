@@ -289,6 +289,7 @@ async function runGrpcSuite() {
 
     const toolsList = await callRpc(mcpClient, 'ListTools');
     assert(Array.isArray(toolsList.tools), 'Tools must be an array');
+    assert.strictEqual(toolsList.contract_version, 'genos.mcp/v1');
     console.log(`  ✅ PASS: McpService ListTools -> ${toolsList.tools.length} tools registered`);
 
     // --- 11. Testing Ping on All 41 Services ---
