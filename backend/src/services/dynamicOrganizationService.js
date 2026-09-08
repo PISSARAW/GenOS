@@ -200,6 +200,9 @@ async function publish(db, { orchestratorId, senderAgentId, recipientAgentId, ki
   const text = String(content || '').trim();
   if (!text) throw organizationError('MESSAGE_REQUIRED', 'Organization messages require content.');
   if (text.length > 12000) throw organizationError('MESSAGE_TOO_LARGE', 'Organization messages are limited to 12000 characters.');
+  if (state.policy.routing === 'adversarial_pair' && sender.id !== orchestratorId && !recipientAgentId) {
+    throw organizationError('ADVERSARIAL_RECIPIENT_REQUIRED', 'Adversarial worker messages require an explicit counterpart recipient.');
+  }
   const route = routeMessage({ state, sender, recipientAgentId, kind: normalizedKind });
   const result = await db.run(
     `INSERT INTO agent_organization_messages(orchestrator_id, organization, organization_version, sender_agent_id,
