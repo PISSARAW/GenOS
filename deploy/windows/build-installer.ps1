@@ -4,8 +4,19 @@ $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $RepoRoot
 
 Write-Host "1. Building GenOS binaries in Release mode..." -ForegroundColor Cyan
-$env:LIB = "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD;" + $env:LIB
+$openSslLib = "C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
+if (Test-Path $openSslLib) {
+    $env:LIB = "$openSslLib;" + $env:LIB
+}
 cargo build --release --workspace
+
+$releaseDir = Join-Path $RepoRoot "target\release"
+foreach ($binary in @("genos.exe", "genos-mcp.exe")) {
+    if (-not (Test-Path (Join-Path $releaseDir $binary))) {
+        Write-Error "Expected release artifact missing: $binary"
+        exit 1
+    }
+}
 
 Write-Host "2. Checking for Inno Setup compiler..." -ForegroundColor Cyan
 $ISCC = ""
