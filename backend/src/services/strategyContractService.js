@@ -96,6 +96,13 @@ function validateContract(contract) {
   if (decisionIds.size !== registryIds.size || [...registryIds].some((id) => !decisionIds.has(id))) {
     throw new Error(`strategy_decisions must contain the complete ${registryIds.size}-strategy registry`);
   }
+  const primaryDecision = (contract.strategy_decisions || []).find((decision) => decision.id === contract.selected_strategy.primary);
+  if (!primaryDecision || primaryDecision.status !== 'selected') throw new Error('selected_strategy.primary must have a selected strategy_decisions entry.');
+  if ((typeof primaryDecision.score !== 'number' && typeof primaryDecision.score !== 'string') || String(primaryDecision.score).trim() === '' || !Number.isFinite(Number(primaryDecision.score))) throw new Error('selected primary strategy must have a finite score.');
+  for (const decision of contract.strategy_decisions || []) {
+    const current = listStrategies().find((strategy) => strategy.id === decision.id);
+    if (current && decision.maturity !== current.maturity) throw new Error(`Strategy maturity mismatch for '${decision.id}'.`);
+  }
   if (!Array.isArray(contract.branches)) throw new Error('branches must be an array');
   if (!contract.branches.length) throw new Error('branches must contain at least one hypothesis');
   const budgetShare = contract.branches.reduce((sum, branch) => sum + Number(branch.budget_share || 0), 0);
