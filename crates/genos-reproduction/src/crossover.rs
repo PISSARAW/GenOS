@@ -141,7 +141,7 @@ impl MeioticCrossover {
         }
 
         for plasmid in &parent_b.plasmids {
-            if rng.random_bool(swap_prob) && !child.plasmids.contains(plasmid) {
+            if rng.random_bool(swap_prob) && !child.plasmids.iter().any(|existing| existing.instruction == plasmid.instruction) {
                 child.plasmids.push(plasmid.clone());
             }
         }
@@ -229,6 +229,18 @@ mod tests {
         let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 0.5, "extra-chromosomes");
 
         assert_eq!(child.extra_chromosomes.len(), 2);
+    }
+
+    #[test]
+    fn uniform_crossover_deduplicates_plasmids_by_instruction() {
+        let mut parent_a = Genome::new("PARENT_A");
+        parent_a.plasmids.push(genos_genome::Plasmid::new("shared-instruction"));
+        let mut parent_b = Genome::new("PARENT_B");
+        parent_b.plasmids.push(genos_genome::Plasmid::new("shared-instruction"));
+
+        let child = MeioticCrossover::uniform_crossover_with_seed(&parent_a, &parent_b, 1.0, "plasmid-dedup");
+
+        assert_eq!(child.plasmids.iter().filter(|plasmid| plasmid.instruction == "shared-instruction").count(), 1);
     }
 
     #[test]
