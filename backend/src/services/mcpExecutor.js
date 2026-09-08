@@ -10,6 +10,7 @@ const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 const { resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { validateToolArguments } = require('./mcpArgumentValidation');
+const immuneSystem = require('./immuneSystem');
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
@@ -790,6 +791,18 @@ async function execute({ agentId, organizationId, projectId, toolName, args = {}
   const circuitScope = organizationId && projectId
     ? `${organizationId}:${projectId}`
     : (scopeRow?.organization_id && scopeRow?.project_id ? `${scopeRow.organization_id}:${scopeRow.project_id}` : 'global');
+
+  const threatScan = immuneSystem.scanThreats(JSON.stringify({ toolName, args, taints }));
+  if (threatScan.threats.length) {
+    const reason = `Immune threat scan blocked MCP execution: ${threatScan.threats.join(', ')}.`;
+    await db.run(
+      'INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      agentId || 'immune_system', agentId || null, 'WORKFLOW_TOOL_CALL', toolName, 'deny', reason,
+      JSON.stringify({ threats: threatScan.threats, organizationId, projectId })
+    );
+    telemetry.emitEvent({ eventType: 'IMMUNE_THREAT_BLOCKED', agentId: agentId || 'immune_system', action: 'MCP_EXECUTE', detail: reason, severity: 'critical', payload: { toolName, threats: threatScan.threats, organizationId, projectId } });
+    return { success: false, status: 'blocked', error: reason, reason, threats: threatScan.threats, policy: { decision: 'deny', reason: 'IMMUNE_THREAT_DETECTED' } };
+  }
 
   // Chromatin state validation: if agent has this locus locked in heterochromatin, deny execution.
   if (agentId) {
