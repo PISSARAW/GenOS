@@ -6,9 +6,9 @@ async function migrateLegacySchema(db) {
     if (tableInfo && tableInfo.length > 0) {
       const colNames = tableInfo.map(c => c.name);
       if (!colNames.includes('agent_type')) {
-        // Legacy agents table without agent_type, drop and let CREATE_TABLES_SQL rebuild it
-        await db.exec('DROP TABLE IF EXISTS agents;');
-      } else {
+        await db.exec("ALTER TABLE agents ADD COLUMN agent_type TEXT NOT NULL DEFAULT 'GenOS';");
+      }
+      {
         if (!colNames.includes('fleet_id')) await db.exec('ALTER TABLE agents ADD COLUMN fleet_id TEXT;');
         if (!colNames.includes('hallucination_monitoring')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_monitoring INTEGER NOT NULL DEFAULT 0;');
         if (!colNames.includes('hallucination_count')) await db.exec('ALTER TABLE agents ADD COLUMN hallucination_count INTEGER NOT NULL DEFAULT 0;');
@@ -49,7 +49,8 @@ async function migrateLegacySchema(db) {
       }
     }
   } catch (err) {
-    // Ignore migration error
+    err.message = `Legacy schema migration failed: ${err.message}`;
+    throw err;
   }
 }
 
