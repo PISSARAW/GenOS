@@ -27,6 +27,10 @@ Promise.resolve(bisection.bisectAnomalyAsync([
 }).then((result) => {
   assert.strictEqual(result.bisectionComplete, false);
   assert.match(result.reason, /boolean health/);
+  return bisection.bisectAnomalyAsync([{ step: 1, healthy: false }, { step: 2, healthy: false }]);
+}).then((result) => {
+  assert.strictEqual(result.bisectionComplete, false);
+  assert.match(result.reason, /healthy baseline/);
   let evaluations = 0;
   return bisection.bisectAnomalyAsync(
     [{ step: 1 }, { step: 2 }],
