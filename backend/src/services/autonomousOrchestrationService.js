@@ -73,6 +73,10 @@ function buildAutonomyPlan(contract, budget = {}) {
   // If a phase requires primitives not in the portfolio, skip it.
   // This ensures the autonomy plan adapts to the actual portfolio capabilities.
   const realizable = filterPhasesToPortfolio(phases, contract.strategy_portfolio || []);
+  const phaseValidation = validatePhasesVsPortfolio(phases, contract.strategy_portfolio || []);
+  const omittedPhases = phases
+    .filter((entry) => phaseValidation.missingByPhase[entry.key])
+    .map((entry) => ({ key: entry.key, missingTools: phaseValidation.missingByPhase[entry.key], required: entry.required }));
 
   const branches = (contract.branches || []).slice(0, branchCount);
   const workers = security
@@ -163,6 +167,17 @@ function buildAutonomyPlan(contract, budget = {}) {
       }
     ],
     phases: realizable,
+    omittedPhases,
+    exploration: {
+      requestedBranches: workers.length,
+      selectedBranches: dispatchWorkers.length,
+      available: dispatchWorkers.length > 1,
+      reason: dispatchWorkers.length > 1
+        ? 'multiple_workers_budgeted'
+        : workers.length
+          ? 'budget_or_capacity_allows_at_most_one_worker'
+          : 'no_independent_branches_declared'
+    },
     requiredTools,
     workers,
     dispatchWorkers,
