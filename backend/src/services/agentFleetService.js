@@ -244,7 +244,8 @@ async function createAutonomousWorkers(db, orchestrator, options = {}) {
     const identity = agentIdentity.generateAgentIdentity({
       preferredName: assignment.preferredName || assignment.name,
       role: assignment.role,
-      excludeNames: usedNames
+      excludeNames: usedNames,
+      stableKey: id
     });
     usedNames.push(identity.name);
     const name = identity.name;
