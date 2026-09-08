@@ -134,6 +134,8 @@ class VectorMemoryService {
         topItems = topItems.map(item => inhibitedIds.has(item.id)
           ? { ...item, inhibitorySignal: 'active' }
           : item);
+        const selectedIds = new Set(topItems.map(item => item.id));
+        topItems.push(...scoredItems.filter(item => inhibitedIds.has(item.id) && !selectedIds.has(item.id)));
       } catch {}
     }
 
@@ -202,10 +204,7 @@ class VectorMemoryService {
         return true;
       }).slice(0, 3);
     } else {
-      const isExecution = (i) => i.category !== 'Conversation' && i.category !== 'SystemSignal' && i.category !== 'Fact' && i.category !== 'Preference';
-      const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && isExecution(i));
-      const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && i.category !== 'Conversation' && i.category !== 'SystemSignal');
-      topSuccessful = (candidateGolden.length > 0 ? candidateGolden : fallbackGolden).slice(0, 3);
+      topSuccessful = [];
     }
     const topPitfalls = (scoredItems.filter(i => (i.status === 'FAILURE' || i.category === 'Failure') && i.id !== 'signal_ignorance')).slice(0, 2);
 
