@@ -118,6 +118,7 @@ const TABLES_CORE = [
 "    state_hash TEXT NOT NULL,",
 "    state_json TEXT NOT NULL,",
 "    metadata_json TEXT DEFAULT '{}',",
+"    signature TEXT,",
 "    created_by TEXT NOT NULL,",
 "    created_at DATETIME DEFAULT CURRENT_TIMESTAMP",
 ");",

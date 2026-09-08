@@ -32,6 +32,11 @@ router.post('/agents/git/diff', requirePermission('read'), agentGitController.di
 router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
 router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
 router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
+router.post('/agents/git/log', requirePermission('read'), agentGitController.log);
+router.post('/agents/git/revert', requirePermission('workspace:write'), agentGitController.revert);
+router.post('/agents/git/rebase', requirePermission('workspace:write'), agentGitController.rebase);
+router.post('/agents/git/remote/push', requirePermission('workspace:write'), agentGitController.remoteReceive);
+router.post('/agents/git/remote/fetch', requirePermission('read'), agentGitController.fetch);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
