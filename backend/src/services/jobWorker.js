@@ -240,7 +240,7 @@ async function executeEvaluation(db, job) {
   const graders = config.graders || ['exact_match'];
   const knownGraders = new Set(['exact_match', 'groundedness', 'safety', 'llm_judge']);
   if (!Array.isArray(graders) || graders.length === 0 || graders.some((grader) => !knownGraders.has(grader))) throw new Error('Evaluation must contain at least one supported grader.');
-  const judgeModel = config.judgeModel || '';
+  const judgeModel = config.judgeModel || process.env.GENOS_DEFAULT_MODEL || '';
   const evaluationModel = config.model || config.modelVersion || config.modelRouting?.primary;
   if (graders.includes('llm_judge') && !judgeModel) throw new Error('llm_judge requires an explicit judgeModel.');
   if (graders.includes('llm_judge') && evaluationModel && judgeModel === evaluationModel) throw new Error('llm_judge requires a model distinct from the evaluated model.');
