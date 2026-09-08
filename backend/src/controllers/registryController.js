@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 
 const KINDS = new Set(['model', 'prompt', 'tool', 'workflow']);
@@ -96,8 +96,10 @@ async function create(req, res, next) {
     const versionId = id('registry-version');
     const canonicalManifestStr = canonicalJson(manifest);
     const manifestDigest = crypto.createHash('sha256').update(canonicalManifestStr).digest('hex');
-    await db.run('INSERT INTO registry_artifacts(id,organization_id,project_id,kind,name,description) VALUES(?,?,?,?,?,?)', artifactId, ...scope.params, artifactKind, name.trim(), description);
-    await db.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', versionId, artifactId, 1, canonicalManifestStr, manifestDigest, JSON.stringify(labels));
+    await withTransaction(db, async (tx) => {
+      await tx.run('INSERT INTO registry_artifacts(id,organization_id,project_id,kind,name,description) VALUES(?,?,?,?,?,?)', artifactId, ...scope.params, artifactKind, name.trim(), description);
+      await tx.run('INSERT INTO registry_artifact_versions(id,artifact_id,version,manifest_json,digest,labels_json) VALUES(?,?,?,?,?,?)', versionId, artifactId, 1, canonicalManifestStr, manifestDigest, JSON.stringify(labels));
+    });
     res.status(201).json({ id: artifactId, kind: artifactKind, name: name.trim(), description, version: 1, digest: manifestDigest, manifest, labels });
   } catch (error) {
     if (String(error.message).includes('UNIQUE constraint failed')) return res.status(409).json({ error: { code: 'ARTIFACT_EXISTS', message: 'An artifact with this kind and name already exists in the project.' } });
