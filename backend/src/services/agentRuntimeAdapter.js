@@ -31,7 +31,7 @@ const { localWorkerRoute } = require('./agentModelRoutingService');
 const { dispatchPendingContinuation } = require('./agentRoundService');
 const { dispatchWorkerRecovery } = require('./agentRecoveryService');
 const {
-  provisionMissionWorkspace, createIsolatedWorkspace
+  provisionMissionWorkspace, createIsolatedWorkspace, trackWorkspace
 } = require('./agentWorkspaceLifecycleService');
 const {
   runLocalWorker, createAutonomousWorkers, runEvidenceBarrier
@@ -159,7 +159,10 @@ async function startMissionInternal(mission) {
       silent: silentUpdates
     });
   }
-  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel) return runLocalWorker(db, normalizedMission, executionRun);
+  console.log("adapter: localModel"); assertNotCancelled(); if (normalizedMission.localModel) {
+    await trackWorkspace(agentId, normalizedMission.workspaceRoot);
+    return runLocalWorker(db, normalizedMission, executionRun);
+  }
 
   // The orchestrator creates and dispatches its own bounded worker fleet. A worker
   // never recurses here: authority is deliberately one-way.

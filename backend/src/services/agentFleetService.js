@@ -22,7 +22,7 @@ const {
 const { localWorkerRoute } = require('./agentModelRoutingService');
 const { advanceAutonomousRound, autonomousWorkerId } = require('./agentRoundService');
 const { queueWorkerRecovery } = require('./agentRecoveryService');
-const { createIsolatedWorkspace } = require('./agentWorkspaceLifecycleService');
+const { createIsolatedWorkspace, scheduleWorkspaceCleanup } = require('./agentWorkspaceLifecycleService');
 const { workerToolLease } = require('./agentOrchestrationState');
 const agentIdentity = require('./agentIdentityService');
 const agentConscience = require('./agentConscienceService');
@@ -167,6 +167,7 @@ async function runLocalWorker(db, mission, executionRun) {
       emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
       actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision, event: completed, workspaceRoot: mission.workspaceRoot }).catch(() => {});
     }
+    await scheduleWorkspaceCleanup(mission.agentId);
     return { started: true, executionRun, local: true, result };
   } catch (error) {
     const budgetBlocked = error.code === 'BUDGET_EXHAUSTED' || /budget|timeout/i.test(error.message);
@@ -186,6 +187,7 @@ async function runLocalWorker(db, mission, executionRun) {
     await strategyExecution.recordExecutionEvent(db, mission.agentId, failed);
     await advanceAutonomousRound(mission, failed);
     if (!budgetBlocked) queueWorkerRecovery(mission, failed);
+    await scheduleWorkspaceCleanup(mission.agentId);
     return { started: false, executionRun, local: true, error: error.message };
   }
 }
