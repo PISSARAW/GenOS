@@ -201,23 +201,11 @@ function executeBioExtra(toolName, args = {}, options = {}) {
     if (res && res.success) return res;
     return {
       configured: true,
-      success: true,
-      status: 'completed',
+      success: false,
+      status: 'tool_error',
       transport: 'local',
-      output: JSON.stringify({
-        operation: 'hypermutation',
-        agent_id: agentId,
-        tolerance: 0.15,
-        mutations_count: 3,
-        status: 'ACTIVE'
-      }),
-      json: {
-        operation: 'hypermutation',
-        agent_id: agentId,
-        tolerance: 0.15,
-        mutations_count: 3,
-        status: 'ACTIVE'
-      }
+      output: res?.output || `Lamarckian mutation failed for agent '${agentId}'.`,
+      error: `Lamarckian mutation was not applied for agent '${agentId}'.`
     };
   }
 

@@ -66,6 +66,15 @@ async function executeStrategyTool(toolName, args = {}) {
       };
     }
     if (toolName === 'genos_resilience_hypermutation') {
+      if (args.genes && typeof args.genes === 'object') {
+        const genetics = require('./geneticsService');
+        const result = genetics.somaticHypermutate(args.genes, {
+          seed: args.seed,
+          mutationRate: args.mutationRate,
+          stressLevel: args.stressLevel
+        });
+        return { configured: true, success: true, status: 'completed', transport: 'strategy_primitive', output: result };
+      }
       const mutations = Array.isArray(args.mutations) ? args.mutations : [];
       const res = await strategyExecutionAdapter.executePrimitive('mutate', {
         ...args,
