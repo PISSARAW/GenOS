@@ -136,76 +136,42 @@ async function initializeSchema(db) {
     console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
   }
 
-  // Rebuild FTS and vec indexes when their cardinality diverges from source data.
+  // Rebuild search indexes from source rows so same-cardinality updates cannot leave stale entries.
   try {
-    const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
-    const trajectoriesCount = await db.get("SELECT COUNT(*) as c FROM trajectories");
-    if (trajectoriesFtsCount && trajectoriesCount && trajectoriesFtsCount.c !== trajectoriesCount.c) {
-      await db.exec('DELETE FROM trajectories_fts');
-      await db.exec(`
-        INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
-        SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
-      `);
-    }
+    await db.exec("INSERT INTO trajectories_fts(trajectories_fts) VALUES ('rebuild')");
   } catch (err) {
     console.warn('[Schema] Failed to synchronize trajectories_fts index:', err.message);
   }
 
   try {
-    const trajectoriesVecCount = await db.get("SELECT COUNT(*) as c FROM trajectories_vec");
-    const trajectoriesVectorCount = await db.get("SELECT COUNT(*) as c FROM trajectories WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
-    if (trajectoriesVecCount && trajectoriesVectorCount && trajectoriesVecCount.c !== trajectoriesVectorCount.c) {
-      await db.exec('DELETE FROM trajectories_vec');
-      await db.exec(`
-        INSERT INTO trajectories_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM trajectories 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM trajectories_vec');
+    await db.exec(`INSERT INTO trajectories_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM trajectories
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize trajectories_vec index:', err.message);
   }
 
   try {
-    const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
-    const genomeCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions");
-    if (genomeFtsCount && genomeCount && genomeFtsCount.c !== genomeCount.c) {
-      await db.exec('DELETE FROM genome_decisions_fts');
-      await db.exec(`
-        INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
-        SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
-      `);
-    }
+    await db.exec("INSERT INTO genome_decisions_fts(genome_decisions_fts) VALUES ('rebuild')");
   } catch (err) {
     console.warn('[Schema] Failed to synchronize genome_decisions_fts index:', err.message);
   }
 
   try {
-    const genomeVecCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_vec");
-    const genomeVectorCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
-    if (genomeVecCount && genomeVectorCount && genomeVecCount.c !== genomeVectorCount.c) {
-      await db.exec('DELETE FROM genome_decisions_vec');
-      await db.exec(`
-        INSERT INTO genome_decisions_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM genome_decisions 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM genome_decisions_vec');
+    await db.exec(`INSERT INTO genome_decisions_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM genome_decisions
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize genome_decisions_vec index:', err.message);
   }
 
   try {
-    const chunksVecCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks_vec");
-    const chunksVectorCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
-    if (chunksVecCount && chunksVectorCount && chunksVecCount.c !== chunksVectorCount.c) {
-      await db.exec('DELETE FROM rag_chunks_vec');
-      await db.exec(`
-        INSERT INTO rag_chunks_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM rag_chunks 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM rag_chunks_vec');
+    await db.exec(`INSERT INTO rag_chunks_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM rag_chunks
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize rag_chunks_vec index:', err.message);
   }
