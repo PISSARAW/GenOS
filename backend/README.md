@@ -136,6 +136,14 @@ npm start
 npm run dev
 ```
 
+### Docker deployment
+Build from the repository root so the Dockerfile can copy both `backend/` and the IDE contract:
+```bash
+docker build --file backend/Dockerfile --tag genos-backend .
+docker run --rm --publish 4000:4000 --volume genos-data:/data --env-file .env genos-backend
+```
+The image exposes HTTP (`4000`) and gRPC (`50051`). Plaintext gRPC binds to loopback only; publish `50051` only with `GENOS_GRPC_TLS_KEY` and `GENOS_GRPC_TLS_CERT` configured.
+
 The server listens by default on:
 - **HTTP REST API:** `http://localhost:4000` (override via `PORT`)
 - **Health Probes:** `GET http://localhost:4000/healthz`, `/readyz`, `/livez`
@@ -158,11 +166,17 @@ genos_sk_admin_...
 | :--- | :--- | :--- |
 | `PORT` | `4000` | HTTP REST API listening port |
 | `GRPC_PORT` | `50051` | gRPC Lineage service listening port |
+| `GRPC_BIND_ADDRESS` | `127.0.0.1` without TLS | gRPC listening interface |
 | `GENOS_DB_PATH` | `backend/genos.db` | Absolute or relative path to SQLite database file |
+| `GENOS_SQLITE_MMAP_SIZE` | `268435456` | SQLite mmap size in bytes; bounded to 1 GiB |
+| `GENOS_SQLITE_SYNCHRONOUS` | `FULL` | SQLite durability mode: `NORMAL`, `FULL`, or `EXTRA` |
+| `GENOS_PROCESS_GRACE_MS` | `5000` | Child-process graceful termination period, bounded to 30 seconds |
+| `GENOS_AGENT_EXECUTOR` | `codex` | Set `local` in containers to use the bundled runtime |
+| `GENOS_GRPC_TLS_KEY` / `GENOS_GRPC_TLS_CERT` | *None* | Pair of regular files required to expose gRPC beyond loopback |
 | `GENOS_ADMIN_TOKEN` | *Generated* | Administrator API token |
 | `GENOS_ADMIN_PASSWORD` | `genos-admin` | Default password for local `admin` account |
-| `EMBEDDING_PROVIDER` | `auto` | Preferred provider: `auto`, `xenova`, `ollama`, `openai` |
-| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Endpoint URL for local Ollama instances |
+| `GENOS_EMBEDDING_PROVIDER` | `auto` | Preferred provider: `auto`, `xenova`, `ollama`, `openai` |
+| `GENOS_OLLAMA_ENDPOINT` | `http://127.0.0.1:11434/v1/chat/completions` | Endpoint URL for local Ollama instances |
 | `OPENAI_API_KEY` | *None* | API key for OpenAI model & embedding fallbacks |
 
 ---
