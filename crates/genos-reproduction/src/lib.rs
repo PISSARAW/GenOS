@@ -150,6 +150,16 @@ mod tests {
     }
 
     #[test]
+    fn test_budding_mutation_is_reproducible_for_same_inputs() {
+        let genome = Genome::new("BUDDING_REPRODUCIBILITY_SEQUENCE");
+        let first = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, 0, 5, 0.2).unwrap();
+        let second = CellDivision::budding_with_limit_and_mutation(&genome, 0.25, 0, 5, 0.2).unwrap();
+
+        assert_eq!(first.daughter.chromosome_maternal, second.daughter.chromosome_maternal);
+        assert_eq!(first.daughter.chromosome_paternal, second.daughter.chromosome_paternal);
+    }
+
+    #[test]
     fn test_hybrid_has_new_genome_identity() {
         let parent_a = Genome::new("HYBRID_A");
         let parent_b = Genome::new("HYBRID_B");
