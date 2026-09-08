@@ -9,15 +9,27 @@ function signingSecret() {
   return process.env.GENOS_AGENT_GIT_SIGNING_SECRET || process.env.GENOS_GRPC_SHARED_SECRET || 'genos-agent-git-development-secret';
 }
 
+function signingPayload(stateHash, metadata) {
+  return Buffer.from(`${stateHash}:${JSON.stringify(metadata || {})}`);
+}
+
+function signingAlgorithm() {
+  return process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY ? 'ed25519' : 'hmac-sha256';
+}
+
 function signObject(stateHash, metadata) {
-  return crypto.createHmac('sha256', signingSecret()).update(`${stateHash}:${JSON.stringify(metadata || {})}`).digest('hex');
+  const payload = signingPayload(stateHash, metadata);
+  if (signingAlgorithm() === 'ed25519') return crypto.sign(null, payload, process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY).toString('base64');
+  return crypto.createHmac('sha256', signingSecret()).update(payload).digest('hex');
 }
 
 function verifyObjectSignature(object) {
   if (!object.signature) return false;
-  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})));
+  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})), signingAlgorithm() === 'ed25519' ? 'base64' : 'utf8');
   const actual = Buffer.from(object.signature);
-  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+  if (actual.length !== expected.length) return false;
+  if (signingAlgorithm() === 'ed25519') return crypto.verify(null, signingPayload(object.state_hash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
+  return crypto.timingSafeEqual(actual, expected);
 }
 
 function json(value, fallback) {
@@ -69,7 +81,7 @@ function changedSections(left, right) {
 async function storeObject(db, { agentId, workspaceId, kind, refName, remoteName, state, createdBy, metadata = {}, locked = false }) {
   const id = `agent-git-${kind}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   const stateJson = JSON.stringify(state);
-  const objectMetadata = { ...metadata, locked, stateSchema: state.schema };
+  const objectMetadata = { ...metadata, locked, stateSchema: state.schema, signatureAlgorithm: signingAlgorithm() };
   const stateHash = hashState(state);
   const signature = signObject(stateHash, objectMetadata);
   await db.run(
@@ -128,12 +140,30 @@ async function createCommit(req, options = {}) {
   const db = await getDatabase();
   const state = await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
-  return storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName: options.refName || 'main', remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {} });
+  await enforceHooks(db, options.agentId, 'pre-commit', state);
+  const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName: options.refName || 'main', remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {} });
+  await updateRef(db, req, options.agentId, options.refName || 'main', result.id, { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' });
+  return result;
+}
+
+async function updateRef(db, req, agentId, refName, objectId, options = {}) {
+  const scope = scopeSql(req, 'w');
+  const current = await db.get(`SELECT r.* FROM agent_git_refs r LEFT JOIN agents a ON a.id = r.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE r.agent_id = ? AND r.ref_name = ? AND ${scope.clause}`, agentId, refName, ...scope.params);
+  if (current && options.expectedVersion != null && Number(options.expectedVersion) !== Number(current.version)) throw Object.assign(new Error('Remote ref changed concurrently.'), { code: 'AGENT_REF_CONFLICT' });
+  if (current?.lease_token && options.leaseToken && current.lease_token !== options.leaseToken) throw Object.assign(new Error('Ref lease is held by another writer.'), { code: 'AGENT_REF_LEASE_CONFLICT' });
+  const version = Number(current?.version || 0) + 1;
+  await db.run(`INSERT INTO agent_git_refs (ref_key, agent_id, ref_name, object_id, version, lease_token, tracking_remote, tracking_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(ref_key) DO UPDATE SET object_id = excluded.object_id, version = excluded.version, lease_token = excluded.lease_token, updated_at = CURRENT_TIMESTAMP`, `${agentId}:${refName}`, agentId, refName, objectId, version, options.leaseToken || current?.lease_token || null, options.trackingRemote || current?.tracking_remote || null, options.trackingRef || current?.tracking_ref || null);
+  await db.run('INSERT INTO agent_git_reflog (id, agent_id, ref_name, old_object_id, new_object_id, action, actor) VALUES (?, ?, ?, ?, ?, ?, ?)', `reflog-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, agentId, refName, current?.object_id || null, objectId, options.action || 'update', req.user?.username || 'agent-git');
+  return { version, oldObjectId: current?.object_id || null };
 }
 
 async function push(req) {
   const agentId = String(req.body?.agentId || '').trim();
   const remoteName = String(req.body?.remoteName || 'default').trim();
+  const db = await getDatabase();
+  await enforceHooks(db, agentId, 'pre-push', await collectState(db, req, agentId));
+  const currentRef = await db.get('SELECT version FROM agent_git_refs WHERE agent_id = ? AND ref_name = ?', agentId, req.body?.refName || 'main');
+  if (req.body?.force !== true && req.body?.expectedVersion != null && Number(req.body.expectedVersion) !== Number(currentRef?.version || 0)) throw Object.assign(new Error('Push rejected: remote tracking ref diverged.'), { code: 'AGENT_PUSH_NON_FAST_FORWARD' });
   const commit = await createCommit(req, { agentId, kind: 'remote', refName: req.body?.refName || 'main', remoteName, metadata: { pushed: true, remoteUrl: req.body?.remoteUrl || null } });
   if (req.body?.remoteUrl) {
     const state = await collectState(await getDatabase(), req, agentId);
@@ -143,7 +173,7 @@ async function push(req) {
     });
     if (!response.ok) throw new Error(`Remote push failed with HTTP ${response.status}.`);
   }
-  return { success: true, operation: 'push', remoteName, ...commit };
+  return { success: true, operation: 'push', remoteName, force: req.body?.force === true, tracking: { ahead: 1, behind: 0 }, ...commit };
 }
 
 async function fetch(req) {
@@ -336,6 +366,36 @@ async function hook(req) {
   return { success: true, operation: 'hook', agentId, hookName, enabled: req.body?.enabled !== false };
 }
 
+async function enforceHooks(db, agentId, hookName, context) {
+    const hooks = await db.all('SELECT policy_json, enabled FROM agent_git_hooks WHERE agent_id = ? AND hook_name = ?', agentId, hookName).catch(() => []);
+    for (const hook of hooks) {
+      if (!hook.enabled) continue;
+      const policy = json(hook.policy_json, {});
+      if (hookName === 'signature-required' && !process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY && policy.required !== false) throw Object.assign(new Error('Signature-required hook needs a signing key.'), { code: 'AGENT_SIGNATURE_REQUIRED' });
+      if (policy.requireHealthy === true && ['error', 'apoptosis', 'blocked'].includes(context?.agent?.status)) throw Object.assign(new Error('Agent hook rejected an unhealthy agent.'), { code: 'AGENT_HOOK_REJECTED' });
+    }
+}
+
+async function rebaseInteractive(req) {
+    const db = await getDatabase();
+    const ids = Array.isArray(req.body?.objectIds) ? req.body.objectIds : [];
+    if (!ids.length) return { success: false, error: 'objectIds are required.' };
+    const objects = [];
+    for (const id of ids) { const object = await getObject(db, req, id); if (!object) return { success: false, error: `Object '${id}' not found.` }; objects.push(object); }
+    const actions = req.body?.actions || ids.map(() => ({ action: 'pick' }));
+    const conflicts = actions.map((item, index) => item.action === 'edit' && !item.state ? { index, reason: 'edit requires state' } : null).filter(Boolean);
+    if (conflicts.length) return { success: false, operation: 'rebase-interactive', conflict: true, conflicts, plan: actions };
+    let merged = {};
+    for (const [index, item] of actions.entries()) {
+      if (item.action === 'drop') continue;
+      const next = item.action === 'edit' ? item.state : JSON.parse(objects[index].state_json);
+      merged = { ...merged, ...next, agent: { ...(merged.agent || {}), ...(next.agent || {}) } };
+    }
+    const agentId = req.body?.targetAgentId || objects[0].agent_id;
+    const commit = await storeObject(db, { agentId, workspaceId: merged.agent?.workspace_id, kind: 'commit', refName: req.body?.refName || 'main', state: merged, createdBy: req.user?.username || 'agent-git', metadata: { interactiveRebase: ids, actions } });
+    return { success: true, operation: 'rebase-interactive', ...commit, appliedActions: actions };
+}
+
 async function mergeBase(req) {
   const db = await getDatabase(); const left = await collectState(db, req, req.body?.leftAgentId); const right = await collectState(db, req, req.body?.rightAgentId);
   if (!left || !right) return { success: false, error: 'Both agents must exist.' };
@@ -369,4 +429,4 @@ async function bisect(req) {
   return { success: true, operation: 'bisect', agentId, field, expectedValue: expected, anomalyFound: culprit >= 0, culpritObjectId: culprit >= 0 ? objects[culprit].id : null, iterations, complexity: `O(log2(${objects.length}))` };
 }
 
-module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, applyState, getObject };
+module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, rebaseInteractive, applyState, getObject };

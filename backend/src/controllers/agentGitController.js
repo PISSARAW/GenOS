@@ -25,5 +25,6 @@ async function note(req, res, next) { try { res.status(201).json(await agentGit.
 async function hook(req, res, next) { try { res.status(201).json(await agentGit.hook(req)); } catch (error) { next(error); } }
 async function mergeBase(req, res, next) { try { res.json(await agentGit.mergeBase(req)); } catch (error) { next(error); } }
 async function archive(req, res, next) { try { res.status(201).json(await agentGit.archive(req)); } catch (error) { next(error); } }
+async function rebaseInteractive(req, res, next) { try { res.status(201).json(await agentGit.rebaseInteractive(req)); } catch (error) { next(error); } }
 
-module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive };
+module.exports = { push, fetch, pull, stash, tag, cherryPick, commit, diff, merge, replay, bisect, log, revert, rebase, rebaseInteractive, remoteReceive, reflog, show, fsck, gc, blame, describe, note, hook, mergeBase, archive };
