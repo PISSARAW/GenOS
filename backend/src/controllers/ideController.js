@@ -38,19 +38,26 @@ async function connect(req, res) {
 }
 async function list(req, res) {
   const db = await getDatabase();
+  const requestedLimit = Number.parseInt(req.query?.limit, 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
   const rows = await db.all(
     `SELECT i.* FROM ide_integrations i
      LEFT JOIN workspaces w ON w.id = i.workspace_id
      WHERE i.status = 'connected'
        AND ((i.workspace_id IS NULL AND ? IS NULL AND ? IS NULL)
          OR (w.organization_id = ? AND w.project_id = ?))
-     ORDER BY i.last_seen_at DESC`,
+    ORDER BY i.last_seen_at DESC LIMIT ?`,
     req.tenant?.organizationId || null,
     req.tenant?.projectId || null,
     req.tenant?.organizationId || null,
-    req.tenant?.projectId || null
+    req.tenant?.projectId || null,
+    limit
   );
-  res.json(rows.map((row) => ({ ...row, metadata: JSON.parse(row.metadata_json || '{}') })));
+  res.json(rows.map((row) => {
+    let metadata = {};
+    try { metadata = JSON.parse(row.metadata_json || '{}'); } catch (_) {}
+    return { ...row, metadata };
+  }));
 }
 async function scopedIntegration(req, db) {
   return db.get(

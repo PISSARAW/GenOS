@@ -106,6 +106,7 @@ const TABLES_EXTENSIONS = [
 "    metadata_json TEXT NOT NULL DEFAULT '{}',",
 "    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE",
 ");",
+"CREATE INDEX IF NOT EXISTS idx_ide_status_seen ON ide_integrations(status, last_seen_at DESC);",
 "",
 "-- Compatibility / Dashboard stats",
 "CREATE TABLE IF NOT EXISTS heatmap_activity (",
