@@ -231,22 +231,10 @@ async function recordExecutionEvent(db, agentId, event) {
   if (completed && !guardrailReason) {
     const promotionPolicy = require('./strategyPromotionPolicyService');
     const replayReceipt = event.payload?.replayReceipt;
-    const replayStatus = String(replayReceipt?.replayStatus || replayReceipt?.replay_status || replayReceipt?.status || '').toLowerCase();
-    const validReplayReceipt = replayReceipt && typeof replayReceipt === 'object'
-      && replayReceipt.success === true
-      && ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(replayStatus);
-    const replayVerified = event.payload?.replayVerified === true
-      || event.payload?.diffAndReplayPassed === true
-      || validReplayReceipt;
     const evidenceReport = event.payload?.evidenceReport || event.payload?.report;
     const evidenceClaims = evidenceReport?.claims || event.payload?.claims;
-    const independentVerification = (Array.isArray(event.payload?.verifiedClaims) && event.payload.verifiedClaims.length > 0)
-      || (Array.isArray(event.payload?.workerDossiers) && event.payload.workerDossiers.length > 0)
-      || (Array.isArray(evidenceClaims) && evidenceClaims.length > 0
-        && evidenceClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0));
     const promoEval = promotionPolicy.evaluatePromotionGate(contract, {
-      replayVerified,
-      independentVerification,
+      replayReceipt,
       humanApproved: false,
       report: evidenceReport
     });

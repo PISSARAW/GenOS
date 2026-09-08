@@ -16,11 +16,13 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   if (policy.require_replay) {
     const receipt = executionContext.replayReceipt;
     const receiptStatus = String(receipt?.replayStatus || receipt?.replay_status || receipt?.status || '').toLowerCase();
-    const validReceipt = receipt && typeof receipt === 'object' && receipt.success === true &&
-      ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(receiptStatus);
-    const replayPassed = executionContext.replayVerified === true ||
-      executionContext.diffAndReplayPassed === true ||
-      validReceipt;
+    const hasReplayHash = typeof receipt?.replayHash === 'string' && /^[a-f0-9]{64}$/i.test(receipt.replayHash);
+    const hasSnapshotReplay = typeof receipt?.snapshot_id === 'string' && receipt.snapshot_id.trim()
+      && Number.isInteger(receipt.replayed_steps) && receipt.replayed_steps > 0;
+    const validReceipt = receipt && typeof receipt === 'object' && receipt.success === true
+      && ['completed', 'reproduced', 'reconstructed', 'verified', 'success', 'succeeded'].includes(receiptStatus)
+      && (hasReplayHash || hasSnapshotReplay);
+    const replayPassed = validReceipt;
     if (!replayPassed) {
       violations.push({
         policy: 'require_replay',
