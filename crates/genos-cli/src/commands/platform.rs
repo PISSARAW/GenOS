@@ -22,10 +22,7 @@ fn read_dir_recursive(dir: &Path, root: &Path, content: &mut String) {
 pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
     match cmd {
         PlatformSubcommands::Ingest { document, index } => {
-            let idx = index.unwrap_or_else(|| "default".to_string());
-            println!("{}", json!({
-                "operation": "platform_ingest", "document": document, "index": idx, "chunks_ingested": 1, "status": "indexed"
-            }));
+            return Err(format!("Platform ingestion is unavailable: document '{}' was not persisted to index '{}'.", document, index.unwrap_or_else(|| "default".to_string())));
         }
         PlatformSubcommands::Search { query, index } => {
             let idx = index.unwrap_or_else(|| "default".to_string());
@@ -66,27 +63,19 @@ pub fn execute(cmd: PlatformSubcommands) -> Result<(), String> {
                 ]
             });
             
-            let mut score = 0.95;
+            let score = 0.95;
             let llm_url = std::env::var("GENOS_LLM_URL")
                 .or_else(|_| std::env::var("GENOS_PORT").map(|p| format!("http://127.0.0.1:{}/v1/chat/completions", p)))
                 .unwrap_or_else(|_| "http://127.0.0.1:8085/v1/chat/completions".to_string());
-            let result_content = match client.post(&llm_url).json(&body).send() {
-                Ok(res) => {
-                    if let Ok(json_resp) = res.json::<serde_json::Value>() {
-                        if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
-                            text.to_string()
-                        } else {
-                            format!("API Error: Malformed response: {}", json_resp)
-                        }
-                    } else {
-                        "API Error: Failed to parse JSON".to_string()
-                    }
-                },
-                Err(e) => {
-                    score = 0.0;
-                    format!("API Connection Error: {}. Is the GenOS server running? Try '.\\g start'.", e)
-                }
-            };
+            let response = client.post(&llm_url).json(&body).send()
+                .map_err(|error| format!("Platform search API unavailable: {}. Is the GenOS server running?", error))?;
+            if !response.status().is_success() {
+                return Err(format!("Platform search API returned HTTP {}.", response.status()));
+            }
+            let json_resp = response.json::<serde_json::Value>()
+                .map_err(|error| format!("Platform search API returned invalid JSON: {}", error))?;
+            let result_content = json_resp["choices"][0]["message"]["content"].as_str()
+                .ok_or_else(|| format!("Platform search API returned no assistant content: {}", json_resp))?;
 
             println!("{}", json!({
                 "operation": "platform_search", "query": query, "index": idx, "matches": [
@@ -103,61 +92,7 @@ pub fn handle_cost_accounting(agent_id: &str, timeframe: Option<&str>) -> Result
 }
 
 pub fn handle_trinity(mission_id: &str, strategies: &str) -> Result<(), String> {
-    let parsed_strategies: Vec<String> = if strategies.trim().starts_with('[') {
-        serde_json::from_str(strategies).unwrap_or_else(|_| vec![strategies.to_string()])
-    } else {
-        strategies.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
-    };
-
-    let world_dir = Path::new(".genos/trinity");
-    let _ = fs::create_dir_all(world_dir);
-
-    let strat_1 = parsed_strategies.first().cloned().unwrap_or_else(|| "generative_synthesis".to_string());
-    let strat_2 = parsed_strategies.get(1).cloned().unwrap_or_else(|| "chaos_adversarial".to_string());
-    let strat_3 = parsed_strategies.get(2).cloned().unwrap_or_else(|| "ground_truth_verification".to_string());
-
-    let worlds = vec![
-        json!({
-            "world_number": 1,
-            "role": "Architect",
-            "branch": format!("trinity/{}/architect", mission_id),
-            "allocated_strategy": strat_1,
-            "status": "deployed",
-            "isolation": "ephemeral_namespace"
-        }),
-        json!({
-            "world_number": 2,
-            "role": "Falsifier",
-            "branch": format!("trinity/{}/falsifier", mission_id),
-            "allocated_strategy": strat_2,
-            "status": "deployed",
-            "chaos_budget": 0.85
-        }),
-        json!({
-            "world_number": 3,
-            "role": "NeutralObserver",
-            "branch": format!("trinity/{}/arbiter", mission_id),
-            "allocated_strategy": strat_3,
-            "status": "deployed",
-            "ground_truth_fidelity": 0.99
-        }),
-    ];
-
-    let deployment = json!({
-        "operation": "trinity_deploy",
-        "mission_id": mission_id,
-        "strategies": parsed_strategies,
-        "worlds": worlds,
-        "trinity_state_file": format!(".genos/trinity/{}.json", mission_id),
-        "status": "TRINITY_ACTIVE"
-    });
-
-    let rendered = serde_json::to_string_pretty(&deployment).unwrap();
-    let state_file = format!(".genos/trinity/{}.json", mission_id);
-    let _ = fs::write(&state_file, &rendered);
-
-    println!("{}", rendered);
-    Ok(())
+    Err(format!("Trinity deployment is unavailable: mission '{}' and strategies '{}' were not deployed.", mission_id, strategies))
 }
 
 pub fn handle_swarm_alleles(swarm_id: &str) -> Result<(), String> {
@@ -169,18 +104,11 @@ pub fn handle_compliance(standard: &str, output_file: Option<&str>) -> Result<()
 }
 
 pub fn handle_strategy_adapt(agent_id: &str, constraint: &str, target: f64) -> Result<(), String> {
-    println!("{}", json!({
-        "operation": "strategy_adaptation", "agent_id": agent_id,
-        "constraint": constraint, "target_value": target, "adapted_strategy": "minimal_patch", "success": true
-    }));
-    Ok(())
+    Err(format!("Strategy adaptation is unavailable: no persisted strategy executor is wired for agent '{}' (constraint '{}', target {}).", agent_id, constraint, target))
 }
 
 pub fn handle_rebase(args: &[String]) -> Result<(), String> {
-    println!("{}", json!({
-        "operation": "rebase_compute_plan", "args": args, "rebase_steps": 2, "status": "PLAN_COMPUTED"
-    }));
-    Ok(())
+    Err(format!("Rebase planning is unavailable: no repository-backed planner is wired for arguments {:?}.", args))
 }
 
 pub struct WorldParams<'a> {
@@ -189,12 +117,7 @@ pub struct WorldParams<'a> {
 }
 
 pub fn handle_world_create(provider: &str, root: &str, params: WorldParams) -> Result<(), String> {
-    let world_id = params.world_id;
-    let seed = params.seed;
-    println!("{}", json!({
-        "operation": "world_create", "provider": provider, "root": root, "world_id": world_id, "seed": seed.unwrap_or("none"), "created": true
-    }));
-    Ok(())
+    Err(format!("World creation is unavailable: provider '{}' has no persisted world backend for '{}' at '{}'.", provider, params.world_id, root))
 }
 
 pub fn handle_world_run(world_id: &str, command: &str, sandbox: &str) -> Result<(), String> {

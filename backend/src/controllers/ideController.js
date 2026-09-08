@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
 const { getDatabase } = require('../db');
+const telemetry = require('../services/telemetryObserver');
 
 const contractPath = process.env.GENOS_IDE_CONTRACT_PATH
   || path.resolve(__dirname, '../../../integrations/ide/genos-extension-contract.json');
@@ -89,10 +90,29 @@ async function disconnect(req, res) {
   await db.run('UPDATE ide_integrations SET status = \'revoked\', last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', integration.id);
   res.json({ id: integration.id, status: 'revoked' });
 }
+async function progress(req, res) {
+  const db = await getDatabase();
+  const integration = await scopedIntegration(req, db);
+  if (!integration || integration.status !== 'connected') return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'Connected IDE integration not found in this project.' } });
+  const progressPercent = Number(req.body?.progressPercent);
+  if (!Number.isFinite(progressPercent) || progressPercent < 0 || progressPercent > 100) return res.status(400).json({ error: { code: 'INVALID_PROGRESS', message: 'progressPercent must be a number between 0 and 100.' } });
+  const message = String(req.body?.message || '').trim();
+  if (!message) return res.status(400).json({ error: { code: 'PROGRESS_MESSAGE_REQUIRED', message: 'message is required.' } });
+  const event = telemetry.emitEvent({
+    eventType: 'IDE_PROGRESS',
+    agentId: integration.id,
+    action: String(req.body?.phase || 'working').toUpperCase(),
+    detail: message,
+    severity: 'info',
+    payload: { integrationId: integration.id, workspaceId: integration.workspace_id, progressPercent, phase: req.body?.phase || 'working', organizationId: req.tenant.organizationId, projectId: req.tenant.projectId }
+  });
+  await db.run('UPDATE ide_integrations SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', integration.id);
+  res.status(202).json({ accepted: true, event });
+}
 async function execute(req, res) {
   const command = CONTRACT.commands.find((item) => item.id === req.params.command);
   if (!command) return res.status(404).json({ error: { code: 'IDE_COMMAND_NOT_FOUND', message: 'Unknown GenOS IDE command' } });
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
   return res.status(501).json({ error: { code: 'IDE_COMMAND_NOT_IMPLEMENTED', message: `IDE command '${command.id}' is registered but has no execution handler.` }, action: command.id });
 }
-module.exports = { contract, connect, list, heartbeat, status, disconnect, execute, isCompatibleVersion };
+module.exports = { contract, connect, list, heartbeat, status, disconnect, progress, execute, isCompatibleVersion };

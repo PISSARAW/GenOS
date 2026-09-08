@@ -41,7 +41,7 @@ fn handle_basic(snapshot: &str) -> Result<(), String> {
         "branch_id": value["branch_id"],
         "world_id": value["world_id"],
         "replayed_steps": replayed_steps,
-        "replay_status": "RECONSTRUCTED",
+        "replay_status": "VALIDATED_ONLY",
         "execution_replayed": false,
         "verification": "snapshot structure and working-memory step count only"
     })).map_err(|error| error.to_string())?);

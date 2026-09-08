@@ -45,6 +45,21 @@ fn cargo_program() -> String {
     })
 }
 
+fn ensure_cargo_on_path() {
+    if !cfg!(windows) { return; }
+    let cargo = std::path::PathBuf::from(cargo_program());
+    let Some(parent) = cargo.parent() else { return; };
+    if !parent.exists() { return; }
+    let current = std::env::var_os("PATH").unwrap_or_default();
+    let mut paths = std::env::split_paths(&current).collect::<Vec<_>>();
+    if !paths.iter().any(|path| path == parent) {
+        paths.insert(0, parent.to_path_buf());
+        if let Ok(updated) = std::env::join_paths(paths) {
+            unsafe { std::env::set_var("PATH", updated); }
+        }
+    }
+}
+
 fn api_is_healthy() -> bool {
     reqwest::blocking::Client::builder()
         .timeout(std::time::Duration::from_secs(2))
@@ -1177,6 +1192,7 @@ enum Commands {
 #[tokio::main]
 async fn main() {
     let Cli { yes, command } = Cli::parse();
+    ensure_cargo_on_path();
 
     if !yes && matches!(
         &command,
@@ -1258,7 +1274,7 @@ async fn main() {
                 if api_is_healthy() {
                     println!("Statut: EN LIGNE (Port {} ouvert)", port);
                 } else {
-                    println!("Statut: HORS LIGNE (Port 8085 inaccessible)");
+                    println!("Statut: HORS LIGNE (Port {} inaccessible)", port);
                     let _ = std::fs::remove_file(".genos_server.pid");
                     std::process::exit(1);
                 }
@@ -1269,7 +1285,7 @@ async fn main() {
         }
         Commands::Run => {
             println!("Lancement d'une tâche (création d'agent de test)...");
-            let status = std::process::Command::new("cargo")
+            let status = std::process::Command::new(cargo_program())
                 .args(["run", "-q", "-p", "genos-cli", "--", "agent", "create", "--name", "task-worker", "--out", ".genos-task.json"])
                 .status();
             match status {
@@ -1280,18 +1296,18 @@ async fn main() {
         }
         Commands::List => {
             println!("Liste des fossiles stockés...");
-            let mut cmd = std::process::Command::new("cargo");
+            let mut cmd = std::process::Command::new(cargo_program());
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "fossil", "list"]);
             exit_on_command_failure(cmd.status());
         }
         Commands::Init => {
             println!("Initialisation de GenOS...");
-            let mut cmd = std::process::Command::new("cargo");
+            let mut cmd = std::process::Command::new(cargo_program());
             cmd.args(["run", "-q", "-p", "genos-cli", "--", "init"]);
             exit_on_command_failure(cmd.status());
         }
         Commands::Replay { args } => {
-            let mut cmd = std::process::Command::new("cargo");
+            let mut cmd = std::process::Command::new(cargo_program());
             if args.is_empty() {
                 println!("(Mode auto : lancement du replay sur le snapshot par défaut)");
                 cmd.args(["run", "-q", "-p", "genos-cli", "--", "replay", "basic", "--snapshot", "latest-snapshot"]);

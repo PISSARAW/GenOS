@@ -55,7 +55,7 @@ pub fn audit_compliance(standard: &str, output_file: Option<&str>) -> Result<(),
         if let Some(parent) = Path::new(out).parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let _ = fs::write(out, &rendered);
+        fs::write(out, &rendered).map_err(|error| format!("Failed to write compliance report '{}': {}", out, error))?;
     }
 
     println!("{}", rendered);
