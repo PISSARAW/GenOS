@@ -265,7 +265,7 @@ function heuristicReconstruction(raw, err) {
         return null;
     }
 
-    const outcome = 'failed';
+    const outcome = String(outcomeMatch?.[1] || 'failed').trim().toLowerCase();
     let claims = parsedClaims || [];
     if (!claims.length && statementMatches.length) {
         claims = statementMatches.map(m => ({ statement: m[1], evidence: [] }));
