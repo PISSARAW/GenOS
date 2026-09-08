@@ -12,3 +12,4 @@ genos-cell = { path = "../genos-cell" }
 genos-biology = { path = "../genos-biology" }
 genos-genome = { path = "../genos-genome" }
 genos-signal = { path = "../genos-signal" }
+genos-immune = { path = "../genos-immune" }
