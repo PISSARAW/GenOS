@@ -112,6 +112,7 @@ async function runLocalWorker(db, mission, executionRun) {
       db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
       priority: 'bulk',
       maxTokens: tokenBudget > 0 ? tokenBudget - promptTokenEstimate : undefined,
+      maxCostUsd: Number.isFinite(Number(mission.executionBudget?.costUsd)) ? Number(mission.executionBudget.costUsd) : undefined,
       policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
       prompt: codeWorker
         ? `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local code worker (${agentName}). Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
@@ -119,6 +120,10 @@ async function runLocalWorker(db, mission, executionRun) {
           ? `${selfIntro}\n${conscienceBlock}\nYou are a GenOS orchestrator (${agentName}). Mission:\n${mission.prompt}`
           : `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local worker (${agentName}). Do not modify files or spawn agents. Analyse this assigned branch, identify risks, tests, counterexamples, and evidence for the orchestrator. Branch mission:\n${mission.prompt}`
     });
+    const consumedTokens = Number(result.inputTokens || 0) + Number(result.outputTokens || 0);
+    if (tokenBudget > 0 && consumedTokens > tokenBudget) {
+      throw Object.assign(new Error(`Local worker consumed ${consumedTokens} tokens above its ${tokenBudget}-token budget.`), { code: 'BUDGET_EXHAUSTED' });
+    }
     const proposal = codeWorker ? await localCodeWorker.executeProposal({ workspaceRoot: mission.workspaceRoot, text: result.text }) : null;
     if (proposal?.testStatus === 'failed') {
       throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal });
@@ -154,7 +159,7 @@ async function runLocalWorker(db, mission, executionRun) {
         evidenceReport,
         noAnswerProof: isNoAnswer ? noAnswerProof : undefined,
         proposal,
-        usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens }
+        usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens, cost_usd: result.costUsd || 0, tokens: consumedTokens }
       },
       'info',
       'completed'
