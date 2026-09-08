@@ -10,9 +10,8 @@ assert.match(conflicting.message, /conflicting aliases/);
 
 assert.equal(validateToolArguments('genos_synaptic_stdp_update', {
   source_id: 'same-source',
-  sourceId: 'same-source',
-  targetId: 'target',
-  learningRate: 0.5
+  target_id: 'target',
+  learning_rate: 0.5
 }), null);
 
 console.log('MCP STDP alias contract: PASS');

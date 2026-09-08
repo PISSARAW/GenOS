@@ -46,6 +46,22 @@ function getToolInputSchema(toolName, baseSchema = {}) {
     schema.properties.primitives = { type: 'array', items: { type: 'string' } };
     schema.properties.context = { type: 'object' };
   }
+  if (toolName === 'genos_synaptic_stdp_update') {
+    schema.additionalProperties = false;
+    schema.properties = {
+      source_id: { type: 'string' }, target_id: { type: 'string' },
+      pre_spike_at: { type: 'number' }, post_spike_at: { type: 'number' },
+      learning_rate: { type: 'number' }, transmitter_type: { type: 'string' }, agent_id: { type: 'string' }
+    };
+  }
+  if (toolName === 'genos_cell_division') {
+    schema.additionalProperties = false;
+    schema.properties = {
+      agent_id: { type: 'string' }, mode: { type: 'string' },
+      daughter_volume: { type: 'number' }, mutation_rate: { type: 'number' },
+      hayflick_limit: { type: 'integer', minimum: 0 }, merozoite_count: { type: 'integer', minimum: 0 }, seed: { type: 'string' }
+    };
+  }
   for (const field of REQUIRED_STRINGS[toolName] || []) {
     schema.properties[field] = { ...(schema.properties[field] || {}), type: 'string' };
     if (!schema.required.includes(field)) schema.required.push(field);
