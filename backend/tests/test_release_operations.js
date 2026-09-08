@@ -64,6 +64,9 @@ async function e2e() {
   const outcome = await invoke(releases.decideRollout, { params: { rolloutId: rollout.body.id }, tenant });
   assert.equal(outcome.body.status, 'promoted');
   assert.equal(outcome.body.selectedVariant, 'candidate');
+  const persistedRelease = await db.get('SELECT status, environment FROM releases WHERE id = ?', create.body.id);
+  assert.equal(persistedRelease.status, 'active');
+  assert.equal(persistedRelease.environment, 'production');
   const report = await invoke(releases.chargeback, { tenant });
   assert.equal(report.body.totalCostUsd, 0.02);
   await closeDatabase();

@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase, withTransaction } = require('../db');
 const { scopeSql } = require('../middleware/tenant');
 
 function id(prefix) { return `${prefix}-${crypto.randomUUID()}`; }
@@ -204,9 +204,15 @@ async function decideRollout(req, res, next) {
     if (!rollout) return res.status(404).json({ error: { code: 'ROLLOUT_NOT_FOUND', message: 'Rollout is outside the tenant scope.' } });
     const metrics = await db.all('SELECT * FROM release_rollout_metrics WHERE rollout_id = ? ORDER BY variant', rollout.id);
     const outcome = decide(metrics, JSON.parse(rollout.config_json), rollout.strategy);
-    await db.run(`UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, outcome.status, JSON.stringify(outcome), rollout.id, ...scope.params);
-    if (outcome.status === 'promoted') await db.run(`UPDATE releases SET status = 'active', environment = 'production', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, rollout.release_id, ...scope.params);
-    if (outcome.status === 'rolled_back') await db.run(`UPDATE releases SET status = 'rolled_back', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, rollout.release_id, ...scope.params);
+    await withTransaction(db, async (tx) => {
+      const rolloutUpdate = await tx.run(`UPDATE release_rollouts SET status = ?, decision_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, outcome.status, JSON.stringify(outcome), rollout.id, ...scope.params);
+      if (rolloutUpdate.changes !== 1) throw Object.assign(new Error('Rollout changed before its decision could be persisted.'), { code: 'ROLLOUT_STATE_CHANGED' });
+      if (outcome.status === 'promoted' || outcome.status === 'rolled_back') {
+        const releaseStatus = outcome.status === 'promoted' ? 'active' : 'rolled_back';
+        const releaseUpdate = await tx.run(`UPDATE releases SET status = ?${outcome.status === 'promoted' ? ", environment = 'production'" : ''}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND ${scope.clause}`, releaseStatus, rollout.release_id, ...scope.params);
+        if (releaseUpdate.changes !== 1) throw Object.assign(new Error('Release changed before its rollout decision could be applied.'), { code: 'RELEASE_STATE_CHANGED' });
+      }
+    });
     res.json({ id: rollout.id, strategy: rollout.strategy, metrics, ...outcome });
   } catch (error) { next(error); }
 }
