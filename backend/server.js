@@ -92,10 +92,14 @@ async function startServer() {
       const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
       const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
       const tlsPair = readPrivateTlsPair(tlsKey, tlsCert);
+      const bindAddress = process.env.GRPC_BIND_ADDRESS || (tlsPair ? '0.0.0.0' : '127.0.0.1');
+      const loopback = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+      if (!tlsPair && !loopback.has(bindAddress)) {
+        throw new Error('Refusing insecure gRPC on a non-loopback bind address; configure GENOS_GRPC_TLS_KEY/CERT.');
+      }
       const credentials = tlsPair
         ? grpc.ServerCredentials.createSsl(null, [tlsPair], false)
         : grpc.ServerCredentials.createInsecure();
-      const bindAddress = tlsKey && tlsCert ? (process.env.GRPC_BIND_ADDRESS || '0.0.0.0') : (process.env.GRPC_BIND_ADDRESS || '127.0.0.1');
       grpcServer.bindAsync(`${bindAddress}:${GRPC_PORT}`, credentials, (err, boundPort) => {
         if (err) {
           console.warn(`[GenOS gRPC] Warning: could not bind port ${GRPC_PORT}:`, err.message);
