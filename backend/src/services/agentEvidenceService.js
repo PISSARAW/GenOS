@@ -9,12 +9,10 @@ const {
 } = require('./agentOrchestrationState');
 
 function recordWorkerEvidence(mission, event) {
-    const score = claims.reduce((count, claim) => {
-      const evidence = Array.isArray(claim?.evidence)
-        ? claim.evidence.filter((item) => (typeof item === 'string' && item.trim()) || (item && typeof item === 'object' && Object.keys(item).length > 0))
-        : [];
-      return count + (evidence.length * 10) + (evidence.length > 0 ? 2 : 0);
-    }, 0)
+  const orchestratorId = mission.orchestratorAgentId || mission.orchestratorId;
+  if (!orchestratorId || !event || !WORKER_EVIDENCE_EVENTS.has(event.eventType)) return;
+  const report = extractEvidenceReport(event.payload);
+  const claims = Array.isArray(report?.claims) ? report.claims : [];
   const round = workerEvidenceRounds.get(orchestratorId);
   if (!round) return;
   const workerId = mission.agentId || mission.id;
@@ -28,7 +26,6 @@ function recordWorkerEvidence(mission, event) {
     });
   }
   const events = round.events.get(workerId) || [];
-  const report = extractEvidenceReport(event.payload);
   const normalizedFailure = event.payload?.failure || (['APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'].includes(event.eventType)
     ? { category: 'apoptosis', reason: String(event.detail || 'Agent entered apoptosis.') }
     : (['AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED'].includes(event.eventType)
