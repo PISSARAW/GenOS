@@ -10,6 +10,7 @@ const diff = diffWorkspaces('base', 'target', {
 
 assert.strictEqual(diff.totalAdditions, 3);
 assert.strictEqual(diff.totalDeletions, 1);
+assert.strictEqual(diff.totalFilesChanged, 1);
 assert.deepStrictEqual(diff.churnHeatmap.map((entry) => entry.collisionRisk), ['HIGH', 'HIGH']);
 assert.throws(() => diffWorkspaces('base', 'target', { diffEntries: [{ file: 'bad.js', additions: NaN, deletions: 0 }] }), /Diff counts must be non-negative numbers/);
 

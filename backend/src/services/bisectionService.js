@@ -58,7 +58,7 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
     baseBranch: baseWorkspace,
     targetBranch: targetWorkspace,
     diffGeneratedAt: new Date().toISOString(),
-    totalFilesChanged: diffEntries.length,
+    totalFilesChanged: new Set(diffEntries.map((entry) => entry.file)).size,
     totalAdditions: diffEntries.reduce((acc, d) => acc + d.additions, 0),
     totalDeletions: diffEntries.reduce((acc, d) => acc + d.deletions, 0),
     categories: {
