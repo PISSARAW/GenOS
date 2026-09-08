@@ -21,6 +21,7 @@ const temporal = require('./primitiveHandlers/temporal');
 const search = require('./primitiveHandlers/search');
 const computerUse = require('./primitiveHandlers/computerUse');
 const resilience = require('./resilienceService');
+const modelRouter = require('./modelRouter');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -39,12 +40,26 @@ async function autopsy(context = {}) {
   return { success: true, autopsy: report, apoptosisExecuted: report.apoptosisExecuted };
 }
 
+async function providerFallback(context = {}) {
+  const models = Array.isArray(context.models)
+    ? context.models.filter(Boolean)
+    : [context.model, ...(Array.isArray(context.fallbacks) ? context.fallbacks : [])].filter(Boolean);
+  if (!models.length) return { success: false, error: 'model and fallbacks are required.' };
+  const result = await modelRouter.generate({
+    ...context,
+    model: models[0],
+    policy: { primary: models[0], fallbacks: models.slice(1), mode: 'fallback' }
+  });
+  return { success: true, ...result };
+}
+
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
   // Lot 1 — Fondamentales
   snapshot: fundamentals.snapshot,
   checkpoint: fundamentals.snapshot,
   production_snapshot: fundamentals.snapshot,
+  last_good_snapshot: fundamentals.snapshot,
   snapshot_test: snapshotTest,
   cryptobiosis_freeze: fundamentals.cryptobiosisFreeze,
   freeze_spore: fundamentals.cryptobiosisFreeze,
@@ -57,11 +72,17 @@ const HANDLERS = {
   recursive_fork: fundamentals.recursiveFork,
   slm_route: fundamentals.slmRoute,
   provider_route: fundamentals.slmRoute,
+  provider_fallback: providerFallback,
+  fallback_chain: providerFallback,
+  degraded_mode: providerFallback,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
+  shannon_entropy: fundamentals.entropyCheck,
   evaluate: fundamentals.evaluate,
+  minimum_evaluation: fundamentals.evaluate,
   verify: fundamentals.verify,
   tests: fundamentals.verify,
+  independent_verify: fundamentals.verify,
   vfs_dry_run: fundamentals.vfsDryRun,
   blast_radius: fundamentals.vfsDryRun,
   safe_revert: fundamentals.safeRevert,
@@ -118,6 +139,7 @@ const HANDLERS = {
   terminate: safety.apoptosis,
   apoptosis: safety.apoptosis,
   autopsy,
+  forensic_autopsy: autopsy,
   fossilize: safety.fossilize,
   fossil_record: safety.fossilize,
   fossil_list: safety.listFossils,
