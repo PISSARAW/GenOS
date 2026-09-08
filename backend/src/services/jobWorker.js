@@ -17,6 +17,7 @@ const busyTables = new Set();
 let recovered = false;
 let lastRecoveryAt = 0;
 const lastScopeByTable = new Map();
+const inFlightJobs = new Set();
 const MAX_WORKFLOW_NODES = 10000;
 const MAX_WORKFLOW_DEPTH = 256;
 const MAX_PARALLEL_BRANCHES = 32;
@@ -469,7 +470,13 @@ async function processOnce() {
   try {
     const db = await getDatabase();
     if (!recovered || Date.now() - lastRecoveryAt >= 60000) { await recoverInterruptedJobs(db); recovered = true; lastRecoveryAt = Date.now(); }
-    await Promise.all(['workflow_runs', 'evaluation_jobs', 'model_jobs'].map((table) => processTable(db, table)));
+    const executions = ['workflow_runs', 'evaluation_jobs', 'model_jobs'].map((table) => {
+      let execution;
+      execution = processTable(db, table).finally(() => inFlightJobs.delete(execution));
+      inFlightJobs.add(execution);
+      return execution;
+    });
+    await Promise.all(executions);
   } finally { busy = false; }
 }
 
@@ -506,7 +513,17 @@ function startJobWorker(intervalMs = 250) {
   return timer;
 }
 
-function stopJobWorker() { if (timer) clearInterval(timer); if (memoryTimer) clearInterval(memoryTimer); timer = null; memoryTimer = null; }
+async function stopJobWorker({ drain = true, timeoutMs = 30000 } = {}) {
+  if (timer) clearInterval(timer);
+  if (memoryTimer) clearInterval(memoryTimer);
+  timer = null;
+  memoryTimer = null;
+  if (!drain) return;
+  const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+  while (inFlightJobs.size > 0 && Date.now() < deadline) {
+    await Promise.race([...inFlightJobs, new Promise((resolve) => setTimeout(resolve, 50))]);
+  }
+}
 
 async function runMemoryConsolidationOnce() {
   if (memoryCycleRunning) return { success: false, skipped: true, reason: 'cycle_in_progress' };

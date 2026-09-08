@@ -183,6 +183,14 @@ class TelemetryObserver extends EventEmitter {
     }
   }
 
+  async flush(timeoutMs = 5000) {
+    const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+    while ((this.persisting || this.persistQueue.length > 0) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    return { flushed: !this.persisting && this.persistQueue.length === 0, pending: this.persistQueue.length };
+  }
+
   async pruneHistory(db) {
     await db.run('DELETE FROM telemetry_events WHERE id NOT IN (SELECT id FROM telemetry_events ORDER BY id DESC LIMIT ?)', this.maxTelemetryRows);
     await db.run('DELETE FROM trace_spans WHERE id NOT IN (SELECT id FROM trace_spans ORDER BY created_at DESC LIMIT ?)', this.maxTraceRows);
