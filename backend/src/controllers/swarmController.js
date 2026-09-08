@@ -6,12 +6,17 @@ const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const { sanitizeString } = require('../middleware/security');
 
-async function expireOpenProposals(db) {
-  await db.run(`
-    UPDATE swarm_proposals
-    SET status = 'expired'
-    WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
-  `);
+async function expireOpenProposals(db, tenant = null) {
+  if (tenant) {
+    await db.run(`
+      UPDATE swarm_proposals
+      SET status = 'expired'
+      WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP
+        AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)
+    `, tenant.organizationId, tenant.projectId);
+    return;
+  }
+  await db.run(`UPDATE swarm_proposals SET status = 'expired' WHERE status = 'open' AND expires_at IS NOT NULL AND expires_at <= CURRENT_TIMESTAMP`);
 }
 
 async function getActiveNodeCount(db, workspaceId, tenant) {
@@ -51,7 +56,7 @@ function hasBeenRejected(yesCount, noCount, totalVotes, activeNodeCount, approva
 
 async function getConsensus(req, res) {
   const db = await getDatabase();
-  await expireOpenProposals(db);
+  await expireOpenProposals(db, req.tenant);
   const proposals = req.tenant
     ? await db.all(`
       SELECT p.* FROM swarm_proposals p
@@ -60,7 +65,14 @@ async function getConsensus(req, res) {
       ORDER BY p.created_at DESC
     `, req.tenant.organizationId, req.tenant.projectId)
     : await db.all('SELECT * FROM swarm_proposals ORDER BY created_at DESC');
-  const votes = await db.all('SELECT * FROM swarm_votes');
+  const votes = req.tenant
+    ? await db.all(`
+      SELECT v.* FROM swarm_votes v
+      JOIN swarm_proposals p ON p.id = v.proposal_id
+      JOIN workspaces w ON w.id = p.workspace_id
+      WHERE w.organization_id = ? AND w.project_id = ?
+    `, req.tenant.organizationId, req.tenant.projectId)
+    : await db.all('SELECT * FROM swarm_votes');
   const globalActiveCount = await getActiveNodeCount(db, null, req.tenant);
   const votesByProposal = new Map();
   for (const vote of votes) {
@@ -102,6 +114,7 @@ async function getConsensus(req, res) {
 
     return {
       id: p.id,
+      workspaceId: p.workspace_id,
       title: p.title,
       description: p.description,
       status: p.status,
@@ -141,7 +154,7 @@ async function getConsensus(req, res) {
         proposal.quorumThreshold
       )) {
         proposal.status = 'passed';
-        await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ?", proposal.id);
+        await db.run("UPDATE swarm_proposals SET status = 'passed' WHERE id = ? AND workspace_id = ?", proposal.id, proposal.workspaceId);
       } else if (hasBeenRejected(
         yesVal,
         noVal,
@@ -150,7 +163,7 @@ async function getConsensus(req, res) {
         proposal.quorumThreshold
       )) {
         proposal.status = 'rejected';
-        await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ?", proposal.id);
+        await db.run("UPDATE swarm_proposals SET status = 'rejected' WHERE id = ? AND workspace_id = ?", proposal.id, proposal.workspaceId);
       }
     }
   }
@@ -232,7 +245,7 @@ async function castVote(req, res) {
     return res.status(400).json({ error: { code: 'INVALID_VOTE', message: 'proposalId and a vote of yes, no, or abstain are required.' } });
   }
   const db = await getDatabase();
-  await expireOpenProposals(db);
+  await expireOpenProposals(db, req.tenant);
   const proposal = req.tenant
     ? await db.get(`
       SELECT p.id, p.status, p.quorum_threshold, p.consensus_type FROM swarm_proposals p
