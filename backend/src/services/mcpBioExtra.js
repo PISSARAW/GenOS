@@ -209,16 +209,74 @@ function executeBioExtra(toolName, args = {}, options = {}) {
     };
   }
 
-  const fallbackBioTools = ['genos_quantitative_genetics', 'genos_coevolution', 'genos_molecular_chaperone', 'genos_necrosis_ledger', 'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust', 'genos_routing_algorithm'];
-  if (fallbackBioTools.includes(toolName)) {
-    return {
-      configured: false,
-      success: false,
-      status: 'unsupported',
-      transport: 'local',
-      output: `Biomimetic tool '${toolName}' has no concrete runtime implementation.`,
-      error: `Biomimetic tool '${toolName}' is unavailable until an implementation provides evidence.`
-    };
+  if (toolName === 'genos_quantitative_genetics') {
+    const observations = Array.isArray(args.observations) ? args.observations : [];
+    if (observations.length < 2) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'observations requires at least two numeric phenotype/genotype pairs.' };
+    const pairs = observations.map((item) => ({ genotype: Number(item.genotype), phenotype: Number(item.phenotype) }));
+    if (pairs.some((pair) => !Number.isFinite(pair.genotype) || !Number.isFinite(pair.phenotype))) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'genotype and phenotype must be finite numbers.' };
+    const mean = (values) => values.reduce((sum, value) => sum + value, 0) / values.length;
+    const variance = (values) => { const center = mean(values); return mean(values.map((value) => (value - center) ** 2)); };
+    const covariance = (left, right) => { const leftMean = mean(left); const rightMean = mean(right); return mean(left.map((value, index) => (value - leftMean) * (right[index] - rightMean))); };
+    const genotype = pairs.map((pair) => pair.genotype);
+    const phenotype = pairs.map((pair) => pair.phenotype);
+    const denominator = Math.sqrt(variance(genotype) * variance(phenotype));
+    const correlation = denominator === 0 ? 0 : covariance(genotype, phenotype) / denominator;
+    const result = { heritabilityProxy: Math.max(0, Math.min(1, correlation ** 2)), correlation, sampleSize: pairs.length };
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'pearson_correlation_squared', inputs: pairs.length }, ...result };
+  }
+
+  if (toolName === 'genos_coevolution') {
+    const populationA = Array.isArray(args.population_a) ? args.population_a : [];
+    const populationB = Array.isArray(args.population_b) ? args.population_b : [];
+    if (!populationA.length || !populationB.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'population_a and population_b are required.' };
+    const average = (population) => population.reduce((sum, item) => sum + Number(typeof item === 'object' ? item.fitness : item), 0) / population.length;
+    const fitnessA = average(populationA); const fitnessB = average(populationB);
+    const result = { fitnessA, fitnessB, delta: fitnessA - fitnessB, dominantPopulation: fitnessA === fitnessB ? 'tie' : fitnessA > fitnessB ? 'population_a' : 'population_b' };
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'mean_fitness_comparison', populationSizes: [populationA.length, populationB.length] }, ...result };
+  }
+
+  if (toolName === 'genos_molecular_chaperone') {
+    const proteins = Array.isArray(args.proteins) ? args.proteins : [];
+    const repaired = proteins.map((protein) => ({ ...protein, folded: protein.folded === true || protein.structure != null }));
+    const result = { total: repaired.length, folded: repaired.filter((protein) => protein.folded).length, repaired };
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'structure_validation_and_fold_marking' }, ...result };
+  }
+
+  if (toolName === 'genos_necrosis_ledger') {
+    const events = Array.isArray(args.events) ? args.events : (args.event ? [args.event] : []);
+    const ledger = events.map((event, index) => ({ id: event.id || `necrosis-${index + 1}`, cause: event.cause || 'unspecified', severity: Math.max(0, Math.min(1, Number(event.severity ?? 0))), recordedAt: event.recordedAt || new Date().toISOString() }));
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ count: ledger.length, ledger }), evidence: { method: 'append_only_event_normalization' }, count: ledger.length, ledger };
+  }
+
+  if (toolName === 'genos_multisensory_integration') {
+    const signals = Array.isArray(args.signals) ? args.signals : [];
+    if (!signals.length) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'signals are required.' };
+    const totalWeight = signals.reduce((sum, signal) => sum + Math.max(0, Number(signal.weight ?? 1)), 0);
+    if (totalWeight === 0) return { configured: true, success: false, status: 'invalid_args', transport: 'local', error: 'at least one signal must have positive weight.' };
+    const integrated = signals.reduce((sum, signal) => sum + Number(signal.value || 0) * Math.max(0, Number(signal.weight ?? 1)), 0) / totalWeight;
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ integrated, signalCount: signals.length }), evidence: { method: 'weighted_signal_fusion' }, integrated, signalCount: signals.length };
+  }
+
+  if (toolName === 'genos_thalamic_filtering') {
+    const signals = Array.isArray(args.signals) ? args.signals : [];
+    const threshold = Number(args.threshold ?? 0.5);
+    const admitted = signals.filter((signal) => Number(signal.salience ?? signal.score ?? 0) >= threshold);
+    const result = { threshold, admitted, suppressed: signals.length - admitted.length };
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify(result), evidence: { method: 'salience_threshold_gate' }, ...result };
+  }
+
+  if (toolName === 'genos_social_trust') {
+    const positive = Math.max(0, Number(args.positive ?? 0)); const negative = Math.max(0, Number(args.negative ?? 0));
+    const trust = (positive + 1) / (positive + negative + 2);
+    return { configured: true, success: true, status: 'completed', transport: 'local', output: JSON.stringify({ trust }), evidence: { method: 'laplace_smoothed_beta_estimate' }, trust, positive, negative };
+  }
+
+  if (toolName === 'genos_routing_algorithm') {
+    const graph = args.graph && typeof args.graph === 'object' ? args.graph : {};
+    const start = String(args.start); const target = String(args.target);
+    const queue = [[start, [start]]]; const visited = new Set([start]); let route = null;
+    while (queue.length) { const [node, current] = queue.shift(); if (node === target) { route = current; break; } for (const next of (Array.isArray(graph[node]) ? graph[node] : [])) { if (!visited.has(String(next))) { visited.add(String(next)); queue.push([String(next), [...current, String(next)]]); } } }
+    return { configured: true, success: route !== null, status: route ? 'completed' : 'not_found', transport: 'local', output: JSON.stringify({ route }), evidence: { method: 'breadth_first_shortest_hop_search' }, route };
   }
 
   return null;

@@ -4,6 +4,11 @@
  */
 
 const { normalizeRelativePath } = require('./pathSafety');
+const fs = require('fs');
+const path = require('path');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
 const virtualFilesByWorkspace = new Map();
 const DEFAULT_MAX_VFS_FILE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_MAX_VFS_BYTES = 64 * 1024 * 1024;
@@ -192,6 +197,9 @@ function simulateDryRun(toolName, args = {}, vfsState = {}) {
   return {
     toolName: tool,
     dryRun: true,
+    executionMode: 'simulation',
+    executed: false,
+    requiresExplicitExecution: true,
     timestamp: new Date().toISOString(),
     requiredPrivilege: requiredRole,
     isDestructive,
@@ -350,18 +358,85 @@ function inspectVfs(directory = '/', workspaceId = 'legacy') {
   return [...entries].sort();
 }
 
-async function executeSandboxed(workspaceId, command) {
+function resolveRealWorkspace(workspaceRoot) {
+  if (typeof workspaceRoot !== 'string' || !workspaceRoot.trim()) {
+    throw new Error('workspaceRoot is required for real sandbox execution.');
+  }
+  const root = path.resolve(workspaceRoot);
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
+    throw new Error(`workspaceRoot is not an existing directory: ${workspaceRoot}`);
+  }
+  return root;
+}
+
+async function executeSandboxed(workspaceId, command, options = {}) {
   if (!workspaceId) throw new Error('workspaceId is required for sandbox execution.');
   if (typeof command !== 'string' || !command.trim()) throw new Error('command is required for sandbox execution.');
   const simulation = simulateDryRun('genos_run', { command }, {});
-  return {
-    success: true,
-    dryRun: true,
-    workspaceId,
-    command,
-    blastRadiusScore: simulation.blastRadiusScore,
-    sideEffects: simulation.sideEffects
-  };
+  if (options.mode !== 'real') {
+    return {
+      success: true,
+      dryRun: true,
+      executionMode: 'simulation',
+      executed: false,
+      requiresExplicitExecution: true,
+      workspaceId,
+      command,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  }
+  if (options.allowRealExecution !== true) {
+    return {
+      success: false,
+      dryRun: false,
+      executionMode: 'blocked',
+      executed: false,
+      workspaceId,
+      command,
+      error: 'Real sandbox execution requires allowRealExecution=true.'
+    };
+  }
+  const cwd = resolveRealWorkspace(options.workspaceRoot);
+  const timeout = Math.max(1, Math.min(Number(options.timeoutMs) || 5000, 120000));
+  const startedAt = Date.now();
+  try {
+    const result = await execFileAsync(process.platform === 'win32' ? 'cmd.exe' : 'sh',
+      process.platform === 'win32' ? ['/d', '/s', '/c', command] : ['-lc', command],
+      { cwd, timeout, windowsHide: true, maxBuffer: 1024 * 1024, env: options.env });
+    return {
+      success: true,
+      dryRun: false,
+      executionMode: 'real',
+      executed: true,
+      workspaceId,
+      command,
+      cwd,
+      durationMs: Date.now() - startedAt,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: 0,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  } catch (error) {
+    return {
+      success: false,
+      dryRun: false,
+      executionMode: 'real',
+      executed: true,
+      workspaceId,
+      command,
+      cwd,
+      durationMs: Date.now() - startedAt,
+      stdout: error.stdout || '',
+      stderr: error.stderr || error.message,
+      exitCode: Number.isInteger(error.code) ? error.code : 1,
+      timedOut: error.killed === true,
+      blastRadiusScore: simulation.blastRadiusScore,
+      sideEffects: simulation.sideEffects
+    };
+  }
 }
 
 module.exports = {
