@@ -53,10 +53,17 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
   }
 
   // 3. require_human_approval
-  if (policy.require_human_approval && !executionContext.humanApproved) {
+  const approval = executionContext.humanApprovalReceipt;
+  const validHumanApproval = approval && typeof approval === 'object'
+    && approval.approved === true
+    && typeof approval.approvalId === 'string' && approval.approvalId.trim()
+    && typeof approval.approverId === 'string' && approval.approverId.trim()
+    && typeof approval.approvedAt === 'string' && approval.approvedAt.trim()
+    && typeof approval.payloadHash === 'string' && /^[a-f0-9]{64}$/i.test(approval.payloadHash);
+  if (policy.require_human_approval && !validHumanApproval) {
     violations.push({
       policy: 'require_human_approval',
-      message: 'Contract requires human approval before promotion.'
+      message: 'Contract requires a durable, hash-bound human approval receipt before promotion.'
     });
   }
 
