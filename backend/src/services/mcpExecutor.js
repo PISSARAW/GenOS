@@ -31,6 +31,24 @@ function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
   return Math.min(Math.floor(numeric), MAX_MCP_TIMEOUT_MS);
 }
 
+function directToolLeaseAllows(toolName) {
+  const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map((name) => name.trim()).filter(Boolean);
+  if (disabled.includes(toolName)) return false;
+  const lease = String(process.env.GENOS_MCP_LEASE || '').split(',').map((name) => name.trim()).filter(Boolean);
+  return !lease.length || lease.includes(toolName);
+}
+
+async function directCallGuard(toolName, args) {
+  const registry = getToolRegistry();
+  if (!registry.isSupportedTool(toolName)) throw Object.assign(new Error(`Tool '${toolName}' is not registered.`), { code: 'MCP_TOOL_NOT_FOUND' });
+  if (!directToolLeaseAllows(toolName)) throw Object.assign(new Error(`Tool '${toolName}' is outside the active MCP lease.`), { code: 'MCP_TOOL_LEASE_DENIED' });
+  const argumentError = validateToolArguments(toolName, args);
+  if (argumentError) throw argumentError;
+  const circuit = circuitBreaker.canExecute(toolName, 'operator');
+  if (!circuit.allowed) throw Object.assign(new Error(circuit.message), { code: circuit.reason || 'MCP_CIRCUIT_OPEN' });
+  return circuit;
+}
+
 function getToolRegistry() {
   return require('./mcpToolRegistry');
 }
@@ -823,9 +841,18 @@ async function listTools() {
 }
 
 async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
-  const result = await executeConfiguredTransport({ toolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
-  if (!result.success) throw new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
-  return result.output;
+  const normalizedToolName = String(toolName || '').trim();
+  await directCallGuard(normalizedToolName, args);
+  try {
+    const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
+    if (result.success) circuitBreaker.recordSuccess(normalizedToolName);
+    else if (result.configured) circuitBreaker.recordFailure(normalizedToolName, result.error || result.output || 'MCP tool failed.');
+    if (!result.success) throw Object.assign(new Error(result.error || result.output || `MCP tool '${normalizedToolName}' failed.`), { code: result.code || 'MCP_TOOL_ERROR' });
+    return result.output;
+  } catch (error) {
+    circuitBreaker.recordFailure(normalizedToolName, error.message);
+    throw error;
+  }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath };
+module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath, directToolLeaseAllows };
