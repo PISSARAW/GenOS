@@ -10,6 +10,7 @@ const { runGenosSync } = require('./genosCli');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 const { resolveContainedPathNoSymlinkSync } = require('./pathSafety');
 const { validateToolArguments } = require('./mcpArgumentValidation');
+const { getToolInputSchema } = require('./mcpContract');
 
 const DEFAULT_MCP_TIMEOUT_MS = 30000;
 const MAX_MCP_TIMEOUT_MS = 30 * 60 * 1000;
@@ -819,7 +820,7 @@ async function execute({ agentId, organizationId, projectId, toolName, args = {}
 
 async function listTools() {
   const registry = getToolRegistry();
-  return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: { type: 'object' } }));
+  return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: getToolInputSchema(name) }));
 }
 
 async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
