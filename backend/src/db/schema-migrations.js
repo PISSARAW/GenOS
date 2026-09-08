@@ -155,6 +155,27 @@ async function applyVersionedMigrations(db) {
   CREATE INDEX IF NOT EXISTS idx_agent_git_objects_remote ON agent_git_objects(remote_name, state_hash);`);
   const agentGitColumns = new Set((await db.all('PRAGMA table_info(agent_git_objects)')).map((column) => column.name));
   if (!agentGitColumns.has('signature')) await db.exec('ALTER TABLE agent_git_objects ADD COLUMN signature TEXT');
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_git_refs (
+    ref_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, object_id TEXT,
+    version INTEGER NOT NULL DEFAULT 0, lease_token TEXT, tracking_remote TEXT, tracking_ref TEXT,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(agent_id, ref_name)
+  );
+  CREATE TABLE IF NOT EXISTS agent_git_reflog (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, ref_name TEXT NOT NULL, old_object_id TEXT,
+    new_object_id TEXT, action TEXT NOT NULL, actor TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS agent_git_notes (
+    id TEXT PRIMARY KEY, object_id TEXT NOT NULL, agent_id TEXT NOT NULL, note_json TEXT NOT NULL,
+    created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS agent_git_hooks (
+    hook_key TEXT PRIMARY KEY, agent_id TEXT NOT NULL, hook_name TEXT NOT NULL, policy_json TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS agent_git_archives (
+    id TEXT PRIMARY KEY, agent_id TEXT NOT NULL, object_id TEXT NOT NULL, archive_hash TEXT NOT NULL,
+    archive_json TEXT NOT NULL, created_by TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );`);
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');

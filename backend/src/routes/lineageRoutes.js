@@ -37,6 +37,16 @@ router.post('/agents/git/revert', requirePermission('workspace:write'), agentGit
 router.post('/agents/git/rebase', requirePermission('workspace:write'), agentGitController.rebase);
 router.post('/agents/git/remote/push', requirePermission('workspace:write'), agentGitController.remoteReceive);
 router.post('/agents/git/remote/fetch', requirePermission('read'), agentGitController.fetch);
+router.post('/agents/git/reflog', requirePermission('read'), agentGitController.reflog);
+router.post('/agents/git/show', requirePermission('read'), agentGitController.show);
+router.post('/agents/git/fsck', requirePermission('read'), agentGitController.fsck);
+router.post('/agents/git/gc', requirePermission('workspace:write'), agentGitController.gc);
+router.post('/agents/git/blame', requirePermission('read'), agentGitController.blame);
+router.post('/agents/git/describe', requirePermission('read'), agentGitController.describe);
+router.post('/agents/git/note', requirePermission('workspace:write'), agentGitController.note);
+router.post('/agents/git/hook', requirePermission('workspace:write'), agentGitController.hook);
+router.post('/agents/git/merge-base', requirePermission('read'), agentGitController.mergeBase);
+router.post('/agents/git/archive', requirePermission('read'), agentGitController.archive);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
