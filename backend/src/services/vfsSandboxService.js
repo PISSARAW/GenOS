@@ -328,6 +328,20 @@ function inspectVfs(directory = '/') {
   return [...entries].sort();
 }
 
+async function executeSandboxed(workspaceId, command) {
+  if (!workspaceId) throw new Error('workspaceId is required for sandbox execution.');
+  if (typeof command !== 'string' || !command.trim()) throw new Error('command is required for sandbox execution.');
+  const simulation = simulateDryRun('genos_run', { command }, {});
+  return {
+    success: true,
+    dryRun: true,
+    workspaceId,
+    command,
+    blastRadiusScore: simulation.blastRadiusScore,
+    sideEffects: simulation.sideEffects
+  };
+}
+
 module.exports = {
   getToolSchema,
   simulateDryRun,
@@ -336,4 +350,5 @@ module.exports = {
   dryRunPatch,
   executeVfsOperation,
   inspectVfs
+  ,executeSandboxed
 };
