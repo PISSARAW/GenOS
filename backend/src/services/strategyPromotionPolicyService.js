@@ -40,8 +40,12 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
       && typeof verification.verifiedAt === 'string' && Number.isFinite(Date.parse(verification.verifiedAt))
       && verification.verifierId !== executionContext.agentId;
     const reportClaims = executionContext.report?.claims;
+    const isTangibleEvidence = (item) => item && typeof item === 'object'
+      && typeof item.receiptHash === 'string' && /^[a-f0-9]{64}$/i.test(item.receiptHash)
+      && typeof item.source === 'string' && item.source.trim();
     const reportHasEvidence = Array.isArray(reportClaims) && reportClaims.length > 0
-      && reportClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0);
+      && reportClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0
+        && claim.evidence.every(isTangibleEvidence));
     const verified = validVerification && reportHasEvidence;
     if (!verified) {
       violations.push({
