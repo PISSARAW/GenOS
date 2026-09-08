@@ -87,6 +87,7 @@ function eligibility(strategy, profile, options) {
   }
   const missingPrimitives = strategy.primitives.filter((primitive) => !getStrategyHandlers()[primitive]);
   if (missingPrimitives.length) return { eligible: false, reason: `unimplemented primitives: ${missingPrimitives.join(', ')}` };
+  if (strategy.maturity === 'partial') return { eligible: false, reason: 'strategy has incomplete primitive coverage' };
   if (strategy.costLevel > options.maxCostLevel) return { eligible: false, reason: `cost level ${strategy.costLevel} exceeds ${options.maxCostLevel}` };
   if (strategy.maturity === 'prototype' && !options.allowPrototype) return { eligible: false, reason: 'prototype disabled by policy' };
   if (strategy.maturity === 'experimental' && !options.allowExperimental) return { eligible: false, reason: 'experimental strategy disabled by policy' };
