@@ -52,8 +52,6 @@ function configuredExecutable(mission = {}) {
     return CODEX_RUNTIME_PATH;
   }
 
-  if (candidate) return candidate;
-
   return CODEX_RUNTIME_PATH;
 }
 
