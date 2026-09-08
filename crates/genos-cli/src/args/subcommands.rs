@@ -205,9 +205,13 @@ pub enum ExperimentSubcommands {
     },
     Incident {
         manifest: String,
+        #[arg(long)]
+        offline: bool,
     },
     BugInvestigation {
         manifest: String,
+        #[arg(long)]
+        offline: bool,
     },
 }
 

@@ -23,7 +23,7 @@ pub fn handle_experiment_causal(input_file: &str) -> Result<(), String> {
     }
 }
 
-pub fn handle_experiment_incident(manifest: &str) -> Result<(), String> {
+pub fn handle_experiment_incident(manifest: &str, offline: bool) -> Result<(), String> {
     let manifest_val: serde_json::Value = if Path::new(manifest).exists() {
         let content = fs::read_to_string(manifest)
             .map_err(|e| format!("Impossible de lire le fichier manifeste '{}': {}", manifest, e))?;
@@ -36,6 +36,11 @@ pub fn handle_experiment_incident(manifest: &str) -> Result<(), String> {
 
     if !manifest_val.is_object() || manifest_val.as_object().map_or(true, |o| o.is_empty()) {
         return Err(format!("Le manifeste '{}' doit être un objet JSON valide et non vide", manifest));
+    }
+
+    if offline {
+        println!("{}", json!({ "valid": true, "mode": "offline", "experiment_type": "incident_experiment" }));
+        return Ok(());
     }
 
     let url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
@@ -58,7 +63,7 @@ pub fn handle_experiment_incident(manifest: &str) -> Result<(), String> {
     }
 }
 
-pub fn handle_experiment_bug(manifest: &str) -> Result<(), String> {
+pub fn handle_experiment_bug(manifest: &str, offline: bool) -> Result<(), String> {
     let manifest_val: serde_json::Value = if Path::new(manifest).exists() {
         let content = fs::read_to_string(manifest)
             .map_err(|e| format!("Impossible de lire le fichier manifeste '{}': {}", manifest, e))?;
@@ -71,6 +76,11 @@ pub fn handle_experiment_bug(manifest: &str) -> Result<(), String> {
 
     if !manifest_val.is_object() || manifest_val.as_object().map_or(true, |o| o.is_empty()) {
         return Err(format!("Le manifeste '{}' doit être un objet JSON valide et non vide", manifest));
+    }
+
+    if offline {
+        println!("{}", json!({ "valid": true, "mode": "offline", "experiment_type": "scientific_experiment" }));
+        return Ok(());
     }
 
     let url = std::env::var("GENOS_API_URL").unwrap_or_else(|_| "http://127.0.0.1:4000".to_string());
