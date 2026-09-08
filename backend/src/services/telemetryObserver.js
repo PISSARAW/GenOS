@@ -88,6 +88,7 @@ class TelemetryObserver extends EventEmitter {
 
     const event = {
       id: eventData.id || `evt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      sessionId: eventData.sessionId || payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${eventData.agentId || 'system'}`,
       timestamp: eventData.timestamp || new Date().toISOString(),
       eventType: eventData.eventType || 'AGENT_EVENT',
       agentId: eventData.agentId || 'system',
