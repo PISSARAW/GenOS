@@ -121,6 +121,16 @@ async function applyVersionedMigrations(db) {
   );
   CREATE INDEX IF NOT EXISTS idx_plasmid_bindings_owner ON plasmid_bindings(owner_agent_id, status);
   CREATE INDEX IF NOT EXISTS idx_plasmid_bindings_scope ON plasmid_bindings(organization_id, project_id);`);
+  await db.exec(`CREATE TABLE IF NOT EXISTS agent_state_snapshots (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    workspace_id TEXT,
+    state_json TEXT NOT NULL,
+    reason TEXT,
+    created_by TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_agent_state_snapshots_agent ON agent_state_snapshots(agent_id, created_at);`);
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
