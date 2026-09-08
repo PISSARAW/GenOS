@@ -72,7 +72,7 @@ async function cloneNode(req, res) {
 
   const db = await getDatabase();
   const scope = workspaceScope(req);
-  const parentAgent = await db.get(`SELECT a.* FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, parentId, ...scope.params);
+  const parentAgent = await db.get(`SELECT a.* FROM agents a JOIN workspaces w ON w.id = a.workspace_id LEFT JOIN lineage_nodes source_node ON source_node.agent_id = a.id WHERE (a.id = ? OR source_node.id = ?) AND ${scope.clause}`, parentId, parentId, ...scope.params);
   if (parentAgent) {
     const agentId = `agent_clone_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const orchestratorId = parentAgent.execution_mode === 'orchestrator'
@@ -82,21 +82,34 @@ async function cloneNode(req, res) {
       return res.status(409).json({ error: { code: 'WORKER_REQUIRES_ORCHESTRATOR', message: `Cannot clone worker '${parentAgent.name}' without an orchestrator.` } });
     }
     await db.run(
-      `INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      agentId, `Clone of ${parentAgent.name}`, parentAgent.role, 'idle', parentAgent.agent_type, 'worker', parentAgent.workspace_id, parentAgent.fleet_id, parentAgent.model_tier, parentAgent.language, 'Branch', orchestratorId, 'clone', parentAgent.about, `Clone ready for a mission from ${parentAgent.name}`
+      `INSERT INTO agents (
+        id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id,
+        hallucination_monitoring, hallucination_count, dissonance_level, eureka_count,
+        cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, conscience_revision,
+        is_apoptotic, model_tier, language, isolation_mode, parent_agent_id, lineage_relation,
+        about, current_task
+      ) VALUES (?, ?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Branch', ?, 'clone', ?, ?)`,
+      agentId, `Clone of ${parentAgent.name}`, parentAgent.name_meaning || `Clone identity of ${parentAgent.name}`, parentAgent.role,
+      parentAgent.agent_type, parentAgent.workspace_id, parentAgent.fleet_id,
+      parentAgent.hallucination_monitoring || 0, parentAgent.hallucination_count || 0,
+      parentAgent.dissonance_level || 0, parentAgent.eureka_count || 0,
+      parentAgent.cognitive_budget ?? 100, parentAgent.cognitive_baseline_budget ?? 100,
+      parentAgent.cognitive_max_dissonance ?? 50, parentAgent.conscience_revision || 0,
+      parentAgent.is_apoptotic || 0, parentAgent.model_tier, parentAgent.language,
+      orchestratorId, parentAgent.about, `Clone ready for a mission from ${parentAgent.name}`
     );
     await db.run(
       `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
        VALUES (?, ?, ?, ?, 'agent', ?)
        ON CONFLICT(id) DO NOTHING`,
-      parentAgent.id, parentAgent.workspace_id, parentAgent.id, parentAgent.name, 'Source agent for clone'
+      parentId, parentAgent.workspace_id, parentAgent.id, parentAgent.name, 'Source agent for clone'
     );
     const lineageResult = await agentEvolution.recordWorkerLineage(db, {
       agentId,
       workspaceId: parentAgent.workspace_id,
       name: `Clone of ${parentAgent.name}`,
       role: parentAgent.role
-    }, { parentId: parentAgent.id, genes: {}, reproduction: { engine: 'lineage_clone' } });
+    }, { parentId, edgeType: 'clone', genes: {}, reproduction: { engine: 'lineage_clone' } });
     if (!lineageResult.success) {
       await db.run('DELETE FROM agents WHERE id = ?', agentId);
       return res.status(409).json({ error: { code: 'LINEAGE_PERSISTENCE_FAILED', message: lineageResult.error } });
@@ -109,7 +122,7 @@ async function cloneNode(req, res) {
       severity: 'info',
       payload: { parentAgentId: parentAgent.id }
     });
-    return res.status(201).json({ success: true, clonedAgentId: agentId, parentAgentId: parentAgent.id, status: 'idle' });
+    return res.status(201).json({ success: true, clonedAgentId: agentId, clonedNodeId: agentId, parentAgentId: parentAgent.id, status: 'idle' });
   }
 
   const sourceNode = await db.get(`SELECT n.* FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND ${scope.clause}`, parentId, ...scope.params);

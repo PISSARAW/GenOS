@@ -13,7 +13,7 @@ async function testLineageLifecycle() {
   const parentAgentId = `agent_source_${Date.now()}`;
 
   await db.run(
-    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, cognitive_budget, is_apoptotic) VALUES (?, 'Root Worker', 'worker', 'idle', 'GenOS', 'orchestrator', ?, 100.0, 0)",
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, cognitive_budget, cognitive_baseline_budget, dissonance_level, eureka_count, is_apoptotic) VALUES (?, 'Root Worker', 'worker', 'idle', 'GenOS', 'orchestrator', ?, 73.0, 91.0, 12.5, 4, 0)",
     parentAgentId, wsId
   );
   await db.run(
@@ -41,6 +41,10 @@ async function testLineageLifecycle() {
   assert.ok(clonedAgent, 'Cloned agent must exist in agents table');
   assert.strictEqual(clonedAgent.status, 'idle');
   assert.strictEqual(clonedAgent.lineage_relation, 'clone');
+  assert.strictEqual(clonedAgent.cognitive_budget, 73);
+  assert.strictEqual(clonedAgent.cognitive_baseline_budget, 91);
+  assert.strictEqual(clonedAgent.dissonance_level, 12.5);
+  assert.strictEqual(clonedAgent.eureka_count, 4);
 
   // Check edge exists
   const cloneEdge = await db.get('SELECT * FROM lineage_edges WHERE target_node_id = ?', clonedNodeId);
