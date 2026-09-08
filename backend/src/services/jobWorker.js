@@ -311,7 +311,13 @@ async function executeEvaluation(db, job) {
         ].join('\n');
         const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: jobTimeoutMs(config.timeoutMs), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         judge = parseJudgeResponse(judgeResult.text ?? judgeResult.content ?? '');
-      } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable or invalid: ${error.message}` }; }
+      } catch (error) {
+        const judgeError = new Error(`LLM judge failed for evaluation case '${item.id}': ${error.message}`);
+        judgeError.code = 'EVALUATION_JUDGE_ERROR';
+        judgeError.retryable = true;
+        judgeError.caseId = item.id;
+        throw judgeError;
+      }
     }
     const graderResults = {
       exact_match: { passed: exact, score: exact ? 1 : 0, kind: 'metric', qualityGuarantee: false },

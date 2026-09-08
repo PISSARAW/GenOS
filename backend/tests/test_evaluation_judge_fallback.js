@@ -21,10 +21,10 @@ const db = {
 
 executeEvaluation(db, {
   id: 'eval-judge-fallback', dataset_id: 'dataset-1', organization_id: 'org-1', project_id: 'project-1',
-  config_json: JSON.stringify({ graders: ['llm_judge'], model: 'openai://evaluated' })
+  config_json: JSON.stringify({ graders: ['llm_judge'], model: 'openai://evaluated', judgeModel: 'openai://judge' })
 }).then(() => {
   assert.deepEqual(requestedModels, ['openai://evaluated', 'openai://judge']);
-  console.log('llm_judge uses the shared default judge model.');
+  console.log('llm_judge uses its explicit judge model.');
   invalidJudge = true;
   return assert.rejects(executeEvaluation({
     ...db,
@@ -35,7 +35,7 @@ executeEvaluation(db, {
   }, {
     id: 'eval-judge-invalid', dataset_id: 'dataset-1', organization_id: 'org-1', project_id: 'project-1',
     config_json: JSON.stringify({ graders: ['llm_judge'], judgeModel: 'openai://judge' })
-  }), (error) => error.code === 'EVALUATION_JUDGE_ERROR');
+  }), (error) => error.code === 'EVALUATION_JUDGE_ERROR' && error.retryable === true);
 }).catch((error) => { console.error(error); process.exitCode = 1; })
   .finally(() => {
     modelRouter.generate = originalGenerate;
