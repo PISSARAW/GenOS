@@ -32,12 +32,14 @@ function registryHealth() {
 function toPublicStrategy(strategy) {
   const handlers = require('../services/strategyExecutionAdapter').getHandlers();
   const missingPrimitives = strategy.primitives.filter((primitive) => !handlers[primitive]);
+  const executionStatus = missingPrimitives.length ? 'partial' : 'ready';
   return {
     ...strategy,
     problemTypes: [...strategy.problemTypes],
     traits: [...strategy.traits],
     primitives: [...strategy.primitives],
-    executionStatus: missingPrimitives.length ? 'partial' : 'ready',
+    executionStatus,
+    effectiveMaturity: executionStatus === 'ready' ? strategy.maturity : 'partial',
     missingPrimitives
   };
 }
