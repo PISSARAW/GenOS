@@ -19,7 +19,8 @@ function canonicalize(value) {
 }
 
 function exactMatch(actual, expected) {
-  if (expected === null || expected === undefined) return false;
+  if (expected === undefined) return false;
+  if (expected === null) return actual === null;
   if (actual && typeof actual === 'object' && expected && typeof expected === 'object') {
     return JSON.stringify(canonicalize(actual)) === JSON.stringify(canonicalize(expected));
   }
