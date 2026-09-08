@@ -267,11 +267,11 @@ async function generateDirect({ model, prompt = '', onToken = () => {}, timeoutM
     const contentType = response.headers?.get?.('content-type') || '';
     if (nativeOllama && stream) {
       const streamed = await readOllamaStream(response, onToken, Math.min(timeoutMs, 30000));
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens || estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
     }
     if (stream && provider !== 'anthropic' && provider !== 'gemini' && /(?:text\/event-stream|application\/x-ndjson|application\/ndjson)/i.test(contentType)) {
       const streamed = await readStreamingResponse(response, onToken, Math.min(timeoutMs, 30000));
-      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens || tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length, outputTokens: streamed.usage?.completion_tokens || tokenize(streamed.text).length, provider, servedModel: streamed.servedModel || modelName };
+      return { text: streamed.text, inputTokens: streamed.usage?.prompt_tokens ?? estimateTokenCount(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)), outputTokens: streamed.usage?.completion_tokens ?? estimateTokenCount(streamed.text), provider, servedModel: streamed.servedModel || modelName };
     }
     const payload = await response.json();
     const content = provider === 'anthropic' ? payload.content : provider === 'gemini' ? payload.candidates?.[0]?.content?.parts : nativeOllama ? payload.message?.content || payload.response || '' : payload.choices?.[0]?.message?.content || '';
