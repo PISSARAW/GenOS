@@ -39,7 +39,13 @@ async function run() {
   const evalPass = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: true,
     independentVerification: true,
-    humanApproved: true
+    humanApprovalReceipt: {
+      approved: true,
+      approvalId: 'approval-test',
+      approverId: 'reviewer-test',
+      approvedAt: new Date().toISOString(),
+      payloadHash: 'a'.repeat(64)
+    }
   });
   assert.equal(evalPass.eligible, true);
   assert.equal(evalPass.violations.length, 0);
@@ -47,7 +53,13 @@ async function run() {
     promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
       replayVerified: true,
       report: { claims: [{ statement: 'unsupported claim' }] },
-      humanApproved: true
+      humanApprovalReceipt: {
+        approved: true,
+        approvalId: 'approval-test',
+        approverId: 'reviewer-test',
+        approvedAt: new Date().toISOString(),
+        payloadHash: 'a'.repeat(64)
+      }
     }).eligible,
     false,
     'Claims without evidence must not satisfy independent verification'
