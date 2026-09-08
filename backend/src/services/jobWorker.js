@@ -252,8 +252,12 @@ async function executeEvaluation(db, job) {
   const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
-  let passed = Number(checkpoint.passed) || 0;
-  const results = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
+  const knownCases = new Map(cases.map((item) => [item.id, item]));
+  const checkpointResults = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
+  const results = [...new Map(checkpointResults
+    .filter((result) => result && knownCases.has(result.id))
+    .map((result) => [result.id, result])).values()];
+  let passed = results.filter((result) => result.passed === true).length;
   const completed = new Set(results.map((result) => result.id));
   for (const item of cases) {
     const activeJob = await db.get('SELECT status FROM evaluation_jobs WHERE id = ?', job.id);
@@ -310,7 +314,7 @@ async function executeEvaluation(db, job) {
     if (ok) passed++;
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
     completed.add(item.id);
-    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: results.length ? passed / results.length : 0, graders, cases: results }), job.id);
+    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results }), job.id);
   }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
