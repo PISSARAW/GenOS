@@ -1254,7 +1254,8 @@ async fn main() {
                 .status();
             match status {
                 Ok(s) if s.success() => println!("Tâche lancée et agent créé avec succès."),
-                _ => println!("Erreur lors du lancement de la tâche."),
+                Ok(s) => command_error(format!("erreur lors du lancement de la tâche (code {})", s.code().unwrap_or(1))),
+                Err(error) => command_error(format!("impossible de lancer la tâche: {}", error)),
             }
         }
         Commands::List => {
@@ -2068,13 +2069,13 @@ async fn main() {
                         if let Some(text) = json_resp["choices"][0]["message"]["content"].as_str() {
                             println!("{}", text);
                         } else {
-                            eprintln!("⚠️ Réponse inattendue du modèle : {:?}", json_resp);
+                            command_error(format!("réponse inattendue du modèle: {:?}", json_resp));
                         }
                     } else {
-                        eprintln!("⚠️ Impossible de lire la réponse JSON du serveur.");
+                            command_error("impossible de lire la réponse JSON du serveur");
                     }
                 }
-                Ok(res) => command_error(format!("erreur HTTP du serveur: {}", res.status())),
+                    Ok(res) => command_error(format!("erreur HTTP du serveur: {}", res.status())),
                 Err(err) => command_error(format!("erreur de communication: {}", err)),
             }
         }
