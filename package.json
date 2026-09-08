@@ -1,6 +1,7 @@
 {
   "scripts": {
     "test": "npm --prefix backend test",
+    "test:quality": "npm --prefix backend run test:quality",
     "clean:artifacts": "node scripts/clean-artifacts.mjs"
   },
   "dependencies": {
