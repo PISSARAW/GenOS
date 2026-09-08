@@ -164,7 +164,7 @@ async function runLocalWorker(db, mission, executionRun) {
     const decision = decideFromEvent(completed);
     if (decision) {
       const ownerId = mission.orchestratorAgentId || mission.agentId;
-      emit(ownerId, 'ORCHESTRATION_DECISION', decision.action, decision.reason, { sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
+      emit(ownerId, 'ORCHESTRATION_DECISION_GATE', decision.action, decision.reason, { gateId: decision.gateId || null, sourceAgentId: mission.agentId, sourceEvent: completed.eventType, ...decision }, 'info');
       actionExecutor.execute({ orchestratorId: ownerId, sourceAgentId: mission.agentId, decision, event: completed, workspaceRoot: mission.workspaceRoot }).catch(() => {});
     }
     await scheduleWorkspaceCleanup(mission.agentId);
