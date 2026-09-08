@@ -20,12 +20,32 @@ const collective = require('./primitiveHandlers/collective');
 const temporal = require('./primitiveHandlers/temporal');
 const search = require('./primitiveHandlers/search');
 const computerUse = require('./primitiveHandlers/computerUse');
+const resilience = require('./resilienceService');
+
+async function snapshotTest(context = {}) {
+  const snapshotResult = await fundamentals.snapshot(context);
+  if (!snapshotResult.success) return snapshotResult;
+  const verification = await fundamentals.verify(context);
+  return { success: verification.success, snapshot: snapshotResult, verification };
+}
+
+async function autopsy(context = {}) {
+  const report = await resilience.evaluateApoptosis(
+    context.agentId || context.targetId || 'strategy_adapter',
+    context.metrics || context.triggerMetrics || {},
+    context.db || null,
+    context.policy || {}
+  );
+  return { success: true, autopsy: report, apoptosisExecuted: report.apoptosisExecuted };
+}
 
 // Registre plat : primitive string → handler async function
 const HANDLERS = {
   // Lot 1 — Fondamentales
   snapshot: fundamentals.snapshot,
   checkpoint: fundamentals.snapshot,
+  production_snapshot: fundamentals.snapshot,
+  snapshot_test: snapshotTest,
   cryptobiosis_freeze: fundamentals.cryptobiosisFreeze,
   freeze_spore: fundamentals.cryptobiosisFreeze,
   cryptobiosis_thaw: fundamentals.cryptobiosisThaw,
@@ -45,6 +65,7 @@ const HANDLERS = {
   vfs_dry_run: fundamentals.vfsDryRun,
   blast_radius: fundamentals.vfsDryRun,
   safe_revert: fundamentals.safeRevert,
+  restore: fundamentals.safeRevert,
   run: fundamentals.run,
   worktree_cleanup: fundamentals.worktreeCleanup,
   cas_gc: fundamentals.casGc,
@@ -96,6 +117,7 @@ const HANDLERS = {
   half_open: safety.circuitBreakerHalfOpen,
   terminate: safety.apoptosis,
   apoptosis: safety.apoptosis,
+  autopsy,
   fossilize: safety.fossilize,
   fossil_record: safety.fossilize,
   fossil_list: safety.listFossils,
@@ -135,6 +157,7 @@ const HANDLERS = {
 
   // Lot 6 — Temporel & Causal
   causal_replay_intervention: temporal.causalReplay,
+  intervene: temporal.causalReplay,
   causal_replay: temporal.causalReplay,
   replay: temporal.causalReplay,
   golden_path_replay: temporal.causalReplay,
