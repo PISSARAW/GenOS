@@ -3,11 +3,14 @@
  */
 const strategyExecutionAdapter = require('./strategyExecutionAdapter');
 const { validateToolArguments } = require('./mcpArgumentValidation');
+const { MCP_TOOLS_LIST } = require('../db/seedTools');
+
+const REGISTERED_STRATEGY_TOOLS = new Set((MCP_TOOLS_LIST || []).map((tool) => tool.name).filter((name) => name.startsWith('genos_strat_')));
 
 function isStrategyTool(toolName) {
   if (!toolName || typeof toolName !== 'string') return false;
   return (
-    toolName.startsWith('genos_strat_') ||
+    REGISTERED_STRATEGY_TOOLS.has(toolName) ||
     toolName === 'genos_resilience_hypermutation' ||
     toolName === 'genos_execute_primitive' ||
     toolName === 'genos_execute_strategy_pipeline' ||
