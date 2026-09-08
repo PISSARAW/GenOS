@@ -91,7 +91,8 @@ GenOS expose plusieurs surfaces : REST, gRPC, MCP, CLI et intégrations IDE. Voi
 - [docs/OUTILS_MCP.md](docs/OUTILS_MCP.md)
 - [docs/INTEGRATIONS_IDE.md](docs/INTEGRATIONS_IDE.md)
 - [docs/DEPLOIEMENT_EXPLOITATION.md](docs/DEPLOIEMENT_EXPLOITATION.md)
-
+- [docs/CLI_EXPERIENCE_OPERATEUR.md](docs/CLI_EXPERIENCE_OPERATEUR.md)
+- [docs/PANORAMA_CONCURRENTIEL.md](docs/PANORAMA_CONCURRENTIEL.md) — comparaison transversale avec les principales alternatives du marché
 ---
 
 ## Vue d’architecture
