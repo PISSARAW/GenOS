@@ -1,3 +1,7 @@
+# Contract boundary
+
+This specification defines the exchange format for an `AgentGenome` manifest. It is not a database schema and does not prescribe the internal SQLite tables used by the backend. Runtime-only fields may be persisted separately, and database migrations must not be inferred from changes to this document.
+
 # GenOS Genome Specification (v0alpha1)
 
 This specification defines the portable and normative shape of an Agent Genome.
