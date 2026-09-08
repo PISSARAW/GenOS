@@ -9,7 +9,7 @@ const CONTRACT = require(contractPath);
 async function contract(req, res) { res.json(CONTRACT); }
 async function connect(req, res) {
   const { ide, workspaceId, version = CONTRACT.version, metadata = {} } = req.body || {};
-  if (!CONTRACT.ides.includes(ide)) return res.status(400).json({ error: { message: 'ide must be vscode, jetbrains or antigravity' } });
+  if (!CONTRACT.ides.includes(ide)) return res.status(400).json({ error: { code: 'INVALID_IDE', message: 'ide must be vscode, jetbrains or antigravity' } });
   const db = await getDatabase();
   if (workspaceId) {
     const workspace = await db.get(
@@ -42,7 +42,7 @@ async function list(req, res) {
 }
 async function execute(req, res) {
   const command = CONTRACT.commands.find((item) => item.id === req.params.command);
-  if (!command) return res.status(404).json({ error: { message: 'Unknown GenOS IDE command' } });
+  if (!command) return res.status(404).json({ error: { code: 'IDE_COMMAND_NOT_FOUND', message: 'Unknown GenOS IDE command' } });
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
   res.json({ accepted: true, action: command.id, payload: req.body || {} });
 }

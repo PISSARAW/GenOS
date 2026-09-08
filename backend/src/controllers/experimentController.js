@@ -49,7 +49,7 @@ async function launchExperiment(req, res) {
   const experimentType = typeMap[type] || type;
   const allowedTypes = ['scientific_experiment', 'incident_experiment', 'security_coevolution', 'chaos_simulation'];
   if (!allowedTypes.includes(experimentType)) {
-    return res.status(400).json({ error: { message: `Unsupported experiment type: ${type}` } });
+    return res.status(400).json({ error: { code: 'UNSUPPORTED_EXPERIMENT_TYPE', message: `Unsupported experiment type: ${experimentType}` } });
   }
   if (!Number.isInteger(chaosLevel) || chaosLevel < 0 || chaosLevel > 100) {
     return res.status(400).json({ error: { code: 'INVALID_CHAOS_LEVEL', message: 'chaosLevel must be an integer between 0 and 100.' } });
