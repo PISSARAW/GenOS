@@ -435,7 +435,10 @@ async function withRetry(db, table, job, executor) {
       }
       if (attempt === max || !isRetryableJobError(error)) {
         const status = error.code === 'WORKFLOW_CANCELLED' ? 'cancelled' : 'failed';
-        await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable: isRetryableJobError(error), cancelled: status === 'cancelled' }), job.id);
+        const retryable = isRetryableJobError(error);
+        const deadLetter = status === 'failed' && retryable && attempt >= max;
+        await db.run(`UPDATE ${table} SET status = ?, error_json = ?, completed_at = CURRENT_TIMESTAMP, claimed_at = NULL, next_attempt_at = NULL WHERE id = ?`, status, JSON.stringify({ message: error.message, code: error.code || null, attempts: attempt, retryable, deadLetter, cancelled: status === 'cancelled' }), job.id);
+        if (deadLetter) telemetry.emitEvent({ eventType: 'JOB_DEAD_LETTERED', action: 'JOB_DEAD_LETTER', detail: `${table} job ${job.id} exhausted its retry budget.`, severity: 'error', payload: { table, jobId: job.id, attempt, maxAttempts: max, error: error.message } });
         telemetry.emitEvent({ eventType: 'JOB_FAILED', action: 'JOB_FAIL', detail: `Failed ${table} job ${job.id}: ${error.message}`, severity: 'error', payload: { table, jobId: job.id, attempt, maxAttempts: max, retryable: isRetryableJobError(error) } });
       } else {
         telemetry.emitEvent({ eventType: 'JOB_RETRY_SCHEDULED', action: 'JOB_RETRY', detail: `Retry scheduled for ${table} job ${job.id}: ${error.message}`, severity: 'warning', payload: { table, jobId: job.id, attempt, maxAttempts: max } });
