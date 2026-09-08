@@ -23,6 +23,7 @@ const computerUse = require('./primitiveHandlers/computerUse');
 const resilience = require('./resilienceService');
 const modelRouter = require('./modelRouter');
 const advanced = require('./primitiveHandlers/strategyAdvanced');
+const planning = require('./primitiveHandlers/strategyPlanning');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -80,6 +81,12 @@ const HANDLERS = {
   neutral_observer: advanced.neutralObserver,
   synthesis: advanced.synthesizeReports,
   security_coevolution: advanced.securityCoevolution,
+  plan: planning.plan,
+  role_forks: planning.roleForks,
+  common_probes: planning.commonProbes,
+  probe: planning.commonProbes,
+  evidence: planning.evidence,
+  conditional_mutation: planning.conditionalMutation,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
