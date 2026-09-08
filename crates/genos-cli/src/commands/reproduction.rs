@@ -9,8 +9,8 @@ use serde_json::json;
 
 pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
     match cmd {
-        EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name } => {
-            handle_assimilate_plasmid(agent_id, source_agent_id, plasmid_name);
+        EvolutionSubcommands::AssimilatePlasmid { agent_id, source_agent_id, plasmid_name, plasmid_code } => {
+            handle_assimilate_plasmid(agent_id, source_agent_id, plasmid_name, plasmid_code);
         }
         EvolutionSubcommands::Crossover { parent_a, parent_b, swap_prob, crossover_point, speciation_threshold, genes_a, genes_b, seed } => {
             handle_crossover(&parent_a, &parent_b, swap_prob, crossover_point, speciation_threshold, genes_a.as_deref(), genes_b.as_deref(), seed.as_deref());
@@ -25,11 +25,12 @@ pub fn execute(cmd: EvolutionSubcommands) -> Result<(), String> {
     Ok(())
 }
 
-fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<String>, plasmid_name: Option<String>) {
+fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<String>, plasmid_name: Option<String>, plasmid_code: Option<String>) {
     let target = agent_id.unwrap_or_else(|| "recipient".to_string());
     let source = source_agent_id.unwrap_or_else(|| "donor".to_string());
     let name = plasmid_name.unwrap_or_else(|| "plasmid_core".to_string());
-    let plasmid = Plasmid::new(&name);
+    let instruction = plasmid_code.unwrap_or_else(|| name.clone());
+    let plasmid = Plasmid::new(&instruction);
 
     let root = crate::commands::root_resolver::resolve_matrix_root();
     let chromatin_dir = root.join("chromatin");
@@ -53,7 +54,7 @@ fn handle_assimilate_plasmid(agent_id: Option<String>, source_agent_id: Option<S
     print_json(json!({
         "success": true, "operation": "assimilate_plasmid",
         "agent_id": target, "source_agent_id": source,
-        "plasmid_name": plasmid.instruction, "plasmid_id": plasmid.id.to_string(),
+        "plasmid_name": name, "plasmid_code": plasmid.instruction, "plasmid_id": plasmid.id.to_string(),
         "persisted": persisted,
         "plasmids_count": genome.plasmids.len(),
         "status": "assimilated"

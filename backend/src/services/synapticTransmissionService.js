@@ -188,8 +188,15 @@ async function absorbExosomes(db = null) {
           const targetAgent = exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || 'global';
           const sourceAgent = exo.source_agent_id || exo.sourceAgentId || exo.sender_id || 'donor';
           const safeName = (pName || 'plasmid_core').replace(/[^a-zA-Z0-9_\-]/g, '_');
-          runGenosSync(`genos evolution assimilate-plasmid --agent-id ${targetAgent} --source ${sourceAgent} --plasmid-name "${safeName}"`);
-        } catch (_) {}
+          const safeTarget = String(targetAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+          const safeSource = String(sourceAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+          const safeCode = String(pCode || '').replace(/["\\$`]/g, '\\$&');
+          const output = runGenosSync(`genos evolution assimilate-plasmid --agent-id ${safeTarget} --source ${safeSource} --plasmid-name "${safeName}" --plasmid-code "${safeCode}"`);
+          const result = JSON.parse(output.toString());
+          if (!result.success || result.persisted !== true) throw new Error('Rust plasmid assimilation did not persist.');
+        } catch (error) {
+          errors.push(`Rust plasmid synchronization failed: ${error.message}`);
+        }
       } catch (error) {
         errors.push(`Plasmid insertion failed: ${error.message}`);
       }
