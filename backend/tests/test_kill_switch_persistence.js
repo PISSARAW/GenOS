@@ -1,0 +1,21 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'genos-halt-'));
+const previousRoot = process.env.GENOS_WORKSPACE_ROOT;
+process.env.GENOS_WORKSPACE_ROOT = root;
+const breaker = require('../src/services/circuitBreaker');
+const haltPath = path.join(root, '.genos', 'mcp.halted');
+fs.mkdirSync(path.dirname(haltPath), { recursive: true });
+fs.writeFileSync(haltPath, JSON.stringify({ reason: 'cluster halt', haltedAt: new Date().toISOString() }));
+const blocked = breaker.canExecute('genos_inspect', 'admin');
+assert.equal(blocked.allowed, false);
+assert.equal(blocked.reason, 'SYSTEM_HALTED');
+fs.rmSync(haltPath);
+const resumed = breaker.canExecute('genos_inspect', 'admin');
+assert.equal(resumed.allowed, true);
+console.log('Kill-switch persistence checks passed.');
+if (previousRoot === undefined) delete process.env.GENOS_WORKSPACE_ROOT;
+else process.env.GENOS_WORKSPACE_ROOT = previousRoot;
