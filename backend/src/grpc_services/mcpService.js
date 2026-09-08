@@ -1,16 +1,7 @@
 const mcpExecutor = require('../services/mcpExecutor');
 const grpc = require('@grpc/grpc-js');
 const MCP_CONTRACT_VERSION = 'genos.mcp/v1';
-
-function toGrpcStatusCode(error) {
-  const code = error?.code || error?.status || '';
-  if (code === 'INVALID_ARGUMENT' || code === 'BAD_REQUEST' || code === 'INVALID_TOOL') return grpc.status.INVALID_ARGUMENT;
-  if (code === 'NOT_FOUND' || code === 'TOOL_NOT_FOUND' || code === 'MCP_TOOL_NOT_FOUND' || code === 'not_found') return grpc.status.NOT_FOUND;
-  if (['FORBIDDEN', 'PERMISSION_DENIED', 'ZERO_TRUST_DENIED', 'AGENT_ID_FORBIDDEN'].includes(code)) return grpc.status.PERMISSION_DENIED;
-  if (code === 'UNAVAILABLE' || code === 'SERVICE_UNAVAILABLE' || code === 'TOOL_LOCKED' || code === 'blocked' || code === 'circuit_open') return grpc.status.UNAVAILABLE;
-  if (code === 'failed' || code === 'MCP_TOOL_ERROR') return grpc.status.INTERNAL;
-  return grpc.status.INTERNAL;
-}
+const { grpcStatusForError } = require('../services/grpcErrorMapper');
 
 module.exports = {
   Ping: (call, callback) => callback(null, { status: "Service Mcp is alive via gRPC!" }),
@@ -52,7 +43,7 @@ module.exports = {
       });
     } catch (err) {
       callback({
-        code: toGrpcStatusCode(err),
+        code: grpcStatusForError(err),
         message: err.message || 'MCP tool execution failed.'
       });
     }

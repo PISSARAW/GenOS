@@ -2,6 +2,7 @@ const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const { getDatabase } = require('../db');
 const agentAuthority = require('../services/agentAuthorityService');
 const grpc = require('@grpc/grpc-js');
+const { grpcStatusForError: mapGrpcError } = require('../services/grpcErrorMapper');
 
 async function resolveWorkspace(request) {
   const workspaceId = String(request.workspace_id || '').trim();
@@ -92,16 +93,7 @@ function parseToolLease(value) {
 }
 
 function grpcStatusForError(error) {
-  if (Number.isInteger(error?.code)) return error.code;
-  if (error?.code === 'INVALID_MISSION_JSON') return grpc.status.INVALID_ARGUMENT;
-  if (['INVALID_MISSION_SCOPE', 'PERMISSION_DENIED', 'UNAUTHENTICATED'].includes(error?.code)) return grpc.status.PERMISSION_DENIED;
-  if (['NOT_FOUND', 'AGENT_NOT_FOUND', 'WORKSPACE_NOT_FOUND'].includes(error?.code)) return grpc.status.NOT_FOUND;
-  if (error?.code === 'ALREADY_EXISTS') return grpc.status.ALREADY_EXISTS;
-  if (error?.code === 'RESOURCE_EXHAUSTED') return grpc.status.RESOURCE_EXHAUSTED;
-  if (error?.code === 'DEADLINE_EXCEEDED' || error?.code === 'TIMEOUT') return grpc.status.DEADLINE_EXCEEDED;
-  if (error?.code === 'UNAVAILABLE') return grpc.status.UNAVAILABLE;
-  if (error?.code === 'FAILED_PRECONDITION') return grpc.status.FAILED_PRECONDITION;
-  return grpc.status.INTERNAL;
+  return mapGrpcError(error);
 }
 
 module.exports.parseToolLease = parseToolLease;

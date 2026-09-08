@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const grpc = require('@grpc/grpc-js');
 const { getDatabase } = require('../db');
+const { grpcStatusForError } = require('../services/grpcErrorMapper');
 
 function metadataValue(call, key) {
   const values = call?.metadata?.get?.(key) || [];
@@ -19,17 +20,8 @@ function tenantScope(call) {
   return { organizationId, projectId };
 }
 
-function toGrpcStatusCode(error) {
-  const code = error?.code || error?.status || '';
-  if (code === 'INVALID_ARGUMENT' || code === grpc.status.INVALID_ARGUMENT) return grpc.status.INVALID_ARGUMENT;
-  if (code === 'NOT_FOUND' || code === 'WORKFLOW_NOT_FOUND' || code === 'RESOURCE_NOT_FOUND') return grpc.status.NOT_FOUND;
-  if (['PERMISSION_DENIED', 'FORBIDDEN', 'UNAUTHENTICATED', 'INVALID_MISSION_SCOPE'].includes(code)) return grpc.status.PERMISSION_DENIED;
-  if (code === 'UNAVAILABLE' || code === 'SERVICE_UNAVAILABLE') return grpc.status.UNAVAILABLE;
-  return grpc.status.INTERNAL;
-}
-
 function normalizeWorkflowError(error) {
-  return { code: toGrpcStatusCode(error), message: error?.message || 'Workflow request failed.' };
+  return { code: grpcStatusForError(error), message: error?.message || 'Workflow request failed.' };
 }
 
 module.exports = {
