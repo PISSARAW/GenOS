@@ -63,7 +63,7 @@ async function testTool(req, res) {
   if (tool.is_locked === 1) return res.status(503).json({ success: false, status: 'blocked', error: `Tool '${toolName}' is persisted in quarantine.` });
   let agentId;
   try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ success: false, status: 'forbidden', error: error.message }); }
-  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
     : req.user?.permissions?.includes('mcp:execute_safe')
@@ -136,7 +136,7 @@ async function executeTool(req, res) {
   if (tool.is_locked === 1) return res.status(503).json({ error: { code: 'TOOL_LOCKED', message: `Tool '${toolName}' is persisted in quarantine.` } });
   let agentId;
   try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ error: { code: 'AGENT_ID_FORBIDDEN', message: error.message } }); }
-  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
     : req.user?.permissions?.includes('mcp:execute_safe')
@@ -148,7 +148,7 @@ async function executeTool(req, res) {
   if (zeroTrust.decision === 'deny') return res.status(403).json({ error: { code: 'ZERO_TRUST_DENIED', message: zeroTrust.reason }, policy: zeroTrust });
   if (zeroTrust.decision === 'approval_required') {
     const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
+    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, req.tenant.organizationId, req.tenant.projectId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
     return res.status(202).json({ success: false, approvalRequired: true, approvalId, policy: zeroTrust });
   }
 

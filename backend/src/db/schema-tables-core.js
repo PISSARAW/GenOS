@@ -354,6 +354,8 @@ const TABLES_CORE = [
 "    agent_id TEXT PRIMARY KEY,",
 "    permissions_json TEXT NOT NULL DEFAULT '[]',",
 "    denied_tools_json TEXT NOT NULL DEFAULT '[]',",
+"    organization_id TEXT,",
+"    project_id TEXT,",
 "    taint_policy TEXT NOT NULL DEFAULT 'block_external'",
 ");",
 "CREATE TABLE IF NOT EXISTS audit_logs (",
