@@ -23,7 +23,7 @@ function parseSqliteUtcTimestamp(ts) {
 async function pheromoneDeposit(context) {
   // Stigmergie : Un agent dépose une "phéromone" (trace) sur un chemin/artefact.
   const db = await getDatabase();
-  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.orchestrator || context.workspaceId || context.workspace_id || context.agentId || context.agent_id;
+  const orchestratorId = resolveOrchestratorId(context);
   const agentId = context.agentId || context.agent_id || context.senderId || context.sender_agent_id || orchestratorId;
   const path = context.path || context.trail || context.target_file || context.targetFile || 'default_trail';
   const rawStrength = context.strength === undefined ? 1 : Number(context.strength);
@@ -64,11 +64,10 @@ async function pheromoneDeposit(context) {
 async function trailSelection(context) {
   // Sélection stigmergique : Lit les phéromones et choisit le chemin le plus fort.
   const db = await getDatabase();
-  const orchestratorId = context.orchestratorId || context.orchestrator_id || context.agentId || context.agent_id;
+  const orchestratorId = resolveOrchestratorId(context);
   if (!orchestratorId) {
     return { success: false, error: 'orchestratorId required for trail_selection.' };
   }
-  
   try {
     const state = await dynOrg.getState(db, orchestratorId);
     if (!state) return { success: false, error: `Orchestrator '${orchestratorId}' has no active organization.` };
@@ -311,6 +310,10 @@ async function evaporation(context) {
   }
 }
 
+function resolveOrchestratorId(context = {}) {
+  return context.orchestratorId || context.orchestrator_id || context.orchestrator || null;
+}
+
 const { brierScores, quorum, weightedQuorum } = require('./collectiveConsensus');
 
 module.exports = {
@@ -319,5 +322,6 @@ module.exports = {
   evaporation,
   brierScores,
   quorum,
-  weightedQuorum
+  weightedQuorum,
+  resolveOrchestratorId
 };
