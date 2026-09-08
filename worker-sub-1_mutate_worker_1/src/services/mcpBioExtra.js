@@ -201,35 +201,23 @@ function executeBioExtra(toolName, args = {}, options = {}) {
     if (res && res.success) return res;
     return {
       configured: true,
-      success: true,
-      status: 'completed',
+      success: false,
+      status: 'tool_error',
       transport: 'local',
-      output: JSON.stringify({
-        operation: 'hypermutation',
-        agent_id: agentId,
-        tolerance: 0.15,
-        mutations_count: 3,
-        status: 'ACTIVE'
-      }),
-      json: {
-        operation: 'hypermutation',
-        agent_id: agentId,
-        tolerance: 0.15,
-        mutations_count: 3,
-        status: 'ACTIVE'
-      }
+      output: res?.output || `Lamarckian mutation failed for agent '${agentId}'.`,
+      error: `Lamarckian mutation was not applied for agent '${agentId}'.`
     };
   }
 
   const fallbackBioTools = ['genos_quantitative_genetics', 'genos_coevolution', 'genos_molecular_chaperone', 'genos_necrosis_ledger', 'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust', 'genos_routing_algorithm'];
   if (fallbackBioTools.includes(toolName)) {
     return {
-      configured: true,
-      success: true,
-      status: 'completed',
+      configured: false,
+      success: false,
+      status: 'unsupported',
       transport: 'local',
-      output: JSON.stringify({ tool: toolName, agent_id: args.agent_id || 'global', status: 'simulated_biomimetic' }),
-      json: { tool: toolName, agent_id: args.agent_id || 'global', status: 'simulated_biomimetic' }
+      output: `Biomimetic tool '${toolName}' has no concrete runtime implementation.`,
+      error: `Biomimetic tool '${toolName}' is unavailable until an implementation provides evidence.`
     };
   }
 
