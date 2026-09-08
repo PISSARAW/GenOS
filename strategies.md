@@ -1,79 +1,85 @@
-﻿- **Chemin d├®terministe direct** (deterministic_direct_path): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Correctif minimal** (minimal_patch): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **PlanifierÔÇôex├®cuterÔÇôv├®rifier** (plan_execute_verify): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Dry-run avec blast radius** (dry_run_blast_radius): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Escalade de mod├¿le par entropie** (entropy_model_escalation): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Fallback fournisseur** (provider_fallback): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Arbre dÔÇÖhypoth├¿ses falsifiables** (falsifiable_hypothesis_tree): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Fork par hypoth├¿se** (falsification_forks): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Probe contr├┤l├® avant correction** (controlled_probe): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Diagnostic s├®quentiel bay├®sien** (bayesian_sequential_diagnosis): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Bisection causale** (causal_bisection): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **D├®tection de boucle et LKGS** (loop_detection_lkgs): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Invalidation dÔÇÖhypoth├¿se architecturale** (assumption_invalidation): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Blame cognitif** (cognitive_blame): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Fork N-way ind├®pendant** (n_way_counterfactual_fork): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **One-factor-at-a-time** (one_factor_at_a_time): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Exp├®rience factorielle** (factorial_experiment): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Winner-takes-branch** (winner_takes_branch): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Front de Pareto** (pareto_frontier): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Knee-point Pareto** (pareto_knee_point): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Successive halving** (successive_halving): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **├ëvolution r├®cursive budg├®t├®e** (recursive_branch_evolution): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Beam search** (beam_search): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **MCTS + PRM** (mcts_prm): See the runtime registry for primitives, maturity, and execution status. [Maturity: prototype]
-- **Recuit simul├®** (simulated_annealing): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **R├®chauffage / hypermutation** (hypermutation_reheat): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Algorithme g├®n├®tique de strat├®gies** (genetic_strategy_algorithm): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Exploration par niches** (niche_exploration): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Replay d├®terministe** (deterministic_replay): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Replay causal avec intervention** (causal_replay_intervention): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Exploration r├®troactive** (retroactive_exploration): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Rebase causal** (causal_rebase): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Recherche dÔÇÖincident par univers mut├®s** (mutated_incident_universes): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Raffinement des reproductions partielles** (partial_reproduction_refinement): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Future-CI** (future_ci): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Reproductibilit├® fonctionnelle appari├®e** (paired_functional_reproducibility): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Comit├® dÔÇÖexperts sp├®cialis├®s** (specialist_expert_committee): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Revue contradictoire aveugle** (blind_adversarial_review): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Red Team / Blue Team / observateur neutre** (red_blue_coevolution): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Consensus pond├®r├® par Brier** (brier_weighted_consensus): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Quorum avec abstention** (quorum_with_abstention): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Stigmergie** (stigmergy): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Flocking / Boids** (flocking_boids): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Fish School Search** (fish_school_search): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Slime-mould / r├®seau adaptatif** (slime_mould_network): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Grey Wolf Optimizer** (grey_wolf_optimizer): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Routage myc├®lien** (mycelial_routing): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Poly├®thisme et diff├®renciation dynamique** (dynamic_polyethism): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Huddle ├®nerg├®tique** (energy_huddle): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Silence r├®seau** (network_silence): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Arena de strat├®gies** (strategy_arena): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Retrieval-first** (retrieval_first): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Golden-path replay** (golden_path_replay): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Negative knowledge** (negative_knowledge): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Cherry-pick dÔÇÖexp├®rience** (experience_cherry_pick): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Fusion cognitive** (cognitive_merge): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Maintenance de v├®rit├® des croyances** (belief_truth_maintenance): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Compilation de m├®moire** (memory_compilation): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Plasticit├® STDP** (stdp_plasticity): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Cycle de sommeil m├®moire** (memory_sleep_cycle): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Apprentissage lamarckien contr├┤l├®** (controlled_lamarckian_learning): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Breeding fond├® sur les preuves** (evidence_based_breeding): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Optimisation divergente sur plasmide** (plasmid_divergent_optimization): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Zero Trust syst├®matique** (zero_trust): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Validation ind├®pendante des sorties dÔÇÖoutils** (tool_output_validation): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Circuit breaker** (circuit_breaker): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Apoptose** (apoptosis): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Cryptobiose** (cryptobiosis): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **R├®g├®n├®ration depuis checkpoint sain** (checkpoint_regeneration): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Redondance active / hot spare** (active_redundancy): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **DLQ et autopsie** (dlq_autopsy): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Cyber-immunit├®** (cyber_immunity): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Autotomy / honeypot isol├®** (autotomy_honeypot): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
-- **Sentinelle dÔÇÖentropie** (entropy_sentinel): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **D├®tection des boucles de communication** (communication_loop_detection): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Guardrails dÔÇÖex├®cution** (execution_guardrails): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Abstention active et approbation humaine** (active_abstention_human_approval): See the runtime registry for primitives, maturity, and execution status. [Maturity: implemented]
-- **Autophagie et nettoyage** (autophagy_cleanup): See the runtime registry for primitives, maturity, and execution status. [Maturity: experimental]
+# GenOS Strategy Catalog
 
+Generated from backend/src/strategies/strategyRegistry.js. Runtime registry health is authoritative.
+
+| Strategy | Maturity | Execution | Primitives |
+| --- | --- | --- | --- |
+- deterministic_direct_path | maturity: implemented | execution: ready | primitives: snapshot, run, verify, diff, audit
+- minimal_patch | maturity: implemented | execution: ready | primitives: snapshot, fork, minimal_mutation, tests, diff
+- plan_execute_verify | maturity: implemented | execution: ready | primitives: plan, run, independent_verify
+- dry_run_blast_radius | maturity: implemented | execution: ready | primitives: vfs_dry_run, permission_check, blast_radius
+- entropy_model_escalation | maturity: experimental | execution: ready | primitives: slm_route, entropy_check, frontier_escalation
+- provider_fallback | maturity: implemented | execution: ready | primitives: provider_route, fallback_chain, degraded_mode
+- computer_use_direct | maturity: implemented | execution: ready | primitives: capture, run_plan, verify
+- falsifiable_hypothesis_tree | maturity: implemented | execution: ready | primitives: diagnose, hypothesis_evidence
+- falsification_forks | maturity: implemented | execution: ready | primitives: snapshot, fork, common_probes, evaluate
+- controlled_probe | maturity: implemented | execution: ready | primitives: snapshot, probe, evidence, conditional_mutation
+- bayesian_sequential_diagnosis | maturity: experimental | execution: ready | primitives: belief_update, expected_information_gain, next_probe
+- causal_bisection | maturity: implemented | execution: ready | primitives: bisect_agent, snapshot_test
+- loop_detection_lkgs | maturity: implemented | execution: ready | primitives: analyze_trajectory, safe_revert
+- assumption_invalidation | maturity: implemented | execution: ready | primitives: invalidate_assumption, impact_graph
+- cognitive_blame | maturity: implemented | execution: ready | primitives: blame, lineage, provenance
+- n_way_counterfactual_fork | maturity: implemented | execution: ready | primitives: snapshot, fork, isolated_run, diff
+- one_factor_at_a_time | maturity: implemented | execution: ready | primitives: fork, single_mutation, paired_evaluation
+- factorial_experiment | maturity: implemented | execution: ready | primitives: heredity_experiment, variance_analysis
+- winner_takes_branch | maturity: implemented | execution: ready | primitives: evaluate, select_winner, preserve_losers
+- pareto_frontier | maturity: implemented | execution: ready | primitives: multi_objective_evaluation, pareto_select
+- pareto_knee_point | maturity: implemented | execution: ready | primitives: pareto_frontier, utopia_distance
+- successive_halving | maturity: implemented | execution: ready | primitives: minimum_evaluation, prune, reallocate
+- recursive_branch_evolution | maturity: implemented | execution: ready | primitives: branch_evolution, recursive_fork, prune
+- beam_search | maturity: experimental | execution: ready | primitives: rank_states, retain_top_k, expand
+- mcts_prm | maturity: prototype | execution: ready | primitives: mcts_select, prm_evaluate, backpropagate
+- simulated_annealing | maturity: experimental | execution: ready | primitives: mutate, temperature_schedule, tests
+- hypermutation_reheat | maturity: experimental | execution: ready | primitives: stagnation_check, hypermutation, affinity_selection
+- genetic_strategy_algorithm | maturity: implemented | execution: ready | primitives: select, breed, mutate, evaluate
+- niche_exploration | maturity: experimental | execution: ready | primitives: speciation, niche_preservation, pareto_select
+- deterministic_replay | maturity: implemented | execution: ready | primitives: replay, state_fold
+- causal_replay_intervention | maturity: implemented | execution: ready | primitives: restore, intervene, replay, causal_diff
+- retroactive_exploration | maturity: implemented | execution: ready | primitives: restore, fork, alternative_future
+- causal_rebase | maturity: experimental | execution: ready | primitives: checkpoint, inject_change, replay_dependencies
+- mutated_incident_universes | maturity: implemented | execution: ready | primitives: production_snapshot, mutated_universes, signature_match
+- partial_reproduction_refinement | maturity: implemented | execution: ready | primitives: score_partial_repro, recursive_refinement
+- future_ci | maturity: implemented | execution: ready | primitives: future_worlds, dependency_matrix, verify
+- paired_functional_reproducibility | maturity: implemented | execution: ready | primitives: paired_execution, similarity, equivalence_verdict
+- specialist_expert_committee | maturity: implemented | execution: ready | primitives: role_forks, independent_reports, synthesis
+- blind_adversarial_review | maturity: implemented | execution: ready | primitives: adversarial_review, blind_critics
+- red_blue_coevolution | maturity: implemented | execution: ready | primitives: security_coevolution, neutral_observer
+- brier_weighted_consensus | maturity: experimental | execution: ready | primitives: brier_scores, weighted_quorum
+- quorum_with_abstention | maturity: implemented | execution: ready | primitives: quorum, active_refusal
+- stigmergy | maturity: experimental | execution: ready | primitives: pheromone_deposit, trail_selection, evaporation
+- flocking_boids | maturity: experimental | execution: ready | primitives: separation, alignment, cohesion
+- fish_school_search | maturity: experimental | execution: ready | primitives: weighted_barycenter, resource_shift
+- slime_mould_network | maturity: experimental | execution: ready | primitives: path_conductivity, route_pruning
+- grey_wolf_optimizer | maturity: experimental | execution: ready | primitives: alpha_beta_delta, position_update
+- mycelial_routing | maturity: experimental | execution: ready | primitives: capability_route, knowledge_transfer
+- dynamic_polyethism | maturity: experimental | execution: ready | primitives: role_gradient, dynamic_assignment
+- energy_huddle | maturity: experimental | execution: ready | primitives: energy_observe, resource_equalize
+- network_silence | maturity: implemented | execution: ready | primitives: local_buffer, critical_or_success_flush
+- strategy_arena | maturity: implemented | execution: ready | primitives: solver_tournament, elo, pareto
+- retrieval_first | maturity: implemented | execution: ready | primitives: search_memory, similarity_rank
+- golden_path_replay | maturity: implemented | execution: ready | primitives: cherry_pick_golden_path, replay
+- negative_knowledge | maturity: implemented | execution: ready | primitives: search_failures, avoid_known_dead_ends
+- experience_cherry_pick | maturity: implemented | execution: ready | primitives: cherry_pick_experience, preserve_provenance
+- cognitive_merge | maturity: implemented | execution: ready | primitives: experience_packets, knowledge_graph, reviewed_apply
+- belief_truth_maintenance | maturity: implemented | execution: ready | primitives: belief_provenance, contradiction_check
+- memory_compilation | maturity: implemented | execution: ready | primitives: compile_memory, source_refs
+- stdp_plasticity | maturity: experimental | execution: ready | primitives: stdp_update, causal_weighting
+- memory_sleep_cycle | maturity: experimental | execution: ready | primitives: prune_and_scale, context_compaction
+- controlled_lamarckian_learning | maturity: implemented | execution: ready | primitives: infer_traits, replicate, promote_trait
+- evidence_based_breeding | maturity: implemented | execution: ready | primitives: phenotype_evidence, breed, validate_child
+- plasmid_divergent_optimization | maturity: implemented | execution: ready | primitives: plasmid_divergent_fork, pareto_select, assimilate_plasmid
+- zero_trust | maturity: implemented | execution: ready | primitives: sandbox, permissions, taint_tracking
+- tool_output_validation | maturity: implemented | execution: ready | primitives: execution_receipt, artifact_hash, belief_gate
+- circuit_breaker | maturity: implemented | execution: ready | primitives: failure_window, open, half_open
+- apoptosis | maturity: implemented | execution: ready | primitives: checkpoint, terminate, autopsy
+- cryptobiosis | maturity: implemented | execution: ready | primitives: freeze_spore, persist, rehydrate
+- checkpoint_regeneration | maturity: implemented | execution: ready | primitives: last_good_snapshot, restore, alternate_genome
+- active_redundancy | maturity: experimental | execution: ready | primitives: hot_spare, health_switch
+- dlq_autopsy | maturity: implemented | execution: ready | primitives: dead_letter_queue, forensic_autopsy
+- cyber_immunity | maturity: experimental | execution: ready | primitives: negative_selection, quarantine, threat_memory
+- autotomy_honeypot | maturity: experimental | execution: ready | primitives: decoy_branch, observe, destroy_decoy
+- entropy_sentinel | maturity: implemented | execution: ready | primitives: shannon_entropy, drift_threshold
+- communication_loop_detection | maturity: implemented | execution: ready | primitives: message_graph, cycle_detection, artifact_gate
+- execution_guardrails | maturity: implemented | execution: ready | primitives: iteration_limit, token_limit, time_limit, uncertainty_limit
+- active_abstention_human_approval | maturity: implemented | execution: ready | primitives: uncertainty_gate, approval_request
+- autophagy_cleanup | maturity: partial | execution: partial | primitives: dag_mark_sweep, worktree_cleanup, cas_gc | missing: dag_mark_sweep, cas_gc
