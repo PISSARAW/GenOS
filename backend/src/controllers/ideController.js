@@ -80,6 +80,25 @@ async function status(req, res) {
   if (!integration) return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'IDE integration not found in this project.' } });
   res.json({ id: integration.id, ide: integration.ide, version: integration.version, status: integration.status, lastSeenAt: integration.last_seen_at, workspaceId: integration.workspace_id });
 }
+async function diagnostics(req, res) {
+  const db = await getDatabase();
+  const integration = await scopedIntegration(req, db);
+  if (!integration) return res.status(404).json({ error: { code: 'IDE_INTEGRATION_NOT_FOUND', message: 'IDE integration not found in this project.' } });
+  const lastSeenMs = Date.parse(integration.last_seen_at || '');
+  const ageMs = Number.isFinite(lastSeenMs) ? Math.max(0, Date.now() - lastSeenMs) : null;
+  res.json({
+    id: integration.id,
+    ide: integration.ide,
+    version: integration.version,
+    contractVersion: CONTRACT.version,
+    compatible: isCompatibleVersion(integration.version),
+    status: integration.status,
+    lastSeenAt: integration.last_seen_at,
+    heartbeatAgeMs: ageMs,
+    stale: ageMs === null || ageMs > 5 * 60 * 1000,
+    capabilities: CONTRACT.capabilities || []
+  });
+}
 async function disconnect(req, res) {
   const db = await getDatabase();
   const integration = await scopedIntegration(req, db);
@@ -116,4 +135,4 @@ async function execute(req, res) {
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
   return res.status(501).json({ error: { code: 'IDE_COMMAND_NOT_IMPLEMENTED', message: `IDE command '${command.id}' is registered but has no execution handler.` }, action: command.id });
 }
-module.exports = { contract, connect, list, heartbeat, status, disconnect, progress, execute, isCompatibleVersion };
+module.exports = { contract, connect, list, heartbeat, status, diagnostics, disconnect, progress, execute, isCompatibleVersion };
