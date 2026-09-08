@@ -98,7 +98,10 @@ impl Genome {
     }
 
     pub fn hypermutate<R: rand::Rng + ?Sized>(&mut self, rate: f64, rng: &mut R) -> usize {
-        let accelerated = (rate * 3.0).clamp(0.05, 0.95);
+        if !rate.is_finite() || rate <= 0.0 {
+            return 0;
+        }
+        let accelerated = (rate * 3.0).min(0.95);
         self.mutate_stochastic(accelerated, rng)
     }
 
@@ -265,6 +268,7 @@ impl Genome {
 mod tests {
     use super::*;
     use crate::gene::Gene;
+    use rand::SeedableRng;
 
     #[test]
     fn test_yamanaka_reprogramming() {
@@ -378,6 +382,16 @@ mod tests {
         let child = genome.derive_child();
         assert_eq!(genome.content_hash(), child.content_hash());
         assert_ne!(genome.genome_id(), child.genome_id());
+    }
+
+    #[test]
+    fn hypermutation_with_zero_rate_does_not_mutate() {
+        let mut genome = Genome::new("HYPERMUTATION_ZERO_RATE");
+        let before = genome.content_hash();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(7);
+
+        assert_eq!(genome.hypermutate(0.0, &mut rng), 0);
+        assert_eq!(genome.content_hash(), before);
     }
 
     #[test]
