@@ -67,8 +67,8 @@ async function recoverInterruptedJobs(db) {
   for (const table of ['evaluation_jobs', 'model_jobs']) {
     await db.run(`UPDATE ${table} SET status = CASE WHEN attempts + 1 < max_attempts THEN 'queued' ELSE 'failed' END, attempts = attempts + 1, error_json = COALESCE(error_json, ?), completed_at = CASE WHEN attempts + 1 < max_attempts THEN NULL ELSE CURRENT_TIMESTAMP END, claimed_at = NULL, next_attempt_at = NULL WHERE status = 'running' AND (${stale})`, JSON.stringify({ message: 'Worker claim became stale; retry scheduled.', retryable: true }), `-${staleMinutes} minutes`);
   }
-  const campaigns = await db.all("SELECT DISTINCT campaign_id FROM evaluation_jobs WHERE campaign_id IS NOT NULL");
-  for (const campaign of campaigns) await updateCampaignStatus(db, campaign.campaign_id);
+  const campaigns = await db.all("SELECT DISTINCT campaign_id, organization_id, project_id FROM evaluation_jobs WHERE campaign_id IS NOT NULL");
+  for (const campaign of campaigns) await updateCampaignStatus(db, campaign.campaign_id, campaign.organization_id, campaign.project_id);
 }
 
 async function claim(db, table, id) {
@@ -322,9 +322,15 @@ async function executeEvaluation(db, job) {
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
-async function updateCampaignStatus(db, campaignId) {
+async function updateCampaignStatus(db, campaignId, organizationId, projectId) {
   if (!campaignId) return;
-  const jobs = await db.all('SELECT status FROM evaluation_jobs WHERE campaign_id = ?', campaignId);
+  const scoped = organizationId != null && projectId != null;
+  const jobs = await db.all(
+    scoped
+      ? 'SELECT status FROM evaluation_jobs WHERE campaign_id = ? AND organization_id = ? AND project_id = ?'
+      : 'SELECT status FROM evaluation_jobs WHERE campaign_id = ? AND organization_id IS NULL AND project_id IS NULL',
+    ...(scoped ? [campaignId, organizationId, projectId] : [campaignId])
+  );
   if (!jobs.length) return;
   const status = jobs.some((job) => job.status === 'failed')
     ? 'failed'
@@ -333,7 +339,12 @@ async function updateCampaignStatus(db, campaignId) {
     : jobs.every((job) => job.status === 'completed')
       ? 'completed'
       : 'running';
-  await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
+  await db.run(
+    scoped
+      ? 'UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ? AND project_id = ?'
+      : 'UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id IS NULL AND project_id IS NULL',
+    ...(scoped ? [status, campaignId, organizationId, projectId] : [status, campaignId])
+  );
 }
 
 async function executeModelJobBody(db, job) {
@@ -465,7 +476,7 @@ async function processTable(db, table) {
     if (table === 'evaluation_jobs') {
       if (job.campaign_id) await db.run("UPDATE evaluation_campaigns SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'planned'", job.campaign_id);
       await withRetry(db, table, job, () => executeEvaluation(db, job));
-      await updateCampaignStatus(db, job.campaign_id);
+      await updateCampaignStatus(db, job.campaign_id, job.organization_id, job.project_id);
     } else {
       await withRetry(db, table, job, () => executeModelJob(db, job));
     }
@@ -489,4 +500,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, updateCampaignStatus, withRetry, isRetryableJobError };
