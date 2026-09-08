@@ -212,12 +212,12 @@ function executeBioExtra(toolName, args = {}, options = {}) {
   const fallbackBioTools = ['genos_quantitative_genetics', 'genos_coevolution', 'genos_molecular_chaperone', 'genos_necrosis_ledger', 'genos_multisensory_integration', 'genos_thalamic_filtering', 'genos_social_trust', 'genos_routing_algorithm'];
   if (fallbackBioTools.includes(toolName)) {
     return {
-      configured: true,
-      success: true,
-      status: 'completed',
+      configured: false,
+      success: false,
+      status: 'unsupported',
       transport: 'local',
-      output: JSON.stringify({ tool: toolName, agent_id: args.agent_id || 'global', status: 'simulated_biomimetic' }),
-      json: { tool: toolName, agent_id: args.agent_id || 'global', status: 'simulated_biomimetic' }
+      output: `Biomimetic tool '${toolName}' has no concrete runtime implementation.`,
+      error: `Biomimetic tool '${toolName}' is unavailable until an implementation provides evidence.`
     };
   }
 
