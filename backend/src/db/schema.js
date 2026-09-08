@@ -136,10 +136,12 @@ async function initializeSchema(db) {
     console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
   }
 
-  // Rebuild the FTS and VEC indexes independently if they are empty but core tables have data
+  // Rebuild FTS and vec indexes when their cardinality diverges from source data.
   try {
     const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
-    if (trajectoriesFtsCount && trajectoriesFtsCount.c === 0) {
+    const trajectoriesCount = await db.get("SELECT COUNT(*) as c FROM trajectories");
+    if (trajectoriesFtsCount && trajectoriesCount && trajectoriesFtsCount.c !== trajectoriesCount.c) {
+      await db.exec('DELETE FROM trajectories_fts');
       await db.exec(`
         INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
         SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
@@ -151,7 +153,9 @@ async function initializeSchema(db) {
 
   try {
     const trajectoriesVecCount = await db.get("SELECT COUNT(*) as c FROM trajectories_vec");
-    if (trajectoriesVecCount && trajectoriesVecCount.c === 0) {
+    const trajectoriesVectorCount = await db.get("SELECT COUNT(*) as c FROM trajectories WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
+    if (trajectoriesVecCount && trajectoriesVectorCount && trajectoriesVecCount.c !== trajectoriesVectorCount.c) {
+      await db.exec('DELETE FROM trajectories_vec');
       await db.exec(`
         INSERT INTO trajectories_vec(rowid, embedding)
         SELECT rowid, embedding_blob FROM trajectories 
@@ -164,7 +168,9 @@ async function initializeSchema(db) {
 
   try {
     const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
-    if (genomeFtsCount && genomeFtsCount.c === 0) {
+    const genomeCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions");
+    if (genomeFtsCount && genomeCount && genomeFtsCount.c !== genomeCount.c) {
+      await db.exec('DELETE FROM genome_decisions_fts');
       await db.exec(`
         INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
         SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
@@ -176,7 +182,9 @@ async function initializeSchema(db) {
 
   try {
     const genomeVecCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_vec");
-    if (genomeVecCount && genomeVecCount.c === 0) {
+    const genomeVectorCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
+    if (genomeVecCount && genomeVectorCount && genomeVecCount.c !== genomeVectorCount.c) {
+      await db.exec('DELETE FROM genome_decisions_vec');
       await db.exec(`
         INSERT INTO genome_decisions_vec(rowid, embedding)
         SELECT rowid, embedding_blob FROM genome_decisions 
@@ -189,7 +197,9 @@ async function initializeSchema(db) {
 
   try {
     const chunksVecCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks_vec");
-    if (chunksVecCount && chunksVecCount.c === 0) {
+    const chunksVectorCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072");
+    if (chunksVecCount && chunksVectorCount && chunksVecCount.c !== chunksVectorCount.c) {
+      await db.exec('DELETE FROM rag_chunks_vec');
       await db.exec(`
         INSERT INTO rag_chunks_vec(rowid, embedding)
         SELECT rowid, embedding_blob FROM rag_chunks 
