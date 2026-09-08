@@ -14,6 +14,20 @@ const fs = require('fs');
 const path = require('path');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
+const SAFE_GENOS_ENV = new Set([
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'LANG', 'LC_ALL', 'NODE_ENV'
+]);
+
+function genosEnvironment(root) {
+  const environment = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (SAFE_GENOS_ENV.has(name) || (name.startsWith('GENOS_') && !/(TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name))) {
+      environment[name] = value;
+    }
+  }
+  return { ...environment, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root };
+}
 
 function resolveGenosBin() {
   const exe = process.platform === 'win32' ? 'genos.exe' : 'genos';
@@ -83,7 +97,7 @@ function runGenosSync(commandLine, options = {}) {
   const root = ensureRoot();
   return execFileSync(bin, args, {
     cwd: root,
-    env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
+    env: genosEnvironment(root),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: Math.max(1, Number(timeoutMs) || 60000),
@@ -114,7 +128,7 @@ function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
     const root = ensureRoot(rootOverride);
     const child = spawn(bin, args, {
       cwd: root,
-      env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
+      env: genosEnvironment(root),
       windowsHide: true,
       detached: process.platform !== 'win32'
     });
