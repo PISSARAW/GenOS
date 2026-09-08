@@ -53,6 +53,19 @@ class CircuitBreakerService {
     }
   }
 
+  refreshPersistedHalt() {
+    const persisted = this.loadPersistedHalt();
+    if (persisted) {
+      this.isHalted = true;
+      this.haltReason = persisted.reason;
+      this.haltTimestamp = persisted.haltedAt;
+    } else if (this.isHalted) {
+      this.isHalted = false;
+      this.haltReason = null;
+      this.haltTimestamp = null;
+    }
+  }
+
   context(scope = 'global') {
     if (scope === 'global') return this;
     if (!this.scopedStates.has(scope)) this.scopedStates.set(scope, { state: 'CLOSED', failureCount: 0, failureTimes: [], lastFailureTime: 0, lastStateChange: Date.now(), halfOpenProbe: null });
@@ -91,6 +104,7 @@ class CircuitBreakerService {
   }
 
   canExecute(toolName, userRole = 'viewer', scope = 'global', args = null) {
+    this.refreshPersistedHalt();
     if (this.isHalted) {
       return { allowed: false, reason: 'SYSTEM_HALTED', message: `Execution blocked. System is halted: ${this.haltReason}` };
     }
