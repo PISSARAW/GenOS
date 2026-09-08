@@ -290,7 +290,7 @@ function stopAllMissions() {
 }
 
 async function reconcilePersistedRuntimes(db) {
-  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status IN ('running', 'apoptosis') AND runtime_pid IS NOT NULL");
+  const rows = await db.all("SELECT id, status, runtime_pid, runtime_executable FROM agents WHERE status != 'terminated' AND runtime_pid IS NOT NULL");
   let reconciled = 0;
   for (const row of rows) {
     let alive = true;
