@@ -30,7 +30,7 @@ pub fn handle_http_request(
     // Extract Headers and Body
     let mut auth_header: Option<String> = None;
     let mut rethink = false;
-    let mut system_level = 2; // Default to System 2 (no triage/interference) for API clients/agents
+    let mut system_level = 1; // Thalamic triage is the default; clients may explicitly request System 2.
     for line in lines.by_ref() {
         if line.trim().is_empty() {
             break;
@@ -46,7 +46,7 @@ pub fn handle_http_request(
             }
             if key == "x-genos-system" {
                 if let Ok(lvl) = val.parse::<u8>() {
-                    system_level = lvl;
+                    system_level = lvl.clamp(1, 2);
                 }
             }
         }
