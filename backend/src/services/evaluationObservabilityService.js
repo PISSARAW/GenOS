@@ -9,6 +9,15 @@ function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+const METRIC_DEFINITIONS = Object.freeze({
+  accuracy: { higherIsBetter: true },
+  success_rate: { higherIsBetter: true },
+  pass_rate: { higherIsBetter: true },
+  brier: { higherIsBetter: false },
+  brier_score: { higherIsBetter: false },
+  error_rate: { higherIsBetter: false }
+});
+
 function evaluationScope(input = {}) {
   const organizationId = input.organizationId ?? input.organization_id;
   const projectId = input.projectId ?? input.project_id;
@@ -22,9 +31,20 @@ function evaluationScope(input = {}) {
 function calculateMetricScore(metricName, values = []) {
   const numericValues = Array.isArray(values) ? values.map(Number).filter(Number.isFinite) : [];
   if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
-  if (numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metricName || 'unknown'}' values must be between 0 and 1.`);
+  const metric = String(metricName || 'unnamed').trim().toLowerCase();
+  const definition = METRIC_DEFINITIONS[metric];
+  if (definition && numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metric}' expects normalized values in [0, 1].`);
   const value = Number((numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length).toFixed(4));
-  return { metric: metricName || 'unnamed', value, evaluation: value >= 0.8 ? 'NOMINAL' : value >= 0.5 ? 'DEGRADED' : 'CRITICAL' };
+  const quality = Number((definition?.higherIsBetter === false ? 1 - value : value).toFixed(4));
+  return {
+    metric: metricName || 'unnamed',
+    value,
+    quality,
+    direction: definition ? (definition.higherIsBetter ? 'higher_is_better' : 'lower_is_better') : null,
+    sampleSize: numericValues.length,
+    evaluation: !definition ? 'UNINTERPRETED' : quality >= 0.8 ? 'NOMINAL' : quality >= 0.5 ? 'DEGRADED' : 'CRITICAL',
+    qualityGuarantee: false
+  };
 }
 
 async function overview(input = {}) {
