@@ -49,5 +49,7 @@ assert.deepEqual(parseJudgeResponse(JSON.stringify({ score: 0.8, passed: true, r
 });
 assert.throws(() => parseJudgeResponse('{"score": "bad", "passed": true, "reason": "x"}'));
 assert.throws(() => parseJudgeResponse('{"score": 0.8, "passed": "true", "reason": "x"}'));
+assert.throws(() => parseJudgeResponse('{"score": 0.1, "passed": true, "reason": "contradiction"}'), /inconsistent/);
+assert.throws(() => parseJudgeResponse('{"score": 0.9, "passed": false, "reason": "contradiction"}'), /inconsistent/);
 
 console.log('evaluation graders: PASS');
