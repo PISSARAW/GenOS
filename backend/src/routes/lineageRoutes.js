@@ -35,6 +35,7 @@ router.post('/agents/git/bisect', requirePermission('read'), agentGitController.
 router.post('/agents/git/log', requirePermission('read'), agentGitController.log);
 router.post('/agents/git/revert', requirePermission('workspace:write'), agentGitController.revert);
 router.post('/agents/git/rebase', requirePermission('workspace:write'), agentGitController.rebase);
+router.post('/agents/git/rebase-interactive', requirePermission('workspace:write'), agentGitController.rebaseInteractive);
 router.post('/agents/git/remote/push', requirePermission('workspace:write'), agentGitController.remoteReceive);
 router.post('/agents/git/remote/fetch', requirePermission('read'), agentGitController.fetch);
 router.post('/agents/git/reflog', requirePermission('read'), agentGitController.reflog);
