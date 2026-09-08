@@ -92,7 +92,7 @@ async function run() {
       path.resolve(__dirname, '../bin/genos-orchestrate.cjs'),
       JSON.stringify({
         action: 'organization_publish', background: false,
-        orchestratorId: 'org-root', kind: 'evidence', content: 'bridge telemetry check'
+        orchestratorId: 'org-root', recipientAgentId: 'org-b', kind: 'evidence', content: 'bridge telemetry check'
       })
     ], {
       encoding: 'utf8',

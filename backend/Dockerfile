@@ -15,6 +15,7 @@ FROM node:22-bookworm-slim@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0
 ENV NODE_ENV=production \
     PORT=4000 \
     GENOS_DB_PATH=/data/genos.db \
+    GENOS_AGENT_EXECUTOR=local \
     GENOS_IDE_CONTRACT_PATH=/app/integrations/ide/genos-extension-contract.json
 
 WORKDIR /app
