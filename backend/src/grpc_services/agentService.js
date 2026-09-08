@@ -66,7 +66,7 @@ module.exports = {
       return callback({ code: grpcStatusForError(err), message: err.message });
     }
     const agentId = call.request?.id;
-    const stopped = Boolean(agentId && runtimeAdapter.stopMission(agentId));
+    const stopped = Boolean(agentId && await runtimeAdapter.stopMission(agentId));
     callback(null, { stopped, status: stopped ? 'stopped' : 'not_running' });
   }
 };
