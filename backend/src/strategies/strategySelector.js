@@ -35,7 +35,7 @@ function classifyProblem(problem = '') {
   
   // Mission requiring literal mouse/keyboard/screen control of the local machine
   // (as opposed to writing/editing code) - must be checked before 'bug'/'fix' below.
-  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'computer use', 'desktop control', 'clique sur', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris'])) return 'desktop_control';
+  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'open notepad', 'open the notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'take control of the desktop', 'computer use', 'desktop control', 'clique sur', 'click the screen', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris', 'keyboard and mouse'])) return 'desktop_control';
   
   // Mapping direct si le texte correspond exactement ou est pré-typé
   if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
