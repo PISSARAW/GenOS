@@ -254,6 +254,8 @@ async function runCellDivision(options = {}) {
       const db = await getDatabase();
       const isApoptotic = res.json.mother_lysed ? 1 : 0;
       const isSenescent = res.json.is_senescent || (res.json.remaining_buds === 0);
+      const mother = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId).catch(() => null);
+      const workspaceId = mother?.workspace_id || 'workspace-default';
       if (isApoptotic) {
         await db.run(
           `UPDATE agents SET is_apoptotic = 1, status = 'apoptosis', cognitive_budget = 0, current_task = 'Lysed following schizogony', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
@@ -263,6 +265,28 @@ async function runCellDivision(options = {}) {
           `UPDATE lineage_nodes SET state_summary = 'Lysed mother cell (schizogony burst)' WHERE id = ? OR agent_id = ?`,
           agentId, agentId
         ).catch(() => {});
+        const progenyIds = Array.isArray(res.json.progeny_genome_ids) ? res.json.progeny_genome_ids : [];
+        for (const [index, progenyId] of progenyIds.entries()) {
+          await db.run(
+            `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, state_summary, metadata)
+             VALUES (?, ?, ?, 'speculative_merozoite', 0.5, 0, 'Released by schizogony', ?)
+             ON CONFLICT(id) DO UPDATE SET workspace_id = excluded.workspace_id, node_type = excluded.node_type, state_summary = excluded.state_summary, metadata = excluded.metadata`,
+            progenyId,
+            workspaceId,
+            `Merozoite ${index + 1} of ${agentId}`,
+            JSON.stringify({ motherAgentId: agentId, motherGenomeId: res.json.mother_genome_id, branchIndex: index, reproductionMode: 'schizogony', seed: res.json.seed })
+          );
+          await db.run(
+            `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type, metadata)
+             VALUES (?, ?, ?, ?, 'schizogony', ?)
+             ON CONFLICT(id) DO NOTHING`,
+            `edge_${agentId}_${progenyId}`,
+            workspaceId,
+            agentId,
+            progenyId,
+            JSON.stringify({ reproductionMode: 'schizogony', branchIndex: index })
+          );
+        }
       } else if (isSenescent) {
         await db.run(
           `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit)' WHERE id = ? OR agent_id = ?`,
