@@ -4,7 +4,13 @@
  * Pareto candidates and identifies the optimal Knee-Point recommendation.
  */
 
+const crypto = require('crypto');
 const { calculateParetoFront, calculateElo } = require('./arenaService');
+
+function stableCandidateId(dossier, options) {
+  const payload = JSON.stringify({ dossier, options });
+  return `candidate-${crypto.createHash('sha256').update(payload).digest('hex').slice(0, 24)}`;
+}
 
 function nonNegativeNumber(value, fallback) {
   const number = Number(value);
@@ -86,7 +92,7 @@ function dossierToCandidate(dossier, options = {}) {
   const costUSD = nonNegativeNumber(options.tokenCostUSD ?? dossier.tokenCostUSD, Number((tokens * 0.000003).toFixed(5)));
 
   return {
-    candidateId: dossier.workerId || dossier.id || `candidate-${Date.now()}`,
+    candidateId: dossier.workerId || dossier.id || stableCandidateId(dossier, options),
     name: dossier.name || dossier.workerId || 'Worker Candidate',
     role: dossier.role || 'specialist',
     executionTimeMs: latencyMs,
