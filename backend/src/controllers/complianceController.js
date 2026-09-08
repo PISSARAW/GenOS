@@ -4,18 +4,18 @@ async function listFrameworks(req, res) {
   res.json(Object.entries(compliance.FRAMEWORKS).map(([id, value]) => ({ id, ...value })));
 }
 
-async function listReports(req, res) { res.json(await compliance.listReports(req.query.framework)); }
+async function listReports(req, res) { res.json(await compliance.listReports(req.query.framework, req.tenant)); }
 async function createReport(req, res) {
-  const report = await compliance.buildReport(req.body.framework, req.body.workspaceId, req.user?.username || 'studio');
+  const report = await compliance.buildReport(req.body.framework, req.body.workspaceId, req.user?.username || 'studio', req.tenant);
   res.status(201).json(report);
 }
 async function getReport(req, res) {
-  const report = await compliance.getReport(req.params.id);
+  const report = await compliance.getReport(req.params.id, req.tenant);
   if (!report) return res.status(404).json({ error: { code: 'COMPLIANCE_REPORT_NOT_FOUND', message: 'Compliance report not found' } });
   res.json(report);
 }
 async function exportReport(req, res) {
-  const report = await compliance.getReport(req.params.id);
+  const report = await compliance.getReport(req.params.id, req.tenant);
   if (!report) return res.status(404).json({ error: { code: 'COMPLIANCE_REPORT_NOT_FOUND', message: 'Compliance report not found' } });
   const format = req.query.format || 'json';
   if (format === 'markdown' || format === 'md') {

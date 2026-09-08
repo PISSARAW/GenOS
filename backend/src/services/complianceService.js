@@ -15,30 +15,35 @@ function evidenceFor(row, framework) {
   ];
 }
 
-async function buildReport(framework, workspaceId, generatedBy = 'studio') {
+async function buildReport(framework, workspaceId, generatedBy = 'studio', scope = {}) {
   if (!FRAMEWORKS[framework]) throw Object.assign(new Error('Unsupported compliance framework'), { status: 400 });
   const db = await getDatabase();
+  const scoped = scope.organizationId && scope.projectId;
+  const params = scoped ? [scope.organizationId, scope.projectId] : [];
   const [events, workspaces, snapshots] = await Promise.all([
-    db.get('SELECT COUNT(*) AS count FROM telemetry_events'),
-    db.get('SELECT COUNT(*) AS count FROM workspaces WHERE is_archived = 0'),
-    db.get('SELECT COUNT(*) AS count FROM workspace_snapshots')
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id = ? AND project_id = ?' : 'SELECT COUNT(*) AS count FROM telemetry_events WHERE organization_id IS NULL AND project_id IS NULL', ...params),
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id = ? AND project_id = ? AND is_archived = 0' : 'SELECT COUNT(*) AS count FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL AND is_archived = 0', ...params),
+    db.get(scoped ? 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id = ? AND w.project_id = ?' : 'SELECT COUNT(*) AS count FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE w.organization_id IS NULL AND w.project_id IS NULL', ...params)
   ]);
   const evidence = evidenceFor({ events: events.count, workspaces: workspaces.count, snapshots: snapshots.count }, FRAMEWORKS[framework]);
   const score = Math.round((evidence.filter((item) => item.status === 'pass').length / evidence.length) * 100);
   const report = { id: `cmp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`, framework, title: FRAMEWORKS[framework].title, workspaceId: workspaceId || null, score, evidence, findings: evidence.filter((item) => item.status !== 'pass'), generatedBy };
-  await db.run('INSERT INTO compliance_reports (id, framework, workspace_id, score, findings_json, evidence_json, generated_by) VALUES (?, ?, ?, ?, ?, ?, ?)', report.id, framework, workspaceId || null, score, JSON.stringify(report.findings), JSON.stringify(evidence), generatedBy);
+  await db.run('INSERT INTO compliance_reports (id, framework, workspace_id, organization_id, project_id, score, findings_json, evidence_json, generated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', report.id, framework, workspaceId || null, scope.organizationId || null, scope.projectId || null, score, JSON.stringify(report.findings), JSON.stringify(evidence), generatedBy);
   return report;
 }
 
-async function listReports(framework) {
+async function listReports(framework, scope = {}) {
   const db = await getDatabase();
-  const rows = await db.all(`SELECT * FROM compliance_reports ${framework ? 'WHERE framework = ?' : ''} ORDER BY created_at DESC`, ...(framework ? [framework] : []));
+  const conditions = ['organization_id = ?', 'project_id = ?'];
+  const params = [scope.organizationId, scope.projectId];
+  if (framework) { conditions.push('framework = ?'); params.push(framework); }
+  const rows = await db.all(`SELECT * FROM compliance_reports WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`, ...params);
   return rows.map(parseRow);
 }
 
-async function getReport(id) {
+async function getReport(id, scope = {}) {
   const db = await getDatabase();
-  const row = await db.get('SELECT * FROM compliance_reports WHERE id = ?', id);
+  const row = await db.get('SELECT * FROM compliance_reports WHERE id = ? AND organization_id = ? AND project_id = ?', id, scope.organizationId, scope.projectId);
   return row ? parseRow(row) : null;
 }
 
