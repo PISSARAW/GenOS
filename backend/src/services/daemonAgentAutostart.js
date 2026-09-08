@@ -19,7 +19,7 @@ const DEFAULT_CONFIG = {
   role: 'Autonomous GitHub Auditor & Sentinel',
   githubDir: '',
   openTerminalOnStartup: false,
-  enabled: true,
+  enabled: false,
   checkIntervalMinutes: 60,
   lastRun: null
 };
