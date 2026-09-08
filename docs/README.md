@@ -66,12 +66,8 @@ Cette convention permet de lire le système à plusieurs niveaux : conceptuel, t
 
 ### 6. Validation, qualité et opérateur
 
-- [CLI_EXPERIENCE_OPERATEUR.md](CLI_EXPERIENCE_OPERATEUR.md) — CLI détaillée, usages operators, commandes, ergonomie, visibilité et intégration Windows / shell.
-- [EVALUATION_QUALITE.md](EVALUATION_QUALITE.md) — validation, tests, qualité, preuves d’exécution et comparaison avec les standards de robustesse.
-- [TESTS_VALIDATION_DEPOT.md](TESTS_VALIDATION_DEPOT.md) — validation du dépôt, test strategy, fixtures et objectifs de couverture.
-- [gestion-projet-multi-tenant.md](gestion-projet-multi-tenant.md) — gestion de projets multi-tenant, rôles, planification, expériences et sécurité de la collaboration.
+- [PANORAMA_CONCURRENTIEL.md](PANORAMA_CONCURRENTIEL.md) — comparaison transversale de GenOS avec les principales familles de solutions concurrentes et complémentaires.
 
----
 
 ## Chemins de lecture recommandés
 
