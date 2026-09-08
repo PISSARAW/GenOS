@@ -185,6 +185,7 @@ async function superviseMission(options) {
         capacity: maxEventQueue,
         droppedEventType: event.eventType
       }, 'critical', 'error');
+      haltRuntime('event_queue_overflow', 'Runtime event queue capacity exceeded.', 'Runtime halted because event persistence could no longer keep up with the child process.', { droppedEventCount, capacity: maxEventQueue });
     }
     processEventQueue();
     return event;
@@ -362,6 +363,10 @@ async function superviseMission(options) {
   child.on('close', async (code, signal) => {
     clearTerminationTimer(child);
     await executionQueue;
+    const drainDeadline = Date.now() + 30000;
+    while ((isProcessingEvents || eventQueue.length > 0) && Date.now() < drainDeadline) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
     // Keep the process visible to the orchestration barrier until every final
     // event (including continuation selection) has been recorded.
     activeProcesses.delete(agentId);
