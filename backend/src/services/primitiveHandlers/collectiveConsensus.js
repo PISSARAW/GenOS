@@ -20,7 +20,7 @@ function calculateItemBrierScore(item) {
   // Case 1: Multi-class array [p1, p2, ...]
   if (Array.isArray(item.prediction)) {
     const p = item.prediction.map(Number);
-    if (p.length < 2 || p.some(v => !Number.isFinite(v) || v < 0 || v > 1)) return NaN;
+    if (p.length < 2 || p.some(v => !Number.isFinite(v) || v < 0 || v > 1) || Math.abs(p.reduce((sum, value) => sum + value, 0) - 1) > 1e-6) return NaN;
 
     let o;
     if (Array.isArray(item.outcome)) {
@@ -42,14 +42,14 @@ function calculateItemBrierScore(item) {
     const keys = Object.keys(item.prediction);
     if (keys.length < 2) return NaN;
     const p = keys.map(k => Number(item.prediction[k]));
-    if (p.some(v => !Number.isFinite(v) || v < 0 || v > 1)) return NaN;
+    if (p.some(v => !Number.isFinite(v) || v < 0 || v > 1) || Math.abs(p.reduce((sum, value) => sum + value, 0) - 1) > 1e-6) return NaN;
 
     let o;
     if (typeof item.outcome === 'string' && keys.includes(item.outcome)) {
       o = keys.map(k => (k === item.outcome ? 1 : 0));
     } else if (item.outcome && typeof item.outcome === 'object') {
       o = keys.map(k => Number(item.outcome[k] || 0));
-      if (o.some(v => !Number.isFinite(v) || (v !== 0 && v !== 1))) return NaN;
+      if (o.some(v => !Number.isFinite(v) || (v !== 0 && v !== 1)) || o.reduce((sum, value) => sum + value, 0) !== 1) return NaN;
     } else {
       return NaN;
     }
