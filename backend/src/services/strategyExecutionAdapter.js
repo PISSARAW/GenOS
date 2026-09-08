@@ -24,6 +24,7 @@ const resilience = require('./resilienceService');
 const modelRouter = require('./modelRouter');
 const advanced = require('./primitiveHandlers/strategyAdvanced');
 const planning = require('./primitiveHandlers/strategyPlanning');
+const optimization = require('./primitiveHandlers/strategyOptimization');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -87,6 +88,11 @@ const HANDLERS = {
   probe: planning.commonProbes,
   evidence: planning.evidence,
   conditional_mutation: planning.conditionalMutation,
+  rank_states: optimization.rankStates,
+  preserve_losers: optimization.preserveLosers,
+  variance_analysis: optimization.varianceAnalysis,
+  temperature_schedule: optimization.temperatureSchedule,
+  resource_shift: optimization.resourceShift,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
