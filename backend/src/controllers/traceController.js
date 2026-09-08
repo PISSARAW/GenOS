@@ -60,6 +60,10 @@ async function ingestSpan(req, res, next) { try {
 	const serializedOutputs = JSON.stringify(outputs);
 	if (serializedInputs.length > 256 * 1024 || serializedOutputs.length > 256 * 1024) return res.status(413).json({ error: { code: 'SPAN_PAYLOAD_TOO_LARGE', message: 'Span inputs and outputs must each be no larger than 256 KiB.' } });
 	if (body.error !== undefined && body.error !== null && (typeof body.error !== 'string' || body.error.length > 16 * 1024)) return res.status(400).json({ error: { code: 'INVALID_SPAN_ERROR', message: 'error must be a string no longer than 16 KiB.' } });
+	if (parentSpanId) {
+		const parent = await db.get(`SELECT id FROM trace_spans WHERE id = ? AND trace_id = ? AND ${scope.clause}`, parentSpanId, traceId, ...scope.params);
+		if (!parent) return res.status(400).json({ error: { code: 'INVALID_PARENT_SPAN', message: 'parentSpanId must belong to the same trace and tenant.' } });
+	}
 	await db.run('INSERT OR REPLACE INTO trace_spans (id, trace_id, agent_id, parent_span_id, name, start_time, end_time, inputs_json, outputs_json, error, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, traceId, agentId, parentSpanId, name, startTime, endTime, serializedInputs, serializedOutputs, body.error || null, ...scope.params);
 	res.status(201).json({ id, traceId, framework: body.framework || null });
 } catch (e) { next(e); } }
