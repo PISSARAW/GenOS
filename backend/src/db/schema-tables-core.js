@@ -137,7 +137,7 @@ const TABLES_CORE = [
 "    agent_id TEXT,",
 "    snapshot_id TEXT,",
 "    label TEXT NOT NULL,",
-"    node_type TEXT NOT NULL CHECK (node_type IN ('core', 'agent', 'skill', 'checkpoint', 'fork', 'merge')),",
+"    node_type TEXT NOT NULL CHECK (node_type IN ('core', 'agent', 'skill', 'checkpoint', 'fork', 'merge', 'mitosis', 'binary_fission', 'budding', 'schizogony', 'meiosis', 'speculative_merozoite', 'lysed_schizont')),",
 "    score REAL DEFAULT 0.0,",
 "    visits INTEGER DEFAULT 0,",
 "    state_summary TEXT,",

@@ -70,7 +70,6 @@ async function initializeSchema(db) {
 
 async function applyVersionedMigrations(db) {
   const migrations = [
-    ['001-compliance-ide', 'Add compliance reports and IDE integration contracts'],
     ['002-strategy-contracts', 'Add versioned orchestrator strategy contracts'],
     ['003-tenant-scopes', 'Add organization, project and membership isolation'],
     ['004-evaluation-job-retries', 'Persist evaluation job retries and terminal errors'],
@@ -85,7 +84,8 @@ async function applyVersionedMigrations(db) {
     ['013-durable-cryptobiosis', 'Persist durable cryptobiosis capsule references'],
     ['014-episodic-memories', 'Add dedicated episodic memories persistence and indexing'],
     ['015-synapse-indexes', 'Add B-Tree indexes on memory_synapses for target, weight, pruning and tenant scoping'],
-    ['016-workflow-version-snapshots', 'Persist immutable workflow definitions for queued and historical runs']
+    ['016-workflow-version-snapshots', 'Persist immutable workflow definitions for queued and historical runs'],
+    ['017-reversible-episodic-retention', 'Keep purged episodic memories as restorable tombstones']
   ];
   await db.exec(`CREATE TABLE IF NOT EXISTS episodic_memories (
     id TEXT PRIMARY KEY,
@@ -99,13 +99,19 @@ async function applyVersionedMigrations(db) {
     observation_output TEXT,
     reward_score REAL DEFAULT 0.0,
     is_consolidated INTEGER DEFAULT 0,
+    is_purged INTEGER NOT NULL DEFAULT 0,
+    purged_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_episodic_agent_session ON episodic_memories (agent_id, session_id, created_at);
   CREATE INDEX IF NOT EXISTS idx_episodic_consolidated ON episodic_memories (is_consolidated, created_at);
   CREATE INDEX IF NOT EXISTS idx_conscience_transitions_agent_rev ON conscience_transitions(agent_id, to_revision);
   CREATE INDEX IF NOT EXISTS idx_conscience_transitions_created ON conscience_transitions(created_at);`);
+  const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
+  if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
+  if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
   await migrateAgentStatusConstraint(db);
+  await migrateLineageNodeTypeConstraint(db);
   const agentRuntimeColumns = new Set((await db.all('PRAGMA table_info(agents)')).map((column) => column.name));
   if (!agentRuntimeColumns.has('runtime_pid')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_pid INTEGER');
   if (!agentRuntimeColumns.has('runtime_started_at')) await db.exec('ALTER TABLE agents ADD COLUMN runtime_started_at DATETIME');
@@ -387,5 +393,45 @@ async function migrateAgentStatusConstraint(db) {
   }
 }
 
+async function migrateLineageNodeTypeConstraint(db) {
+  const table = await db.get("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'lineage_nodes'");
+  if (!table?.sql || /'speculative_merozoite'/.test(table.sql)) return;
 
-module.exports = { migrateLegacySchema, applyVersionedMigrations, migrateNotificationPreferenceScope };
+  await db.exec('PRAGMA foreign_keys = OFF;');
+  try {
+    await db.exec('BEGIN IMMEDIATE;');
+    await db.exec(`CREATE TABLE lineage_nodes_with_reproduction_types (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT,
+      agent_id TEXT,
+      snapshot_id TEXT,
+      label TEXT NOT NULL,
+      node_type TEXT NOT NULL CHECK (node_type IN ('core', 'agent', 'skill', 'checkpoint', 'fork', 'merge', 'mitosis', 'binary_fission', 'budding', 'schizogony', 'meiosis', 'speculative_merozoite', 'lysed_schizont')),
+      score REAL DEFAULT 0.0,
+      visits INTEGER DEFAULT 0,
+      state_summary TEXT,
+      pos_x REAL DEFAULT 0,
+      pos_y REAL DEFAULT 0,
+      metadata TEXT DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    INSERT INTO lineage_nodes_with_reproduction_types (
+      id, workspace_id, agent_id, snapshot_id, label, node_type, score, visits,
+      state_summary, pos_x, pos_y, metadata, created_at
+    ) SELECT
+      id, workspace_id, agent_id, snapshot_id, label, node_type, score, visits,
+      state_summary, pos_x, pos_y, metadata, created_at
+    FROM lineage_nodes;
+    DROP TABLE lineage_nodes;
+    ALTER TABLE lineage_nodes_with_reproduction_types RENAME TO lineage_nodes;`);
+    await db.exec('COMMIT;');
+  } catch (error) {
+    try { await db.exec('ROLLBACK;'); } catch (_) {}
+    throw error;
+  } finally {
+    await db.exec('PRAGMA foreign_keys = ON;');
+  }
+}
+
+
+module.exports = { migrateLegacySchema, applyVersionedMigrations, migrateNotificationPreferenceScope, migrateLineageNodeTypeConstraint };
