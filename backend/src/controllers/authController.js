@@ -6,8 +6,29 @@ const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const { ROLE_PERMISSIONS, resolveUserFromHeaders, hashKey } = require('../middleware/auth');
 const { verifyPassword } = require('./password');
+const verifyAttempts = new Map();
+const VERIFY_WINDOW_MS = 60 * 1000;
+const VERIFY_LIMIT = 20;
+
+function verifyRateLimit(req) {
+  const key = String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = verifyAttempts.get(key);
+  if (!entry || now - entry.startedAt >= VERIFY_WINDOW_MS) {
+    verifyAttempts.set(key, { startedAt: now, count: 1 });
+    return null;
+  }
+  entry.count += 1;
+  if (entry.count > VERIFY_LIMIT) return Math.max(1, Math.ceil((VERIFY_WINDOW_MS - (now - entry.startedAt)) / 1000));
+  return null;
+}
 
 async function verifyToken(req, res) {
+  const retryAfter = verifyRateLimit(req);
+  if (retryAfter) {
+    res.setHeader('Retry-After', String(retryAfter));
+    return res.status(429).json({ error: { code: 'AUTH_RATE_LIMITED', message: 'Too many token verification attempts.' } });
+  }
   const token = (req.body && req.body.token) || req.headers.authorization || req.headers['x-access-key'];
 
   if (!token) {
@@ -26,6 +47,7 @@ async function verifyToken(req, res) {
   );
 
   if (keyRecord) {
+    verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
     const rolePerms = ROLE_PERMISSIONS[keyRecord.role] || [];
     let extraPerms = [];
     try {
@@ -47,6 +69,7 @@ async function verifyToken(req, res) {
     tokenHash
   );
   if (session) {
+    verifyAttempts.delete(String(req.ip || req.headers['x-forwarded-for'] || 'unknown').split(',')[0].trim());
     return res.json({
       valid: true,
       role: session.role,
