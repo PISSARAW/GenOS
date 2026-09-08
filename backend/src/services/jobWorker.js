@@ -168,6 +168,7 @@ async function executeWorkflow(db, run) {
           prompt: resolveTemplate(promptTemplate, { input, workflow: { id: workflow.id, name: workflow.name }, node: node.data || {}, outputs: output }),
           timeoutMs: Math.min(Number(node.timeout_ms || node.data?.timeoutMs || 30000), Math.max(1, workflowDeadline - Date.now())),
           policy: node.modelRouting || node.data?.modelRouting,
+          requiredCapabilities: node.requiredCapabilities || node.data?.requiredCapabilities || [],
           onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'WORKFLOW_MODEL_TOKEN', agentId: node.id, action: 'MODEL_TOKEN', detail: token, payload: { runId: run.id, traceId, nodeId: node.id, model: selectedModel } })
         });
         nodeOutput = { status: 'completed', model: generated.model, provider: generated.provider, text: generated.text, inputTokens: generated.inputTokens, outputTokens: generated.outputTokens, route: generated.route };
@@ -366,7 +367,7 @@ async function executeModelJobBody(db, job) {
       error.code = 'MODEL_JOB_TIMEOUT';
       throw error;
     }
-    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
+    const generated = await modelRouter.generate({ db, agentId: config.agentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model, prompt: job.prompt, timeoutMs: remainingTimeout, deadlineAt, policy: config.modelRouting, requiredCapabilities: config.requiredCapabilities || [], onToken: async (token, selectedModel) => { const tokenModel = selectedModel || modelKey; tokens.push(token); await db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', job.id, tokenModel, tokens.length - 1, token); telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: job.id, model: tokenModel, index: tokens.length - 1 } }); } });
     if (Date.now() >= deadlineAt) {
       const error = new Error(`Model job exceeded its total timeout of ${totalTimeoutMs}ms.`);
       error.code = 'MODEL_JOB_TIMEOUT';
