@@ -82,6 +82,9 @@ function profileProblem(problem = '', overrides = {}) {
 function eligibility(strategy, profile, options) {
   const compatible = strategy.problemTypes.includes('all') || strategy.problemTypes.includes(profile.type);
   if (!compatible) return { eligible: false, reason: `not compatible with ${profile.type}` };
+  if (strategy.id === 'computer_use_direct' && profile.type !== 'desktop_control') {
+    return { eligible: false, reason: 'computer-use strategy requires a desktop_control problem' };
+  }
   const missingPrimitives = strategy.primitives.filter((primitive) => !getStrategyHandlers()[primitive]);
   if (missingPrimitives.length) return { eligible: false, reason: `unimplemented primitives: ${missingPrimitives.join(', ')}` };
   if (strategy.costLevel > options.maxCostLevel) return { eligible: false, reason: `cost level ${strategy.costLevel} exceeds ${options.maxCostLevel}` };
