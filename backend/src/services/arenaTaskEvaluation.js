@@ -53,10 +53,6 @@ function dossierToCandidate(dossier, options = {}) {
   if (tests.length > 0) {
     const passed = tests.filter(testResultPassed).length;
     passRate = Number(((passed / tests.length) * 100).toFixed(1));
-  } else if (report.outcome === 'success') {
-    passRate = 90;
-  } else if (report.outcome === 'no_answer' && report.noAnswerProof) {
-    passRate = 85;
   } else if (report.outcome === 'failed') {
     passRate = 20;
   }
@@ -88,6 +84,8 @@ function dossierToCandidate(dossier, options = {}) {
     tokenCostUSD: costUSD,
     fitnessScore: rawFitness,
     adversarialPassRate: passRate,
+    adversarialPassRateSource: tests.length > 0 ? 'executed_tests' : 'not_measured',
+    qualityGuarantee: false,
     claimsCount: claims.length,
     testsCount: tests.length,
     report
