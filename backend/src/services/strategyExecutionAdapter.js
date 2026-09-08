@@ -27,6 +27,7 @@ const planning = require('./primitiveHandlers/strategyPlanning');
 const optimization = require('./primitiveHandlers/strategyOptimization');
 const swarm = require('./primitiveHandlers/strategySwarm');
 const governance = require('./primitiveHandlers/strategyGovernance');
+const collectiveAdvanced = require('./primitiveHandlers/strategyCollectiveAdvanced');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -112,6 +113,14 @@ const HANDLERS = {
   approval_request: governance.approvalRequest,
   drift_threshold: governance.driftThreshold,
   dead_letter_queue: governance.deadLetterQueue,
+  alpha_beta_delta: collectiveAdvanced.greyWolf,
+  position_update: collectiveAdvanced.positionUpdate,
+  capability_route: collectiveAdvanced.capabilityRoute,
+  knowledge_transfer: collectiveAdvanced.knowledgeTransfer,
+  dynamic_assignment: collectiveAdvanced.dynamicAssignment,
+  local_buffer: collectiveAdvanced.networkSilence,
+  critical_or_success_flush: collectiveAdvanced.networkSilence,
+  solver_tournament: collectiveAdvanced.solverTournament,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
