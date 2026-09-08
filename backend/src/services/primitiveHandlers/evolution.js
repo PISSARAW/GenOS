@@ -322,6 +322,12 @@ async function select(context) {
   uniqueScored.sort((a, b) => b.score - a.score || String(a.id).localeCompare(String(b.id)));
   const winner = uniqueScored[0] || null;
   const losers = uniqueScored.slice(1).map(s => s.id);
+  if (winner) {
+    for (const candidate of uniqueScored) {
+      await db.run('UPDATE lineage_nodes SET metadata = json_set(COALESCE(metadata, \'{}\'), \'$.selectionStatus\', ?, \'$.selectionScore\', ?) WHERE id = ?',
+        candidate.id === winner.id ? 'winner' : 'loser', candidate.score, candidate.id).catch(() => {});
+    }
+  }
   telemetry.emitEvent({
     eventType: 'EVOLUTION_SELECTION',
     agentId: context.orchestratorId || 'strategy_adapter',
@@ -368,6 +374,10 @@ async function paretoSelect(context) {
     });
   });
   const dominated = points.filter(p => !paretoFront.some(f => f.key === p.key));
+  for (const candidate of points) {
+    await getDatabase().then((db) => db.run('UPDATE lineage_nodes SET metadata = json_set(COALESCE(metadata, \'{}\'), \'$.paretoStatus\', ?, \'$.paretoScores\', ?) WHERE id = ?',
+      paretoFront.some((item) => item.key === candidate.key) ? 'front' : 'dominated', JSON.stringify(candidate.scores), candidate.id).catch(() => {})).catch(() => {});
+  }
   telemetry.emitEvent({
     eventType: 'EVOLUTION_PARETO',
     agentId: context.orchestratorId || 'strategy_adapter',

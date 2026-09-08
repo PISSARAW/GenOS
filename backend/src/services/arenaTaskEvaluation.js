@@ -86,7 +86,17 @@ function dossierToCandidate(dossier, options = {}) {
     || Boolean(report.failure)
     || (Array.isArray(dossier?.events) && dossier.events.some((event) => event.failure || event.payload?.failure || ['AGENT_FAILED', 'WORKER_TASK_FAILED', 'AGENT_RUNTIME_ERROR'].includes(event.eventType)));
   if (isFailed) calculatedFitness = Math.min(15, calculatedFitness);
-  const rawFitness = suppliedFitness === null ? calculatedFitness : Math.min(suppliedFitness, calculatedFitness);
+  const evidenceBackedClaims = claims.some((claim) => {
+    const evidence = claim?.evidence || claim?.receipts || claim?.sourceRefs;
+    return Array.isArray(evidence) && evidence.some((item) => item && (typeof item === 'string' ? item.trim() : typeof item === 'object'));
+  });
+  const rawFitness = suppliedFitness === null
+    ? calculatedFitness
+    : isFailed
+      ? Math.min(suppliedFitness, calculatedFitness)
+      : evidenceBackedClaims
+        ? suppliedFitness
+        : Math.min(suppliedFitness, calculatedFitness);
 
   const latencyMs = nonNegativeNumber(options.executionTimeMs ?? dossier.executionTimeMs, 25);
   const tokens = nonNegativeNumber(options.tokens ?? dossier.tokens, 1500);
