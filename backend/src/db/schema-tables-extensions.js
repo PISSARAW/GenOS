@@ -108,7 +108,6 @@ const TABLES_EXTENSIONS = [
 "    FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE",
 ");",
 "CREATE INDEX IF NOT EXISTS idx_ide_status_seen ON ide_integrations(status, last_seen_at DESC);",
-"CREATE UNIQUE INDEX IF NOT EXISTS idx_ide_client_workspace ON ide_integrations(client_id, workspace_id) WHERE client_id IS NOT NULL;",
 "",
 "-- Compatibility / Dashboard stats",
 "CREATE TABLE IF NOT EXISTS heatmap_activity (",
