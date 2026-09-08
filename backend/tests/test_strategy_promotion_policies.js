@@ -72,7 +72,13 @@ async function run() {
   assert.equal(promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayVerified: true,
     workerDossiers: [{ evidence: ['independent receipt'] }],
-    humanApproved: true
+    humanApprovalReceipt: {
+      approved: true,
+      approvalId: 'approval-test',
+      approverId: 'reviewer-test',
+      approvedAt: new Date().toISOString(),
+      payloadHash: 'a'.repeat(64)
+    }
   }).eligible, true, 'Structured worker evidence should satisfy independent verification');
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
