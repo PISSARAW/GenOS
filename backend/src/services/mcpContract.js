@@ -37,6 +37,15 @@ function getToolInputSchema(toolName, baseSchema = {}) {
     schema.properties.snapshot = { type: 'string' };
     schema.properties.snapshot_id = { type: 'string' };
   }
+  if (toolName === 'genos_execute_primitive') {
+    schema.properties.primitive_name = { type: 'string' };
+    schema.properties.args = { type: 'object' };
+    schema.required.push('primitive_name');
+  }
+  if (toolName === 'genos_execute_strategy_pipeline') {
+    schema.properties.primitives = { type: 'array', items: { type: 'string' } };
+    schema.properties.context = { type: 'object' };
+  }
   for (const field of REQUIRED_STRINGS[toolName] || []) {
     schema.properties[field] = { ...(schema.properties[field] || {}), type: 'string' };
     if (!schema.required.includes(field)) schema.required.push(field);
