@@ -100,11 +100,15 @@ function buildAutonomyPlan(contract, budget = {}) {
     : (Number.isFinite(Number(budget.tokenPolicy?.orchestratorReserve))
       ? Math.max(0, Math.min(1, Number(budget.tokenPolicy?.orchestratorReserve)))
       : (1 - workerShare));
-  const affordableWorkers = Math.max(0, Math.floor((totalTokens * workerShare) / minimumWorkerTokens));
+  const minimumViableWorkerShare = workers.length && totalTokens >= minimumWorkerTokens
+    ? minimumWorkerTokens / totalTokens
+    : workerShare;
+  const effectiveWorkerShare = Math.max(workerShare, minimumViableWorkerShare);
+  const affordableWorkers = Math.max(0, Math.floor((totalTokens * effectiveWorkerShare) / minimumWorkerTokens));
   const dispatchWorkers = workers.slice(0, Math.min(workers.length, affordableWorkers));
   const allocation = complex || uncertain ? 'successive_halving_with_reallocation' : 'equal_minimum_then_score_weighted';
   const rounds = buildAllocation({
-    totalTokens, workerShare: dispatchWorkers.length ? workerShare : 0, workerCount: dispatchWorkers.length,
+    totalTokens, workerShare: dispatchWorkers.length ? effectiveWorkerShare : 0, workerCount: dispatchWorkers.length,
     minimumWorkerTokens, mode: allocation
   });
   const executionStatus = realizable.length === 0
@@ -200,7 +204,7 @@ function buildAutonomyPlan(contract, budget = {}) {
     parasitism: { enabled: highRisk || security, mode: 'adversarial_parasite_branch', action: 'isolate_and_score_parasitic_trajectories' },
     tokenPolicy: {
       total: totalTokens,
-      workerShare: dispatchWorkers.length ? workerShare : 0,
+      workerShare: dispatchWorkers.length ? effectiveWorkerShare : 0,
       orchestratorReserve: dispatchWorkers.length ? orchestratorReserve : 1,
       allocation,
       minimumWorkerTokens,
