@@ -54,6 +54,26 @@ function buildRuntimeEnvironment(runtimeEnvironment, workspaceRoot, silentUpdate
   };
 }
 
+function buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, workspaceRoot, resolvedExecutable }) {
+  const safeEnvironment = buildRuntimeEnvironment(normalizedMission.runtimeEnvironment, workspaceRoot, false);
+  return {
+    sessionId: executionRun.id,
+    agentId,
+    prompt: String(normalizedMission.prompt || normalizedMission.currentTask || ''),
+    role: normalizedMission.role || null,
+    model: normalizedMission.localModel || normalizedMission.model || null,
+    executionRunId: executionRun.id,
+    contractId: contractRecord.id,
+    contractVersion: contractRecord.version,
+    budget: runtimeBudget || null,
+    executionPolicy: normalizedMission.executionPolicy || null,
+    autonomyPlan: autonomyPlan || null,
+    workspaceRoot,
+    executable: resolvedExecutable,
+    environmentKeys: Object.keys(safeEnvironment || {}).sort()
+  };
+}
+
 function runtimeExitOutcome(termination, code, options = {}, domainState = {}) {
   const signal = typeof options === 'object' && options !== null ? options.signal : options;
   const stderr = typeof options === 'object' && options !== null ? (options.stderr || '') : (arguments[3] || '');
@@ -397,7 +417,12 @@ async function superviseMission(options) {
     dispatchPendingContinuation(agentId);
   });
   await updateAgent(agentId, 'running', normalizedMission.prompt);
-  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, { executable: resolvedExecutable, executionRunId: executionRun.id, autonomyPlan }, 'info', 'running');
+  emitTracked('AGENT_RUNTIME_STARTED', 'START', `Runtime started with ${resolvedExecutable}.`, {
+    executable: resolvedExecutable,
+    executionRunId: executionRun.id,
+    autonomyPlan,
+    replayManifest: buildReplayManifest({ agentId, normalizedMission, executionRun, contractRecord, autonomyPlan, runtimeBudget, workspaceRoot, resolvedExecutable })
+  }, 'info', 'running');
   if (isLocalRuntime(resolvedExecutable) && !normalizedMission.localRoutingPolicy) {
     const workspace = normalizedMission.workspaceId
       ? await db.get('SELECT organization_id AS organizationId, project_id AS projectId FROM workspaces WHERE id = ?', normalizedMission.workspaceId)
@@ -430,4 +455,4 @@ async function superviseMission(options) {
   return { started: true, executionRun };
 }
 
-module.exports = { superviseMission, runtimeExitOutcome };
+module.exports = { superviseMission, runtimeExitOutcome, buildReplayManifest };
