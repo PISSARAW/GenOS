@@ -29,7 +29,7 @@ const swarmSentinel = require('./swarmSentinelService');
 const { terminateChild, clearTerminationTimer } = require('./processTermination');
 
 const SAFE_RUNTIME_ENV = new Set([
-  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE', 'CODEX_EXECUTABLE',
   'LANG', 'LC_ALL', 'NODE_ENV'
 ]);
 
