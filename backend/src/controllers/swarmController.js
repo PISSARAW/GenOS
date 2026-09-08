@@ -280,14 +280,23 @@ async function castVote(req, res) {
     return res.status(409).json({ error: { code: 'VOTE_ALREADY_CAST', message: 'This participant has already voted on the proposal.' } });
   }
 
-  // Calcul du poids de vote en fonction du brierScore
+  // Compute vote weight from persisted calibration; client-supplied weight is not authoritative.
   let voteWeight = 1.0;
   let recordedBrier = null;
-  if (Number.isFinite(brierScore) && brierScore >= 0 && brierScore <= 1) {
-    recordedBrier = Number(brierScore);
+  if (proposal.consensus_type === 'brier_weighted') {
+    const calibration = req.tenant
+      ? await db.get(
+        `SELECT AVG(brier_score) AS averageBrier FROM evaluation_runs
+         WHERE agent_id = ? AND brier_score IS NOT NULL AND organization_id = ? AND project_id = ?`,
+        agentId, req.tenant.organizationId, req.tenant.projectId
+      )
+      : await db.get('SELECT AVG(brier_score) AS averageBrier FROM evaluation_runs WHERE agent_id = ? AND brier_score IS NOT NULL', agentId);
+    if (Number.isFinite(Number(calibration?.averageBrier)) && Number(calibration.averageBrier) >= 0 && Number(calibration.averageBrier) <= 1) {
+      recordedBrier = Number(calibration.averageBrier);
+    }
+  }
+  if (recordedBrier !== null) {
     voteWeight = recordedBrier >= 0.5 ? Math.max(0, 0.1 * (1 - recordedBrier)) : Math.pow(1 - recordedBrier, 2);
-  } else if (Number.isFinite(inputWeight) && inputWeight > 0) {
-    voteWeight = Number(inputWeight);
   }
 
   const id = `${safeProposalId}-${agentId}-${Date.now()}`;
