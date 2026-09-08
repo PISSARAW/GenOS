@@ -10,5 +10,6 @@ assert.match(daemonSource, /setInterval\(/, 'daemon mode must schedule recurring
 assert.match(daemonSource, /process\.once\('SIGTERM', stop\)/, 'daemon mode must stop cleanly');
 assert.match(autostartSource, /--daemon --no-color/, 'Windows autostart must launch daemon mode');
 assert.doesNotMatch(autostartSource, /--interactive/, 'Windows autostart must not wait for terminal input');
+assert.match(autostartSource, /enabled: false/, 'autostart must require explicit operator opt-in');
 
 console.log('daemon runtime contract checks passed.');
