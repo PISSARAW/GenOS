@@ -38,7 +38,9 @@ async function run() {
 
   const evalPass = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
     replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) },
-    independentVerification: true,
+    independentVerification: { verifierId: 'independent-verifier', verificationHash: 'b'.repeat(64), verifiedAt: new Date().toISOString() },
+    agentId: 'worker-agent',
+    report: { claims: [{ statement: 'verified', evidence: [{ receiptHash: 'c'.repeat(64) }] }] },
     humanApproved: true
   });
   assert.equal(evalPass.eligible, true);
@@ -102,7 +104,7 @@ async function run() {
       eventType: 'AGENT_COMPLETED',
       action: 'COMPLETE',
       detail: 'Done without replay',
-      payload: { executionRunId: run.id, replayVerified: false, independentVerification: true }
+      payload: { executionRunId: run.id, replayReceipt: {}, independentVerification: { verifierId: 'independent-verifier', verificationHash: 'b'.repeat(64), verifiedAt: new Date().toISOString() } }
     });
     assert.equal(failRes.halt, true);
     assert.match(failRes.reason, /Promotion gate blocked.*require_replay/);

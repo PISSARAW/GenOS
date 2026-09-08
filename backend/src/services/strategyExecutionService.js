@@ -235,6 +235,8 @@ async function recordExecutionEvent(db, agentId, event) {
     const evidenceClaims = evidenceReport?.claims || event.payload?.claims;
     const promoEval = promotionPolicy.evaluatePromotionGate(contract, {
       replayReceipt,
+      independentVerification: event.payload?.independentVerification,
+      agentId: row.agent_id,
       humanApproved: false,
       report: evidenceReport
     });
