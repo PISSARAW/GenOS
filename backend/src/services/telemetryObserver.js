@@ -25,6 +25,15 @@ function redactObservability(value) {
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, SENSITIVE_KEY.test(key) ? '[REDACTED]' : redactObservability(item)]));
 }
 
+function telemetryScope(eventData = {}) {
+  const payload = eventData.payload || {};
+  const tenant = payload.tenant || eventData.tenant || {};
+  return {
+    organizationId: payload.organizationId || payload.organization_id || tenant.organizationId || tenant.organization_id || eventData.organizationId || eventData.organization_id || null,
+    projectId: payload.projectId || payload.project_id || tenant.projectId || tenant.project_id || eventData.projectId || eventData.project_id || null
+  };
+}
+
 class TelemetryObserver extends EventEmitter {
   constructor() {
     super();
@@ -83,6 +92,9 @@ class TelemetryObserver extends EventEmitter {
     const reqId = store ? store.get('requestId') : null;
 
     const payload = redactObservability(eventData.payload || {});
+    const scope = telemetryScope({ ...eventData, payload });
+    if (scope.organizationId) payload.organizationId = scope.organizationId;
+    if (scope.projectId) payload.projectId = scope.projectId;
     if (traceId && !payload.traceId) payload.traceId = traceId;
     if (reqId && !payload.requestId) payload.requestId = reqId;
 
