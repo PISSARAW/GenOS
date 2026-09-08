@@ -65,6 +65,83 @@ async function inspectNode(req, res) {
   });
 }
 
+function comparableAgentState(agent, counts) {
+  return {
+    identity: {
+      id: agent.id,
+      name: agent.name,
+      nameMeaning: agent.name_meaning,
+      role: agent.role,
+      agentType: agent.agent_type,
+      executionMode: agent.execution_mode,
+      modelTier: agent.model_tier,
+      language: agent.language,
+      lineageRelation: agent.lineage_relation
+    },
+    conscience: {
+      status: agent.status,
+      isApoptotic: Boolean(agent.is_apoptotic),
+      dissonanceLevel: agent.dissonance_level || 0,
+      eurekaCount: agent.eureka_count || 0,
+      cognitiveBudget: agent.cognitive_budget || 0,
+      cognitiveBaselineBudget: agent.cognitive_baseline_budget || 0
+    },
+    lineage: {
+      parentAgentId: agent.parent_agent_id,
+      workspaceId: agent.workspace_id
+    },
+    activity: counts
+  };
+}
+
+function diffValues(left, right, prefix = '') {
+  const differences = [];
+  const keys = new Set([...Object.keys(left || {}), ...Object.keys(right || {})]);
+  for (const key of keys) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const a = left?.[key];
+    const b = right?.[key];
+    if (a && b && typeof a === 'object' && typeof b === 'object' && !Array.isArray(a) && !Array.isArray(b)) {
+      differences.push(...diffValues(a, b, path));
+    } else if (JSON.stringify(a) !== JSON.stringify(b)) {
+      differences.push({ path, left: a ?? null, right: b ?? null });
+    }
+  }
+  return differences;
+}
+
+async function diffAgents(req, res) {
+  const leftId = String(req.body?.leftAgentId || req.body?.agentAId || '').trim();
+  const rightId = String(req.body?.rightAgentId || req.body?.agentBId || '').trim();
+  if (!leftId || !rightId) return res.status(400).json({ error: { code: 'AGENTS_REQUIRED', message: 'leftAgentId and rightAgentId are required.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const loadAgent = (id) => db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, id, ...scope.params);
+  const [left, right] = await Promise.all([loadAgent(leftId), loadAgent(rightId)]);
+  if (!left || !right) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Both agents must exist in the current tenant.' } });
+  const countsFor = async (id) => {
+    const [decisions, runs, events, children] = await Promise.all([
+      db.get('SELECT COUNT(*) AS count FROM genome_decisions WHERE created_by = ?', id),
+      db.get('SELECT COUNT(*) AS count FROM strategy_execution_runs WHERE agent_id = ?', id),
+      db.get('SELECT COUNT(*) AS count FROM telemetry_events WHERE agent_id = ?', id),
+      db.get('SELECT COUNT(*) AS count FROM agents WHERE parent_agent_id = ?', id)
+    ]);
+    return { decisions: decisions?.count || 0, executionRuns: runs?.count || 0, telemetryEvents: events?.count || 0, directChildren: children?.count || 0 };
+  };
+  const [leftState, rightState] = await Promise.all([countsFor(left.id), countsFor(right.id)]);
+  const leftComparable = comparableAgentState(left, leftState);
+  const rightComparable = comparableAgentState(right, rightState);
+  return res.json({
+    success: true,
+    leftAgentId: left.id,
+    rightAgentId: right.id,
+    identical: JSON.stringify(leftComparable) === JSON.stringify(rightComparable),
+    differences: diffValues(leftComparable, rightComparable),
+    left: leftComparable,
+    right: rightComparable
+  });
+}
+
 async function cloneNode(req, res) {
   const { nodeId, id } = req.body || {};
   const parentId = nodeId || id;
@@ -324,6 +401,7 @@ async function performCrossover(req, res, next) {
 module.exports = {
   getLineage,
   inspectNode,
+  diffAgents,
   cloneNode,
   killNode,
   getGenomeGraph,

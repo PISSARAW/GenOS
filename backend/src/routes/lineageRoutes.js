@@ -12,6 +12,7 @@ router.use(requireTenantScope());
 
 router.get('/lineage', lineageController.getLineage);
 router.post('/nodes/inspect', lineageController.inspectNode);
+router.post('/agents/diff', lineageController.diffAgents);
 router.post('/nodes/clone', requirePermission('workspace:write'), lineageController.cloneNode);
 router.post('/nodes/kill', requirePermission('workspace:write'), lineageController.killNode);
 
