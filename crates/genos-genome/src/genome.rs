@@ -12,10 +12,20 @@ fn default_hayflick_limit() -> u32 {
     DEFAULT_HAYFLICK_LIMIT
 }
 
+fn default_ploidy() -> String {
+    "diploid".to_string()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Genome {
     genome_id: Uuid,
     lineage_id: Uuid,
+    #[serde(default)]
+    pub parent_ids: Vec<Uuid>,
+    #[serde(default)]
+    pub generation: u32,
+    #[serde(default = "default_ploidy")]
+    pub ploidy: String,
     pub chromosome_maternal: DnaStrand,
     pub chromosome_paternal: DnaStrand,
     pub genes: BTreeMap<String, Gene>,
@@ -67,7 +77,10 @@ impl Genome {
 
     pub fn derive_child(&self) -> Self {
         let mut child = self.clone();
+        let parent_id = self.genome_id;
         child.genome_id = Uuid::new_v4();
+        child.parent_ids = vec![parent_id];
+        child.generation = self.generation.saturating_add(1);
         child.bud_scars.clear();
         child
     }
@@ -153,7 +166,8 @@ impl Genome {
             "plasmids": &self.plasmids,
             "endogenous_retroviruses": &self.endogenous_retroviruses,
             "regulatory_enhancers": &self.regulatory_enhancers,
-            "extra_chromosomes": &self.extra_chromosomes
+            "extra_chromosomes": &self.extra_chromosomes,
+            "ploidy": &self.ploidy
         });
         let mut hasher = Sha256::new();
         hasher.update(serde_json::to_vec(&content).unwrap_or_default());
@@ -175,6 +189,9 @@ impl Genome {
             extra_chromosomes: Vec::new(),
             bud_scars: Vec::new(),
             hayflick_limit: DEFAULT_HAYFLICK_LIMIT,
+            parent_ids: Vec::new(),
+            generation: 0,
+            ploidy: default_ploidy(),
         }
     }
 
@@ -382,6 +399,15 @@ mod tests {
         let child = genome.derive_child();
         assert_eq!(genome.content_hash(), child.content_hash());
         assert_ne!(genome.genome_id(), child.genome_id());
+    }
+
+    #[test]
+    fn derived_child_carries_parent_generation_and_ploidy() {
+        let genome = Genome::new("IDENTITY");
+        let child = genome.derive_child();
+        assert_eq!(child.parent_ids, vec![genome.genome_id()]);
+        assert_eq!(child.generation, 1);
+        assert_eq!(child.ploidy, "diploid");
     }
 
     #[test]

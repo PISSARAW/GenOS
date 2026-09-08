@@ -62,6 +62,7 @@ mod tests {
         let child = MeioticCrossover::uniform_crossover(&parent1, &parent2, 0.5);
         assert_ne!(child.genome_id(), parent1.genome_id());
         assert_eq!(child.lineage_id(), parent1.lineage_id());
+        assert_eq!(child.parent_ids, vec![parent1.genome_id(), parent2.genome_id()]);
         assert_eq!(child.chromosome_maternal.len(), parent1.chromosome_maternal.len());
         assert_eq!(child.chromosome_paternal.len(), parent2.chromosome_paternal.len());
 
@@ -241,6 +242,8 @@ mod tests {
         
         for (i, gamete) in gametes.iter().enumerate() {
             assert_eq!(gamete.lineage_id(), genome.lineage_id());
+            assert_eq!(gamete.parent_ids, vec![genome.genome_id()]);
+            assert_eq!(gamete.ploidy, "haploid");
             assert_eq!(
                 gamete.genes.get("gamete_meiotic_index").unwrap().dna.as_slice(),
                 genos_genome::Gene::new("gamete_meiotic_index", &i.to_string()).dna.as_slice()

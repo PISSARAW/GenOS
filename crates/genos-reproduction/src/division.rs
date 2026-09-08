@@ -444,6 +444,8 @@ impl CellDivision {
             }
 
             let mut gamete = genome.derive_child();
+            gamete.parent_ids = vec![genome.genome_id()];
+            gamete.ploidy = "haploid".to_string();
             gamete.chromosome_maternal.replace_sequence(chrom.clone());
             gamete.chromosome_paternal.replace_sequence(chrom);
             gamete.bud_scars.clear();

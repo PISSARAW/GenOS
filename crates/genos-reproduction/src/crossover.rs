@@ -38,6 +38,8 @@ impl MeioticCrossover {
     pub fn single_point_crossover(parent_a: &Genome, parent_b: &Genome, crossover_point: usize) -> (Genome, Genome) {
         let mut child_a = parent_a.derive_reproductive_child();
         let mut child_b = parent_b.derive_reproductive_child();
+        child_a.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
+        child_b.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
 
         let (a_gamete_1, a_gamete_2) = Self::gametes(parent_a, crossover_point);
         let (b_gamete_1, b_gamete_2) = Self::gametes(parent_b, crossover_point);
@@ -99,6 +101,7 @@ impl MeioticCrossover {
 
     pub fn uniform_crossover_with_seed(parent_a: &Genome, parent_b: &Genome, swap_prob: f64, seed: &str) -> Genome {
         let mut child = parent_a.derive_reproductive_child();
+        child.parent_ids = vec![parent_a.genome_id(), parent_b.genome_id()];
         let swap_prob = swap_prob.clamp(0.0, 1.0);
         let mut rng = rng_from_seed(seed);
 
