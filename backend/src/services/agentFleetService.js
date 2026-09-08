@@ -87,7 +87,9 @@ async function waitForAutonomousWorkerQuiescence(db, orchestratorId, initialWork
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
-  throw new Error(`Timed out waiting for all autonomous workers of '${orchestratorId}' to become quiescent.`);
+  const error = new Error(`Timed out waiting for all autonomous workers of '${orchestratorId}' to become quiescent.`);
+  error.code = 'WORKER_BARRIER_TIMEOUT';
+  throw error;
 }
 async function runLocalWorker(db, mission, executionRun) {
   await updateAgent(mission.agentId, 'running', mission.prompt);
@@ -122,6 +124,7 @@ async function runLocalWorker(db, mission, executionRun) {
       throw Object.assign(new Error('Local code worker tests failed; capsule changes were rolled back.'), { code: 'WORKER_TESTS_FAILED', proposal });
     }
     let evidenceReport;
+    let partialBarrier = false;
     try {
       evidenceReport = JSON.parse(String(result.text || '').match(/\{[\s\S]*\}/)?.[0] || '');
     } catch (_) { throw new Error('Local worker did not return a structured JSON evidence report.'); }
@@ -435,6 +438,12 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
         timeoutMs: normalizedMission.workerBarrierTimeoutMs
       });
     } catch (error) {
+      if (error.code === 'WORKER_BARRIER_TIMEOUT') {
+        partialBarrier = true;
+        emit(agentId, 'WORKER_EVIDENCE_BARRIER_PARTIAL', 'SYNTHESIZE_PARTIAL', error.message, {
+          workerIds: autonomousWorkers.map((worker) => worker.agentId)
+        }, 'warning', 'running');
+      } else {
       const cancelled = error.code === 'WORKER_BARRIER_CANCELLED';
       const { stopMission } = require('./agentRuntimeAdapter');
       for (const worker of autonomousWorkers) stopMission(worker.agentId);
@@ -445,28 +454,39 @@ async function runEvidenceBarrier({ db, agentId, normalizedMission, autonomyPlan
       activeWorkerBarriers.delete(agentId);
       workerEvidenceRounds.delete(agentId);
       throw error;
+      }
     }
     const dossiers = workerEvidenceDossiers(agentId, autonomousWorkers);
-    validateWorkerDossiers(dossiers, autonomousWorkers, { contract: contractRecord?.contract });
+    if (!partialBarrier) validateWorkerDossiers(dossiers, autonomousWorkers, { contract: contractRecord?.contract });
+    const usableDossiers = partialBarrier
+      ? dossiers.filter((dossier) => dossier.events.some((event) => event.evidenceReport || event.failure || event.noAnswerProof))
+      : dossiers;
+    if (partialBarrier && !usableDossiers.length) {
+      activeWorkerBarriers.delete(agentId);
+      workerEvidenceRounds.delete(agentId);
+      throw Object.assign(new Error('Worker evidence barrier timed out before any usable dossier was collected.'), { code: 'WORKER_BARRIER_NO_EVIDENCE' });
+    }
     normalizedMission.prompt = buildWorkerSynthesisPrompt(
       normalizedMission.prompt || normalizedMission.currentTask || '',
-      dossiers
+      usableDossiers
     );
     const delegationTools = new Set(['genos_delegate_worker', 'genos_trinity_launch']);
     normalizedMission.toolLease = (normalizedMission.toolLease || []).filter((tool) => !delegationTools.has(tool));
     autonomyPlan.synthesisOnly = true;
-    autonomyPlan.completedWorkerIds = dossiers.map((dossier) => dossier.workerId);
+    autonomyPlan.completedWorkerIds = usableDossiers.map((dossier) => dossier.workerId);
     autonomyPlan.dispatchWorkers = [];
     autonomyPlan.mandatoryTools = (autonomyPlan.mandatoryTools || []).filter((tool) => !delegationTools.has(tool));
     emit(agentId, 'WORKER_EVIDENCE_DOSSIERS_ATTACHED', 'ATTACH_DOSSIERS', `Persisted and attached ${dossiers.length} worker evidence dossiers to synthesis prompt.`, {
       workerIds: autonomousWorkers.map((worker) => worker.agentId),
-      dossierCount: dossiers.length,
-      dossiers
+      dossierCount: usableDossiers.length,
+      partial: partialBarrier,
+      dossiers: usableDossiers
     }, 'info', 'running');
     emit(agentId, 'WORKER_EVIDENCE_BARRIER_SATISFIED', 'SYNTHESIZE', 'Every delegated worker is terminal and all collected dossiers were attached to the official root synthesis.', {
       workerIds: autonomousWorkers.map((worker) => worker.agentId),
-      dossierCount: dossiers.length,
-      evidenceEventCount: dossiers.reduce((sum, dossier) => sum + dossier.events.length, 0)
+      dossierCount: usableDossiers.length,
+      partial: partialBarrier,
+      evidenceEventCount: usableDossiers.reduce((sum, dossier) => sum + dossier.events.length, 0)
     }, 'info', 'running');
     activeWorkerBarriers.delete(agentId);
     workerEvidenceRounds.delete(agentId);
