@@ -60,4 +60,59 @@ async function experiencePackets(context = {}) { return { success: true, packets
 async function knowledgeGraph(context = {}) { return { success: true, nodes: context.nodes || [], edges: context.edges || [] }; }
 async function reviewedApply(context = {}) { return { success: Boolean(context.approved === true), applied: context.approved === true, reason: context.approved === true ? 'review approved' : 'review approval required' }; }
 
-module.exports = { frontierEscalation, impactGraph, invalidateAssumption, pairedEvaluation, heredityExperiment, branchEvolution, adversarialReview, blindCritics, contextCompaction, experiencePackets, knowledgeGraph, reviewedApply };
+async function inferTraits(context = {}) {
+  const evidence = Array.isArray(context.evidence) ? context.evidence : [];
+  const traits = [...new Set(evidence.flatMap((item) => Array.isArray(item.traits) ? item.traits : item.trait ? [item.trait] : []))];
+  return { success: true, traits, evidenceCount: evidence.length };
+}
+
+async function replicate(context = {}) {
+  const source = context.source || context.parent || {};
+  if (!source.id) return { success: false, error: 'source.id is required.', code: 'SOURCE_REQUIRED' };
+  return { success: true, replica: { ...source, id: String(context.replicaId || `${source.id}-replica`), replicatedFrom: source.id, traits: [...(source.traits || [])] } };
+}
+
+async function promoteTrait(context = {}) {
+  const trait = String(context.trait || '').trim();
+  const evidence = Array.isArray(context.evidence) ? context.evidence : [];
+  if (!trait || !evidence.length) return { success: false, error: 'trait and evidence are required.', code: 'TRAIT_EVIDENCE_REQUIRED' };
+  return { success: true, promoted: true, trait, evidenceCount: evidence.length };
+}
+
+async function phenotypeEvidence(context = {}) {
+  const phenotype = context.phenotype || {};
+  const evidence = Array.isArray(context.evidence) ? context.evidence : [];
+  return { success: true, phenotype, evidence, supported: evidence.length > 0 };
+}
+
+async function validateChild(context = {}) {
+  const child = context.child || {};
+  const requiredTraits = Array.isArray(context.requiredTraits) ? context.requiredTraits : [];
+  const traits = new Set(child.traits || []);
+  const missing = requiredTraits.filter((trait) => !traits.has(trait));
+  return { success: missing.length === 0, valid: missing.length === 0, missingTraits: missing };
+}
+
+async function alternateGenome(context = {}) {
+  const genome = context.genome || {};
+  return { success: true, genome: { ...genome, id: String(context.alternateId || `alternate-${Date.now()}`), alternateOf: genome.id || null, alternate: true } };
+}
+
+async function hotSpare(context = {}) {
+  const spares = Array.isArray(context.spares) ? context.spares : [];
+  const available = spares.find((spare) => spare && spare.healthy !== false && spare.status !== 'failed');
+  return { success: Boolean(available), selected: available || null, available: spares.length };
+}
+
+async function healthSwitch(context = {}) {
+  const primary = context.primary || {};
+  const spare = context.spare || {};
+  const useSpare = primary.healthy === false || primary.status === 'failed';
+  return { success: Boolean(useSpare ? spare.id : primary.id), selected: useSpare ? spare : primary, switched: useSpare };
+}
+
+async function decoyBranch(context = {}) { return { success: true, decoyId: String(context.decoyId || `decoy-${Date.now()}`), isolated: true, source: context.source || null }; }
+async function observe(context = {}) { return { success: true, observations: Array.isArray(context.events) ? context.events : [], observed: true }; }
+async function destroyDecoy(context = {}) { return { success: Boolean(context.decoyId), destroyed: Boolean(context.decoyId), decoyId: context.decoyId || null }; }
+
+module.exports = { frontierEscalation, impactGraph, invalidateAssumption, pairedEvaluation, heredityExperiment, branchEvolution, adversarialReview, blindCritics, contextCompaction, experiencePackets, knowledgeGraph, reviewedApply, inferTraits, replicate, promoteTrait, phenotypeEvidence, validateChild, alternateGenome, hotSpare, healthSwitch, decoyBranch, observe, destroyDecoy };
