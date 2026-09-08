@@ -9,6 +9,8 @@ const { summarizeEvaluationGraders } = require('../src/services/jobWorker');
 
 assert.equal(exactMatch({ x: 1, y: 2 }, { y: 2, x: 1 }), true);
 assert.equal(exactMatch('answer', null), false);
+assert.equal(exactMatch(null, null), true);
+assert.equal(exactMatch('', null), false);
 assert.equal(exactMatch(' answer ', 'answer'), true);
 
 const groundedGood = groundedness('answer [source:s1]', { sources: [{ id: 's1', content: 'answer' }] });
