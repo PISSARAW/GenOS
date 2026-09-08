@@ -15,8 +15,9 @@ const runtimeAdapter = require('./src/services/agentRuntimeAdapter');
 const workspaceSnapshotStore = require('./src/services/workspaceSnapshotStore');
 const { terminatePid, processMatches } = require('./src/services/processTermination');
 const circuitBreaker = require('./src/services/circuitBreaker');
+const { readPort } = require('./src/services/runtimeConfig');
 
-const PORT = process.env.PORT || 4000;
+const PORT = readPort('PORT', process.env.PORT, 4000);
 
 async function startServer() {
   if (cluster.isPrimary) {
@@ -112,7 +113,7 @@ async function startServer() {
         registerAllServices(grpcServer, descriptor);
       }
       
-      const GRPC_PORT = process.env.GRPC_PORT || 50051;
+      const GRPC_PORT = readPort('GRPC_PORT', process.env.GRPC_PORT, 50051);
       const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
       const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
       const tlsPair = readPrivateTlsPair(tlsKey, tlsCert);

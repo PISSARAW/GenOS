@@ -7,6 +7,7 @@ const grpc = require('@grpc/grpc-js');
 const loadAllProtos = require('./proto/index.js');
 const registerAllServices = require('./src/grpc_services/index.js');
 const { readPrivateTlsPair } = require('./src/services/tlsConfig');
+const { readPort } = require('./src/services/runtimeConfig');
 
 async function startGrpcServer() {
   const server = new grpc.Server();
@@ -16,7 +17,7 @@ async function startGrpcServer() {
     registerAllServices(server, desc);
   }
 
-  const port = process.env.GRPC_PORT || '50051';
+  const port = readPort('GRPC_PORT', process.env.GRPC_PORT, 50051);
   const tlsKey = process.env.GENOS_GRPC_TLS_KEY;
   const tlsCert = process.env.GENOS_GRPC_TLS_CERT;
   const tlsPair = readPrivateTlsPair(tlsKey, tlsCert);

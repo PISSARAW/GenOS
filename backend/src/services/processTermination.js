@@ -2,10 +2,10 @@ const DEFAULT_GRACE_MS = 5000;
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { readGracePeriod } = require('./runtimeConfig');
 
 function gracePeriodMs() {
-  const configured = Number(process.env.GENOS_PROCESS_GRACE_MS);
-  return Number.isFinite(configured) && configured >= 0 ? configured : DEFAULT_GRACE_MS;
+  return readGracePeriod(process.env.GENOS_PROCESS_GRACE_MS, DEFAULT_GRACE_MS);
 }
 
 function processMatches(pid, executable) {
