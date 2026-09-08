@@ -85,7 +85,6 @@ async function executeStrategyTool(toolName, args = {}) {
         learningRate: args.learning_rate || args.learningRate,
         transmitterType: args.transmitter_type || args.transmitterType,
         agentId: args.agent_id || args.agentId,
-        ...args
       };
       const res = await strategyExecutionAdapter.executePrimitive('stdp_update', primitiveArgs);
       const ok = res && res.success !== false;

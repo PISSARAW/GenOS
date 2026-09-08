@@ -48,6 +48,23 @@ function validateString(value, field, required = false) {
 function validateToolArguments(toolName, args = {}) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return invalid('args', 'must be an object.');
 
+  if (toolName === 'genos_synaptic_stdp_update') {
+    const aliasGroups = [
+      ['source_id', 'sourceId', 'causeId'],
+      ['target_id', 'targetId', 'effectId'],
+      ['pre_spike_at', 'preSpikeAt'],
+      ['post_spike_at', 'postSpikeAt'],
+      ['learning_rate', 'learningRate', 'outcome_score'],
+      ['transmitter_type', 'transmitterType', 'trait'],
+      ['agent_id', 'agentId']
+    ];
+    for (const aliases of aliasGroups) {
+      const provided = aliases.filter((alias) => args[alias] !== undefined && args[alias] !== null);
+      const values = [...new Set(provided.map((alias) => String(args[alias])))];
+      if (values.length > 1) return invalid(aliases[0], `conflicting aliases supplied: ${provided.join(', ')}.`);
+    }
+  }
+
   for (const field of REQUIRED_STRINGS[toolName] || []) {
     const error = validateString(args[field], field, true);
     if (error) return error;

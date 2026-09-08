@@ -430,7 +430,6 @@ async function executeConfiguredTransport({ toolName, args = {}, timeoutMs = 300
       learningRate: args.learning_rate || args.learningRate || args.outcome_score,
       transmitterType: args.transmitter_type || args.transmitterType || args.trait,
       agentId: args.agent_id || args.agentId,
-      ...args
     };
     const res = await strategyExecutionAdapter.executePrimitive('stdp_update', primitiveArgs);
     const ok = res && res.success !== false;
