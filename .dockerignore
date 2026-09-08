@@ -1,0 +1,15 @@
+.git
+.genos
+.genos-agent-worlds
+**/.genos
+**/.genos-agent-worlds
+**/node_modules
+target
+capsules
+snapshots
+test-repo
+worker-sub-1_mutate_worker_1
+*.db
+*.db-shm
+*.db-wal
+npm-debug.log*
