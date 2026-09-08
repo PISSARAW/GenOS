@@ -7,6 +7,7 @@ const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
+const { getToolInputSchema } = require('../services/mcpContract');
 
 function resolveAgentId(req) {
   const authenticatedId = req.user?.username || req.user?.keyId || 'mcp_controller';
@@ -44,6 +45,7 @@ async function listTools(req, res) {
       riskLevel: risk,
       description: t.description,
       actions: actions.length > 0 ? actions : [t.name],
+      inputSchema: getToolInputSchema(t.name),
       isLocked,
       circuitState: cbStatus.state,
       equippedTo: equipped
@@ -194,7 +196,7 @@ async function getSchema(req, res, next) {
     const db = await getDatabase();
     const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
     if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
-    const schema = vfsSandboxService.getToolSchema(toolName);
+    const schema = getToolInputSchema(toolName, vfsSandboxService.getToolSchema(toolName));
     res.json(schema);
   } catch (err) {
     next(err);

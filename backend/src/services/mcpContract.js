@@ -1,0 +1,50 @@
+const REQUIRED_STRINGS = {
+  genos_agent_world_capsule: ['snapshot_id'],
+  genos_world_sandbox_execute: ['world_id', 'command', 'backend'],
+  genos_world_hardlink_create: ['world_id', 'seed'],
+  genos_snapshot: ['agent', 'out'],
+  genos_replay: [],
+  genos_merge: ['branch_id'],
+  genos_export_audit: ['snapshot_id'],
+  genos_cost_accounting: ['agent_id'],
+  genos_loop_detection_check: ['history_file'],
+  genos_causality_fork: ['boundary_id', 'new_boundary_id'],
+  genos_causal_replay_experiment: ['input_file', 'output_file'],
+  genos_incident_experiment: ['manifest'],
+  genos_bug_investigation: ['manifest'],
+  genos_compliance_report: ['standard', 'output_file'],
+  genos_strategy_adaptation: ['agent_id', 'constraint'],
+  genos_rebase_compute_plan: ['graph_file'],
+  genos_resilience_apoptosis: ['agent_id'],
+  genos_parasitic_pressure: ['manifest'],
+  genos_bisect_agent: ['agent_id', 'predicate'],
+  genos_hypothesis_evidence: ['diagnosis_id', 'hypothesis_id', 'claim', 'source']
+};
+
+const ARRAY_FIELDS = new Set(['scenarios', 'injected_keys', 'dag_step', 'patterns_detected', 'facts', 'steps', 'preconditions']);
+const INTEGER_FIELDS = new Set(['after_id', 'limit', 'budget_steps', 'exact_match', 'stagnation', 'injection_step', 'iteration', 'tokens']);
+const NUMBER_FIELDS = new Set(['similarity', 'expected', 'observed', 'tolerance', 'elapsed', 'uncertainty', 'confidence']);
+
+function getToolInputSchema(toolName, baseSchema = {}) {
+  const schema = {
+    type: 'object',
+    properties: { ...(baseSchema.properties || {}) },
+    required: [...(baseSchema.required || [])],
+    additionalProperties: baseSchema.additionalProperties !== false
+  };
+  if (toolName === 'genos_replay') {
+    schema.anyOf = [{ required: ['snapshot'] }, { required: ['snapshot_id'] }];
+    schema.properties.snapshot = { type: 'string' };
+    schema.properties.snapshot_id = { type: 'string' };
+  }
+  for (const field of REQUIRED_STRINGS[toolName] || []) {
+    schema.properties[field] = { ...(schema.properties[field] || {}), type: 'string' };
+    if (!schema.required.includes(field)) schema.required.push(field);
+  }
+  for (const field of ARRAY_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'array', items: { type: 'string' } };
+  for (const field of INTEGER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'integer', minimum: 0 };
+  for (const field of NUMBER_FIELDS) schema.properties[field] = { ...(schema.properties[field] || {}), type: 'number', minimum: 0 };
+  return schema;
+}
+
+module.exports = { getToolInputSchema };
