@@ -50,7 +50,7 @@ class AgentDeployService {
 
     let inheritedStrategyContract = null;
     if (executionMode === 'worker') {
-      await agentAuthority.requireOrchestrator(db, parentAgentId);
+      await agentAuthority.requireOrchestrator(db, parentAgentId, workspaceId);
       inheritedStrategyContract = await strategyContracts.getLatestContract(db, parentAgentId);
       if (!inheritedStrategyContract) {
         inheritedStrategyContract = await strategyContracts.saveContract(db, {
