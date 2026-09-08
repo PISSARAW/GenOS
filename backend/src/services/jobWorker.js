@@ -35,23 +35,22 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
   return next;
 }
 
-function summarizeEvaluationGraders(results, graders, expectedTotal = results.length) {
+function summarizeEvaluationGraders(results, graders) {
   return Object.fromEntries(graders.map((grader) => {
-    const values = results.map((result) => result.graders?.[grader]).filter(Boolean);
+    const values = results.map((result) => result.graders[grader]).filter(Boolean);
     const passed = values.filter((value) => value.passed === true).length;
-    const scores = values.map((value) => Number(value.score ?? (value.passed === true ? 1 : 0))).filter(Number.isFinite);
-    const meanScore = scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null;
+    const scores = values.map((value) => Number(value.score)).filter(Number.isFinite);
     return [grader, {
       total: values.length,
       passed,
-      failed: Math.max(0, expectedTotal - passed),
-      missing: Math.max(0, expectedTotal - values.length),
-      complete: values.length === expectedTotal,
-      score: expectedTotal ? Number((passed / expectedTotal).toFixed(4)) : 0,
-      meanScore,
+      failed: Math.max(0, results.length - passed),
+      missing: Math.max(0, results.length - values.length),
+      complete: values.length === results.length,
+      score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
+      meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null,
       kind: 'metric',
       qualityGuarantee: false,
-      interpretation: 'descriptive grader signal; not proof of factual or safety correctness'
+      ...(grader === 'llm_judge' ? { calibration: 'not_calibrated' } : {})
     }];
   }));
 }
@@ -73,8 +72,8 @@ async function recoverInterruptedJobs(db) {
   for (const table of ['evaluation_jobs', 'model_jobs']) {
     await db.run(`UPDATE ${table} SET status = CASE WHEN attempts + 1 < max_attempts THEN 'queued' ELSE 'failed' END, attempts = attempts + 1, error_json = COALESCE(error_json, ?), completed_at = CASE WHEN attempts + 1 < max_attempts THEN NULL ELSE CURRENT_TIMESTAMP END, claimed_at = NULL, next_attempt_at = NULL WHERE status = 'running' AND (${stale})`, JSON.stringify({ message: 'Worker claim became stale; retry scheduled.', retryable: true }), `-${staleMinutes} minutes`);
   }
-  const campaigns = await db.all("SELECT DISTINCT campaign_id, organization_id, project_id FROM evaluation_jobs WHERE campaign_id IS NOT NULL");
-  for (const campaign of campaigns) await updateCampaignStatus(db, campaign.campaign_id, campaign.organization_id, campaign.project_id);
+  const campaigns = await db.all("SELECT DISTINCT campaign_id FROM evaluation_jobs WHERE campaign_id IS NOT NULL");
+  for (const campaign of campaigns) await updateCampaignStatus(db, campaign.campaign_id);
 }
 
 async function claim(db, table, id) {
@@ -246,21 +245,15 @@ async function executeEvaluation(db, job) {
   const graders = config.graders || ['exact_match'];
   const knownGraders = new Set(['exact_match', 'groundedness', 'safety', 'llm_judge']);
   if (!Array.isArray(graders) || graders.length === 0 || graders.some((grader) => !knownGraders.has(grader))) throw new Error('Evaluation must contain at least one supported grader.');
-  const judgeModel = config.judgeModel || process.env.GENOS_DEFAULT_MODEL || '';
+  const judgeModel = config.judgeModel || '';
   const evaluationModel = config.model || config.modelVersion || config.modelRouting?.primary;
   if (graders.includes('llm_judge') && !judgeModel) throw new Error('llm_judge requires an explicit judgeModel.');
   if (graders.includes('llm_judge') && evaluationModel && judgeModel === evaluationModel) throw new Error('llm_judge requires a model distinct from the evaluated model.');
   const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
-  const caseIds = new Set(cases.map((item) => item.id));
-  const seenCheckpointCases = new Set();
-  const results = (Array.isArray(checkpoint.cases) ? checkpoint.cases : []).filter((result) => {
-    if (!result || !caseIds.has(result.id) || seenCheckpointCases.has(result.id) || typeof result.passed !== 'boolean') return false;
-    seenCheckpointCases.add(result.id);
-    return true;
-  });
-  let passed = results.filter((result) => result.passed === true).length;
+  let passed = Number(checkpoint.passed) || 0;
+  const results = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
   const completed = new Set(results.map((result) => result.id));
   for (const item of cases) {
     const activeJob = await db.get('SELECT status FROM evaluation_jobs WHERE id = ?', job.id);
@@ -305,38 +298,27 @@ async function executeEvaluation(db, job) {
         ].join('\n');
         const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: jobTimeoutMs(config.timeoutMs), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         judge = parseJudgeResponse(judgeResult.text ?? judgeResult.content ?? '');
-      } catch (error) {
-        const judgeError = new Error(`Judge unavailable or invalid: ${error.message}`);
-        judgeError.code = 'EVALUATION_JUDGE_ERROR';
-        judgeError.retryable = true;
-        throw judgeError;
-      }
+      } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable or invalid: ${error.message}` }; }
     }
     const graderResults = {
       exact_match: { passed: exact, score: exact ? 1 : 0, kind: 'metric', qualityGuarantee: false },
       groundedness: { ...grounding, kind: 'metric', qualityGuarantee: false },
       safety: { ...safetyResult, kind: 'metric', qualityGuarantee: false },
-      ...(judge ? { llm_judge: { ...judge, kind: 'metric', qualityGuarantee: false } } : {})
+      ...(judge ? { llm_judge: { ...judge, kind: 'metric', qualityGuarantee: false, calibration: 'not_calibrated' } } : {})
     };
     const ok = graders.every((grader) => graderResults[grader]?.passed === true);
     if (ok) passed++;
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
     completed.add(item.id);
-    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results }), job.id);
+    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: results.length ? passed / results.length : 0, graders, cases: results }), job.id);
   }
-  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders, cases.length), cases: results };
+  const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
-async function updateCampaignStatus(db, campaignId, organizationId, projectId) {
+async function updateCampaignStatus(db, campaignId) {
   if (!campaignId) return;
-  const scoped = organizationId != null && projectId != null;
-  const jobs = await db.all(
-    scoped
-      ? 'SELECT status FROM evaluation_jobs WHERE campaign_id = ? AND organization_id = ? AND project_id = ?'
-      : 'SELECT status FROM evaluation_jobs WHERE campaign_id = ? AND organization_id IS NULL AND project_id IS NULL',
-    ...(scoped ? [campaignId, organizationId, projectId] : [campaignId])
-  );
+  const jobs = await db.all('SELECT status FROM evaluation_jobs WHERE campaign_id = ?', campaignId);
   if (!jobs.length) return;
   const status = jobs.some((job) => job.status === 'failed')
     ? 'failed'
@@ -345,12 +327,7 @@ async function updateCampaignStatus(db, campaignId, organizationId, projectId) {
     : jobs.every((job) => job.status === 'completed')
       ? 'completed'
       : 'running';
-  await db.run(
-    scoped
-      ? 'UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id = ? AND project_id = ?'
-      : 'UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND organization_id IS NULL AND project_id IS NULL',
-    ...(scoped ? [status, campaignId, organizationId, projectId] : [status, campaignId])
-  );
+  await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
 }
 
 async function executeModelJobBody(db, job) {
@@ -482,7 +459,7 @@ async function processTable(db, table) {
     if (table === 'evaluation_jobs') {
       if (job.campaign_id) await db.run("UPDATE evaluation_campaigns SET status = 'running', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'planned'", job.campaign_id);
       await withRetry(db, table, job, () => executeEvaluation(db, job));
-      await updateCampaignStatus(db, job.campaign_id, job.organization_id, job.project_id);
+      await updateCampaignStatus(db, job.campaign_id);
     } else {
       await withRetry(db, table, job, () => executeModelJob(db, job));
     }
@@ -506,4 +483,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, updateCampaignStatus, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
