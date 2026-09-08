@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.plugin;
+
+service PluginService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ExecutePlugin (PluginRequest) returns (PluginResponse);
+  rpc ListPlugins (Empty) returns (PluginListResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message PluginRequest { string plugin_id = 1; string input_json = 2; }
+message PluginResponse { bool success = 1; string output_json = 2; }
+message PluginListResponse { repeated string plugins = 1; }

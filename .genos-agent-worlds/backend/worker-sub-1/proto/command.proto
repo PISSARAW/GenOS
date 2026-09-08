@@ -1,0 +1,12 @@
+syntax = "proto3";
+package genos.command;
+
+service CommandService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ExecuteCommand (CommandRequest) returns (CommandResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message CommandRequest { string command = 1; repeated string args = 2; }
+message CommandResponse { int32 exit_code = 1; string stdout = 2; string stderr = 3; }

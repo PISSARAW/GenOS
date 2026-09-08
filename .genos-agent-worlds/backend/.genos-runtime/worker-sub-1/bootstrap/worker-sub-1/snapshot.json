@@ -1,0 +1,99 @@
+{
+  "agent_id": "8f922067-7ed4-4f50-90e6-a957d15107dd",
+  "branch_id": "branch-a89caad2",
+  "created_at": "2026-09-07T20:20:59.183350800+00:00",
+  "genome": {
+    "apiVersion": "v0alpha1",
+    "bud_scars": 0,
+    "capabilities": [
+      "inspect",
+      "reason",
+      "mutate"
+    ],
+    "cell_id": "8f922067-7ed4-4f50-90e6-a957d15107dd",
+    "cognition": {
+      "conscience": {
+        "baseline_budget": 100.0,
+        "current_budget": 100.0,
+        "dissonance_level": 0.0,
+        "eureka_moments": 0,
+        "is_apoptotic": false,
+        "max_dissonance_threshold": 50.0,
+        "revision": 0
+      },
+      "organelles": []
+    },
+    "conscience": {
+      "baseline_budget": 100.0,
+      "current_budget": 100.0,
+      "dissonance_level": 0.0,
+      "eureka_moments": 0,
+      "is_apoptotic": false,
+      "max_dissonance_threshold": 50.0,
+      "revision": 0
+    },
+    "hayflick_limit": 50,
+    "identity": {
+      "cell_id": "8f922067-7ed4-4f50-90e6-a957d15107dd",
+      "name": "gRPC worker",
+      "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+      "role": "worker"
+    },
+    "kind": "AgentGenome",
+    "memory": {
+      "consolidation": true,
+      "ltd_decay": true,
+      "synaptic_pruning": true,
+      "type": "cognitive"
+    },
+    "memory_policy": {
+      "consolidation": true,
+      "ltd_decay": true,
+      "synaptic_pruning": true
+    },
+    "metadata": {
+      "name": "gRPC worker",
+      "version": "0.1.0"
+    },
+    "model_policy": {
+      "preferred": "default"
+    },
+    "models": {
+      "preferred": "default"
+    },
+    "name": "gRPC worker",
+    "name_meaning": "Agent autonome résilient de l'écosystème GenOS",
+    "objectives": {
+      "operational_mode": "autonomous",
+      "primary": "worker"
+    },
+    "organelles": [],
+    "policies": {
+      "ephemeral_ttl": null,
+      "hayflick_limit": 50,
+      "is_ephemeral": false,
+      "is_senescent": false
+    },
+    "role": "worker",
+    "tool_policy": {
+      "allowed_tools": [
+        "genos_inspect",
+        "genos_test"
+      ]
+    },
+    "tools": {
+      "allowed_tools": [
+        "genos_inspect",
+        "genos_test"
+      ]
+    }
+  },
+  "snapshot_id": "snap-a89caad27b154149a5be6fd5851dcfcb",
+  "state": {
+    "dissonance": 0.0,
+    "entropy": 0.42,
+    "execution_status": "quiescent",
+    "working_memory": []
+  },
+  "world_id": "world-matrix-0"
+}

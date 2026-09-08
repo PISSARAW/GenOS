@@ -1,0 +1,13 @@
+syntax = "proto3";
+package genos.config;
+
+service ConfigService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc GetConfig (Empty) returns (ConfigResponse);
+  rpc UpdateConfig (UpdateConfigRequest) returns (ConfigResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message ConfigResponse { string config_json = 1; }
+message UpdateConfigRequest { string key = 1; string value_json = 2; }

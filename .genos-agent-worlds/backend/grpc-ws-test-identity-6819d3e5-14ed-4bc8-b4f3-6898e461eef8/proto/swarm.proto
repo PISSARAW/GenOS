@@ -1,0 +1,13 @@
+syntax = "proto3";
+package genos.swarm;
+
+service SwarmService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc GetSwarmMetrics (Empty) returns (SwarmMetricsResponse);
+  rpc GetSwarmTopology (Empty) returns (SwarmTopologyResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message SwarmMetricsResponse { float entropy = 1; float normalized_entropy = 2; string state = 3; int32 agent_count = 4; }
+message SwarmTopologyResponse { repeated string node_ids = 1; string topology_json = 2; }

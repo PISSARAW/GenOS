@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.integration;
+
+service IntegrationService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc TriggerIntegration (IntegrationRequest) returns (IntegrationResponse);
+  rpc ListIntegrations (Empty) returns (IntegrationListResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message IntegrationRequest { string integration_id = 1; string payload_json = 2; }
+message IntegrationResponse { bool success = 1; string result = 2; }
+message IntegrationListResponse { repeated string integrations = 1; }

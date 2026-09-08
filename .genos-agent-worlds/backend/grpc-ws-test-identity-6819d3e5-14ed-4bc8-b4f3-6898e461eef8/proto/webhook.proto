@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.webhook;
+
+service WebhookService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc DispatchWebhook (WebhookDispatchRequest) returns (WebhookResponse);
+  rpc ListWebhooks (Empty) returns (WebhookListResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message WebhookDispatchRequest { string url = 1; string event = 2; string payload_json = 3; }
+message WebhookResponse { bool dispatched = 1; int32 status_code = 2; }
+message WebhookListResponse { repeated string webhooks = 1; }

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.sso;
+
+service SsoService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc VerifyTicket (SsoTicketRequest) returns (SsoTicketResponse);
+  rpc GetConfig (Empty) returns (SsoConfigResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message SsoTicketRequest { string ticket = 1; }
+message SsoTicketResponse { bool valid = 1; string user_email = 2; }
+message SsoConfigResponse { string provider = 1; string issuer = 2; }

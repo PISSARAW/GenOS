@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.deploy;
+
+service DeployService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc DeployArtifact (DeployRequest) returns (DeployResponse);
+  rpc GetDeploymentStatus (DeployStatusRequest) returns (DeployResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message DeployRequest { string target = 1; string artifact_path = 2; }
+message DeployStatusRequest { string deployment_id = 1; }
+message DeployResponse { string deployment_id = 1; string status = 2; string endpoint_url = 3; }
