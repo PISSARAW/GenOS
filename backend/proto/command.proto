@@ -9,4 +9,4 @@ service CommandService {
 message Empty {}
 message PingResponse { string status = 1; }
 message CommandRequest { string command = 1; repeated string args = 2; }
-message CommandResponse { int32 exit_code = 1; string stdout = 2; string stderr = 3; }
+message CommandResponse { int32 exit_code = 1; string stdout = 2; string stderr = 3; bool success = 4; string status = 5; }
