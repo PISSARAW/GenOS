@@ -221,18 +221,28 @@ async function inbox(db, { orchestratorId, requesterAgentId, afterId = 0, limit 
   await assertMember(db, orchestratorId, requesterAgentId);
   const orchestrator = requesterAgentId === orchestratorId;
   const rows = await db.all(
-    `SELECT id, organization, organization_version as organizationVersion, sender_agent_id as senderAgentId,
+    `SELECT m.id, m.organization, m.organization_version as organizationVersion, m.sender_agent_id as senderAgentId,
             recipient_agent_id as recipientAgentId, channel, kind, content, payload_json as payloadJson,
-            delivery, created_at as createdAt
-     FROM agent_organization_messages
-    WHERE orchestrator_id = ? AND organization_version = ? AND id > ? AND sender_agent_id <> ?
-       AND delivery = 'delivered' AND (recipient_agent_id IS NULL OR recipient_agent_id = ?)
-     ORDER BY id LIMIT ?`,
+            m.delivery, m.created_at as createdAt, sender.name as senderName,
+            sender.name_meaning as senderNameMeaning, sender.role as senderRole,
+            recipient.name as recipientName, recipient.name_meaning as recipientNameMeaning
+     FROM agent_organization_messages m
+     LEFT JOIN agents sender ON sender.id = m.sender_agent_id
+     LEFT JOIN agents recipient ON recipient.id = m.recipient_agent_id
+    WHERE m.orchestrator_id = ? AND m.organization_version = ? AND m.id > ? AND m.sender_agent_id <> ?
+       AND m.delivery = 'delivered' AND (m.recipient_agent_id IS NULL OR m.recipient_agent_id = ? OR m.recipient_agent_id = 'broadcast')
+     ORDER BY m.id LIMIT ?`,
     orchestratorId, state.version, Math.max(0, Number(afterId || 0)), requesterAgentId,
     requesterAgentId, Math.min(50, Math.max(1, Number(limit || 20)))
   );
+  const members = await db.all(
+    `SELECT id, name, name_meaning as nameMeaning, role, execution_mode as executionMode
+       FROM agents WHERE id = ? OR parent_agent_id = ? ORDER BY execution_mode DESC, name ASC`,
+    orchestratorId, orchestratorId
+  );
   return {
     state,
+    members,
     messages: rows.map((row) => ({
       ...row,
       senderAgentId: organizationProfile(row.organization)?.visibility === 'anonymous' ? 'anonymous_worker' : row.senderAgentId,
