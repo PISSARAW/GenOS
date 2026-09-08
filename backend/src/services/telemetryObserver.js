@@ -100,18 +100,22 @@ class TelemetryObserver extends EventEmitter {
   broadcastSSE(event) {
     const payload = `data: ${JSON.stringify(event)}\n\n`;
     for (const client of this.sseClients) {
+      const eventOrg = event.payload?.organizationId || event.payload?.organization_id;
+      const eventProject = event.payload?.projectId || event.payload?.project_id;
+      if (!client.scope || eventOrg !== client.scope.organizationId || eventProject !== client.scope.projectId) continue;
       try {
-        client.write(payload);
+        client.res.write(payload);
       } catch (err) {
         this.sseClients.delete(client);
       }
     }
   }
 
-  addSSEClient(res) {
-    this.sseClients.add(res);
+  addSSEClient(res, scope = null) {
+    const client = { res, scope };
+    this.sseClients.add(client);
     res.on('close', () => {
-      this.sseClients.delete(res);
+      this.sseClients.delete(client);
     });
   }
 
@@ -130,9 +134,11 @@ class TelemetryObserver extends EventEmitter {
         try {
           const db = await getDatabase();
           await db.run(
-          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT OR IGNORE INTO telemetry_events (event_id, session_id, agent_id, event_type, action, detail, payload_json, severity, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             queuedEvent.id, queuedEvent.sessionId || 'session_live', queuedEvent.agentId, queuedEvent.eventType,
-            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity
+            queuedEvent.action, queuedEvent.detail, JSON.stringify(queuedEvent.payload), queuedEvent.severity,
+            queuedEvent.payload?.organizationId || queuedEvent.payload?.organization_id || null,
+            queuedEvent.payload?.projectId || queuedEvent.payload?.project_id || null
           );
           this.persistedEvents += 1;
           if (this.persistedEvents % 1000 === 0) await this.pruneHistory(db);
@@ -231,10 +237,17 @@ class TelemetryObserver extends EventEmitter {
     fs.writeFileSync(path.join(workspace.path, existingReadme ? 'GENOS_REPORT.md' : 'README.md'), `${lines.join('\n')}\n`, 'utf8');
   }
 
-  getRecentEvents(limit = 100, filterType = null) {
+  getRecentEvents(limit = 100, filterType = null, scope = null) {
     let result = [...this.ringBuffer];
     if (filterType) {
       result = result.filter(e => e.eventType === filterType);
+    }
+    if (scope) {
+      result = result.filter((event) => {
+        const organizationId = event.payload?.organizationId || event.payload?.organization_id;
+        const projectId = event.payload?.projectId || event.payload?.project_id;
+        return organizationId === scope.organizationId && projectId === scope.projectId;
+      });
     }
     return result.slice(-limit).reverse();
   }
