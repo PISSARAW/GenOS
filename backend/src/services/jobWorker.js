@@ -35,21 +35,23 @@ function selectFairWorkflow(rows = [], table = 'workflow_runs') {
   return next;
 }
 
-function summarizeEvaluationGraders(results, graders) {
+function summarizeEvaluationGraders(results, graders, expectedTotal = results.length) {
+  const total = Math.max(0, Number(expectedTotal) || 0);
   return Object.fromEntries(graders.map((grader) => {
     const values = results.map((result) => result.graders[grader]).filter(Boolean);
     const passed = values.filter((value) => value.passed === true).length;
     const scores = values.map((value) => Number(value.score)).filter(Number.isFinite);
+    const missing = Math.max(0, total - values.length);
     return [grader, {
       total: values.length,
       passed,
-      failed: Math.max(0, results.length - passed),
-      missing: Math.max(0, results.length - values.length),
-      complete: values.length === results.length,
-      score: values.length ? Number((passed / values.length).toFixed(4)) : 0,
+      failed: values.length - passed,
+      missing: Math.max(0, total - values.length),
+      complete: missing === 0,
+      score: total ? Number((passed / total).toFixed(4)) : 0,
       meanScore: scores.length ? Number((scores.reduce((sum, score) => sum + score, 0) / scores.length).toFixed(4)) : null,
       kind: 'metric',
-      qualityGuarantee: false,
+            qualityGuarantee: false,
       ...(grader === 'llm_judge' ? { calibration: 'not_calibrated' } : {})
     }];
   }));
