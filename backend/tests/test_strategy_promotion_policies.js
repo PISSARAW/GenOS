@@ -37,7 +37,7 @@ async function run() {
   assert(evalFail.violations.some((v) => v.policy === 'require_human_approval'));
 
   const evalPass = promotionPolicy.evaluatePromotionGate(contractWithPolicies, {
-    replayVerified: true,
+    replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) },
     independentVerification: true,
     humanApproved: true
   });
@@ -53,7 +53,8 @@ async function run() {
     'Claims without evidence must not satisfy independent verification'
   );
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: {} }).eligible, false);
-  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, true);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED' } }).eligible, false);
+  assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) } }).eligible, true);
   assert.equal(promotionPolicy.evaluatePromotionGate({ promotion: { require_replay: true } }, { replayVerified: false, replayReceipt: {} }).eligible, false);
   console.log('✓ Point 3.1: evaluatePromotionGate correctly enforces replay and verification');
 
@@ -132,7 +133,7 @@ async function run() {
       eventType: 'AGENT_COMPLETED',
       action: 'COMPLETE',
       detail: 'Unsupported claims must not pass',
-      payload: { executionRunId: evidenceBypassRun.id, replayVerified: true, independentVerification: true, evidenceReport: { claims: [{ statement: 'unsupported' }] } }
+      payload: { executionRunId: evidenceBypassRun.id, replayReceipt: { success: true, replayStatus: 'RECONSTRUCTED', replayHash: 'a'.repeat(64) }, independentVerification: true, evidenceReport: { claims: [{ statement: 'unsupported' }] } }
     });
     assert.equal(evidenceBypassRes.halt, true);
     assert.match(evidenceBypassRes.reason, /Promotion gate blocked.*require_independent_verification/);
