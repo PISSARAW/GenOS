@@ -204,6 +204,41 @@ async function mergeAgents(req, res) {
   return res.status(201).json({ success: true, mergedAgentId: mergedId, parentAgentIds: [left.id, right.id], cognitiveBudget: mergedBudget, status: 'idle' });
 }
 
+async function snapshotAgentState(req, res) {
+  const agentId = String(req.body?.agentId || '').trim();
+  if (!agentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const agent = await db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
+  if (!agent) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Agent is not available in the current tenant.' } });
+  const snapshotId = `agent-state-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  await db.run('INSERT INTO agent_state_snapshots (id, agent_id, workspace_id, state_json, reason, created_by) VALUES (?, ?, ?, ?, ?, ?)', snapshotId, agent.id, agent.workspace_id, JSON.stringify(agent), req.body?.reason || 'Agent state snapshot', req.user?.username || 'agent-operation');
+  return res.status(201).json({ success: true, snapshotId, agentId: agent.id, createdAt: new Date().toISOString() });
+}
+
+async function restoreAgentState(req, res) {
+  const agentId = String(req.body?.agentId || '').trim();
+  const snapshotId = String(req.body?.snapshotId || '').trim();
+  if (!agentId || !snapshotId) return res.status(400).json({ error: { code: 'AGENT_SNAPSHOT_REQUIRED', message: 'agentId and snapshotId are required.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const agent = await db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
+  const snapshot = await db.get('SELECT * FROM agent_state_snapshots WHERE id = ? AND agent_id = ?', snapshotId, agentId);
+  if (!agent || !snapshot) return res.status(404).json({ error: { code: 'AGENT_SNAPSHOT_NOT_FOUND', message: 'Agent or state snapshot is not available.' } });
+  const state = JSON.parse(snapshot.state_json);
+  await db.run(
+    `UPDATE agents SET name = ?, name_meaning = ?, role = ?, model_tier = ?, language = ?, isolation_mode = ?,
+      dissonance_level = ?, eureka_count = ?, cognitive_budget = ?, cognitive_baseline_budget = ?,
+      cognitive_max_dissonance = ?, is_apoptotic = ?, status = ?, current_task = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?`,
+    state.name, state.name_meaning, state.role, state.model_tier, state.language, state.isolation_mode,
+    state.dissonance_level || 0, state.eureka_count || 0, state.cognitive_budget ?? 0,
+    state.cognitive_baseline_budget ?? 0, state.cognitive_max_dissonance ?? 50, state.is_apoptotic || 0,
+    state.status, state.current_task, agentId
+  );
+  return res.json({ success: true, agentId, snapshotId, restored: true });
+}
+
 async function cloneNode(req, res) {
   const { nodeId, id } = req.body || {};
   const parentId = nodeId || id;
@@ -465,6 +500,8 @@ module.exports = {
   inspectNode,
   diffAgents,
   mergeAgents,
+  snapshotAgentState,
+  restoreAgentState,
   cloneNode,
   killNode,
   getGenomeGraph,
