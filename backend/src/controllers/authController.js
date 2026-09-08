@@ -144,7 +144,7 @@ async function createKey(req, res) {
 
   const rawKey = `genos_sk_${role}_${crypto.randomBytes(16).toString('hex')}`;
   const keyHash = hashKey(rawKey);
-  const id = `key-${Date.now()}`;
+  const id = `key-${crypto.randomUUID()}`;
 
   const db = await getDatabase();
   await db.run(
@@ -157,11 +157,45 @@ async function createKey(req, res) {
   });
 }
 
+async function revokeKey(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const result = await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ? AND is_active = 1', req.params.id);
+    if (result.changes !== 1) return res.status(404).json({ error: { code: 'KEY_NOT_FOUND', message: 'Active access key not found.' } });
+    res.json({ success: true, id: req.params.id, revoked: true });
+  } catch (error) { next(error); }
+}
+
+async function rotateKey(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const existing = await db.get('SELECT label, role, permissions, expires_at FROM access_keys WHERE id = ? AND is_active = 1', req.params.id);
+    if (!existing) return res.status(404).json({ error: { code: 'KEY_NOT_FOUND', message: 'Active access key not found.' } });
+    const rawKey = `genos_sk_${existing.role}_${crypto.randomBytes(16).toString('hex')}`;
+    const id = `key-${crypto.randomUUID()}`;
+    await db.run('UPDATE access_keys SET is_active = 0 WHERE id = ?', req.params.id);
+    await db.run('INSERT INTO access_keys (id, key_hash, label, role, permissions, expires_at) VALUES (?, ?, ?, ?, ?, ?)', id, hashKey(rawKey), existing.label, existing.role, existing.permissions, existing.expires_at);
+    res.status(201).json({ key: { id, label: existing.label, role: existing.role, permissions: JSON.parse(existing.permissions || '[]'), expiresAt: existing.expires_at, rawKey }, rotatedFrom: req.params.id });
+  } catch (error) { next(error); }
+}
+
+async function revokeSession(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const result = await db.run('UPDATE sessions SET revoked = 1 WHERE id = ? AND revoked = 0', req.params.id);
+    if (result.changes !== 1) return res.status(404).json({ error: { code: 'SESSION_NOT_FOUND', message: 'Active session not found.' } });
+    res.json({ success: true, id: req.params.id, revoked: true });
+  } catch (error) { next(error); }
+}
+
 module.exports = {
   verifyToken,
   getSession,
   login,
   loginWithPassword,
   listKeys,
-  createKey
+  createKey,
+  revokeKey,
+  rotateKey,
+  revokeSession
 };
