@@ -60,7 +60,7 @@ module.exports = {
       const workspace = await resolveWorkspace(request);
       const db = await getDatabase();
       const agent = await db.get('SELECT id FROM agents WHERE id = ? AND workspace_id = ?', request.id, workspace.id);
-      if (!agent) return callback(null, { stopped: false, status: 'not_in_workspace' });
+      if (!agent) return callback({ code: grpc.status.NOT_FOUND, message: `Agent '${request.id || ''}' was not found in the requested workspace.` });
     } catch (err) {
       return callback({ code: grpcStatusForError(err), message: err.message });
     }
