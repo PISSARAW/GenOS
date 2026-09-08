@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const path = require('path');
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
+const workspaceDiagnostics = require('../services/workspaceDiagnosticsService');
 
 const contractPath = process.env.GENOS_IDE_CONTRACT_PATH
   || path.resolve(__dirname, '../../../integrations/ide/genos-extension-contract.json');
@@ -133,6 +134,7 @@ async function execute(req, res) {
   if (!command) return res.status(404).json({ error: { code: 'IDE_COMMAND_NOT_FOUND', message: 'Unknown GenOS IDE command' } });
   await db.run('UPDATE ide_integrations SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?', integration.id);
   if (command.id === 'compliance.generate') return res.json({ accepted: true, action: 'open-studio', endpoint: '/api/compliance/reports' });
+  if (command.id === 'workspace.inspect') return res.json({ accepted: true, action: command.id, result: await workspaceDiagnostics.inspectWorkspace(integration.workspace_id) });
   return res.status(501).json({ error: { code: 'IDE_COMMAND_NOT_IMPLEMENTED', message: `IDE command '${command.id}' is registered but has no execution handler.` }, action: command.id });
 }
 module.exports = { contract, connect, list, heartbeat, status, diagnostics, disconnect, progress, execute, isCompatibleVersion };
