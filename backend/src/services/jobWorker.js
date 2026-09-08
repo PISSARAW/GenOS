@@ -322,9 +322,13 @@ async function executeEvaluation(db, job) {
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
 }
 
-async function updateCampaignStatus(db, campaignId) {
+async function updateCampaignStatus(db, campaignId, organizationId = null, projectId = null) {
   if (!campaignId) return;
-  const jobs = await db.all('SELECT status FROM evaluation_jobs WHERE campaign_id = ?', campaignId);
+  const scoped = organizationId !== null || projectId !== null;
+  if (scoped && (!organizationId || !projectId)) throw new Error('organizationId and projectId must be provided together.');
+  const scopeClause = scoped ? ' AND organization_id = ? AND project_id = ?' : '';
+  const scopeParams = scoped ? [campaignId, organizationId, projectId] : [campaignId];
+  const jobs = await db.all(`SELECT status FROM evaluation_jobs WHERE campaign_id = ?${scopeClause}`, ...scopeParams);
   if (!jobs.length) return;
   const status = jobs.some((job) => job.status === 'failed')
     ? 'failed'
@@ -333,7 +337,8 @@ async function updateCampaignStatus(db, campaignId) {
     : jobs.every((job) => job.status === 'completed')
       ? 'completed'
       : 'running';
-  await db.run('UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', status, campaignId);
+  await db.run(`UPDATE evaluation_campaigns SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?${scoped ? ' AND organization_id = ? AND project_id = ?' : ''}`,
+    status, ...(scoped ? [campaignId, organizationId, projectId] : [campaignId]));
 }
 
 async function executeModelJobBody(db, job) {
@@ -489,4 +494,4 @@ function getWorkerStatus() {
   };
 }
 
-module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
+module.exports = { MAX_WORKFLOW_NODES, MAX_WORKFLOW_DEPTH, MAX_PARALLEL_BRANCHES, MAX_WORKFLOW_DURATION_MS, startJobWorker, stopJobWorker, processOnce, getWorkerStatus, recoverInterruptedJobs, selectFairWorkflow, summarizeEvaluationGraders, updateCampaignStatus, executeWorkflow, executeEvaluation, executeModelJob, withRetry, isRetryableJobError };
