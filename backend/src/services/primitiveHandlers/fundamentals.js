@@ -78,6 +78,8 @@ async function fork(context) {
       FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
     if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found or has no workspace.` };
     await agentAuthority.requireOrchestrator(db, parent.id);
+    const reproductionGuard = await enforceReproductionLimits(db, parent.id, context);
+    if (!reproductionGuard.allowed) return { success: false, ...reproductionGuard };
     const id = 'worker_fork_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     await db.run(
       "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, current_task) VALUES (?, ?, 'worker', 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'fork', ?)",
@@ -129,6 +131,8 @@ async function fork(context) {
 
 const DEFAULT_HAYFLICK_MAX_DEPTH = 5;
 const DEFAULT_HAYFLICK_MAX_BUDS = 50;
+const HARD_HAYFLICK_MAX_DEPTH = 32;
+const HARD_HAYFLICK_MAX_BUDS = 50;
 
 async function getLineageDepth(db, agentId) {
   let depth = 0;
@@ -144,6 +148,30 @@ async function getLineageDepth(db, agentId) {
   return depth;
 }
 
+async function enforceReproductionLimits(db, parentId, context = {}) {
+  const requestedDepth = Number(context.maxDepth || context.max_depth || DEFAULT_HAYFLICK_MAX_DEPTH);
+  const requestedBuds = Number(context.maxBuds || context.max_buds || context.hayflickLimit || DEFAULT_HAYFLICK_MAX_BUDS);
+  const maxDepth = Number.isFinite(requestedDepth) ? Math.max(1, Math.min(HARD_HAYFLICK_MAX_DEPTH, Math.floor(requestedDepth))) : DEFAULT_HAYFLICK_MAX_DEPTH;
+  const maxBuds = Number.isFinite(requestedBuds) ? Math.max(1, Math.min(HARD_HAYFLICK_MAX_BUDS, Math.floor(requestedBuds))) : DEFAULT_HAYFLICK_MAX_BUDS;
+  const currentDepth = await getLineageDepth(db, parentId);
+  const childCountRow = await db.get('SELECT COUNT(*) as count FROM agents WHERE parent_agent_id = ?', parentId);
+  const currentBuds = Number(childCountRow?.count || 0);
+  if (currentDepth >= maxDepth || currentBuds >= maxBuds) {
+    return {
+      allowed: false,
+      blockedByHayflick: true,
+      error: currentDepth >= maxDepth
+        ? `Hayflick limit reached: lineage depth ${currentDepth} reaches or exceeds maximum allowed depth ${maxDepth}. Reproduction blocked to prevent spawn storms.`
+        : `Hayflick limit reached: parent agent '${parentId}' has accumulated ${currentBuds} buds (limit ${maxBuds}). Reproduction blocked.`,
+      currentDepth,
+      maxDepth,
+      currentBuds,
+      maxBuds
+    };
+  }
+  return { allowed: true, currentDepth, maxDepth, currentBuds, maxBuds };
+}
+
 async function recursiveFork(context = {}) {
   const orchestratorId = context.orchestratorId || context.agentId;
   if (!orchestratorId) {
@@ -151,37 +179,13 @@ async function recursiveFork(context = {}) {
   }
   try {
     const db = await getDatabase();
-    const maxDepth = Number(context.maxDepth || context.max_depth || DEFAULT_HAYFLICK_MAX_DEPTH);
-    const maxBuds = Number(context.maxBuds || context.max_buds || context.hayflickLimit || DEFAULT_HAYFLICK_MAX_BUDS);
-
-    // Check lineage depth (Hayflick generational limit)
-    const currentDepth = await getLineageDepth(db, orchestratorId);
-    if (currentDepth >= maxDepth) {
-      return {
-        success: false,
-        blockedByHayflick: true,
-        error: `Hayflick limit reached: lineage depth ${currentDepth} reaches or exceeds maximum allowed depth ${maxDepth}. Recursive fork blocked to prevent spawn storms.`,
-        currentDepth,
-        maxDepth
-      };
-    }
-
-    // Check total bud count for this parent agent (Hayflick scar limit)
-    const childCountRow = await db.get('SELECT COUNT(*) as count FROM agents WHERE parent_agent_id = ?', orchestratorId);
-    const currentBuds = childCountRow ? childCountRow.count : 0;
-    if (currentBuds >= maxBuds) {
+    const reproductionGuard = await enforceReproductionLimits(db, orchestratorId, context);
+    if (!reproductionGuard.allowed) {
       await db.run(
         `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit reached)' WHERE id = ? OR agent_id = ?`,
         orchestratorId, orchestratorId
       ).catch(() => {});
-
-      return {
-        success: false,
-        blockedByHayflick: true,
-        error: `Hayflick limit reached: parent agent '${orchestratorId}' has accumulated ${currentBuds} buds (limit: ${maxBuds}). Recursive fork blocked.`,
-        currentBuds,
-        maxBuds
-      };
+      return { success: false, ...reproductionGuard };
     }
 
     // Delegate to standard fork
@@ -190,8 +194,8 @@ async function recursiveFork(context = {}) {
       return forkResult;
     }
 
-    const nextBuds = currentBuds + 1;
-    if (nextBuds >= maxBuds) {
+    const nextBuds = reproductionGuard.currentBuds + 1;
+    if (nextBuds >= reproductionGuard.maxBuds) {
       await db.run(
         `UPDATE lineage_nodes SET state_summary = 'Replicative Senescence (Hayflick limit reached)' WHERE id = ? OR agent_id = ?`,
         orchestratorId, orchestratorId
@@ -201,11 +205,11 @@ async function recursiveFork(context = {}) {
     return {
       ...forkResult,
       recursiveFork: true,
-      lineageDepth: currentDepth + 1,
-      maxDepth,
-      budScars: currentBuds + 1,
-      maxBuds,
-      remainingBuds: maxBuds - (currentBuds + 1)
+      lineageDepth: reproductionGuard.currentDepth + 1,
+      maxDepth: reproductionGuard.maxDepth,
+      budScars: nextBuds,
+      maxBuds: reproductionGuard.maxBuds,
+      remainingBuds: reproductionGuard.maxBuds - nextBuds
     };
   } catch (error) {
     return { success: false, error: 'Recursive fork failed: ' + error.message };
@@ -491,6 +495,7 @@ module.exports = {
   snapshot,
   fork,
   recursiveFork,
+  enforceReproductionLimits,
   slmRoute,
   bisectAgent,
   entropyCheck,
