@@ -168,22 +168,40 @@ async function pruneNode(nodeId, scope = {}) {
   if (!node) return null;
 
   // Récupération récursive de tous les nœuds descendants via lineage_edges
-  const descendantRows = await db.all(`
+  const descendantRows = await db.all(scope.organizationId && scope.projectId ? `
+    WITH RECURSIVE descendants(id) AS (
+      SELECT e.target_node_id
+      FROM lineage_edges e
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      JOIN workspaces target_ws ON target_ws.id = target.workspace_id
+      WHERE e.source_node_id = ? AND target_ws.organization_id = ? AND target_ws.project_id = ?
+      UNION
+      SELECT e.target_node_id
+      FROM lineage_edges e
+      JOIN descendants d ON e.source_node_id = d.id
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      JOIN workspaces target_ws ON target_ws.id = target.workspace_id
+      WHERE target_ws.organization_id = ? AND target_ws.project_id = ?
+    )
+    SELECT id FROM descendants
+  ` : `
     WITH RECURSIVE descendants(id) AS (
       SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?
       UNION
-      SELECT e.target_node_id FROM lineage_edges e
-      JOIN descendants d ON e.source_node_id = d.id
+      SELECT e.target_node_id FROM lineage_edges e JOIN descendants d ON e.source_node_id = d.id
     )
     SELECT id FROM descendants
-  `, nodeId).catch(() => []);
+  `, ...(scope.organizationId && scope.projectId ? [nodeId, scope.organizationId, scope.projectId, scope.organizationId, scope.projectId] : [nodeId])).catch(() => []);
 
   const allPrunedIds = [nodeId, ...descendantRows.map(r => r.id)];
   const prunedAt = new Date().toISOString();
   const placeholders = allPrunedIds.map(() => '?').join(',');
 
   // Récupération en une seule requête de tous les nœuds ciblés
-  const nodeRows = await db.all(`SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`, ...allPrunedIds).catch(() => []);
+  const nodeRows = await db.all(scope.organizationId && scope.projectId
+    ? `SELECT n.id, n.metadata, n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id IN (${placeholders}) AND w.organization_id = ? AND w.project_id = ?`
+    : `SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`,
+  ...(scope.organizationId && scope.projectId ? [...allPrunedIds, scope.organizationId, scope.projectId] : allPrunedIds)).catch(() => []);
 
   // Terminaison propre des agents d'exécution actifs associés aux nœuds élagués
   let runtimeAdapter;
@@ -202,7 +220,10 @@ async function pruneNode(nodeId, scope = {}) {
         try { runtimeAdapter.stopMission(row.agent_id); } catch (_) {}
       }
       try {
-        await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?", row.agent_id);
+        await db.run(scope.organizationId && scope.projectId
+          ? "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)"
+          : "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?",
+        ...(scope.organizationId && scope.projectId ? [row.agent_id, scope.organizationId, scope.projectId] : [row.agent_id]));
       } catch (_) {}
       if (scheduleWorkspaceCleanup) {
         try { await scheduleWorkspaceCleanup(row.agent_id); } catch (_) {}
@@ -218,9 +239,12 @@ async function pruneNode(nodeId, scope = {}) {
 
   // Marquage des arêtes du DAG associées à ces nœuds
   const edgeRows = await db.all(
-    `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
+    scope.organizationId && scope.projectId
+      ? `SELECT e.id, e.metadata FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE (e.source_node_id IN (${placeholders}) OR e.target_node_id IN (${placeholders})) AND w.organization_id = ? AND w.project_id = ?`
+      : `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
     ...allPrunedIds,
-    ...allPrunedIds
+    ...allPrunedIds,
+    ...(scope.organizationId && scope.projectId ? [scope.organizationId, scope.projectId] : [])
   ).catch(() => []);
 
   for (const edge of edgeRows) {
