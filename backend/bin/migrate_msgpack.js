@@ -1,7 +1,7 @@
 const { getDatabase } = require('../src/db');
 const { pack } = require('msgpackr');
 
-async function ensureColumn(db, table, column, definition) {
+async function ensureColumn(db, { table, column, definition }) {
     const columns = await db.all(`PRAGMA table_info(${table})`);
     if (!columns.some((entry) => entry.name === column)) {
         await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
@@ -13,8 +13,8 @@ async function migrateToMsgPack(database = null) {
     const db = database || await getDatabase();
     await db.exec('BEGIN IMMEDIATE;');
     try {
-        await ensureColumn(db, 'trajectories', 'diff_lines_msgpack', 'BLOB');
-        await ensureColumn(db, 'genome_decisions', 'cart_nodes_msgpack', 'BLOB');
+        await ensureColumn(db, { table: 'trajectories', column: 'diff_lines_msgpack', definition: 'BLOB' });
+        await ensureColumn(db, { table: 'genome_decisions', column: 'cart_nodes_msgpack', definition: 'BLOB' });
 
         const trajs = await db.all('SELECT rowid, diff_lines FROM trajectories WHERE diff_lines IS NOT NULL AND diff_lines_msgpack IS NULL');
         let migratedTrajs = 0;
