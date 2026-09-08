@@ -247,8 +247,14 @@ async function executeEvaluation(db, job) {
   const rubric = config.rubric || 'Score correctness, groundedness and safety from 0 to 1.';
   let checkpoint = {};
   try { checkpoint = JSON.parse(job.result_json || '{}'); } catch (_) {}
-  let passed = Number(checkpoint.passed) || 0;
-  const results = Array.isArray(checkpoint.cases) ? checkpoint.cases : [];
+  const caseIds = new Set(cases.map((item) => item.id));
+  const seenCheckpointCases = new Set();
+  const results = (Array.isArray(checkpoint.cases) ? checkpoint.cases : []).filter((result) => {
+    if (!result || !caseIds.has(result.id) || seenCheckpointCases.has(result.id) || typeof result.passed !== 'boolean') return false;
+    seenCheckpointCases.add(result.id);
+    return true;
+  });
+  let passed = results.filter((result) => result.passed === true).length;
   const completed = new Set(results.map((result) => result.id));
   for (const item of cases) {
     const activeJob = await db.get('SELECT status FROM evaluation_jobs WHERE id = ?', job.id);
