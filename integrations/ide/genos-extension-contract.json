@@ -1,1 +1,25 @@
-{}
+{
+	"contract": "genos.ide/v1",
+	"version": "1.0.0",
+	"ides": ["vscode", "jetbrains", "antigravity"],
+	"capabilities": [
+		"contract",
+		"integration",
+		"workspace_commands",
+		"telemetry"
+	],
+	"commands": [
+		{
+			"id": "compliance.generate",
+			"label": "Open compliance report",
+			"method": "GET",
+			"path": "/api/compliance/reports"
+		},
+		{
+			"id": "workspace.inspect",
+			"label": "Inspect workspace",
+			"method": "GET",
+			"path": "/api/product-proofs/workspaces/:workspaceId"
+		}
+	]
+}
