@@ -804,7 +804,9 @@ async function execute({ agentId, organizationId, projectId, toolName, args = {}
     }
   }
 
-  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  const permissionRow = organizationId && projectId
+    ? await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, organizationId, projectId)
+    : await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id IS NULL AND project_id IS NULL', agentId);
   const permissions = permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : [];
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints });
@@ -849,6 +851,8 @@ async function listTools() {
 async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
   const normalizedToolName = String(toolName || '').trim();
   await directCallGuard(normalizedToolName, args);
+  const db = await getDatabase();
+  await db.run('INSERT INTO audit_logs (actor, agent_id, action, resource, decision, reason, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', 'mcp-direct', null, 'MCP_DIRECT_CALL', normalizedToolName, 'allow', 'direct call guarded', JSON.stringify({ args, timeoutMs }));
   try {
     const result = await executeConfiguredTransport({ toolName: normalizedToolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
     if (result.success) circuitBreaker.recordSuccess(normalizedToolName);
