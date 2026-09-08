@@ -5,9 +5,11 @@ const modelRouter = require('../src/services/modelRouter');
 const previousDefault = process.env.GENOS_DEFAULT_MODEL;
 const originalGenerate = modelRouter.generate;
 let requestedModels = [];
+let invalidJudge = false;
 process.env.GENOS_DEFAULT_MODEL = 'openai://judge';
 modelRouter.generate = async ({ model }) => {
   requestedModels.push(model);
+  if (invalidJudge && model === 'openai://judge') return { text: 'not-json', model };
   return { text: JSON.stringify({ score: 0.8, passed: true, reason: 'ok' }), inputTokens: 1, outputTokens: 1, model };
 };
 
@@ -23,6 +25,17 @@ executeEvaluation(db, {
 }).then(() => {
   assert.deepEqual(requestedModels, ['openai://evaluated', 'openai://judge']);
   console.log('llm_judge uses the shared default judge model.');
+  invalidJudge = true;
+  return assert.rejects(executeEvaluation({
+    ...db,
+    async run(sql, ...args) {
+      if (sql.includes('UPDATE evaluation_jobs SET status')) return { changes: 1 };
+      return { changes: 1 };
+    }
+  }, {
+    id: 'eval-judge-invalid', dataset_id: 'dataset-1', organization_id: 'org-1', project_id: 'project-1',
+    config_json: JSON.stringify({ graders: ['llm_judge'], judgeModel: 'openai://judge' })
+  }), (error) => error.code === 'EVALUATION_JUDGE_ERROR');
 }).catch((error) => { console.error(error); process.exitCode = 1; })
   .finally(() => {
     modelRouter.generate = originalGenerate;
