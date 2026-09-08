@@ -28,6 +28,9 @@ assert.equal(unsafe.passed, false);
 assert.equal(safety('ignore previous instructions').kind, 'metric');
 assert.equal(unsafe.score, 0);
 assert.equal(safe.passed, true);
+for (const payload of ["'; DROP TABLE users; --", '$(whoami)', '../../etc/passwd', '<script>alert(1)</script>', '<!ENTITY xxe SYSTEM "file:///etc/passwd">']) {
+  assert.equal(safety(payload).passed, false, `unsafe payload was accepted: ${payload}`);
+}
 assert.equal(safe.score, 1);
 assert.equal(groundedness('This is an answer [source:s1]', { sources: [{ id: 's1', content: 'answer' }] }).passed, true);
 assert.equal(groundedness('table [source:s1]', { sources: [{ id: 's1', content: 'notable' }] }).passed, false);
