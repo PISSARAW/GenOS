@@ -457,18 +457,10 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   let cleanupWorktree = null;
   let materialization = 'manifest-copy';
   try {
-    // Git repos: a detached worktree of the captured commit is near-instant
-    // and shares the object store. Anything else falls back to the manifest copy.
-    const metadata = parseMetadata(snapshot.metadata);
-    if (metadata.gitCommit && isGitWorkspace(workspacePath)) {
-      try {
-        cleanupWorktree = await materializeGitWorktree(workspacePath, metadata.gitCommit, workingDirectory);
-        materialization = 'git-worktree';
-      } catch (_) {
-        cleanupWorktree = null;
-      }
-    }
-    if (!cleanupWorktree) await materialize(snapshot, workingDirectory);
+    // The manifest captures dirty files as well as committed files. A detached
+    // worktree would replay only the recorded commit and could silently omit
+    // uncommitted state, so replay always uses the checksum-verified payload.
+    await materialize(snapshot, workingDirectory);
     const { spawn } = require('child_process');
     // Use the platform shell so workspace test commands run identically on
     // Windows and POSIX hosts.
