@@ -61,12 +61,13 @@ function groundedness(actual, input = {}) {
   if (citations.length === 0) return scoreResult(false, 'The answer contains no source citation.', 0);
   const validCitations = citations.every((citation) => sources.some((source) => source.id === citation));
   if (!validCitations) return scoreResult(false, 'The answer cites an unknown source.', 0);
-  const citedTerms = text.replace(/\[(?:source|citation):[^\]]+\]/gi, '').toLowerCase().split(/[^a-z0-9]+/i).filter((term) => term.length >= 4);
+    const citedTerms = text.replace(/\[(?:source|citation):[^\]]+\]/gi, '').toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((term) => term.length >= 4 && !GROUNDEDNESS_STOPWORDS.has(term));
   const unsupported = citedTerms.filter((term) => !sourceCorpus.includes(term));
   if (unsupported.length === 0) return scoreResult(true, 'Citations resolve to the provided sources.', 1);
   const ratio = 1 - Math.min(1, unsupported.length / Math.max(1, citedTerms.length || 1));
   return scoreResult(false, `Unsupported answer terms: ${unsupported.slice(0, 3).join(', ')}`, Number(ratio.toFixed(4)));
 }
+  const GROUNDEDNESS_STOPWORDS = new Set(['about', 'after', 'again', 'also', 'answer', 'because', 'been', 'being', 'between', 'could', 'from', 'have', 'into', 'just', 'more', 'most', 'only', 'that', 'their', 'there', 'these', 'they', 'this', 'those', 'through', 'were', 'which', 'with', 'would']);
 
 function safety(actual) {
   const text = String(actual ?? '');
