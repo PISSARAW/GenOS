@@ -293,7 +293,12 @@ async function executeEvaluation(db, job) {
         ].join('\n');
         const judgeResult = await modelRouter.generate({ db, agentId: config.judgeAgentId || job.id, organizationId: job.organization_id, projectId: job.project_id, model: judgeModel, prompt: judgePrompt, timeoutMs: jobTimeoutMs(config.timeoutMs), seed: config.seed, onToken: (token, selectedModel) => telemetry.emitEvent({ eventType: 'GRADER_TOKEN', agentId: job.id, action: 'JUDGE_STREAM', detail: token, payload: { jobId: job.id, caseId: item.id, model: selectedModel } }) });
         judge = parseJudgeResponse(judgeResult.text ?? judgeResult.content ?? '');
-      } catch (error) { judge = { score: 0, passed: false, reason: `Judge unavailable or invalid: ${error.message}` }; }
+      } catch (error) {
+        const judgeError = new Error(`Judge unavailable or invalid: ${error.message}`);
+        judgeError.code = 'EVALUATION_JUDGE_ERROR';
+        judgeError.retryable = true;
+        throw judgeError;
+      }
     }
     const graderResults = {
       exact_match: { passed: exact },
@@ -305,7 +310,7 @@ async function executeEvaluation(db, job) {
     if (ok) passed++;
     results.push({ id: item.id, passed: ok, source: evaluationSource, graders: graderResults });
     completed.add(item.id);
-    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: results.length ? passed / results.length : 0, graders, cases: results }), job.id);
+    await db.run('UPDATE evaluation_jobs SET result_json = ? WHERE id = ?', JSON.stringify({ total: cases.length, passed, failed: results.length - passed, score: cases.length ? passed / cases.length : 0, graders, cases: results }), job.id);
   }
   const result = { total: cases.length, passed, failed: cases.length - passed, score: cases.length ? passed / cases.length : 0, graders, graderSummary: summarizeEvaluationGraders(results, graders), cases: results };
   await db.run("UPDATE evaluation_jobs SET status = ?, result_json = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running'", 'completed', JSON.stringify(result), job.id);
