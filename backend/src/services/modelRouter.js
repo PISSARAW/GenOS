@@ -185,6 +185,7 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
   
   if (!candidates.length) throw new Error('No model route is configured. Set an agent policy, GENOS_DEFAULT_MODEL, or an explicit model URI.');
 
+  let spentCostUsd = 0;
   const attempt = async (uri) => {
     const normalizedUri = modelProvider.configuredModel(uri);
     const [, provider, modelName] = normalizedUri.match(/^([\w-]+):\/\/(.+)$/);
@@ -207,8 +208,9 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     const estimatedInputTokens = modelProvider.tokenize(typeof prompt === 'string' ? prompt : JSON.stringify(prompt)).length;
     const estimatedOutputTokens = Number.isFinite(Number(maxTokens)) && Number(maxTokens) > 0 ? Math.floor(Number(maxTokens)) : 2048;
     const estimatedCost = estimateCostUsd(registered?.cost_input, registered?.cost_output, estimatedInputTokens, estimatedOutputTokens);
-    if (maxCostUsd != null && estimatedCost > Number(maxCostUsd)) {
-      throw Object.assign(new Error(`Estimated model cost ${estimatedCost} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
+    const remainingCostUsd = maxCostUsd == null ? null : Number(maxCostUsd) - spentCostUsd;
+    if (remainingCostUsd != null && estimatedCost > remainingCostUsd) {
+      throw Object.assign(new Error(`Estimated model cost ${estimatedCost} exceeds remaining budget ${remainingCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
     }
     const bufferedTokens = [];
     const startedAt = Date.now();
@@ -231,6 +233,10 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     }), attemptTimeout, uri);
     const latencyMs = Date.now() - startedAt;
     const costUsd = estimateCostUsd(registered?.cost_input, registered?.cost_output, result.inputTokens, result.outputTokens);
+    spentCostUsd += costUsd;
+    if (maxCostUsd != null && spentCostUsd > Number(maxCostUsd)) {
+      throw Object.assign(new Error(`Actual model cost ${spentCostUsd} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
+    }
     const enriched = { ...result, model: uri, requestedModel: uri, servedModel: result.servedModel || result.model || configuration.modelName, latencyMs, costUsd, bufferedTokens };
     await recordModelUsage(db, { organizationId, projectId }, enriched);
     return enriched;
@@ -245,6 +251,10 @@ async function generate({ db, agentId, organizationId, projectId, model, prompt,
     if (!successes.length) {
       const reasons = settled.map((result, index) => `${candidates[index]}: ${result.reason?.message || 'failed'}`).join('; ');
       throw new Error(`Every parallel model route failed. ${reasons}`);
+    }
+    const parallelCostUsd = successes.reduce((sum, result) => sum + Number(result.costUsd || 0), 0);
+    if (maxCostUsd != null && parallelCostUsd > Number(maxCostUsd)) {
+      throw Object.assign(new Error(`Parallel model cost ${parallelCostUsd} exceeds budget ${maxCostUsd}.`), { code: 'MODEL_COST_BUDGET_EXCEEDED' });
     }
     const scored = successes.filter((result) => responseScore(result) !== null);
     const selected = scored.length
