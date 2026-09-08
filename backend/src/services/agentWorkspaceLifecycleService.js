@@ -31,6 +31,7 @@ const CLEANUP_RETRY_DELAY_MS = 30 * 1000;
 const MAX_COPY_DEPTH = 32;
 const MAX_COPY_ENTRIES = 100000;
 const DEFAULT_MAX_COPY_BYTES = 1024 * 1024 * 1024;
+const SENSITIVE_COPY_FILES = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 const SENSITIVE_BASENAME = /^(?:\.env(?:\..*)?|\.npmrc|\.pypirc|\.netrc|id_rsa(?:\..*)?|known_hosts(?:\..*)?|.*\.(?:pem|key|p12|pfx)|credentials(?:\..*)?|secrets?(?:\..*)?|vault(?:\..*)?)$/i;
 
 function maxCopyBytes() {
@@ -403,7 +404,9 @@ async function createIsolatedWorkspace(sourceRoot, workerId, capsuleRootOverride
     throw new Error('Insufficient disk space for a non-Git isolated workspace; free at least 1 GiB or use a Git workspace.');
   }
   const excluded = new Set(['.git', '.genos', '.genos-agent-worlds', 'node_modules', 'target']);
-  const isExcluded = (name) => excluded.has(name) || /\.(db-shm|db-wal|db-journal)$/i.test(name);
+  const isExcluded = (name) => excluded.has(name)
+    || SENSITIVE_COPY_FILES.test(name)
+    || /\.(db-shm|db-wal|db-journal)$/i.test(name);
   let copiedEntries = 0;
   const copyState = { bytes: 0, limit: maxCopyBytes() };
   async function copyTree(sourcePath, destinationPath, relative = '') {

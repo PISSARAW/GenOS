@@ -13,6 +13,8 @@ async function run() {
   process.env.GENOS_CAPSULE_ROOT = capsuleRoot;
   try {
     fs.writeFileSync(path.join(root, 'mission.txt'), 'parent evidence');
+    fs.writeFileSync(path.join(root, '.env'), 'SECRET=must not copy');
+    fs.writeFileSync(path.join(root, 'credentials.pem'), 'private key material');
     fs.mkdirSync(path.join(root, '.git'));
     fs.writeFileSync(path.join(root, '.git', 'config'), 'not copied');
     fs.mkdirSync(path.join(root, 'target'));
@@ -24,6 +26,8 @@ async function run() {
     assert.strictEqual(fs.readFileSync(path.join(capsule, 'mission.txt'), 'utf8'), 'parent evidence');
     assert.strictEqual(fs.existsSync(path.join(capsule, '.git')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, 'target')), false);
+    assert.strictEqual(fs.existsSync(path.join(capsule, '.env')), false);
+    assert.strictEqual(fs.existsSync(path.join(capsule, 'credentials.pem')), false);
     assert.strictEqual(fs.existsSync(path.join(capsule, 'linked-outside')), false);
     fs.writeFileSync(path.join(capsule, 'mission.txt'), 'worker evidence');
     assert.strictEqual(fs.readFileSync(path.join(root, 'mission.txt'), 'utf8'), 'parent evidence');
