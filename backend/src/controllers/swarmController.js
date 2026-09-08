@@ -356,7 +356,10 @@ const swarmMetricsService = require('../services/swarmMetricsService');
 async function getMetrics(req, res, next) {
   try {
     const db = await getDatabase();
-    const events = await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
+    const events = req.tenant
+      ? await db.all(`SELECT action as type, event_type as action, agent_id, payload_json, created_at
+          FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 50`, req.tenant.organizationId, req.tenant.projectId)
+      : await db.all('SELECT action as type, event_type as action, agent_id, payload_json, created_at FROM telemetry_events ORDER BY created_at DESC LIMIT 50');
     const chronologicalEvents = [...events].reverse();
     const entropyResult = swarmMetricsService.calculateShannonEntropy(chronologicalEvents);
     const messageQueue = [];
@@ -388,12 +391,20 @@ async function getMetrics(req, res, next) {
 async function getTopology(req, res, next) {
   try {
     const db = await getDatabase();
-    const agents = await db.all(`
+    const agents = req.tenant ? await db.all(`
+      SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
+        fleet_id as fleetId, parent_agent_id as parentAgentId
+      FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+      WHERE a.status != 'terminated' AND w.organization_id = ? AND w.project_id = ?
+    `, req.tenant.organizationId, req.tenant.projectId) : await db.all(`
       SELECT id, name, role, status, model_tier as tier, workspace_id as workspaceId,
         fleet_id as fleetId, parent_agent_id as parentAgentId
       FROM agents WHERE status != 'terminated'
     `);
-    const events = await db.all(`
+    const events = req.tenant ? await db.all(`
+      SELECT id, agent_id, payload_json, created_at FROM telemetry_events
+      WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 100
+    `, req.tenant.organizationId, req.tenant.projectId) : await db.all(`
       SELECT id, agent_id, payload_json, created_at
       FROM telemetry_events ORDER BY created_at DESC LIMIT 100
     `);
