@@ -161,7 +161,7 @@ async function runSuite() {
 
   try {
     const dispatched = await agentRecovery.dispatchWorkerRecovery(testWorkerId);
-    assert.strictEqual(dispatched, true);
+    assert.strictEqual(dispatched, true, `worker recovery dispatch failed: ${JSON.stringify(telemetry.getRecentEvents(20).map((event) => ({ eventType: event.eventType, detail: event.detail })))}`);
     assert.ok(interceptedMission != null, 'startMission should have been called');
     assert.ok(interceptedMission.prompt.includes('DIAGNOSTIC BISECTION CAUSALE (O(log N)) :'), 'Recovery prompt must contain bisection');
     assert.ok(interceptedMission.prompt.includes('Étape 4'), 'Culprit step 4 must be isolated from DB snapshots');
@@ -169,7 +169,7 @@ async function runSuite() {
 
     // Verify telemetry event
     const bisectionEvents = telemetry.getRecentEvents(100, 'WORKER_CAUSAL_BISECTION_COMPLETED');
-    assert.ok(bisectionEvents.length >= 1, 'Telemetry WORKER_CAUSAL_BISECTION_COMPLETED should be emitted');
+    assert.ok(bisectionEvents.length >= 1, `Telemetry WORKER_CAUSAL_BISECTION_COMPLETED should be emitted; recent events: ${JSON.stringify(telemetry.getRecentEvents(20).map((event) => event.eventType))}`);
     console.log(`-> Cas 4.2 Validé : Télémétrie émise et étape #4 isolée depuis la base SQLite.`);
   } finally {
     originalAdapter.startMission = originalStartMission;
