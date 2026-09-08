@@ -8,7 +8,7 @@ async function testPlasmidDivergence() {
 
   // 1. Registry verification
   const totalStrategies = listStrategies().length;
-  assert.equal(totalStrategies, 78, `Registry must contain exactly 78 strategies, got ${totalStrategies}`);
+  assert.equal(totalStrategies, 79, `Registry must contain exactly 79 strategies, got ${totalStrategies}`);
 
   const strategy = getStrategy('plasmid_divergent_optimization');
   assert(strategy, 'plasmid_divergent_optimization strategy must be registered');

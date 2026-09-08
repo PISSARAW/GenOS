@@ -60,7 +60,7 @@ Normalizes all vector inputs to **768 dimensions** with automatic detection and 
 - **Epistemic Shield & Amygdala Filter:** Calibrated credibility scoring and cognitive drift sentinels (Shannon Entropy $H(A)$) preventing adversarial prompt gaslighting.
 
 ### 4. Strategy Dispatcher & Autonomous Orchestration
-- **78 Strategies / 97 Primitives:** Implemented across 7 core functional lots:
+- **79 Strategies / 97 Primitives:** Registered across 7 core functional lots. Runtime health distinguishes ready, partial, experimental, and prototype entries; registration does not imply production availability:
   - *Lot 1 Fundamentals:* `snapshot`, `fork`, `vfs_dry_run`, `safe_revert`, `bisect_agent`, `evaluate`.
   - *Lot 2 Memory:* `compile_memory`, `cherry_pick_golden_path`, `search_failures`, `stdp_update`.
   - *Lot 3 Evolution:* `mutate`, `hypermutation`, `breed`, `select`, `pareto_select`, `speciation`.
