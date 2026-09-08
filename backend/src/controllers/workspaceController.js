@@ -194,10 +194,28 @@ async function getWorkspaceById(req, res) {
   }
 
   const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', ws.id);
+  const branchIds = new Set();
+  for (const snapshot of snapshots) {
+    try {
+      const metadata = JSON.parse(snapshot.metadata || '{}');
+      if (metadata.branchId || metadata.branch_id) branchIds.add(metadata.branchId || metadata.branch_id);
+    } catch (_) {}
+  }
+  const forkWorkspaces = await db.all(
+    'SELECT id, name, path FROM workspaces WHERE organization_id IS ? AND project_id IS ? AND id != ? AND (name LIKE ? OR name LIKE ?)',
+    ws.organization_id || null,
+    ws.project_id || null,
+    ws.id,
+    '%-fork%',
+    '%_fork%'
+  );
   res.json({
     workspace: ws,
     snapshots,
-    branches: []
+    branches: [
+      ...[...branchIds].map((id) => ({ id, source: 'snapshot' })),
+      ...forkWorkspaces.map((workspace) => ({ ...workspace, source: 'workspace' }))
+    ]
   });
 }
 
