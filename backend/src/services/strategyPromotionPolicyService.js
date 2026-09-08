@@ -33,14 +33,16 @@ function evaluatePromotionGate(contract = {}, executionContext = {}) {
 
   // 2. require_independent_verification
   if (policy.require_independent_verification) {
+    const verification = executionContext.independentVerification;
+    const validVerification = verification && typeof verification === 'object'
+      && typeof verification.verifierId === 'string' && verification.verifierId.trim()
+      && typeof verification.verificationHash === 'string' && /^[a-f0-9]{64}$/i.test(verification.verificationHash)
+      && typeof verification.verifiedAt === 'string' && Number.isFinite(Date.parse(verification.verifiedAt))
+      && verification.verifierId !== executionContext.agentId;
     const reportClaims = executionContext.report?.claims;
     const reportHasEvidence = Array.isArray(reportClaims) && reportClaims.length > 0
       && reportClaims.every((claim) => claim && Array.isArray(claim.evidence) && claim.evidence.length > 0);
-    const verified = executionContext.independentVerification === true ||
-      executionContext.evidenceVerified === true ||
-      (Array.isArray(executionContext.verifiedClaims) && executionContext.verifiedClaims.length > 0) ||
-      (Array.isArray(executionContext.workerDossiers) && executionContext.workerDossiers.length > 0) ||
-      reportHasEvidence;
+    const verified = validVerification && reportHasEvidence;
     if (!verified) {
       violations.push({
         policy: 'require_independent_verification',
