@@ -3,6 +3,11 @@ const UNSAFE_OUTPUT_PATTERNS = [
   /reveal\s+(?:the\s+)?system\s+prompt/i,
   /(?:system|openai|anthropic|aws|github)[ _-]?api[ _-]?key\s*[:=]/i,
   /(?:rm\s+-rf|drop\s+table|delete\s+from|format\s+[a-z]:|shutdown\s+-h)/i,
+  /(?:union\s+select|insert\s+into|update\s+\w+\s+set|select\s+.+\s+from|(?:'|\")\s*(?:or|and)\s+['\"]?\w+['\"]?\s*=)/i,
+  /(?:\$\(|`[^`]+`|(?:^|[\s;&|])(?:curl|wget|nc|netcat|powershell|cmd(?:\.exe)?|bash|sh)(?:\s|$))/i,
+  /(?:\.\.[/\\]|%2e%2e[/\\]|%252e%252e)/i,
+  /<(?:script|iframe|object|embed)\b|(?:javascript:|on(?:error|load|click)\s*=)/i,
+  /<!ENTITY\b|<!DOCTYPE\b[^>]*\b(?:SYSTEM|PUBLIC)\b/i,
   /disable\s+(?:safety|security)\s+(?:controls?|checks?|filters?)/i,
   /exfiltrat(?:e|ion)\s+(?:secrets?|credentials?|tokens?)/i
 ];
