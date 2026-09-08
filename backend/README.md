@@ -41,7 +41,7 @@ The GenOS backend is the core control plane and runtime engine for GenOS V3. It 
 ```
 
 ### 1. Persistence & Hybrid Retrieval Engine
-- **SQLite in WAL Mode:** Configured with `PRAGMA journal_mode = WAL`, `PRAGMA synchronous = NORMAL`, and `PRAGMA mmap_size = 30000000000` (up to 30 GB memory-mapped I/O) with in-memory temporary tables.
+- **SQLite in WAL Mode:** Configured with `PRAGMA journal_mode = WAL`, a configurable durability mode (`FULL` by default), and a bounded mmap size (`268435456` bytes by default, capped at 1 GiB) with in-memory temporary tables. Override these values with `GENOS_SQLITE_SYNCHRONOUS` and `GENOS_SQLITE_MMAP_SIZE`.
 - **sqlite-vec Integration:** Native fast cosine and L2 vector search over 768-dimensional embeddings.
 - **FTS5 Virtual Tables:** Automated full-text indexing triggers on `trajectories_fts` and `genome_decisions_fts` with French/accent-preserving query tokenization.
 - **Reciprocal Rank Fusion (RRF):** Decoupled vector and BM25 ranking fused at SQL level for resilient hybrid memory search.
