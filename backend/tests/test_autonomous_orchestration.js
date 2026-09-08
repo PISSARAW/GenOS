@@ -12,6 +12,8 @@ const plan = buildAutonomyPlan(securityContract, { tokens: 48000, minimumWorkerT
 assert(plan.registry.total >= 78, 'the whole strategy registry must be evaluated');
 assert.strictEqual(plan.registry.selected.length > 0, true);
 assert.strictEqual(plan.organization, 'red_blue_coevolution');
+assert.equal(plan.executionStatus, 'blocked');
+assert.equal(plan.executionBlockers[0].code, 'NO_REALIZABLE_PHASES');
 assert.strictEqual(plan.organizationPolicy.transitions.length, 4);
 assert.strictEqual(plan.decisionGates.length, 6);
 assert(plan.decisionGates.find((gate) => gate.id === 'reselect_strategy').actions.includes('genos_change_strategy'));
@@ -36,6 +38,10 @@ assert.strictEqual(plan.tokenPolicy.rounds.initial.workerCount, 3);
 assert.strictEqual(plan.tokenPolicy.rounds.initial.perWorkerTokens, 9600);
 assert.strictEqual(plan.tokenPolicy.rounds.continuation.survivorCount, 0);
 assert.strictEqual(plan.tokenPolicy.rounds.continuation.perWorkerTokens, 0);
+
+const blockedPlan = buildAutonomyPlan({ problem_profile: { type: 'general' }, strategy_portfolio: [], branches: [] }, { tokens: 500000 });
+assert.equal(blockedPlan.executionStatus, 'blocked');
+assert.equal(blockedPlan.executionBlockers[0].code, 'NO_REALIZABLE_PHASES');
 
 const lowBudgetPlan = buildAutonomyPlan(securityContract, { tokens: 6000, minimumWorkerTokens: 8000 });
 assert.strictEqual(lowBudgetPlan.dispatchWorkers.length, 0, 'the orchestrator must retain control rather than launch unaffordable workers');
