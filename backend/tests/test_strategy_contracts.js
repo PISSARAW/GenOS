@@ -52,6 +52,7 @@ async function run() {
   assert.equal(incident.strategy_decisions.length, 79);
   assert.equal(incident.strategy_decision_summary.total_registry, 79);
   assert(incident.strategy_portfolio.length >= 4);
+  assert(incident.strategy_portfolio.length <= 12);
   assert(incident.strategy_decisions.some((decision) => decision.id === 'mcts_prm' && decision.status === 'ineligible'));
   const research = selectStrategyPortfolio({ problem: 'Run a scientific hypothesis experiment' });
   assert.equal(research.primary.id, 'falsifiable_hypothesis_tree');
