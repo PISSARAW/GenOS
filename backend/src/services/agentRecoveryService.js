@@ -97,6 +97,13 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     throw error;
   }
   if (!source?.parent_agent_id) {
+    emit(sourceAgentId, 'WORKER_RECOVERY_UNAVAILABLE', 'RECOVERY_DEAD_LETTER', 'Recovery could not be dispatched because the source worker no longer has a valid persisted parent or workspace.', {
+      sourceWorkerId: sourceAgentId,
+      recoveryAction: decision.action,
+      attempt: report.attempt + 1,
+      maxAttempts: report.maxAttempts,
+      sourceExists: Boolean(source)
+    }, 'error');
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return false;
   }
