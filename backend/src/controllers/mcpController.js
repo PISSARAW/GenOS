@@ -148,7 +148,7 @@ async function executeTool(req, res) {
       : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const zeroTrust = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
-  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust));
+  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', req.user?.keyId || req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust), req.tenant.organizationId, req.tenant.projectId);
   if (zeroTrust.decision === 'deny') return mcpError(res, 403, 'ZERO_TRUST_DENIED', zeroTrust.reason, zeroTrust);
   if (zeroTrust.decision === 'approval_required') {
     const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;

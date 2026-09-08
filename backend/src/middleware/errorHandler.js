@@ -46,8 +46,9 @@ function errorHandler(err, req, res, next) {
   const errorCode = err.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
   const message = err.message || 'An unexpected error occurred';
   const details = err.details;
-  const requestId = req?.id || req?.headers?.['x-request-id'] || null;
-  const traceId = req?.headers?.['x-trace-id'] || null;
+  const store = require('../services/asyncContext').asyncLocalStorage.getStore();
+  const requestId = req?.id || store?.get('requestId') || req?.headers?.['x-request-id'] || null;
+  const traceId = store?.get('traceId') || req?.headers?.['x-trace-id'] || null;
 
   if (statusCode === 500) {
     console.error('[GenOS Server Error]', err);
