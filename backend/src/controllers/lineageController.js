@@ -142,6 +142,68 @@ async function diffAgents(req, res) {
   });
 }
 
+async function mergeAgents(req, res) {
+  const leftId = String(req.body?.leftAgentId || req.body?.agentAId || '').trim();
+  const rightId = String(req.body?.rightAgentId || req.body?.agentBId || '').trim();
+  if (!leftId || !rightId || leftId === rightId) return res.status(400).json({ error: { code: 'MERGE_AGENTS_REQUIRED', message: 'Two distinct agent IDs are required.' } });
+  const db = await getDatabase();
+  const scope = workspaceScope(req);
+  const loadAgent = (id) => db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, id, ...scope.params);
+  const [left, right] = await Promise.all([loadAgent(leftId), loadAgent(rightId)]);
+  if (!left || !right) return res.status(404).json({ error: { code: 'AGENT_NOT_FOUND', message: 'Both agents must exist in the current tenant.' } });
+  if (left.workspace_id !== right.workspace_id) return res.status(409).json({ error: { code: 'AGENT_WORKSPACE_MISMATCH', message: 'Agents must belong to the same workspace.' } });
+
+  const mergedId = `agent_merge_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const mergedName = req.body?.name || `Merge of ${left.name} + ${right.name}`;
+  const mergedRole = req.body?.role || `${left.role}+${right.role}`;
+  const mergedBudget = Math.min(Number(left.cognitive_budget ?? 0), Number(right.cognitive_budget ?? 0));
+  const mergedBaseline = Math.min(Number(left.cognitive_baseline_budget ?? 100), Number(right.cognitive_baseline_budget ?? 100));
+  await db.run(
+    `INSERT INTO agents (
+      id, name, name_meaning, role, status, agent_type, execution_mode, workspace_id, fleet_id,
+      model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task,
+      dissonance_level, eureka_count, cognitive_budget, cognitive_baseline_budget, cognitive_max_dissonance, is_apoptotic
+    ) VALUES (?, ?, ?, ?, 'idle', 'GenOS', 'worker', ?, ?, ?, ?, 'Branch', ?, 'merge', ?, ?, ?, ?, ?, ?, ?, 0)`,
+    mergedId,
+    mergedName,
+    `Hybrid identity of ${left.name} and ${right.name}`,
+    mergedRole,
+    left.workspace_id,
+    left.fleet_id || right.fleet_id || null,
+    left.model_tier || right.model_tier || 'standard',
+    left.language || right.language || 'TypeScript',
+    left.id,
+    `Merged from ${left.id} and ${right.id}`,
+    req.body?.currentTask || 'Merged agent awaiting mission',
+    Math.max(Number(left.dissonance_level || 0), Number(right.dissonance_level || 0)),
+    Math.max(Number(left.eureka_count || 0), Number(right.eureka_count || 0)),
+    mergedBudget,
+    mergedBaseline,
+    Math.min(Number(left.cognitive_max_dissonance ?? 50), Number(right.cognitive_max_dissonance ?? 50))
+  );
+  for (const parent of [left, right]) {
+    await db.run(
+      `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
+       VALUES (?, ?, ?, ?, 'agent', 'Merge parent') ON CONFLICT(id) DO NOTHING`,
+      parent.id, parent.workspace_id, parent.id, parent.name
+    );
+  }
+  await db.run(
+    `INSERT INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary, metadata)
+     VALUES (?, ?, ?, ?, 'merge', 'Merged agent', ?)`,
+    mergedId, left.workspace_id, mergedId, mergedName, JSON.stringify({ parentAgentIds: [left.id, right.id], mergePolicy: 'conservative_budget' })
+  );
+  for (const parent of [left, right]) {
+    await db.run(
+      `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type, metadata)
+       VALUES (?, ?, ?, ?, 'merge', ?) ON CONFLICT(id) DO NOTHING`,
+      `edge_${parent.id}_${mergedId}`, left.workspace_id, parent.id, mergedId, JSON.stringify({ mergePolicy: 'conservative_budget' })
+    );
+  }
+  telemetry.emitEvent({ eventType: 'AGENTS_MERGED', agentId: mergedId, action: 'MERGE', detail: `Merged agents ${left.id} and ${right.id}`, severity: 'info', payload: { parentAgentIds: [left.id, right.id], mergedId } });
+  return res.status(201).json({ success: true, mergedAgentId: mergedId, parentAgentIds: [left.id, right.id], cognitiveBudget: mergedBudget, status: 'idle' });
+}
+
 async function cloneNode(req, res) {
   const { nodeId, id } = req.body || {};
   const parentId = nodeId || id;
@@ -402,6 +464,7 @@ module.exports = {
   getLineage,
   inspectNode,
   diffAgents,
+  mergeAgents,
   cloneNode,
   killNode,
   getGenomeGraph,
