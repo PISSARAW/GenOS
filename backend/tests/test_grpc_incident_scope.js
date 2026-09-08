@@ -1,12 +1,10 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 process.env.NODE_ENV = 'test';
 process.env.GENOS_ADMIN_PASSWORD = 'test-incident-password';
-const dbModule = require('../src/db');
-const originalGetDatabase = dbModule.getDatabase;
-dbModule.getDatabase = async () => ({
-  run: async () => ({ changes: 1 }),
-  all: async () => []
-});
+process.env.GENOS_DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'genos-incident-')), 'incident.db');
 const service = require('../src/grpc_services/incidentService');
 
 function call(method, request) {
@@ -26,4 +24,4 @@ function call(method, request) {
   assert.equal(reported.error, undefined);
   assert.equal(reported.value.status, 'reported');
   console.log('gRPC incident tenant scope checks passed.');
-})().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => { dbModule.getDatabase = originalGetDatabase; });
+})().catch((error) => { console.error(error); process.exitCode = 1; });
