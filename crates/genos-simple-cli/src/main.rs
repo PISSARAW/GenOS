@@ -35,6 +35,16 @@ fn apply_api_auth(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
     }
 }
 
+fn cargo_program() -> String {
+    std::env::var("CARGO").unwrap_or_else(|_| {
+        if cfg!(windows) {
+            let candidate = std::path::PathBuf::from(std::env::var_os("USERPROFILE").unwrap_or_default()).join(".cargo").join("bin").join("cargo.exe");
+            if candidate.exists() { return candidate.to_string_lossy().into_owned(); }
+        }
+        "cargo".to_string()
+    })
+}
+
 #[derive(Parser)]
 #[command(
     name = "g",
@@ -1183,7 +1193,7 @@ async fn main() {
                 .try_clone()
                 .unwrap_or_else(|error| command_error(format!("impossible de préparer le journal d'erreurs: {}", error)));
 
-            let child = std::process::Command::new("cargo")
+            let child = std::process::Command::new(cargo_program())
                 .args(["run", "-q", "-p", "genos-cli", "--", "serve", "--port", &port.to_string()])
                 .stdout(std::process::Stdio::from(log_file))
                 .stderr(std::process::Stdio::from(err_file))
