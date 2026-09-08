@@ -38,6 +38,12 @@ async function run() {
     await db.run("UPDATE strategy_execution_runs SET status = 'awaiting_approval' WHERE id = ?", run.id);
     await db.run("UPDATE strategy_execution_steps SET status = 'awaiting_approval' WHERE run_id = ? AND sequence = 7", run.id);
 
+    await assert.rejects(
+      strategyService.approveRun(db, run.id),
+      /cannot be promoted without an evidence report/
+    );
+    assert.equal((await db.get('SELECT status FROM strategy_execution_runs WHERE id = ?', run.id)).status, 'awaiting_approval');
+
     const approvedRun = await strategyService.approveRun(db, run.id, {
       approvedBy: 'security_auditor',
       summary: 'Promotion audited and approved for production readiness.',
