@@ -28,6 +28,10 @@ router.post('/agents/git/pull', requirePermission('workspace:write'), agentGitCo
 router.post('/agents/git/stash', requirePermission('workspace:write'), agentGitController.stash);
 router.post('/agents/git/tag', requirePermission('workspace:write'), agentGitController.tag);
 router.post('/agents/git/cherry-pick', requirePermission('workspace:write'), agentGitController.cherryPick);
+router.post('/agents/git/diff', requirePermission('read'), agentGitController.diff);
+router.post('/agents/git/merge', requirePermission('workspace:write'), agentGitController.merge);
+router.post('/agents/git/replay', requirePermission('read'), agentGitController.replay);
+router.post('/agents/git/bisect', requirePermission('read'), agentGitController.bisect);
 router.post('/agents/restore', requirePermission('workspace:write'), lineageController.restoreAgentState);
 router.post('/agents/replay', requirePermission('read'), lineageController.replayAgentState);
 router.post('/agents/bisect', requirePermission('read'), lineageController.bisectAgentState);
