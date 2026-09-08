@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.platform;
+
+service PlatformService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc CheckSafety (SafetyCheckRequest) returns (SafetyCheckResponse);
+  rpc GetSafetyStatus (Empty) returns (SafetyStatusResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message SafetyCheckRequest { string action = 1; string target = 2; }
+message SafetyCheckResponse { bool allowed = 1; string reason = 2; }
+message SafetyStatusResponse { string status = 1; int32 blocked_count = 2; }

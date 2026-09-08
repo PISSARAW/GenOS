@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.ide;
+
+service IdeService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ExecuteVfsOperation (VfsOperationRequest) returns (VfsOperationResponse);
+  rpc InspectVfs (VfsInspectRequest) returns (VfsInspectResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message VfsOperationRequest { string op = 1; string file_path = 2; string content = 3; }
+message VfsOperationResponse { bool success = 1; string message = 2; }
+message VfsInspectRequest { string dir_path = 1; }
+message VfsInspectResponse { repeated string entries = 1; }

@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.evaluation;
+
+service EvaluationService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc EvaluateDossier (DossierRequest) returns (DossierResponse);
+  rpc CalculateParetoFront (ParetoEvalRequest) returns (ParetoEvalResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message DossierRequest { string worker_id = 1; string evidence_report_json = 2; }
+message DossierResponse { float fitness_score = 1; float pass_rate = 2; int32 claims = 3; }
+message ParetoEvalRequest { repeated string dossiers_json = 1; }
+message ParetoEvalResponse { int32 pareto_count = 1; string knee_candidate_id = 2; string leaderboard_json = 3; }

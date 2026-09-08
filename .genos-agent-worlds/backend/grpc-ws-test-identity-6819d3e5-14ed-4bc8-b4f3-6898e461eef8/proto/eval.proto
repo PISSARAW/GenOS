@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.eval;
+
+service EvalService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc EvaluateMetric (EvalMetricRequest) returns (EvalMetricResponse);
+  rpc GetSummary (Empty) returns (EvalSummaryResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message EvalMetricRequest { string metric_name = 1; repeated float values = 2; }
+message EvalMetricResponse { float score = 1; string evaluation = 2; }
+message EvalSummaryResponse { string summary_json = 1; }

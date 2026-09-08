@@ -1,0 +1,13 @@
+syntax = "proto3";
+package genos.controlPlane;
+
+service ControlPlaneService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc GetCircuitStatus (Empty) returns (CircuitStatusResponse);
+  rpc TripCircuit (TripCircuitRequest) returns (CircuitStatusResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message CircuitStatusResponse { bool is_open = 1; int32 failures = 2; string state = 3; }
+message TripCircuitRequest { string circuit_name = 1; string reason = 2; }

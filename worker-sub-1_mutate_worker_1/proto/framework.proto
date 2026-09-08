@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.framework;
+
+service FrameworkService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc RunFramework (FrameworkRunRequest) returns (FrameworkRunResponse);
+  rpc ListFrameworks (Empty) returns (FrameworkListResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message FrameworkRunRequest { string framework = 1; string task = 2; }
+message FrameworkRunResponse { bool success = 1; string output = 2; }
+message FrameworkListResponse { repeated string frameworks = 1; }

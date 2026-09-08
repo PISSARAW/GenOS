@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.release;
+
+service ReleaseService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc CreateSnapshot (CreateSnapshotRequest) returns (SnapshotResponse);
+  rpc RollbackSnapshot (RollbackRequest) returns (RollbackResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message CreateSnapshotRequest { string workspace_id = 1; string label = 2; }
+message SnapshotResponse { string snapshot_id = 1; string timestamp = 2; }
+message RollbackRequest { string snapshot_id = 1; }
+message RollbackResponse { bool success = 1; string restored_at = 2; }

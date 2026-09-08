@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.compliance;
+
+service ComplianceService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc CheckCompliance (ComplianceRequest) returns (ComplianceResponse);
+  rpc GetAuditReport (Empty) returns (AuditReportResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message ComplianceRequest { string workspace_id = 1; string rule_id = 2; }
+message ComplianceResponse { bool compliant = 1; repeated string violations = 2; }
+message AuditReportResponse { string report_json = 1; int32 total_checks = 2; }

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package genos.incident;
+
+service IncidentService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ReportIncident (IncidentReportRequest) returns (IncidentResponse);
+  rpc GetIncidentHistory (Empty) returns (IncidentHistoryResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message IncidentReportRequest { string agent_id = 1; string reason = 2; string details_json = 3; }
+message IncidentResponse { string incident_id = 1; string status = 2; }
+message IncidentHistoryResponse { string history_json = 1; int32 count = 2; }

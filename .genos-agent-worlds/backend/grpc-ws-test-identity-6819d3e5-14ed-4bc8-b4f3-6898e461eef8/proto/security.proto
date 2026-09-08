@@ -1,0 +1,15 @@
+syntax = "proto3";
+package genos.security;
+
+service SecurityService {
+  rpc Ping (Empty) returns (PingResponse);
+  rpc ScanVulnerabilities (ScanRequest) returns (ScanResponse);
+  rpc TriggerKillSwitch (KillSwitchRequest) returns (KillSwitchResponse);
+}
+
+message Empty {}
+message PingResponse { string status = 1; }
+message ScanRequest { string target = 1; }
+message ScanResponse { int32 threat_count = 1; repeated string threats = 2; }
+message KillSwitchRequest { string reason = 1; }
+message KillSwitchResponse { bool halted = 1; string timestamp = 2; }
