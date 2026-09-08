@@ -1,6 +1,8 @@
 const workspaceLifecycle = require('../services/agentWorkspaceLifecycleService');
 const bisectionService = require('../services/bisectionService');
 const crypto = require('crypto');
+const fs = require('fs/promises');
+const path = require('path');
 const { getDatabase } = require('../db');
 const provisionedWorkspaces = new Map();
 
@@ -28,8 +30,13 @@ module.exports = {
     try {
       const request = call.request || {};
       const workspace = await resolveWorkspace(request);
+      const previous = provisionedWorkspaces.get(workspace.id);
+      if (previous) {
+        await workspaceLifecycle.cleanupWorkspace(previous.root).catch(() => {});
+        await fs.rm(path.join(path.dirname(previous.root), '.genos-runtime', workspace.id), { recursive: true, force: true }).catch(() => {});
+      }
       const root = await workspaceLifecycle.createIsolatedWorkspace(workspace.path, `grpc-${workspace.id}-${crypto.randomUUID()}`);
-      provisionedWorkspaces.set(workspace.id, root);
+      provisionedWorkspaces.set(workspace.id, { root });
       callback(null, { workspace_root: root });
     } catch (err) {
       callback(grpcError(err));
@@ -41,9 +48,10 @@ module.exports = {
       const request = call.request || {};
       const workspace = await resolveWorkspace(request);
       const workspaceId = workspace.id;
-      const root = provisionedWorkspaces.get(workspaceId);
-      if (!root) throw new Error(`Workspace '${workspaceId}' is not provisioned by this gRPC server.`);
-      await workspaceLifecycle.cleanupWorkspace(root);
+      const provisioned = provisionedWorkspaces.get(workspaceId);
+      if (!provisioned) throw new Error(`Workspace '${workspaceId}' is not provisioned by this gRPC server.`);
+      await workspaceLifecycle.cleanupWorkspace(provisioned.root);
+      await fs.rm(path.join(path.dirname(provisioned.root), '.genos-runtime', workspaceId), { recursive: true, force: true }).catch(() => {});
       provisionedWorkspaces.delete(workspaceId);
       callback(null, { success: true });
     } catch (err) {

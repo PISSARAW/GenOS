@@ -11,6 +11,15 @@ deploy/windows/Output/*
 backend/node_modules/*
 node_modules/
 .genos/
+.genos-agent-worlds/*
+.genos-agent-worlds/backend/.genos-agent-worlds/
+.genos-agent-worlds/backend/.genos-runtime/
+.genos-agent-worlds/backend/worker_*/
+.genos-agent-worlds/backend/worker-sub-*_worker_*/
+backend/.genos-agent-worlds/
+backend/.genos-runtime/
+backend/worker_*/
+backend/worker-sub-*_worker_*/
 .genos-matrix/
 .genos-custom-studio/
 __pycache__/
