@@ -26,6 +26,7 @@ const advanced = require('./primitiveHandlers/strategyAdvanced');
 const planning = require('./primitiveHandlers/strategyPlanning');
 const optimization = require('./primitiveHandlers/strategyOptimization');
 const swarm = require('./primitiveHandlers/strategySwarm');
+const governance = require('./primitiveHandlers/strategyGovernance');
 
 async function snapshotTest(context = {}) {
   const snapshotResult = await fundamentals.snapshot(context);
@@ -106,6 +107,11 @@ const HANDLERS = {
   role_gradient: swarm.roleGradient,
   energy_observe: swarm.energyObserve,
   elo: swarm.elo,
+  uncertainty_gate: governance.uncertaintyGate,
+  active_refusal: governance.activeRefusal,
+  approval_request: governance.approvalRequest,
+  drift_threshold: governance.driftThreshold,
+  dead_letter_queue: governance.deadLetterQueue,
   bisect_agent: fundamentals.bisectAgent,
   entropy_check: fundamentals.entropyCheck,
   shannon_entropy: fundamentals.entropyCheck,
