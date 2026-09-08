@@ -825,7 +825,12 @@ async function listTools() {
 
 async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS) {
   const result = await executeConfiguredTransport({ toolName, args, timeoutMs: normalizeMcpTimeout(timeoutMs) });
-  if (!result.success) throw new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
+  if (!result.success) {
+    const error = new Error(result.error || result.output || `MCP tool '${toolName}' failed.`);
+    error.code = result.code || `MCP_${String(result.status || 'TOOL_ERROR').toUpperCase()}`;
+    error.status = result.status || 'failed';
+    throw error;
+  }
   return result.output;
 }
 
