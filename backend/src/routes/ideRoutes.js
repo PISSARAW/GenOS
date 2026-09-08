@@ -8,6 +8,7 @@ router.get('/integrations', requireTenantScope(), controller.list);
 router.post('/integrations', requireTenantScope({ write: true }), controller.connect);
 router.post('/integrations/:id/heartbeat', requirePermission('read'), requireTenantScope(), controller.heartbeat);
 router.get('/integrations/:id/status', requirePermission('read'), requireTenantScope(), controller.status);
+router.get('/integrations/:id/diagnostics', requirePermission('read'), requireTenantScope(), controller.diagnostics);
 router.post('/integrations/:id/disconnect', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.disconnect);
 router.post('/integrations/:id/progress', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.progress);
 router.post('/commands/:command', requirePermission('read'), requireTenantScope(), controller.execute);
