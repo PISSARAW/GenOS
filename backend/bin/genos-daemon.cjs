@@ -50,6 +50,7 @@ async function main() {
   const isEnable = args.includes('--enable-autostart') || args.includes('--enable');
   const isDisable = args.includes('--disable-autostart') || args.includes('--disable');
   const isScanOnly = args.includes('--scan-only') || args.includes('--quiet');
+  const isDaemon = args.includes('--daemon');
   const useColor = !args.includes('--no-color') && process.stdout.isTTY;
   const isInteractive = args.includes('--interactive') || (!isStatus && !isEnable && !isDisable && !isScanOnly && process.stdin.isTTY && process.stdout.isTTY);
 
@@ -105,6 +106,29 @@ async function main() {
   }
   const reportMessage = `📄 Rapport complet sauvegardé dans : ${result.audit.savedFiles.latestFile}`;
   console.log(useColor ? `\n\x1b[90m${reportMessage}\x1b[0m\n` : `\n${reportMessage}\n`);
+
+  if (isDaemon) {
+    const intervalMinutes = Math.max(1, Number(config.checkIntervalMinutes) || 60);
+    const intervalMs = intervalMinutes * 60 * 1000;
+    console.log(`[${config.name}] Daemon active; next cycle in ${intervalMinutes} minute(s).`);
+    const timer = setInterval(async () => {
+      try {
+        runProactiveCycle();
+        await vectorMemoryService.sleepCycle();
+        console.log(`[${config.name}] Scheduled cycle completed.`);
+      } catch (error) {
+        console.error(`[${config.name}] Scheduled cycle failed:`, error.message);
+      }
+    }, intervalMs);
+    const stop = () => {
+      clearInterval(timer);
+      console.log(`[${config.name}] Daemon stopped.`);
+      process.exit(0);
+    };
+    process.once('SIGTERM', stop);
+    process.once('SIGINT', stop);
+    return;
+  }
 
   if (isInteractive) {
     console.log('\x1b[33m────────────────────────────────────────────────────────────────\x1b[0m');

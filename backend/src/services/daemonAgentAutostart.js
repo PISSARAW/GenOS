@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = {
   personality: "Analyste architectural proactif et gardien vigilant de l'écosystème GitHub. Précis, méthodique et prévenant.",
   role: 'Autonomous GitHub Auditor & Sentinel',
   githubDir: '',
-  openTerminalOnStartup: true,
+  openTerminalOnStartup: false,
   enabled: true,
   checkIntervalMinutes: 60,
   lastRun: null
@@ -100,12 +100,11 @@ function enableAutostart(customConfig = {}) {
     const autostartFile = path.join(startupDir, 'GenOS_Sentinel_Daemon.bat');
     const runnerScript = path.join(repoRoot, 'backend/bin/genos-daemon.cjs');
 
-    // Le script .bat lance le daemon Node avec ouverture de terminal interactif
+    // The Startup folder must launch a durable, non-interactive process.
     const batchContent = [
       '@echo off',
-      `title GenOS Sentinel Daemon`,
       `cd /d "${repoRoot}"`,
-      `start "GenOS Sentinel" cmd.exe /k "node backend\\bin\\genos-daemon.cjs --interactive"`,
+      `start "GenOS Sentinel" /b node "${runnerScript}" --daemon --no-color`,
       ''
     ].join('\r\n');
 
