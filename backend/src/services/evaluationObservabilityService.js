@@ -85,8 +85,10 @@ async function runImpossibleBench(input = {}) {
   
   const results = [];
   const errors = [];
+  const resolvedModels = new Set();
   for (const item of cases) {
     let confidence = 0.5;
+    let resolvedModel = input.modelVersion || 'auto';
     try {
       const res = await generate({
         agentId: input.agentId || 'studio',
@@ -94,6 +96,8 @@ async function runImpossibleBench(input = {}) {
         seed: input.seed,
         prompt: `${taskContext ? `Contexte de la tâche: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
       });
+      resolvedModel = res.model || res.selectedModel || resolvedModel;
+      resolvedModels.add(String(resolvedModel));
       const text = res.text || res.content || '{}';
       const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
       const parsed = JSON.parse(jsonStr);
@@ -103,14 +107,14 @@ async function runImpossibleBench(input = {}) {
     }
     
     const abstained = confidence < threshold;
-    results.push({ ...item, confidence, abstained, correct: abstained === item.impossible });
+    results.push({ ...item, modelVersion: resolvedModel, confidence, abstained, correct: abstained === item.impossible });
   }
 
   if (errors.length > 0) {
     const db = await getDatabase();
     const id = `eval-${crypto.randomUUID()}`;
     const agentId = input.agentId || 'studio';
-    const modelVersion = input.modelVersion || 'runtime-local';
+    const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
     const seed = input.seed ?? null;
     const config = { threshold, modelVersion, seed };
     const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: taskContext || null };
@@ -130,7 +134,7 @@ async function runImpossibleBench(input = {}) {
   const db = await getDatabase();
   const id = `eval-${crypto.randomUUID()}`;
   const agentId = input.agentId || 'studio';
-  const modelVersion = input.modelVersion || 'runtime-local';
+  const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
   const seed = input.seed ?? null;
   const config = { threshold, modelVersion, seed };
   const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: taskContext || null };
