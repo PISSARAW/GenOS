@@ -248,16 +248,31 @@ async function castVote(req, res) {
   await expireOpenProposals(db, req.tenant);
   const proposal = req.tenant
     ? await db.get(`
-      SELECT p.id, p.status, p.quorum_threshold, p.consensus_type FROM swarm_proposals p
+      SELECT p.id, p.workspace_id, p.status, p.quorum_threshold, p.consensus_type FROM swarm_proposals p
       JOIN workspaces w ON w.id = p.workspace_id
       WHERE p.id = ? AND w.organization_id = ? AND w.project_id = ?
     `, safeProposalId, req.tenant.organizationId, req.tenant.projectId)
-    : await db.get('SELECT id, status, quorum_threshold, consensus_type FROM swarm_proposals WHERE id = ?', safeProposalId);
+    : await db.get('SELECT id, workspace_id, status, quorum_threshold, consensus_type FROM swarm_proposals WHERE id = ?', safeProposalId);
   if (!proposal) {
     return res.status(404).json({ error: { code: 'PROPOSAL_NOT_FOUND', message: 'Swarm proposal was not found.' } });
   }
   if (proposal.status !== 'open') {
     return res.status(409).json({ error: { code: 'PROPOSAL_CLOSED', message: `Swarm proposal is ${proposal.status}.` } });
+  }
+
+  const requestedAgentId = req.body?.agentId;
+  const authenticatedId = req.user?.keyId || req.user?.username;
+  const canImpersonate = req.user?.role === 'admin' || req.user?.permissions?.includes('all');
+  if (requestedAgentId && authenticatedId && requestedAgentId !== authenticatedId && !canImpersonate) {
+    return res.status(403).json({ error: { code: 'VOTE_AGENT_FORBIDDEN', message: 'agentId must match the authenticated participant.' } });
+  }
+  if (req.tenant && agentId) {
+    const member = await db.get(
+      `SELECT a.id FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+       WHERE a.id = ? AND a.workspace_id = ? AND w.organization_id = ? AND w.project_id = ?`,
+      agentId, proposal.workspace_id, req.tenant.organizationId, req.tenant.projectId
+    );
+    if (!member) return res.status(403).json({ error: { code: 'VOTE_AGENT_SCOPE_FORBIDDEN', message: 'agentId must belong to the proposal workspace.' } });
   }
 
   const existingVote = await db.get('SELECT id FROM swarm_votes WHERE proposal_id = ? AND agent_id = ?', safeProposalId, agentId);
