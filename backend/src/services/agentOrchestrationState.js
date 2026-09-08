@@ -25,7 +25,8 @@ const WORKER_EVIDENCE_EVENTS = new Set([
 ]);
 
 function emit(agentId, eventType, action, detail, payload = {}, severity = 'info', status) {
-  return telemetry.emitEvent({ eventType, agentId, action, detail, payload, severity, status });
+  const sessionId = payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${agentId}`;
+  return telemetry.emitEvent({ eventType, agentId, action, detail, payload: { ...payload, sessionId }, sessionId, severity, status });
 }
 
 function workerToolLease(role) {
