@@ -79,7 +79,8 @@ async function getStatus(req, res) {
     activeAgentsCount: count,
     clonesHistory: (await db.get('SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ?', req.tenant.organizationId, req.tenant.projectId))?.count || 0,
     status: 'online',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    telemetryPersistence: telemetryService.getPersistenceStatus()
   });
 }
 
