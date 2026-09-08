@@ -1,6 +1,7 @@
 const core = require('./families/coreStrategies');
 const temporalCollective = require('./families/temporalCollectiveStrategies');
 const knowledgeResilience = require('./families/knowledgeResilienceStrategies');
+const crypto = require('crypto');
 
 const STRATEGIES = Object.freeze([...core, ...temporalCollective, ...knowledgeResilience]);
 const byId = new Map(STRATEGIES.map((strategy) => [strategy.id, strategy]));
@@ -25,8 +26,22 @@ function registryHealth() {
     ready: strategies.filter((strategy) => strategy.executionStatus === 'ready').length,
     partial: strategies.filter((strategy) => strategy.executionStatus === 'partial').length,
     missingPrimitives,
+    registryHash: hashRegistry(strategies),
     complete: missingPrimitives.length === 0
   };
+}
+
+function hashRegistry(strategies = listStrategies()) {
+  const canonical = strategies.map((strategy) => ({
+    id: strategy.id,
+    maturity: strategy.maturity,
+    problemTypes: [...strategy.problemTypes].sort(),
+    traits: [...strategy.traits].sort(),
+    primitives: [...strategy.primitives].sort(),
+    executionStatus: strategy.executionStatus,
+    missingPrimitives: [...strategy.missingPrimitives].sort()
+  })).sort((left, right) => left.id.localeCompare(right.id));
+  return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex')}`;
 }
 
 function toPublicStrategy(strategy) {
@@ -44,4 +59,4 @@ function toPublicStrategy(strategy) {
   };
 }
 
-module.exports = { listStrategies, getStrategy, registryHealth };
+module.exports = { listStrategies, getStrategy, registryHealth, hashRegistry };
