@@ -40,6 +40,10 @@ It is not currently an AGI system. The repository does not provide autonomous mo
 
 Experimental primitives must expose missing evidence as an error. A successful result means that the registered operation completed with the supplied inputs, not that an agent learned, reasoned causally, or proved a proposition.
 
+### Guarantee vocabulary
+
+Terms such as genome, cell, synapse, apoptosis, pheromone, stem cell, and cryptobiosis name runtime data structures, policies, or workflows. They do not establish biological equivalence, consciousness, learning, causal understanding, or safety certification. Words such as deterministic, verified, cryptographic, immediate, and guaranteed apply only when the response includes the corresponding runtime evidence and contract; otherwise the result is an observation, simulation, reconstruction, or request for recovery.
+
 ---
 
 ## Core Pillars of the V3 Architecture
@@ -103,10 +107,10 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 | **Schizogony** | Multiple internal nuclear divisions before synchronous burst release | Atomic speculative fan-out for Monte Carlo Tree Search (MCTS). Multiple hypothesis branches evaluate in memory and commit in a single atomic transaction. |
 | **Meiosis** | Two-step reductional division with crossing-over (chiasmata), gametic epigenetic reprogramming, and Mendelian segregation | Cellular gametogenesis via `genos evolution division --mode meiosis` generating 4 recombinant haploid gametes (quarter budget, epigenetic demethylation), and sexual amphimixis via `genos evolution crossover` / primitive `breed` between two agent parents, gated by phylogenetic speciation barriers (`--speciation-threshold`). |
 
-> **Anti-Pattern Banned:** **Amitosis** (uncontrolled, non-attested splitting) is rejected by design because it lacks cryptographic replayability and provenance.
+> **Anti-Pattern Banned:** **Amitosis** (uncontrolled splitting) is rejected by the runtime policy because it lacks the configured attestation and provenance path. This is a software governance rule, not a biological claim.
 
 ### 3. Neurobiology & Synaptic Growth
-- **Structural Plasticity:** Axonal terminals and dendritic spines (`DendriticTree`) physically grow (`spine.receptor_density += 0.05`) when repeatedly exercised by successful problem-solving paths.
+- **Structural Plasticity:** The runtime updates axonal-terminal and dendritic-spine records (`DendriticTree`, including `spine.receptor_density += 0.05`) after selected successful paths. This is a software state update, not physical neural growth.
 - **Synaptic Pruning & Sleep Cycles:** Inactive connections are marked by C3 opsonization ("eat-me" signals) and CD47 markers, then engulfed by microglial processors during automated sleep cycles (`sleepCycle.js`), freeing working memory.
 - **3-Factor Spike-Timing-Dependent Plasticity (STDP):** Causal pathways are reinforced or depressed in Rust (`crates/genos-biology/src/neurobiology.rs`) and persisted to the SQLite connectome (`synaptic_receptors`, `synaptic_edges`) based on dopaminergic outcome rewards, LTP (long-term potentiation), and LTD (long-term depression).
 - **Time Cells & Ebbinghaus Curve:** Chronological memory ordering with contextual workspace isolation and continuous temporal decay modeled by the Ebbinghaus forgetting curve.
@@ -122,8 +126,8 @@ GenOS implements 5 rigorous cellular division mechanisms ([`crates/genos-reprodu
 - **Molecular Chaperones:** Intercept malformed LLM outputs and repair JSON structures before parsing.
 - **Phagocytosis of Exosomes:** Digest and assimilate compressed binary packages across extracellular boundaries.
 - **Caspase Apoptosis Cascade:** Controlled destruction of corrupted or runaway agents, logging terminal post-mortem dossiers.
-- **Stem Cell Fallback:** If an essential worker is destroyed by an unrecoverable mutation, a pristine stem cell checkpoint is immediately mobilized to restore mission continuity.
-- **Cryptobiosis:** Puts agents into deep stasis under severe resource constraints, preserving state until resources return.
+- **Stem Cell Fallback:** If policy marks an essential worker as unrecoverable, the recovery service may dispatch a checkpoint-based replacement. Dispatch is bounded and can end in escalation; continuity is not guaranteed.
+- **Cryptobiosis:** Persists an agent state capsule and marks it frozen until an authorized thaw operation. It is durable state management, not biological stasis.
 
 ### 6. Strategy Registry & Execution Primitives
 GenOS ships with a strategy registry and an execution dispatcher (`backend/src/services/strategyExecutionAdapter.js`) covering documented strategies across 7 core lots. Some strategies are experimental and require concrete evidence in their context; an unknown or under-specified primitive fails explicitly rather than returning a simulated success.
