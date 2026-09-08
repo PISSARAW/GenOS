@@ -21,7 +21,7 @@ function call(method, request) {
     project_id: 'project-test',
     details_json: '{}'
   });
-  assert.equal(reported.error, undefined);
+  assert.equal(reported.error, null);
   assert.equal(reported.value.status, 'reported');
   console.log('gRPC incident tenant scope checks passed.');
 })().catch((error) => { console.error(error); process.exitCode = 1; });
