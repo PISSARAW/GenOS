@@ -58,10 +58,11 @@ function getTransitionEntropy(actionEvents = []) {
     conditionalEntropy += pFrom * stateCondEntropy;
   }
 
-  // Check explicit short periodic cycle (period 1, 2, 3, or 4)
+  // Check explicit periodic cycles up to a bounded period to catch longer
+  // orchestration loops without turning sentinel evaluation into O(n^2).
   let isPeriodicCycle = false;
   let cycleLength = 0;
-  for (const period of [1, 2, 3, 4]) {
+  for (const period of [1, 2, 3, 4, 5, 6, 7, 8, 12, 16]) {
     const minItems = period === 1 ? 3 : period * 2;
     if (items.length >= minItems) {
       let matches = 0;
