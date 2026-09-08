@@ -127,10 +127,17 @@ async function applyVersionedMigrations(db) {
     workspace_id TEXT,
     state_json TEXT NOT NULL,
     reason TEXT,
+    commit_message TEXT,
+    parent_snapshot_id TEXT,
+    ref_name TEXT DEFAULT 'main',
     created_by TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_agent_state_snapshots_agent ON agent_state_snapshots(agent_id, created_at);`);
+  const agentSnapshotColumns = new Set((await db.all('PRAGMA table_info(agent_state_snapshots)')).map((column) => column.name));
+  if (!agentSnapshotColumns.has('commit_message')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN commit_message TEXT');
+  if (!agentSnapshotColumns.has('parent_snapshot_id')) await db.exec('ALTER TABLE agent_state_snapshots ADD COLUMN parent_snapshot_id TEXT');
+  if (!agentSnapshotColumns.has('ref_name')) await db.exec("ALTER TABLE agent_state_snapshots ADD COLUMN ref_name TEXT DEFAULT 'main'");
   const episodicColumns = new Set((await db.all('PRAGMA table_info(episodic_memories)')).map((column) => column.name));
   if (!episodicColumns.has('is_purged')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN is_purged INTEGER NOT NULL DEFAULT 0');
   if (!episodicColumns.has('purged_at')) await db.exec('ALTER TABLE episodic_memories ADD COLUMN purged_at DATETIME');
