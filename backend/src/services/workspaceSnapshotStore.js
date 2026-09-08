@@ -186,6 +186,16 @@ async function pruneSnapshotArtifacts({ db, workspaceId, workspacePath, maxAgeMs
   return { removed };
 }
 
+async function reconcileSnapshotArtifacts(db, maxAgeMs = 60 * 60 * 1000) {
+  if (!db || typeof db.all !== 'function') throw new Error('A database handle is required for snapshot artifact reconciliation.');
+  const workspaces = await db.all('SELECT id, path FROM workspaces WHERE path IS NOT NULL AND path != \'\'');
+  let removed = 0;
+  for (const workspace of workspaces) {
+    removed += (await pruneSnapshotArtifacts({ db, workspaceId: workspace.id, workspacePath: workspace.path, maxAgeMs })).removed;
+  }
+  return { workspaces: workspaces.length, removed };
+}
+
 async function readManifest(snapshot) {
   const metadata = parseMetadata(snapshot.metadata);
   const manifestPath = metadata.manifestPath || path.join(metadata.storagePath || '', 'manifest.json');
@@ -495,4 +505,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, pruneSnapshotArtifacts, isAllowedTestCommand, isSafeRelative };
+module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, pruneSnapshotArtifacts, reconcileSnapshotArtifacts, isAllowedTestCommand, isSafeRelative };

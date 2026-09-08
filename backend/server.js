@@ -58,6 +58,9 @@ async function startServer() {
       }
     }
     await require('./src/services/agentWorkspaceLifecycleService').reconcileWorkspaceCleanup(db);
+    await require('./src/services/workspaceSnapshotStore').reconcileSnapshotArtifacts(db).catch((error) => {
+      console.warn(`[GenOS Backend] Snapshot artifact reconciliation skipped: ${error.message}`);
+    });
     if (process.env.GENOS_JOB_WORKER === '1') { // One explicitly assigned worker processes background jobs.
         jobWorker.startJobWorker();
     }
