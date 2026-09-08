@@ -16,12 +16,13 @@ function authorityError(code, message) {
   return error;
 }
 
-async function requireOrchestrator(db, agentId) {
-  const agent = await db.get('SELECT id, name, execution_mode FROM agents WHERE id = ?', agentId);
+async function requireOrchestrator(db, agentId, workspaceId = null) {
+  const agent = await db.get('SELECT a.id, a.name, a.execution_mode, a.workspace_id, w.organization_id, w.project_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ?', agentId);
   if (!agent) throw authorityError('ORCHESTRATOR_NOT_FOUND', `Orchestrator '${agentId}' was not found.`);
   if (agent.execution_mode !== 'orchestrator') {
     throw authorityError('ORCHESTRATOR_REQUIRED', `Agent '${agentId}' is a worker and cannot orchestrate other agents.`);
   }
+  if (workspaceId && agent.workspace_id !== workspaceId) throw authorityError('ORCHESTRATOR_WORKSPACE_MISMATCH', `Orchestrator '${agentId}' is outside workspace '${workspaceId}'.`);
   return agent;
 }
 
