@@ -46,6 +46,11 @@ The GenOS backend is the core control plane and runtime engine for GenOS V3. It 
 - **FTS5 Virtual Tables:** Automated full-text indexing triggers on `trajectories_fts` and `genome_decisions_fts` with French/accent-preserving query tokenization.
 - **Reciprocal Rank Fusion (RRF):** Decoupled vector and BM25 ranking fused at SQL level for resilient hybrid memory search.
 
+### Schema and migration boundary
+The JSON files under `spec/` are exchange contracts for manifests, snapshots, events, lineage, and schema-service responses. They are validated by the runtime schema validator and selected CLI/API boundaries. They are not a serialization of the SQLite schema.
+
+SQLite tables and columns under `src/db/` are internal persistence contracts. They evolve through startup migrations and may contain operational fields that are intentionally absent from the public JSON schemas. A valid JSON manifest therefore does not imply that every field is directly persisted, and a successful database migration does not replace JSON contract validation.
+
 ### 2. Unified Embedding Provider (`src/services/embeddingProvider.js`)
 Normalizes all vector inputs to **768 dimensions** with automatic detection and graceful fallback:
 - **Local Xenova Transformers:** In-process CPU embeddings via `@xenova/transformers` (`Xenova/all-MiniLM-L6-v2` projected to 768-D).
