@@ -40,18 +40,60 @@ async function getActiveNodeCount(db, workspaceId, tenant) {
   return Number(row?.count || 0);
 }
 
-function hasReachedQuorum(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+function hasReachedQuorum({yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold}) {
   const participationThreshold = 0.5; // Require at least 50% participation
   const requiredVotes = Math.max(1, Math.ceil(activeNodeCount * participationThreshold));
   const validVotes = yesCount + noCount;
   return totalVotes >= requiredVotes && validVotes > 0 && (yesCount / validVotes) >= approvalThreshold;
 }
 
-function hasBeenRejected(yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+function hasBeenRejected({yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold}) {
   const remainingVotes = Math.max(0, activeNodeCount - totalVotes);
   const maxPossibleYes = yesCount + remainingVotes;
   const maxPossibleValid = (yesCount + noCount) + remainingVotes;
   return maxPossibleValid > 0 && (maxPossibleYes / maxPossibleValid) < approvalThreshold;
+}
+
+function formatProposal(proposal, pVotes, isWeighted) {
+  let yesCount = 0;
+  let noCount = 0;
+  let abstainCount = 0;
+
+  for (const v of pVotes) {
+    if (v.vote === 'yes') yesCount++;
+    else if (v.vote === 'no') noCount++;
+    else if (v.vote === 'abstain') abstainCount++;
+  }
+
+  const totalVotes = pVotes.length;
+  const validVotes = yesCount + noCount;
+  const approvalRate = validVotes > 0 ? Math.round((yesCount / validVotes) * 100) : 0;
+
+  return {
+    id: proposal.id,
+    workspaceId: proposal.workspace_id,
+    title: proposal.title,
+    description: proposal.description,
+    status: proposal.status,
+    consensusType: proposal.consensus_type || 'simple',
+    proposer: proposal.proposer_name || 'Swarm Leader',
+    quorumThreshold: proposal.quorum_threshold || 0.66,
+    yesCount,
+    noCount,
+    abstainCount,
+    yesWeight: 0,
+    noWeight: 0,
+    totalVotes,
+    approvalRate,
+    votes: pVotes.map(v => ({
+      agentId: v.agent_id,
+      agentName: v.agent_name || v.agent_id,
+      vote: v.vote,
+      weight: 1.0,
+      brierScore: v.brier_score,
+      reason: v.reason
+    }))
+  };
 }
 
 async function getConsensus(req, res) {

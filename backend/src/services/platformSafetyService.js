@@ -53,7 +53,8 @@ function routeModel(request = {}, providers = DEFAULT_PROVIDERS) {
 
 function requiredIsSatisfied(provider, required) { return capabilitiesSatisfy(provider.capabilities, [...required]); }
 
-function validateToolCall({ agentId, toolName, args = {}, permissions = [], deniedTools = [], taints = [] }) {
+function validateToolCall(toolCallContext) {
+  const { agentId, toolName, args = {}, permissions = [], deniedTools = [], taints = [] } = toolCallContext;
   const normalized = String(toolName || '').trim();
   const allowed = permissions.includes('*') || permissions.includes(normalized) || permissions.includes('tool:execute');
   const denied = deniedTools.includes(normalized);

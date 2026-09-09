@@ -1,5 +1,14 @@
 const crypto = require('crypto');
-const { getDatabase } = require('../db');
+const { getDatabase } = require('../../db');
+const { enforceHooks } = require('./hooks');
+const { applyState } = require('./state');
+const { updateRef } = require('./refs');
+
+function scopeSql(req, alias = 'w') {
+  if (!req.tenant) return { clause: '1 = 1', params: [] };
+  const prefix = alias ? `${alias}.` : '';
+  return { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] };
+}
 
 function hashState(state) {
   return crypto.createHash('sha256').update(JSON.stringify(state)).digest('hex');
@@ -36,13 +45,7 @@ function json(value, fallback) {
   try { return JSON.parse(value || ''); } catch (_) { return fallback; }
 }
 
-function scopeSql(req, alias = 'w') {
-  if (!req.tenant) return { clause: '1 = 1', params: [] };
-  const prefix = alias ? `${alias}.` : '';
-  return { clause: `${prefix}organization_id = ? AND ${prefix}project_id = ?`, params: [req.tenant.organizationId, req.tenant.projectId] };
-}
-
-async function loadAgent(db, req, agentId) {
+function loadAgent(db, req, agentId) {
   const scope = scopeSql(req, 'w');
   return db.get(`SELECT a.* FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND ${scope.clause}`, agentId, ...scope.params);
 }
@@ -97,64 +100,14 @@ async function getObject(db, req, objectId) {
   return db.get(`SELECT o.* FROM agent_git_objects o LEFT JOIN workspaces w ON w.id = o.workspace_id WHERE o.id = ? AND ${scope.clause}`, objectId, ...scope.params);
 }
 
-async function applyState(db, req, targetAgentId, state, sections) {
-  const target = await loadAgent(db, req, targetAgentId);
-  if (!target) throw Object.assign(new Error('Target agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
-  const selected = new Set(sections || ['agent', 'decisions', 'memories', 'runs', 'plasmids', 'permissions']);
-  if (selected.has('agent')) {
-    const a = state.agent;
-    await db.run(`UPDATE agents SET name = ?, name_meaning = ?, role = ?, model_tier = ?, language = ?, isolation_mode = ?, status = ?, current_task = ?, dissonance_level = ?, eureka_count = ?, cognitive_budget = ?, cognitive_baseline_budget = ?, cognitive_max_dissonance = ?, is_apoptotic = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, a.name, a.name_meaning, a.role, a.model_tier, a.language, a.isolation_mode, a.status, a.current_task, a.dissonance_level || 0, a.eureka_count || 0, a.cognitive_budget ?? 0, a.cognitive_baseline_budget ?? 0, a.cognitive_max_dissonance ?? 50, a.is_apoptotic || 0, targetAgentId);
-  }
-  if (selected.has('decisions')) {
-    for (const item of state.decisions || []) {
-      const id = `agent-git-decision-${targetAgentId}-${item.id}`;
-      await db.run(`INSERT OR REPLACE INTO genome_decisions (id, title, content, cart_nodes_json, created_by, category, synaptic_weight, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, item.title, item.content, item.cart_nodes_json || '[]', targetAgentId, item.category, item.synaptic_weight || 1, req.tenant?.organizationId || item.organization_id || null, req.tenant?.projectId || item.project_id || null);
-    }
-  }
-  if (selected.has('memories')) {
-    for (const memory of state.memories || []) {
-      const id = `agent-git-memory-${targetAgentId}-${memory.id}`;
-      await db.run(`INSERT OR IGNORE INTO episodic_memories (id, agent_id, session_id, task_id, turn_number, action_type, context_state, action_input, observation_output, reward_score, is_consolidated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, targetAgentId, memory.session_id, memory.task_id, memory.turn_number || 0, memory.action_type, memory.context_state || '{}', memory.action_input, memory.observation_output, memory.reward_score || 0, memory.is_consolidated || 0);
-    }
-  }
-  if (selected.has('runs')) {
-    for (const run of state.runs || []) {
-      const id = `agent-git-run-${targetAgentId}-${run.id}`;
-      await db.run(`INSERT OR IGNORE INTO strategy_execution_runs (id, agent_id, contract_id, contract_version, status, budget_json, metrics_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, id, targetAgentId, run.contract_id, run.contract_version, run.status, run.budget_json || '{}', run.metrics_json || '{}', run.created_at);
-    }
-  }
-  if (selected.has('plasmids')) {
-    for (const plasmid of state.plasmids || []) {
-      await db.run(`INSERT OR REPLACE INTO plasmid_bindings (plasmid_id, owner_agent_id, source_agent_id, organization_id, project_id, status) VALUES (?, ?, ?, ?, ?, ?)`, plasmid.plasmid_id, targetAgentId, plasmid.source_agent_id, req.tenant?.organizationId || plasmid.organization_id || null, req.tenant?.projectId || plasmid.project_id || null, plasmid.status || 'active');
-    }
-  }
-  if (selected.has('permissions')) {
-    for (const permission of state.permissions || []) {
-      await db.run(`INSERT OR REPLACE INTO agent_permissions (agent_id, permissions_json, denied_tools_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?)`, targetAgentId, permission.permissions_json || '[]', permission.denied_tools_json || '[]', req.tenant?.organizationId || permission.organization_id || null, req.tenant?.projectId || permission.project_id || null);
-    }
-  }
-  return { targetAgentId, sections: [...selected] };
-}
-
 async function createCommit(req, options = {}) {
   const db = await getDatabase();
   const state = await collectState(db, req, options.agentId);
   if (!state) throw Object.assign(new Error('Agent is not available in the current tenant.'), { code: 'AGENT_NOT_FOUND' });
-  await enforceHooks(db, options.agentId, 'pre-commit', state);
+  await enforceHooks({ db, agentId: options.agentId, hookName: 'pre-commit', context: state });
   const result = await storeObject(db, { agentId: options.agentId, workspaceId: state.agent.workspace_id, kind: options.kind || 'commit', refName: options.refName || 'main', remoteName: options.remoteName, state, createdBy: req.user?.username || 'agent-git', metadata: options.metadata || {} });
-  await updateRef(db, req, options.agentId, options.refName || 'main', result.id, { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' });
+  await updateRef({ db, req, agentId: options.agentId, refName: options.refName || 'main', objectId: result.id, options: { expectedVersion: options.expectedVersion, leaseToken: options.leaseToken, action: options.kind || 'commit' } });
   return result;
-}
-
-async function updateRef(db, req, agentId, refName, objectId, options = {}) {
-  const scope = scopeSql(req, 'w');
-  const current = await db.get(`SELECT r.* FROM agent_git_refs r LEFT JOIN agents a ON a.id = r.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE r.agent_id = ? AND r.ref_name = ? AND ${scope.clause}`, agentId, refName, ...scope.params);
-  if (current && options.expectedVersion != null && Number(options.expectedVersion) !== Number(current.version)) throw Object.assign(new Error('Remote ref changed concurrently.'), { code: 'AGENT_REF_CONFLICT' });
-  if (current?.lease_token && options.leaseToken && current.lease_token !== options.leaseToken) throw Object.assign(new Error('Ref lease is held by another writer.'), { code: 'AGENT_REF_LEASE_CONFLICT' });
-  const version = Number(current?.version || 0) + 1;
-  await db.run(`INSERT INTO agent_git_refs (ref_key, agent_id, ref_name, object_id, version, lease_token, tracking_remote, tracking_ref) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(ref_key) DO UPDATE SET object_id = excluded.object_id, version = excluded.version, lease_token = excluded.lease_token, updated_at = CURRENT_TIMESTAMP`, `${agentId}:${refName}`, agentId, refName, objectId, version, options.leaseToken || current?.lease_token || null, options.trackingRemote || current?.tracking_remote || null, options.trackingRef || current?.tracking_ref || null);
-  await db.run('INSERT INTO agent_git_reflog (id, agent_id, ref_name, old_object_id, new_object_id, action, actor) VALUES (?, ?, ?, ?, ?, ?, ?)', `reflog-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`, agentId, refName, current?.object_id || null, objectId, options.action || 'update', req.user?.username || 'agent-git');
-  return { version, oldObjectId: current?.object_id || null };
 }
 
 async function push(req) {
@@ -366,16 +319,6 @@ async function hook(req) {
   return { success: true, operation: 'hook', agentId, hookName, enabled: req.body?.enabled !== false };
 }
 
-async function enforceHooks(db, agentId, hookName, context) {
-    const hooks = await db.all('SELECT policy_json, enabled FROM agent_git_hooks WHERE agent_id = ? AND hook_name = ?', agentId, hookName).catch(() => []);
-    for (const hook of hooks) {
-      if (!hook.enabled) continue;
-      const policy = json(hook.policy_json, {});
-      if (hookName === 'signature-required' && !process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY && policy.required !== false) throw Object.assign(new Error('Signature-required hook needs a signing key.'), { code: 'AGENT_SIGNATURE_REQUIRED' });
-      if (policy.requireHealthy === true && ['error', 'apoptosis', 'blocked'].includes(context?.agent?.status)) throw Object.assign(new Error('Agent hook rejected an unhealthy agent.'), { code: 'AGENT_HOOK_REJECTED' });
-    }
-}
-
 async function rebaseInteractive(req) {
     const db = await getDatabase();
     const ids = Array.isArray(req.body?.objectIds) ? req.body.objectIds : [];
@@ -429,4 +372,7 @@ async function bisect(req) {
   return { success: true, operation: 'bisect', agentId, field, expectedValue: expected, anomalyFound: culprit >= 0, culpritObjectId: culprit >= 0 ? objects[culprit].id : null, iterations, complexity: `O(log2(${objects.length}))` };
 }
 
-module.exports = { hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, rebaseInteractive, applyState, getObject };
+module.exports = {
+  hashState, signObject, collectState, changedSections, createCommit, push, fetch, receiveRemote, pull, stash, tag, cherryPick, diff, merge, replay, bisect, log, show, fsck, gc, blame, note, hook, mergeBase, archive, revert, rebase, rebaseInteractive, applyState, getObject,
+  enforceHooks, applyState, updateRef, scopeSql, loadAgent, signObject, verifyObjectSignature, json
+};

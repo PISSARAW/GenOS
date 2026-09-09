@@ -1,3 +1,4 @@
+const { walk, spawnGit } = require('../utils/fs');
 /**
  * Worktree lifecycle for isolated agent capsules.
  *
@@ -18,7 +19,6 @@
 const fs = require('fs/promises');
 const fsSync = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const { appendBounded } = require('./boundedOutput');
 const { getDatabase } = require('../db');
 const { terminateChild } = require('./processTermination');
@@ -53,18 +53,12 @@ function isSensitivePath(relativePath) {
 }
 
 async function removeSensitiveFiles(root) {
-  async function walk(directory, relative = '') {
-    for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-      const childRelative = relative ? path.join(relative, entry.name) : entry.name;
-      const childPath = path.join(directory, entry.name);
-      if (isSensitivePath(childRelative)) {
-        await fs.rm(childPath, { recursive: true, force: true });
-      } else if (entry.isDirectory() && !entry.isSymbolicLink()) {
-        await walk(childPath, childRelative);
-      }
+  await walk(root, '', async (entry, childRelative, childPath) => {
+    if (isSensitivePath(childRelative)) {
+      await fs.rm(childPath, { recursive: true, force: true });
+      return 'skip';
     }
-  }
-  await walk(root);
+  });
 }
 
 async function withGitRepoLock(repoPath, fn) {
@@ -113,12 +107,7 @@ function gcDelayMs() {
   return Number.isFinite(configured) ? configured : DEFAULT_GC_DELAY_MS;
 }
 
-function spawnGit(cwd, args) {
-  return runCommand('git', ['-C', cwd, ...args], { timeoutMs: 120000 });
-}
-
 /**
- * Free space under `directory`, or Infinity when the platform cannot report
  * it (fs.statfs is unavailable on some Windows/Node combinations and on
  * exotic mounts). Callers treat Infinity as "skip the disk-space guard"
  * rather than failing an otherwise valid launch.
@@ -461,7 +450,6 @@ module.exports = {
   provisionMissionWorkspace,
   runCommand,
   scheduleWorkspaceCleanup,
-  spawnGit,
   trackWorkspace,
   trackedWorkspaces
 };

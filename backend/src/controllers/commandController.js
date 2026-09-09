@@ -5,7 +5,7 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const circuitBreaker = require('../services/circuitBreaker');
-const lineageController = require('./lineageController');
+const lineageController = require('./lineage');
 const snapshotStore = require('../services/workspaceSnapshotStore');
 const { stopMission, stopAllMissions } = require('../services/agentRuntimeAdapter');
 

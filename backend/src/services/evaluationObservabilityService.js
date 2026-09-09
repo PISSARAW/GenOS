@@ -5,7 +5,7 @@ const { canonicalize } = require('./evaluationGraders');
 
 const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 
-function impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext) {
+function impossibleBenchConfig({input, threshold, modelVersion, seed, cases, taskContext}) {
   return {
     benchmark: 'ImpossibleBench',
     algorithmVersion: 'confidence-abstention-v1',
@@ -178,7 +178,8 @@ async function runImpossibleBench(input = {}) {
   return { id, ...payload };
 }
 
-async function recordProvenance(subjectType, subjectId, payload, parentHash = null, scope = {}) {
+async function recordProvenance(..._args) {
+  const [subjectType, subjectId, payload, parentHash = null, scope = {}] = _args;
   const db = await getDatabase();
   if (parentHash) {
     const parent = scope.organizationId && scope.projectId
