@@ -1,4 +1,4 @@
-const evolution = require('./evolution');
+const evolution = require('../../agentEvolutionService');
 
 async function frontierEscalation(context = {}) {
   const entropy = Number(context.normalizedEntropy ?? context.entropy ?? 0);
