@@ -1,28 +1,9 @@
-const { spawn } = require('child_process');
+const { run } = require('./_shared');
 const fs = require('fs/promises');
 const path = require('path');
 const { getDatabase } = require('../db');
-const { terminateChild } = require('./processTermination');
 
-const MAX_OUTPUT = 16000;
 const TEST_TIMEOUT_MS = 120000;
-
-function run(command, args, cwd, timeoutMs = 10000) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, { cwd, detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    const startedAt = Date.now();
-    const timer = setTimeout(() => terminateChild(child), timeoutMs);
-    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-MAX_OUTPUT); });
-    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-MAX_OUTPUT); });
-    child.on('error', (error) => { clearTimeout(timer); reject(error); });
-    child.on('close', (exitCode, signal) => {
-      clearTimeout(timer);
-      resolve({ command: [command, ...args].join(' '), exitCode, signal, durationMs: Date.now() - startedAt, stdout, stderr });
-    });
-  });
-}
 
 async function exists(filePath) {
   try { await fs.access(filePath); return true; } catch { return false; }

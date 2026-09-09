@@ -24,7 +24,9 @@ const WORKER_EVIDENCE_EVENTS = new Set([
   'APOPTOSIS_TRIGGERED', 'CELLULAR_APOPTOSIS'
 ]);
 
-function emit(agentId, eventType, action, detail, payload = {}, severity = 'info', status) {
+function emit(..._args) {
+  const [agentId, eventType, action, detail, options = {}] = _args;
+  const { payload = {}, severity = 'info', status } = options;
   const sessionId = payload.sessionId || payload.executionRunId || payload.runId || `agent-session-${agentId}`;
   return telemetry.emitEvent({ eventType, agentId, action, detail, payload: { ...payload, sessionId }, sessionId, severity, status });
 }

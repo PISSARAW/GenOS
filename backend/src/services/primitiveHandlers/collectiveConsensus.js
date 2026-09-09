@@ -116,7 +116,7 @@ async function brierScores(context = {}) {
   return { success: true, scores };
 }
 
-async function recordConsensusMessage(db, orchestratorId, kind, issue, decision, quorumReached, data = {}) {
+async function recordConsensusMessage({ db, orchestratorId, kind, issue, decision, quorumReached, data = {} }) {
   if (!db) return;
   try {
     const state = await db.get('SELECT organization, version FROM agent_organization_state WHERE orchestrator_id = ?', orchestratorId);
@@ -216,9 +216,9 @@ async function quorum(context = {}) {
       payload: { issue, decision, quorumReached, votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate }
     });
 
-    await recordConsensusMessage(db, orchestratorId, 'consensus_resolution', issue, decision, quorumReached, {
+    await recordConsensusMessage({ db, orchestratorId, kind: 'consensus_resolution', issue, decision, quorumReached, data: {
       votes, totalVotes: hasVoted.size, expressedVotes: totalExpressed, abstentions, approvalRate
-    });
+    } });
 
     return {
       success: true,
@@ -353,12 +353,12 @@ async function weightedQuorum(context = {}) {
       payload: { issue, decision, quorumReached, weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate }
     });
 
-    await recordConsensusMessage(db, orchestratorId, 'weighted_consensus_resolution', issue, decision, quorumReached, {
+    await recordConsensusMessage({ db, orchestratorId, kind: 'weighted_consensus_resolution', issue, decision, quorumReached, data: {
       weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, abstentions, approvalRate
-    });
-    await recordConsensusMessage(db, orchestratorId, 'consensus_resolution', issue, decision, quorumReached, {
+    } });
+    await recordConsensusMessage({ db, orchestratorId, kind: 'consensus_resolution', issue, decision, quorumReached, data: {
       weightedVotes, totalVotes: hasVoted.size, totalWeight: totalExpressedWeight, approvalRate
-    });
+    } });
 
     return {
       success: true,

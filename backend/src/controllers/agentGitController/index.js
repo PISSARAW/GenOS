@@ -1,4 +1,4 @@
-const agentGit = require('../services/agentGitService');
+const agentGit = require('../../services/agentGitService');
 
 async function push(req, res, next) { try { res.status(201).json(await agentGit.push(req)); } catch (error) { next(error); } }
 async function fetch(req, res, next) { try { res.json(await agentGit.fetch(req)); } catch (error) { next(error); } }

@@ -4,7 +4,7 @@
 
 const express = require('express');
 const router = express.Router();
-const lineageController = require('../controllers/lineageController');
+const lineageController = require('../controllers/lineage');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 const agentGitController = require('../controllers/agentGitController');

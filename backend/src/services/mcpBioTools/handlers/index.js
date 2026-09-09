@@ -1,0 +1,86 @@
+const { handleActiveSensing, handleActiveSensingError } = require('./handlers/activeSensing');
+const { handleCheckpointGate, handleCheckpointGateError } = require('./handlers/checkpointGate');
+const { handleAllostaticPlanning, handleAllostaticPlanningError } = require('./handlers/allostaticPlanning');
+const { handleNeuromodulationRPE, handleNeuromodulationRPError } = require('./handlers/neuromodulationRPE');
+const { handleEndocrineModulate, handleEndocrineModulateError } = require('./handlers/endocrineModulate');
+const { handleNeotenyQuota, handleNeotenyQuotaError } = require('./handlers/neotenyQuota');
+const { handleThanatosis, handleThanatosisError } = require('./handlers/thanatosis');
+const { handleCryptobiosis, handleCryptobiosisError } = require('./handlers/cryptobiosis');
+const { handleCellularBBB, handleCellularBBError } = require('./handlers/cellularBBB');
+const { handleAISDangerTelemetry, handleAISDangerTelemetryError } = require('./handlers/aisDangerTelemetry');
+const { handleAISClonalHypermutate, handleAISClonalHypermutateError } = require('./handlers/aisClonalHypermutate');
+const { handleMyceliumRoute, handleMyceliumRouteError } = require('./handlers/myceliumRoute');
+const { handleCellularEndosymbiosis, handleCellularEndosymbiosisError } = require('./handlers/cellularEndosymbiosis');
+const { handleStigmergy, handleStigmergyError } = require('./handlers/stigmergy');
+const { handleEvaporation, handleEvaporationError } = require('./handlers/evaporation');
+const { handleTrailSelection, handleTrailSelectionError } = require('./handlers/trailSelection');
+const { handleTheoryAutopoiesis, handleTheoryAutopoiesisError } = require('./handlers/theoryAutopoiesis');
+const { handleHypothalamusHomeostasis, handleHypothalamusHomeostasisError } = require('./handlers/hypothalamusHomeostasis');
+const { handleCerebellumCoprocessor, handleCerebellumCoprocessorError } = require('./handlers/cerebellumCoprocessor');
+const { handleEntericDelegate, handleEntericDelegateError } = require('./handlers/entericDelegate');
+const { handleGlialCleanup, handleGlialCleanupError } = require('./handlers/glialCleanup');
+const { handleGeneRegulatoryNetwork, handleGeneRegulatoryNetworkError } = require('./handlers/geneRegulatoryNetwork');
+const { handleEpigeneticChromatin, handleEpigeneticChromatinError } = require('./handlers/epigeneticChromatin');
+const { handleSpeciationCheck, handleSpeciationCheckError } = require('./handlers/speciationCheck');
+const { handleEvolutionAssimilatePlasmid, handleEvolutionAssimilatePlasmidError } = require('./handlers/evolutionAssimilatePlasmid');
+const { handleSenescenceAssess, handleSenescenceAssessError } = require('./handlers/senescenceAssess');
+const { handleNetworkQuorum, handleNetworkQuorumError } = require('./handlers/networkQuorum');
+const { handleSwarmConsensus, handleSwarmConsensusError } = require('./handlers/swarmConsensus');
+const { handleFlockingExplore, handleFlockingExploreError } = require('./handlers/flockingExplore');
+const { handleSynapticPruneScale, handleSynapticPruneScaleError } = require('./handlers/synapticPruneScale');
+const { handleSynapticPathEvaluate, handleSynapticPathEvaluateError } = require('./handlers/synapticPathEvaluate');
+const { handleAISPRRScan, handleAISPRRScanError } = require('./handlers/aisPrrScan');
+const { handleEnzymeCatalyze, handleEnzymeCatalyzeError } = require('./handlers/enzymeCatalyze');
+const { handleColliculusFusion, handleColliculusFusionError } = require('./handlers/colliculusFusion');
+const { handleReflexArc, handleReflexArcError } = require('./handlers/reflexArc');
+const { handleCircadianReset, handleCircadianResetError } = require('./handlers/circadianReset');
+const { handleTelomereFork, handleTelomereForkError } = require('./handlers/telomereFork');
+const { handleMyceliumNetwork, handleMyceliumNetworkError } = require('./handlers/myceliumNetwork');
+const { handleProprioception, handleProprioceptionError } = require('./handlers/proprioception');
+const { handleEcholocationListen, handleEcholocationBeep, handleEcholocationError } = require('./handlers/echolocation');
+
+const TOOL_HANDLERS = {
+  genos_active_sensing: { handle: handleActiveSensing, error: handleActiveSensingError },
+  genos_checkpoint_gate: { handle: handleCheckpointGate, error: handleCheckpointGateError },
+  genos_allostatic_planning: { handle: handleAllostaticPlanning, error: handleAllostaticPlanningError },
+  genos_biomimicry_neuromodulation_rpe: { handle: handleNeuromodulationRPE, error: handleNeuromodulationRPError },
+  genos_biomimicry_endocrine_modulate: { handle: handleEndocrineModulate, error: handleEndocrineModulateError },
+  genos_biomimicry_neoteny_quota: { handle: handleNeotenyQuota, error: handleNeotenyQuotaError },
+  genos_biomimicry_behavior_thanatosis: { handle: handleThanatosis, error: handleThanatosisError },
+  genos_resilience_cryptobiosis: { handle: handleCryptobiosis, error: handleCryptobiosisError },
+  genos_biomimicry_cellular_bbb: { handle: handleCellularBBB, error: handleCellularBBError },
+  genos_ais_danger_telemetry: { handle: handleAISDangerTelemetry, error: handleAISDangerTelemetryError },
+  genos_ais_clonal_hypermutate: { handle: handleAISClonalHypermutate, error: handleAISClonalHypermutateError },
+  genos_biomimicry_mycelium_route: { handle: handleMyceliumRoute, error: handleMyceliumRouteError },
+  genos_biomimicry_cellular_endosymbiosis: { handle: handleCellularEndosymbiosis, error: handleCellularEndosymbiosisError },
+  genos_biomimicry_stigmergy: { handle: handleStigmergy, error: handleStigmergyError },
+  genos_biomimicry_stigmergy_deposit: { handle: handleStigmergy, error: handleStigmergyError },
+  genos_biomimicry_evaporation: { handle: handleEvaporation, error: handleEvaporationError },
+  genos_biomimicry_trail_selection: { handle: handleTrailSelection, error: handleTrailSelectionError },
+  genos_biomimicry_theory_autopoiesis: { handle: handleTheoryAutopoiesis, error: handleTheoryAutopoiesisError },
+  genos_biomimicry_hypothalamus_homeostasis: { handle: handleHypothalamusHomeostasis, error: handleHypothalamusHomeostasisError },
+  genos_biomimicry_cerebellum_coprocessor: { handle: handleCerebellumCoprocessor, error: handleCerebellumCoprocessorError },
+  genos_biomimicry_enteric_delegate: { handle: handleEntericDelegate, error: handleEntericDelegateError },
+  genos_biomimicry_glial_cleanup: { handle: handleGlialCleanup, error: handleGlialCleanupError },
+  genos_biomimicry_gene_regulatory_network: { handle: handleGeneRegulatoryNetwork, error: handleGeneRegulatoryNetworkError },
+  genos_biomimicry_epigenetic_chromatin: { handle: handleEpigeneticChromatin, error: handleEpigeneticChromatinError },
+  genos_biomimicry_speciation_check: { handle: handleSpeciationCheck, error: handleSpeciationCheckError },
+  genos_evolution_assimilate_plasmid: { handle: handleEvolutionAssimilatePlasmid, error: handleEvolutionAssimilatePlasmidError },
+  genos_biomimicry_senescence_assess: { handle: handleSenescenceAssess, error: handleSenescenceAssessError },
+  genos_biomimicry_network_quorum: { handle: handleNetworkQuorum, error: handleNetworkQuorumError },
+  genos_biomimicry_swarm_consensus: { handle: handleSwarmConsensus, error: handleSwarmConsensusError },
+  genos_biomimicry_flocking_explore: { handle: handleFlockingExplore, error: handleFlockingExploreError },
+  genos_synaptic_prune_scale: { handle: handleSynapticPruneScale, error: handleSynapticPruneScaleError },
+  genos_synaptic_path_evaluate: { handle: handleSynapticPathEvaluate, error: handleSynapticPathEvaluateError },
+  genos_ais_prr_scan: { handle: handleAISPRRScan, error: handleAISPRRScanError },
+  genos_biomimicry_enzyme_catalyze: { handle: handleEnzymeCatalyze, error: handleEnzymeCatalyzeError },
+  genos_biomimicry_colliculus_fusion: { handle: handleColliculusFusion, error: handleColliculusFusionError },
+  genos_biomimicry_reflex_arc: { handle: handleReflexArc, error: handleReflexArcError },
+  genos_biomimicry_circadian_reset: { handle: handleCircadianReset, error: handleCircadianResetError },
+  genos_biomimicry_telomere_fork: { handle: handleTelomereFork, error: handleTelomereForkError },
+  genos_biomimicry_mycelium_network: { handle: handleMyceliumNetwork, error: handleMyceliumNetworkError },
+  genos_biomimicry_proprioception: { handle: handleProprioception, error: handleProprioceptionError },
+  genos_biomimicry_echolocation: { handle: handleEcholocationListen, error: handleEcholocationError },
+};
+
+module.exports = { TOOL_HANDLERS };
