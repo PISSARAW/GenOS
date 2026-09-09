@@ -125,6 +125,14 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
+    if (['dispatch_worker', 'dispatch_team', 'dispatch_trinity'].includes(action)) {
+      await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+        VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
+      const existingContract = await contracts.getLatestContract(db, orchestratorId);
+      if (!existingContract) {
+        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
+      }
+    }
     if (action === 'report_progress') {
       const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
