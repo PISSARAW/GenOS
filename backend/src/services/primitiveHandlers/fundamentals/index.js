@@ -1,24 +1,24 @@
 /**
  * Lot 1 : Primitives fondamentales (snapshot, fork, vfs, revert, run, bisect, evaluate)
  */
-const mcpExecutor = require('../mcpExecutor');
-const evaluation = require('../evaluationObservabilityService');
-const agentRecovery = require('../agentRecoveryService');
-const fleet = require('../agentFleetService');
-const epistemics = require('../epistemics');
-const genosCli = require('../genosCli');
-const { getDatabase } = require('../../db');
-const { resolveContainedPath } = require('../pathSafety');
-const modelProvider = require('../modelProvider');
-const localModelDiscovery = require('../localModelDiscovery');
-const workspaceSnapshotStore = require('../workspaceSnapshotStore');
-const runtimeAdapter = require('../agentRuntimeAdapter');
-const workerGarage = require('../workerGarageService');
-const agentAuthority = require('../agentAuthorityService');
-const agentEvolution = require('../agentEvolutionService');
+const mcpExecutor = require('../../mcpExecutor');
+const evaluation = require('../../evaluationObservabilityService');
+const agentRecovery = require('../../agentRecoveryService');
+const fleet = require('../../agentFleetService');
+const epistemics = require('../../epistemics');
+const genosCli = require('../../genosCli');
+const { getDatabase } = require('../../../db');
+const { resolveContainedPath } = require('../../pathSafety');
+const modelProvider = require('../../modelProvider');
+const localModelDiscovery = require('../../localModelDiscovery');
+const workspaceSnapshotStore = require('../../workspaceSnapshotStore');
+const runtimeAdapter = require('../../agentRuntimeAdapter');
+const workerGarage = require('../../workerGarageService');
+const agentAuthority = require('../../agentAuthorityService');
+const agentEvolution = require('../../agentEvolutionService');
 const { spawn } = require('child_process');
-const { terminateChild } = require('../processTermination');
-const { isAllowedSandboxTestCommand, normalizeSandboxCommand } = require('../sandboxCommandPolicy');
+const { terminateChild } = require('../../processTermination');
+const { isAllowedSandboxTestCommand, normalizeSandboxCommand } = require('../../sandboxCommandPolicy');
 
 async function scopedWorkspace(db, workspaceId) {
   return db.get('SELECT id, path FROM workspaces WHERE id = ?', workspaceId);
