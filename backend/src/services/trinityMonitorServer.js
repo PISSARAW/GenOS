@@ -33,6 +33,18 @@ function deriveMissionId(worldRowId) {
   return String(worldRowId || '').replace(/_world_\d+$/, '');
 }
 
+// Escape LIKE metacharacters so a mission id containing `_` or `%` cannot
+// match another mission's worlds.
+function escapeLikePattern(value) {
+  return String(value).replace(/[\\%_]/g, (char) => `\\${char}`);
+}
+
+function formatLogTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return '--:--:--';
+  return date.toLocaleTimeString();
+}
+
 function deriveVerdict(status, score) {
   if (status === 'error' || status === 'terminated' || status === 'apoptosis' || status === 'quarantined') return 'REJECTED';
   if (status !== 'completed' && status !== 'idle') return 'PENDING';
@@ -95,9 +107,9 @@ class TrinityMonitorServer {
               a.current_task, a.model_tier, a.status AS agent_status
        FROM trinity_worlds tw
        LEFT JOIN agents a ON a.id = tw.agent_id
-       WHERE tw.id LIKE ?
+       WHERE tw.id LIKE ? ESCAPE '\\'
        ORDER BY tw.world_number ASC`,
-      `${missionId}_world_%`
+      `${escapeLikePattern(missionId)}\\_world\\_%`
     );
     if (!worlds.length) return null;
     const prompt = worlds[0].mission;
@@ -139,27 +151,31 @@ class TrinityMonitorServer {
   }
 
   async handleTelemetryEvent(event) {
-    if (!this.clients.size) return;
     const info = this.agentIndex.get(event.agentId);
     if (!info) return;
 
     if (info.role === 'worker' && WORLD_LOG_EVENT_TYPES.has(event.eventType)) {
+      // Evidence must be tracked even when nobody is watching, otherwise
+      // snapshots fetched later report a score of 0.
       if (['AGENT_COMPLETED', 'AGENT_FAILED', 'AGENT_HALTED', 'AGENT_RUNTIME_ERROR', 'WORKER_TASK_FAILED', 'EVIDENCE_REPORT'].includes(event.eventType)) {
         const score = Math.max(0, Math.min(1, evidenceScore(event.payload || {}) / 100));
         this.evidenceByAgent.set(event.agentId, score);
       }
+      if (!this.clients.size) return;
       const line = String(event.detail || event.eventType).slice(0, MAX_LOG_LINE_LENGTH);
       this.broadcast(info.missionId, {
         type: 'log',
         missionId: info.missionId,
         worldNumber: info.worldNumber,
-        line: `[${new Date(event.timestamp).toLocaleTimeString()}] ${line}`,
+        line: `[${formatLogTimestamp(event.timestamp)}] ${line}`,
         severity: event.severity || 'info',
         timestamp: event.timestamp
       });
+      return;
     }
 
     if (info.role === 'orchestrator' && BARRIER_EVENT_TYPES.has(event.eventType)) {
+      if (!this.clients.size) return;
       const statusMap = {
         WORKER_EVIDENCE_BARRIER_STARTED: 'WAITING',
         WORKER_EVIDENCE_BARRIER_SATISFIED: 'SATISFIED',
@@ -253,6 +269,9 @@ class TrinityMonitorServer {
     telemetry.on('telemetry', this.telemetryHandler);
     this.indexTimer = setInterval(() => this.refreshAgentIndex(), AGENT_INDEX_REFRESH_MS);
     this.snapshotTimer = setInterval(() => this.broadcastSnapshots().catch(() => {}), SNAPSHOT_INTERVAL_MS);
+    // Timers must not, on their own, keep a shutting-down process alive.
+    if (typeof this.indexTimer.unref === 'function') this.indexTimer.unref();
+    if (typeof this.snapshotTimer.unref === 'function') this.snapshotTimer.unref();
     this.refreshAgentIndex();
     return this;
   }
@@ -260,15 +279,18 @@ class TrinityMonitorServer {
   stop() {
     clearInterval(this.snapshotTimer);
     clearInterval(this.indexTimer);
+    this.snapshotTimer = null;
+    this.indexTimer = null;
     telemetry.removeListener('telemetry', this.telemetryHandler);
     for (const client of this.clients) {
       client.socket.destroy();
     }
     this.clients.clear();
+    const server = this.server;
+    this.server = null;
     return new Promise((resolve) => {
-      if (!this.server) return resolve();
-      this.server.close(() => resolve());
-      this.server = null;
+      if (!server) return resolve();
+      server.close(() => resolve());
     });
   }
 }
@@ -278,5 +300,7 @@ const instance = new TrinityMonitorServer();
 module.exports = {
   start: () => instance.start(),
   stop: () => instance.stop(),
-  instance
+  instance,
+  escapeLikePattern,
+  formatLogTimestamp
 };
