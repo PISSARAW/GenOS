@@ -165,20 +165,13 @@ async fn rewind_api(
     if !state.rate_limiter.try_acquire() {
         return rate_limited();
     }
-    let target = if let Some(ms) = req.target_ms {
-        ms
-    } else if let Some(step) = req.step {
-        let history = state.engine.history().await;
-        if step == 0 || history.is_empty() {
-            0
-        } else {
-            let idx = (step - 1).min(history.len() - 1);
-            history[idx].timestamp_ms
-        }
-    } else {
-        0
-    };
-    let snapshot = state.engine.time_travel(target).await;
+    // A step rewind is resolved deterministically against the ordered log
+    // instead of being converted to a (collision-prone) millisecond cutoff.
+    if let Some(step) = req.step {
+        let snapshot = state.engine.time_travel_to_step(step).await;
+        return Json(snapshot).into_response();
+    }
+    let snapshot = state.engine.time_travel(req.target_ms.unwrap_or(0)).await;
     Json(snapshot).into_response()
 }
 

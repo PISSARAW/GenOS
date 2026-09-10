@@ -183,6 +183,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_step_rewind_is_collision_free() {
+        let engine = SyncytiumEngine::new();
+        for (id, ch) in [("s-1", "A"), ("s-2", "B")] {
+            engine.apply_op(CrdtOp {
+                op_id: id.to_string(),
+                lamport: 0,
+                // Same millisecond for both ops: a timestamp-only cutoff would
+                // be ambiguous, a step cutoff is exact.
+                timestamp_ms: 100,
+                agent_id: "agent".to_string(),
+                role: "parallel_executor".to_string(),
+                kind: CrdtOpKind::InsertText {
+                    index: 0,
+                    text: ch.to_string(),
+                },
+            }).await;
+        }
+
+        let step1 = engine.time_travel_to_step(1).await;
+        assert_eq!(step1.step, 1);
+        assert_eq!(step1.total_ops, 1);
+        assert!(step1.is_time_travel);
+
+        let step2 = engine.time_travel_to_step(2).await;
+        assert_eq!(step2.step, 2);
+        assert_eq!(step2.total_ops, 2);
+
+        let by_ms = engine.time_travel(100).await;
+        assert_eq!(by_ms.total_ops, 2, "a millisecond cutoff includes both colliding ops");
+    }
+
+    #[tokio::test]
     async fn test_unicode_offsets_are_utf16_safe_and_never_panic() {
         let engine = SyncytiumEngine::new();
 
