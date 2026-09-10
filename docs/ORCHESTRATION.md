@@ -257,6 +257,17 @@ Le runtime ne se contente pas de “voir un `completed`” ; il exige qu’il ex
 
 Si l’évidence manque, le système émet un message `ORCHESTRATION_DECISION_BLOCKED` ou `WORKER_NO_ANSWER_PROVEN` selon le cas.
 
+### 8.1 Synthèse hiérarchique multi-niveaux (Tissus / Clusters pour 100 agents)
+
+Lorsqu'un essaim de 100 ouvriers termine son exécution, la concaténation brute de 100 dossiers complets dans le prompt de synthèse de l'orchestrateur racine pose deux problèmes critiques :
+1. **Saturation de contexte** : 100 dossiers d'événements peuvent dépasser 100 000 tokens.
+2. **"Lost in the Middle"** : L'attention des modèles de langage se dégrade fortement sur les informations situées au milieu de très longs contextes non structurés.
+
+Pour résoudre cela, GenOS implémente une **synthèse hiérarchique par tissus** (`clusterWorkerDossiers`) :
+- **Partitionnement tissulaire** : Les ouvriers sont regroupés en grappes de taille fixe (10 workers par cluster par défaut, ex. `tissue_cluster_1`, `tissue_cluster_2`...).
+- **Condensation d'évidence (`dossierDigest`)** : Les preuves de chaque cluster sont préalablement condensées (revendications vérifiées, preuves d'impossibilité `noAnswerProof`, tests réussis).
+- **Contrat de validation d'influence (`validateDossierInfluence`)** : Pour les flottes massives (> 12 workers), le modèle n'est pas contraint d'émettre 100 entrées JSON exhaustives dans un seul token de sortie : il cite obligatoirement les ouvriers pivots, contributeurs clés ou explicitement rejetés, dont les citations d'évidence sont vérifiées à 100% contre les dossiers réels.
+
 ---
 
 ## 9. Phases, gates et transitions

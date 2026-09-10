@@ -244,6 +244,17 @@ Le desmosome est donc un mécanisme de “pont intercellulaire” : il fait pass
 
 Le système technique sous-jacent est un module de routage, de privilèges et de discipline de délégation. Les “desmosomes” sont donc un modèle de sécurité et de partitionnement de responsabilités, pas de communication biologique réelle.
 
+### 7.4 Tissus à large échelle (Agrégation hiérarchique pour 100 agents)
+
+En biologie, le cerveau ne traite jamais les signaux de chaque cellule individuellement :
+- Les cellules individuelles s'agrègent en **tissus fonctionnels** qui synthétisent localement leurs états ;
+- Les tissus s'organisent en organes, réduisant drastiquement le bruit sensoriel avant transmission au système nerveux central.
+
+Dans GenOS opérant à 100 agents :
+- Les 100 cellules ouvrières sont partitionnées en grappes tissulaires de 10 agents via `clusterWorkerDossiers`.
+- Chaque tissu condense les découvertes de ses cellules membres en un résumé de preuves structuré (`digest`).
+- L'orchestrateur central (l'organe de décision) reçoit la synthèse par tissu plutôt qu'un déluge non structuré de 100 dossiers, évitant la saturation cognitive et la perte d'information au centre du contexte ("Lost in the Middle").
+
 ---
 
 ## 8. Glial pipeline
