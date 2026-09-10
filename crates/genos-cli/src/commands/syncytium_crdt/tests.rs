@@ -115,6 +115,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_unicode_offsets_are_utf16_safe_and_never_panic() {
+        let engine = SyncytiumEngine::new();
+
+        engine.apply_op(CrdtOp {
+            op_id: "u-1".to_string(),
+            lamport: 1,
+            timestamp_ms: 1,
+            agent_id: "agent-1".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::InsertText {
+                index: 0,
+                text: "café 😀".to_string(),
+            },
+        }).await;
+
+        // UTF-16 offsets: c(0) a(1) f(2) é(3) space(4) 😀(5-6).
+        engine.apply_op(CrdtOp {
+            op_id: "u-2".to_string(),
+            lamport: 2,
+            timestamp_ms: 2,
+            agent_id: "agent-1".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::DeleteText { index: 3, len: 1 },
+        }).await;
+
+        let snap = engine.snapshot().await;
+        assert_eq!(snap.text_content, "caf 😀");
+
+        // An offset that lands inside the emoji's surrogate pair must be
+        // clamped to a code-point boundary rather than panicking.
+        engine.apply_op(CrdtOp {
+            op_id: "u-3".to_string(),
+            lamport: 3,
+            timestamp_ms: 3,
+            agent_id: "agent-1".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::InsertText {
+                index: 6,
+                text: "!".to_string(),
+            },
+        }).await;
+
+        let snap = engine.snapshot().await;
+        assert_eq!(snap.text_content, "caf 😀!");
+    }
+
+    #[tokio::test]
     async fn test_invariant_tracking_and_fault_localization() {
         let engine = SyncytiumEngine::new();
 

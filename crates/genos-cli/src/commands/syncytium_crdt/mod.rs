@@ -17,7 +17,11 @@ pub fn run(port: u16, mission: &str) -> Result<(), String> {
         tokio::spawn(simulator::run_forever(engine.clone()));
 
         let app = server::build_router(engine);
-        let addr = format!("0.0.0.0:{port}");
+        // Loopback-only by default: the Syncytium server has no built-in user
+        // auth, so it must not be reachable from the network unless the
+        // operator explicitly opts in with GENOS_SYNCYTIUM_BIND.
+        let bind_host = std::env::var("GENOS_SYNCYTIUM_BIND").unwrap_or_else(|_| "127.0.0.1".to_string());
+        let addr = format!("{bind_host}:{port}");
         let listener = tokio::net::TcpListener::bind(&addr)
             .await
             .map_err(|e| format!("Bind error on {addr}: {e}"))?;
