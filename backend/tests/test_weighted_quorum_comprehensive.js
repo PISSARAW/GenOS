@@ -18,11 +18,12 @@ test('Weighted Quorum & Brier Consensus Comprehensive Suite', async (t) => {
     );
   };
 
-  await t.test('1. Selective Brier Weight Formula & Penalty Thresholds', async () => {
+  await t.test('1. Selective Brier Weight Formula (continuous, no cliff)', async () => {
     const issue = 'brier_weights_test';
+    // Continuous weight = (1 - brier)^2 on [0, 1]:
     // agent_perfect: Brier 0.0 -> weight (1-0)^2 = 1.0
     // agent_good: Brier 0.2 -> weight (1-0.2)^2 = 0.64
-    // agent_poor: Brier 0.8 -> weight 0.1 * (1 - 0.8) = 0.02
+    // agent_poor: Brier 0.8 -> weight (1-0.8)^2 = 0.04
     // agent_worst: Brier 1.0 -> weight 0.0
     await insertOrgVote('agent_perfect', issue, 'option_A');
     await insertOrgVote('agent_good', issue, 'option_A');
@@ -46,7 +47,7 @@ test('Weighted Quorum & Brier Consensus Comprehensive Suite', async (t) => {
     assert.strictEqual(res.quorumReached, true);
     assert.strictEqual(res.decision, 'option_A');
     // option_A weight: 1.0 + 0.64 = 1.64
-    // option_B weight: 0.02 + 0.0 = 0.02
+    // option_B weight: 0.04 + 0.0 = 0.04
     assert.strictEqual(res.weightedTally.option_A > 1.6, true);
     assert.strictEqual(res.weightedTally.option_B < 0.1, true);
   });
@@ -80,7 +81,7 @@ test('Weighted Quorum & Brier Consensus Comprehensive Suite', async (t) => {
     assert.strictEqual(resLowApproval.decision, null);
   });
 
-  await t.test('3. Deterministic Tie-Breaking (localeCompare)', async () => {
+  await t.test('3. Exact ties resolve to tied (no lexical winner)', async () => {
     const issue = 'tie_break_test';
     // Equal calibration scores & vote count for candidate_A and candidate_B
     await insertOrgVote('agent_t1', issue, 'beta_candidate');
@@ -97,9 +98,9 @@ test('Weighted Quorum & Brier Consensus Comprehensive Suite', async (t) => {
       }
     });
     assert.strictEqual(res.success, true);
-    assert.strictEqual(res.quorumReached, true);
-    // alpha_candidate comes before beta_candidate alphabetically
-    assert.strictEqual(res.decision, 'alpha_candidate');
+    assert.strictEqual(res.quorumReached, false);
+    assert.strictEqual(res.decision, null);
+    assert.strictEqual(res.status, 'tied');
   });
 
   await t.test('4. Abstention Handling (counted for quorum, neutral for decision)', async () => {
