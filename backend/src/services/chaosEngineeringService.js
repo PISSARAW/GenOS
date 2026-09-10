@@ -9,12 +9,6 @@ const { getDatabase } = require('../db');
 const { activeProcesses, emit } = require('./agentOrchestrationState');
 const { terminateChild, terminatePid } = require('./processTermination');
 
-function pickRandomElement(items) {
-  if (!items || !items.length) return null;
-  const index = Math.floor(Math.random() * items.length);
-  return items[index];
-}
-
 async function findEligibleWorkers(db, filter = {}) {
   const params = [];
   let query = "SELECT id, name, role, status, execution_mode, parent_agent_id, lineage_relation, workspace_id, fleet_id FROM agents WHERE execution_mode = 'worker'";
@@ -83,7 +77,45 @@ async function readAgentLineage(db, agent) {
   };
 }
 
+// PID-only drill (`genos inject-chaos --pid <pid>`): terminate exactly the
+// requested process, never a random worker.
+function injectChaosOnPid(options) {
+  const targetPid = Number(options.pid);
+  const terminated = options.dryRun ? false : terminatePid(targetPid);
+  return {
+    success: options.dryRun ? true : terminated,
+    operation: 'inject_chaos',
+    mode: options.mode || 'kill_worker_pid',
+    dryRun: Boolean(options.dryRun),
+    targetAgent: { id: null, name: null, role: null, status: null, pid: targetPid },
+    lineage: {
+      parentAgentId: null,
+      relation: 'independent',
+      workspaceId: options.workspaceId || null,
+      fleetId: options.fleetId || null,
+      lineageNodesCount: 0
+    },
+    regenerationSteward: {
+      activated: false,
+      strategy: 'lineage_reconstruction',
+      lineageId: null,
+      missionPreserved: null
+    }
+  };
+}
+
 async function injectChaos(options = {}) {
+  if (!options.agentId && options.pid) return injectChaosOnPid(options);
+
+  if (!options.agentId) {
+    return {
+      success: false,
+      operation: 'inject_chaos',
+      error: 'CHAOS_TARGET_REQUIRED',
+      message: 'An explicit agentId or pid is required to inject chaos.'
+    };
+  }
+
   const db = await getDatabase();
   const workers = await findEligibleWorkers(db, options);
 
@@ -96,7 +128,7 @@ async function injectChaos(options = {}) {
     };
   }
 
-  const target = options.agentId ? workers[0] : pickRandomElement(workers);
+  const target = workers[0];
   const lineage = await readAgentLineage(db, target);
   const targetPid = await executeChaosKill(target, options);
 

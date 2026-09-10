@@ -6,9 +6,21 @@ const chaosService = require('../services/chaosEngineeringService');
 
 async function injectChaos(req, res, next) {
   try {
-    const { agentId, workspaceId, fleetId, mode, dryRun, reason } = req.body || {};
+    const { agentId, pid, workspaceId, fleetId, mode, dryRun, reason } = req.body || {};
+    // Chaos must never target an arbitrary worker by accident: an explicit
+    // agent ID or PID is mandatory.
+    const hasPid = Number.isInteger(pid) && pid > 0;
+    if (!agentId && !hasPid) {
+      return res.status(400).json({
+        error: {
+          code: 'CHAOS_TARGET_REQUIRED',
+          message: 'An explicit chaos target is required: provide agentId or a positive integer pid.'
+        }
+      });
+    }
     const result = await chaosService.injectChaos({
       agentId,
+      pid: hasPid ? pid : undefined,
       workspaceId,
       fleetId,
       mode,

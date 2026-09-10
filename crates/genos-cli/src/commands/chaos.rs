@@ -18,6 +18,7 @@ fn call_backend_chaos_at(url: &str, cmd: &InjectChaosCmd) -> Result<Value, Strin
 
     let payload = json!({
         "agentId": cmd.target,
+        "pid": cmd.pid,
         "workspaceId": cmd.workspace_id,
         "fleetId": cmd.fleet_id,
         "mode": cmd.mode,
