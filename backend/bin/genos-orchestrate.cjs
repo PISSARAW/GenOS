@@ -153,9 +153,9 @@ async function main() {
       const result = userProgress.report({
         orchestratorId,
         sourceAgentId: process.env.GENOS_AGENT_ID || orchestratorId,
-        phase: request.phase,
-        message: request.message,
-        progressPercent: request.progress_percent,
+        phase: request.phase || request.stage || 'in_progress',
+        message: request.message || request.status || request.description || request.detail || request.phase || 'Progress update',
+        progressPercent: request.progress_percent ?? request.progressPercent ?? request.progress,
         completed: request.completed,
         next: request.next,
         blockers: request.blockers,
@@ -242,7 +242,7 @@ async function main() {
       return;
     }
     if (action === 'dispatch_trinity') {
-      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      const parent = await db.get("SELECT id, workspace_root FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
       if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       const garage = await workerGarage.state(db, orchestratorId);
@@ -251,7 +251,8 @@ async function main() {
         error.code = 'WORKER_GARAGE_FULL';
         throw error;
       }
-      const members = trinityService.compose(request.mission);
+      const trinityMission = request.mission || request.project_goal || request.goal || 'Trinity comparative mission';
+      const members = trinityService.compose(trinityMission);
       const missionId = `trinity_${orchestratorId}_${Date.now()}`;
       const accepted = [];
       for (const member of members) {
@@ -260,12 +261,13 @@ async function main() {
         await db.run(
           `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
            VALUES (?, ?, ?, ?, ?, 'queued', ?)`,
-          `${missionId}_world_${member.worldNumber}`, request.mission, member.worldNumber, name, member.role, workerId
+          `${missionId}_world_${member.worldNumber}`, trinityMission, member.worldNumber, name, member.role, workerId
         );
         const runner = spawn(process.execPath, [__filename, JSON.stringify({
           action: 'dispatch_worker', background: false, orchestratorId, workerId,
           name, mission: member.mission, role: member.role, model_tier: member.modelTier,
-          execution_budget: request.execution_budget, workspace_root: request.workspace_root,
+          execution_budget: request.execution_budget,
+          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
           reuseChecked: true
         })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
         runner.unref();
@@ -273,20 +275,28 @@ async function main() {
       }
       process.stdout.write(JSON.stringify({
         orchestratorId,
-        trinity: { status: 'accepted', missionId, mission: request.mission, worlds: accepted }
+        trinity: { status: 'accepted', mission: trinityMission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted }
       }));
       return;
     }
     if (action === 'dispatch_team') {
-      const parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
+      const parent = await db.get("SELECT id, workspace_root FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
       if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
       if (!await contracts.getLatestContract(db, orchestratorId)) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
       const garage = await workerGarage.state(db, orchestratorId);
+      const subSystems = Array.isArray(request.sub_systems)
+        ? request.sub_systems
+        : Array.isArray(request.subsystems)
+          ? request.subsystems
+          : typeof (request.sub_systems || request.subsystems) === 'string'
+            ? (request.sub_systems || request.subsystems).split(',').map((s) => s.trim()).filter(Boolean)
+            : [];
+      const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission;
       const members = aTeamService.compose({
-        projectGoal: request.project_goal,
-        subSystems: request.sub_systems,
-        assignedRoles: request.assigned_roles,
-        modelTiers: request.model_tiers,
+        projectGoal,
+        subSystems,
+        assignedRoles: request.assigned_roles || request.assignedRoles,
+        modelTiers: request.model_tiers || request.modelTiers,
         available: garage.available
       });
       const accepted = members.map((member, index) => {
@@ -294,14 +304,15 @@ async function main() {
         const runner = spawn(process.execPath, [__filename, JSON.stringify({
           action: 'dispatch_worker', background: false, orchestratorId, workerId,
           mission: member.mission, role: member.role, model_tier: member.modelTier,
-          workspace_root: request.workspace_root, reuseChecked: true
+          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
+          reuseChecked: true
         })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
         runner.unref();
         return { workerId, subSystem: member.subSystem, role: member.role, modelTier: member.modelTier, status: 'accepted' };
       });
       process.stdout.write(JSON.stringify({
         orchestratorId,
-        aTeam: { status: 'accepted', projectGoal: request.project_goal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
+        aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
       }));
       return;
     }

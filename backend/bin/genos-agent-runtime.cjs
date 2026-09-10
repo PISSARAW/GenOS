@@ -92,9 +92,19 @@ process.stdin.on('end', async () => {
 
   // Resolve the repository relative to this bridge rather than the caller's cwd.
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
-  const resolveBin = (p) => fs.existsSync(p) ? p : (fs.existsSync(`${p}.exe`) ? `${p}.exe` : p);
-  const genosBinary = resolveBin(process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos'));
-  const mcpBinary = resolveBin(process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp'));
+  const resolveBin = (primary, fallback) => {
+    const candidates = [primary, `${primary}.exe`, fallback, `${fallback}.exe`].filter(Boolean);
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    return candidates[0];
+  };
+  const genosBinary = process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)
+    ? process.env.GENOS_BIN
+    : resolveBin(path.resolve(__dirname, '../../target/release/genos'), path.resolve(__dirname, '../../target/debug/genos'));
+  const mcpBinary = process.env.GENOS_MCP_BIN && fs.existsSync(process.env.GENOS_MCP_BIN)
+    ? process.env.GENOS_MCP_BIN
+    : resolveBin(path.resolve(__dirname, '../../target/release/genos-mcp'), path.resolve(__dirname, '../../target/debug/genos-mcp'));
   const orchestratorBridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.resolve(__dirname, 'genos-orchestrate.cjs');
   let strategyContract = {};
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
