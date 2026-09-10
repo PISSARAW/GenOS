@@ -7,7 +7,7 @@
 
 const { getDatabase } = require('../db');
 const { activeProcesses, emit, TERMINAL_AGENT_STATUSES } = require('./agentOrchestrationState');
-const { terminateChild, terminatePid } = require('./processTermination');
+const { terminateChild, terminatePid, processMatches } = require('./processTermination');
 
 async function findEligibleWorkers(db, filter = {}) {
   // Never offer an already-terminal worker as a chaos target: it has no live
@@ -49,9 +49,34 @@ function resolveWorkerPid(agentId) {
   return { pid: null, child: null };
 }
 
-async function executeChaosKill(target, options = {}) {
+// A cluster round-robin may route the chaos request to a worker that does not
+// own the in-memory child. Fall back to the persisted runtime_pid so the kill
+// still targets the right OS process (and never a reused PID).
+async function resolveTargetProcess(db, target) {
+  const local = resolveWorkerPid(target.id);
+  if (local.pid || !db) return local;
+  const row = await db.get(
+    'SELECT runtime_pid, runtime_executable FROM agents WHERE id = ?',
+    target.id
+  );
+  if (!row?.runtime_pid) return { pid: null, child: null };
+  if (row.runtime_executable && !processMatches(row.runtime_pid, row.runtime_executable)) {
+    // PID was reused by an unrelated executable: treat as no live process.
+    return { pid: null, child: null, stalePid: row.runtime_pid };
+  }
+  return { pid: row.runtime_pid, child: null, persisted: true };
+}
+
+function chaosOutcomeDetail(target, state) {
+  const { dryRun, terminated, pid, reason } = state;
+  if (dryRun) return `Chaos plan validated for agent '${target.id}' (${reason}); no process terminated.`;
+  if (terminated) return `Chaos injected: killed worker PID ${pid} for agent '${target.id}' (${reason}).`;
+  return `Chaos injection failed: no live process for agent '${target.id}' (${reason}).`;
+}
+
+async function executeChaosKill(target, options = {}, db = null) {
   const { dryRun = false, reason = 'Chaos Engineering Drill' } = options;
-  const { pid, child } = resolveWorkerPid(target.id);
+  const { pid, child } = await resolveTargetProcess(db, target);
 
   let terminated = false;
   if (!dryRun) {
@@ -62,15 +87,15 @@ async function executeChaosKill(target, options = {}) {
     }
   }
 
-  const eventType = dryRun ? 'CHAOS_PLAN_VALIDATED' : (terminated ? 'CHAOS_INJECTED' : 'CHAOS_INJECTION_FAILED');
-  let detail;
-  if (dryRun) {
-    detail = `Chaos plan validated for agent '${target.id}' (${reason}); no process terminated.`;
-  } else if (terminated) {
-    detail = `Chaos injected: killed worker PID ${pid} for agent '${target.id}' (${reason}).`;
-  } else {
-    detail = `Chaos injection failed: no live process for agent '${target.id}' (${reason}).`;
+  if (terminated && db) {
+    await db.run(
+      'UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?',
+      target.id
+    );
   }
+
+  const eventType = dryRun ? 'CHAOS_PLAN_VALIDATED' : (terminated ? 'CHAOS_INJECTED' : 'CHAOS_INJECTION_FAILED');
+  const detail = chaosOutcomeDetail(target, { dryRun, terminated, pid, reason });
 
   const orchestratorId = target.parent_agent_id || target.id;
   emit(orchestratorId, eventType, 'INJECT_CHAOS', detail, {
@@ -158,7 +183,7 @@ async function injectChaos(options = {}) {
 
   const target = workers[0];
   const lineage = await readAgentLineage(db, target);
-  const kill = await executeChaosKill(target, options);
+  const kill = await executeChaosKill(target, options, db);
   const dryRun = Boolean(options.dryRun);
   const success = dryRun || kill.terminated;
 
