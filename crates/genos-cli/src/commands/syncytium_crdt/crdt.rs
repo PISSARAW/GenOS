@@ -97,7 +97,7 @@ impl SyncytiumEngine {
         let (tx, _rx) = broadcast::channel(1024);
         Arc::new(Self {
             op_log: RwLock::new(Vec::new()),
-            lamport_clock: AtomicU64::new(1),
+            lamport_clock: AtomicU64::new(0),
             step_counter: AtomicU64::new(0),
             tx,
         })
@@ -108,12 +108,20 @@ impl SyncytiumEngine {
     }
 
     pub fn next_lamport(&self) -> u64 {
-        self.lamport_clock.fetch_add(1, Ordering::Relaxed)
+        self.lamport_clock.fetch_add(1, Ordering::SeqCst) + 1
+    }
+
+    /// Lamport receive rule: ensure the local clock is at least as large as an
+    /// incoming remote timestamp.
+    fn observe_lamport(&self, remote: u64) {
+        self.lamport_clock.fetch_max(remote, Ordering::SeqCst);
     }
 
     pub async fn apply_op(&self, mut op: CrdtOp) -> SyncytiumSnapshot {
         if op.lamport == 0 {
             op.lamport = self.next_lamport();
+        } else {
+            self.observe_lamport(op.lamport);
         }
         let step = self.step_counter.fetch_add(1, Ordering::Relaxed) + 1;
 
@@ -166,7 +174,19 @@ impl SyncytiumEngine {
         let mut invariants_map = HashMap::new();
         let mut last_timestamp = 0u64;
 
-        for op in log {
+        // Replay in a deterministic total order (time, Lamport, identity) so
+        // every replica that holds the same ops converges to the same state
+        // regardless of network arrival order.
+        let mut ordered: Vec<&CrdtOp> = log.iter().collect();
+        ordered.sort_by(|a, b| {
+            a.timestamp_ms
+                .cmp(&b.timestamp_ms)
+                .then(a.lamport.cmp(&b.lamport))
+                .then(a.agent_id.cmp(&b.agent_id))
+                .then(a.op_id.cmp(&b.op_id))
+        });
+
+        for op in ordered {
             if let Some(cutoff) = target_ms {
                 if op.timestamp_ms > cutoff {
                     continue;

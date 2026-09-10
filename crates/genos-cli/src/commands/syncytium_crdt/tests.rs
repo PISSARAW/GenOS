@@ -115,6 +115,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_lamport_clock_advances_past_remote_ops() {
+        let engine = SyncytiumEngine::new();
+
+        // A remote replica stamped this op with Lamport 100. Applying it must
+        // push the local clock to at least 100.
+        engine.apply_op(CrdtOp {
+            op_id: "remote-1".to_string(),
+            lamport: 100,
+            timestamp_ms: 100,
+            agent_id: "remote".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::SetField {
+                key: "k".to_string(),
+                value: serde_json::json!(1),
+            },
+        }).await;
+
+        // The next local op must be causally after the remote one.
+        engine.apply_op(CrdtOp {
+            op_id: "local-1".to_string(),
+            lamport: 0,
+            timestamp_ms: 101,
+            agent_id: "local".to_string(),
+            role: "parallel_executor".to_string(),
+            kind: CrdtOpKind::SetField {
+                key: "k2".to_string(),
+                value: serde_json::json!(2),
+            },
+        }).await;
+
+        let history = engine.history().await;
+        let remote = history.iter().find(|op| op.op_id == "remote-1").unwrap();
+        let local = history.iter().find(|op| op.op_id == "local-1").unwrap();
+        assert_eq!(remote.lamport, 100, "remote ops keep their own stamp");
+        assert_eq!(local.lamport, 101, "local ops must be max(local, remote) + 1");
+    }
+
+    #[tokio::test]
+    async fn test_replay_is_order_independent() {
+        fn op(id: &str, ts: u64, lamport: u64, text: &str) -> CrdtOp {
+            CrdtOp {
+                op_id: id.to_string(),
+                lamport,
+                timestamp_ms: ts,
+                agent_id: "agent".to_string(),
+                role: "parallel_executor".to_string(),
+                kind: CrdtOpKind::InsertText {
+                    index: 0,
+                    text: text.to_string(),
+                },
+            }
+        }
+
+        let forward = SyncytiumEngine::new();
+        forward.apply_op(op("a", 1, 1, "A")).await;
+        forward.apply_op(op("b", 2, 2, "B")).await;
+
+        let reversed = SyncytiumEngine::new();
+        reversed.apply_op(op("b", 2, 2, "B")).await;
+        reversed.apply_op(op("a", 1, 1, "A")).await;
+
+        assert_eq!(
+            forward.snapshot().await.text_content,
+            reversed.snapshot().await.text_content
+        );
+    }
+
+    #[tokio::test]
     async fn test_unicode_offsets_are_utf16_safe_and_never_panic() {
         let engine = SyncytiumEngine::new();
 
