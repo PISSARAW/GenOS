@@ -1,0 +1,23 @@
+name: genos-ateam-audit
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: GenOS A-Team quality gate
+        uses: ./.github/actions/genos-ateam-audit
+        with:
+          evidence: evidence.json
+      - name: Upload A-Team evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: genos-ateam-evidence
+          path: evidence.json

@@ -2,6 +2,7 @@
   "scripts": {
     "test": "npm --prefix backend test",
     "test:quality": "npm --prefix backend run test:quality",
+    "audit:ateam": "node backend/bin/genos-ateam-audit.js",
     "clean:artifacts": "node scripts/clean-artifacts.mjs",
     "check:code-quality": "python scripts/ci/check_code_quality.py"
   },

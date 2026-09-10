@@ -1,0 +1,17 @@
+name: genos-ateam-audit
+description: Run the GenOS A-Team quality gate and publish machine-readable evidence.
+inputs:
+  mission:
+    description: Mission text to analyze.
+    required: false
+    default: Review this pull request for implementation, tests, security, and CI/CD quality.
+  observer-report:
+    description: Optional JSON report emitted by the integration observer.
+    required: false
+  evidence:
+    description: Output path for evidence.json.
+    required: false
+    default: evidence.json
+runs:
+  using: node20
+  main: main.js

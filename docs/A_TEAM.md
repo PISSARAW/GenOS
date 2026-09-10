@@ -88,6 +88,12 @@ $$
 
 Une couverture < 0.8 indique une équipe sous-dotée. Le système refuse l'activation si la couverture tombe en dessous du seuil critique.
 
+## 3.1 Quality Gate CI/CD
+
+Le point d'entrée `backend/bin/genos-ateam-audit.js` transforme cette barrière en contrôle bloquant pour les pipelines. Il accepte `--mission` ou `--mission-file`, écrit une preuve JSON avec le schéma `genos.ateam-quality-gate/v1`, et accepte le rapport optionnel de l'observateur via `--observer-report`.
+
+Le processus retourne `0` si la couverture est au moins `0.8` et qu'aucun échec d'intégration n'est signalé. Il retourne intentionnellement `2` dans les autres cas, afin que GitHub Actions, GitLab CI ou un ordonnanceur industriel puisse bloquer la livraison. L'action locale `.github/actions/genos-ateam-audit` et le workflow `.github/workflows/genos-ateam-audit.yml` exécutent ce contrôle sur chaque Pull Request.
+
 ---
 
 ## 4. Domaines reconnus et rôles
