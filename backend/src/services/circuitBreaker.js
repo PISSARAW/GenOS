@@ -155,16 +155,15 @@ class CircuitBreakerService {
     }
 
     if (effectiveState === 'HALF-OPEN' && isDestructive) {
-      if (globalState === 'HALF-OPEN' && this.halfOpenProbe) {
-        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
-      }
-      if (scopedState === 'HALF-OPEN' && stateContext.halfOpenProbe) {
-        return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${stateContext.halfOpenProbe}' is already in progress.` };
-      }
-      if (globalState === 'HALF-OPEN') {
+      if (scope === 'global') {
+        if (this.halfOpenProbe) {
+          return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${this.halfOpenProbe}' is already in progress.` };
+        }
         this.halfOpenProbe = toolName;
-      }
-      if (scopedState === 'HALF-OPEN') {
+      } else {
+        if (stateContext.halfOpenProbe) {
+          return { allowed: false, reason: 'CANARY_IN_PROGRESS', message: `Circuit breaker canary '${stateContext.halfOpenProbe}' is already in progress.` };
+        }
         stateContext.halfOpenProbe = toolName;
       }
     }
