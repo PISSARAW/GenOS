@@ -99,6 +99,20 @@ async function testChaosEngineering() {
   assert.equal(noProcessResult.regenerationSteward.activated, false);
   console.log('✓ Chaos without a live process reports an honest failure (no fabricated PID)');
 
+  // 4. Cross-worker: the in-memory map is empty but agents.runtime_pid still
+  // records the live PID, so chaos must target that persisted PID instead of
+  // silently no-op'ing.
+  await db.run('UPDATE agents SET runtime_pid = ?, runtime_executable = NULL WHERE id = ?', 88888, workerId);
+  const persistedResult = await chaosService.injectChaos({
+    agentId: workerId,
+    dryRun: true,
+    reason: 'Cross-worker persisted PID drill'
+  });
+  assert.equal(persistedResult.success, true);
+  assert.equal(persistedResult.targetAgent.pid, 88888, 'must resolve the persisted runtime_pid');
+  await db.run('UPDATE agents SET runtime_pid = NULL WHERE id = ?', workerId);
+  console.log('✓ Chaos resolves the persisted runtime_pid when the process lives on another worker');
+
   // Clean up
   console.log('All Chaos Engineering tests passed successfully.');
 }
