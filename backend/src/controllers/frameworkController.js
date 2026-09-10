@@ -23,12 +23,17 @@ async function run(req, res, next) {
   } catch (error) { next(error); }
 }
 
+function safeJsonParse(val, fallback = null) {
+  if (!val) return fallback;
+  try { return JSON.parse(val); } catch (_) { return fallback; }
+}
+
 async function list(req, res, next) {
   try {
     const db = await getDatabase();
     const scope = scopeSql(req);
     const rows = await db.all(`SELECT * FROM framework_executions WHERE ${scope.clause} ORDER BY created_at DESC LIMIT 100`, ...scope.params);
-    res.json(rows.map(row => ({ ...row, input: JSON.parse(row.input_json), output: row.output_json ? JSON.parse(row.output_json) : null, error: row.error_json ? JSON.parse(row.error_json) : null })));
+    res.json(rows.map(row => ({ ...row, input: safeJsonParse(row.input_json, {}), output: safeJsonParse(row.output_json, null), error: safeJsonParse(row.error_json, null) })));
   } catch (error) { next(error); }
 }
 

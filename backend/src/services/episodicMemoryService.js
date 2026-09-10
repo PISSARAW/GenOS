@@ -188,19 +188,22 @@ async function consolidateEpisodes(options = {}, dbOverride = null) {
     }
   }
 
-  if (consolidatedIds.length > 0) {
-    const placeholders = consolidatedIds.map(() => '?').join(',');
+  const BATCH_SIZE = 200;
+  for (let i = 0; i < consolidatedIds.length; i += BATCH_SIZE) {
+    const batch = consolidatedIds.slice(i, i + BATCH_SIZE);
+    const placeholders = batch.map(() => '?').join(',');
     await db.run(
       `UPDATE episodic_memories SET is_consolidated = 1 WHERE id IN (${placeholders})`,
-      ...consolidatedIds
+      ...batch
     );
   }
 
-  if (purgedIds.length > 0) {
-    const placeholders = purgedIds.map(() => '?').join(',');
+  for (let i = 0; i < purgedIds.length; i += BATCH_SIZE) {
+    const batch = purgedIds.slice(i, i + BATCH_SIZE);
+    const placeholders = batch.map(() => '?').join(',');
     await db.run(
       `UPDATE episodic_memories SET is_purged = 1, purged_at = CURRENT_TIMESTAMP WHERE id IN (${placeholders})`,
-      ...purgedIds
+      ...batch
     );
   }
 

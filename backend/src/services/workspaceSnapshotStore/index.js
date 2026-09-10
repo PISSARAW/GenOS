@@ -154,11 +154,27 @@ async function copyManifestPayload(workspacePath, root, hash, files, manifestDat
     }
     const manifestJson = manifestData ? { ...manifestData, version: 1, hash, files } : { version: 1, hash, files };
     await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
-    await fsp.rename(staging, path.join(root, hash));
+    const targetDir = path.join(root, hash);
+    try {
+      await fsp.rename(staging, targetDir);
+    } catch (renameErr) {
+      if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EBUSY'].includes(renameErr.code)) {
+        if (await exists(path.join(targetDir, 'manifest.json'))) {
+          await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+          return payloadRoot;
+        }
+        await fsp.cp(staging, targetDir, { recursive: true, force: true });
+        await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+        if (await exists(path.join(targetDir, 'manifest.json'))) {
+          return payloadRoot;
+        }
+      }
+      throw renameErr;
+    }
     return payloadRoot;
   } catch (error) {
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-    if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
+    if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EBUSY'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
     throw error;
   }
 }
@@ -178,7 +194,7 @@ async function pruneSnapshotArtifacts({ db, workspaceId, workspacePath, maxAgeMs
     if (!entry.isDirectory()) continue;
     const stat = await fsp.stat(entryPath);
     const abandonedStaging = entry.name.startsWith('.snapshot-') && stat.mtimeMs < cutoff;
-    const orphanedPayload = /^[a-f0-9]{64}$/.test(entry.name) && !referenced.has(entry.name);
+    const orphanedPayload = /^[a-f0-9]{64}$/.test(entry.name) && !referenced.has(entry.name) && stat.mtimeMs < cutoff;
     if (abandonedStaging || orphanedPayload) {
       await fsp.rm(entryPath, { recursive: true, force: true });
       removed += 1;
@@ -482,7 +498,20 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
       const child = spawn(shellExecutable, shellArgs, {
         cwd: workingDirectory,
         detached: process.platform !== 'win32',
-        env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1', TMPDIR: runnerRoot },
+        env: {
+          PATH: process.env.PATH || '/usr/bin:/bin',
+          CI: '1',
+          GENOS_ISOLATED_RUNNER: '1',
+          TMPDIR: runnerRoot,
+          ...(process.platform === 'win32' ? {
+            SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
+            SystemDrive: process.env.SystemDrive || 'C:',
+            PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
+            ComSpec: process.env.ComSpec || 'cmd.exe',
+            TEMP: runnerRoot,
+            TMP: runnerRoot
+          } : {})
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsVerbatimArguments: useWindowsShell
       });

@@ -53,7 +53,12 @@ async function mctsSelect(context) {
     scored.push({ id: cId, ucb1, value, visits });
   }
   
-  scored.sort((a, b) => b.ucb1 - a.ucb1);
+  scored.sort((a, b) => {
+    if (a.ucb1 === Infinity && b.ucb1 === Infinity) return (b.value || 0) - (a.value || 0);
+    if (a.ucb1 === Infinity) return -1;
+    if (b.ucb1 === Infinity) return 1;
+    return (b.ucb1 || 0) - (a.ucb1 || 0);
+  });
   const selectedNode = scored[0] || null;
   
   telemetry.emitEvent({

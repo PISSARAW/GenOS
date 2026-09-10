@@ -27,18 +27,19 @@ function processMatches(pid, executable) {
 }
 
 function terminateChild(child) {
-  if (!child || child.exitCode !== null || child.signalCode) return false;
+  const numericPid = Number(child?.pid);
+  if (!child || !Number.isInteger(numericPid) || numericPid <= 0 || child.exitCode !== null || child.signalCode) return false;
   if (process.platform === 'win32') {
-    try { execFileSync('taskkill', ['/PID', String(child.pid), '/T'], { stdio: 'ignore', windowsHide: true }); } catch (_) { child.kill('SIGTERM'); }
+    try { execFileSync('taskkill', ['/PID', String(numericPid), '/T'], { stdio: 'ignore', windowsHide: true }); } catch (_) { try { child.kill('SIGTERM'); } catch (_) {} }
   } else {
-    try { process.kill(-child.pid, 'SIGTERM'); } catch (_) { child.kill('SIGTERM'); }
+    try { process.kill(-numericPid, 'SIGTERM'); } catch (_) { try { child.kill('SIGTERM'); } catch (_) {} }
   }
   const timer = setTimeout(() => {
     if (child.exitCode === null && !child.signalCode) {
       if (process.platform === 'win32') {
-        try { execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); } catch (_) { child.kill('SIGKILL'); }
+        try { execFileSync('taskkill', ['/PID', String(numericPid), '/T', '/F'], { stdio: 'ignore', windowsHide: true }); } catch (_) { try { child.kill('SIGKILL'); } catch (_) {} }
       } else {
-        try { process.kill(-child.pid, 'SIGKILL'); } catch (_) { child.kill('SIGKILL'); }
+        try { process.kill(-numericPid, 'SIGKILL'); } catch (_) { try { child.kill('SIGKILL'); } catch (_) {} }
       }
     }
   }, gracePeriodMs());

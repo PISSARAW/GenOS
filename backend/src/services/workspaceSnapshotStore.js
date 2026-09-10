@@ -165,21 +165,27 @@ async function copyManifestPayload(workspacePath, root, hash, files, manifestDat
     }
     const manifestJson = manifestData ? { ...manifestData, version: 1, hash, files } : { version: 1, hash, files };
     await fsp.writeFile(path.join(staging, 'manifest.json'), JSON.stringify(manifestJson, null, 2));
-    await fsp.rename(staging, path.join(root, hash));
+    const targetDir = path.join(root, hash);
+    try {
+      await fsp.rename(staging, targetDir);
+    } catch (renameErr) {
+      if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EBUSY'].includes(renameErr.code)) {
+        if (await exists(path.join(targetDir, 'manifest.json'))) {
+          await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+          return payloadRoot;
+        }
+        await fsp.cp(staging, targetDir, { recursive: true, force: true });
+        await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+        if (await exists(path.join(targetDir, 'manifest.json'))) {
+          return payloadRoot;
+        }
+      }
+      throw renameErr;
+    }
     return payloadRoot;
   } catch (error) {
-    if (['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) {
-      if (await exists(path.join(root, hash, 'manifest.json'))) {
-        await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
-        return payloadRoot;
-      }
-      try {
-        await fsp.rm(path.join(root, hash), { recursive: true, force: true });
-        await fsp.rename(staging, path.join(root, hash));
-        return payloadRoot;
-      } catch (_) {}
-    }
     await fsp.rm(staging, { recursive: true, force: true }).catch(() => {});
+    if (['EEXIST', 'ENOTEMPTY', 'EPERM', 'EBUSY'].includes(error.code) && await exists(path.join(root, hash, 'manifest.json'))) return payloadRoot;
     throw error;
   }
 }
@@ -199,7 +205,7 @@ async function pruneSnapshotArtifacts({ db, workspaceId, workspacePath, maxAgeMs
     if (!entry.isDirectory()) continue;
     const stat = await fsp.stat(entryPath);
     const abandonedStaging = entry.name.startsWith('.snapshot-') && stat.mtimeMs < cutoff;
-    const orphanedPayload = /^[a-f0-9]{64}$/.test(entry.name) && !referenced.has(entry.name);
+    const orphanedPayload = /^[a-f0-9]{64}$/.test(entry.name) && !referenced.has(entry.name) && stat.mtimeMs < cutoff;
     if (abandonedStaging || orphanedPayload) {
       await fsp.rm(entryPath, { recursive: true, force: true });
       removed += 1;
@@ -230,6 +236,15 @@ async function readManifest(snapshot) {
     if (relativeManifest.startsWith(`..${path.sep}`) || relativeManifest === '..' || path.isAbsolute(relativeManifest)) {
       throw new Error(`Snapshot ${snapshot.id} manifest is outside its snapshot root.`);
     }
+  }
+  if (!fs.existsSync(manifestPath)) {
+    console.error('[readManifest ENOENT debug]', {
+      manifestPath,
+      parentExists: fs.existsSync(path.dirname(manifestPath)),
+      grandparentExists: fs.existsSync(path.dirname(path.dirname(manifestPath))),
+      rootExists: fs.existsSync(path.dirname(path.dirname(path.dirname(manifestPath)))),
+      snapshotId: snapshot.id
+    });
   }
   const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
   if (manifest.version !== 1 || !Array.isArray(manifest.files)) throw new Error(`Snapshot ${snapshot.id} has an invalid manifest format.`);
@@ -512,7 +527,20 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
       const child = spawn(shellExecutable, shellArgs, {
         cwd: workingDirectory,
         detached: process.platform !== 'win32',
-        env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1', TMPDIR: runnerRoot },
+        env: {
+          PATH: process.env.PATH || '/usr/bin:/bin',
+          CI: '1',
+          GENOS_ISOLATED_RUNNER: '1',
+          TMPDIR: runnerRoot,
+          ...(process.platform === 'win32' ? {
+            SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
+            SystemDrive: process.env.SystemDrive || 'C:',
+            PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
+            ComSpec: process.env.ComSpec || 'cmd.exe',
+            TEMP: runnerRoot,
+            TMP: runnerRoot
+          } : {})
+        },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsVerbatimArguments: useWindowsShell
       });

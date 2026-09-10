@@ -3,10 +3,10 @@
  * Orchestrates stress-test suites across Arena, MCP Sandbox, Swarm, Resilience, Memory, and Workspace.
  */
 
-const { runArenaStressSuite } = require('./test_arena_stress');
-const { runMcpStressSuite } = require('./test_mcp_stress');
-const { runSwarmResilienceStressSuite } = require('./test_swarm_resilience_stress');
-const { runMemoryWorkspaceStressSuite } = require('./test_memory_workspace_stress');
+const { runArenaStressSuite } = require('./stress/test_arena_stress');
+const { runMcpStressSuite } = require('./stress/test_mcp_stress');
+const { runSwarmResilienceStressSuite } = require('./stress/test_swarm_resilience_stress');
+const { runMemoryWorkspaceStressSuite } = require('./stress/test_memory_workspace_stress');
 
 async function runAllEmpiricalChallenges() {
   console.log('======================================================================');

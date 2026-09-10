@@ -118,8 +118,24 @@ async function listAgents(req, res) {
   res.json(agents);
 }
 
-// Stubs for remaining routes to keep file size small
-async function listTrinityWorlds(req, res) { res.json([]); }
+async function listTrinityWorlds(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const scope = workspaceScope(req, 'w');
+    const worlds = await db.all(
+      `SELECT tw.*, a.workspace_id, w.name AS workspace_name 
+       FROM trinity_worlds tw 
+       LEFT JOIN agents a ON a.id = tw.agent_id 
+       LEFT JOIN workspaces w ON w.id = a.workspace_id 
+       WHERE (${scope.clause}) OR tw.agent_id IS NULL 
+       ORDER BY tw.created_at DESC`,
+      ...scope.params
+    );
+    res.json(worlds);
+  } catch (error) {
+    next(error);
+  }
+}
 async function deleteAgent(req, res, next) {
   const db = await getDatabase();
   try {

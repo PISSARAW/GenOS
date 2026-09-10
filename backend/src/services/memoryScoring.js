@@ -167,7 +167,7 @@ function scoreCorpusItem(item, queryInfo = {}, options = {}) {
   const tauMs = 7 * 24 * 3600 * 1000; // 7-day half-life decay
   const temporalDecay = Math.max(0.4, 0.4 + 0.6 * Math.exp(-Math.max(0, ageMs) / tauMs));
   const neurogenesisBonus = (item.createdAt && ageMs < 24 * 3600 * 1000 && ageMs >= 0) ? 1.15 : 1.0;
-  const recencyFactor = item.createdAt ? (temporalDecay * neurogenesisBonus) : 1.0;
+  const recencyFactor = (item.createdAt && !isAuthenticSystemFact(item)) ? (temporalDecay * neurogenesisBonus) : 1.0;
 
   // Sensitive synaptic weight scaling: attenuated connections yield significantly lower retrieval scores
   const normalizedWeight = Number.isFinite(weight) ? Math.max(0.0, weight) : 1.0;

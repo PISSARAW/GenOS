@@ -2,7 +2,22 @@ const { listStrategies } = require('../strategies/strategyRegistry');
 const { buildAllocation } = require('./tokenAllocationService');
 const { ORGANIZATIONS } = require('./dynamicOrganizationService');
 
-const MAX_WORKERS = 3;
+const MAX_WORKERS = Math.max(1, Number(process.env.GENOS_MAX_WORKERS) || 8);
+
+const PRIMITIVE_ALIASES = {
+  search_failures: ['diagnose', 'search_memory', 'falsifiable_hypothesis_tree', 'hypotheses', 'hypothesis_evidence', 'probe'],
+  diagnose: ['diagnose', 'falsifiable_hypothesis_tree', 'probe'],
+  snapshot: ['snapshot', 'deterministic_direct_path', 'minimal_patch'],
+  fork: ['fork', 'isolated_forks', 'n_way_counterfactual_fork'],
+  solve: ['run', 'implementation', 'verify'],
+  hypothesis_evidence: ['evidence', 'hypothesis_evidence', 'diagnose'],
+  evaluate_trajectories: ['evaluate', 'prm_evaluate', 'evidence', 'hypothesis_evidence', 'multi_objective_evaluation', 'rank_states'],
+  resilience_hypermutation: ['hypermutation', 'mutate', 'hypermutation_reheat', 'minimal_mutation'],
+  adversarial_review: ['adversarial_review', 'verify', 'independent_verify', 'pareto_select'],
+  security_coevolution: ['security', 'red_queen', 'adversarial_review'],
+  replay: ['replay', 'safe_revert', 'verify'],
+  record_decision: ['audit', 'record_decision', 'provenance']
+};
 
 function selected(contract, id) {
   return (contract.strategy_portfolio || []).some((strategy) => strategy.id === id);
@@ -23,14 +38,18 @@ function workerRole(label, hypothesis, role, modelTier) {
 
 function validatePhasesVsPortfolio(phases, portfolio = []) {
   // Portfolio contains primitive names like 'search_memory', but phases require tool names like 'genos_search_failures'.
-  // Map tool names to primitive names by stripping the 'genos_' prefix.
+  // Map tool names to primitive names and recognized aliases.
   const portfolioPrimitives = new Set((portfolio || []).flatMap((s) => s.primitives || []));
   const missingByPhase = {};
   for (const p of phases || []) {
     const missing = [];
     for (const tool of p.requiredTools || []) {
       const primitiveName = String(tool).replace(/^genos_/, '');
-      if (!portfolioPrimitives.has(primitiveName) && !portfolioPrimitives.has(tool)) {
+      const aliases = PRIMITIVE_ALIASES[primitiveName] || [primitiveName];
+      const hasPrimitive = portfolioPrimitives.has(primitiveName) ||
+        portfolioPrimitives.has(tool) ||
+        aliases.some((alias) => portfolioPrimitives.has(alias));
+      if (!hasPrimitive) {
         missing.push(tool);
       }
     }

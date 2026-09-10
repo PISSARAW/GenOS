@@ -23,17 +23,22 @@ function resolveWorkspacesRoot() {
   return path.resolve(__dirname, '../../../..');
 }
 
-function isPathWithinRoot(root, candidate) {
+function isPathWithinRoot(root, candidate, { allowRoot = true } = {}) {
   let realRoot;
   let realCandidate;
   try {
     realRoot = fs.realpathSync(path.resolve(root));
     realCandidate = fs.realpathSync(path.resolve(candidate));
   } catch (_) {
-    return false;
+    const resolvedRoot = path.resolve(root);
+    const resolvedCandidate = path.resolve(candidate);
+    const relative = path.relative(resolvedRoot, resolvedCandidate);
+    if (relative === '') return Boolean(allowRoot);
+    return !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative);
   }
   const relative = path.relative(realRoot, realCandidate);
-  return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  if (relative === '') return Boolean(allowRoot);
+  return !relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative);
 }
 
 function isWorkspaceDirectory(directory) {

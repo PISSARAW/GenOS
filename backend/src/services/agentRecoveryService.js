@@ -148,6 +148,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
   const prompt = workerRecovery.recoveryPrompt(report, decision);
   const name = workerGarage.workerName({ role, mission: `${decision.action}: ${report.mission}` });
   let workspaceRoot;
+  let capsuleName;
   try {
     if (sameIdentity) {
       await db.run("UPDATE agents SET status = 'idle', updated_at = CURRENT_TIMESTAMP WHERE id = ?", targetId);
@@ -186,7 +187,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
     const sourceRoot = source.workspace_root || mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
-    const capsuleName = `${targetId}_${decision.action}_${report.attempt + 1}`;
+    capsuleName = `${targetId}_${decision.action}_${report.attempt + 1}`;
     workspaceRoot = await createIsolatedWorkspace(
       sourceRoot,
       capsuleName,
@@ -203,7 +204,6 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     }, 'info');
     if (recoveryBarrier?.cancelled) {
       await updateAgent(targetId, 'blocked', 'Recovery stopped with the orchestrator evidence barrier');
-      activeWorkerRecoveryDispatches.delete(sourceAgentId);
       return false;
     }
     await startMission({
@@ -229,7 +229,6 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       toolLease: workerToolLease(role),
       autonomousOrchestration: false
     });
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return true;
   } catch (error) {
     if (workspaceRoot) await cleanupWorkspace(workspaceRoot, capsuleName || targetId).catch(() => {});
@@ -238,12 +237,20 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     emit(orchestratorId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
       sourceWorkerId: sourceAgentId, workerId: targetId, attempt: report.attempt + 1, dispatchAttempts
     }, 'error');
-    activeWorkerRecoveryDispatches.delete(sourceAgentId);
+    const garage = await workerGarage.state(db, orchestratorId).catch(() => null);
+    emit(orchestratorId, 'WORKER_SLOT_RELEASED', 'GARAGE', `Worker '${name}' released its active slot due to recovery failure.`, {
+      workerId: targetId,
+      capacity: garage?.capacity || workerGarage.MAX_ACTIVE_WORKERS,
+      occupied: garage?.occupied,
+      available: garage?.available
+    }, 'warning');
     if (dispatchAttempts < MAX_RECOVERY_DISPATCH_ATTEMPTS && !recoveryBarrier?.cancelled) {
       pendingWorkerRecoveries.set(sourceAgentId, { ...recovery, dispatchAttempts });
       setTimeout(() => dispatchWorkerRecovery(sourceAgentId), 50 * (2 ** (dispatchAttempts - 1))).unref();
     }
     return false;
+  } finally {
+    activeWorkerRecoveryDispatches.delete(sourceAgentId);
   }
 }
 

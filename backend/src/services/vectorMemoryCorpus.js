@@ -164,21 +164,22 @@ async function fetchCorpus(db, query, queryVec, options = {}) {
         const f = decFtsMap.get(item.rowid);
         const vRankScore = v ? 1.0 / (60 + v.rank) : 0.0;
         const fRankScore = f ? 1.0 / (60 + f.rank) : 0.0;
-        items.push({
-          id: item.id,
-          title: item.title,
-          category: item.category,
-          status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
-          summary: item.content,
-          tags: ['genome', item.category],
-          author: item.created_by,
-          createdAt: item.created_at,
-          synaptic_weight: item.synaptic_weight,
-          vector: decodeEmbeddingBlob(item.embedding_blob),
-          distance: v ? v.distance : null,
-          f_score: f ? f.f_score : null,
-          rrf_score: vRankScore + fRankScore
-        });
+          const synapticMultiplier = Math.max(0.1, Math.min(5.0, Number(item.synaptic_weight || 1.0)));
+          items.push({
+            id: item.id,
+            title: item.title,
+            category: item.category,
+            status: item.category === 'Failure' ? 'FAILURE' : 'SUCCESS',
+            summary: item.content,
+            tags: ['genome', item.category],
+            author: item.created_by,
+            createdAt: item.created_at,
+            synaptic_weight: item.synaptic_weight,
+            vector: decodeEmbeddingBlob(item.embedding_blob),
+            distance: v ? v.distance : null,
+            f_score: f ? f.f_score : null,
+            rrf_score: (vRankScore + fRankScore) * (0.5 + 0.5 * synapticMultiplier)
+          });
       }
     } catch (err) {
       console.warn('[VectorMemory] Failed to hydrate decision rows:', err.message);

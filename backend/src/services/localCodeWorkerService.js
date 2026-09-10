@@ -1,5 +1,6 @@
 const fs = require('fs/promises');
 const path = require('path');
+const os = require('os');
 const { spawn } = require('child_process');
 const snapshotStore = require('./workspaceSnapshotStore');
 const { terminateChild } = require('./processTermination');
@@ -77,7 +78,27 @@ async function restorePatchState(workspaceRoot, state) {
 async function runTest(command, root) {
   const [program, ...args] = normalizeSandboxCommand(command).split(' ');
   return new Promise((resolve) => {
-    const child = spawn(program, args, { cwd: root, shell: false, detached: process.platform !== 'win32', env: { PATH: process.env.PATH || '/usr/bin:/bin', CI: '1', GENOS_ISOLATED_RUNNER: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(program, args, {
+      cwd: root,
+      shell: process.platform === 'win32',
+      detached: process.platform !== 'win32',
+      env: {
+        PATH: process.env.PATH || '/usr/bin:/bin',
+        CI: '1',
+        GENOS_ISOLATED_RUNNER: '1',
+        ...(process.platform === 'win32' ? {
+          SystemRoot: process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows',
+          SystemDrive: process.env.SystemDrive || 'C:',
+          PATHEXT: process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD',
+          ComSpec: process.env.ComSpec || 'cmd.exe',
+          TEMP: os.tmpdir(),
+          TMP: os.tmpdir()
+        } : {
+          TMPDIR: os.tmpdir()
+        })
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
     let stdout = ''; let stderr = ''; const timer = setTimeout(() => terminateChild(child), 120000);
     child.stdout.on('data', (chunk) => { stdout = (stdout + chunk).slice(0, 20000); }); child.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(0, 20000); });
     child.on('close', (code, signal) => { clearTimeout(timer); resolve({ command, exitCode: code, signal, stdout, stderr }); });

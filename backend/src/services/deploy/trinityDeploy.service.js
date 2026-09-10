@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { getDatabase } = require('../../db');
 const telemetry = require('../telemetryObserver');
 const runtimeAdapter = require('../agentRuntimeAdapter');
@@ -40,8 +41,8 @@ class TrinityDeployService {
       worldNumber: m.worldNumber
     }));
 
-    const missionId = `trinity_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    const orchestratorId = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+    const missionId = `trinity_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const orchestratorId = `agent_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
     const orchestratorName = `Trinity Orchestrator ${missionId.slice(-4)}`;
     
     await this.agentRepo.create({
@@ -73,7 +74,7 @@ class TrinityDeployService {
     
     for (let index = 0; index < worlds.length; index += 1) {
       const w = worlds[index];
-      const id = `agent_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+      const id = `agent_${Date.now()}_${index + 1}_${crypto.randomBytes(3).toString('hex')}`;
       agentIds.push(id);
       const worldId = `${missionId}_world_${index + 1}`;
       

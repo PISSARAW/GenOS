@@ -153,7 +153,9 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const agent = actualAgentId || 'agent-unknown';
   const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
   const consecutiveFailures = Math.max(0, Math.floor(finite(actualMetrics.consecutiveFailures, 0)));
-  const semanticDivergence = Math.max(0, Math.min(1, finite(actualMetrics.semanticDivergence, 0.8)));
+  const hasExplicitDivergence = actualMetrics.semanticDivergence !== undefined && actualMetrics.semanticDivergence !== null;
+  const rawDivergence = hasExplicitDivergence ? Number(actualMetrics.semanticDivergence) : null;
+  const semanticDivergence = rawDivergence !== null ? Math.max(0, Math.min(1, rawDivergence)) : 0.0;
   const hallucinations = Math.max(0, Math.floor(finite(actualMetrics.hallucinations, 0)));
   const tokensBurned = Math.max(0, finite(actualMetrics.tokensBurned, 0));
   const costUsd = Math.max(0, finite(actualMetrics.costUsd, 0));
@@ -162,7 +164,7 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   const maxFailures = Math.max(0, Math.floor(finite(actualPolicy.maxConsecutiveFailures, 3)));
   const divergenceThreshold = Math.max(0, Math.min(1, finite(actualPolicy.divergenceThreshold, 0.55)));
   const failureTrigger = consecutiveFailures >= maxFailures;
-  const semanticTrigger = semanticDivergence > divergenceThreshold;
+  const semanticTrigger = hasExplicitDivergence && rawDivergence > 0 && (rawDivergence < divergenceThreshold || rawDivergence > 0.85);
   const hallucinationTrigger = hallucinations >= 2;
   const maxCostUsd = Number(actualPolicy.maxCostUsd);
   const costTrigger = Number.isFinite(maxCostUsd) && maxCostUsd >= 0 && costUsd >= maxCostUsd;
@@ -183,7 +185,7 @@ async function evaluateApoptosis(agentId, triggerMetrics = {}, db = null, policy
   let primaryReason = 'No termination criteria met';
   if (dissonanceTrigger) primaryReason = `Cognitive conscience dissonance threshold exceeded (${dissonanceLevel} >= ${maxDissonanceThreshold})`;
   else if (failureTrigger) primaryReason = `Consecutive tool failure threshold exceeded (${consecutiveFailures} >= ${maxFailures})`;
-  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} > ${divergenceThreshold})`;
+  else if (semanticTrigger) primaryReason = `Semantic mission divergence detected (Score: ${semanticDivergence} < ${divergenceThreshold})`;
   else if (hallucinationTrigger) primaryReason = `Unverified hallucination limit breached (${hallucinations} >= 2)`;
   else if (costTrigger) primaryReason = `Execution cost limit breached (${costUsd} >= ${maxCostUsd} USD)`;
 
