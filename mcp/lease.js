@@ -1,11 +1,11 @@
 export function parseLease(value) {
-  if (!value) return null;
+  if (value === undefined || value === null) return null;
   const lease = String(value)
     .split(",")
     .map((entry) => entry.trim())
     .filter(Boolean)
     .map((entry) => entry.startsWith("genos_") ? entry : `genos_${entry}`);
-  return lease.length ? new Set(lease) : null;
+  return new Set(lease);
 }
 
 function parseToolSet(value) {
@@ -22,7 +22,7 @@ export function toolIsLeased(toolName, allTools, environment = process.env) {
   const disabled = parseToolSet(environment.GENOS_MCP_DISABLED_TOOLS);
   const exposeAll = !/^(0|false)$/i.test(environment.GENOS_MCP_EXPOSE_ALL || '');
   if (disabled.has(toolName)) return false;
-  if (lease) return allTools.some((tool) => tool.name === toolName) && lease.has(toolName);
+  if (lease !== null) return allTools.some((tool) => tool.name === toolName) && lease.has(toolName);
   if (exposeAll) return allTools.some((tool) => tool.name === toolName);
   return toolName === allTools[0]?.name;
 }
