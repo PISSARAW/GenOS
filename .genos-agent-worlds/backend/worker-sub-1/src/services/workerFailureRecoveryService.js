@@ -41,7 +41,6 @@ function classifyFinalReport(report = {}, isWorker = true) {
         : { category: 'unresolved_task', reason: isWorker ? 'Worker reported mission failure.' : 'Orchestrator reported mission failure.', evidence: [] }
     };
   }
-  if (!isWorker) return { outcome: 'success' };
   const claims = Array.isArray(report.claims) ? report.claims : [];
   const hasUnevidencedClaims = claims.some((c) => {
     if (!c) return true;

@@ -22,12 +22,15 @@ async function mctsSelect(context) {
   const inferredParentVisits = parentVisits || Math.max(1, candidates.length);
   const scope = context.workspaceId ? ' JOIN workspaces w ON w.id = n.workspace_id WHERE n.id = ? AND w.id = ?' : ' WHERE id = ?';
   const scored = [];
+  let missingCount = 0;
+  let prunedCount = 0;
+  let invalidScoreCount = 0;
   
   for (const cId of candidates) {
     const node = context.workspaceId
       ? await db.get(`SELECT n.id, n.score, n.visits, n.metadata FROM lineage_nodes n${scope}`, cId, context.workspaceId)
       : await db.get(`SELECT id, score, visits, metadata FROM lineage_nodes${scope}`, cId);
-    if (!node) continue;
+    if (!node) { missingCount++; continue; }
 
     let isPruned = false;
     if (context.prunedIds && Array.isArray(context.prunedIds) && context.prunedIds.includes(cId)) {
@@ -41,13 +44,11 @@ async function mctsSelect(context) {
         }
       } catch (_) {}
     }
-    if (isPruned) {
-      continue;
-    }
+    if (isPruned) { prunedCount++; continue; }
 
     const visits = Number(node.visits);
     const value = Number(node.score);
-    if (!Number.isFinite(visits) || visits < 0 || !Number.isFinite(value)) continue;
+    if (!Number.isFinite(visits) || visits < 0 || !Number.isFinite(value)) { invalidScoreCount++; continue; }
     const ucb1 = visits === 0 ? Infinity : value + cParam * Math.sqrt(Math.log(Math.max(inferredParentVisits, visits)) / visits);
     scored.push({ id: cId, ucb1, value, visits });
   }
@@ -63,7 +64,15 @@ async function mctsSelect(context) {
     severity: 'info',
     payload: { selectedNode, scoredCount: scored.length, cParam }
   });
-  return { success: !!selectedNode, selectedNode, allScored: scored };
+  return {
+    success: !!selectedNode,
+    selectedNode,
+    allScored: scored,
+    reason: selectedNode ? null : (scored.length === 0
+      ? (missingCount === candidates.length ? 'all_candidates_missing' : prunedCount === candidates.length ? 'all_candidates_pruned' : invalidScoreCount > 0 ? 'all_candidates_invalid' : 'no_selectable_candidates')
+      : null),
+    diagnostics: { candidateCount: candidates.length, missingCount, prunedCount, invalidScoreCount }
+  };
 }
 
 async function prune(context) {
@@ -245,8 +254,13 @@ async function prmEvaluate(context) {
     if (context.invariants && Array.isArray(context.invariants)) {
        let passed = 0;
        for (const inv of context.invariants) {
-          passed++;
-          criteria.push(`Passed invariant: ${inv}`);
+         const result = typeof inv === 'object' && inv !== null ? inv.passed : inv;
+         if (result !== true && !(typeof result === 'object' && result?.passed === true)) {
+           criteria.push(`Failed or unverified invariant: ${JSON.stringify(inv)}`);
+           continue;
+         }
+         passed++;
+         criteria.push(`Passed invariant: ${typeof inv === 'object' ? inv.name || inv.id || 'unnamed' : inv}`);
        }
        rewardScore = context.invariants.length > 0 ? passed / context.invariants.length : 1.0;
        isGoodStep = rewardScore > 0.6;

@@ -58,7 +58,7 @@ function diffWorkspaces(baseWorkspace = 'main', targetWorkspace = 'feature-branc
     baseBranch: baseWorkspace,
     targetBranch: targetWorkspace,
     diffGeneratedAt: new Date().toISOString(),
-    totalFilesChanged: diffEntries.length,
+    totalFilesChanged: new Set(diffEntries.map((entry) => entry.file)).size,
     totalAdditions: diffEntries.reduce((acc, d) => acc + d.additions, 0),
     totalDeletions: diffEntries.reduce((acc, d) => acc + d.deletions, 0),
     categories: {
@@ -89,27 +89,38 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
     return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'Snapshot health history is non-monotonic; causal bisection requires a healthy-to-failing sequence.' };
   }
 
-  let low = 0;
+  const predicateRetries = Math.max(1, Math.min(3, Number(options.predicateRetries) || 2));
+  const evaluateSnapshot = async (snapshot) => {
+    const evaluations = [];
+    for (let attempt = 0; attempt < predicateRetries; attempt += 1) {
+      evaluations.push(failurePredicate ? await failurePredicate(snapshot) : knownHealth(snapshot));
+    }
+    if (evaluations.some((evaluation) => typeof evaluation !== 'boolean')) return { stable: false, value: null, reason: 'Snapshot predicate did not produce a boolean health result.' };
+    if (!evaluations.every((evaluation) => evaluation === evaluations[0])) return { stable: false, value: null, reason: 'Snapshot predicate was unstable across repeated evaluations.' };
+    return { stable: true, value: evaluations[0] };
+  };
+  const baseline = await evaluateSnapshot(history[0]);
+  if (!baseline.stable) {
+    return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: baseline.reason };
+  }
+  if (!baseline.value) {
+    return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: 0, bisectionAuditTrace: [], reason: 'Causal bisection requires a healthy baseline snapshot before the first failing snapshot.' };
+  }
+
+  let low = 1;
   let high = history.length - 1;
   let culpritIdx = -1;
   const bisectionSteps = [];
-  const predicateRetries = Math.max(1, Math.min(3, Number(options.predicateRetries) || 2));
 
   // O(log N) Binary Search for First Bad Commit
   while (low <= high) {
     const mid = Math.floor((low + high) / 2);
     const snap = history[mid];
-    const evaluations = [];
-    for (let attempt = 0; attempt < predicateRetries; attempt += 1) {
-      evaluations.push(failurePredicate ? await failurePredicate(snap) : knownHealth(snap));
+    const evaluation = await evaluateSnapshot(snap);
+    if (!evaluation.stable) {
+      return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: evaluation.reason };
     }
-    if (evaluations.some((evaluation) => typeof evaluation !== 'boolean')) {
-      return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: 'Snapshot predicate did not produce a boolean health result.' };
-    }
-    if (!evaluations.every((evaluation) => evaluation === evaluations[0])) {
-      return { bisectionComplete: false, anomalyFound: false, totalSnapshotsSearched: history.length, bisectionIterationsRequired: bisectionSteps.length, bisectionAuditTrace: bisectionSteps, reason: 'Snapshot predicate was unstable across repeated evaluations.' };
-    }
-    const isHealthy = evaluations[0];
+    const isHealthy = evaluation.value;
 
     bisectionSteps.push({
       iteration: bisectionSteps.length + 1,
@@ -133,6 +144,8 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
     return {
       bisectionComplete: true,
       anomalyFound: false,
+      evidenceLevel: 'regression_indicator',
+      causalGuarantee: false,
       totalSnapshotsSearched: history.length,
       bisectionIterationsRequired: bisectionSteps.length,
       bisectionSteps: bisectionSteps.length,
@@ -147,6 +160,8 @@ async function bisectAnomalyAsync(snapshotHistory = [], failurePredicate = null,
   return {
     bisectionComplete: true,
     anomalyFound: true,
+    evidenceLevel: 'regression_indicator',
+    causalGuarantee: false,
     totalSnapshotsSearched: history.length,
     bisectionIterationsRequired: bisectionSteps.length,
     bisectionSteps: bisectionSteps.length,
@@ -182,7 +197,8 @@ function bisectAnomaly(snapshotHistory = [], failurePredicate = null) {
     if (healthy) low = mid + 1; else { culpritIdx = mid; high = mid - 1; }
   }
   const base = { bisectionComplete: true, anomalyFound: culpritIdx >= 0, totalSnapshotsSearched: snapshotHistory.length, bisectionIterationsRequired: steps.length, bisectionSteps: steps.length, theoreticalComplexity: `O(log ${snapshotHistory.length}) = ${Math.ceil(Math.log2(snapshotHistory.length || 1))} steps`, bisectionAuditTrace: steps };
-  return culpritIdx < 0 ? { ...base, reason: 'All available snapshots satisfy the invariant.' } : { ...base, culpritReport: { stepNumber: snapshotHistory[culpritIdx].step, snapshotHash: snapshotHistory[culpritIdx].hash, culpritAgentId: snapshotHistory[culpritIdx].agent || 'worker_fast_coder', actionDescription: snapshotHistory[culpritIdx].desc, toolCall: 'isolated_test_runner', targetFile: null, rootCauseSummary: snapshotHistory[culpritIdx].reason || snapshotHistory[culpritIdx].label } };
+  const annotated = { ...base, evidenceLevel: 'regression_indicator', causalGuarantee: false };
+  return culpritIdx < 0 ? { ...annotated, reason: 'All available snapshots satisfy the invariant.' } : { ...annotated, culpritReport: { stepNumber: snapshotHistory[culpritIdx].step, snapshotHash: snapshotHistory[culpritIdx].hash, culpritAgentId: snapshotHistory[culpritIdx].agent || 'worker_fast_coder', actionDescription: snapshotHistory[culpritIdx].desc, toolCall: 'isolated_test_runner', targetFile: null, rootCauseSummary: snapshotHistory[culpritIdx].reason || snapshotHistory[culpritIdx].label } };
 }
 
 /**

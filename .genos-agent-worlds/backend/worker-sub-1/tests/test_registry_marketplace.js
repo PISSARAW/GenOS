@@ -21,6 +21,8 @@ async function main() {
   const tenantB = { organizationId: org, projectId: projectB };
   const created = await call(registry.create, { params: { kind: 'workflow' }, body: { name: 'Research flow', manifest: { nodes: ['retrieve'] }, labels: ['rag'] }, tenant: tenantA });
   assert.equal(created.code, 201);
+  const duplicate = await call(registry.create, { params: { kind: 'workflow' }, body: { name: 'Research flow', manifest: { nodes: ['retrieve'] }, labels: ['rag'] }, tenant: tenantA });
+  assert.equal(duplicate.code, 409);
   const version = await call(registry.addVersion, { params: { id: created.body.id }, body: { manifest: { nodes: ['retrieve', 'judge'] } }, tenant: tenantA });
   assert.equal(version.body.version, 2);
   const listing = await call(registry.publish, { params: { id: created.body.id }, body: { slug: `research-${suffix}` }, tenant: tenantA });

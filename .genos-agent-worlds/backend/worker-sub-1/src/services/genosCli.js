@@ -14,6 +14,20 @@ const fs = require('fs');
 const path = require('path');
 
 const repositoryRoot = path.resolve(__dirname, '../../..');
+const SAFE_GENOS_ENV = new Set([
+  'PATH', 'PATHEXT', 'ComSpec', 'SystemRoot', 'TEMP', 'TMP', 'HOME', 'USERPROFILE',
+  'LANG', 'LC_ALL', 'NODE_ENV'
+]);
+
+function genosEnvironment(root) {
+  const environment = {};
+  for (const [name, value] of Object.entries(process.env)) {
+    if (SAFE_GENOS_ENV.has(name) || (name.startsWith('GENOS_') && !/(TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL|API)/i.test(name))) {
+      environment[name] = value;
+    }
+  }
+  return { ...environment, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root };
+}
 
 function resolveGenosBin() {
   const exe = process.platform === 'win32' ? 'genos.exe' : 'genos';
@@ -33,12 +47,12 @@ function resolveGenosBin() {
   return repoDebug;
 }
 
-function studioBridgeRoot() {
-  return process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-matrix');
+function studioBridgeRoot(rootOverride = null) {
+  return rootOverride || process.env.GENOS_STUDIO_ROOT || path.join(repositoryRoot, '.genos-matrix');
 }
 
-function ensureRoot() {
-  const root = studioBridgeRoot();
+function ensureRoot(rootOverride = null) {
+  const root = studioBridgeRoot(rootOverride);
   fs.mkdirSync(root, { recursive: true });
   return root;
 }
@@ -83,7 +97,7 @@ function runGenosSync(commandLine, options = {}) {
   const root = ensureRoot();
   return execFileSync(bin, args, {
     cwd: root,
-    env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
+    env: genosEnvironment(root),
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     timeout: Math.max(1, Number(timeoutMs) || 60000),
@@ -97,7 +111,7 @@ function runGenosSync(commandLine, options = {}) {
  * structured result — never rejects — so controllers can surface exit
  * codes and stderr to the operator.
  */
-function runGenos(args, { timeoutMs = 60000 } = {}) {
+function runGenos(args, { timeoutMs = 60000, root: rootOverride = null } = {}) {
   return new Promise((resolvePromise) => {
     const bin = resolveGenosBin();
     if (!fs.existsSync(bin)) {
@@ -111,10 +125,10 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const root = ensureRoot();
+    const root = ensureRoot(rootOverride);
     const child = spawn(bin, args, {
       cwd: root,
-      env: { ...process.env, GENOS_STUDIO_ROOT: root, GENOS_ROOT: root },
+      env: genosEnvironment(root),
       windowsHide: true,
       detached: process.platform !== 'win32'
     });
@@ -153,8 +167,8 @@ function runGenos(args, { timeoutMs = 60000 } = {}) {
 }
 
 /** Resolves a user-supplied snapshot reference inside the bridge root. */
-function resolveInRoot(reference) {
-  const root = path.resolve(studioBridgeRoot());
+function resolveInRoot(reference, rootOverride = null) {
+  const root = path.resolve(studioBridgeRoot(rootOverride));
   const resolved = path.resolve(root, reference);
   if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     return null;
@@ -240,6 +254,55 @@ async function runCellDivision(options = {}) {
       const db = await getDatabase();
       const isApoptotic = res.json.mother_lysed ? 1 : 0;
       const isSenescent = res.json.is_senescent || (res.json.remaining_buds === 0);
+      const mother = await db.get('SELECT workspace_id FROM agents WHERE id = ?', agentId).catch(() => null);
+      const workspaceId = mother?.workspace_id || 'workspace-default';
+      const reproductionMode = String(res.json.division_mode || mode).toLowerCase();
+      const parentGenomeId = res.json.parent_genome_id || res.json.mother_genome_id;
+      const lineageNodeType = reproductionMode === 'schizogony' ? 'speculative_merozoite' : reproductionMode;
+      const progenyIds = reproductionMode === 'mitosis'
+        ? [res.json.clone_genome_id]
+        : reproductionMode === 'binary_fission'
+          ? [res.json.daughter_b_id || res.json.child_genome_id]
+          : reproductionMode === 'budding'
+            ? [res.json.daughter_genome_id]
+            : reproductionMode === 'schizogony'
+              ? (Array.isArray(res.json.progeny_genome_ids) ? res.json.progeny_genome_ids : [])
+              : reproductionMode === 'meiosis'
+                ? (Array.isArray(res.json.gamete_genome_ids) ? res.json.gamete_genome_ids : [])
+                : [];
+      if (parentGenomeId && progenyIds.length) {
+        await db.run(
+          `INSERT OR IGNORE INTO lineage_nodes (id, workspace_id, agent_id, label, node_type, state_summary)
+           VALUES (?, ?, ?, ?, 'agent', 'Reproduction parent')`,
+          agentId,
+          workspaceId,
+          agentId,
+          `Reproduction parent ${agentId}`
+        );
+        for (const [index, progenyId] of progenyIds.filter(Boolean).filter((id) => id !== parentGenomeId).entries()) {
+          await db.run(
+            `INSERT INTO lineage_nodes (id, workspace_id, label, node_type, score, visits, state_summary, metadata)
+             VALUES (?, ?, ?, ?, 0.5, 0, 'Reproduction descendant', ?)
+             ON CONFLICT(id) DO UPDATE SET workspace_id = excluded.workspace_id, node_type = excluded.node_type, state_summary = excluded.state_summary, metadata = excluded.metadata`,
+            progenyId,
+            workspaceId,
+            `${reproductionMode} descendant ${index + 1} of ${agentId}`,
+            lineageNodeType,
+            JSON.stringify({ parentAgentId: agentId, motherAgentId: reproductionMode === 'schizogony' ? agentId : undefined, parentGenomeId, branchIndex: index, reproductionMode, seed: res.json.seed })
+          );
+          await db.run(
+            `INSERT INTO lineage_edges (id, workspace_id, source_node_id, target_node_id, edge_type, metadata)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON CONFLICT(id) DO NOTHING`,
+            `edge_${agentId}_${progenyId}`,
+            workspaceId,
+            agentId,
+            progenyId,
+            reproductionMode,
+            JSON.stringify({ reproductionMode, branchIndex: index })
+          );
+        }
+      }
       if (isApoptotic) {
         await db.run(
           `UPDATE agents SET is_apoptotic = 1, status = 'apoptosis', cognitive_budget = 0, current_task = 'Lysed following schizogony', updated_at = CURRENT_TIMESTAMP WHERE id = ?`,

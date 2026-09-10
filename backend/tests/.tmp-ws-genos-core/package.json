@@ -1,0 +1,7 @@
+{
+  "name": "ws-genos-core",
+  "version": "0.0.0",
+  "scripts": {
+    "test": "node -e \"const fs=require('fs'); process.exit(fs.readFileSync('src/parser.js', 'utf8').includes('deep.property') ? 1 : 0)\""
+  }
+}

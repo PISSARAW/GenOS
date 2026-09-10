@@ -2,6 +2,7 @@ const runtimeAdapter = require('../services/agentRuntimeAdapter');
 const { getDatabase } = require('../db');
 const agentAuthority = require('../services/agentAuthorityService');
 const grpc = require('@grpc/grpc-js');
+const { grpcStatusForError: mapGrpcError } = require('../services/grpcErrorMapper');
 
 async function resolveWorkspace(request) {
   const workspaceId = String(request.workspace_id || '').trim();
@@ -60,12 +61,12 @@ module.exports = {
       const workspace = await resolveWorkspace(request);
       const db = await getDatabase();
       const agent = await db.get('SELECT id FROM agents WHERE id = ? AND workspace_id = ?', request.id, workspace.id);
-      if (!agent) return callback(null, { stopped: false, status: 'not_in_workspace' });
+      if (!agent) return callback({ code: grpc.status.NOT_FOUND, message: `Agent '${request.id || ''}' was not found in the requested workspace.` });
     } catch (err) {
       return callback({ code: grpcStatusForError(err), message: err.message });
     }
     const agentId = call.request?.id;
-    const stopped = Boolean(agentId && runtimeAdapter.stopMission(agentId));
+    const stopped = Boolean(agentId && await runtimeAdapter.stopMission(agentId));
     callback(null, { stopped, status: stopped ? 'stopped' : 'not_running' });
   }
 };
@@ -92,10 +93,7 @@ function parseToolLease(value) {
 }
 
 function grpcStatusForError(error) {
-  if (error?.code === 'INVALID_MISSION_JSON') return grpc.status.INVALID_ARGUMENT;
-  if (['INVALID_MISSION_SCOPE', 'PERMISSION_DENIED', 'UNAUTHENTICATED'].includes(error?.code)) return grpc.status.PERMISSION_DENIED;
-  if (['NOT_FOUND', 'AGENT_NOT_FOUND', 'WORKSPACE_NOT_FOUND'].includes(error?.code)) return grpc.status.NOT_FOUND;
-  return grpc.status.INTERNAL;
+  return mapGrpcError(error);
 }
 
 module.exports.parseToolLease = parseToolLease;

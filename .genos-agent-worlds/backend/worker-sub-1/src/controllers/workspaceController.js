@@ -194,10 +194,28 @@ async function getWorkspaceById(req, res) {
   }
 
   const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', ws.id);
+  const branchIds = new Set();
+  for (const snapshot of snapshots) {
+    try {
+      const metadata = JSON.parse(snapshot.metadata || '{}');
+      if (metadata.branchId || metadata.branch_id) branchIds.add(metadata.branchId || metadata.branch_id);
+    } catch (_) {}
+  }
+  const forkWorkspaces = await db.all(
+    'SELECT id, name, path FROM workspaces WHERE organization_id IS ? AND project_id IS ? AND id != ? AND (name LIKE ? OR name LIKE ?)',
+    ws.organization_id || null,
+    ws.project_id || null,
+    ws.id,
+    '%-fork%',
+    '%_fork%'
+  );
   res.json({
     workspace: ws,
     snapshots,
-    branches: []
+    branches: [
+      ...[...branchIds].map((id) => ({ id, source: 'snapshot' })),
+      ...forkWorkspaces.map((workspace) => ({ ...workspace, source: 'workspace' }))
+    ]
   });
 }
 
@@ -254,8 +272,38 @@ async function getDiff(req, res, next) {
     const base = req.query.base;
     const target = req.query.target;
     if (!base || !target) return res.status(400).json({ error: { code: 'MISSING_BRANCHES', message: 'Both base and target workspaces are required.' } });
+    const scope = req.tenant
+      ? { clause: 'organization_id = ? AND project_id = ?', params: [req.tenant.organizationId, req.tenant.projectId] }
+      : { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
+    const baseWorkspace = await db.get(`SELECT * FROM workspaces WHERE ${scope.clause} AND (id = ? OR name = ?)`, ...scope.params, base, base);
     const targetWorkspace = await findWorkspace(db, req, target);
     if (!targetWorkspace) return res.status(404).json({ error: { code: 'NOT_FOUND', message: `Workspace not found: ${target}` } });
+    if (baseWorkspace) {
+      const sameWorkspace = baseWorkspace.id === targetWorkspace.id;
+      const [baseSnapshot, targetSnapshot] = await Promise.all([
+        db.get(`SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number ${sameWorkspace ? 'ASC' : 'DESC'} LIMIT 1`, baseWorkspace.id),
+        db.get('SELECT s.*, w.path AS workspace_path FROM workspace_snapshots s JOIN workspaces w ON w.id = s.workspace_id WHERE s.workspace_id = ? ORDER BY s.step_number DESC LIMIT 1', targetWorkspace.id)
+      ]);
+      if (baseSnapshot && targetSnapshot) {
+        const [baseManifest, targetManifest] = await Promise.all([
+          snapshotStore.readManifest(baseSnapshot),
+          snapshotStore.readManifest(targetSnapshot)
+        ]);
+        const baseFiles = new Map(baseManifest.files.map((file) => [file.path, file]));
+        const targetFiles = new Map(targetManifest.files.map((file) => [file.path, file]));
+        const files = [...new Set([...baseFiles.keys(), ...targetFiles.keys()])].sort();
+        const manifestDiff = files
+          .filter((file) => baseFiles.get(file)?.hash !== targetFiles.get(file)?.hash)
+          .map((file) => ({
+            file,
+            additions: targetFiles.has(file) && !baseFiles.has(file) ? 1 : 0,
+            deletions: baseFiles.has(file) && !targetFiles.has(file) ? 1 : 0,
+            category: 'Snapshot manifest',
+            collisionRisk: 'UNKNOWN'
+          }));
+        return res.json(bisectionService.diffWorkspaces(baseWorkspace.name, targetWorkspace.name, { diffEntries: manifestDiff }));
+      }
+    }
     const trajectories = await db.all('SELECT * FROM trajectories WHERE workspace_id = ? ORDER BY created_at ASC', targetWorkspace.id);
     const snapshots = await db.all('SELECT * FROM workspace_snapshots WHERE workspace_id = ? ORDER BY step_number ASC', targetWorkspace.id);
     const diffEntries = [];

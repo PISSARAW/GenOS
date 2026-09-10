@@ -1,9 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/ideController');
+const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 router.get('/contract', controller.contract);
 router.get('/integrations', requireTenantScope(), controller.list);
 router.post('/integrations', requireTenantScope({ write: true }), controller.connect);
-router.post('/commands/:command', controller.execute);
+router.post('/integrations/:id/heartbeat', requirePermission('read'), requireTenantScope(), controller.heartbeat);
+router.get('/integrations/:id/status', requirePermission('read'), requireTenantScope(), controller.status);
+router.get('/integrations/:id/diagnostics', requirePermission('read'), requireTenantScope(), controller.diagnostics);
+router.post('/integrations/:id/disconnect', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.disconnect);
+router.post('/integrations/:id/progress', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.progress);
+router.post('/commands/:command', requirePermission('read'), requireTenantScope(), controller.execute);
 module.exports = router;

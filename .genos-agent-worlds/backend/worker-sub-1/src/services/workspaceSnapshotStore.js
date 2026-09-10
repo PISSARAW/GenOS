@@ -186,6 +186,16 @@ async function pruneSnapshotArtifacts({ db, workspaceId, workspacePath, maxAgeMs
   return { removed };
 }
 
+async function reconcileSnapshotArtifacts(db, maxAgeMs = 60 * 60 * 1000) {
+  if (!db || typeof db.all !== 'function') throw new Error('A database handle is required for snapshot artifact reconciliation.');
+  const workspaces = await db.all('SELECT id, path FROM workspaces WHERE path IS NOT NULL AND path != \'\'');
+  let removed = 0;
+  for (const workspace of workspaces) {
+    removed += (await pruneSnapshotArtifacts({ db, workspaceId: workspace.id, workspacePath: workspace.path, maxAgeMs })).removed;
+  }
+  return { workspaces: workspaces.length, removed };
+}
+
 async function readManifest(snapshot) {
   const metadata = parseMetadata(snapshot.metadata);
   const manifestPath = metadata.manifestPath || path.join(metadata.storagePath || '', 'manifest.json');
@@ -295,6 +305,12 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
   };
   
   await copyManifestPayload(workspace.path, root, hash, files, manifestData);
+  const finalFiles = await collectFiles(workspace.path);
+  if (manifestHash(finalFiles) !== hash) {
+    const reference = await db.get('SELECT 1 FROM workspace_snapshots WHERE snapshot_hash = ? LIMIT 1').catch(() => null);
+    if (!reference) await fsp.rm(path.join(root, hash), { recursive: true, force: true }).catch(() => {});
+    throw new Error('Workspace changed while snapshotting; capture aborted.');
+  }
   const manifestPath = path.join(root, hash, 'manifest.json');
   const gitCommit = await resolveGitCommit(workspace.path);
   const metadata = {
@@ -317,6 +333,8 @@ async function capture({ db, workspace, label = 'Workspace snapshot', reason = '
     await db.exec('COMMIT;');
   } catch (error) {
     try { await db.exec('ROLLBACK;'); } catch (_) {}
+    const reference = await db.get('SELECT 1 FROM workspace_snapshots WHERE snapshot_hash = ? LIMIT 1', hash).catch(() => null);
+    if (!reference) await fsp.rm(path.join(root, hash), { recursive: true, force: true }).catch(() => {});
     throw error;
   }
   const step = inserted.step_number;
@@ -457,18 +475,10 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   let cleanupWorktree = null;
   let materialization = 'manifest-copy';
   try {
-    // Git repos: a detached worktree of the captured commit is near-instant
-    // and shares the object store. Anything else falls back to the manifest copy.
-    const metadata = parseMetadata(snapshot.metadata);
-    if (metadata.gitCommit && isGitWorkspace(workspacePath)) {
-      try {
-        cleanupWorktree = await materializeGitWorktree(workspacePath, metadata.gitCommit, workingDirectory);
-        materialization = 'git-worktree';
-      } catch (_) {
-        cleanupWorktree = null;
-      }
-    }
-    if (!cleanupWorktree) await materialize(snapshot, workingDirectory);
+    // The manifest captures dirty files as well as committed files. A detached
+    // worktree would replay only the recorded commit and could silently omit
+    // uncommitted state, so replay always uses the checksum-verified payload.
+    await materialize(snapshot, workingDirectory);
     const { spawn } = require('child_process');
     // Use the platform shell so workspace test commands run identically on
     // Windows and POSIX hosts.
@@ -503,4 +513,4 @@ async function runInSnapshot({ snapshot, command, timeoutMs = 30000, maxOutputBy
   }
 }
 
-module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, pruneSnapshotArtifacts, isAllowedTestCommand, isSafeRelative };
+module.exports = { capture, getSnapshot, readManifest, materialize, restore, preview, runInSnapshot, collectFiles, snapshotRoot, pruneSnapshotArtifacts, reconcileSnapshotArtifacts, isAllowedTestCommand, isSafeRelative };

@@ -15,4 +15,9 @@ message Exosome {
   repeated Engram new_engrams = 1;
   string plasmid_name = 2;
   string plasmid_code = 3;
+  repeated float plasmid_vector = 4;
+  string source_agent_id = 5;
+  string recipient_agent_id = 6;
+  string organization_id = 7;
+  string project_id = 8;
 }

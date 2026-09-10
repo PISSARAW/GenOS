@@ -35,7 +35,7 @@ function classifyProblem(problem = '') {
   
   // Mission requiring literal mouse/keyboard/screen control of the local machine
   // (as opposed to writing/editing code) - must be checked before 'bug'/'fix' below.
-  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'computer use', 'desktop control', 'clique sur', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris'])) return 'desktop_control';
+  if (includesAny(text, ['ouvre le bloc-notes', 'ouvre notepad', 'open notepad', 'open the notepad', 'contrôle du pc', 'prends le contrôle', 'take control of the computer', 'take control of the desktop', 'computer use', 'desktop control', 'clique sur', 'click the screen', 'click on the screen', 'capture d\'écran', 'take a screenshot', 'appuie sur la touche', 'press the key', 'move the mouse', 'bouge la souris', 'contrôle clavier souris', 'keyboard and mouse'])) return 'desktop_control';
   
   // Mapping direct si le texte correspond exactement ou est pré-typé
   if (text.includes('critical_bug_fix') || text.includes('hotfix') || includesAny(text, ['incident', 'production', 'intermittent', 'rare crash', 'outage', 'p0', 'sev1'])) return 'incident';
@@ -82,8 +82,12 @@ function profileProblem(problem = '', overrides = {}) {
 function eligibility(strategy, profile, options) {
   const compatible = strategy.problemTypes.includes('all') || strategy.problemTypes.includes(profile.type);
   if (!compatible) return { eligible: false, reason: `not compatible with ${profile.type}` };
+  if (strategy.id === 'computer_use_direct' && profile.type !== 'desktop_control') {
+    return { eligible: false, reason: 'computer-use strategy requires a desktop_control problem' };
+  }
   const missingPrimitives = strategy.primitives.filter((primitive) => !getStrategyHandlers()[primitive]);
   if (missingPrimitives.length) return { eligible: false, reason: `unimplemented primitives: ${missingPrimitives.join(', ')}` };
+  if (strategy.maturity === 'partial') return { eligible: false, reason: 'strategy has incomplete primitive coverage' };
   if (strategy.costLevel > options.maxCostLevel) return { eligible: false, reason: `cost level ${strategy.costLevel} exceeds ${options.maxCostLevel}` };
   if (strategy.maturity === 'prototype' && !options.allowPrototype) return { eligible: false, reason: 'prototype disabled by policy' };
   if (strategy.maturity === 'experimental' && !options.allowExperimental) return { eligible: false, reason: 'experimental strategy disabled by policy' };
@@ -106,6 +110,15 @@ function scoreStrategy(strategy, profile) {
   if (traits.has('verification') && profile.evaluability === 'deterministic_tests') score += 13;
   if (traits.has('low_cost')) score += 6;
   if (traits.has('human_gate') && profile.risk === 'high') score += 11;
+  if (traits.has('deterministic') && profile.requires_reproducibility) score += 12;
+  if (traits.has('low_latency') && profile.complexity < 0.6) score += 10;
+  if (traits.has('causal') && profile.temporal_dependency) score += 12;
+  if (traits.has('parallel') && profile.complexity >= 0.7) score += 10;
+  if (traits.has('high_compute') && profile.complexity >= 0.7) score += 9;
+  if (traits.has('diversity') && profile.uncertainty >= 0.7) score += 9;
+  if (traits.has('specialization') && profile.type !== 'implementation') score += 7;
+  if (traits.has('adaptive') && profile.uncertainty >= 0.7) score += 8;
+  if (traits.has('mutation') && profile.objectives_conflict) score += 5;
   score -= strategy.costLevel * 1.8 + strategy.latencyLevel * 1.1 + strategy.riskLevel * (profile.risk === 'low' ? 1.4 : 0.4);
   if (strategy.maturity === 'experimental') score -= 10;
   if (strategy.maturity === 'prototype') score -= 28;
@@ -113,15 +126,28 @@ function scoreStrategy(strategy, profile) {
 }
 
 function choosePortfolio(decisions, profile) {
+  const options = arguments[2] || {};
+  const portfolioSize = Math.max(4, Math.min(16, Math.floor(Number(options.portfolioSize) || 12)));
+  const inhibited = new Set(options.inhibitedStrategyIds || []);
   const eligible = decisions.filter((item) => item.eligible).sort((a, b) => b.score - a.score || a.strategy.id.localeCompare(b.strategy.id));
   const ids = new Set([PREFERRED_PRIMARY[profile.type], 'retrieval_first', 'negative_knowledge', 'zero_trust', 'tool_output_validation', 'execution_guardrails']);
   if (profile.requires_reproducibility) ids.add('deterministic_replay');
   ids.add(profile.objectives_conflict ? 'pareto_frontier' : 'successive_halving');
   if (profile.complexity >= 0.7) ids.add(profile.risk === 'high' ? 'blind_adversarial_review' : 'specialist_expert_committee');
-  const portfolio = [...ids].map(getStrategy).filter(Boolean).filter((strategy) => decisions.find((item) => item.strategy.id === strategy.id)?.eligible);
+  const portfolio = [...ids].map(getStrategy).filter(Boolean).filter((strategy) => !inhibited.has(strategy.id) && decisions.find((item) => item.strategy.id === strategy.id)?.eligible);
+  const families = new Set(portfolio.map((strategy) => strategy.family));
   for (const candidate of eligible) {
-    if (portfolio.length >= 10) break;
-    if (!portfolio.some((item) => item.family === candidate.strategy.family)) portfolio.push(candidate.strategy);
+    if (portfolio.length >= portfolioSize) break;
+    if (!inhibited.has(candidate.strategy.id) && !families.has(candidate.strategy.family)) {
+      portfolio.push(candidate.strategy);
+      families.add(candidate.strategy.family);
+    }
+  }
+  for (const candidate of eligible) {
+    if (portfolio.length >= portfolioSize) break;
+    if (!inhibited.has(candidate.strategy.id) && !portfolio.some((item) => item.id === candidate.strategy.id)) {
+      portfolio.push(candidate.strategy);
+    }
   }
   return portfolio;
 }
@@ -156,13 +182,15 @@ function selectStrategyPortfolio(input = {}) {
     maxCostLevel: input.maxCostLevel ?? 5,
     allowExperimental: input.allowExperimental ?? false,
     allowPrototype: input.allowPrototype ?? false,
-    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk ?? false
+    allowExperimentalAtHighRisk: input.allowExperimentalAtHighRisk ?? false,
+    portfolioSize: Math.max(4, Math.min(16, Math.floor(Number(input.portfolioSize) || 12))),
+    inhibitedStrategyIds: [...new Set([...(input.inhibitedStrategyIds || []), ...(input.memorySignals?.inhibitedStrategyIds || [])].map(String))]
   };
   const decisions = listStrategies().map((strategy) => {
     const constraint = eligibility(strategy, profile, options);
     return { strategy, eligible: constraint.eligible, score: constraint.eligible ? scoreStrategy(strategy, profile) : null, reason: constraint.reason };
   });
-  const portfolio = choosePortfolio(decisions, profile);
+  const portfolio = choosePortfolio(decisions, profile, options);
   const requestedPrimary = PREFERRED_PRIMARY[profile.type];
   const requestedDecision = decisions.find((item) => item.strategy.id === requestedPrimary);
   const primary = portfolio.find((strategy) => strategy.id === requestedPrimary)

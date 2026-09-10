@@ -38,19 +38,22 @@ class VectorMemoryService {
     const db = await this.initDb();
     const normalizedContent = String(content || '').trim();
     if (!normalizedContent) throw new Error('Memory content is required.');
-    const id = optionsOrTenant.id || `mem_${crypto.createHash('sha256').update(`${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
+    const orgId = optionsOrTenant.organizationId || optionsOrTenant.organization_id || null;
+    const projId = optionsOrTenant.projectId || optionsOrTenant.project_id || null;
+    const id = optionsOrTenant.id || `mem_${crypto.createHash('sha256').update(`${orgId || ''}\0${projId || ''}\0${agentId}\0${normalizedContent}`).digest('hex').slice(0, 32)}`;
     const existing = await db.get('SELECT id FROM genome_decisions WHERE id = ?', id);
     if (existing) return existing.id;
 
     const title = optionsOrTenant.title || 'Agent Experience';
     const category = optionsOrTenant.category || 'Experience';
     const synapticWeight = Number.isFinite(Number(optionsOrTenant.synapticWeight)) ? Number(optionsOrTenant.synapticWeight) : 1.0;
-    const orgId = optionsOrTenant.organizationId || optionsOrTenant.organization_id || null;
-    const projId = optionsOrTenant.projectId || optionsOrTenant.project_id || null;
-
     const vec = (embedding && embedding.length === 768)
       ? embedding
       : ((await embed(normalizedContent)) || textToVector(normalizedContent));
+    if (!Array.isArray(vec) && !ArrayBuffer.isView(vec)) throw new Error('Memory embedding must be an array or typed array.');
+    if (vec.length !== 768 || Array.from(vec).some((value) => !Number.isFinite(Number(value)))) {
+      throw new Error('Memory embedding must contain exactly 768 finite numeric values.');
+    }
     const float32 = new Float32Array(vec);
     const buffer = Buffer.from(float32.buffer);
     await db.run(
@@ -111,10 +114,10 @@ class VectorMemoryService {
     let topItems = scoredItems.slice(0, limitToUse);
 
     // GABAergic Synaptic Inhibition: filter out memories with active negative synapses
-    const topIds = topItems.map(i => i.id);
-    if (topIds.length > 0 && db) {
+    const candidateIds = scoredItems.map(i => i.id).filter(Boolean);
+    if (candidateIds.length > 0 && db) {
       try {
-        const placeholders = topIds.map(() => '?').join(',');
+        const placeholders = candidateIds.map(() => '?').join(',');
         const inhibitions = await db.all(
           `SELECT s.target_id FROM memory_synapses s
              JOIN genome_decisions source_node ON source_node.id = s.source_id
@@ -122,12 +125,17 @@ class VectorMemoryService {
               ${options.organizationId ? 'AND (s.organization_id = ? OR s.organization_id IS NULL)' : ''}
             GROUP BY s.target_id
             HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
-          options.organizationId ? [...topIds, options.organizationId] : topIds
+          options.organizationId ? [...candidateIds, options.organizationId] : candidateIds
         );
         const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
+        for (const item of scoredItems) {
+          if (inhibitedIds.has(item.id)) item.inhibitorySignal = 'active';
+        }
         topItems = topItems.map(item => inhibitedIds.has(item.id)
           ? { ...item, inhibitorySignal: 'active' }
           : item);
+        const selectedIds = new Set(topItems.map(item => item.id));
+        topItems.push(...scoredItems.filter(item => inhibitedIds.has(item.id) && !selectedIds.has(item.id)));
       } catch {}
     }
 
@@ -157,7 +165,7 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
-    const allScored = [...topItems, ...connectedItems];
+    const allScored = [...new Map([...scoredItems, ...connectedItems].map((item) => [item.id, item])).values()];
 
     // Reconsolidation par le rappel (Active Retrieval Potentiation)
     if (db && topItems.length > 0) {
@@ -196,10 +204,7 @@ class VectorMemoryService {
         return true;
       }).slice(0, 3);
     } else {
-      const isExecution = (i) => i.category !== 'Conversation' && i.category !== 'SystemSignal' && i.category !== 'Fact' && i.category !== 'Preference';
-      const candidateGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && isExecution(i));
-      const fallbackGolden = topItems.filter(i => i.status === 'SUCCESS' && i.inhibitorySignal !== 'active' && i.category !== 'Conversation' && i.category !== 'SystemSignal');
-      topSuccessful = (candidateGolden.length > 0 ? candidateGolden : fallbackGolden).slice(0, 3);
+      topSuccessful = [];
     }
     const topPitfalls = (scoredItems.filter(i => (i.status === 'FAILURE' || i.category === 'Failure') && i.id !== 'signal_ignorance')).slice(0, 2);
 

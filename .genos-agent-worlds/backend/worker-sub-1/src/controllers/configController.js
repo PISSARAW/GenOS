@@ -7,20 +7,24 @@ const { getDatabase } = require('../db');
 const modelProvider = require('../services/modelProvider');
 const localModelDiscovery = require('../services/localModelDiscovery');
 
-let customUsername = null;
-let maxTokens = 500000;
-let waveTime = 42;
+const tenantConfig = new Map();
+function configFor(req) {
+  const key = `${req.tenant.organizationId}:${req.tenant.projectId}`;
+  if (!tenantConfig.has(key)) tenantConfig.set(key, { customUsername: null, maxTokens: 500000, waveTime: 42 });
+  return tenantConfig.get(key);
+}
 
 async function getConfig(req, res) {
-  const username = customUsername || process.env.USERNAME || (os.userInfo ? os.userInfo().username : 'operator');
+  const config = configFor(req);
+  const username = config.customUsername || process.env.USERNAME || (os.userInfo ? os.userInfo().username : 'operator');
   const db = await getDatabase();
-  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
-  const wsCount = await db.get("SELECT COUNT(*) as count FROM workspaces");
+  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status = 'running' AND w.organization_id = ? AND w.project_id = ?", req.tenant.organizationId, req.tenant.projectId);
+  const wsCount = await db.get("SELECT COUNT(*) as count FROM workspaces WHERE organization_id = ? AND project_id = ?", req.tenant.organizationId, req.tenant.projectId);
   const usageRow = await db.get(`SELECT COALESCE(SUM(
     COALESCE(json_extract(payload_json, '$.tokens'), 0) +
     COALESCE(json_extract(payload_json, '$.totalTokens'), 0) +
     COALESCE(json_extract(payload_json, '$.usage.total_tokens'), 0)
-  ), 0) AS usedTokens FROM telemetry_events`);
+  ), 0) AS usedTokens FROM telemetry_events WHERE organization_id = ? AND project_id = ?`, req.tenant.organizationId, req.tenant.projectId);
   const usedTokens = Number(usageRow?.usedTokens || 0);
   const hasUsageTelemetry = usedTokens > 0;
 
@@ -28,12 +32,12 @@ async function getConfig(req, res) {
     version: '2.0.0-PROD',
     environment: 'production-local',
     customUsername: username,
-    maxTokens,
-    waveTime,
+    maxTokens: config.maxTokens,
+    waveTime: config.waveTime,
     budget: {
       usedTokens: hasUsageTelemetry ? usedTokens : null,
-      maxTokens,
-      percent: hasUsageTelemetry ? Math.min(100, Math.round((usedTokens / maxTokens) * 100)) : null
+      maxTokens: config.maxTokens,
+      percent: hasUsageTelemetry ? Math.min(100, Math.round((usedTokens / config.maxTokens) * 100)) : null
     },
     activeAgents: agentCount ? agentCount.count : 0,
     totalWorkspaces: wsCount ? wsCount.count : 0,
@@ -81,31 +85,33 @@ async function testModel(req, res, next) {
 }
 
 function updateProfile(req, res) {
+  const config = configFor(req);
   const { username } = req.body || {};
-  if (username) {
-    customUsername = username;
-  }
-  res.json({ success: true, username: customUsername || 'operator' });
+  if (username === undefined || !String(username).trim()) return res.status(400).json({ error: { code: 'USERNAME_REQUIRED', message: 'username is required.' } });
+  config.customUsername = String(username).trim();
+  res.json({ success: true, username: config.customUsername || 'operator' });
 }
 
 function getBudget(req, res) {
   getConfig(req, res);
 }
 
-function updateBudget(req, res) {
+async function updateBudget(req, res, next) {
+  const config = configFor(req);
   const { maxTokens: newMax } = req.body || {};
   if (newMax !== undefined) {
     const parsed = Number(newMax);
     if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 10_000_000) {
       return res.status(400).json({ error: { code: 'INVALID_MAX_TOKENS', message: 'maxTokens must be a positive integer no greater than 10000000.' } });
     }
-    maxTokens = parsed;
+    config.maxTokens = parsed;
   }
-  res.json({
-    success: true,
-    maxTokens,
-    percent: 0
-  });
+  try {
+    const db = await getDatabase();
+    const usageRow = await db.get(`SELECT COALESCE(SUM(COALESCE(json_extract(payload_json, '$.tokens'), 0) + COALESCE(json_extract(payload_json, '$.totalTokens'), 0) + COALESCE(json_extract(payload_json, '$.usage.total_tokens'), 0)), 0) AS usedTokens FROM telemetry_events WHERE organization_id = ? AND project_id = ?`, req.tenant.organizationId, req.tenant.projectId);
+    const usedTokens = Number(usageRow?.usedTokens || 0);
+    return res.json({ success: true, maxTokens: config.maxTokens, usedTokens: usedTokens > 0 ? usedTokens : null, percent: usedTokens > 0 ? Math.min(100, Math.round((usedTokens / config.maxTokens) * 100)) : null });
+  } catch (error) { return next(error); }
 }
 
 module.exports = {

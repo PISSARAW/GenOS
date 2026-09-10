@@ -89,19 +89,22 @@ process.stdin.on('end', async () => {
     process.exitCode = 2;
     return;
   }
-  const unsafeBypassRequested = /^(1|true)$/i.test(String(process.env.GENOS_CODEX_UNSAFE_BYPASS || ''));
-  const nonProductionProfile = /^(test|demo)$/i.test(String(process.env.GENOS_RUNTIME_PROFILE || ''));
-  if (unsafeBypassRequested && (!nonProductionProfile || /^production$/i.test(String(process.env.NODE_ENV || '')))) {
-    process.stderr.write('GENOS_CODEX_UNSAFE_BYPASS is restricted to non-production test/demo profiles.\n');
-    process.exitCode = 2;
-    return;
-  }
 
   // Resolve the repository relative to this bridge rather than the caller's cwd.
   const workspace = process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../..');
-  const resolveBin = (p) => fs.existsSync(p) ? p : (fs.existsSync(`${p}.exe`) ? `${p}.exe` : p);
-  const genosBinary = resolveBin(process.env.GENOS_BIN || path.resolve(__dirname, '../../target/debug/genos'));
-  const mcpBinary = resolveBin(process.env.GENOS_MCP_BIN || path.resolve(__dirname, '../../target/debug/genos-mcp'));
+  const resolveBin = (primary, fallback) => {
+    const candidates = [primary, `${primary}.exe`, fallback, `${fallback}.exe`].filter(Boolean);
+    for (const c of candidates) {
+      if (fs.existsSync(c)) return c;
+    }
+    return candidates[0];
+  };
+  const genosBinary = process.env.GENOS_BIN && fs.existsSync(process.env.GENOS_BIN)
+    ? process.env.GENOS_BIN
+    : resolveBin(path.resolve(__dirname, '../../target/release/genos'), path.resolve(__dirname, '../../target/debug/genos'));
+  const mcpBinary = process.env.GENOS_MCP_BIN && fs.existsSync(process.env.GENOS_MCP_BIN)
+    ? process.env.GENOS_MCP_BIN
+    : resolveBin(path.resolve(__dirname, '../../target/release/genos-mcp'), path.resolve(__dirname, '../../target/debug/genos-mcp'));
   const orchestratorBridge = process.env.GENOS_ORCHESTRATOR_BRIDGE || path.resolve(__dirname, 'genos-orchestrate.cjs');
   let strategyContract = {};
   try { strategyContract = JSON.parse(mission.strategyContractJson || '{}'); } catch {}
@@ -246,9 +249,6 @@ process.stdin.on('end', async () => {
       '-c', 'mcp_servers.genos.startup_timeout_sec=30',
       '-c', 'mcp_servers.genos.tool_timeout_sec=120'
     );
-  }
-  if (unsafeBypassRequested) {
-    args.push('--dangerously-bypass-approvals-and-sandbox');
   }
   args.push('-C', workspace, '-');
   const child = spawn(codexCommand, args, {

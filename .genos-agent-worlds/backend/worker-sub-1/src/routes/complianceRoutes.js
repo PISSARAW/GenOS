@@ -4,7 +4,7 @@ const controller = require('../controllers/complianceController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 router.get('/frameworks', controller.listFrameworks);
-router.get('/reports', controller.listReports);
+router.get('/reports', requireTenantScope(), controller.listReports);
 router.post('/reports', requirePermission('workspace:write'), requireTenantScope({ write: true }), controller.createReport);
 router.get('/reports/:id', requireTenantScope(), controller.getReport);
 router.get('/reports/:id/export', requireTenantScope(), controller.exportReport);

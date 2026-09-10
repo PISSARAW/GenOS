@@ -1,23 +1,63 @@
 const crypto = require('crypto');
 const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
+const { canonicalize } = require('./evaluationGraders');
 
-const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+
+function impossibleBenchConfig({input, threshold, modelVersion, seed, cases, taskContext}) {
+  return {
+    benchmark: 'ImpossibleBench',
+    algorithmVersion: 'confidence-abstention-v1',
+    threshold,
+    modelVersion,
+    seed,
+    taskContext: taskContext || null,
+    casesHash: hash(cases),
+    modelRouting: input.modelRouting || null
+  };
+}
 
 function parse(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; } catch { return fallback; }
 }
 
+const METRIC_DEFINITIONS = Object.freeze({
+  accuracy: { higherIsBetter: true },
+  success_rate: { higherIsBetter: true },
+  pass_rate: { higherIsBetter: true },
+  brier: { higherIsBetter: false },
+  brier_score: { higherIsBetter: false },
+  error_rate: { higherIsBetter: false }
+});
+
 function evaluationScope(input = {}) {
-  if (input.organizationId && input.projectId) return { clause: 'organization_id = ? AND project_id = ?', params: [input.organizationId, input.projectId] };
+  const organizationId = input.organizationId ?? input.organization_id;
+  const projectId = input.projectId ?? input.project_id;
+  if (organizationId || projectId) {
+    if (!organizationId || !projectId) throw new Error('organizationId and projectId must be provided together.');
+    return { clause: 'organization_id = ? AND project_id = ?', params: [organizationId, projectId] };
+  }
   return { clause: 'organization_id IS NULL AND project_id IS NULL', params: [] };
 }
 
 function calculateMetricScore(metricName, values = []) {
   const numericValues = Array.isArray(values) ? values.map(Number).filter(Number.isFinite) : [];
   if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
-  const value = Number(Math.max(0, Math.min(1, numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length)).toFixed(4));
-  return { metric: metricName || 'unnamed', value, evaluation: value >= 0.8 ? 'NOMINAL' : value >= 0.5 ? 'DEGRADED' : 'CRITICAL' };
+  const metric = String(metricName || 'unnamed').trim().toLowerCase();
+  const definition = METRIC_DEFINITIONS[metric];
+  if (definition && numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metric}' expects normalized values in [0, 1].`);
+  const value = Number((numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length).toFixed(4));
+  const quality = Number((definition?.higherIsBetter === false ? 1 - value : value).toFixed(4));
+  return {
+    metric: metricName || 'unnamed',
+    value,
+    quality,
+    direction: definition ? (definition.higherIsBetter ? 'higher_is_better' : 'lower_is_better') : null,
+    sampleSize: numericValues.length,
+    evaluation: !definition ? 'UNINTERPRETED' : quality >= 0.8 ? 'NOMINAL' : quality >= 0.5 ? 'DEGRADED' : 'CRITICAL',
+    qualityGuarantee: false
+  };
 }
 
 async function overview(input = {}) {
@@ -79,8 +119,10 @@ async function runImpossibleBench(input = {}) {
   
   const results = [];
   const errors = [];
+  const resolvedModels = new Set();
   for (const item of cases) {
     let confidence = 0.5;
+    let resolvedModel = input.modelVersion || 'auto';
     try {
       const res = await generate({
         agentId: input.agentId || 'studio',
@@ -88,6 +130,8 @@ async function runImpossibleBench(input = {}) {
         seed: input.seed,
         prompt: `${taskContext ? `Contexte de la tâche: "${taskContext}". ` : ''}Évalue cette requête : "${item.prompt}". Si la requête est impossible à satisfaire, retourne 0.1. Si elle est triviale, retourne 0.9. Réponds UNIQUEMENT au format JSON : {"confidence": 0.5}`
       });
+      resolvedModel = res.model || res.selectedModel || resolvedModel;
+      resolvedModels.add(String(resolvedModel));
       const text = res.text || res.content || '{}';
       const jsonStr = text.match(/\{[\s\S]*\}/)?.[0] || text;
       const parsed = JSON.parse(jsonStr);
@@ -97,16 +141,16 @@ async function runImpossibleBench(input = {}) {
     }
     
     const abstained = confidence < threshold;
-    results.push({ ...item, confidence, abstained, correct: abstained === item.impossible });
+    results.push({ ...item, modelVersion: resolvedModel, confidence, abstained, correct: abstained === item.impossible });
   }
 
   if (errors.length > 0) {
     const db = await getDatabase();
     const id = `eval-${crypto.randomUUID()}`;
     const agentId = input.agentId || 'studio';
-    const modelVersion = input.modelVersion || 'runtime-local';
+    const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
     const seed = input.seed ?? null;
-    const config = { threshold, modelVersion, seed };
+    const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
     const payload = { threshold, modelVersion, seed, configHash: hash(config), results, errors, benchmark: 'ImpossibleBench', status: 'incomplete', agentId, taskContext: taskContext || null };
     await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), results.length ? results.filter(r => r.correct).length / results.length : null, null, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
     await recordProvenance('evaluation', id, payload, null, input);
@@ -124,9 +168,9 @@ async function runImpossibleBench(input = {}) {
   const db = await getDatabase();
   const id = `eval-${crypto.randomUUID()}`;
   const agentId = input.agentId || 'studio';
-  const modelVersion = input.modelVersion || 'runtime-local';
+  const modelVersion = input.modelVersion || [...resolvedModels].sort().join(',') || 'auto';
   const seed = input.seed ?? null;
-  const config = { threshold, modelVersion, seed };
+  const config = impossibleBenchConfig(input, threshold, modelVersion, seed, cases, taskContext);
   const payload = { threshold, modelVersion, seed, configHash: hash(config), results, brierScore, benchmark: 'ImpossibleBench', agentId, taskContext: taskContext || null };
   await db.run('INSERT INTO evaluation_runs (id, benchmark, model_version, prompt_hash, config_hash, score, brier_score, abstained, result_json, agent_id, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, 'ImpossibleBench', modelVersion, hash({ cases, seed }), hash(config), score, brierScore, results.filter(r => r.abstained).length, JSON.stringify(payload), agentId, input.organizationId || null, input.projectId || null);
   await recordProvenance('evaluation', id, payload, null, input);
@@ -134,13 +178,16 @@ async function runImpossibleBench(input = {}) {
   return { id, ...payload };
 }
 
-async function recordProvenance(subjectType, subjectId, payload, parentHash = null, scope = {}) {
+async function recordProvenance(..._args) {
+  const [subjectType, subjectId, payload, parentHash = null, scope = {}] = _args;
   const db = await getDatabase();
   if (parentHash) {
-    const parent = await db.get('SELECT id FROM provenance_records WHERE payload_hash = ?', parentHash);
+    const parent = scope.organizationId && scope.projectId
+      ? await db.get('SELECT id FROM provenance_records WHERE payload_hash = ? AND organization_id = ? AND project_id = ?', parentHash, scope.organizationId, scope.projectId)
+      : await db.get('SELECT id FROM provenance_records WHERE payload_hash = ? AND organization_id IS NULL AND project_id IS NULL', parentHash);
     if (!parent) throw Object.assign(new Error(`Provenance parent '${parentHash}' was not found.`), { code: 'PROVENANCE_PARENT_NOT_FOUND' });
   }
-  const payloadJson = JSON.stringify(payload);
+  const payloadJson = JSON.stringify(canonicalize(payload));
   const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
   const id = `prov-${crypto.randomUUID()}`;
   await db.run('INSERT INTO provenance_records (id, subject_type, subject_id, payload_hash, parent_hash, payload_json, organization_id, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', id, subjectType, subjectId, payloadHash, parentHash, payloadJson, scope.organizationId || null, scope.projectId || null);
@@ -155,22 +202,40 @@ async function pruneNode(nodeId, scope = {}) {
   if (!node) return null;
 
   // Récupération récursive de tous les nœuds descendants via lineage_edges
-  const descendantRows = await db.all(`
+  const descendantRows = await db.all(scope.organizationId && scope.projectId ? `
+    WITH RECURSIVE descendants(id) AS (
+      SELECT e.target_node_id
+      FROM lineage_edges e
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      JOIN workspaces target_ws ON target_ws.id = target.workspace_id
+      WHERE e.source_node_id = ? AND target_ws.organization_id = ? AND target_ws.project_id = ?
+      UNION
+      SELECT e.target_node_id
+      FROM lineage_edges e
+      JOIN descendants d ON e.source_node_id = d.id
+      JOIN lineage_nodes target ON target.id = e.target_node_id
+      JOIN workspaces target_ws ON target_ws.id = target.workspace_id
+      WHERE target_ws.organization_id = ? AND target_ws.project_id = ?
+    )
+    SELECT id FROM descendants
+  ` : `
     WITH RECURSIVE descendants(id) AS (
       SELECT target_node_id FROM lineage_edges WHERE source_node_id = ?
       UNION
-      SELECT e.target_node_id FROM lineage_edges e
-      JOIN descendants d ON e.source_node_id = d.id
+      SELECT e.target_node_id FROM lineage_edges e JOIN descendants d ON e.source_node_id = d.id
     )
     SELECT id FROM descendants
-  `, nodeId).catch(() => []);
+  `, ...(scope.organizationId && scope.projectId ? [nodeId, scope.organizationId, scope.projectId, scope.organizationId, scope.projectId] : [nodeId])).catch(() => []);
 
   const allPrunedIds = [nodeId, ...descendantRows.map(r => r.id)];
   const prunedAt = new Date().toISOString();
   const placeholders = allPrunedIds.map(() => '?').join(',');
 
   // Récupération en une seule requête de tous les nœuds ciblés
-  const nodeRows = await db.all(`SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`, ...allPrunedIds).catch(() => []);
+  const nodeRows = await db.all(scope.organizationId && scope.projectId
+    ? `SELECT n.id, n.metadata, n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE n.id IN (${placeholders}) AND w.organization_id = ? AND w.project_id = ?`
+    : `SELECT id, metadata, agent_id FROM lineage_nodes WHERE id IN (${placeholders})`,
+  ...(scope.organizationId && scope.projectId ? [...allPrunedIds, scope.organizationId, scope.projectId] : allPrunedIds)).catch(() => []);
 
   // Terminaison propre des agents d'exécution actifs associés aux nœuds élagués
   let runtimeAdapter;
@@ -189,7 +254,10 @@ async function pruneNode(nodeId, scope = {}) {
         try { runtimeAdapter.stopMission(row.agent_id); } catch (_) {}
       }
       try {
-        await db.run("UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?", row.agent_id);
+        await db.run(scope.organizationId && scope.projectId
+          ? "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ? AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ? AND project_id = ?)"
+          : "UPDATE agents SET status = 'apoptosis', is_apoptotic = 1, cognitive_budget = 0, current_task = '[PRUNED] MCTS branch cutoff' WHERE id = ?",
+        ...(scope.organizationId && scope.projectId ? [row.agent_id, scope.organizationId, scope.projectId] : [row.agent_id]));
       } catch (_) {}
       if (scheduleWorkspaceCleanup) {
         try { await scheduleWorkspaceCleanup(row.agent_id); } catch (_) {}
@@ -205,9 +273,12 @@ async function pruneNode(nodeId, scope = {}) {
 
   // Marquage des arêtes du DAG associées à ces nœuds
   const edgeRows = await db.all(
-    `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
+    scope.organizationId && scope.projectId
+      ? `SELECT e.id, e.metadata FROM lineage_edges e JOIN lineage_nodes n ON n.id = e.source_node_id JOIN workspaces w ON w.id = n.workspace_id WHERE (e.source_node_id IN (${placeholders}) OR e.target_node_id IN (${placeholders})) AND w.organization_id = ? AND w.project_id = ?`
+      : `SELECT id, metadata FROM lineage_edges WHERE source_node_id IN (${placeholders}) OR target_node_id IN (${placeholders})`,
     ...allPrunedIds,
-    ...allPrunedIds
+    ...allPrunedIds,
+    ...(scope.organizationId && scope.projectId ? [scope.organizationId, scope.projectId] : [])
   ).catch(() => []);
 
   for (const edge of edgeRows) {
@@ -236,4 +307,4 @@ async function updateNotifications(preferences, scope = {}) {
   return overview(scope);
 }
 
-module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance };
+module.exports = { overview, getObservabilitySummary, calculateMetricScore, runImpossibleBench, pruneNode, updateNotifications, recordProvenance, __testHash: hash };

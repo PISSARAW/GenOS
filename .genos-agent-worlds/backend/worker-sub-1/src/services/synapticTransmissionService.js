@@ -91,13 +91,21 @@ async function depositExosome(params = {}) {
   const engramsList = params.new_engrams || params.newEngrams || [];
   const pName = params.plasmid_name || params.plasmidName || '';
   const pCode = params.plasmid_code || params.plasmidCode || '';
+  const plasmidVector = Array.isArray(params.plasmid_vector || params.plasmidVector)
+    ? (params.plasmid_vector || params.plasmidVector).map(Number).filter(Number.isFinite)
+    : [];
   const payload = {
     new_engrams: engramsList,
     newEngrams: engramsList,
     plasmid_name: pName,
     plasmidName: pName,
     plasmid_code: pCode,
-    plasmidCode: pCode
+    plasmidCode: pCode,
+    plasmid_vector: plasmidVector,
+    source_agent_id: params.source_agent_id || params.sourceAgentId || params.sender_id || '',
+    recipient_agent_id: params.recipient_agent_id || params.recipientAgentId || params.target_agent_id || '',
+    organization_id: params.organization_id || params.organizationId || '',
+    project_id: params.project_id || params.projectId || ''
   };
 
   const message = Exosome.create(payload);
@@ -173,6 +181,16 @@ async function absorbExosomes(db = null) {
           exo.organization_id || exo.organizationId || null,
           exo.project_id || exo.projectId || null
         );
+        await database.run(
+          `INSERT INTO plasmid_bindings (plasmid_id, owner_agent_id, source_agent_id, organization_id, project_id)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(plasmid_id) DO UPDATE SET owner_agent_id = excluded.owner_agent_id, source_agent_id = excluded.source_agent_id, organization_id = excluded.organization_id, project_id = excluded.project_id, status = 'active', updated_at = CURRENT_TIMESTAMP`,
+          plasmidId,
+          exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || null,
+          exo.source_agent_id || exo.sourceAgentId || exo.sender_id || null,
+          exo.organization_id || exo.organizationId || null,
+          exo.project_id || exo.projectId || null
+        );
         plasmidsAssimilated += 1;
 
         // Synchronisation bidirectionnelle : assimilation formelle dans le génome Rust
@@ -180,8 +198,15 @@ async function absorbExosomes(db = null) {
           const targetAgent = exo.recipient_agent_id || exo.recipientAgentId || exo.agent_id || exo.agentId || 'global';
           const sourceAgent = exo.source_agent_id || exo.sourceAgentId || exo.sender_id || 'donor';
           const safeName = (pName || 'plasmid_core').replace(/[^a-zA-Z0-9_\-]/g, '_');
-          runGenosSync(`genos evolution assimilate-plasmid --agent-id ${targetAgent} --source ${sourceAgent} --plasmid-name "${safeName}"`);
-        } catch (_) {}
+          const safeTarget = String(targetAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+          const safeSource = String(sourceAgent).replace(/[^a-zA-Z0-9_\-]/g, '_');
+          const safeCode = String(pCode || '').replace(/["\\$`]/g, '\\$&');
+          const output = runGenosSync(`genos evolution assimilate-plasmid --agent-id ${safeTarget} --source ${safeSource} --plasmid-name "${safeName}" --plasmid-code "${safeCode}"`);
+          const result = JSON.parse(output.toString());
+          if (!result.success || result.persisted !== true) throw new Error('Rust plasmid assimilation did not persist.');
+        } catch (error) {
+          errors.push(`Rust plasmid synchronization failed: ${error.message}`);
+        }
       } catch (error) {
         errors.push(`Plasmid insertion failed: ${error.message}`);
       }

@@ -5,7 +5,7 @@
 const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const circuitBreaker = require('../services/circuitBreaker');
-const lineageController = require('./lineageController');
+const lineageController = require('./lineage');
 const snapshotStore = require('../services/workspaceSnapshotStore');
 const { stopMission, stopAllMissions } = require('../services/agentRuntimeAdapter');
 
@@ -67,6 +67,7 @@ async function handleCommand(req, res) {
     }
 
     case 'kill_agent': {
+      if (req.body?.confirmed !== true) return res.status(409).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Killing an agent requires confirmed: true.' } });
       const targetId = agentId || params?.agentId;
       if (!targetId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
       const targetAgent = await findCommandAgent(db, req, targetId);
@@ -82,6 +83,7 @@ async function handleCommand(req, res) {
     }
 
     case 'reboot_studio': {
+      if (req.body?.confirmed !== true) return res.status(409).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Rebooting Studio requires confirmed: true.' } });
       const stoppedMissions = stopAllMissions().length;
       circuitBreaker.resetHalt('studio_reboot');
       telemetry.emitEvent({ eventType: 'STUDIO_REBOOT_REQUESTED', agentId: 'command_palette', action: 'REBOOT', detail: 'Studio restart requested by command palette', severity: 'warning', payload: { stoppedMissions } });

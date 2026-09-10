@@ -2,6 +2,7 @@ const strategyContracts = require('./strategyContractService');
 const strategyExecution = require('./strategyExecutionService');
 const { buildAutonomyPlan } = require('./autonomousOrchestrationService');
 const { withTransaction } = require('../db');
+const { validateStrategyTransitionContinuity } = require('./strategyCoherenceValidator');
 
 function strategySignature(contract = {}) {
   return JSON.stringify({
@@ -43,9 +44,9 @@ async function useFallbackStrategyIfPrimaryFailed(db, orchestratorId) {
   const fallback = currentContract.contract.selected_strategy?.fallback;
   if (!fallback) return null;
   const activeRun = await strategyExecution.getLatestRun(db, orchestratorId);
-  const hasFailed = activeRun && activeRun.status === 'cancelled'
-    && activeRun.guardrailReason
-    && activeRun.guardrailReason.includes('Primary strategy failed or produced insufficient evidence');
+  const hasFailed = activeRun && ['cancelled', 'failed', 'blocked'].includes(activeRun.status)
+    && (activeRun.status !== 'cancelled'
+      || (activeRun.guardrailReason && activeRun.guardrailReason.includes('Primary strategy failed or produced insufficient evidence')));
   if (!hasFailed) return null;
   return changeStrategy(db, {
     orchestratorId,
@@ -103,6 +104,12 @@ async function changeStrategy(db, input = {}) {
   }
 
   const activeRun = await strategyExecution.getLatestRun(db, orchestratorId);
+  if (activeRun && ['planned', 'running'].includes(activeRun.status) && input.allowEvidenceReset !== true) {
+    const continuity = validateStrategyTransitionContinuity(current.contract, planned.candidate);
+    if (!continuity.coherent) {
+      throw Object.assign(new Error(`${continuity.reason} Set allowEvidenceReset=true to start a fresh evidence lineage.`), { code: 'STRATEGY_TRANSITION_INCOHERENT', continuity });
+    }
+  }
   const budget = activeRun && ['planned', 'running'].includes(activeRun.status)
     ? remainingBudget(activeRun)
     : input.executionBudget;

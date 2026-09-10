@@ -2,6 +2,8 @@ const assert = require('assert');
 const { getDatabase, closeDatabase } = require('../src/db');
 const service = require('../src/services/evaluationObservabilityService');
 
+assert.throws(() => service.calculateMetricScore('invalid', [1.2]), /between 0 and 1/);
+
 async function run() {
   const db = await getDatabase(':memory:');
   const result = await service.runImpossibleBench({

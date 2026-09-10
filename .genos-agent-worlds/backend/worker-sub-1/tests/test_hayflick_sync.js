@@ -38,7 +38,32 @@ async function testHayflickSync() {
   // Verify lineage_nodes summary was updated
   const lysedNode = await db.get('SELECT state_summary FROM lineage_nodes WHERE id = ?', motherId);
   assert.ok(lysedNode.state_summary.includes('Lysed mother cell'));
+  const progenyNodes = await db.all(
+    "SELECT id, node_type FROM lineage_nodes WHERE workspace_id = ? AND node_type = 'speculative_merozoite' AND metadata LIKE ?",
+    wsId,
+    `%\"motherAgentId\":\"${motherId}\"%`
+  );
+  assert.equal(progenyNodes.length, schizoRes.json.progeny_count, 'Every schizogony progeny must be persisted as a lineage node');
+  const progenyEdges = await db.all(
+    "SELECT target_node_id FROM lineage_edges WHERE workspace_id = ? AND source_node_id = ? AND edge_type = 'schizogony'",
+    wsId,
+    motherId
+  );
+  assert.equal(progenyEdges.length, schizoRes.json.progeny_count, 'Every schizogony progeny must have a mother edge');
   console.log('  ✅ PASS: Schizogony lysis synchronized with agents and lineage_nodes tables');
+
+  const fissionMotherId = `cell_fission_${Date.now()}`;
+  await db.run(
+    "INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, is_apoptotic) VALUES (?, 'Fission Mother', 'worker', 'running', 'GenOS', 'worker', ?, 0)",
+    fissionMotherId, wsId
+  );
+  const fissionRes = await genosCli.runCellDivision({ agentId: fissionMotherId, mode: 'binary_fission', mutationRate: 0, seed: 'sync-fission' });
+  assert.ok(fissionRes.ok, `Binary fission CLI failed: ${fissionRes.stderr}`);
+  const fissionNode = await db.get('SELECT node_type FROM lineage_nodes WHERE id = ?', fissionRes.json.daughter_b_id);
+  const fissionEdge = await db.get('SELECT edge_type FROM lineage_edges WHERE source_node_id = ? AND target_node_id = ?', fissionMotherId, fissionRes.json.daughter_b_id);
+  assert.equal(fissionNode.node_type, 'binary_fission');
+  assert.equal(fissionEdge.edge_type, 'binary_fission');
+  console.log('  ✅ PASS: Binary fission descendant and parent edge persisted');
 
   // 2. Test recursive_fork senescence sync
   const orchHayflickId = `orch_senescence_${Date.now()}`;

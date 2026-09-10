@@ -26,12 +26,12 @@ function streamSSE(req, res) {
   res.write(`data: ${JSON.stringify(handshake)}\n\n`);
 
   // Stream existing recent ring buffer events
-  const recents = telemetryService.getRecentEvents(10);
+  const recents = telemetryService.getRecentEvents(10, null, req.tenant);
   recents.forEach(ev => {
     res.write(`data: ${JSON.stringify(ev)}\n\n`);
   });
 
-  telemetryService.addSSEClient(res);
+  telemetryService.addSSEClient(res, req.tenant);
 }
 
 async function getEvents(req, res) {
@@ -39,8 +39,12 @@ async function getEvents(req, res) {
   const boundedLimit = Math.min(Math.max(Number.parseInt(limit, 10) || 50, 1), 500);
   const db = await getDatabase();
 
-  let query = 'SELECT * FROM telemetry_events WHERE 1=1';
+  let query = 'SELECT e.* FROM telemetry_events e LEFT JOIN agents a ON a.id = e.agent_id LEFT JOIN workspaces w ON w.id = a.workspace_id';
   const params = [];
+  if (req.tenant) {
+    query += ' WHERE ((e.organization_id = ? AND e.project_id = ?) OR (w.organization_id = ? AND w.project_id = ?))';
+    params.push(req.tenant.organizationId, req.tenant.projectId, req.tenant.organizationId, req.tenant.projectId);
+  }
 
   if (event_type) {
     query += ' AND event_type = ?';
@@ -66,20 +70,32 @@ async function getEvents(req, res) {
 }
 
 function ingestEvent(req, res) {
-  const event = telemetryService.emitEvent(req.body);
+  const event = telemetryService.emitEvent({
+    ...(req.body || {}),
+    payload: {
+      ...(req.body?.payload || {}),
+      organizationId: req.tenant?.organizationId || null,
+      projectId: req.tenant?.projectId || null
+    }
+  });
   res.status(201).json({ success: true, event });
 }
 
 async function getStatus(req, res) {
   const db = await getDatabase();
-  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+  const agentCount = req.tenant
+    ? await db.get("SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status = 'running' AND w.organization_id = ? AND w.project_id = ?", req.tenant.organizationId, req.tenant.projectId)
+    : await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
   const count = agentCount ? agentCount.count : 0;
 
   res.json({
     activeAgentsCount: count,
-    clonesHistory: (await db.get('SELECT COUNT(*) as count FROM agents'))?.count || 0,
+    clonesHistory: req.tenant
+      ? (await db.get('SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ?', req.tenant.organizationId, req.tenant.projectId))?.count || 0
+      : (await db.get('SELECT COUNT(*) as count FROM agents'))?.count || 0,
     status: 'online',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    telemetryPersistence: telemetryService.getPersistenceStatus()
   });
 }
 
@@ -96,12 +112,12 @@ async function getDashboard(req, res) {
   const db = await getDatabase();
   const username = process.env.USERNAME || (os.userInfo ? os.userInfo().username : 'operator');
 
-  const statsRecord = await db.get('SELECT * FROM system_stats WHERE id = 1');
-  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents WHERE status = 'running'");
+  const statsRecord = await db.get("SELECT COUNT(*) AS total_actions, COUNT(DISTINCT agent_id) AS total_tasks FROM telemetry_events WHERE organization_id = ? AND project_id = ?", req.tenant.organizationId, req.tenant.projectId);
+  const agentCount = await db.get("SELECT COUNT(*) as count FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.status = 'running' AND w.organization_id = ? AND w.project_id = ?", req.tenant.organizationId, req.tenant.projectId);
   const wsList = req.tenant
     ? await db.all('SELECT * FROM workspaces WHERE organization_id = ? AND project_id = ? ORDER BY updated_at DESC', req.tenant.organizationId, req.tenant.projectId)
     : await db.all('SELECT * FROM workspaces WHERE organization_id IS NULL AND project_id IS NULL ORDER BY updated_at DESC');
-  const heatmapRows = await db.all('SELECT actions FROM heatmap_activity ORDER BY day ASC LIMIT 364');
+  const heatmapRows = await db.all('SELECT COUNT(*) AS actions FROM telemetry_events WHERE organization_id = ? AND project_id = ? GROUP BY strftime(\'%Y-%j\', created_at) ORDER BY MIN(created_at) ASC LIMIT 364', req.tenant.organizationId, req.tenant.projectId);
 
   // The dashboard contract is a full year (364 cells). Older/local databases
   // may contain only a partial seed, so normalize the response instead of

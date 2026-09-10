@@ -6,13 +6,22 @@ const express = require('express');
 const router = express.Router();
 const configController = require('../controllers/configController');
 const { requirePermission } = require('../middleware/auth');
+const { requireTenantScope } = require('../middleware/tenant');
 
-router.get('/config', configController.getConfig);
-router.get('/model', configController.getModelStatus);
-router.get('/model/local', configController.getLocalModels);
-router.post('/model/test', requirePermission('experiment:run'), configController.testModel);
-router.post('/profile', requirePermission('workspace:write'), configController.updateProfile);
-router.get('/budget', configController.getBudget);
-router.post('/budget', requirePermission('security:manage'), configController.updateBudget);
+async function requireConfigTenant(req, res, next) {
+	await requireTenantScope()(req, res, (error) => {
+		if (error) return next(error);
+		if (!req.tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'Configuration APIs require an explicit organization and project scope.' } });
+		next();
+	});
+}
+
+router.get('/config', requirePermission('read'), requireConfigTenant, configController.getConfig);
+router.get('/model', requirePermission('read'), requireConfigTenant, configController.getModelStatus);
+router.get('/model/local', requirePermission('read'), requireConfigTenant, configController.getLocalModels);
+router.post('/model/test', requirePermission('experiment:run'), requireConfigTenant, configController.testModel);
+router.post('/profile', requirePermission('workspace:write'), requireConfigTenant, configController.updateProfile);
+router.get('/budget', requirePermission('read'), requireConfigTenant, configController.getBudget);
+router.post('/budget', requirePermission('security:manage'), requireConfigTenant, configController.updateBudget);
 
 module.exports = router;

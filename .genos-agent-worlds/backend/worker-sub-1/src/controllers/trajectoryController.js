@@ -6,6 +6,28 @@ const { getDatabase } = require('../db');
 const telemetry = require('../services/telemetryObserver');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs/promises');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+const execFileAsync = promisify(execFile);
+const { normalizeRelativePath, resolveContainedPathNoSymlinkSync } = require('../services/pathSafety');
+const { isPathWithinRoot, resolveWorkspacesRoot } = require('../services/workspaceRegistry');
+
+const WORKSPACES_ROOT = resolveWorkspacesRoot();
+
+/** Rebuilds the post-merge file body from stored diff lines, dropping deleted lines. */
+function reconstructFileContent(diffLines) {
+  const kept = [];
+  for (const raw of diffLines) {
+    const kind = String((raw && (raw.type || raw.kind)) || '').toLowerCase();
+    let text = String((raw && (raw.content ?? raw.text)) ?? raw ?? '');
+    const isDeletion = kind ? ['deletion', 'del', 'remove', 'removed'].includes(kind) : text.startsWith('-');
+    if (isDeletion) continue;
+    if (!kind && /^[+\- ]/.test(text)) text = text.slice(1);
+    kept.push(text);
+  }
+  return kept.length ? `${kept.join('\n')}\n` : '';
+}
 
 function workspaceScope(req, alias = 'w') {
   const prefix = alias ? `${alias}.` : '';
@@ -128,15 +150,58 @@ async function approveTrajectory(req, res) {
   const trajectory = await findScopedTrajectory(db, req, id);
   if (!trajectory) return res.status(404).json({ error: { code: 'TRAJECTORY_NOT_FOUND', message: `Trajectory '${id}' was not found in this project.` } });
   if (!['pending', 'active'].includes(trajectory.status)) return res.status(409).json({ error: { code: 'INVALID_TRAJECTORY_STATE', message: `Trajectory '${id}' cannot be approved from '${trajectory.status}'.` } });
-  return res.status(501).json({
-    error: {
-      code: 'TRAJECTORY_MERGE_NOT_IMPLEMENTED',
-      message: 'Approval is disabled until an authenticated validation and repository merge executor is available.'
-    },
-    trajectoryId: id,
-    status: trajectory.status,
-    mutated: false
+
+  const workspace = await db.get('SELECT id, path FROM workspaces WHERE id = ?', trajectory.workspace_id);
+  if (!workspace || !workspace.path || !isPathWithinRoot(WORKSPACES_ROOT, workspace.path)) {
+    return res.status(409).json({ error: { code: 'WORKSPACE_UNAVAILABLE', message: `Workspace for trajectory '${id}' is not available on disk for merge.` } });
+  }
+
+  let diffLines = [];
+  try { diffLines = JSON.parse(trajectory.diff_lines || '[]'); } catch (_) {}
+  if (!Array.isArray(diffLines) || diffLines.length === 0) {
+    return res.status(422).json({ error: { code: 'EMPTY_DIFF', message: `Trajectory '${id}' has no diff content to merge.` } });
+  }
+
+  let relativePath;
+  let destination;
+  try {
+    relativePath = normalizeRelativePath(trajectory.diff_file || '', 'diffFile');
+    destination = resolveContainedPathNoSymlinkSync(workspace.path, relativePath, 'diffFile');
+  } catch (error) {
+    return res.status(422).json({ error: { code: 'INVALID_DIFF_FILE', message: error.message } });
+  }
+
+  const content = reconstructFileContent(diffLines);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, content, 'utf8');
+
+  // Best-effort commit: the merge is real (file written) even outside a git worktree.
+  const commit = { attempted: false, committed: false };
+  try {
+    await execFileAsync('git', ['-C', workspace.path, 'rev-parse', '--is-inside-work-tree'], { timeout: 5000 });
+    commit.attempted = true;
+    await execFileAsync('git', ['-C', workspace.path, 'add', '--', relativePath], { timeout: 5000 });
+    const message = `[Trajectory ${id}] ${trajectory.title}`.slice(0, 200);
+    await execFileAsync('git', ['-C', workspace.path, 'commit', '-m', message, '--', relativePath], { timeout: 10000 });
+    const { stdout } = await execFileAsync('git', ['-C', workspace.path, 'rev-parse', 'HEAD'], { timeout: 5000 });
+    commit.committed = true;
+    commit.sha = stdout.trim();
+    commit.message = message;
+  } catch (error) {
+    commit.reason = String(error.message || error).split('\n')[0];
+  }
+
+  await db.run("UPDATE trajectories SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = ?", id, trajectory.status);
+
+  telemetry.emitEvent({
+    eventType: 'TRAJECTORY_APPROVED',
+    agentId: 'operator',
+    action: 'APPROVE',
+    detail: `Trajectory ${id} approved and merged into ${relativePath}${commit.committed ? ` (commit ${commit.sha.slice(0, 8)})` : ''}.`,
+    severity: 'info'
   });
+
+  res.json({ success: true, trajectoryId: id, status: 'active', mutated: true, mergedFile: relativePath, commit });
 }
 
 async function rejectTrajectory(req, res) {

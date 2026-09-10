@@ -230,11 +230,15 @@ async function recordExecutionEvent(db, agentId, event) {
   const contract = contractRecord?.contract || {};
   if (completed && !guardrailReason) {
     const promotionPolicy = require('./strategyPromotionPolicyService');
+    const replayReceipt = event.payload?.replayReceipt;
+    const evidenceReport = event.payload?.evidenceReport || event.payload?.report;
+    const evidenceClaims = evidenceReport?.claims || event.payload?.claims;
     const promoEval = promotionPolicy.evaluatePromotionGate(contract, {
-      replayVerified: Boolean(event.payload?.replayVerified || event.payload?.replayReceipt || event.payload?.diffAndReplayPassed),
-      independentVerification: Boolean(event.payload?.independentVerification || event.payload?.claims?.length || event.payload?.evidenceReport?.claims?.length),
+      replayReceipt,
+      independentVerification: event.payload?.independentVerification,
+      agentId: row.agent_id,
       humanApproved: false,
-      report: event.payload?.evidenceReport || event.payload?.report
+      report: evidenceReport
     });
     const policyViolationReason = promoEval.violations.find((v) => v.policy !== 'require_human_approval');
     if (policyViolationReason) {
@@ -289,16 +293,21 @@ async function recordExecutionEvent(db, agentId, event) {
     status, JSON.stringify(metrics), guardrailReason, now,
     ['awaiting_approval', 'completed', 'failed', 'blocked'].includes(status) ? now : null, row.id
   );
-  return { run: await getRun(db, row.id), halt: Boolean(guardrailReason), reason: guardrailReason };
+  let fallback = null;
+  if (failed || guardrailReason) {
+    try {
+      fallback = await require('./strategyAdaptationService').useFallbackStrategyIfPrimaryFailed(db, agentId);
+    } catch (error) {
+      fallback = { changed: false, error: error.message };
+    }
+  }
+  return { run: await getRun(db, row.id), halt: Boolean(guardrailReason), reason: guardrailReason, fallback };
 }
 
 async function approveRun(db, id, options = {}) {
   const row = await db.get('SELECT * FROM strategy_execution_runs WHERE id = ?', id);
   if (!row) throw new Error(`Execution run ${id} not found`);
   if (row.status !== 'awaiting_approval') throw new Error(`Execution run ${id} is not awaiting approval`);
-  const now = new Date().toISOString();
-  await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
-  await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ?", now, id);
 
   // Reconstruct execution context from contract, agent, and recorded step evidence
   const contractRecord = await db.get('SELECT contract_json FROM strategy_contracts WHERE id = ?', row.contract_id);
@@ -343,6 +352,23 @@ async function approveRun(db, id, options = {}) {
   } catch (err) {
     promotionResult = { success: false, error: err.message };
   }
+  if (!promotionResult?.success) {
+    throw new Error(`Execution run ${id} promotion failed: ${promotionResult?.error || 'unknown error'}`);
+  }
+  const promotionPolicy = require('./strategyPromotionPolicyService');
+  const postPromotion = await promotionPolicy.applyPostPromotionPolicies(db, contract, {
+    agentId: row.agent_id,
+    rejectedBranchIds: options.rejectedBranchIds || [],
+    winnerWorkspaceRoot: options.winnerWorkspaceRoot,
+    targetWorkspaceRoot: options.targetWorkspaceRoot,
+    causalBaseWorkspaceRoot: options.causalBaseWorkspaceRoot
+  });
+  if (!postPromotion.success) {
+    throw new Error(`Execution run ${id} workspace promotion failed: ${postPromotion.error || 'unknown error'}`);
+  }
+  const now = new Date().toISOString();
+  await db.run("UPDATE strategy_execution_steps SET status = 'completed', completed_at = ? WHERE run_id = ? AND status = 'awaiting_approval'", now, id);
+  await db.run("UPDATE strategy_execution_runs SET status = 'completed', completed_at = ? WHERE id = ? AND status = 'awaiting_approval'", now, id);
 
   try {
     const agentMemory = require('./agentMemoryService');
@@ -362,16 +388,6 @@ async function approveRun(db, id, options = {}) {
       action: 'PROMOTION_FINALIZED',
       detail: `Deferred promotion pipeline executed for approved run ${id}.`,
       payload: { runId: id, contractId: row.contract_id, promotionResult, approvedBy: options.approvedBy || 'human_gate' }
-    });
-  } catch (_) {}
-
-  try {
-    const promotionPolicy = require('./strategyPromotionPolicyService');
-    await promotionPolicy.applyPostPromotionPolicies(db, contract, {
-      agentId: row.agent_id,
-      rejectedBranchIds: options.rejectedBranchIds || [],
-      winnerWorkspaceRoot: options.winnerWorkspaceRoot,
-      targetWorkspaceRoot: options.targetWorkspaceRoot
     });
   } catch (_) {}
 

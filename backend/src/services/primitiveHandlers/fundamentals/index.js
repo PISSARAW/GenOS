@@ -75,8 +75,8 @@ async function fork(context) {
     const db = await getDatabase();
     const parent = await db.get(`SELECT a.id, a.name, a.name_meaning, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier,
       a.language, a.isolation_mode, a.current_task, w.path AS workspace_root
-      FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
-    if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found or has no workspace.` };
+      FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, context.orchestratorId);
+    if (!parent) return { success: false, error: `Orchestrator '${context.orchestratorId}' not found.` };
     await agentAuthority.requireOrchestrator(db, parent.id);
     const reproductionGuard = await enforceReproductionLimits(db, parent.id, context);
     if (!reproductionGuard.allowed) return { success: false, ...reproductionGuard };
@@ -104,7 +104,8 @@ async function fork(context) {
       mission: context.mission || 'strategy_fork'
     });
     const agentWorkspaceLifecycle = require('../agentWorkspaceLifecycleService');
-    const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(parent.workspace_root, id, context.capsuleRoot);
+    const sourceRoot = parent.workspace_root || context.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    const workerWorkspaceRoot = await agentWorkspaceLifecycle.createIsolatedWorkspace(sourceRoot, id, context.capsuleRoot);
     
     const startPromise = runtimeAdapter.startMission({
       agentId: id,

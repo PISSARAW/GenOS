@@ -8,14 +8,14 @@ async function testPlasmidDivergence() {
 
   // 1. Registry verification
   const totalStrategies = listStrategies().length;
-  assert.equal(totalStrategies, 78, `Registry must contain exactly 78 strategies, got ${totalStrategies}`);
+  assert.equal(totalStrategies, 79, `Registry must contain exactly 79 strategies, got ${totalStrategies}`);
 
   const strategy = getStrategy('plasmid_divergent_optimization');
   assert(strategy, 'plasmid_divergent_optimization strategy must be registered');
   assert.equal(strategy.name, 'Optimisation divergente sur plasmide');
   assert.equal(strategy.maturity, 'implemented');
   assert.deepEqual(strategy.primitives, ['plasmid_divergent_fork', 'pareto_select', 'assimilate_plasmid']);
-  console.log('  ✅ PASS: Strategy registry and metadata validated (78 total strategies).');
+  console.log('  ✅ PASS: Strategy registry and metadata validated (79 total strategies).');
 
   // 2. Database preparation
   const db = await getDatabase();

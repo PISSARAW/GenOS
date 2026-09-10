@@ -51,6 +51,7 @@ const MCP_TOOLS_LIST = [
   { name: 'genos_bisect_agent', cat: 'Knowledge & Experience', risk: 'Low', desc: 'Binary search agent decisions for regressions' },
   { name: 'genos_analyze_trajectory', cat: 'Knowledge & Experience', risk: 'Low', desc: 'Deep AST inspect of trajectory code' },
   { name: 'genos_compile_memory', cat: 'Knowledge & Experience', risk: 'Amber', desc: 'Distills episodic memory into concise rules' },
+  { name: 'genos_strat_compile_memory', cat: 'Strategy Primitives', risk: 'Amber', desc: 'Execute the compile_memory strategy primitive.' },
 
   // Resilience & Biomimicry
   { name: 'genos_resilience_apoptosis', cat: 'Resilience & Security', risk: 'High', desc: 'Programmed self-termination of runaway nodes' },

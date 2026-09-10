@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+process.env.NODE_ENV = 'test';
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || `test-${crypto.randomBytes(16).toString('hex')}`;
 const { getDatabase, closeDatabase } = require('../src/db');
 const { resolveTenant } = require('../src/middleware/tenant');
 

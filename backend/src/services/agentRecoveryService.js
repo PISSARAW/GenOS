@@ -88,7 +88,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     source = await db.get(
             `SELECT a.id, a.name, a.role, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language,
               a.isolation_mode, a.parent_agent_id
-             , w.path AS workspace_root FROM agents a JOIN workspaces w ON w.id = a.workspace_id
+             , w.path AS workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id
              WHERE a.id = ? AND a.execution_mode = 'worker'`,
       sourceAgentId
     );
@@ -185,7 +185,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
       }
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
-    const sourceRoot = source.workspace_root;
+    const sourceRoot = source.workspace_root || mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
     workspaceRoot = await createIsolatedWorkspace(
       sourceRoot,
       `${targetId}_${decision.action}_${report.attempt + 1}`,

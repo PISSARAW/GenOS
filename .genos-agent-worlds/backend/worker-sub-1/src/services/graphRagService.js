@@ -30,9 +30,11 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
     const ownerClause = ownerId ? ' AND gd.created_by = ?' : '';
     const orgClause = tenant.organizationId ? ' AND (gd.organization_id = ? OR gd.organization_id IS NULL)' : '';
     const synapseOrgClause = tenant.organizationId ? ' AND (ms.organization_id = ? OR ms.organization_id IS NULL)' : '';
+    const synapseProjectClause = tenant.projectId ? ' AND (ms.project_id = ? OR ms.project_id IS NULL)' : '';
     const queryParams = [...topIds];
     if (ownerId) queryParams.push(ownerId);
     if (tenant.organizationId) queryParams.push(tenant.organizationId);
+    if (tenant.projectId) queryParams.push(tenant.projectId);
     if (tenant.organizationId) queryParams.push(tenant.organizationId);
 
     const synapses = await db.all(`
@@ -45,7 +47,7 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
             t.depth + 1,
             t.weight * (MIN(2.0, ms.weight) / 2.0)
           FROM traverse t
-          JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}
+          JOIN memory_synapses ms ON (ms.source_id = t.id OR ms.target_id = t.id)${synapseOrgClause}${synapseProjectClause}
           WHERE t.depth < 2 AND ms.weight > 0 AND (ms.transmitter_type IS NULL OR ms.transmitter_type != 'gaba')
         )
       SELECT id, depth, weight FROM traverse WHERE depth > 0
@@ -67,8 +69,8 @@ async function traverseSynapses(topIds = [], db = null, ownerId = '', tenant = {
 
     const linkedPlaceholders = uniqueLinkedIds.map(() => '?').join(',');
     const connectedDecisions = await db.all(
-      `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}`,
-      tenant.organizationId ? [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), tenant.organizationId] : [...uniqueLinkedIds, ...(ownerId ? [ownerId] : [])]
+      `SELECT id, title, category, content, created_by, created_at, synaptic_weight, embedding_blob FROM genome_decisions WHERE id IN (${linkedPlaceholders})${ownerId ? ' AND created_by = ?' : ''}${tenant.organizationId ? ' AND (organization_id = ? OR organization_id IS NULL)' : ''}${tenant.projectId ? ' AND (project_id = ? OR project_id IS NULL)' : ''}`,
+      [...uniqueLinkedIds, ...(ownerId ? [ownerId] : []), ...(tenant.organizationId ? [tenant.organizationId] : []), ...(tenant.projectId ? [tenant.projectId] : [])]
     );
 
     return connectedDecisions.map(item => {

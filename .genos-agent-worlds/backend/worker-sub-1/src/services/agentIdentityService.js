@@ -4,6 +4,8 @@
  * ainsi que la présentation d'identité pour les prompts et la télémétrie.
  */
 
+const crypto = require('crypto');
+
 const IDENTITY_CATALOG = [
   { name: 'Kwame', meaning: 'Né un samedi (Akan) - Le planificateur méthodique' },
   { name: 'Chidi', meaning: "Dieu existe (Igbo) - L'esprit logique et rigoureux" },
@@ -25,6 +27,15 @@ function getRandomIdentity(excludeNames = []) {
   return pool[idx];
 }
 
+function getStableIdentity(stableKey, excludeNames = []) {
+  const available = IDENTITY_CATALOG.filter((item) => !excludeNames.includes(item.name));
+  const pool = available.length > 0 ? available : IDENTITY_CATALOG;
+  const digest = crypto.createHash('sha256').update(String(stableKey)).digest();
+  const selected = pool[digest.readUInt32BE(0) % pool.length];
+  const suffix = digest.toString('hex').slice(0, 6);
+  return { ...selected, name: `${selected.name}-${suffix}` };
+}
+
 function findIdentityByName(name) {
   if (!name) return null;
   const normalized = String(name).trim().toLowerCase();
@@ -39,7 +50,7 @@ function formatSelfIntroduction(name, nameMeaning, role = '') {
 }
 
 function generateAgentIdentity(options = {}) {
-  const { preferredName, role, excludeNames = [] } = options;
+  const { preferredName, role, excludeNames = [], stableKey } = options;
   if (preferredName) {
     const matched = findIdentityByName(preferredName);
     return {
@@ -49,7 +60,7 @@ function generateAgentIdentity(options = {}) {
     };
   }
 
-  const selected = getRandomIdentity(excludeNames);
+  const selected = stableKey ? getStableIdentity(stableKey, excludeNames) : getRandomIdentity(excludeNames);
   return {
     name: selected.name,
     name_meaning: selected.meaning,
@@ -60,6 +71,7 @@ function generateAgentIdentity(options = {}) {
 module.exports = {
   IDENTITY_CATALOG,
   getRandomIdentity,
+  getStableIdentity,
   findIdentityByName,
   formatSelfIntroduction,
   generateAgentIdentity

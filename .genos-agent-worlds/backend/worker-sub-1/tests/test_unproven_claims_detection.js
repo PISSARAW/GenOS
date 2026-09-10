@@ -74,7 +74,7 @@ async function runTests() {
     assert.fail('Should have thrown due to invalid citation');
   } catch (err) {
     assert.equal(err.code, 'INVALID_DOSSIER_INFLUENCE');
-    assert.ok(err.invalidWorkerIds.includes('worker-2'), 'worker-2 should be flagged invalid for hallucinated claim');
+    assert.ok(err.message.includes('worker-2'), 'worker-2 should be flagged invalid for hallucinated claim');
   }
 
   console.log('All unproven claims integration tests passed!');

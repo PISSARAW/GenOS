@@ -7,6 +7,11 @@ const circuitBreaker = require('../services/circuitBreaker');
 const telemetry = require('../services/telemetryObserver');
 const platformSafety = require('../services/platformSafetyService');
 const mcpExecutor = require('../services/mcpExecutor');
+const { MCP_CONTRACT_VERSION, getToolInputSchema, normalizeMcpEnvelope } = require('../services/mcpContract');
+
+function mcpError(res, status, code, message, details = undefined) {
+  return res.status(status).json({ error: { code, message, ...(details ? { details } : {}) } });
+}
 
 function resolveAgentId(req) {
   const authenticatedId = req.user?.username || req.user?.keyId || 'mcp_controller';
@@ -44,24 +49,30 @@ async function listTools(req, res) {
       riskLevel: risk,
       description: t.description,
       actions: actions.length > 0 ? actions : [t.name],
+      inputSchema: getToolInputSchema(t.name),
       isLocked,
       circuitState: cbStatus.state,
       equippedTo: equipped
     };
   });
 
+  res.setHeader?.('X-GenOS-MCP-Contract-Version', MCP_CONTRACT_VERSION);
   res.json(formatted);
 }
 
 async function testTool(req, res) {
-  const { toolName = 'genos_inspect', args = {}, timeoutMs } = req.body || {};
+  const { toolName: requestedToolName, args = {}, timeoutMs } = normalizeMcpEnvelope(req.body || {});
+  const toolName = requestedToolName || 'genos_inspect';
   const db = await getDatabase();
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
-  if (!tool) return res.status(404).json({ success: false, status: 'not_found', error: `Unknown MCP tool: ${toolName}` });
-  if (tool.is_locked === 1) return res.status(503).json({ success: false, status: 'blocked', error: `Tool '${toolName}' is persisted in quarantine.` });
+  if (!tool) return mcpError(res, 404, 'MCP_TOOL_NOT_FOUND', `Unknown MCP tool: ${toolName}`);
+  if (tool.is_locked === 1) return mcpError(res, 503, 'TOOL_LOCKED', `Tool '${toolName}' is persisted in quarantine.`);
   let agentId;
-  try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ success: false, status: 'forbidden', error: error.message }); }
-  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  try { agentId = resolveAgentId(req); } catch (error) { return mcpError(res, error.status || 403, error.code || 'AGENT_ID_FORBIDDEN', error.message); }
+  circuitBreaker.refreshPersistedHalt();
+  if (circuitBreaker.isHalted) return mcpError(res, 503, 'SYSTEM_HALTED', `Execution blocked. System is halted: ${circuitBreaker.haltReason}`);
+  if (circuitBreaker.state === 'OPEN') return mcpError(res, 503, 'CIRCUIT_OPEN', 'Execution blocked while the global circuit breaker is open.');
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
     : req.user?.permissions?.includes('mcp:execute_safe')
@@ -69,9 +80,9 @@ async function testTool(req, res) {
       : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const policy = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
-  if (policy.decision !== 'allow') return res.status(policy.decision === 'approval_required' ? 202 : 403).json({ success: false, status: policy.decision, policy });
+  if (policy.decision !== 'allow') return mcpError(res, policy.decision === 'approval_required' ? 202 : 403, policy.decision === 'approval_required' ? 'APPROVAL_REQUIRED' : 'ZERO_TRUST_DENIED', policy.reason, policy);
   const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer', 'global', args);
-  if (!check.allowed) return res.status(503).json({ success: false, status: 'blocked', error: check.message });
+  if (!check.allowed) return mcpError(res, 503, check.reason || 'CIRCUIT_OPEN', check.message);
   try {
     const result = await mcpExecutor.executeConfiguredTransport({ toolName, args, timeoutMs: mcpExecutor.normalizeMcpTimeout(timeoutMs, 15000) });
     if (result.success) circuitBreaker.recordSuccess(toolName);
@@ -79,7 +90,7 @@ async function testTool(req, res) {
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
   } catch (error) {
     circuitBreaker.recordFailure(toolName, error.message);
-    return res.status(502).json({ success: false, status: 'failed', error: error.message });
+    return mcpError(res, 502, error.code || 'MCP_TOOL_ERROR', error.message);
   }
 }
 
@@ -121,7 +132,7 @@ async function equipTool(req, res) {
 }
 
 async function executeTool(req, res) {
-  const { toolName, args = {}, timeoutMs } = req.body || {};
+  const { toolName, args, timeoutMs } = normalizeMcpEnvelope(req.body || {});
   const userRole = (req.user && req.user.role) || 'viewer';
 
   // Zero Trust gate is deliberately before the circuit breaker: a healthy
@@ -130,11 +141,11 @@ async function executeTool(req, res) {
   // operations still enter the human approval workflow.
   const db = await getDatabase();
   const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
-  if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool '${toolName}'.` } });
-  if (tool.is_locked === 1) return res.status(503).json({ error: { code: 'TOOL_LOCKED', message: `Tool '${toolName}' is persisted in quarantine.` } });
+  if (!tool) return mcpError(res, 404, 'TOOL_NOT_FOUND', `Unknown MCP tool '${toolName}'.`);
+  if (tool.is_locked === 1) return mcpError(res, 503, 'TOOL_LOCKED', `Tool '${toolName}' is persisted in quarantine.`);
   let agentId;
-  try { agentId = resolveAgentId(req); } catch (error) { return res.status(error.status || 403).json({ error: { code: 'AGENT_ID_FORBIDDEN', message: error.message } }); }
-  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ?', agentId);
+  try { agentId = resolveAgentId(req); } catch (error) { return mcpError(res, error.status || 403, error.code || 'AGENT_ID_FORBIDDEN', error.message); }
+  const permissionRow = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
   const permissions = req.user?.role === 'admin'
     ? ['*']
     : req.user?.permissions?.includes('mcp:execute_safe')
@@ -142,19 +153,17 @@ async function executeTool(req, res) {
       : (permissionRow ? JSON.parse(permissionRow.permissions_json || '[]') : []);
   const deniedTools = permissionRow ? JSON.parse(permissionRow.denied_tools_json || '[]') : [];
   const zeroTrust = platformSafety.validateToolCall({ agentId, toolName, args, permissions, deniedTools, taints: req.body.taints || [] });
-  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust));
-  if (zeroTrust.decision === 'deny') return res.status(403).json({ error: { code: 'ZERO_TRUST_DENIED', message: zeroTrust.reason }, policy: zeroTrust });
+  await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', req.user?.keyId || req.user?.username || 'anonymous', agentId, 'TOOL_CALL', toolName, zeroTrust.decision, zeroTrust.reason, JSON.stringify(zeroTrust), req.tenant.organizationId, req.tenant.projectId);
+  if (zeroTrust.decision === 'deny') return mcpError(res, 403, 'ZERO_TRUST_DENIED', zeroTrust.reason, zeroTrust);
   if (zeroTrust.decision === 'approval_required') {
     const approvalId = `approval-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
+    await db.run('INSERT INTO platform_approvals (id, action, agent_id, risk, uncertainty, requested_by, organization_id, project_id, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', approvalId, `tool:${toolName}`, agentId, 'high', 0.8, req.user?.username || agentId, req.tenant.organizationId, req.tenant.projectId, JSON.stringify({ toolName, args, taints: req.body.taints || [], deniedTools }));
     return res.status(202).json({ success: false, approvalRequired: true, approvalId, policy: zeroTrust });
   }
 
-  const check = circuitBreaker.canExecute(toolName, userRole);
+  const check = circuitBreaker.canExecute(toolName, userRole, agentId || 'global', args);
   if (!check.allowed) {
-    return res.status(503).json({
-      error: { code: check.reason, message: check.message }
-    });
+    return mcpError(res, 503, check.reason || 'CIRCUIT_OPEN', check.message);
   }
 
   try {
@@ -165,7 +174,7 @@ async function executeTool(req, res) {
     return res.status(result.success ? 200 : result.configured ? 502 : 503).json(result);
   } catch (error) {
     circuitBreaker.recordFailure(toolName, error.message);
-    return res.status(502).json({ success: false, status: 'failed', error: error.message });
+    return mcpError(res, 502, error.code || 'MCP_TOOL_ERROR', error.message);
   }
 }
 
@@ -177,7 +186,7 @@ async function dryRun(req, res, next) {
     const db = await getDatabase();
     const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
     if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
-    const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer');
+    const check = circuitBreaker.canExecute(toolName, (req.user && req.user.role) || 'viewer', 'global', args);
     if (!check.allowed) return res.status(503).json({ error: { code: check.reason, message: check.message } });
     const result = vfsSandboxService.simulateDryRun(toolName, args, vfsState);
     circuitBreaker.recordSuccess(toolName);
@@ -194,7 +203,8 @@ async function getSchema(req, res, next) {
     const db = await getDatabase();
     const tool = await db.get('SELECT name FROM mcp_tools WHERE name = ?', toolName);
     if (!tool) return res.status(404).json({ error: { code: 'TOOL_NOT_FOUND', message: `Unknown MCP tool: ${toolName}` } });
-    const schema = vfsSandboxService.getToolSchema(toolName);
+    const schema = getToolInputSchema(toolName, vfsSandboxService.getToolSchema(toolName));
+    res.setHeader?.('X-GenOS-MCP-Contract-Version', MCP_CONTRACT_VERSION);
     res.json(schema);
   } catch (err) {
     next(err);

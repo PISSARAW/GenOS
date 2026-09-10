@@ -98,8 +98,10 @@ const candidate = dossierToCandidate({
     noAnswerProof: { method: 'finite domain search', evidence: ['e1', 'e2'] }
   }
 });
-assert.equal(candidate.adversarialPassRate, 85, 'No-answer candidate must have 85% pass rate');
-assert(candidate.fitnessScore >= 80, `No-answer candidate fitness must be >= 80% (got ${candidate.fitnessScore})`);
+assert.equal(candidate.adversarialPassRate, 0, 'No-answer candidate without executed tests must not receive a fabricated pass rate');
+assert.equal(candidate.adversarialPassRateSource, 'not_measured');
+assert.equal(candidate.qualityGuarantee, false);
+assert(candidate.fitnessScore < 80, 'Unverified textual proof must not produce a high fitness score');
 
 console.log('✓ Point 8 verified.');
 // Test Point 9: User progress reporting qualifies no_answer as completed

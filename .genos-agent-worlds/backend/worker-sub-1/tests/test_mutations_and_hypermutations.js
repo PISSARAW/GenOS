@@ -93,6 +93,12 @@ async function runSuite() {
     assert(mutated.mutatedGenes.topP >= 0.0 && mutated.mutatedGenes.topP <= 1.0);
     assert.strictEqual(mutated.isHypermutated, true);
     assert(mutated.hypermutationScore > 0);
+    const replayed = somaticHypermutate(originalGenes, {
+      mutationRate: 0.8,
+      stressLevel: 1.5
+    });
+    assert.strictEqual(replayed.reproducibilitySeed, mutated.reproducibilitySeed);
+    assert.deepStrictEqual(replayed.mutatedGenes, mutated.mutatedGenes);
   });
 
   // --- Setup test agent in DB for strategy primitives ---

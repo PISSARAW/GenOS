@@ -9,15 +9,16 @@
 const { TABLES_CORE } = require("./schema-tables-core");
 const { TABLES_EXTENSIONS, CREATE_INDEXES_SQL } = require("./schema-tables-extensions");
 const { migrateLegacySchema, applyVersionedMigrations } = require("./schema-migrations");
+const { readSqliteMmapSize, readSqliteSynchronous } = require('../services/runtimeConfig');
 
 const CREATE_TABLES_SQL = TABLES_CORE + "\n" + TABLES_EXTENSIONS;
 
 async function initializeSchema(db) {
   await db.exec('PRAGMA journal_mode = WAL;');
   await db.exec('PRAGMA busy_timeout = 5000;');
-  await db.exec('PRAGMA synchronous = NORMAL;');
+  await db.exec(`PRAGMA synchronous = ${readSqliteSynchronous(process.env.GENOS_SQLITE_SYNCHRONOUS)};`);
   await db.exec('PRAGMA foreign_keys = ON;');
-  await db.exec('PRAGMA mmap_size = 30000000000;'); // Memory-map up to 30GB of the DB file
+  await db.exec(`PRAGMA mmap_size = ${readSqliteMmapSize(process.env.GENOS_SQLITE_MMAP_SIZE)};`);
   await db.exec('PRAGMA temp_store = MEMORY;'); // Use RAM for temp tables and indices
   await migrateLegacySchema(db);
   await db.exec(CREATE_TABLES_SQL);
@@ -136,66 +137,42 @@ async function initializeSchema(db) {
     console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
   }
 
-  // Rebuild the FTS and VEC indexes independently if they are empty but core tables have data
+  // Rebuild search indexes from source rows so same-cardinality updates cannot leave stale entries.
   try {
-    const trajectoriesFtsCount = await db.get("SELECT COUNT(*) as c FROM trajectories_fts");
-    if (trajectoriesFtsCount && trajectoriesFtsCount.c === 0) {
-      await db.exec(`
-        INSERT INTO trajectories_fts(rowid, id, title, summary, tags, author) 
-        SELECT rowid, id, title, semantic_summary, status, author_name FROM trajectories;
-      `);
-    }
+    await db.exec("INSERT INTO trajectories_fts(trajectories_fts) VALUES ('rebuild')");
   } catch (err) {
     console.warn('[Schema] Failed to synchronize trajectories_fts index:', err.message);
   }
 
   try {
-    const trajectoriesVecCount = await db.get("SELECT COUNT(*) as c FROM trajectories_vec");
-    if (trajectoriesVecCount && trajectoriesVecCount.c === 0) {
-      await db.exec(`
-        INSERT INTO trajectories_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM trajectories 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM trajectories_vec');
+    await db.exec(`INSERT INTO trajectories_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM trajectories
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize trajectories_vec index:', err.message);
   }
 
   try {
-    const genomeFtsCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_fts");
-    if (genomeFtsCount && genomeFtsCount.c === 0) {
-      await db.exec(`
-        INSERT INTO genome_decisions_fts(rowid, id, title, summary, tags, author) 
-        SELECT rowid, id, title, content, category, created_by FROM genome_decisions;
-      `);
-    }
+    await db.exec("INSERT INTO genome_decisions_fts(genome_decisions_fts) VALUES ('rebuild')");
   } catch (err) {
     console.warn('[Schema] Failed to synchronize genome_decisions_fts index:', err.message);
   }
 
   try {
-    const genomeVecCount = await db.get("SELECT COUNT(*) as c FROM genome_decisions_vec");
-    if (genomeVecCount && genomeVecCount.c === 0) {
-      await db.exec(`
-        INSERT INTO genome_decisions_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM genome_decisions 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM genome_decisions_vec');
+    await db.exec(`INSERT INTO genome_decisions_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM genome_decisions
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize genome_decisions_vec index:', err.message);
   }
 
   try {
-    const chunksVecCount = await db.get("SELECT COUNT(*) as c FROM rag_chunks_vec");
-    if (chunksVecCount && chunksVecCount.c === 0) {
-      await db.exec(`
-        INSERT INTO rag_chunks_vec(rowid, embedding)
-        SELECT rowid, embedding_blob FROM rag_chunks 
-        WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072;
-      `);
-    }
+    await db.exec('DELETE FROM rag_chunks_vec');
+    await db.exec(`INSERT INTO rag_chunks_vec(rowid, embedding)
+      SELECT rowid, embedding_blob FROM rag_chunks
+      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
   } catch (err) {
     console.warn('[Schema] Failed to synchronize rag_chunks_vec index:', err.message);
   }
