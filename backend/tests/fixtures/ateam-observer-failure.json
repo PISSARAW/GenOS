@@ -1,0 +1,8 @@
+{
+  "integrationFailures": [
+    {
+      "code": "CONTRACT_MISMATCH",
+      "message": "The observer detected incompatible branch contracts."
+    }
+  ]
+}

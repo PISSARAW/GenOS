@@ -108,6 +108,8 @@ function coverage(requiredCapabilities, members) {
   );
   return {
     ratio: totalWeight > 0 ? Number((coveredWeight / totalWeight).toFixed(3)) : 1,
+    coveredSum: coveredWeight,
+    requiredSum: totalWeight,
     covered: requiredCapabilities.filter((capability) => supplied.has(capability.name)).map((capability) => capability.name),
     uncovered: requiredCapabilities.filter((capability) => !supplied.has(capability.name)).map((capability) => capability.name)
   };
@@ -126,53 +128,88 @@ function fictionAnalysis() {
   };
 }
 
-function analyzeMission(mission) {
-  const text = String(mission || '');
-  if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
+function isObserverRole(role) {
+  return /reviewer|observer|integration/i.test(role);
+}
 
-  const domains = detectTechnicalDomains(text);
-  const selected = domains.slice(0, maxMembers());
-  const requiredCapabilities = domains.map(({ domain, score }) => ({ name: domain, weight: score }));
-  const members = selected.map(({ domain, role, modelTier, score }) => ({
+function buildMember(candidate, selected) {
+  const { domain, role, modelTier, score } = candidate;
+  const dependsOn = isObserverRole(role)
+    ? selected.filter((item) => !isObserverRole(item.role)).map((item) => item.domain)
+    : [];
+  return {
     label: domain,
     hypothesis: `Own the ${domain} competency for the shared mission and return evidence to the orchestrator.`,
     role,
     modelTier,
     capabilities: [domain],
     relevanceScore: score,
-    pipelineStage: /reviewer|observer|integration/i.test(role) ? 1 : 0,
-    dependsOn: /reviewer|observer|integration/i.test(role)
-      ? selected.filter((candidate) => !/reviewer|observer|integration/i.test(candidate.role)).map((candidate) => candidate.domain)
-      : []
-  }));
+    pipelineStage: isObserverRole(role) ? 1 : 0,
+    dependsOn
+  };
+}
+
+function requiredCapabilities(domains) {
+  return domains.map(({ domain, score }) => ({ name: domain, weight: score }));
+}
+
+function buildMembers(selected) {
+  return selected.map((candidate) => buildMember(candidate, selected));
+}
+
+function technicalResult(domains, required, members) {
   return {
     recommended: domains.length >= 2,
     artifact: null,
     primaryDomain: domains[0]?.domain || null,
-    requiredCapabilities,
+    requiredCapabilities: required,
     detectedDomains: domains.map(({ domain }) => domain),
-    capabilityCoverage: coverage(requiredCapabilities, members),
+    capabilityCoverage: coverage(required, members),
     members
   };
 }
 
-function compose({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], available = 3 } = {}) {
+function technicalAnalysis(domains) {
+  const selected = domains.slice(0, maxMembers());
+  return technicalResult(domains, requiredCapabilities(domains), buildMembers(selected));
+}
+
+function analyzeMission(mission) {
+  const text = String(mission || '');
+  if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
+  return technicalAnalysis(detectTechnicalDomains(text));
+}
+
+function prepareComposition({ projectGoal, subSystems, assignedRoles = [], modelTiers = [], available = 3 } = {}) {
   const goal = String(projectGoal || '').trim();
   const systems = [...new Set((Array.isArray(subSystems) ? subSystems : []).map((value) => String(value).trim()).filter(Boolean))];
   const roles = Array.isArray(assignedRoles) ? assignedRoles : [];
   const tiers = Array.isArray(modelTiers) ? modelTiers : [];
   const capacity = maxMembers();
   const freeSlots = Number.isFinite(Number(available)) ? Number(available) : capacity;
+  return { goal, systems, roles, tiers, capacity, freeSlots };
+}
+
+function validateComposition({ goal, systems, capacity, freeSlots }) {
   if (!goal) throw Object.assign(new Error('A-Team project_goal is required.'), { code: 'A_TEAM_GOAL_REQUIRED' });
   if (systems.length < 2) throw Object.assign(new Error('A-Team requires at least two distinct competency domains.'), { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' });
   if (systems.length > capacity) throw Object.assign(new Error(`A-Team is limited to ${capacity} active competency domains.`), { code: 'A_TEAM_CAPACITY_EXCEEDED' });
   if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots but only ${freeSlots} are available.`), { code: 'WORKER_GARAGE_FULL' });
-  return systems.map((subSystem, index) => ({
+}
+
+function buildAssignment({ goal, roles, tiers }, subSystem, index) {
+  return {
     subSystem,
     role: String(roles[index] || `${subSystem}_specialist`).trim(),
     modelTier: String(tiers[index] || 'standard').trim(),
     mission: `Project goal: ${goal}\nOwned competency domain: ${subSystem}\nWork only on this bounded domain and return evidence plus integration constraints to the orchestrator.`
-  }));
+  };
+}
+
+function compose(options = {}) {
+  const composition = prepareComposition(options);
+  validateComposition(composition);
+  return composition.systems.map((subSystem, index) => buildAssignment(composition, subSystem, index));
 }
 
 module.exports = {
