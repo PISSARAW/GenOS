@@ -42,6 +42,29 @@ const MODE_DEFINITIONS = {
       'Try to falsify competing proposals and expose collusion, blind spots, or weak evidence.',
       'Measure diversity, convergence, and consensus quality before recommending a collective result.'
     ]
+  },
+  rhizome: {
+    label: 'Rhizome',
+    description: 'A decentralized collective that grows new coordination points wherever capability is needed.',
+    roles: ['rootless_coordinator', 'capability_offshoot', 'local_bridge', 'boundary_scout'],
+    hypotheses: [
+      'Coordinate the mission without becoming a permanent central authority.',
+      'Grow a new local capability branch where the current network has a gap.',
+      'Bridge neighboring branches and preserve evidence across changing routes.',
+      'Scout for missing capabilities, bottlenecks, and opportunities to extend the network.'
+    ]
+  },
+  metapopulation: {
+    label: 'Metapopulation',
+    description: 'Several semi-independent agent populations exchange signals, adapt their connections, and regenerate after local loss.',
+    mechanisms: ['quorum_sensing', 'synaptic_plasticity', 'regeneration'],
+    roles: ['population_isolator', 'quorum_sensor', 'synaptic_adaptor', 'regeneration_steward'],
+    hypotheses: [
+      'Partition the mission into semi-independent populations with explicit boundaries and exchange points.',
+      'Activate coordination only when collective evidence or risk crosses a quorum threshold.',
+      'Strengthen useful agent connections and weaken routes that repeatedly produce poor evidence.',
+      'Reconstruct lost roles and working capacity from surviving state, memory, and lineage.'
+    ]
   }
 };
 
@@ -57,6 +80,7 @@ function compose(mode, mission) {
   if (!goal) throw Object.assign(new Error(`${definition.label} mission is required.`), { code: 'BIOLOGICAL_MISSION_REQUIRED' });
   return definition.roles.map((role, index) => ({
     role,
+    mechanisms: definition.mechanisms || [],
     modelTier: index === 0 || index === 2 ? 'frontier' : 'standard',
     memberNumber: index + 1,
     mission: `${definition.label} shared mission: ${goal}\nCollective principle: ${definition.description}\nRole hypothesis: ${definition.hypotheses[index]}\nReturn evidence, state changes, and integration constraints to the orchestrator.`

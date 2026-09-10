@@ -308,7 +308,10 @@ async function main() {
       });
       process.stdout.write(JSON.stringify({
         orchestratorId,
-        biologicalMode: { status: 'accepted', mode, mission: request.mission, members: accepted }
+        biologicalMode: {
+          status: 'accepted', mode, mission: request.mission,
+          mechanisms: members[0]?.mechanisms || [], members: accepted
+        }
       }));
       return;
     }

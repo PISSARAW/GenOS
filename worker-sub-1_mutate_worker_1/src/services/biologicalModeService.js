@@ -42,6 +42,29 @@ const MODE_DEFINITIONS = {
       'Try to falsify competing proposals and expose collusion, blind spots, or weak evidence.',
       'Measure diversity, convergence, and consensus quality before recommending a collective result.'
     ]
+  },
+  rhizome: {
+    label: 'Rhizome',
+    description: 'A decentralized collective that grows new coordination points wherever capability is needed.',
+    roles: ['rootless_coordinator', 'capability_offshoot', 'local_bridge', 'boundary_scout'],
+    hypotheses: [
+      'Coordinate the mission without becoming a permanent central authority.',
+      'Grow a new local capability branch where the current network has a gap.',
+      'Bridge neighboring branches and preserve evidence across changing routes.',
+      'Scout for missing capabilities, bottlenecks, and opportunities to extend the network.'
+    ]
+  },
+  metapopulation: {
+    label: 'Metapopulation',
+    description: 'Several semi-independent agent populations exchange signals, adapt their connections, and regenerate after local loss.',
+    mechanisms: ['quorum_sensing', 'synaptic_plasticity', 'regeneration'],
+    roles: ['population_isolator', 'quorum_sensor', 'synaptic_adaptor', 'regeneration_steward'],
+    hypotheses: [
+      'Partition the mission into semi-independent populations with explicit boundaries and exchange points.',
+      'Activate coordination only when collective evidence or risk crosses a quorum threshold.',
+      'Strengthen useful agent connections and weaken routes that repeatedly produce poor evidence.',
+      'Reconstruct lost roles and working capacity from surviving state, memory, and lineage.'
+    ]
   }
 };
 
@@ -49,7 +72,9 @@ const MODE_PATTERNS = {
   biome: /\b(?:biome|biom[eé])\b/i,
   syncytium: /\b(?:syncytium|syncytium)\b/i,
   holobionte: /\b(?:holobionte|holobiont)\b/i,
-  biocenose: /\b(?:bioc[ée]nose|biocenosis)\b/i
+  biocenose: /\b(?:bioc[ée]nose|biocenosis)\b/i,
+  rhizome: /\b(?:rhizome|rhizomatic)\b/i,
+  metapopulation: /\b(?:metapopulation|meta-population|quorum\s+sensing|plasticit[ée]\s+synaptique|synaptic\s+plasticity|regeneration|r[ée]g[ée]n[ée]ration)\b/i
 };
 
 function definitionFor(mode) {
@@ -69,6 +94,7 @@ function analyzeMission(mode, mission) {
     mode: definition.key,
     label: definition.label,
     description: definition.description,
+    mechanisms: definition.mechanisms || [],
     recommended: explicitlyRequested,
     explicitlyRequested,
     decision: explicitlyRequested ? 'launch' : 'not_applicable',
@@ -78,6 +104,7 @@ function analyzeMission(mode, mission) {
       hypothesis: definition.hypotheses[index],
       modelTier: index === 0 || index === 2 ? 'frontier' : 'standard',
       mode: definition.key,
+      mechanisms: definition.mechanisms || [],
       pipelineStage: index === 0 ? 0 : 1
     }))
   };
