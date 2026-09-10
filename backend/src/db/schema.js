@@ -138,49 +138,47 @@ async function initializeSchema(db) {
     console.warn('[Schema] Failed to initialize vec0 virtual tables:', err.message);
   }
 
-  // Rebuild search indexes from source rows so same-cardinality updates cannot leave stale entries.
-  try {
-    await db.exec("INSERT INTO trajectories_fts(trajectories_fts) VALUES ('rebuild')");
-  } catch (err) {
-    console.warn('[Schema] Failed to synchronize trajectories_fts index:', err.message);
-  }
+  await synchronizeSearchIndexes(db);
+}
 
+// Full index rebuilds are write-heavy and non-idempotent under concurrency.
+// In a cluster only the leader (GENOS_SCHEMA_MAINTENANCE=1) may run them;
+// every other worker skips them. Unset (tests / single process) runs them.
+const VECTOR_REBUILDS = {
+  trajectories: { table: 'trajectories_vec', del: 'DELETE FROM trajectories_vec' },
+  genome_decisions: { table: 'genome_decisions_vec', del: 'DELETE FROM genome_decisions_vec' },
+  rag_chunks: { table: 'rag_chunks_vec', del: 'DELETE FROM rag_chunks_vec' }
+};
+
+async function synchronizeSearchIndexes(db) {
+  if (process.env.GENOS_SCHEMA_MAINTENANCE === '0') return;
+  await runBestEffort(db, "INSERT INTO trajectories_fts(trajectories_fts) VALUES ('rebuild')");
+  await rebuildVector(db, 'trajectories');
+  await runBestEffort(db, "INSERT INTO genome_decisions_fts(genome_decisions_fts) VALUES ('rebuild')");
+  await rebuildVector(db, 'genome_decisions');
+  await rebuildVector(db, 'rag_chunks');
+}
+
+async function runBestEffort(db, sql) {
   try {
-    await db.exec('DELETE FROM trajectories_vec');
-    await db.exec(`INSERT INTO trajectories_vec(rowid, embedding)
-      SELECT rowid, embedding_blob FROM trajectories
+    await db.exec(sql);
+  } catch (err) {
+    console.warn('[Schema] Failed to synchronize search index:', err.message);
+  }
+}
+
+// Rebuilds from source rows so same-cardinality updates cannot leave stale entries.
+async function rebuildVector(db, sourceTable) {
+  const { table, del } = VECTOR_REBUILDS[sourceTable];
+  await runBestEffort(db, del);
+  await runBestEffort(db, `INSERT INTO ${table}(rowid, embedding)
+      SELECT rowid, embedding_blob FROM ${sourceTable}
       WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
-  } catch (err) {
-    console.warn('[Schema] Failed to synchronize trajectories_vec index:', err.message);
-  }
-
-  try {
-    await db.exec("INSERT INTO genome_decisions_fts(genome_decisions_fts) VALUES ('rebuild')");
-  } catch (err) {
-    console.warn('[Schema] Failed to synchronize genome_decisions_fts index:', err.message);
-  }
-
-  try {
-    await db.exec('DELETE FROM genome_decisions_vec');
-    await db.exec(`INSERT INTO genome_decisions_vec(rowid, embedding)
-      SELECT rowid, embedding_blob FROM genome_decisions
-      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
-  } catch (err) {
-    console.warn('[Schema] Failed to synchronize genome_decisions_vec index:', err.message);
-  }
-
-  try {
-    await db.exec('DELETE FROM rag_chunks_vec');
-    await db.exec(`INSERT INTO rag_chunks_vec(rowid, embedding)
-      SELECT rowid, embedding_blob FROM rag_chunks
-      WHERE embedding_blob IS NOT NULL AND length(embedding_blob) = 3072`);
-  } catch (err) {
-    console.warn('[Schema] Failed to synchronize rag_chunks_vec index:', err.message);
-  }
 }
 
 module.exports = {
   initializeSchema,
+  synchronizeSearchIndexes,
   CREATE_TABLES_SQL,
   CREATE_INDEXES_SQL
 };
