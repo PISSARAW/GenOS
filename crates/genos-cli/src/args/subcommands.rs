@@ -236,22 +236,6 @@ pub enum PhenotypeSubcommands {
 }
 
 #[derive(Args, Debug)]
-pub struct TrinityCmd {
-    #[command(subcommand)]
-    pub subcommand: TrinitySubcommands,
-}
-
-#[derive(Subcommand, Debug)]
-pub enum TrinitySubcommands {
-    Deploy {
-        #[arg(long)]
-        mission_id: String,
-        #[arg(long)]
-        strategies: String,
-    },
-}
-
-#[derive(Args, Debug)]
 pub struct SwarmCmd {
     #[command(subcommand)]
     pub subcommand: SwarmSubcommands,

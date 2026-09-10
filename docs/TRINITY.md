@@ -911,6 +911,48 @@ Trinity ne vote pas. Elle compare. La décision finale est basée sur un scoring
 
 ---
 
+## 19. Split-Screen Trinity en temps réel (TUI / Terminal)
+
+GenOS intègre une interface terminal interactive temps réel (développée en Rust avec [ratatui](https://crates.io/crates/ratatui) et [crossterm](https://crates.io/crates/crossterm)) permettant de visualiser l'exécution contrefactuelle des 3 mondes en simultané sur 3 colonnes dédiées.
+
+### Le Hook X & Positionnement
+
+> **"Stop relying on a single agent chain. Here is what counterfactual multi-agent execution looks like in real time. 3 worlds, 3 cognitive hypotheses, 1 unified evidence barrier."**
+
+### Fonctionnalités de l'Interface Split-Screen
+
+1. **Trois colonnes d'exécution parallèles :**
+   - **World 1 (Naïf) :** Implémentation directe, intuitive, sans garde-fous préalables.
+   - **World 2 (Planifié) :** Grammaire formelle, spécification stricte (BEP 0003), AST zero-copy.
+   - **World 3 (Auto-corrigé) :** Fuzzing hostile, détection de débordements arithmétiques, auto-cicatrisation par patchs différentiels.
+2. **Métriques et logs défilants en direct :** Jauge de progression, consommation de jetons, tier de modèle, logs événementiels avec coloration syntaxique d'incidents.
+3. **Tableau de bord de preuve et de divergence unifiée :** Basculement fluide vers la matrice de validation comparative avec scores de preuve objectifs et verdict de sélection/rejet.
+4. **Synthèse officielle & Barrière d'évidence :** Résumé des points de divergence causale et promotion de la solution hybride optimale vers la racine du dépôt.
+
+### Commandes CLI
+
+```bash
+# Lancer Trinity avec l'interface interactive Split-Screen
+genos trinity deploy --split-screen
+
+# Ou avec la sous-commande directe
+genos trinity split-screen
+
+# Spécifier un prompt complexe personnalisé
+genos trinity split-screen --prompt "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte"
+```
+
+### Raccourcis Clavier
+
+| Touche | Action |
+| :--- | :--- |
+| `q` / `Esc` | Quitter l'interface TUI et restaurer le terminal |
+| `s` / `Tab` | Basculer entre la vue 3 colonnes et le tableau de bord d'analyse causale |
+| `1` / `2` / `3` | Basculer le focus / zoom sur une colonne spécifique |
+| `r` | Réinitialiser et relancer la simulation contrefactuelle |
+
+---
+
 ## Références internes
 
 - [ORCHESTRATION.md](ORCHESTRATION.md) : orchestration générale, gates et phases
@@ -920,4 +962,6 @@ Trinity ne vote pas. Elle compare. La décision finale est basée sur un scoring
 - [trinityService.js](../backend/src/services/trinityService.js) : implémentation de l'analyse
 - [trinityDeploy.service.js](../backend/src/services/deploy/trinityDeploy.service.js) : déploiement des trois mondes
 - [agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : activation et allocation
+- CLI TUI Rust : [crates/genos-cli/src/commands/trinity_tui/](../crates/genos-cli/src/commands/trinity_tui/)
 - Tests : [backend/tests/test_trinity_intent.js](../backend/tests/test_trinity_intent.js)
+

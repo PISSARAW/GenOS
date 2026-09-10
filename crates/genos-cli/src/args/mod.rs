@@ -3,6 +3,7 @@ pub mod biological;
 pub mod biology_extra;
 pub mod store_extra;
 pub mod subcommands;
+pub mod trinity;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -10,6 +11,7 @@ pub use biological::*;
 pub use biology_extra::*;
 pub use store_extra::*;
 pub use subcommands::*;
+pub use trinity::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
