@@ -68,8 +68,8 @@ async function testChaosEngineering() {
   assert.equal(dryResult.targetAgent.pid, 77777);
   assert.equal(dryResult.lineage.parentAgentId, orchestratorId);
   assert.equal(dryResult.lineage.relation, 'fork');
-  assert.equal(dryResult.regenerationSteward.activated, true);
-  assert.equal(dryResult.regenerationSteward.missionPreserved, true);
+  assert.equal(dryResult.regenerationSteward.activated, false, 'Dry run must not claim the steward ran');
+  assert.equal(dryResult.regenerationSteward.missionPreserved, null, 'Mission preservation is not verifiable');
   console.log('✓ Dry-run chaos successfully verified lineage L_i without terminating process');
 
   // 2. Live chaos injection (terminates worker PID)
@@ -82,10 +82,24 @@ async function testChaosEngineering() {
   assert.equal(liveResult.targetAgent.pid, 77777);
   assert.equal(liveResult.lineage.parentAgentId, orchestratorId);
   assert.equal(liveResult.regenerationSteward.strategy, 'lineage_reconstruction');
+  assert.equal(liveResult.regenerationSteward.activated, true, 'Steward only activates after a real kill');
   console.log('✓ Live chaos successfully executed and triggered Regeneration Steward reconstruction');
 
-  // Clean up
+  // 3. No live process: the service must report failure instead of
+  // fabricating a PID and a successful regeneration.
   activeProcesses.delete(workerId);
+  const noProcessResult = await chaosService.injectChaos({
+    agentId: workerId,
+    dryRun: false,
+    reason: 'No live process drill'
+  });
+  assert.equal(noProcessResult.success, false, 'Killing a worker with no live process must fail');
+  assert.equal(noProcessResult.error, 'NO_ACTIVE_PROCESS');
+  assert.equal(noProcessResult.targetAgent.pid, null);
+  assert.equal(noProcessResult.regenerationSteward.activated, false);
+  console.log('✓ Chaos without a live process reports an honest failure (no fabricated PID)');
+
+  // Clean up
   console.log('All Chaos Engineering tests passed successfully.');
 }
 
