@@ -41,28 +41,52 @@ function localEmbeddingModel() {
   return process.env.GENOS_EMBEDDING_MODEL || process.env.OLLAMA_EMBEDDING_MODEL || DEFAULT_LOCAL_EMBEDDING_MODEL;
 }
 
+// Ollama changed its embedding API: recent versions expose POST /api/embed
+// with { model, input } returning { embeddings: [[...]] }, while older builds
+// expose POST /api/embeddings with { model, prompt } returning { embedding }.
+// Try the modern shape first and fall back only on 404.
 async function requestLocalEmbedding(base, model, text) {
-  const response = await fetch(`${base}/api/embed`, {
+  const signal = AbortSignal.timeout(4000);
+  const modern = await fetch(`${base}/api/embed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, input: text }),
+    signal
+  });
+  if (modern.ok) {
+    const payload = await modern.json();
+    const vectors = Array.isArray(payload.embeddings) ? payload.embeddings : [];
+    return vectors.length ? vectors[0] : null;
+  }
+  if (modern.status !== 404) {
+    throw new Error(`Local embedding endpoint returned HTTP ${modern.status}`);
+  }
+  const legacy = await fetch(`${base}/api/embeddings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt: text }),
     signal: AbortSignal.timeout(4000)
   });
-  if (!response.ok) return null;
-  const payload = await response.json();
-  const vectors = payload.embeddings || [];
-  return vectors.length ? vectors[0] : null;
+  if (!legacy.ok) {
+    throw new Error(`Legacy local embedding endpoint returned HTTP ${legacy.status}`);
+  }
+  const legacyPayload = await legacy.json();
+  const vector = legacyPayload.embedding;
+  return Array.isArray(vector) && vector.length ? vector : null;
 }
 
+// Never throws: returns a structured result so callers can tell an embedding
+// failure (Ollama down / invalid endpoint) apart from an empty input.
 async function embedLocally(text) {
   const cleanText = String(text || '').trim();
-  if (!cleanText) return null;
-  const base = localEmbeddingBase();
-  validateProviderEndpoint(base, { localOnly: true });
+  if (!cleanText) return { embedding: null, skipped: true };
   try {
-    return await requestLocalEmbedding(base, localEmbeddingModel(), cleanText);
-  } catch (_) {
-    return null;
+    const base = localEmbeddingBase();
+    validateProviderEndpoint(base, { localOnly: true });
+    const embedding = await requestLocalEmbedding(base, localEmbeddingModel(), cleanText);
+    return { embedding, skipped: false };
+  } catch (error) {
+    return { embedding: null, skipped: false, error: error.message };
   }
 }
 
@@ -70,8 +94,14 @@ async function embedLocally(text) {
 async function embedForSymbiote(role, text) {
   if (!isSymbioteRole(role)) return { engine: 'cloud', embedding: null };
   const startedAt = Date.now();
-  const embedding = await embedLocally(text);
-  return { engine: 'local', embedding, latencyMs: Date.now() - startedAt };
+  const result = await embedLocally(text);
+  return {
+    engine: 'local',
+    embedding: result.embedding,
+    latencyMs: Date.now() - startedAt,
+    skipped: result.skipped,
+    ...(result.error ? { error: result.error } : {})
+  };
 }
 
 /** In-process JSON Schema validation: no network hop for either engine. */
