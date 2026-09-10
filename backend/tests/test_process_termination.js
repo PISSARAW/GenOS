@@ -7,6 +7,7 @@ assert.equal(processMatches(-1, process.execPath), false);
 process.env.GENOS_PROCESS_GRACE_MS = '0';
 const signals = [];
 const child = {
+  pid: 123456,
   exitCode: null,
   signalCode: null,
   kill(signal) {
