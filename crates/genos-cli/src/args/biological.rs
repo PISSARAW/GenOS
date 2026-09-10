@@ -8,10 +8,10 @@ pub struct BiologicalCmd {
     /// Mission shared by the collective.
     #[arg(long, default_value = "explore_api_boundary")]
     pub mission: String,
-    /// Launch interactive visual simulation of graph budding and contraction
-    #[arg(long, short = 'v')]
-    pub visualize: bool,
-    /// Export animated GIF of Rhizome budding simulation to file
-    #[arg(long)]
-    pub gif: Option<String>,
+    /// Start the real-time Rhizome graph telemetry server and WebSocket dashboard
+    #[arg(long, short = 's')]
+    pub serve: bool,
+    /// Port to bind the Rhizome telemetry HTTP/WebSocket server on
+    #[arg(long, default_value_t = 4790)]
+    pub port: u16,
 }
