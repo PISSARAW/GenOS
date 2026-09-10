@@ -74,8 +74,15 @@ function artifactScore(report) {
 function creativeScore(report) {
   const evaluation = report.creativeEvaluation || {};
   const rubric = evaluation.rubric || report.rubric || {};
-  const rubricScore = weightedRubricScore(rubric);
-  const constraintCoverage = boundedScore(evaluation.constraintCoverage ?? rubric.constraintCoverage) * 20;
+  // Producers send `originality`, the weight table reads `original`: accept
+  // the alias so originality is never silently scored 0.
+  const normalized = rubric.original === undefined && rubric.originality !== undefined
+    ? { ...rubric, original: rubric.originality }
+    : rubric;
+  // constraintCoverage is scored separately below: exclude it from the
+  // weighted rubric so it is never counted twice.
+  const rubricScore = weightedRubricScore({ ...normalized, constraintCoverage: 0 });
+  const constraintCoverage = boundedScore(evaluation.constraintCoverage ?? normalized.constraintCoverage) * 20;
   const revisionEvidence = cappedCount(evaluation.revisions, 2, 10);
   const independentCritique = cappedCount(evaluation.criticEvidence, 2, 10);
   return rubricScore + constraintCoverage + revisionEvidence + independentCritique + artifactScore(report)
