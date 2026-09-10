@@ -107,6 +107,27 @@ assert.equal(memoryInv.passed, false);
 assert.match(memoryInv.failureReason, /Detected unauthorized mutation/);
 console.log('  ✅ Vérification d invariant et localisation de faute validées.');
 
+console.log('\n=== TEST 6: Op Without kind Must Not Crash ===');
+const malformedCrdt = createSyncytiumCrdt();
+malformedCrdt.applyOp({
+  opId: 'op-broken',
+  agentId: 'agent-exec',
+  role: 'parallel_executor',
+  timestampMs: 4000,
+  kind: undefined
+});
+malformedCrdt.applyOp({
+  opId: 'op-no-type',
+  agentId: 'agent-exec',
+  role: 'parallel_executor',
+  timestampMs: 4001,
+  kind: {}
+});
+const malformedSnap = malformedCrdt.getSnapshot();
+assert.equal(malformedSnap.textContent, '');
+assert.equal(malformedSnap.totalOps, 2);
+console.log('  ✅ Opérations sans kind ignorées sans crash validées.');
+
 console.log('\n=============================================================');
 console.log('TOUS LES TESTS CRDT ET SYNCHRONISATION SYNCYTIUM ONT RÉUSSI !');
 console.log('=============================================================');
