@@ -12,13 +12,20 @@ function modelTimeoutError(totalTimeoutMs) {
   return codedError(`Model job exceeded its total timeout of ${totalTimeoutMs}ms.`, 'MODEL_JOB_TIMEOUT');
 }
 
+async function checkpointModelProgress(runtime) {
+  await runtime.db.run("UPDATE model_jobs SET result_json = ?, claimed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'running' AND claim_token = ?", JSON.stringify({ outputs: runtime.outputs, completedModels: [...runtime.completedModels] }), runtime.job.id, runtime.job.claim_token);
+}
+
 async function runModelAttempt(runtime, model) {
   await assertNotCancelled(runtime.db, 'model_jobs', { id: runtime.job.id, message: 'Model job was cancelled.', code: 'MODEL_JOB_CANCELLED' });
   const modelKey = String(firstTruthy(model, runtime.config.model, 'auto'));
   if (runtime.completedModels.has(modelKey)) return;
-  await runtime.db.run('DELETE FROM model_job_tokens WHERE job_id = ? AND model = ?', runtime.job.id, modelKey);
   const remainingTimeout = runtime.deadlineAt - Date.now();
   if (remainingTimeout <= 0) throw modelTimeoutError(runtime.totalTimeoutMs);
+  // Append at the next free index; never DELETE streamed tokens first, so a
+  // retry cannot erase the only (non-reproducible) copy of prior output.
+  const startRow = await runtime.db.get('SELECT COALESCE(MAX(token_index) + 1, 0) AS next_index FROM model_job_tokens WHERE job_id = ? AND model = ?', runtime.job.id, modelKey);
+  const tokenCounter = { next: Number(startRow?.next_index) || 0, sinceCheckpoint: 0 };
   const tokens = [];
   const started = Date.now();
   const generated = await modelRouter.generate({
@@ -34,9 +41,16 @@ async function runModelAttempt(runtime, model) {
     requiredCapabilities: firstTruthy(runtime.config.requiredCapabilities, []),
     onToken: async (token, selectedModel) => {
       const tokenModel = selectedModel || modelKey;
+      const index = tokenCounter.next;
+      tokenCounter.next += 1;
       tokens.push(token);
-      await runtime.db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', runtime.job.id, tokenModel, tokens.length - 1, token);
-      telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: runtime.job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: runtime.job.id, model: tokenModel, index: tokens.length - 1 } });
+      await runtime.db.run('INSERT INTO model_job_tokens(job_id, model, token_index, token) VALUES(?,?,?,?)', runtime.job.id, tokenModel, index, token);
+      tokenCounter.sinceCheckpoint += 1;
+      if (tokenCounter.sinceCheckpoint >= 25) {
+        tokenCounter.sinceCheckpoint = 0;
+        await checkpointModelProgress(runtime);
+      }
+      telemetry.emitEvent({ eventType: 'MODEL_TOKEN', agentId: runtime.job.id, action: 'STREAM_TOKEN', detail: token, payload: { jobId: runtime.job.id, model: tokenModel, index } });
     }
   });
   if (Date.now() >= runtime.deadlineAt) throw modelTimeoutError(runtime.totalTimeoutMs);
@@ -44,7 +58,7 @@ async function runModelAttempt(runtime, model) {
   runtime.outputs.push(output);
   runtime.completedModels.add(modelKey);
   if (generated.model) runtime.completedModels.add(String(generated.model));
-  await runtime.db.run("UPDATE model_jobs SET result_json = ? WHERE id = ? AND status = 'running' AND claim_token = ?", JSON.stringify({ outputs: runtime.outputs, completedModels: [...runtime.completedModels] }), runtime.job.id, runtime.job.claim_token);
+  await checkpointModelProgress(runtime);
 }
 
 async function completeModelJob(runtime) {
