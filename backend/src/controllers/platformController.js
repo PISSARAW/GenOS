@@ -11,28 +11,63 @@ const { validateProviderEndpointAsync } = require('../services/providerEndpointP
 const { normalizeCapabilities } = require('../services/modelCapabilities');
 const workspaceController = require('./workspaceController');
 const crypto = require('crypto');
+const approvalPolicy = require('../services/platformApprovalPolicy');
+const approvalStore = require('../services/platformApprovalStore');
+const approvalExecution = require('../services/platformApprovalExecution');
+
+function configProfileCapabilities(profile) {
+  const advantages = profile.advantages || [];
+  const disadvantages = profile.disadvantages || [];
+  return [...advantages, ...disadvantages.map((item) => `not:${item}`)];
+}
+
+function configCatalogEntry(catalog, entry) {
+  return {
+    provider: catalog.format === 'ollama' ? 'ollama' : catalog.name.toLowerCase(),
+    model: entry[0],
+    capabilities: normalizeCapabilities(configProfileCapabilities(entry[1])),
+    endpoint: catalog.chat_url || null,
+    costInput: 0,
+    costOutput: 0,
+    latencyMs: 0,
+    enabled: true,
+    source: 'config/providers.json'
+  };
+}
+
+function catalogProfilesOf(catalog) {
+  return Object.entries(catalog.profiles || {}).map((entry) => configCatalogEntry(catalog, entry));
+}
+
+function configCatalogProfiles(catalogs) {
+  return catalogs.flatMap((catalog) => catalogProfilesOf(catalog));
+}
+
+function stripCloudKey(profile) {
+  const cleaned = { ...profile };
+  delete cleaned.key;
+  return { ...cleaned, costInput: 0, costOutput: 0, latencyMs: 0, endpoint: null, enabled: true, source: 'environment' };
+}
+
+function configuredCloudProfiles() {
+  const candidates = [
+    { provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', capabilities: ['reasoning', 'tools'], key: process.env.OPENAI_API_KEY || process.env.GENOS_MODEL_API_KEY },
+    { provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet', capabilities: ['reasoning', 'tools', 'long-context'], key: process.env.ANTHROPIC_API_KEY },
+    { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-1.5-flash', capabilities: ['reasoning', 'long-context'], key: process.env.GEMINI_API_KEY }
+  ];
+  return candidates.filter((profile) => profile.key).map(stripCloudKey);
+}
+
+function mergeCloudProfiles(configuredCatalog, cloudProfiles) {
+  const missing = cloudProfiles.filter((cloud) => !configuredCatalog.some((entry) => entry.provider === cloud.provider && entry.model === cloud.model));
+  return [...configuredCatalog, ...missing];
+}
 
 function catalogProviders() {
   const filePath = path.resolve(__dirname, '../../../config/providers.json');
   try {
     const catalogs = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-    const configuredCatalog = catalogs.flatMap((catalog) => Object.entries(catalog.profiles || {}).map(([model, profile]) => ({
-      provider: catalog.format === 'ollama' ? 'ollama' : catalog.name.toLowerCase(),
-      model,
-      capabilities: normalizeCapabilities([...(profile.advantages || []), ...(profile.disadvantages || []).map((item) => `not:${item}`)]),
-      endpoint: catalog.chat_url || null,
-      costInput: 0,
-      costOutput: 0,
-      latencyMs: 0,
-      enabled: true,
-      source: 'config/providers.json'
-    })));
-    const cloudProfiles = [
-      { provider: 'openai', model: process.env.OPENAI_MODEL || 'gpt-4o-mini', capabilities: ['reasoning', 'tools'], key: process.env.OPENAI_API_KEY || process.env.GENOS_MODEL_API_KEY },
-      { provider: 'anthropic', model: process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet', capabilities: ['reasoning', 'tools', 'long-context'], key: process.env.ANTHROPIC_API_KEY },
-      { provider: 'gemini', model: process.env.GEMINI_MODEL || 'gemini-1.5-flash', capabilities: ['reasoning', 'long-context'], key: process.env.GEMINI_API_KEY }
-    ].filter((profile) => profile.key).map(({ key, ...profile }) => ({ ...profile, costInput: 0, costOutput: 0, latencyMs: 0, endpoint: null, enabled: true, source: 'environment' }));
-    return [...configuredCatalog, ...cloudProfiles.filter((cloud) => !configuredCatalog.some((entry) => entry.provider === cloud.provider && entry.model === cloud.model))];
+    return mergeCloudProfiles(configCatalogProfiles(catalogs), configuredCloudProfiles());
   } catch (_) { return []; }
 }
 
@@ -77,31 +112,51 @@ async function providers(req, res, next) {
     throw error;
   }
 }
+function codedError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function validateProviderIdentity(provider) {
+  if (!modelProvider.isSupportedProvider(provider.provider)) throw codedError('UNSUPPORTED_PROVIDER', `Provider '${provider.provider || ''}' is not supported by the model runtime.`);
+  if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) throw codedError('INVALID_PROVIDER', 'provider and model must be valid non-empty identifiers.');
+  if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) throw codedError('INVALID_CAPABILITIES', 'capabilities must be an array of non-empty strings.');
+  return { ...provider, capabilities: normalizeCapabilities(provider.capabilities) };
+}
+
+async function validateProviderEconomics(provider) {
+  let economics = null;
+  try {
+    economics = {
+      costInput: validateProviderNumber(provider.costInput, 'costInput', 1_000_000),
+      costOutput: validateProviderNumber(provider.costOutput, 'costOutput', 1_000_000),
+      latencyMs: validateProviderNumber(provider.latencyMs, 'latencyMs', 86_400_000)
+    };
+  } catch (error) {
+    throw codedError(error.code, error.message);
+  }
+  if (provider.endpoint) {
+    try { await validateProviderEndpointAsync(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { throw codedError('INVALID_ENDPOINT', error.message); }
+  }
+  return economics;
+}
+
+async function persistProviderConfig(db, provider, routePreview) {
+  await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), provider.costInput, provider.costOutput, provider.latencyMs, provider.enabled === false ? 0 : 1);
+  return { success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview };
+}
+
 async function registerProvider(req, res, next) {
   try {
-    const provider = req.body || {};
-    if (!modelProvider.isSupportedProvider(provider.provider)) return res.status(400).json({ error: { code: 'UNSUPPORTED_PROVIDER', message: `Provider '${provider.provider || ''}' is not supported by the model runtime.` } });
-    if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model must be valid non-empty identifiers.' } });
-    if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
-    provider.capabilities = normalizeCapabilities(provider.capabilities);
-    let costInput;
-    let costOutput;
-    let latencyMs;
-    try {
-      costInput = validateProviderNumber(provider.costInput, 'costInput', 1_000_000);
-      costOutput = validateProviderNumber(provider.costOutput, 'costOutput', 1_000_000);
-      latencyMs = validateProviderNumber(provider.latencyMs, 'latencyMs', 86_400_000);
-    } catch (error) {
-      return res.status(400).json({ error: { code: error.code, message: error.message } });
-    }
-    if (provider.endpoint) {
-      try { await validateProviderEndpointAsync(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
-    }
-    const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
+    const provider = validateProviderIdentity(req.body || {});
+    const economics = await validateProviderEconomics(req.body || {});
+    const complete = { ...provider, ...economics };
+    const preview = safety.routeModel({ requiredCapabilities: [] }, [complete]);
     const db = await getDatabase();
-    await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), costInput, costOutput, latencyMs, provider.enabled === false ? 0 : 1);
-    res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
+    res.status(201).json(await persistProviderConfig(db, complete, preview));
   } catch (error) {
+    if (error.code) return res.status(400).json({ error: { code: error.code, message: error.message } });
     if (next) return next(error);
     throw error;
   }
@@ -130,24 +185,40 @@ async function routingPolicies(req, res, next) {
     res.json(rows.map((row) => ({ agentId: row.agent_id, policy: JSON.parse(row.policy_json || '{}'), updatedAt: row.updated_at })));
   } catch (error) { next(error); }
 }
+function routingPlanFrom(body) {
+  const input = body || {};
+  const policy = modelRouter.policyFrom(input.policy || input);
+  const candidates = modelRouter.candidateModels(null, policy);
+  if (!candidates.length) throw codedError('MODEL_ROUTE_REQUIRED', 'A primary model or fallback route is required.');
+  candidates.forEach((uri) => modelProvider.configuredModel(uri));
+  return { policy, candidates };
+}
+
+function tenantScopeIds(tenant) {
+  if (!tenant) return { organizationId: null, projectId: null };
+  return { organizationId: tenant.organizationId, projectId: tenant.projectId };
+}
+
+async function persistRoutingPolicy(db, agentId, request) {
+  const scope = request.scope;
+  const route = request.route;
+  const id = `model-route:${scope.organizationId || 'global'}:${scope.projectId || 'global'}:${agentId}`;
+  await db.run('INSERT OR REPLACE INTO agent_model_routing_policies(id, agent_id, policy_json, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', id, agentId, JSON.stringify(route.policy), scope.organizationId, scope.projectId);
+  telemetry.emitEvent({ eventType: 'MODEL_ROUTING_POLICY_UPDATED', agentId, action: 'MODEL_ROUTE_POLICY', detail: `Updated model routing policy for ${agentId}.`, payload: { agentId, policy: route.policy, organizationId: scope.organizationId, projectId: scope.projectId } });
+  return { success: true, agentId, policy: route.policy, candidates: route.candidates };
+}
+
 async function saveRoutingPolicy(req, res, next) {
   try {
     const agentId = String(req.params.agentId || '').trim();
     if (!agentId) return res.status(400).json({ error: { code: 'AGENT_REQUIRED', message: 'agentId is required.' } });
-    let policy;
-    try { policy = modelRouter.policyFrom(req.body?.policy || req.body || {}); }
+    let route = null;
+    try { route = routingPlanFrom(req.body); }
     catch (error) { return res.status(400).json({ error: { code: error.code || 'INVALID_MODEL_ROUTE', message: error.message } }); }
-    const candidates = modelRouter.candidateModels(null, policy);
-    if (!candidates.length) return res.status(400).json({ error: { code: 'MODEL_ROUTE_REQUIRED', message: 'A primary model or fallback route is required.' } });
-    candidates.forEach((uri) => modelProvider.configuredModel(uri));
     const tenant = await resolveTenant(req);
     if ((req.headers['x-organization-id'] || req.headers['x-project-id']) && !tenant) return res.status(403).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A valid organization and project scope is required.' } });
-    const organizationId = tenant?.organizationId || null; const projectId = tenant?.projectId || null;
-    const id = `model-route:${organizationId || 'global'}:${projectId || 'global'}:${agentId}`;
     const db = await getDatabase();
-    await db.run('INSERT OR REPLACE INTO agent_model_routing_policies(id, agent_id, policy_json, organization_id, project_id, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)', id, agentId, JSON.stringify(policy), organizationId, projectId);
-    telemetry.emitEvent({ eventType: 'MODEL_ROUTING_POLICY_UPDATED', agentId, action: 'MODEL_ROUTE_POLICY', detail: `Updated model routing policy for ${agentId}.`, payload: { agentId, policy, organizationId, projectId } });
-    res.status(201).json({ success: true, agentId, policy, candidates });
+    res.status(201).json(await persistRoutingPolicy(db, agentId, { route, scope: tenantScopeIds(tenant) }));
   } catch (error) { next(error); }
 }
 async function graph(req, res, next) {
@@ -204,13 +275,47 @@ async function permissions(req, res, next) {
     throw error;
   }
 }
+async function agentToolPermissions(db, agentId, tenant) {
+  const row = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, tenant.organizationId, tenant.projectId);
+  if (!row) return { permissions: [], deniedTools: [] };
+  return { permissions: JSON.parse(row.permissions_json), deniedTools: JSON.parse(row.denied_tools_json) };
+}
+
+async function evaluateAgentToolCall(db, input, tenant) {
+  const granted = await agentToolPermissions(db, input.agentId, tenant);
+  return safety.validateToolCall({
+    agentId: input.agentId,
+    toolName: input.toolName,
+    args: input.args,
+    taints: input.taints || [],
+    permissions: granted.permissions,
+    deniedTools: granted.deniedTools
+  });
+}
+
+async function auditToolValidation(db, record, req) {
+  const input = record.input;
+  const result = record.result;
+  await db.run(
+    'INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    approvalPolicy.resolveActorIdentity(req.user, 'platform'),
+    input.agentId,
+    'TOOL_CALL_VALIDATE',
+    input.toolName,
+    result.decision,
+    result.reason,
+    JSON.stringify(result),
+    req.tenant.organizationId,
+    req.tenant.projectId
+  );
+}
+
 async function validateTool(req, res, next) {
   try {
     const db = await getDatabase();
-    const { agentId, toolName, args, taints = [] } = req.body || {};
-    const row = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
-    const result = safety.validateToolCall({ agentId, toolName, args, taints, permissions: row ? JSON.parse(row.permissions_json) : [], deniedTools: row ? JSON.parse(row.denied_tools_json) : [] });
-    await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', req.user?.keyId || req.user?.username || 'platform', agentId, 'TOOL_CALL_VALIDATE', toolName, result.decision, result.reason, JSON.stringify(result), req.tenant.organizationId, req.tenant.projectId);
+    const input = req.body || {};
+    const result = await evaluateAgentToolCall(db, input, req.tenant);
+    await auditToolValidation(db, { input, result }, req);
     res.status(result.decision === 'deny' ? 403 : 200).json(result);
   } catch (error) {
     if (next) return next(error);
@@ -236,14 +341,13 @@ async function bisect(req, res, next) { return workspaceController.bisect(req, r
 async function approvals(req, res, next) {
   try {
     const db = await getDatabase();
-    const scope = req.tenant;
-    if (req.method === 'GET') return res.json(await db.all('SELECT * FROM platform_approvals WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC', scope.organizationId, scope.projectId));
-    const body = req.body || {};
-    const payloadJson = JSON.stringify(body);
-    const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
-    const id = `approval-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
-    await db.run('INSERT INTO platform_approvals (id,action,agent_id,risk,uncertainty,requested_by,organization_id,project_id,payload_json,payload_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, body.action || 'unknown', body.agentId || null, body.risk || 'high', Number(body.uncertainty || 0), req.user?.keyId || req.user?.username || 'platform', scope.organizationId, scope.projectId, payloadJson, payloadHash);
-    res.status(201).json({ id, status: 'pending', payloadHash, ...body });
+    if (req.method === 'GET') return res.json(await approvalStore.listApprovals(db, req.tenant));
+    const created = await approvalStore.createApproval(db, {
+      body: req.body || {},
+      requestedBy: approvalPolicy.resolveActorIdentity(req.user, 'platform'),
+      scope: req.tenant
+    });
+    res.status(201).json(created);
   } catch (error) {
     if (next) return next(error);
     throw error;
@@ -252,51 +356,36 @@ async function approvals(req, res, next) {
 async function decideApproval(req, res, next) {
   try {
     const db = await getDatabase();
-    const approval = await db.get('SELECT * FROM platform_approvals WHERE id = ? AND organization_id = ? AND project_id = ?', req.params.id, req.tenant.organizationId, req.tenant.projectId);
+    const approval = await approvalStore.findApproval(db, req.params.id, req.tenant);
     if (!approval) return res.status(404).json({ error: { code: 'APPROVAL_NOT_FOUND', message: `Approval '${req.params.id}' was not found.` } });
     if (approval.status !== 'pending') return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' is already ${approval.status}.` } });
-    const decisionBy = req.user?.keyId || req.user?.username || 'platform';
-    if (approval.requested_by === decisionBy) return res.status(409).json({ error: { code: 'APPROVAL_SEPARATION_REQUIRED', message: 'The requester cannot approve the same action.' } });
-    const currentPayloadHash = crypto.createHash('sha256').update(approval.payload_json || '{}').digest('hex');
+    const decisionBy = approvalPolicy.resolveActorIdentity(req.user, 'platform');
+    if (approval.requested_by === decisionBy || approvalPolicy.isSelfApproval(approval.requested_by, req.user)) return res.status(409).json({ error: { code: 'APPROVAL_SEPARATION_REQUIRED', message: 'The requester cannot approve the same action.' } });
+    const payloadHash = crypto.createHash('sha256').update(approvalPolicy.payloadText(approval.payload_json)).digest('hex');
+    const currentPayloadHash = payloadHash;
     if (approval.payload_hash && approval.payload_hash !== currentPayloadHash) return res.status(409).json({ error: { code: 'APPROVAL_PAYLOAD_TAMPERED', message: 'Approval payload integrity verification failed.' } });
-    const approved = req.body?.decision === 'approve';
-    const status = approved ? 'approved' : 'rejected';
-    const updated = await db.run("UPDATE platform_approvals SET status=?, decision_by=?, reason=?, decided_at=CURRENT_TIMESTAMP WHERE id=? AND organization_id=? AND project_id=? AND status='pending'", status, decisionBy, req.body?.reason || null, req.params.id, req.tenant.organizationId, req.tenant.projectId);
-    if (!updated.changes) return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' was decided concurrently.` } });
-    await db.run('INSERT INTO audit_logs (actor,action,resource,decision,reason,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?)', decisionBy, 'APPROVAL_DECISION', req.params.id, status, req.body?.reason || 'operator decision', req.tenant.organizationId, req.tenant.projectId);
-
-    let execution = null;
-    if (approved && String(approval.action).startsWith('tool:')) {
-      const payload = JSON.parse(approval.payload_json || '{}');
-      const toolName = payload.toolName || String(approval.action).slice(5);
-      const tool = await db.get('SELECT name, is_locked FROM mcp_tools WHERE name = ?', toolName);
-      if (!tool || tool.is_locked === 1) {
-        execution = { success: false, status: 'blocked', error: !tool ? `Unknown MCP tool '${toolName}'.` : `Tool '${toolName}' is persisted in quarantine.` };
-      } else {
-        const circuitBreaker = require('../services/circuitBreaker');
-        const mcpExecutor = require('../services/mcpExecutor');
-        const safety = require('../services/platformSafetyService');
-        const approvalPolicy = safety.validateToolCall({
-          agentId: approval.agent_id,
-          toolName,
-          args: payload.args || {},
-          permissions: ['*'],
-          deniedTools: Array.isArray(payload.deniedTools) ? payload.deniedTools : [],
-          taints: Array.isArray(payload.taints) ? payload.taints : []
-        });
-        if (approvalPolicy.decision === 'deny') {
-          execution = { success: false, status: 'blocked', error: approvalPolicy.reason, policy: approvalPolicy };
-        }
-        const gate = circuitBreaker.canExecute(toolName, 'admin');
-        execution = execution || (gate.allowed
-          ? await mcpExecutor.executeConfiguredTransport({ toolName, args: payload.args || {}, timeoutMs: mcpExecutor.normalizeMcpTimeout(payload.timeoutMs) })
-          : { success: false, status: 'blocked', error: gate.message });
-        if (execution.success) circuitBreaker.recordSuccess(toolName);
-        else if (execution.configured) circuitBreaker.recordFailure(toolName, execution.error || 'Approved MCP action failed.');
-      }
-      await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)', req.user?.username || 'platform', approval.agent_id, 'APPROVED_TOOL_EXECUTION', toolName, execution.success ? 'completed' : 'failed', execution.error || execution.status, JSON.stringify(execution));
-    }
-    res.json({ success: true, id: req.params.id, status, execution });
+    const decision = approvalPolicy.parseDecision(req.body);
+    const claimed = await approvalStore.claimApproval(db, {
+      id: req.params.id,
+      organizationId: req.tenant.organizationId,
+      projectId: req.tenant.projectId,
+      status: decision.status,
+      decisionBy,
+      reason: decision.reason,
+      payloadHash
+    });
+    if (!claimed) return res.status(409).json({ error: { code: 'APPROVAL_ALREADY_DECIDED', message: `Approval '${req.params.id}' was decided concurrently.` } });
+    await approvalStore.recordDecisionAudit(db, {
+      actor: decisionBy,
+      approvalId: req.params.id,
+      status: decision.status,
+      reason: decision.reason,
+      organizationId: req.tenant.organizationId,
+      projectId: req.tenant.projectId
+    });
+    const execution = await approvalExecution.executeApprovedAction(db, approval, { status: decision.status, actor: decisionBy });
+    if (approvalPolicy.isTamperBlocked(execution)) return res.status(409).json({ error: { code: execution.code, message: execution.error } });
+    res.json({ success: true, id: req.params.id, status: decision.status, execution });
   } catch (error) { next(error); }
 }
 async function pareto(req, res, next) {
