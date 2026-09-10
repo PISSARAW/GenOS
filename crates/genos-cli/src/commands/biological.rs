@@ -1,22 +1,12 @@
 ﻿use serde_json::json;
 use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
-use crate::commands::rhizome_sim;
+use crate::commands::rhizome_telemetry;
 
 pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
     let mode = cmd.mode.trim().to_ascii_lowercase();
 
-    if cmd.visualize {
-        return rhizome_sim::run(cmd.gif.as_deref());
-    }
-
-    if let Some(gif_path) = &cmd.gif {
-        rhizome_sim::generate_gif(gif_path)?;
-        println!("{}", json!({
-            "success": true,
-            "operation": "rhizome_gif_export",
-            "file": gif_path
-        }));
-        return Ok(());
+    if cmd.serve {
+        return rhizome_telemetry::run(cmd.port);
     }
 
     let roles = match mode.as_str() {
@@ -47,20 +37,16 @@ pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
 
 pub fn handle_rhizome(cmd: &RhizomeCmd) -> Result<(), String> {
     match &cmd.subcommand {
-        Some(RhizomeSubcommands::Visualize { gif }) => {
-            rhizome_sim::run(gif.as_deref())
-        }
-        Some(RhizomeSubcommands::Gif { output }) => {
-            rhizome_sim::generate_gif(output)?;
+        Some(RhizomeSubcommands::Serve { port }) => rhizome_telemetry::run(*port),
+        Some(RhizomeSubcommands::Export { output }) => {
+            rhizome_telemetry::export_snapshot(output)?;
             println!("{}", json!({
                 "success": true,
-                "operation": "rhizome_gif_export",
+                "operation": "rhizome_graph_export",
                 "file": output
             }));
             Ok(())
         }
-        None => {
-            rhizome_sim::run(Some("artifacts/rhizome_simulation.gif"))
-        }
+        None => rhizome_telemetry::run(4790),
     }
 }

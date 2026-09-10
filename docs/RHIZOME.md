@@ -655,60 +655,47 @@ Le choix peut se résumer ainsi :
 
 ---
 
-## 19. Simulation visuelle du Rhizome : Bourgeonnement & Contraction Dynamique
+## 19. L'Observatoire de Graphe Dynamique : Télémétrie Temps Réel du Rhizome
 
-GenOS intègre une simulation visuelle interactive (dans le terminal via Ratatui et sous forme de GIF animé haute fidélité) illustrant la plasticité topologique du runtime Rhizome lorsqu'une lacune d'infrastructure ou d'API est rencontrée.
+Le bourgeonnement du réseau Rhizome n'est pas un simple journal texte : c'est un **état requêtable**. GenOS maintient le graphe $G_t = (N_t, E_t)$ en mémoire dans le runtime et expose ses mutations en direct plutôt que de les figer dans une simulation de terminal.
 
 ### Le Hook X
 
-> **"What if your agent graph wasn't static? Watch our Rhizome runtime dynamically spawn capability offshoots when it hits a boundary."**
+> **"What if your agent graph wasn't static? Watch our Rhizome runtime dynamically spawn capability offshoots when it hits a boundary — live, over the wire."**
 
-### Le Concept & Cycle de Plasticité
+### Principe technique
 
-```text
-[1. Topologie Initiale]          [2. Lacune Détectée]           [3. Bourgeonnement Éphémère]
-Coordinator <───> Scout   ───>   Scout heurte une API   ───>   Spawn Capability Offshoot
-                                (OAuth2 / Ingestion)            + Spawn Local Bridge
-                                                                         │
-[5. Contraction Harmonique]       [4. Validation de Preuve]               │
-Coordinator <───> Scout   <───   Preuve cryptographique <────────────────┘
-(Capacité scellée en cache)     (Score d'évidence: 0.99)
-```
+1. **État en mémoire :** le runtime conserve $N_t$ (nœuds de capacité/coordination) et $E_t$ (ponts) et les mute directement — aucune reconstruction depuis les logs n'est nécessaire pour connaître la topologie courante.
+2. **Événement `GraphMutated` :** chaque ajout de nœud, mise à jour d'état, ajout/suppression de pont, changement de phase ou score de preuve émet un événement `GraphMutated` typé (`NodeAdded`, `NodeUpdated`, `NodeRemoved`, `EdgeAdded`, `EdgeRemoved`, `PhaseChanged`, `EvidenceRecorded`, `LogAppended`) sur un canal de diffusion (`broadcast`).
+3. **Serveur de télémétrie :** un serveur HTTP/WebSocket asynchrone (`axum` + `tokio`) sert :
+   - un tableau de bord HTML/D3.js qui se connecte en WebSocket et redessine le graphe force-directed à la volée, sans jamais interroger le serveur en boucle (pas de polling REST) ;
+   - `GET /api/graph` : un instantané JSON de $G_t$ à la demande ;
+   - `GET /api/export` : un export JSON téléchargeable, pensé pour être sauvegardé, rejoué, ou présenté à un client comme preuve de la décomposition du problème par l'IA.
+4. **Cycle de plasticité observé en direct :** topologie initiale (`Rootless Coordinator` + `Boundary Scout`) → détection d'une lacune de frontière → bourgeonnement (`Capability Offshoot` + `Local Bridge`) → validation de preuve (score d'évidence) → contraction harmonique et retour à une topologie stable. Chaque transition est un événement `GraphMutated`, visible dans le dashboard sans rafraîchissement de page.
 
-1. **Topologie initiale au repos :** Le réseau commence avec ses nœuds pérennes (`Rootless Coordinator` et `Boundary Scout`).
-2. **Détection d'une lacune de frontière :** Le `Boundary Scout` identifie une dépendance externe manquante (ex. rotation automatique des tokens OAuth2 et pagination de charge).
-3. **Bourgeonnement dynamique (*Spawning*) :** Sans attendre d'autorisation centralisée, le Rhizome fait croître deux nœuds spécialisés :
-   - `Capability Offshoot` : Synthétise l'adaptateur de code et le composant manquant.
-   - `Local Bridge` : Établit une route de contournement décentralisée garantissant le débit et la tolérance aux pannes.
-4. **Validation de preuve (*Evidence Barrier*) :** Les vecteurs d'intégration passent à 100%, générant un reçu cryptographique auditable (score 0.99).
-5. **Contraction harmonique (*Pruning*) :** La capacité étant validée et absorbée dans le substrat mémoire, l'Offshoot et le Bridge se replient et se dissolvent, restaurant une topologie épurée et efficace.
+### Tableau de bord
 
-### Visualisation GIF Animée
-
-![Simulation Rhizome : Bourgeonnement et Contraction](assets/rhizome_simulation.gif)
+Le dashboard affiche :
+- le graphe D3.js en temps réel (nœuds colorés par rôle, liens animés) ;
+- la phase courante du cycle de bourgeonnement ;
+- le score d'évidence cryptographique le plus récent ;
+- le flux de logs `GraphMutated` ;
+- un bouton d'export JSON immédiat de $G_t$.
 
 ### Commandes CLI
 
 ```bash
-# Lancer la simulation interactive en direct dans le terminal
-genos biological --mode rhizome --visualize
-
-# Générer et exporter le GIF animé
-genos biological --mode rhizome --gif artifacts/rhizome_simulation.gif
+# Démarrer le serveur de télémétrie + dashboard (par défaut sur le port 4790)
+genos biological --mode rhizome --serve --port 4790
 
 # Raccourci dédié
-genos rhizome visualize
-genos rhizome gif --output artifacts/rhizome_simulation.gif
+genos rhizome serve --port 4790
+
+# Exécuter un cycle complet hors-ligne et exporter le graphe résultant en JSON (sauvegarde/rejeu)
+genos rhizome export --output artifacts/rhizome_graph.json
 ```
 
-### Raccourcis Clavier du TUI
-
-| Touche | Action |
-| :--- | :--- |
-| `q` / `Esc` | Quitter la simulation et restaurer le terminal |
-| `r` | Réinitialiser et relancer le cycle de bourgeonnement |
-| `g` | Exporter instantanément le GIF animé dans `artifacts/` |
-| `Space` | Avancer pas à pas dans les phases de la simulation |
+Une fois démarré, le dashboard est accessible sur `http://127.0.0.1:<port>/`, le flux d'événements sur `ws://127.0.0.1:<port>/ws`, l'instantané REST sur `/api/graph`, et l'export téléchargeable sur `/api/export`.
 
 ---
 
@@ -723,8 +710,9 @@ genos rhizome gif --output artifacts/rhizome_simulation.gif
 - [BIOME.md](BIOME.md) : orchestration par environnement et populations spécialisées
 - [BIOLOGIE_COMPUTATIONNELLE.md](BIOLOGIE_COMPUTATIONNELLE.md) : cadre biologique général
 - [biologicalModeService.js](../backend/src/services/biologicalModeService.js) : définition et composition des rôles Rhizome
-- Module TUI & GIF Rust : [crates/genos-cli/src/commands/rhizome_sim/](../crates/genos-cli/src/commands/rhizome_sim/)
+- Serveur de télémétrie & dashboard Rust : [crates/genos-cli/src/commands/rhizome_telemetry/](../crates/genos-cli/src/commands/rhizome_telemetry/)
 - [agentAutonomyPlanService.js](../backend/src/services/agentAutonomyPlanService.js) : plan d'autonomie
 - [agentFleetService.js](../backend/src/services/agentFleetService.js) : fleet de workers et barrière d'évidence
 - [agentOrchestrationState.js](../backend/src/services/agentOrchestrationState.js) : état et télémétrie de mission
 - [agentRuntimeAdapter.js](../backend/src/services/agentRuntimeAdapter.js) : adaptation du runtime
+

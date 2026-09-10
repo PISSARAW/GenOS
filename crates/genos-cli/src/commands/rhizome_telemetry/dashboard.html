@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>GenOS Rhizome — Live Graph Telemetry</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    background: #0b0f19;
+    color: #e2e8f0;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+  }
+  header {
+    grid-column: 1 / -1;
+    padding: 12px 20px;
+    background: #161e33;
+    border-bottom: 1px solid #263657;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header h1 { font-size: 16px; margin: 0; letter-spacing: .04em; }
+  header .phase { color: #22d3ee; font-weight: 600; }
+  #status { font-size: 12px; padding: 2px 10px; border-radius: 999px; }
+  #status.connected { background: #064e3b; color: #34d399; }
+  #status.disconnected { background: #4c0519; color: #fb7185; }
+  #graph { position: relative; }
+  svg { width: 100%; height: 100%; display: block; }
+  .node circle { stroke: #f8fafc; stroke-width: 1.5px; }
+  .node text { fill: #f1f5f9; font-size: 11px; pointer-events: none; }
+  .link { stroke: #3b5487; stroke-width: 1.6px; opacity: .8; }
+  aside {
+    border-left: 1px solid #263657;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .panel { padding: 12px 16px; border-bottom: 1px solid #263657; }
+  .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin: 0 0 8px; }
+  #evidence { font-size: 22px; font-weight: 700; color: #34d399; }
+  #logs { flex: 1; overflow-y: auto; padding: 8px 16px; font-family: Consolas, monospace; font-size: 12px; }
+  #logs div { padding: 2px 0; color: #94a3b8; border-bottom: 1px dashed #1f2b47; }
+  button {
+    background: #1e293b; color: #e2e8f0; border: 1px solid #334155;
+    border-radius: 6px; padding: 6px 10px; cursor: pointer; font-size: 12px;
+  }
+  button:hover { background: #334155; }
+</style>
+</head>
+<body>
+<header>
+  <h1>GENOS RHIZOME &mdash; Observatoire de Graphe Dynamique <span class="phase" id="phase">Connecting&hellip;</span></h1>
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button id="export-btn">Export JSON (G_t)</button>
+    <span id="status" class="disconnected">disconnected</span>
+  </div>
+</header>
+<div id="graph"><svg></svg></div>
+<aside>
+  <div class="panel">
+    <h2>Evidence Barrier</h2>
+    <div id="evidence">0.00</div>
+  </div>
+  <div class="panel">
+    <h2>Live Log &mdash; GraphMutated</h2>
+  </div>
+  <div id="logs"></div>
+</aside>
+<script>
+const colorByRole = {
+  rootless_coordinator: "#16a34a",
+  boundary_scout: "#0891b2",
+  capability_offshoot: "#c026d3",
+  local_bridge: "#2563eb",
+};
+
+let nodes = [];
+let links = [];
+const nodeIndex = new Map();
+
+const svg = d3.select("svg");
+const linkLayer = svg.append("g").attr("class", "links");
+const nodeLayer = svg.append("g").attr("class", "nodes");
+
+function size() {
+  const el = document.getElementById("graph");
+  return [el.clientWidth || 800, el.clientHeight || 600];
+}
+
+let [width, height] = size();
+window.addEventListener("resize", () => { [width, height] = size(); simulation.force("center", d3.forceCenter(width / 2, height / 2)); });
+
+const simulation = d3.forceSimulation(nodes)
+  .force("link", d3.forceLink(links).id(d => d.id).distance(140).strength(0.6))
+  .force("charge", d3.forceManyBody().strength(-420))
+  .force("center", d3.forceCenter(width / 2, height / 2))
+  .force("collide", d3.forceCollide().radius(46))
+  .on("tick", ticked);
+
+function ticked() {
+  linkLayer.selectAll("line")
+    .attr("x1", d => d.source.x).attr("y1", d => d.source.y)
+    .attr("x2", d => d.target.x).attr("y2", d => d.target.y);
+  nodeLayer.selectAll("g.node")
+    .attr("transform", d => `translate(${d.x},${d.y})`);
+}
+
+function render() {
+  const link = linkLayer.selectAll("line").data(links, d => d.id);
+  link.exit().remove();
+  link.enter().append("line").attr("class", "link");
+
+  const node = nodeLayer.selectAll("g.node").data(nodes, d => d.id);
+  node.exit().remove();
+  const enter = node.enter().append("g").attr("class", "node");
+  enter.append("circle").attr("r", 26);
+  enter.append("text").attr("text-anchor", "middle").attr("dy", 42);
+  const merged = enter.merge(node);
+  merged.select("circle").attr("fill", d => colorByRole[d.role] || "#64748b");
+  merged.select("text").text(d => `${d.label} [${d.state}]`);
+
+  simulation.nodes(nodes);
+  simulation.force("link").links(links);
+  simulation.alpha(0.6).restart();
+}
+
+function upsertNode(n) {
+  const existing = nodeIndex.get(n.id);
+  if (existing) {
+    Object.assign(existing, n);
+  } else {
+    const withPos = { ...n, x: n.x * width, y: n.y * height };
+    nodes.push(withPos);
+    nodeIndex.set(n.id, withPos);
+  }
+}
+
+function removeNode(id) {
+  nodes = nodes.filter(n => n.id !== id);
+  nodeIndex.delete(id);
+  links = links.filter(l => (l.source.id ?? l.source) !== id && (l.target.id ?? l.target) !== id);
+}
+
+function applySnapshot(snapshot) {
+  nodes = [];
+  nodeIndex.clear();
+  snapshot.nodes.forEach(upsertNode);
+  links = snapshot.edges.map(e => ({ id: e.id, source: e.from, target: e.to, kind: e.kind }));
+  setPhase(snapshot.phase);
+  setEvidence(snapshot.evidence_score);
+  clearLogs();
+  snapshot.logs.forEach(appendLog);
+  render();
+}
+
+function setPhase(phase) {
+  document.getElementById("phase").textContent = phase || "";
+}
+
+function setEvidence(score) {
+  document.getElementById("evidence").textContent = Number(score || 0).toFixed(2);
+}
+
+function clearLogs() {
+  document.getElementById("logs").innerHTML = "";
+}
+
+function appendLog(message) {
+  const logs = document.getElementById("logs");
+  const line = document.createElement("div");
+  line.textContent = message;
+  logs.appendChild(line);
+  logs.scrollTop = logs.scrollHeight;
+}
+
+function handleEvent(event) {
+  switch (event.type) {
+    case "Snapshot": applySnapshot(event.snapshot); break;
+    case "NodeAdded": case "NodeUpdated": upsertNode(event.node); render(); break;
+    case "NodeRemoved": removeNode(event.id); render(); break;
+    case "EdgeAdded": links.push({ id: event.edge.id, source: event.edge.from, target: event.edge.to, kind: event.edge.kind }); render(); break;
+    case "EdgeRemoved": links = links.filter(l => l.id !== event.id); render(); break;
+    case "PhaseChanged": setPhase(event.phase); break;
+    case "EvidenceRecorded": setEvidence(event.score); break;
+    case "LogAppended": appendLog(event.message); break;
+  }
+}
+
+function connect() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  const status = document.getElementById("status");
+  ws.onopen = () => { status.textContent = "connected"; status.className = "connected"; };
+  ws.onclose = () => { status.textContent = "disconnected"; status.className = "disconnected"; setTimeout(connect, 1000); };
+  ws.onerror = () => ws.close();
+  ws.onmessage = (msg) => { try { handleEvent(JSON.parse(msg.data)); } catch (e) { /* ignore malformed frame */ } };
+}
+
+document.getElementById("export-btn").addEventListener("click", async () => {
+  const res = await fetch("/api/export");
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "rhizome_graph.json";
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+connect();
+</script>
+</body>
+</html>
