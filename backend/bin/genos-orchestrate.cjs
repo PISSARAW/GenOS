@@ -9,6 +9,7 @@ const contracts = require('../src/services/strategyContractService');
 const workerGarage = require('../src/services/workerGarageService');
 const aTeamService = require('../src/services/aTeamService');
 const trinityService = require('../src/services/trinityService');
+const biologicalMode = require('../src/services/biologicalModeService');
 const dynamicOrganization = require('../src/services/dynamicOrganizationService');
 const telemetry = require('../src/services/telemetryObserver');
 const strategyAdaptation = require('../src/services/strategyAdaptationService');
@@ -64,7 +65,7 @@ async function main() {
   const initDb = await getDatabase();
   try {
     await runtime.reconcilePersistedRuntimes(initDb);
-    const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity']);
+    const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
     if (!orchestratorId) {
       if (!topLevelMissionActions.has(action)) {
         const active = await initDb.get(`
@@ -148,7 +149,7 @@ async function main() {
   let delegatedWorkerId = null;
   let reusedWorker = false;
   try {
-    if (['dispatch_worker', 'dispatch_team', 'dispatch_trinity'].includes(action)) {
+    if (['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'].includes(action)) {
       await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
         VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
       const existingContract = await contracts.getLatestContract(db, orchestratorId);
@@ -349,6 +350,44 @@ async function main() {
       process.stdout.write(JSON.stringify({
         orchestratorId,
         aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
+      }));
+      return;
+    }
+    if (action === 'dispatch_biological') {
+      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
+        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
+          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
+        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
+      }
+      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
+      if (!await contracts.getLatestContract(db, orchestratorId)) {
+        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
+      }
+      const mode = String(request.mode || '').trim().toLowerCase();
+      const mission = request.mission || request.project_goal || request.goal || task;
+      const members = biologicalMode.compose(mode, mission);
+      const garage = await workerGarage.state(db, orchestratorId);
+      if (garage.available < members.length) {
+        const error = new Error(`${mode} requires ${members.length} free worker slots, but only ${garage.available} are available.`);
+        error.code = 'WORKER_GARAGE_FULL';
+        throw error;
+      }
+      const accepted = members.map((member) => {
+        const workerId = `worker_${orchestratorId}_${Date.now()}_${member.memberNumber}_${Math.random().toString(36).slice(2, 6)}`;
+        const runner = spawn(process.execPath, [__filename, JSON.stringify({
+          action: 'dispatch_worker', background: false, orchestratorId, workerId,
+          mission: member.mission, role: member.role, model_tier: member.modelTier,
+          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
+          reuseChecked: true
+        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
+        runner.unref();
+        return { workerId, memberNumber: member.memberNumber, role: member.role, modelTier: member.modelTier, status: 'accepted' };
+      });
+      process.stdout.write(JSON.stringify({
+        orchestratorId,
+        biologicalMode: { status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
       }));
       return;
     }
