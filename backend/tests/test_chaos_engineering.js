@@ -113,6 +113,17 @@ async function testChaosEngineering() {
   await db.run('UPDATE agents SET runtime_pid = NULL WHERE id = ?', workerId);
   console.log('✓ Chaos resolves the persisted runtime_pid when the process lives on another worker');
 
+  // 5. F1: arbitrary / unmanaged PIDs must be refused (no remote kill).
+  for (const pid of [1, 4, 424242]) {
+    const refused = await chaosService.injectChaos({ pid, dryRun: false, reason: 'arbitrary PID attempt' });
+    assert.equal(refused.success, false, `PID ${pid} must be refused`);
+    assert.ok(
+      ['PID_REFUSED', 'PID_NOT_MANAGED', 'PID_UNVERIFIABLE', 'PID_EXECUTABLE_MISMATCH'].includes(refused.error),
+      `unexpected refusal reason for PID ${pid}: ${refused.error}`
+    );
+  }
+  console.log('✓ Arbitrary/unmanaged PIDs are refused (F1)');
+
   // Clean up
   console.log('All Chaos Engineering tests passed successfully.');
 }
