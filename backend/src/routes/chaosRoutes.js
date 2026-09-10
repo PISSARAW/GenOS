@@ -8,9 +8,10 @@ const chaosController = require('../controllers/chaosController');
 const { requirePermission } = require('../middleware/auth');
 const { requireTenantScope } = require('../middleware/tenant');
 
-router.use(requireTenantScope());
-
+// Both routes now carry their own authorization and tenant scope. The previous
+// global requireTenantScope() duplicated the POST scope and left GET /targets
+// permission-free, letting any authenticated tenant enumerate kill targets.
 router.post('/inject', requirePermission('emergency_kill'), requireTenantScope({ write: true }), chaosController.injectChaos);
-router.get('/targets', chaosController.listChaosTargets);
+router.get('/targets', requirePermission('emergency_kill'), requireTenantScope(), chaosController.listChaosTargets);
 
 module.exports = router;

@@ -25,7 +25,9 @@ async function injectChaos(req, res, next) {
       fleetId,
       mode,
       dryRun,
-      reason
+      reason,
+      organizationId: req.tenant?.organizationId,
+      projectId: req.tenant?.projectId
     });
     const status = result.success ? 200 : 404;
     return res.status(status).json(result);
@@ -38,7 +40,12 @@ async function listChaosTargets(req, res, next) {
   try {
     const { getDatabase } = require('../db');
     const db = await getDatabase();
-    const workers = await chaosService.findEligibleWorkers(db, req.query || {});
+    const filter = { ...(req.query || {}) };
+    if (req.tenant) {
+      filter.organizationId = req.tenant.organizationId;
+      filter.projectId = req.tenant.projectId;
+    }
+    const workers = await chaosService.findEligibleWorkers(db, filter);
     return res.json({
       success: true,
       count: workers.length,
