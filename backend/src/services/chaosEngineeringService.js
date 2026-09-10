@@ -146,17 +146,71 @@ async function readAgentLineage(db, agent) {
   };
 }
 
+function localChildForPid(pid) {
+  for (const proc of activeProcesses.values()) {
+    if (proc?.child?.pid === pid) return proc.child;
+  }
+  return null;
+}
+
+function guardExecutable(row, pid, kind) {
+  const executable = kind === 'agent' ? row.runtime_executable : row.command;
+  if (!executable) return { allowed: false, reason: 'PID_UNVERIFIABLE' };
+  if (!processMatches(pid, executable)) return { allowed: false, reason: 'PID_EXECUTABLE_MISMATCH' };
+  return kind === 'agent'
+    ? { allowed: true, agentId: row.id, organizationId: row.organization_id }
+    : { allowed: true, detachedId: row.id };
+}
+
+function tenantAllows(options, guard) {
+  if (!options.organizationId) return true;
+  return guard.organizationId === options.organizationId;
+}
+
+// A PID may only be killed when GenOS can prove it is a managed worker (local
+// child, `agents.runtime_pid`, or a tracked detached process) AND the executable
+// still matches. This closes the remote arbitrary-PID kill, including pgid /
+// PID-1 / reused-PID cases.
+async function guardManagedPid(db, pid, options = {}) {
+  if (!Number.isInteger(pid) || pid <= 10 || pid === process.pid || pid === process.ppid) {
+    return { allowed: false, reason: 'PID_REFUSED' };
+  }
+  const local = localChildForPid(pid);
+  if (local) return { allowed: true, child: local };
+  const agent = await db.get(
+    'SELECT a.id, a.runtime_executable, w.organization_id FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.runtime_pid = ?',
+    pid
+  );
+  if (agent) {
+    const guard = guardExecutable(agent, pid, 'agent');
+    if (!guard.allowed) return guard;
+    if (!tenantAllows(options, guard)) return { allowed: false, reason: 'TENANT_MISMATCH' };
+    return guard;
+  }
+  const detached = await db.get('SELECT id, command FROM detached_processes WHERE pid = ?', pid);
+  if (detached) return guardExecutable(detached, pid, 'detached');
+  return { allowed: false, reason: 'PID_NOT_MANAGED' };
+}
+
+async function clearManagedPid(db, guard, pid) {
+  if (guard.agentId) {
+    await db.run('UPDATE agents SET runtime_pid = NULL, runtime_started_at = NULL, runtime_executable = NULL WHERE id = ?', guard.agentId);
+  } else if (guard.detachedId) {
+    await db.run('DELETE FROM detached_processes WHERE id = ?', guard.detachedId);
+  } else {
+    await db.run('UPDATE agents SET runtime_pid = NULL WHERE runtime_pid = ?', pid);
+  }
+}
+
 // PID-only drill (`genos inject-chaos --pid <pid>`): terminate exactly the
-// requested process, never a random worker.
-function injectChaosOnPid(options) {
-  const targetPid = Number(options.pid);
-  const terminated = options.dryRun ? false : terminatePid(targetPid);
+// requested process, and only if it is a verified GenOS-managed worker.
+function pidChaosBase(context) {
+  const { targetPid, guard, options, dryRun } = context;
   return {
-    success: options.dryRun ? true : terminated,
     operation: 'inject_chaos',
     mode: options.mode || 'kill_worker_pid',
-    dryRun: Boolean(options.dryRun),
-    targetAgent: { id: null, name: null, role: null, status: null, pid: targetPid },
+    dryRun,
+    targetAgent: { id: guard.agentId || null, name: null, role: null, status: null, pid: targetPid },
     lineage: {
       parentAgentId: null,
       relation: 'independent',
@@ -164,13 +218,32 @@ function injectChaosOnPid(options) {
       fleetId: options.fleetId || null,
       lineageNodesCount: 0
     },
-    regenerationSteward: {
-      activated: false,
-      strategy: 'lineage_reconstruction',
-      lineageId: null,
-      missionPreserved: null
-    }
+    regenerationSteward: { activated: false, strategy: 'lineage_reconstruction', lineageId: null, missionPreserved: null }
   };
+}
+
+async function injectChaosOnPid(options) {
+  const targetPid = Number(options.pid);
+  const db = await getDatabase();
+  const guard = await guardManagedPid(db, targetPid, options);
+  const dryRun = Boolean(options.dryRun);
+  const auditTarget = { id: guard.agentId || `pid_${targetPid}` };
+  const base = pidChaosBase({ targetPid, guard, options, dryRun });
+
+  if (!guard.allowed) {
+    await recordChaosAudit(db, auditTarget, { actor: options.actor, dryRun, reason: options.reason, pid: targetPid, terminated: false });
+    return {
+      ...base,
+      success: false,
+      error: guard.reason,
+      message: `Refusing to terminate PID ${targetPid}: ${guard.reason}. Only verified GenOS worker PIDs may be killed.`
+    };
+  }
+
+  const terminated = dryRun ? false : (guard.child ? terminateChild(guard.child) : terminatePid(targetPid));
+  if (terminated) await clearManagedPid(db, guard, targetPid);
+  await recordChaosAudit(db, auditTarget, { actor: options.actor, dryRun, reason: options.reason, pid: targetPid, terminated });
+  return { ...base, success: dryRun || terminated };
 }
 
 async function injectChaos(options = {}) {
