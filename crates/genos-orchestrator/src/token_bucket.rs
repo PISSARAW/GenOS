@@ -6,6 +6,9 @@ pub const DEFAULT_BUCKET_CAPACITY: f64 = 100.0;
 pub const DEFAULT_REFILL_RATE: f64 = 10.0;
 pub const BASELINE_CPU_QUANTUM_MS: u64 = 100;
 pub const MAX_STARVATION_ATTEMPTS: u32 = 3;
+/// Upper bound on burst capacity so spamming high-quality proofs cannot
+/// inflate a bucket without limit.
+pub const MAX_BUCKET_CAPACITY: f64 = 4.0 * DEFAULT_BUCKET_CAPACITY;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BucketState {
@@ -68,8 +71,12 @@ impl AgentComputeBucket {
         }
     }
 
+    pub fn is_dead(&self) -> bool {
+        matches!(self.state, BucketState::Apoptotic | BucketState::Starved)
+    }
+
     pub fn refill(&mut self, now: Instant) {
-        if matches!(self.state, BucketState::Apoptotic | BucketState::Starved) {
+        if self.is_dead() {
             return;
         }
         let elapsed = now.duration_since(self.last_refill).as_secs_f64();
@@ -100,9 +107,13 @@ impl TokenBucketScheduler {
         Self { buckets: HashMap::new() }
     }
 
+    /// Registers an agent exactly once. Re-registering is idempotent so it can
+    /// never silently resurrect a Starved/Apoptotic agent (or reset its
+    /// accumulated evidence/waste counters).
     pub fn register_agent(&mut self, agent_id: &str, initial_tokens: f64, capacity: f64) {
-        let bucket = AgentComputeBucket::new(agent_id, initial_tokens, capacity);
-        self.buckets.insert(agent_id.to_string(), bucket);
+        self.buckets
+            .entry(agent_id.to_string())
+            .or_insert_with(|| AgentComputeBucket::new(agent_id, initial_tokens, capacity));
     }
 
     /// Allocates compute time according to the agent's current token balance.
@@ -150,9 +161,18 @@ impl TokenBucketScheduler {
         let bucket = self.buckets.get_mut(agent_id)
             .ok_or_else(|| format!("Agent '{agent_id}' not found"))?;
 
+        // Death from compute starvation is terminal: a dead agent cannot be
+        // revived by submitting a perfect proof.
+        if bucket.is_dead() {
+            return Err(format!(
+                "Agent '{agent_id}' is {:?}; dead agents cannot be rewarded.",
+                bucket.state
+            ));
+        }
+
         let score = evidence_score.clamp(0.0, 1.0);
         let bonus_capacity = if score >= 0.85 { 20.0 } else { 0.0 };
-        bucket.capacity += bonus_capacity;
+        bucket.capacity = (bucket.capacity + bonus_capacity).min(MAX_BUCKET_CAPACITY);
 
         let reward = 30.0 * score;
         bucket.tokens = (bucket.tokens + reward).min(bucket.capacity);
@@ -203,5 +223,45 @@ impl TokenBucketScheduler {
             new_balance: bucket.tokens,
             state: bucket.state.clone(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn register_agent_does_not_resurrect_a_dead_bucket() {
+        let mut scheduler = TokenBucketScheduler::new();
+        scheduler.register_agent("agent-a", 50.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.buckets.get_mut("agent-a").unwrap().state = BucketState::Apoptotic;
+
+        scheduler.register_agent("agent-a", 100.0, DEFAULT_BUCKET_CAPACITY);
+
+        let bucket = scheduler.buckets.get("agent-a").unwrap();
+        assert_eq!(bucket.state, BucketState::Apoptotic);
+        assert_eq!(bucket.tokens, 50.0, "re-registration must not reset counters");
+    }
+
+    #[test]
+    fn reward_proof_rejects_dead_agents() {
+        let mut scheduler = TokenBucketScheduler::new();
+        scheduler.register_agent("agent-a", 10.0, DEFAULT_BUCKET_CAPACITY);
+        scheduler.buckets.get_mut("agent-a").unwrap().state = BucketState::Starved;
+
+        assert!(scheduler.reward_proof("agent-a", 1.0).is_err());
+        assert_eq!(scheduler.buckets.get("agent-a").unwrap().state, BucketState::Starved);
+    }
+
+    #[test]
+    fn reward_proof_capacity_is_capped() {
+        let mut scheduler = TokenBucketScheduler::new();
+        scheduler.register_agent("agent-a", 0.0, DEFAULT_BUCKET_CAPACITY);
+
+        for _ in 0..200 {
+            scheduler.reward_proof("agent-a", 1.0).unwrap();
+        }
+
+        assert_eq!(scheduler.buckets.get("agent-a").unwrap().capacity, MAX_BUCKET_CAPACITY);
     }
 }
