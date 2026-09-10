@@ -6,6 +6,10 @@ use tokio::sync::{broadcast, RwLock};
 
 type SharedFields = HashMap<String, serde_json::Value>;
 
+/// Hard cap on the replay log so a long-running server cannot exhaust memory.
+/// When exceeded, the oldest operations are dropped (bounded, not unbounded).
+const MAX_OP_LOG: usize = 100_000;
+
 pub struct SyncytiumEngine {
     op_log: RwLock<Vec<CrdtOp>>,
     lamport_clock: AtomicU64,
@@ -23,18 +27,31 @@ fn role_color(role: &str) -> &'static str {
     }
 }
 
-fn apply_insert(text: &mut String, index: usize, insert_str: &str) {
-    if index >= text.len() {
-        text.push_str(insert_str);
-    } else {
-        text.insert_str(index, insert_str);
+/// Maps a UTF-16 code-unit offset (the indexing used by the JavaScript
+/// backend's `String.prototype.slice`) to a byte offset on a valid UTF-8
+/// boundary. Offsets that land inside a surrogate pair are rounded up to the
+/// next code-point boundary, which keeps the string valid instead of panicking.
+fn utf16_to_byte_index(text: &str, utf16_index: usize) -> usize {
+    let mut units = 0usize;
+    for (byte_index, ch) in text.char_indices() {
+        if units >= utf16_index {
+            return byte_index;
+        }
+        units += ch.len_utf16();
     }
+    text.len()
+}
+
+fn apply_insert(text: &mut String, index: usize, insert_str: &str) {
+    let byte_index = utf16_to_byte_index(text, index);
+    text.insert_str(byte_index, insert_str);
 }
 
 fn apply_delete(text: &mut String, index: usize, len: usize) {
-    if index < text.len() {
-        let end = (index + len).min(text.len());
-        text.drain(index..end);
+    let start = utf16_to_byte_index(text, index);
+    let end = utf16_to_byte_index(text, index.saturating_add(len));
+    if start < end {
+        text.drain(start..end);
     }
 }
 
@@ -102,6 +119,11 @@ impl SyncytiumEngine {
 
         let mut log = self.op_log.write().await;
         log.push(op.clone());
+        if log.len() > MAX_OP_LOG {
+            let overflow = log.len() - MAX_OP_LOG;
+            log.drain(0..overflow);
+            eprintln!("[Syncytium] op log exceeded {MAX_OP_LOG} entries; dropped {overflow} oldest ops");
+        }
         let snapshot = Self::build_snapshot(&log, step, None);
         drop(log);
 
