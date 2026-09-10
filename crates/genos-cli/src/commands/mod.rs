@@ -19,3 +19,4 @@ pub mod swarm_alleles;
 pub mod root_resolver;
 pub mod desktop;
 pub mod world_runner;
+pub mod trinity_tui;

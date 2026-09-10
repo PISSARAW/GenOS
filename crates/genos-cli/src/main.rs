@@ -33,6 +33,23 @@ fn load_immune_selection(agent_id: &str) -> Result<(ClonalSelection, PathBuf), S
     Ok((selection, path))
 }
 
+fn handle_trinity_cmd(subcommand: TrinitySubcommands) -> Result<(), String> {
+    match subcommand {
+        TrinitySubcommands::Deploy { mission_id, strategies, split_screen, prompt, simulation } => {
+            if split_screen {
+                let p = prompt.unwrap_or_else(|| "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte".to_string());
+                commands::trinity_tui::run(&mission_id, &p, simulation)
+            } else {
+                platform::handle_trinity(&mission_id, &strategies)
+            }
+        }
+        TrinitySubcommands::SplitScreen { mission_id, prompt, simulation } => {
+            let p = prompt.unwrap_or_else(|| "Implémenter un parser Bencode en Rust avec gestion d'erreurs stricte".to_string());
+            commands::trinity_tui::run(&mission_id, &p, simulation)
+        }
+    }
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -89,9 +106,7 @@ fn main() {
                 capsule::handle_phenotype_measure(&trait_name, capsule::PhenotypeValues { expected, observed, tolerance })
             }
         },
-        Some(Commands::Trinity(cmd)) => match cmd.subcommand {
-            TrinitySubcommands::Deploy { mission_id, strategies } => platform::handle_trinity(&mission_id, &strategies),
-        },
+        Some(Commands::Trinity(cmd)) => handle_trinity_cmd(cmd.subcommand),
         Some(Commands::Biological(cmd)) => biological::handle(&cmd.mode, &cmd.mission),
         Some(Commands::Swarm(cmd)) => match cmd.subcommand {
             SwarmSubcommands::AlleleAnalyzer { swarm_id } => platform::handle_swarm_alleles(&swarm_id),
