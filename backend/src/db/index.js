@@ -78,6 +78,15 @@ async function closeDatabase() {
   }
 }
 
+function isLockError(err) {
+  if (err?.code === 'SQLITE_BUSY') return true;
+  return /busy|locked/i.test(err?.message || '');
+}
+
+function retryDelayMs(attempt, baseDelay) {
+  return Math.min(1000, baseDelay * Math.pow(2, attempt)) + Math.floor(Math.random() * 50);
+}
+
 async function withWriteRetry(fn, options = {}) {
   const maxRetries = Number(process.env.GENOS_SQLITE_MAX_RETRIES) || options.maxRetries || 5;
   const baseDelay = options.baseDelayMs || 50;
@@ -85,12 +94,10 @@ async function withWriteRetry(fn, options = {}) {
     try {
       return await fn();
     } catch (err) {
-      const isLock = err?.code === 'SQLITE_BUSY' || /busy|locked/i.test(err?.message || '');
-      if (!isLock || attempt === maxRetries) {
+      if (!isLockError(err) || attempt === maxRetries) {
         throw err;
       }
-      const delay = Math.min(1000, baseDelay * Math.pow(2, attempt)) + Math.floor(Math.random() * 50);
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs(attempt, baseDelay)));
     }
   }
 }
@@ -116,9 +123,14 @@ async function withTransaction(db, callback) {
       await withWriteRetry(() => db.exec('COMMIT;'));
       return result;
     } catch (err) {
+      // ROLLBACK can itself hit SQLITE_BUSY. Without a retry the connection
+      // stays inside the transaction and every later BEGIN fails with
+      // "cannot start a transaction within a transaction".
       try {
-        await db.exec('ROLLBACK;');
-      } catch (_) {}
+        await withWriteRetry(() => db.exec('ROLLBACK;'));
+      } catch (rollbackError) {
+        console.error('[DB] ROLLBACK failed; connection may be stuck in a transaction:', rollbackError.message);
+      }
       throw err;
     }
   } finally {
