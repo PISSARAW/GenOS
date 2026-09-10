@@ -1,6 +1,5 @@
-const { fetchHttpPhase, readMcpHttpResponse, assertRpcResponse, describeHttpError, readResponseTextBounded, rpcRequest, normalizeMcpTimeout } = require('../../mcpExecutor');
-
 async function callHttpFn(url, toolName, options = {}) {
+  const { fetchHttpPhase, readMcpHttpResponse, assertRpcResponse, describeHttpError, rpcRequest, normalizeMcpTimeout } = require('../../mcpExecutor');
   const { args = {} } = options;
   const timeoutMs = normalizeMcpTimeout(options.timeoutMs);
   const deadlineAt = Date.now() + timeoutMs;

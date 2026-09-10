@@ -166,8 +166,13 @@ async function describeHttpError(response, phase) {
   return `MCP HTTP ${phase} returned ${response.status}${detail ? `: ${detail}` : '.'}`;
 }
 
-async function fetchHttpPhase(requestContext) {
-  const { url, options, deadlineAt, phase, readResponse = (response) => response } = requestContext;
+async function fetchHttpPhase(requestContext, optionsArg, deadlineAtArg, phaseArg, readResponseArg) {
+  const isObj = requestContext && typeof requestContext === 'object' && !optionsArg;
+  const url = isObj ? requestContext.url : requestContext;
+  const options = isObj ? requestContext.options : optionsArg;
+  const deadlineAt = isObj ? requestContext.deadlineAt : deadlineAtArg;
+  const phase = isObj ? requestContext.phase : phaseArg;
+  const readResponse = (isObj ? requestContext.readResponse : readResponseArg) || ((response) => response);
   const remaining = deadlineAt - Date.now();
   if (remaining <= 0) throw new Error(`MCP HTTP ${phase} timed out.`);
   const controller = new AbortController();
@@ -336,7 +341,7 @@ async function execute(executionRequest) {
   }
 }
 
-function listTools() {
+async function listTools() {
   const registry = getToolRegistry();
   const { getToolInputSchema } = require('./mcpContract');
   return registry.declaredToolNames().map((name) => ({ name, description: `GenOS MCP tool '${name}'.`, inputSchema: getToolInputSchema(name) }));
@@ -359,4 +364,25 @@ async function callTool(toolName, args = {}, timeoutMs = DEFAULT_MCP_TIMEOUT_MS)
   }
 }
 
-module.exports = { execute, executeConfiguredTransport, configuredTransport, checkChromatinLock, normalizeMcpTimeout, listTools, callTool, mcpTransportEnvironment, validateMcpUrl, resolveMcpOutputPath, validateMcpInputPaths, directToolLeaseAllows };
+module.exports = {
+  execute,
+  executeConfiguredTransport,
+  configuredTransport,
+  checkChromatinLock,
+  normalizeMcpTimeout,
+  listTools,
+  callTool,
+  mcpTransportEnvironment,
+  validateMcpUrl,
+  resolveMcpOutputPath,
+  validateMcpInputPaths,
+  directToolLeaseAllows,
+  fetchHttpPhase,
+  readMcpHttpResponse,
+  assertRpcResponse,
+  describeHttpError,
+  readResponseTextBounded,
+  rpcRequest,
+  parseArgs,
+  runSafeSync
+};
