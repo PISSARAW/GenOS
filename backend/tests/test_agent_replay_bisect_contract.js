@@ -1,16 +1,29 @@
 const assert = require('node:assert/strict');
 const dbModule = require('../src/db');
 const originalGetDatabase = dbModule.getDatabase;
+const liveRow = {
+  id: 'agent-1', workspace_id: 'ws', name: 'Agent 1', name_meaning: 'tester',
+  role: 'Solver', model_tier: 'standard', language: 'fr', isolation_mode: null,
+  dissonance_level: 0, eureka_count: 0, cognitive_budget: 90,
+  cognitive_baseline_budget: 0, cognitive_max_dissonance: 50, is_apoptotic: 0,
+  status: 'running', current_task: 'task'
+};
+const liveState = {
+  name: 'Agent 1', name_meaning: 'tester', role: 'Solver', model_tier: 'standard',
+  language: 'fr', isolation_mode: null, dissonance_level: 0, eureka_count: 0,
+  cognitive_budget: 90, cognitive_baseline_budget: 0, cognitive_max_dissonance: 50,
+  is_apoptotic: 0, status: 'running', current_task: 'task'
+};
 const snapshots = [
   { id: 's1', state_json: JSON.stringify({ cognitive_budget: 100 }), created_at: '2026-01-01' },
-  { id: 's2', state_json: JSON.stringify({ cognitive_budget: 90 }), created_at: '2026-01-02' },
+  { id: 's2', state_json: JSON.stringify(liveState), created_at: '2026-01-02' },
   { id: 's3', state_json: JSON.stringify({ cognitive_budget: 40 }), created_at: '2026-01-03' },
   { id: 's4', state_json: JSON.stringify({ cognitive_budget: 0 }), created_at: '2026-01-04' }
 ];
 dbModule.getDatabase = async () => ({
   get: async (sql, ...args) => {
     if (sql.includes('agent_state_snapshots')) return snapshots.find((row) => row.id === args[0]);
-    return { id: 'agent-1', workspace_id: 'ws' };
+    return { ...liveRow };
   },
   all: async () => snapshots
 });
@@ -22,6 +35,9 @@ function response() { let result; return { res: { status: (code) => ({ json: (bo
   await replayAgentState({ body: { agentId: 'agent-1', snapshotId: 's2' }, tenant: { organizationId: 'org', projectId: 'project' } }, replay.res);
   assert.equal(replay.get().body.replayVerified, true);
   assert.equal(replay.get().body.state.cognitive_budget, 90);
+  const diverged = response();
+  await replayAgentState({ body: { agentId: 'agent-1', snapshotId: 's3' }, tenant: { organizationId: 'org', projectId: 'project' } }, diverged.res);
+  assert.equal(diverged.get().body.replayVerified, false);
   const bisect = response();
   await bisectAgentState({ body: { agentId: 'agent-1', field: 'cognitive_budget', expectedValue: 100 }, tenant: { organizationId: 'org', projectId: 'project' } }, bisect.res);
   assert.equal(bisect.get().body.anomalyFound, true);
