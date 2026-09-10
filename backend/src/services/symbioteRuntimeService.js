@@ -51,6 +51,7 @@ async function requestLocalEmbedding(base, model, text) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, input: text }),
+    redirect: 'manual',
     signal
   });
   if (modern.ok) {
@@ -65,6 +66,7 @@ async function requestLocalEmbedding(base, model, text) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, prompt: text }),
+    redirect: 'manual',
     signal: AbortSignal.timeout(4000)
   });
   if (!legacy.ok) {
