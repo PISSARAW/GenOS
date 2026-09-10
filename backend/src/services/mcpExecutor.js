@@ -39,8 +39,10 @@ function normalizeMcpTimeout(value, fallback = DEFAULT_MCP_TIMEOUT_MS) {
 function directToolLeaseAllows(toolName) {
   const disabled = String(process.env.GENOS_MCP_DISABLED_TOOLS || '').split(',').map((name) => name.trim()).filter(Boolean);
   if (disabled.includes(toolName)) return false;
-  const lease = String(process.env.GENOS_MCP_LEASE || '').split(',').map((name) => name.trim()).filter(Boolean);
-  return !lease.length || lease.includes(toolName);
+  const leaseEnv = process.env.GENOS_MCP_LEASE;
+  if (leaseEnv === undefined || leaseEnv === null) return true;
+  const lease = String(leaseEnv).split(',').map((name) => name.trim()).filter(Boolean);
+  return lease.length === 0 ? false : lease.includes(toolName);
 }
 
 async function directCallGuard(toolName, args) {
