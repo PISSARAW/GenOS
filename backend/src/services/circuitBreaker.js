@@ -53,6 +53,12 @@ class CircuitBreakerService {
     return this.scopedStates.get(scope);
   }
 
+  getHistoryKey(scope) {
+    if (scope === 'global') return 'global';
+    if (scope.includes(':') && !scope.startsWith('agent_')) return `tenant:${scope}`;
+    return `agent:${scope}`;
+  }
+
   isDestructive(toolName) {
     return DESTRUCTIVE_TOOLS.includes(toolName);
   }
@@ -106,7 +112,8 @@ class CircuitBreakerService {
     if (!isLoopExempt) {
       const argSig = this.argumentSignature(args);
       const callSig = `${toolName}:${argSig}`;
-      const history = this.executionHistory.get(scope) || { callSig: '', count: 0 };
+      const historyKey = this.getHistoryKey(scope);
+      const history = this.executionHistory.get(historyKey) || { callSig: '', count: 0, scope };
 
       if (history.callSig === callSig) {
         history.count += 1;
@@ -114,11 +121,11 @@ class CircuitBreakerService {
         history.callSig = callSig;
         history.count = 1;
       }
-      if (!this.executionHistory.has(scope) && this.executionHistory.size >= this.maxExecutionScopes) {
-        const oldestScope = this.executionHistory.keys().next().value;
-        this.executionHistory.delete(oldestScope);
+      if (!this.executionHistory.has(historyKey) && this.executionHistory.size >= this.maxExecutionScopes) {
+        const oldestKey = this.executionHistory.keys().next().value;
+        this.executionHistory.delete(oldestKey);
       }
-      this.executionHistory.set(scope, history);
+      this.executionHistory.set(historyKey, history);
 
       if (history.count >= this.maxConsecutiveToolCalls) {
         telemetry.emitEvent({
