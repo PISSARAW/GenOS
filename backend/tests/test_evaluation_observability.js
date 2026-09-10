@@ -1,4 +1,5 @@
 const assert = require('assert');
+process.env.GENOS_ADMIN_PASSWORD = process.env.GENOS_ADMIN_PASSWORD || 'test-admin-password';
 const { getDatabase, closeDatabase } = require('../src/db');
 const service = require('../src/services/evaluationObservabilityService');
 

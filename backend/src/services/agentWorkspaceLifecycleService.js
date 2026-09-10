@@ -172,7 +172,7 @@ async function cleanupWorkspace(workspaceRoot, agentId = null) {
     throw new Error(`Refusing to clean workspace '${resolvedRoot}': not inside an allowed capsule directory.`);
   }
 
-  if (agentId && (path.basename(agentId) !== agentId || path.basename(resolvedRoot) !== agentId)) {
+  if (agentId && (path.basename(agentId) !== agentId || (path.basename(resolvedRoot) !== agentId && !path.basename(resolvedRoot).startsWith(`${agentId}_`)))) {
     throw new Error(`Refusing to clean workspace '${resolvedRoot}' for agent '${agentId}'.`);
   }
   workspaceRoot = resolvedRoot;

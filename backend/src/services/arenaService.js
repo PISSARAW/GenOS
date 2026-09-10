@@ -240,10 +240,10 @@ function findKneePoint(paretoSet) {
   const fitnesses = paretoSet.map(s => s.fitnessScore);
   const passRates = paretoSet.map(s => s.adversarialPassRate);
 
-  const minTime = Math.min(...times), maxTime = Math.max(...times) || minTime + 1;
-  const minCost = Math.min(...costs), maxCost = Math.max(...costs) || minCost + 0.001;
-  const minFit = Math.min(...fitnesses), maxFit = Math.max(...fitnesses) || minFit + 1;
-  const minPass = Math.min(...passRates), maxPass = Math.max(...passRates) || minPass + 1;
+  const minTime = Math.min(...times), maxTime = Number.isFinite(Math.max(...times)) && Math.max(...times) > minTime ? Math.max(...times) : minTime + 1;
+  const minCost = Math.min(...costs), maxCost = Number.isFinite(Math.max(...costs)) && Math.max(...costs) > minCost ? Math.max(...costs) : minCost + 0.001;
+  const minFit = Math.min(...fitnesses), maxFit = Number.isFinite(Math.max(...fitnesses)) && Math.max(...fitnesses) > minFit ? Math.max(...fitnesses) : minFit + 1;
+  const minPass = Math.min(...passRates), maxPass = Number.isFinite(Math.max(...passRates)) && Math.max(...passRates) > minPass ? Math.max(...passRates) : minPass + 1;
   const normalize = (value, minimum, maximum) => maximum > minimum ? (value - minimum) / (maximum - minimum) : 0.5;
 
   let bestPoint = paretoSet[0];

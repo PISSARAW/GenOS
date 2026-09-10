@@ -55,7 +55,7 @@ async function apoptosis(context) {
     '[APOPTOSIS] ' + reason, targetId
   );
   const runtimeAdapter = require('../agentRuntimeAdapter');
-  const runtimeStopped = Boolean(runtimeAdapter.stopMission(targetId));
+  const runtimeStopped = Boolean(await runtimeAdapter.stopMission(targetId));
   telemetry.emitEvent({
     eventType: 'AGENT_APOPTOSIS',
     agentId: targetId,
@@ -121,7 +121,7 @@ async function quarantine(context) {
     targetId
   );
   const runtimeAdapter = require('../agentRuntimeAdapter');
-  const runtimeStopped = Boolean(runtimeAdapter.stopMission(targetId));
+  const runtimeStopped = Boolean(await runtimeAdapter.stopMission(targetId));
   telemetry.emitEvent({
     eventType: 'AGENT_QUARANTINED',
     agentId: targetId,

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use crate::commands::Commands;
 
 pub fn api_base_url() -> String {

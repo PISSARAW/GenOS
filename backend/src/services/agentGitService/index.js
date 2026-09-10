@@ -34,10 +34,11 @@ function signObject(stateHash, metadata) {
 
 function verifyObjectSignature(object) {
   if (!object.signature) return false;
-  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})), signingAlgorithm() === 'ed25519' ? 'base64' : 'utf8');
-  const actual = Buffer.from(object.signature);
+  const isEd25519 = signingAlgorithm() === 'ed25519';
+  const expected = Buffer.from(signObject(object.state_hash, json(object.metadata_json, {})), isEd25519 ? 'base64' : 'utf8');
+  const actual = Buffer.from(object.signature, isEd25519 ? 'base64' : 'utf8');
   if (actual.length !== expected.length) return false;
-  if (signingAlgorithm() === 'ed25519') return crypto.verify(null, signingPayload(object.state_hash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
+  if (isEd25519) return crypto.verify(null, signingPayload(object.state_hash, json(object.metadata_json, {})), process.env.GENOS_AGENT_GIT_SIGNING_PUBLIC_KEY || process.env.GENOS_AGENT_GIT_SIGNING_PRIVATE_KEY, actual);
   return crypto.timingSafeEqual(actual, expected);
 }
 

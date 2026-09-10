@@ -357,14 +357,15 @@ async function pruneSynapses(req, res, next) {
     const prunedCount = resDb?.changes || 0;
 
     // Nettoyage des décisions orphelines sans synapses résiduelles
+    const doomedScope = getTenantScope(req, 'g');
     const doomed = await db.all(`
       SELECT g.id 
       FROM genome_decisions g
       LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
-      WHERE g.synaptic_weight < 0.1
+      WHERE g.synaptic_weight < 0.1 AND ${doomedScope.clause}
       GROUP BY g.id
       HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-    `);
+    `, ...doomedScope.params);
     let orphanedDecisionsPruned = 0;
     if (doomed && doomed.length > 0) {
       const doomedIds = doomed.map(d => d.id);

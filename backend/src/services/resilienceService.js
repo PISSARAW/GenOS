@@ -105,7 +105,8 @@ function somaticHypermutationPrompt(prompt = '', mutationRate = 0.2, options = {
         const alternatives = MUTATION_SYNONYMS[clean];
         const alt = alternatives[hash % alternatives.length];
         mutatedCount++;
-        return w.replace(new RegExp(clean, 'i'), alt);
+        const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return w.replace(new RegExp(escaped, 'i'), alt);
       }
     }
     return w;

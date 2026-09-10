@@ -42,6 +42,9 @@ function mapHttpStatus(code, fallbackStatus = 500) {
 }
 
 function errorHandler(err, req, res, next) {
+  if (res.headersSent) {
+    return next(err);
+  }
   const statusCode = Number.isInteger(err.status) ? err.status : mapHttpStatus(err.code, err.statusCode || 500);
   const errorCode = err.code || (statusCode === 500 ? 'INTERNAL_SERVER_ERROR' : 'ERROR');
   const message = err.message || 'An unexpected error occurred';

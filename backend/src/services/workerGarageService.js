@@ -102,7 +102,7 @@ async function findReusableWorker(db, orchestratorId, { mission, role } = {}) {
             language, isolation_mode as isolationMode, created_at as createdAt
      FROM agents
      WHERE parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'
-       AND workspace_id IS (SELECT workspace_id FROM agents WHERE id = ?)
+       AND (workspace_id IS (SELECT workspace_id FROM agents WHERE id = ?) OR workspace_id IS NULL)
      ORDER BY updated_at DESC, created_at DESC, id`,
     orchestratorId, orchestratorId
   );

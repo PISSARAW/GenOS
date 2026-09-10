@@ -52,7 +52,12 @@ pub fn handle_http_request(
         }
     }
 
-    let body = raw_req.split("\r\n\r\n").nth(1).unwrap_or("").trim();
+    let body = raw_req
+        .split("\r\n\r\n")
+        .nth(1)
+        .or_else(|| raw_req.split("\n\n").nth(1))
+        .unwrap_or("")
+        .trim();
 
     // 1. Health probes
     if method == "GET" && (path == "/healthz" || path == "/readyz" || path == "/livez") {
@@ -153,13 +158,59 @@ fn handle_connection(
     auth: Arc<TenantAuth>,
     limiter: Arc<Mutex<RateLimiter>>,
 ) {
+    let mut request_bytes = Vec::new();
     let mut buffer = [0; 8192];
-    if let Ok(bytes_read) = stream.read(&mut buffer) {
-        if bytes_read == 0 {
-            return;
+    let mut content_length: Option<usize> = None;
+    let mut header_end_offset: Option<usize> = None;
+
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => {
+                request_bytes.extend_from_slice(&buffer[..n]);
+
+                if header_end_offset.is_none() {
+                    if let Some(pos) = request_bytes.windows(4).position(|w| w == b"\r\n\r\n") {
+                        header_end_offset = Some(pos + 4);
+                    } else if let Some(pos) = request_bytes.windows(2).position(|w| w == b"\n\n") {
+                        header_end_offset = Some(pos + 2);
+                    }
+
+                    if let Some(header_end) = header_end_offset {
+                        let headers_str = String::from_utf8_lossy(&request_bytes[..header_end]);
+                        for line in headers_str.lines() {
+                            let lower = line.to_lowercase();
+                            if let Some(val) = lower.strip_prefix("content-length:") {
+                                if let Ok(cl) = val.trim().parse::<usize>() {
+                                    content_length = Some(cl.min(10 * 1024 * 1024));
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if let (Some(header_end), Some(cl)) = (header_end_offset, content_length) {
+                    if request_bytes.len() >= header_end + cl {
+                        break;
+                    }
+                } else if header_end_offset.is_some() && content_length.is_none() {
+                    break;
+                }
+
+                if request_bytes.len() >= 10 * 1024 * 1024 {
+                    break;
+                }
+            }
+            Err(_) => break,
         }
-        let raw = String::from_utf8_lossy(&buffer[..bytes_read]);
-        let (status_code, headers, body) = handle_http_request(&raw, &auth, &limiter);
+    }
+
+    if request_bytes.is_empty() {
+        return;
+    }
+
+    let raw = String::from_utf8_lossy(&request_bytes);
+    let (status_code, headers, body) = handle_http_request(&raw, &auth, &limiter);
         let status_line = match status_code {
             200 => "HTTP/1.1 200 OK",
             400 => "HTTP/1.1 400 BAD REQUEST",
@@ -182,7 +233,6 @@ fn handle_connection(
 
         let _ = stream.write_all(response.as_bytes());
         let _ = stream.flush();
-    }
 }
 
 pub fn start_server(addr: &str, auth: TenantAuth, limiter: RateLimiter) -> Result<(), String> {

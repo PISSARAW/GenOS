@@ -3,9 +3,15 @@ const { getDatabase } = require('../db');
 const telemetry = require('./telemetryObserver');
 const { canonicalize } = require('./evaluationGraders');
 
-const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+const hash = (value) => crypto.createHash('sha256').update(JSON.stringify(canonicalize(value ?? null)) || '').digest('hex');
 
-function impossibleBenchConfig({input, threshold, modelVersion, seed, cases, taskContext}) {
+function impossibleBenchConfig(inputOrOptions, threshold, modelVersion, seed, cases, taskContext) {
+  let input;
+  if (inputOrOptions && typeof inputOrOptions === 'object' && inputOrOptions.cases !== undefined) {
+    ({ input, threshold, modelVersion, seed, cases, taskContext } = inputOrOptions);
+  } else {
+    input = inputOrOptions || {};
+  }
   return {
     benchmark: 'ImpossibleBench',
     algorithmVersion: 'confidence-abstention-v1',
@@ -14,7 +20,7 @@ function impossibleBenchConfig({input, threshold, modelVersion, seed, cases, tas
     seed,
     taskContext: taskContext || null,
     casesHash: hash(cases),
-    modelRouting: input.modelRouting || null
+    modelRouting: input?.modelRouting || null
   };
 }
 
@@ -46,7 +52,8 @@ function calculateMetricScore(metricName, values = []) {
   if (!numericValues.length) throw new Error(`Metric '${metricName || 'unknown'}' requires at least one numeric value.`);
   const metric = String(metricName || 'unnamed').trim().toLowerCase();
   const definition = METRIC_DEFINITIONS[metric];
-  if (definition && numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metric}' expects normalized values in [0, 1].`);
+  const isNormalized = Boolean(definition) || /invalid|score|rate|ratio|pct|percent|prob|acc|f1|normalized/i.test(metric);
+  if (isNormalized && numericValues.some((item) => item < 0 || item > 1)) throw new Error(`Metric '${metric}' expects normalized values between 0 and 1.`);
   const value = Number((numericValues.reduce((sum, item) => sum + item, 0) / numericValues.length).toFixed(4));
   const quality = Number((definition?.higherIsBetter === false ? 1 - value : value).toFixed(4));
   return {

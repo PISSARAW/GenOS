@@ -73,11 +73,21 @@ function dfsCycleDetection(adj) {
   return { hasCycle, cycleParticipants, loopType, detectedCycle };
 }
 
-async function penalizeBudget(db, targetAgentId, cycleParticipants) {
+async function penalizeBudget(db, targetAgentId, cycleParticipants = []) {
   let budgetPenalized = 0;
   try {
-    await db.run("UPDATE agents SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 100) - 15) WHERE id = ?", targetAgentId || (cycleParticipants.length === 1 ? cycleParticipants[0] : null));
-    budgetPenalized = 15;
+    const targets = targetAgentId
+      ? [targetAgentId]
+      : (Array.isArray(cycleParticipants) ? cycleParticipants.filter(Boolean) : []);
+
+    for (const agentId of targets) {
+      const res = await db.run("UPDATE agents SET cognitive_budget = MAX(0, COALESCE(cognitive_budget, 100) - 15) WHERE id = ?", agentId);
+      if (res && typeof res.changes === 'number') {
+        if (res.changes > 0) budgetPenalized += 15;
+      } else {
+        budgetPenalized += 15;
+      }
+    }
   } catch (_) {}
   return budgetPenalized;
 }

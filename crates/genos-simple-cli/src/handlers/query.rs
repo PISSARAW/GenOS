@@ -1,5 +1,5 @@
 use std::process::Command;
-use crate::{cargo_program, command_error, exit_on_command_failure};
+use crate::{cargo_program, exit_on_command_failure};
 use crate::commands::query::QueryCommands;
 
 pub fn handle_query(cmd: &QueryCommands, _yes: bool) {

@@ -35,7 +35,7 @@ async function executeToolLogic(toolName, args, runLocal) {
     if (args.scenarios) args.scenarios.forEach(s => cmdParams.push(`--param scenario="${s}"`));
     return runLocal(`genos biomimicry bio-feature --feature bet-hedging --action allocate ${cmdParams.join(' ')}`);
   }
-  if (toolName === 'genos_merge') return runLocal(`genos merge ${args.branch_id} --conditions "${args.conditions}"`);
+  if (toolName === 'genos_merge') return runLocal(`genos merge ${args.branch_id}` + (args.conditions ? ` --conditions "${args.conditions}"` : ''));
   if (toolName === 'genos_export_audit') return runLocal(`genos audit ${args.snapshot_id} --output "${args.output || `audit_${args.snapshot_id}.log`}"`);
   if (toolName === 'genos_cost_accounting') return runLocal(`genos cost-accounting ${args.agent_id} ${args.timeframe ? `--timeframe ${args.timeframe}` : ''}`);
   if (toolName === 'genos_loop_detection_check') {
@@ -130,13 +130,25 @@ async function executeToolLogic(toolName, args, runLocal) {
       }
       const res = await db.run(sql, ...params);
       prunedCount = res?.changes || 0;
-      const doomed = await db.all(`
+      let doomedSql = `
         SELECT g.id FROM genome_decisions g
         LEFT JOIN memory_synapses s ON g.id = s.source_id OR g.id = s.target_id
         WHERE g.synaptic_weight < 0.1
+      `;
+      const doomedParams = [];
+      if (orgId) {
+        doomedSql += ' AND (g.organization_id = ? OR g.organization_id IS NULL)';
+        doomedParams.push(orgId);
+      }
+      if (projId) {
+        doomedSql += ' AND (g.project_id = ? OR g.project_id IS NULL)';
+        doomedParams.push(projId);
+      }
+      doomedSql += `
         GROUP BY g.id
         HAVING COUNT(s.source_id) = 0 AND COUNT(s.target_id) = 0
-      `);
+      `;
+      const doomed = await db.all(doomedSql, ...doomedParams);
       let orphanedPruned = 0;
       if (doomed && doomed.length > 0) {
         const doomedIds = doomed.map(d => d.id);

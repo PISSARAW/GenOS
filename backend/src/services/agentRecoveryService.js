@@ -186,10 +186,11 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     }
     const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: targetId, name, role, mission: prompt });
     const sourceRoot = source.workspace_root || mission.workspaceRoot || process.env.GENOS_WORKSPACE_ROOT || path.resolve(__dirname, '../../..');
+    const capsuleName = `${targetId}_${decision.action}_${report.attempt + 1}`;
     workspaceRoot = await createIsolatedWorkspace(
       sourceRoot,
-      `${targetId}_${decision.action}_${report.attempt + 1}`,
-      path.dirname(sourceRoot)
+      capsuleName,
+      mission.capsuleRoot
     );
     const previousVariant = Number(mission.variantIndex || 0);
     const nextVariant = previousVariant + 1;
@@ -231,7 +232,7 @@ async function dispatchWorkerRecovery(sourceAgentId) {
     activeWorkerRecoveryDispatches.delete(sourceAgentId);
     return true;
   } catch (error) {
-    if (workspaceRoot) await cleanupWorkspace(workspaceRoot, targetId).catch(() => {});
+    if (workspaceRoot) await cleanupWorkspace(workspaceRoot, capsuleName || targetId).catch(() => {});
     await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, targetId).catch(() => {});
     const dispatchAttempts = Number(recovery.dispatchAttempts || 0) + 1;
     emit(orchestratorId, 'WORKER_RECOVERY_DISPATCH_FAILED', decision.action, error.message, {
