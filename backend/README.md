@@ -44,6 +44,7 @@ For the agent-state Git API, its correspondence with Git, and the boundary betwe
 
 ### 1. Persistence & Hybrid Retrieval Engine
 - **SQLite in WAL Mode:** Configured with `PRAGMA journal_mode = WAL`, a configurable durability mode (`FULL` by default), and a bounded mmap size (`268435456` bytes by default, capped at 1 GiB) with in-memory temporary tables. Override these values with `GENOS_SQLITE_SYNCHRONOUS` and `GENOS_SQLITE_MMAP_SIZE`.
+- **Serialized Write Queue & Lock Retries:** Protects against `SQLITE_BUSY` when 100 concurrent workers write simultaneously. Features in-memory tail chaining, `AsyncLocalStorage` transaction nesting, and exponential jittered retries on locks (`withWriteRetry`).
 - **sqlite-vec Integration:** Native fast cosine and L2 vector search over 768-dimensional embeddings.
 - **FTS5 Virtual Tables:** Automated full-text indexing triggers on `trajectories_fts` and `genome_decisions_fts` with French/accent-preserving query tokenization.
 - **Reciprocal Rank Fusion (RRF):** Decoupled vector and BM25 ranking fused at SQL level for resilient hybrid memory search.
