@@ -107,7 +107,8 @@ fn main() {
             }
         },
         Some(Commands::Trinity(cmd)) => handle_trinity_cmd(cmd.subcommand),
-        Some(Commands::Biological(cmd)) => biological::handle(&cmd.mode, &cmd.mission),
+        Some(Commands::Biological(cmd)) => biological::handle(&cmd),
+        Some(Commands::Rhizome(cmd)) => biological::handle_rhizome(&cmd),
         Some(Commands::Swarm(cmd)) => match cmd.subcommand {
             SwarmSubcommands::AlleleAnalyzer { swarm_id } => platform::handle_swarm_alleles(&swarm_id),
         },

@@ -29,3 +29,4 @@ rand = "0.10"
 genos-sensorimotor = { path = "../genos-sensorimotor" }
 crossterm = "0.28"
 ratatui = "0.29"
+gif = "0.13"

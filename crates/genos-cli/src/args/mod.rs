@@ -4,6 +4,7 @@ pub mod biology_extra;
 pub mod store_extra;
 pub mod subcommands;
 pub mod trinity;
+pub mod rhizome;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -12,6 +13,7 @@ pub use biology_extra::*;
 pub use store_extra::*;
 pub use subcommands::*;
 pub use trinity::*;
+pub use rhizome::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -61,6 +63,8 @@ pub enum Commands {
     Trinity(TrinityCmd),
     /// Biological collective deployment
     Biological(BiologicalCmd),
+    /// Rhizome dynamic graph collective and visualization
+    Rhizome(RhizomeCmd),
     /// Swarm telemetry and analysis
     Swarm(SwarmCmd),
     /// Compliance report generation

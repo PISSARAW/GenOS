@@ -1,7 +1,24 @@
-use serde_json::json;
+﻿use serde_json::json;
+use crate::args::{BiologicalCmd, RhizomeCmd, RhizomeSubcommands};
+use crate::commands::rhizome_sim;
 
-pub fn handle(mode: &str, mission: &str) -> Result<(), String> {
-    let mode = mode.trim().to_ascii_lowercase();
+pub fn handle(cmd: &BiologicalCmd) -> Result<(), String> {
+    let mode = cmd.mode.trim().to_ascii_lowercase();
+
+    if cmd.visualize {
+        return rhizome_sim::run(cmd.gif.as_deref());
+    }
+
+    if let Some(gif_path) = &cmd.gif {
+        rhizome_sim::generate_gif(gif_path)?;
+        println!("{}", json!({
+            "success": true,
+            "operation": "rhizome_gif_export",
+            "file": gif_path
+        }));
+        return Ok(());
+    }
+
     let roles = match mode.as_str() {
         "biome" => ["environment_mapper", "resource_steward", "population_specialist", "ecosystem_observer"],
         "syncytium" => ["shared_state_coordinator", "parallel_executor", "consistency_guardian", "integration_executor"],
@@ -11,14 +28,14 @@ pub fn handle(mode: &str, mission: &str) -> Result<(), String> {
         "metapopulation" => ["population_isolator", "quorum_sensor", "synaptic_adaptor", "regeneration_steward"],
         _ => return Err("mode must be biome, syncytium, holobionte, biocenose, rhizome, or metapopulation".to_string()),
     };
-    if mission.trim().is_empty() {
+    if cmd.mission.trim().is_empty() {
         return Err("mission must not be empty".to_string());
     }
     println!("{}", json!({
         "success": true,
         "operation": "biological_mode",
         "mode": mode,
-        "mission": mission,
+        "mission": cmd.mission,
         "mechanisms": if mode == "metapopulation" { json!(["quorum_sensing", "synaptic_plasticity", "regeneration"]) } else { json!([]) },
         "members": roles.iter().enumerate().map(|(index, role)| json!({
             "member_number": index + 1,
@@ -26,4 +43,24 @@ pub fn handle(mode: &str, mission: &str) -> Result<(), String> {
         })).collect::<Vec<_>>()
     }));
     Ok(())
+}
+
+pub fn handle_rhizome(cmd: &RhizomeCmd) -> Result<(), String> {
+    match &cmd.subcommand {
+        Some(RhizomeSubcommands::Visualize { gif }) => {
+            rhizome_sim::run(gif.as_deref())
+        }
+        Some(RhizomeSubcommands::Gif { output }) => {
+            rhizome_sim::generate_gif(output)?;
+            println!("{}", json!({
+                "success": true,
+                "operation": "rhizome_gif_export",
+                "file": output
+            }));
+            Ok(())
+        }
+        None => {
+            rhizome_sim::run(Some("artifacts/rhizome_simulation.gif"))
+        }
+    }
 }
