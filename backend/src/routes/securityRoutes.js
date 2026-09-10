@@ -5,13 +5,15 @@
 const express = require('express');
 const router = express.Router();
 const securityController = require('../controllers/securityController');
-const { requirePermission, requireRole } = require('../middleware/auth');
+const { requireRole } = require('../middleware/auth');
 const { issueCsrfToken } = require('../middleware/security');
 
 router.get('/security/csrf', issueCsrfToken);
-router.post('/security/kill-switch', requirePermission('emergency_kill'), securityController.triggerKillSwitch);
+// The global kill switch halts every MCP tool and managed runtime: it is an
+// admin action, NOT the same privilege as `emergency_kill` (chaos/incident).
+router.post('/security/kill-switch', requireRole(['admin']), securityController.triggerKillSwitch);
 router.post('/security/kill-switch/reset', requireRole(['admin']), securityController.resetKillSwitch);
-router.post('/halt', requirePermission('emergency_kill'), securityController.globalHalt);
+router.post('/halt', requireRole(['admin']), securityController.globalHalt);
 router.get('/security/status', requireRole(['admin']), securityController.getSecurityStatus);
 
 module.exports = router;
