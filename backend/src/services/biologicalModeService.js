@@ -1,3 +1,5 @@
+const symbioteRuntime = require('./symbioteRuntimeService');
+
 const MODE_DEFINITIONS = {
   biome: {
     label: 'Biome',
@@ -83,6 +85,8 @@ function compose(mode, mission) {
     mechanisms: definition.mechanisms || [],
     modelTier: index === 0 || index === 2 ? 'frontier' : 'standard',
     memberNumber: index + 1,
+    // Holobionte Symbiotes run on a local inference runtime (see symbioteRuntimeService); other modes stay cloud.
+    engine: symbioteRuntime.engineFor(role),
     mission: `${definition.label} shared mission: ${goal}\nCollective principle: ${definition.description}\nRole hypothesis: ${definition.hypotheses[index]}\nReturn evidence, state changes, and integration constraints to the orchestrator.`
   }));
 }
