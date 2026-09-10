@@ -32,16 +32,28 @@ function applyKind(state, kind) {
   }
 }
 
+// Only a genuine [start, end] pair of finite numbers is a valid selection;
+// strings, empty arrays and malformed tuples fall back to the caret position.
+function normalizeSelection(selection, column) {
+  if (Array.isArray(selection)
+    && selection.length === 2
+    && selection.every((value) => Number.isFinite(value))) {
+    return selection;
+  }
+  return [column, column];
+}
+
 function updateCursor(state, op) {
   if (op.kind?.type !== 'update_cursor') return;
-  const { line = 1, column = 1, selection = [column, column] } = op.kind;
+  const { line = 1, column = 1 } = op.kind;
+  const selection = normalizeSelection(op.kind.selection, column);
   state.cursors[op.agentId] = {
     agentId: op.agentId,
     role: op.role,
     line,
     column,
-    selectionStart: selection[0] ?? column,
-    selectionEnd: selection[1] ?? column,
+    selectionStart: selection[0],
+    selectionEnd: selection[1],
     color: roleColor(op.role),
     lastActiveMs: op.timestampMs
   };
