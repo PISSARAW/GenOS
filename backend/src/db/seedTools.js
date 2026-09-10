@@ -276,8 +276,10 @@ const MCP_TOOLS_LIST = [
 
 async function seedMcpTools(db) {
   for (const t of MCP_TOOLS_LIST) {
+    // INSERT OR IGNORE (not REPLACE): re-seeding must never silently reopen a
+    // quarantined tool (is_locked=1) or reset its circuit_state to CLOSED.
     await db.run(
-      `INSERT OR REPLACE INTO mcp_tools (id, name, provider, category, risk_level, description, actions_json, is_locked, circuit_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR IGNORE INTO mcp_tools (id, name, provider, category, risk_level, description, actions_json, is_locked, circuit_state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       t.name, t.name, 'genos', t.cat, t.risk, t.desc, JSON.stringify([t.name]), 0, 'CLOSED'
     );
   }
