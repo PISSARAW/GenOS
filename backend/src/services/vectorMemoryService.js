@@ -114,6 +114,7 @@ class VectorMemoryService {
     let topItems = scoredItems.slice(0, limitToUse);
 
     // GABAergic Synaptic Inhibition: filter out memories with active negative synapses
+    let inhibitedIds = new Set();
     const candidateIds = scoredItems.map(i => i.id).filter(Boolean);
     if (candidateIds.length > 0 && db) {
       try {
@@ -127,7 +128,7 @@ class VectorMemoryService {
             HAVING SUM(CASE WHEN s.transmitter_type = 'gaba' THEN -ABS(s.weight) ELSE s.weight END) < 0`,
           options.organizationId ? [...candidateIds, options.organizationId] : candidateIds
         );
-        const inhibitedIds = new Set(inhibitions.map(i => i.target_id));
+        inhibitedIds = new Set(inhibitions.map(i => i.target_id));
         for (const item of scoredItems) {
           if (inhibitedIds.has(item.id)) item.inhibitorySignal = 'active';
         }
@@ -167,7 +168,11 @@ class VectorMemoryService {
       organizationId: options.organizationId,
       projectId: options.projectId
     });
-    const allScored = [...new Map([...scoredItems, ...connectedItems].map((item) => [item.id, item])).values()];
+    let mergedPool = [...scoredItems, ...connectedItems];
+    if (!options.includeInhibited && inhibitedIds.size > 0) {
+      mergedPool = mergedPool.filter(item => !inhibitedIds.has(item.id));
+    }
+    const allScored = [...new Map(mergedPool.map((item) => [item.id, item])).values()];
 
     // Reconsolidation par le rappel (Active Retrieval Potentiation)
     if (db && topItems.length > 0) {

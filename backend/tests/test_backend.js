@@ -6,6 +6,11 @@
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+
+const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
+const coreWorkspacePath = path.join(__dirname, `.tmp-ws-genos-core-${process.pid}`);
+process.env.GENOS_DB_PATH = testDbPath;
+
 const { TEST_ADMIN_TOKEN } = require('../testAuth');
 const { createApp } = require('../src/app');
 const { getDatabase, closeDatabase, withTransaction } = require('../src/db');
@@ -61,9 +66,6 @@ function request(options, body = null) {
 
 async function runTests() {
   console.log('=== STARTING GENOS BACKEND VERIFICATION SUITE ===\n');
-  const testDbPath = path.resolve(__dirname, `test_genos_${process.pid}.db`);
-  const coreWorkspacePath = path.join(__dirname, `.tmp-ws-genos-core-${process.pid}`);
-  process.env.GENOS_DB_PATH = testDbPath;
   for (const ext of ['', '-wal', '-shm']) {
     const p = testDbPath + ext;
     if (fs.existsSync(p)) {

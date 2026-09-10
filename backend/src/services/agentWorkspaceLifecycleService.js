@@ -1,4 +1,5 @@
 const { walk, spawnGit } = require('../utils/fs');
+const { spawn } = require('child_process');
 /**
  * Worktree lifecycle for isolated agent capsules.
  *
@@ -72,14 +73,15 @@ async function withGitRepoLock(repoPath, fn) {
   try {
     await previous;
     let attempts = 0;
-    const maxAttempts = 5;
+    const maxAttempts = 10;
     while (attempts < maxAttempts) {
       try {
         return await fn();
       } catch (err) {
         attempts++;
-        if (attempts < maxAttempts && /index\.lock|cannot lock ref/i.test(err.message || '')) {
-          await new Promise((r) => setTimeout(r, 100 * Math.pow(2, attempts - 1)));
+        if (attempts < maxAttempts && /index\.lock|cannot lock ref|locked|already exists/i.test(err.message || '')) {
+          const delay = Math.floor(100 * Math.pow(1.5, attempts - 1) + Math.random() * 100);
+          await new Promise((r) => setTimeout(r, delay));
           continue;
         }
         throw err;

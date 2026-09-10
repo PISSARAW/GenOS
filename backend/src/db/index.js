@@ -18,15 +18,21 @@ const transactionTails = new WeakMap();
 const transactionStorage = new AsyncLocalStorage();
 
 async function getDatabase(dbFilePath) {
+  if (dbFilePath) {
+    const targetPath = path.resolve(dbFilePath);
+    process.env.GENOS_DB_PATH = targetPath;
+    if (dbInstance) {
+      if (currentDbPath === targetPath) {
+        return dbInstance;
+      }
+      await closeDatabase();
+    }
+  } else if (dbInstance) {
+    return dbInstance;
+  }
+
   const defaultPath = process.env.GENOS_DB_PATH || path.resolve(__dirname, '../../genos.db');
   const filename = dbFilePath ? path.resolve(dbFilePath) : path.resolve(defaultPath);
-
-  if (dbInstance) {
-    if (currentDbPath === filename) {
-      return dbInstance;
-    }
-    await closeDatabase();
-  }
 
   // Requests may reach the backend while it is still bootstrapping.  Reuse the
   // same connection/bootstrap promise instead of running two seed passes in

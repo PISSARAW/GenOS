@@ -412,15 +412,19 @@ Dans [backend/src/services/agentWorkspaceLifecycleService.js](../backend/src/ser
 
 Si une copie dépasse les seuils, le système refuse explicitement la branche.
 
-### 13.3 Fan-out de workers
+### 13.3 Fan-out et capacité de workers
 
-Dans [backend/src/services/agentFleetService.js](../backend/src/services/agentFleetService.js) :
+Dans [backend/src/services/agentFleetWorkers.js](../backend/src/services/agentFleetWorkers.js) et [backend/src/services/workerGarageService.js](../backend/src/services/workerGarageService.js) :
 
-```text
-MAX_AUTONOMOUS_WORKERS = 3
-```
+- Par défaut : `MAX_ACTIVE_WORKERS = 3`, `MAX_AUTONOMOUS_WORKERS = 3` et capacité de projet `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT = 12`.
+- Paramétrable pour les déploiements à grande échelle (jusqu'à 100+ agents) :
+  - `GENOS_MAX_ACTIVE_WORKERS` : nombre maximal d'ouvriers actifs par orchestrateur (ex: `100`).
+  - `GENOS_MAX_AUTONOMOUS_WORKERS` : limite de fan-out simultané lors de la création d'une flotte autonome.
+  - `GENOS_MAX_ACTIVE_WORKERS_PER_PROJECT` : plafond total de workers actifs par projet (s'adapte automatiquement à `GENOS_MAX_ACTIVE_WORKERS`).
+  - `GENOS_INFERENCE_MAX_CONCURRENT` et `GENOS_INFERENCE_TENANT_QUEUE_CAPACITY` : régulation de la file d'inférence (adaptée automatiquement à la taille de la flotte).
+  - `GENOS_SQLITE_BUSY_TIMEOUT_MS` : délai de verrouillage SQLite (30 000 ms par défaut).
 
-et toute tentative de dépasser cette limite échoue avec `WORKER_FANOUT_LIMIT`.
+Pour opérer 100 agents simultanément de façon optimale, il est recommandé de structurer la mission en **tissus cellulaires** (ex: 10 escouades de 10 agents avec chacune sa cellule souche) plutôt qu'un essaim plat en *hub-and-spoke*.
 
 ### 13.4 Recursion / boucle de reprise
 

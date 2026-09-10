@@ -1,5 +1,9 @@
-const MAX_MEMBERS = 3;
+const DEFAULT_MAX_MEMBERS = 3;
 
+function maxMembers() {
+  const configured = Number(process.env.GENOS_MAX_ATEAM_MEMBERS || process.env.GENOS_MAX_AUTONOMOUS_WORKERS || process.env.GENOS_MAX_ACTIVE_WORKERS);
+  return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : DEFAULT_MAX_MEMBERS;
+}
 const TECHNICAL_DOMAIN_RULES = [
   {
     domain: 'frontend', role: 'frontend_engineer', modelTier: 'standard',
@@ -127,7 +131,7 @@ function analyzeMission(mission) {
   if (FICTION_ARTIFACT.test(text) && CREATIVE_ACTION.test(text)) return fictionAnalysis();
 
   const domains = detectTechnicalDomains(text);
-  const selected = domains.slice(0, MAX_MEMBERS);
+  const selected = domains.slice(0, maxMembers());
   const requiredCapabilities = domains.map(({ domain, score }) => ({ name: domain, weight: score }));
   const members = selected.map(({ domain, role, modelTier, score }) => ({
     label: domain,
@@ -157,10 +161,11 @@ function compose({ projectGoal, subSystems, assignedRoles = [], modelTiers = [],
   const systems = [...new Set((Array.isArray(subSystems) ? subSystems : []).map((value) => String(value).trim()).filter(Boolean))];
   const roles = Array.isArray(assignedRoles) ? assignedRoles : [];
   const tiers = Array.isArray(modelTiers) ? modelTiers : [];
-  const freeSlots = Number.isFinite(Number(available)) ? Number(available) : MAX_MEMBERS;
+  const capacity = maxMembers();
+  const freeSlots = Number.isFinite(Number(available)) ? Number(available) : capacity;
   if (!goal) throw Object.assign(new Error('A-Team project_goal is required.'), { code: 'A_TEAM_GOAL_REQUIRED' });
   if (systems.length < 2) throw Object.assign(new Error('A-Team requires at least two distinct competency domains.'), { code: 'A_TEAM_MULTIDISCIPLINARY_REQUIRED' });
-  if (systems.length > MAX_MEMBERS) throw Object.assign(new Error('A-Team is limited to three active competency domains.'), { code: 'A_TEAM_CAPACITY_EXCEEDED' });
+  if (systems.length > capacity) throw Object.assign(new Error(`A-Team is limited to ${capacity} active competency domains.`), { code: 'A_TEAM_CAPACITY_EXCEEDED' });
   if (systems.length > freeSlots) throw Object.assign(new Error(`A-Team requires ${systems.length} free slots but only ${freeSlots} are available.`), { code: 'WORKER_GARAGE_FULL' });
   return systems.map((subSystem, index) => ({
     subSystem,
@@ -170,4 +175,12 @@ function compose({ projectGoal, subSystems, assignedRoles = [], modelTiers = [],
   }));
 }
 
-module.exports = { analyzeMission, compose, detectTechnicalDomains };
+module.exports = {
+  get MAX_MEMBERS() {
+    return maxMembers();
+  },
+  maxMembers,
+  analyzeMission,
+  compose,
+  detectTechnicalDomains
+};
