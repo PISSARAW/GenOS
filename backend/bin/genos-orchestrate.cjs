@@ -170,7 +170,7 @@ async function main() {
       const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
       const context = request.args && typeof request.args === 'object' ? { ...request.args } : { ...(request.context || {}) };
       if (request.agentId && !context.agentId) context.agentId = request.agentId;
-      if (request.orchestratorId && !context.orchestratorId) context.orchestratorId = request.orchestratorId;
+      if (orchestratorId && !context.orchestratorId) context.orchestratorId = orchestratorId;
       const result = await strategyExecutionAdapter.executePrimitive(primitive, context);
       process.stdout.write(JSON.stringify(result));
       return;
@@ -178,7 +178,7 @@ async function main() {
     if (action === 'change_strategy') {
       const transition = await strategyAdaptation.changeStrategy(db, {
         orchestratorId,
-        need: request.need,
+        need: request.need || request.strategy,
         reason: request.reason,
         problemProfile: request.problem_profile,
         maxCostLevel: request.max_cost_level,
