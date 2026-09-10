@@ -252,16 +252,6 @@ pub enum TrinitySubcommands {
 }
 
 #[derive(Args, Debug)]
-pub struct BiologicalCmd {
-    /// Biological organization: biome, syncytium, holobionte, or biocenose
-    #[arg(long)]
-    pub mode: String,
-    /// Mission shared by the collective
-    #[arg(long)]
-    pub mission: String,
-}
-
-#[derive(Args, Debug)]
 pub struct SwarmCmd {
     #[command(subcommand)]
     pub subcommand: SwarmSubcommands,

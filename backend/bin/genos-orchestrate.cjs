@@ -16,6 +16,7 @@ const strategyAdaptation = require('../src/services/strategyAdaptationService');
 const userProgress = require('../src/services/userProgressService');
 const orchestrationCoverage = require('../src/services/orchestrationCoverageService');
 const { normalizeAllowedCommands } = require('../src/services/sandboxCommandPolicy');
+const { handleAction, handleBackground, initializeMission } = require('./orchestratorActions.cjs');
 
 if (process.env.GENOS_STREAM_TELEMETRY === '1') {
   telemetry.on('telemetry', (evt) => {
@@ -61,430 +62,60 @@ function tokenUsage(runs) {
   return { executionRuns, totalTokens: executionRuns.reduce((sum, run) => sum + run.tokens, 0), allRunsCompleted: executionRuns.length > 0 && executionRuns.every((run) => run.status === 'completed') };
 }
 
-async function main() {
-  const initDb = await getDatabase();
-  try {
-    await runtime.reconcilePersistedRuntimes(initDb);
-    const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
-    if (!orchestratorId) {
-      if (!topLevelMissionActions.has(action)) {
-        const active = await initDb.get(`
-          SELECT a.id FROM agents a
-          WHERE a.execution_mode = 'orchestrator'
-            AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error')
-            AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL)
-          ORDER BY a.updated_at DESC, a.created_at DESC
-          LIMIT 1
-        `);
-        if (active) orchestratorId = active.id;
-      }
-      if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-    }
-    if (!id) {
-      id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : orchestratorId;
-    }
-  } finally {
-    // Keep it open, we'll reuse getDatabase() below since it's cached/singleton in most implementations, or just let the rest of the code call it.
+async function prepareRuntime(initDb) {
+  await runtime.reconcilePersistedRuntimes(initDb);
+  const topLevelMissionActions = new Set(['orchestrate', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological']);
+  if (!orchestratorId && !topLevelMissionActions.has(action)) {
+    const active = await initDb.get(`SELECT a.id FROM agents a WHERE a.execution_mode = 'orchestrator' AND a.status NOT IN ('completed', 'terminated', 'apoptosis', 'error') AND (a.is_apoptotic = 0 OR a.is_apoptotic IS NULL) ORDER BY a.updated_at DESC, a.created_at DESC LIMIT 1`);
+    if (active) orchestratorId = active.id;
   }
+  if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  if (!id) id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : orchestratorId;
+}
 
-  // MCP tool calls are request/response interactions. Do not hold the response
-  // open for the whole mission: return the durable agent ID immediately and
-  // let a detached runner own its lifecycle and final telemetry.
-  if (request.background === true) {
-    let reusableWorker = null;
-    if (action === 'dispatch_worker' && !request.workerId) {
-      const lookupDb = await getDatabase();
-      try {
-        reusableWorker = await workerGarage.findReusableWorker(lookupDb, orchestratorId, {
-          mission: task,
-          role: String(request.role || 'implementation')
-        });
-        if (reusableWorker) id = reusableWorker.id;
-      } finally {
-        await closeDatabase();
-      }
-    }
-    const detachedProcessId = `orchestrator-runner-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const runnerRequest = {
-      ...request,
-      background: false,
-      detachedProcessId,
-      orchestratorId,
-      workerId: action === 'dispatch_worker' ? id : request.workerId,
-      ...(action === 'dispatch_worker' ? {
-        reuseChecked: true,
-        reuseWorkerId: reusableWorker?.id || null
-      } : {})
-    };
-    const runner = spawn(process.execPath, [__filename, JSON.stringify(runnerRequest)], {
-      cwd: path.resolve(__dirname, '../..'),
-      detached: true,
-      stdio: 'ignore'
-    });
-    runner.unref();
-    const trackingDb = await getDatabase();
-    await trackingDb.exec(`CREATE TABLE IF NOT EXISTS detached_processes (
-      id TEXT PRIMARY KEY, pid INTEGER NOT NULL, kind TEXT NOT NULL, owner_id TEXT,
-      command TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-    await trackingDb.run('INSERT INTO detached_processes (id, pid, kind, owner_id, command) VALUES (?, ?, ?, ?, ?)', detachedProcessId, runner.pid, 'orchestrator', orchestratorId, process.execPath);
-    await closeDatabase();
-    process.stdout.write(JSON.stringify({
-      orchestratorId,
-      detachedProcessId,
-      runnerPid: runner.pid,
-      ...(action === 'dispatch_worker' ? {
-        workerId: id,
-        reusedWorker: Boolean(reusableWorker),
-        ...(reusableWorker ? { matchedScope: reusableWorker.affinity.shared } : {})
-      } : {}),
-      status: 'accepted',
-      acceptedAt: new Date().toISOString(),
-      task
-    }));
+async function executeMission(db, state) {
+  await initializeMission({ db, action, orchestratorId, task });
+  const actionContext = { db, action, request, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, waitForCompletion };
+  if (await handleAction(actionContext)) {
+    state.delegatedWorkerId = actionContext.delegatedWorkerId || null;
+    state.reusedWorker = Boolean(actionContext.reusedWorker);
     return;
   }
+  await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task) VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
+  await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
+  const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
+  await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task, modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {}, executionPolicy: { allowedCommands, allowFileEdits }, silentUpdates: policyRequest.silent_updates === true, autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
+  const agents = await waitForCompletion(db);
+  const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+  const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
+  const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
+  telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
+  process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
+}
 
-  const db = await getDatabase();
-  let delegatedWorkerId = null;
-  let reusedWorker = false;
-  try {
-    if (['dispatch_worker', 'dispatch_team', 'dispatch_trinity', 'dispatch_biological'].includes(action)) {
-      await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-        VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-      const existingContract = await contracts.getLatestContract(db, orchestratorId);
-      if (!existingContract) {
-        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
-      }
-    }
-    if (action === 'report_progress') {
-      let parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
-      if (!parent) {
-        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-        parent = await db.get("SELECT id FROM agents WHERE id = ? AND execution_mode = 'orchestrator'", orchestratorId);
-      }
-      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      const result = userProgress.report({
-        orchestratorId,
-        sourceAgentId: process.env.GENOS_AGENT_ID || orchestratorId,
-        phase: request.phase || request.stage || 'in_progress',
-        message: request.message || request.status || request.description || request.detail || request.phase || 'Progress update',
-        progressPercent: request.progress_percent ?? request.progressPercent ?? request.progress,
-        completed: request.completed,
-        next: request.next,
-        blockers: request.blockers,
-        silent: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || ''))
-      });
-      process.stdout.write(JSON.stringify(result));
-      return;
-    }
-    if (action === 'execute_primitive') {
-      const primitive = String(request.primitive || request.primitive_name || '').trim();
-      if (!primitive) throw new Error('primitive_name is required.');
-      const strategyExecutionAdapter = require('../src/services/strategyExecutionAdapter');
-      const context = request.args && typeof request.args === 'object' ? { ...request.args } : { ...(request.context || {}) };
-      if (request.agentId && !context.agentId) context.agentId = request.agentId;
-      if (orchestratorId && !context.orchestratorId) context.orchestratorId = orchestratorId;
-      const result = await strategyExecutionAdapter.executePrimitive(primitive, context);
-      process.stdout.write(JSON.stringify(result));
-      return;
-    }
-    if (action === 'change_strategy') {
-      const transition = await strategyAdaptation.changeStrategy(db, {
-        orchestratorId,
-        need: request.need || request.strategy,
-        reason: request.reason,
-        problemProfile: request.problem_profile,
-        maxCostLevel: request.max_cost_level,
-        allowExperimental: request.allow_experimental,
-        allowPrototype: request.allow_prototype,
-        allowExperimentalAtHighRisk: request.allow_experimental_at_high_risk,
-        executionBudget: request.execution_budget
-      });
-      telemetry.emitEvent({
-        eventType: transition.changed ? 'STRATEGY_CHANGED' : 'STRATEGY_RETAINED',
-        agentId: orchestratorId,
-        action: transition.changed ? 'RESELECT_STRATEGY' : 'KEEP_STRATEGY',
-        detail: transition.changed
-          ? `Changed primary strategy from '${transition.previous.primary}' to '${transition.current.primary}' after evaluating all ${transition.registryEvaluated || 78} strategies.`
-          : transition.reason,
-        payload: transition,
-        severity: 'info'
-      });
-      process.stdout.write(JSON.stringify(transition));
-      return;
-    }
-    if (action === 'change_organization') {
-      const transition = await dynamicOrganization.changeOrganization(db, {
-        orchestratorId,
-        organization: request.organization,
-        reason: request.reason,
-        changedBy: process.env.GENOS_AGENT_ID || orchestratorId
-      });
-      if (transition.changed) {
-        telemetry.emitEvent({
-          eventType: 'ORGANIZATION_CHANGED', agentId: orchestratorId, action: 'REORGANIZE',
-          detail: `Changed organization from '${transition.previous || 'none'}' to '${transition.organization}'.`,
-          payload: transition, severity: 'info'
-        });
-      }
-      process.stdout.write(JSON.stringify(transition));
-      return;
-    }
-    if (action === 'organization_publish') {
-      const senderAgentId = process.env.GENOS_AGENT_ID || request.senderAgentId || orchestratorId;
-      const published = await dynamicOrganization.publish(db, {
-        orchestratorId, senderAgentId, recipientAgentId: request.recipientAgentId || request.recipient_agent_id,
-        kind: request.kind, content: request.content, payload: request.payload
-      });
-      telemetry.emitEvent({
-        eventType: published.delivery === 'buffered' ? 'ORGANIZATION_MESSAGE_BUFFERED' : 'ORGANIZATION_MESSAGE_PUBLISHED',
-        agentId: senderAgentId, action: published.channel, detail: `Published ${published.kind} through ${published.organization}.`,
-        payload: { ...published, sender: senderAgentId, recipient: published.recipientAgentId }, severity: 'info'
-      });
-      process.stdout.write(JSON.stringify(published));
-      return;
-    }
-    if (action === 'organization_inbox' || action === 'organization_state') {
-      const requesterAgentId = process.env.GENOS_AGENT_ID || request.requesterAgentId || orchestratorId;
-      const result = action === 'organization_state'
-        ? await dynamicOrganization.getStateForMember(db, orchestratorId, requesterAgentId)
-        : await dynamicOrganization.inbox(db, {
-          orchestratorId, requesterAgentId, afterId: request.after_id, limit: request.limit
-        });
-      process.stdout.write(JSON.stringify(result || {
-        orchestratorId,
-        organization: 'specialist_expert_committee',
-        version: 0,
-        policy: { topology: 'hub_and_spoke', exchange: 'indirect', visibility: 'attributed', routing: 'orchestrator' },
-        reason: 'Default initial topology'
-      }));
-      return;
-    }
-    if (action === 'dispatch_trinity') {
-      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
-        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      }
-      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      if (!await contracts.getLatestContract(db, orchestratorId)) {
-        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
-      }
-      const garage = await workerGarage.state(db, orchestratorId);
-      if (garage.available < 3) {
-        const error = new Error(`Trinity requires three free worker slots, but only ${garage.available} are available.`);
-        error.code = 'WORKER_GARAGE_FULL';
-        throw error;
-      }
-      const trinityMission = request.mission || request.project_goal || request.goal || 'Trinity comparative mission';
-      const members = trinityService.compose(trinityMission);
-      const missionId = `trinity_${orchestratorId}_${Date.now()}`;
-      const accepted = [];
-      for (const member of members) {
-        const workerId = `worker_${orchestratorId}_${Date.now()}_${member.worldNumber}_${Math.random().toString(36).slice(2, 6)}`;
-        const name = `Trinity Worker (World ${member.worldNumber}: ${member.label})`;
-        await db.run(
-          `INSERT INTO trinity_worlds (id, mission, world_number, name, strategy, status, agent_id)
-           VALUES (?, ?, ?, ?, ?, 'queued', ?)`,
-          `${missionId}_world_${member.worldNumber}`, trinityMission, member.worldNumber, name, member.role, workerId
-        );
-        const runner = spawn(process.execPath, [__filename, JSON.stringify({
-          action: 'dispatch_worker', background: false, orchestratorId, workerId,
-          name, mission: member.mission, role: member.role, model_tier: member.modelTier,
-          execution_budget: request.execution_budget,
-          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-          reuseChecked: true
-        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
-        runner.unref();
-        accepted.push({ workerId, worldNumber: member.worldNumber, strategy: member.role, status: 'accepted' });
-      }
-      process.stdout.write(JSON.stringify({
-        orchestratorId,
-        trinity: { status: 'accepted', mission: trinityMission, capacity: workerGarage.MAX_ACTIVE_WORKERS, worlds: accepted }
-      }));
-      return;
-    }
-    if (action === 'dispatch_team') {
-      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
-        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      }
-      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      if (!await contracts.getLatestContract(db, orchestratorId)) {
-        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
-      }
-      const garage = await workerGarage.state(db, orchestratorId);
-      const subSystems = Array.isArray(request.sub_systems)
-        ? request.sub_systems
-        : Array.isArray(request.subsystems)
-          ? request.subsystems
-          : typeof (request.sub_systems || request.subsystems) === 'string'
-            ? (request.sub_systems || request.subsystems).split(',').map((s) => s.trim()).filter(Boolean)
-            : [];
-      const projectGoal = request.project_goal || request.projectGoal || request.goal || request.mission || task;
-      const members = aTeamService.compose({
-        projectGoal,
-        subSystems,
-        assignedRoles: request.assigned_roles || request.assignedRoles,
-        modelTiers: request.model_tiers || request.modelTiers,
-        available: garage.available
-      });
-      const accepted = members.map((member, index) => {
-        const workerId = `worker_${orchestratorId}_${Date.now()}_${index + 1}_${Math.random().toString(36).slice(2, 6)}`;
-        const runner = spawn(process.execPath, [__filename, JSON.stringify({
-          action: 'dispatch_worker', background: false, orchestratorId, workerId,
-          mission: member.mission, role: member.role, model_tier: member.modelTier,
-          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-          reuseChecked: true
-        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
-        runner.unref();
-        return { workerId, subSystem: member.subSystem, role: member.role, modelTier: member.modelTier, status: 'accepted' };
-      });
-      process.stdout.write(JSON.stringify({
-        orchestratorId,
-        aTeam: { status: 'accepted', projectGoal, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
-      }));
-      return;
-    }
-    if (action === 'dispatch_biological') {
-      let parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      if (parent && (parent.is_apoptotic || ['apoptosis', 'completed', 'terminated', 'error'].includes(parent.status))) {
-        orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-          VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, orchestratorId, task);
-        parent = await db.get("SELECT a.id, a.status, a.is_apoptotic, w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'", orchestratorId);
-      }
-      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      if (!await contracts.getLatestContract(db, orchestratorId)) {
-        await contracts.saveContract(db, { agentId: orchestratorId, problem: task, createdBy: 'mcp_' + action });
-      }
-      const mode = String(request.mode || '').trim().toLowerCase();
-      const mission = request.mission || request.project_goal || request.goal || task;
-      const members = biologicalMode.compose(mode, mission);
-      const garage = await workerGarage.state(db, orchestratorId);
-      if (garage.available < members.length) {
-        const error = new Error(`${mode} requires ${members.length} free worker slots, but only ${garage.available} are available.`);
-        error.code = 'WORKER_GARAGE_FULL';
-        throw error;
-      }
-      const accepted = members.map((member) => {
-        const workerId = `worker_${orchestratorId}_${Date.now()}_${member.memberNumber}_${Math.random().toString(36).slice(2, 6)}`;
-        const runner = spawn(process.execPath, [__filename, JSON.stringify({
-          action: 'dispatch_worker', background: false, orchestratorId, workerId,
-          mission: member.mission, role: member.role, model_tier: member.modelTier,
-          workspace_root: request.workspace_root || parent.workspace_root || process.env.GENOS_WORKSPACE_ROOT,
-          reuseChecked: true
-        })], { cwd: path.resolve(__dirname, '../..'), detached: true, stdio: 'ignore' });
-        runner.unref();
-        return { workerId, memberNumber: member.memberNumber, role: member.role, modelTier: member.modelTier, status: 'accepted' };
-      });
-      process.stdout.write(JSON.stringify({
-        orchestratorId,
-        biologicalMode: {
-          status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS,
-          mechanisms: members[0]?.mechanisms || [], members: accepted
-        }
-      }));
-      return;
-    }
-    if (action === 'dispatch_worker') {
-      const parent = await db.get(`SELECT a.id, a.name, a.agent_type, a.workspace_id, a.fleet_id, a.model_tier, a.language, a.isolation_mode,
-        w.path as workspace_root FROM agents a LEFT JOIN workspaces w ON w.id = a.workspace_id WHERE a.id = ? AND a.execution_mode = 'orchestrator'`, orchestratorId);
-      if (!parent) throw new Error(`Orchestrator '${orchestratorId}' was not found.`);
-      const role = String(request.role || 'implementation');
-      let reusable = null;
-      if (request.reuseWorkerId) {
-        const selected = await db.get(
-          `SELECT id, name, role, about, model_tier as modelTier, language, isolation_mode as isolationMode
-           FROM agents WHERE id = ? AND parent_agent_id = ? AND execution_mode = 'worker' AND status = 'idle'`,
-          request.reuseWorkerId, orchestratorId
-        );
-        const affinity = workerGarage.reuseAffinity(selected, { mission: task, role });
-        if (!affinity) throw new Error(`Selected worker '${request.reuseWorkerId}' is no longer idle or the mission is outside its scope.`);
-        reusable = { ...selected, affinity };
-        id = selected.id;
-      } else if (request.reuseChecked !== true) {
-        reusable = await workerGarage.findReusableWorker(db, orchestratorId, { mission: task, role });
-        if (reusable) id = reusable.id;
-      }
-      reusedWorker = Boolean(reusable);
-      await workerGarage.requireAvailableSlot(db, orchestratorId, reusedWorker ? id : null);
-      const name = String(request.name || workerGarage.workerName({ role, mission: task }));
-      const samePath = (a, b) => a && b && (process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b));
-      if (request.workspace_root && !samePath(request.workspace_root, sourceWorkspace)) {
-        throw new Error(`Requested workspace root does not match orchestrator workspace '${sourceWorkspace}'.`);
-      }
-      const capsuleId = reusedWorker ? `${id}_run_${Date.now()}` : id;
-      const workspaceRoot = await runtime.createIsolatedWorkspace(sourceWorkspace, capsuleId, path.dirname(sourceWorkspace));
-      if (!reusedWorker) {
-        await db.run(`INSERT INTO agents (id, name, role, status, agent_type, execution_mode, workspace_id, fleet_id, model_tier, language, isolation_mode, parent_agent_id, lineage_relation, about, current_task)
-          VALUES (?, ?, ?, 'idle', ?, 'worker', ?, ?, ?, ?, ?, ?, 'garage_delegation', ?, ?)`,
-          id, name, role, parent.agent_type || 'GenOS', parent.workspace_id || null, parent.fleet_id || null,
-          request.model_tier || parent.model_tier || 'standard', parent.language || 'TypeScript', parent.isolation_mode || 'Branch', orchestratorId,
-          `Worker scope: ${task}`, task);
-      }
-      delegatedWorkerId = id;
-      const garage = await workerGarage.reserveSlot(db, { orchestratorId, workerId: id, name, role, mission: task });
-      const strategyContract = await contracts.getLatestContract(db, orchestratorId);
-      if (!strategyContract) throw new Error(`No strategy contract is available for orchestrator '${orchestratorId}'.`);
-      let inheritedCommands = [];
-      try { inheritedCommands = normalizeAllowedCommands(JSON.parse(process.env.GENOS_ALLOWED_COMMANDS_JSON || '[]')) || []; } catch { inheritedCommands = []; }
-      await runtime.startMission({
-        agentId: id, name, role, prompt: task, modelTier: request.model_tier || reusable?.modelTier || parent.model_tier,
-        workspaceRoot, workspaceIsolation: parent.isolation_mode, workspaceId: parent.workspace_id,
-        fleetId: parent.fleet_id, agentType: parent.agent_type, orchestratorAgentId: orchestratorId,
-        strategyContract: strategyContract.contract, executionBudget: request.execution_budget || {},
-        executionPolicy: {
-          allowedCommands: Array.isArray(inheritedCommands) ? inheritedCommands : [],
-          allowFileEdits: /^(1|true)$/i.test(String(process.env.GENOS_ALLOW_FILE_EDITS || '')),
-          silentUpdates: /^(1|true)$/i.test(String(process.env.GENOS_SILENT_UPDATES || ''))
-        },
-        toolLease: runtime.workerToolLease(role), autonomousOrchestration: false
-      });
-      const agents = await waitForCompletion(db);
-      process.stdout.write(JSON.stringify({
-        orchestratorId,
-        workerId: id,
-        workerName: name,
-        reusedWorker,
-        ...(reusable?.affinity ? { matchedScope: reusable.affinity.shared } : {}),
-        garage: { slot: garage.slot, capacity: garage.capacity },
-        agents
-      }));
-      return;
-    }
-    await db.run(`INSERT OR IGNORE INTO agents (id, name, role, status, execution_mode, model_tier, isolation_mode, current_task)
-      VALUES (?, 'MCP GenOS Orchestrator', 'Autonomous Orchestrator', 'idle', 'orchestrator', 'frontier', 'Branch', ?)`, id, task);
-    await db.run(`UPDATE agents SET status = 'idle', is_apoptotic = 0, current_task = ? WHERE id = ?`, task, id);
-    const strategyContract = await contracts.saveContract(db, { agentId: id, problem: task, createdBy: 'mcp_orchestrate' });
-    await runtime.startMission({ agentId: id, name: 'MCP GenOS Orchestrator', role: 'Autonomous Orchestrator', prompt: task,
-      modelTier: 'frontier', strategyContract: strategyContract.contract, executionBudget: request.executionBudget || {},
-      executionPolicy: { allowedCommands, allowFileEdits },
-      silentUpdates: policyRequest.silent_updates === true,
-      autonomousOrchestration: policyRequest.autonomous_orchestration !== false });
-    const agents = await waitForCompletion(db);
-    const telemetryRows = await db.all('SELECT event_type, action, detail, severity, payload_json FROM telemetry_events WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    const runs = await db.all('SELECT agent_id, status, metrics_json FROM strategy_execution_runs WHERE agent_id = ? OR agent_id IN (SELECT id FROM agents WHERE parent_agent_id = ?) ORDER BY created_at', id, id);
-    const coverage = await orchestrationCoverage.auditMission(db, id).catch((err) => ({ error: err.message, verdict: 'audit-incomplete' }));
-    telemetry.emitEvent({ eventType: 'ORCHESTRATION_AUDIT_COMPLETED', agentId: id, action: 'COVERAGE_AUDIT', detail: `Orchestration coverage verdict: ${coverage.verdict}`, severity: 'info', payload: { observedTools: coverage.protocol?.observedCount || 0, verdict: coverage.verdict } });
-    process.stdout.write(JSON.stringify({ orchestratorId: id, agents, telemetry: telemetryRows, token_usage: tokenUsage(runs), coverage }));
-  } catch (error) {
-    if (delegatedWorkerId) {
-      await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, delegatedWorkerId).catch(() => {});
-      await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", delegatedWorkerId).catch(() => {});
-    }
-    throw error;
-  } finally {
+async function cleanupFailure(db, state, error) {
+  if (!state.delegatedWorkerId) return;
+  await db.run("UPDATE agents SET status = 'error', current_task = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", error.message, state.delegatedWorkerId).catch(() => {});
+  await db.run("UPDATE trinity_worlds SET status = 'error', updated_at = CURRENT_TIMESTAMP WHERE agent_id = ?", state.delegatedWorkerId).catch(() => {});
+}
+
+async function executeForeground(db) {
+  const state = {};
+  try { await executeMission(db, state); } catch (error) { await cleanupFailure(db, state, error); throw error; }
+  finally {
     if (request.detachedProcessId) await db.run('DELETE FROM detached_processes WHERE id = ?', request.detachedProcessId).catch(() => {});
     await closeDatabase();
   }
+}
+
+async function main() {
+  const initDb = await getDatabase();
+  await prepareRuntime(initDb);
+  if (request.background === true) {
+    await handleBackground({ request, action, task, orchestratorId, id, repoRoot: path.resolve(__dirname, '../..'), bridgePath: __filename, getDatabase, closeDatabase });
+    return;
+  }
+  await executeForeground(await getDatabase());
 }
 
 main().catch((error) => { console.error(error.stack || error.message); process.exitCode = 1; });
