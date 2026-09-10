@@ -6,6 +6,7 @@ pub mod subcommands;
 pub mod trinity;
 pub mod rhizome;
 pub mod run;
+pub mod chaos;
 
 use clap::{Parser, Subcommand};
 pub use biomimicry::*;
@@ -16,6 +17,7 @@ pub use subcommands::*;
 pub use trinity::*;
 pub use rhizome::*;
 pub use run::*;
+pub use chaos::*;
 
 #[derive(Parser, Debug)]
 #[command(name = "genos")]
@@ -93,4 +95,9 @@ pub enum Commands {
     Desktop(DesktopCmd),
     /// Unified execution entrypoint (e.g. `genos run --mode trinity --monitor`)
     Run(RunCmd),
+    /// Inject chaos by terminating a worker PID to test Regeneration Steward recovery
+    #[command(name = "inject-chaos")]
+    InjectChaos(InjectChaosCmd),
+    /// Chaos engineering drills
+    Chaos(InjectChaosCmd),
 }

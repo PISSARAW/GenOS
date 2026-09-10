@@ -1,8 +1,10 @@
 pub mod conscience;
 pub mod orchestrator;
+pub mod token_bucket;
 
 pub use conscience::{Conscience, ConscienceState};
 pub use orchestrator::BiomimeticOrchestrator;
+pub use token_bucket::{AgentComputeBucket, BucketState, PenaltyReport, RewardReport, SchedulingDecision, TokenBucketScheduler};
 
 #[cfg(test)]
 mod tests {
@@ -68,5 +70,34 @@ mod tests {
         let antigen = genos_immune::Antigen { id: "threat-1".into(), epitope: "SQL_INJECTION".into(), danger_level: 0.9 };
         assert!(orch.detect_immune_threat(&antigen));
         assert_eq!(orch.immune_selection.memory_pool.len(), 1);
+    }
+
+    #[test]
+    fn test_token_bucket_scheduler_lifecycle() {
+        let mut scheduler = TokenBucketScheduler::new();
+        scheduler.register_agent("worker-1", 50.0, 100.0);
+
+        // 1. Initial compute step allowed
+        let decision = scheduler.schedule_step("worker-1", 20.0);
+        match decision {
+            SchedulingDecision::Allowed { allocated_tokens, remaining_tokens, .. } => {
+                assert_eq!(allocated_tokens, 20.0);
+                assert!((remaining_tokens - 30.0).abs() < 1e-3);
+            }
+            _ => panic!("Expected compute to be allowed"),
+        }
+
+        // 2. Proof reward adds tokens and expands capacity on high score
+        let report = scheduler.reward_proof("worker-1", 0.95).unwrap();
+        assert_eq!(report.capacity, 120.0);
+        assert!(report.new_balance > 30.0);
+
+        // 3. Waste penalty drains tokens
+        let penalty = scheduler.penalize_waste("worker-1", 0.8).unwrap();
+        assert!(penalty.deducted_tokens >= 25.0);
+
+        // 4. Heavy waste causes throttling / sleep
+        let drain = scheduler.penalize_waste("worker-1", 1.0).unwrap();
+        assert!(matches!(drain.state, BucketState::Throttled { .. } | BucketState::Apoptotic));
     }
 }

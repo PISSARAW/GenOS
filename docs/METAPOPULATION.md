@@ -630,7 +630,38 @@ Le dépôt définit les trois mécanismes et les quatre rôles dans `biologicalM
 
 ---
 
-## 18. Comparaison avec les autres modes biologiques
+## 18. Chaos Engineering et Test de Survie (`genos inject-chaos`)
+
+GenOS intègre un module de **Chaos Engineering** au cœur du runtime Métapopulation pour tester formellement les capacités de régénération sans corrompre les missions en cours.
+
+### Protocole d'injection de panne
+
+La commande `genos inject-chaos` sélectionne un PID de worker actif (aléatoirement ou par `--target`) et force sa terminaison (`SIGTERM` / `SIGKILL` / `taskkill`) :
+
+```bash
+# Injection de chaos sur un worker aléatoire
+genos inject-chaos
+
+# Simulation sans interruption de processus (dry-run)
+genos inject-chaos --dry-run
+
+# Ciblage d'un agent ou d'une mission spécifique
+genos inject-chaos --target worker_12345 --fleet-id fleet_alpha
+```
+
+### Rôle du Regeneration Steward
+
+Lorsqu'un worker est brutalement arrêté :
+
+1. Le superviseur (`agentProcessSupervisor.js`) et le service de reprise (`agentRecoveryService.js`) interceptent la perte du processus.
+2. Le **Regeneration Steward** lit la lignée génétique et causale $L_i$ (enregistrée dans `agents`, `lineage_nodes` et `lineage_edges`).
+3. L'arbre de causalité et le contexte sont vérifiés pour garantir qu'aucune corruption d'état n'a eu lieu.
+4. Un nouvel agent de remplacement est instancié dans une capsule VFS isolée, avec sa lignée mise à jour (`lineage_relation = 'recovery'`).
+5. La mission parent et la barrière d'évidence de l'orchestrateur se poursuivent sans interruption.
+
+---
+
+## 19. Comparaison avec les autres modes biologiques
 
 | Aspect | Trinity | A-Team | Biocénose | Holobionte | Syncytium | Biome | Rhizome | Metapopulation |
 |--------|---------|--------|-----------|------------|-----------|-------|---------|----------------|
