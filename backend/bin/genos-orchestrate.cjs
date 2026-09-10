@@ -25,10 +25,8 @@ if (process.env.GENOS_STREAM_TELEMETRY === '1') {
 const request = JSON.parse(process.argv[2] || '{}');
 const action = request.action || 'orchestrate';
 const task = String(request.mission || request.task || 'Autonomous GenOS orchestration');
-const orchestratorId = request.orchestratorId || `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-let id = action === 'dispatch_worker'
-  ? request.workerId || `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
-  : orchestratorId;
+let orchestratorId = request.orchestratorId;
+let id = action === 'dispatch_worker' ? request.workerId : null;
 // Accept the policy at the top level (current schema) and inside `arguments`
 // while older long-lived MCP clients refresh their cached tool schema.
 const policyRequest = request.arguments && typeof request.arguments === 'object' ? request.arguments : request;
@@ -63,6 +61,22 @@ function tokenUsage(runs) {
 }
 
 async function main() {
+  const initDb = await getDatabase();
+  try {
+    if (!orchestratorId) {
+      if (action !== 'orchestrate') {
+        const recent = await initDb.get("SELECT id FROM agents WHERE execution_mode = 'orchestrator' ORDER BY created_at DESC LIMIT 1");
+        if (recent) orchestratorId = recent.id;
+      }
+      if (!orchestratorId) orchestratorId = `mcp_orchestrator_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+    if (!id) {
+      id = action === 'dispatch_worker' ? `worker_${orchestratorId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}` : orchestratorId;
+    }
+  } finally {
+    // Keep it open, we'll reuse getDatabase() below since it's cached/singleton in most implementations, or just let the rest of the code call it.
+  }
+
   // MCP tool calls are request/response interactions. Do not hold the response
   // open for the whole mission: return the durable agent ID immediately and
   // let a detached runner own its lifecycle and final telemetry.
