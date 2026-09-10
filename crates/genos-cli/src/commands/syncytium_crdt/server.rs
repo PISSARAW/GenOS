@@ -3,7 +3,7 @@ use super::types::{CrdtOp, SyncytiumWireEvent};
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Query, State,
+        DefaultBodyLimit, Query, State,
     },
     http::{header, HeaderMap, StatusCode},
     response::{Html, IntoResponse, Json, Response},
@@ -288,5 +288,7 @@ pub fn build_router(engine: Arc<SyncytiumEngine>) -> Router {
         .route("/api/syncytium/rewind", post(rewind_api))
         .route("/api/syncytium/op", post(apply_op_api))
         .route("/api/syncytium/export", get(export_api))
+        // Cap request bodies so a single POST cannot exhaust memory.
+        .layer(DefaultBodyLimit::max(256 * 1024))
         .with_state(AppState::new(engine))
 }

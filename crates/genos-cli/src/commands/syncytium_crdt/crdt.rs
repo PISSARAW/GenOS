@@ -1,5 +1,5 @@
 use super::types::{AgentCursor, CrdtOp, CrdtOpKind, InvariantStatus, SyncytiumSnapshot, SyncytiumWireEvent};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
@@ -12,6 +12,9 @@ const MAX_OP_LOG: usize = 100_000;
 
 pub struct SyncytiumEngine {
     op_log: RwLock<Vec<CrdtOp>>,
+    /// Tracked op ids so replays of the same `op_id` are idempotent instead of
+    /// duplicating text/step. Kept in sync with `op_log` trimming.
+    applied_op_ids: RwLock<HashSet<String>>,
     lamport_clock: AtomicU64,
     tx: broadcast::Sender<SyncytiumWireEvent>,
 }
@@ -96,6 +99,7 @@ impl SyncytiumEngine {
         let (tx, _rx) = broadcast::channel(1024);
         Arc::new(Self {
             op_log: RwLock::new(Vec::new()),
+            applied_op_ids: RwLock::new(HashSet::new()),
             lamport_clock: AtomicU64::new(0),
             tx,
         })
@@ -114,18 +118,32 @@ impl SyncytiumEngine {
     fn observe_lamport(&self, remote: u64) {
         self.lamport_clock.fetch_max(remote, Ordering::SeqCst);
     }
-
     pub async fn apply_op(&self, mut op: CrdtOp) -> SyncytiumSnapshot {
+        let mut log = self.op_log.write().await;
+        // Replaying an already-applied op_id is an idempotent no-op.
+        if !op.op_id.is_empty() {
+            let mut ids = self.applied_op_ids.write().await;
+            if !ids.insert(op.op_id.clone()) {
+                drop(ids);
+                let snapshot = Self::build_snapshot(&log, None, None);
+                drop(log);
+                return snapshot;
+            }
+        }
         if op.lamport == 0 {
             op.lamport = self.next_lamport();
         } else {
             self.observe_lamport(op.lamport);
         }
-        let mut log = self.op_log.write().await;
+
         log.push(op.clone());
         if log.len() > MAX_OP_LOG {
             let overflow = log.len() - MAX_OP_LOG;
-            log.drain(0..overflow);
+            let dropped: Vec<String> = log.drain(0..overflow).map(|entry| entry.op_id).collect();
+            let mut ids = self.applied_op_ids.write().await;
+            for id in dropped {
+                ids.remove(&id);
+            }
             eprintln!("[Syncytium] op log exceeded {MAX_OP_LOG} entries; dropped {overflow} oldest ops");
         }
         let snapshot = Self::build_snapshot(&log, None, None);
