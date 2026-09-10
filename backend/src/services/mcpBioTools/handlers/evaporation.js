@@ -1,5 +1,10 @@
+const strategyExecutionAdapter = require('../../strategyExecutionAdapter');
+
 async function handleEvaporation(args, strategyAdapter) {
-  const res = await strategyAdapter.executePrimitive('evaporation', args || {});
+  const adapter = (strategyAdapter && typeof strategyAdapter.executePrimitive === 'function')
+    ? strategyAdapter
+    : strategyExecutionAdapter;
+  const res = await adapter.executePrimitive('evaporation', args || {});
   return {
     configured: true,
     success: res.success !== false,

@@ -67,36 +67,58 @@ function validateProviderNumber(value, field, maximum = Number.MAX_SAFE_INTEGER)
   return number;
 }
 
-async function providers(req, res) {
-  const db = await getDatabase();
-  const rows = await db.all('SELECT * FROM provider_configs WHERE enabled = 1 ORDER BY provider, model');
-  res.json(providerRows(rows));
-}
-async function registerProvider(req, res) {
-  const provider = req.body || {};
-  if (!modelProvider.isSupportedProvider(provider.provider)) return res.status(400).json({ error: { code: 'UNSUPPORTED_PROVIDER', message: `Provider '${provider.provider || ''}' is not supported by the model runtime.` } });
-  if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model must be valid non-empty identifiers.' } });
-  if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
-  provider.capabilities = normalizeCapabilities(provider.capabilities);
-  let costInput;
-  let costOutput;
-  let latencyMs;
+async function providers(req, res, next) {
   try {
-    costInput = validateProviderNumber(provider.costInput, 'costInput', 1_000_000);
-    costOutput = validateProviderNumber(provider.costOutput, 'costOutput', 1_000_000);
-    latencyMs = validateProviderNumber(provider.latencyMs, 'latencyMs', 86_400_000);
+    const db = await getDatabase();
+    const rows = await db.all('SELECT * FROM provider_configs WHERE enabled = 1 ORDER BY provider, model');
+    res.json(providerRows(rows));
   } catch (error) {
-    return res.status(400).json({ error: { code: error.code, message: error.message } });
+    if (next) return next(error);
+    throw error;
   }
-  if (provider.endpoint) {
-    try { await validateProviderEndpointAsync(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
-  }
-  const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
-  const db = await getDatabase();
-  await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), costInput, costOutput, latencyMs, provider.enabled === false ? 0 : 1);
-  res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
 }
-async function route(req, res) { const db = await getDatabase(); const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1'); const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders(); const configured = configuredProviderRows(parsed); if (!configured.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider with valid runtime configuration is available for routing.' } }); res.json(safety.routeModel(req.body, configured)); }
+async function registerProvider(req, res, next) {
+  try {
+    const provider = req.body || {};
+    if (!modelProvider.isSupportedProvider(provider.provider)) return res.status(400).json({ error: { code: 'UNSUPPORTED_PROVIDER', message: `Provider '${provider.provider || ''}' is not supported by the model runtime.` } });
+    if (typeof provider.provider !== 'string' || !/^[a-z][a-z0-9-]{1,31}$/.test(provider.provider) || typeof provider.model !== 'string' || !/^[^\s/\\]{1,256}$/.test(provider.model)) return res.status(400).json({ error: { code: 'INVALID_PROVIDER', message: 'provider and model must be valid non-empty identifiers.' } });
+    if (!Array.isArray(provider.capabilities || []) || provider.capabilities.some((capability) => typeof capability !== 'string' || !normalizeCapabilities([capability]).length)) return res.status(400).json({ error: { code: 'INVALID_CAPABILITIES', message: 'capabilities must be an array of non-empty strings.' } });
+    provider.capabilities = normalizeCapabilities(provider.capabilities);
+    let costInput;
+    let costOutput;
+    let latencyMs;
+    try {
+      costInput = validateProviderNumber(provider.costInput, 'costInput', 1_000_000);
+      costOutput = validateProviderNumber(provider.costOutput, 'costOutput', 1_000_000);
+      latencyMs = validateProviderNumber(provider.latencyMs, 'latencyMs', 86_400_000);
+    } catch (error) {
+      return res.status(400).json({ error: { code: error.code, message: error.message } });
+    }
+    if (provider.endpoint) {
+      try { await validateProviderEndpointAsync(provider.endpoint, { localOnly: ['ollama', 'lmstudio', 'vllm'].includes(provider.provider) }); } catch (error) { return res.status(400).json({ error: { code: 'INVALID_ENDPOINT', message: error.message } }); }
+    }
+    const p = safety.routeModel({ requiredCapabilities: [] }, [provider]);
+    const db = await getDatabase();
+    await db.run('INSERT OR REPLACE INTO provider_configs (id, provider, model, endpoint, capabilities_json, cost_input, cost_output, latency_ms, enabled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', `${provider.provider}:${provider.model}`, provider.provider, provider.model, provider.endpoint || null, JSON.stringify(provider.capabilities), costInput, costOutput, latencyMs, provider.enabled === false ? 0 : 1);
+    res.status(201).json({ success: true, provider: safety.normalizeProvider ? safety.normalizeProvider(provider) : provider, routePreview: p });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+async function route(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const list = await db.all('SELECT provider, model, endpoint, capabilities_json AS capabilities, cost_input AS costInput, cost_output AS costOutput, latency_ms AS latencyMs, enabled FROM provider_configs WHERE enabled = 1');
+    const parsed = list.length ? list.map((p) => ({ ...p, capabilities: JSON.parse(p.capabilities || '[]') })) : catalogProviders();
+    const configured = configuredProviderRows(parsed);
+    if (!configured.length) return res.status(503).json({ error: { code: 'MODEL_PROVIDER_UNAVAILABLE', message: 'No enabled provider with valid runtime configuration is available for routing.' } });
+    res.json(safety.routeModel(req.body, configured));
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
 async function routingPolicies(req, res, next) {
   try {
     const db = await getDatabase();
@@ -128,29 +150,105 @@ async function saveRoutingPolicy(req, res, next) {
     res.status(201).json({ success: true, agentId, policy, candidates });
   } catch (error) { next(error); }
 }
-async function graph(req, res) {
-  const db = await getDatabase();
-  const scope = req.tenant;
-  let [nodes, edges] = await Promise.all([
-    db.all('SELECT n.id,n.label,n.node_type,n.score,n.visits,n.state_summary,n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY n.created_at', scope.organizationId, scope.projectId),
-    db.all('SELECT e.id,e.source_node_id AS source,e.target_node_id AS target,e.edge_type AS type FROM lineage_edges e JOIN workspaces w ON w.id = e.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at', scope.organizationId, scope.projectId)
-  ]);
-  // A fresh runtime may not have emitted lineage rows yet. Agents are still a
-  // valid causal source, so expose their parent relationships immediately.
-  if (!nodes.length) {
-    const agents = await db.all('SELECT a.id,a.name,a.role,a.status,a.parent_agent_id,a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY a.created_at', scope.organizationId, scope.projectId);
-    nodes = agents.map(a => ({ id: a.id, label: a.name, node_type: 'agent', status: a.status, state_summary: a.current_task || a.role, agent_id: a.id }));
-    edges = agents.filter(a => a.parent_agent_id).map((a, i) => ({ id: `agent-edge-${i}`, source: a.parent_agent_id, target: a.id, type: 'parent' }));
+async function graph(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const scope = req.tenant;
+    let [nodes, edges] = await Promise.all([
+      db.all('SELECT n.id,n.label,n.node_type,n.score,n.visits,n.state_summary,n.agent_id FROM lineage_nodes n JOIN workspaces w ON w.id = n.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY n.created_at', scope.organizationId, scope.projectId),
+      db.all('SELECT e.id,e.source_node_id AS source,e.target_node_id AS target,e.edge_type AS type FROM lineage_edges e JOIN workspaces w ON w.id = e.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY e.created_at', scope.organizationId, scope.projectId)
+    ]);
+    // A fresh runtime may not have emitted lineage rows yet. Agents are still a
+    // valid causal source, so expose their parent relationships immediately.
+    if (!nodes.length) {
+      const agents = await db.all('SELECT a.id,a.name,a.role,a.status,a.parent_agent_id,a.current_task FROM agents a JOIN workspaces w ON w.id = a.workspace_id WHERE w.organization_id = ? AND w.project_id = ? ORDER BY a.created_at', scope.organizationId, scope.projectId);
+      nodes = agents.map(a => ({ id: a.id, label: a.name, node_type: 'agent', status: a.status, state_summary: a.current_task || a.role, agent_id: a.id }));
+      edges = agents.filter(a => a.parent_agent_id).map((a, i) => ({ id: `agent-edge-${i}`, source: a.parent_agent_id, target: a.id, type: 'parent' }));
+    }
+    res.json({ nodes, edges, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
   }
-  res.json({ nodes, edges, generatedAt: new Date().toISOString() });
 }
-async function telemetrySummary(req, res) { const db = await getDatabase(); const rows = await db.all('SELECT agent_id, json_extract(payload_json, "$.model") model, COUNT(*) events, SUM(COALESCE(json_extract(payload_json, "$.tokens"),0)) tokens, SUM(COALESCE(json_extract(payload_json, "$.costUsd"),0)) costUsd, AVG(COALESCE(json_extract(payload_json, "$.latencyMs"),0)) latencyMs FROM telemetry_events WHERE organization_id = ? AND project_id = ? GROUP BY agent_id, model ORDER BY costUsd DESC', req.tenant.organizationId, req.tenant.projectId); res.json({ byAgent: rows, totals: rows.reduce((a, r) => ({ events: a.events + r.events, tokens: a.tokens + (r.tokens || 0), costUsd: a.costUsd + (r.costUsd || 0) }), { events: 0, tokens: 0, costUsd: 0 }), window: req.query.window || 'all' }); }
-async function audit(req, res) { const db = await getDatabase(); if (!req.tenant) return res.status(400).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A tenant scope is required for audit records.' } }); res.json(await db.all('SELECT * FROM audit_logs WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT ?', req.tenant.organizationId, req.tenant.projectId, boundedInteger(req.query.limit, 100, 1, 500))); }
-async function permissions(req, res) { const db = await getDatabase(); if (req.method === 'GET') return res.json(await db.all('SELECT agent_id, permissions_json AS permissions, denied_tools_json AS deniedTools, taint_policy AS taintPolicy FROM agent_permissions')); const { agentId, permissions = [], deniedTools = [], taintPolicy = 'block_external' } = req.body || {}; if (!agentId) return res.status(400).json({ error: { code: 'INVALID_AGENT', message: 'agentId is required' } }); await db.run('INSERT OR REPLACE INTO agent_permissions (agent_id, permissions_json, denied_tools_json, taint_policy) VALUES (?, ?, ?, ?)', agentId, JSON.stringify(permissions), JSON.stringify(deniedTools), taintPolicy); res.status(201).json({ success: true, agentId, permissions, deniedTools, taintPolicy }); }
-async function validateTool(req, res) { const db = await getDatabase(); const { agentId, toolName, args, taints = [] } = req.body || {}; const row = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId); const result = safety.validateToolCall({ agentId, toolName, args, taints, permissions: row ? JSON.parse(row.permissions_json) : [], deniedTools: row ? JSON.parse(row.denied_tools_json) : [] }); await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', req.user?.keyId || req.user?.username || 'platform', agentId, 'TOOL_CALL_VALIDATE', toolName, result.decision, result.reason, JSON.stringify(result), req.tenant.organizationId, req.tenant.projectId); res.status(result.decision === 'deny' ? 403 : 200).json(result); }
-async function replay(req, res) { const db = await getDatabase(); const { incidentId } = req.params; const incident = await db.get('SELECT id FROM global_alerts WHERE id = ? AND organization_id = ? AND project_id = ?', incidentId, req.tenant.organizationId, req.tenant.projectId); if (!incident) return res.status(404).json({ error: { code: 'INCIDENT_NOT_FOUND', message: `Incident '${incidentId}' was not found in the current project.` } }); const events = await db.all('SELECT * FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at ASC LIMIT 10000', req.tenant.organizationId, req.tenant.projectId); const result = safety.buildReplay(incidentId, events, req.body?.stepSpeed); telemetry.emitEvent({ eventType: 'INCIDENT_REPLAY_STARTED', agentId: req.user?.username || 'platform', action: 'REPLAY', detail: `Replay ${incidentId}`, payload: { ...result, organizationId: req.tenant.organizationId, projectId: req.tenant.projectId } }); res.json(result); }
+async function telemetrySummary(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const rows = await db.all('SELECT agent_id, json_extract(payload_json, "$.model") model, COUNT(*) events, SUM(COALESCE(json_extract(payload_json, "$.tokens"),0)) tokens, SUM(COALESCE(json_extract(payload_json, "$.costUsd"),0)) costUsd, AVG(COALESCE(json_extract(payload_json, "$.latencyMs"),0)) latencyMs FROM telemetry_events WHERE organization_id = ? AND project_id = ? GROUP BY agent_id, model ORDER BY costUsd DESC', req.tenant.organizationId, req.tenant.projectId);
+    res.json({ byAgent: rows, totals: rows.reduce((a, r) => ({ events: a.events + r.events, tokens: a.tokens + (r.tokens || 0), costUsd: a.costUsd + (r.costUsd || 0) }), { events: 0, tokens: 0, costUsd: 0 }), window: req.query.window || 'all' });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+async function audit(req, res, next) {
+  try {
+    const db = await getDatabase();
+    if (!req.tenant) return res.status(400).json({ error: { code: 'TENANT_SCOPE_REQUIRED', message: 'A tenant scope is required for audit records.' } });
+    res.json(await db.all('SELECT * FROM audit_logs WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT ?', req.tenant.organizationId, req.tenant.projectId, boundedInteger(req.query.limit, 100, 1, 500)));
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+async function permissions(req, res, next) {
+  try {
+    const db = await getDatabase();
+    if (req.method === 'GET') return res.json(await db.all('SELECT agent_id, permissions_json AS permissions, denied_tools_json AS deniedTools, taint_policy AS taintPolicy FROM agent_permissions'));
+    const { agentId, permissions = [], deniedTools = [], taintPolicy = 'block_external' } = req.body || {};
+    if (!agentId) return res.status(400).json({ error: { code: 'INVALID_AGENT', message: 'agentId is required' } });
+    await db.run('INSERT OR REPLACE INTO agent_permissions (agent_id, permissions_json, denied_tools_json, taint_policy) VALUES (?, ?, ?, ?)', agentId, JSON.stringify(permissions), JSON.stringify(deniedTools), taintPolicy);
+    res.status(201).json({ success: true, agentId, permissions, deniedTools, taintPolicy });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+async function validateTool(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const { agentId, toolName, args, taints = [] } = req.body || {};
+    const row = await db.get('SELECT * FROM agent_permissions WHERE agent_id = ? AND organization_id = ? AND project_id = ?', agentId, req.tenant.organizationId, req.tenant.projectId);
+    const result = safety.validateToolCall({ agentId, toolName, args, taints, permissions: row ? JSON.parse(row.permissions_json) : [], deniedTools: row ? JSON.parse(row.denied_tools_json) : [] });
+    await db.run('INSERT INTO audit_logs (actor,agent_id,action,resource,decision,reason,payload_json,organization_id,project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)', req.user?.keyId || req.user?.username || 'platform', agentId, 'TOOL_CALL_VALIDATE', toolName, result.decision, result.reason, JSON.stringify(result), req.tenant.organizationId, req.tenant.projectId);
+    res.status(result.decision === 'deny' ? 403 : 200).json(result);
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
+async function replay(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const { incidentId } = req.params;
+    const incident = await db.get('SELECT id FROM global_alerts WHERE id = ? AND organization_id = ? AND project_id = ?', incidentId, req.tenant.organizationId, req.tenant.projectId);
+    if (!incident) return res.status(404).json({ error: { code: 'INCIDENT_NOT_FOUND', message: `Incident '${incidentId}' was not found in the current project.` } });
+    const events = await db.all('SELECT * FROM telemetry_events WHERE organization_id = ? AND project_id = ? ORDER BY created_at ASC LIMIT 10000', req.tenant.organizationId, req.tenant.projectId);
+    const result = safety.buildReplay(incidentId, events, req.body?.stepSpeed);
+    telemetry.emitEvent({ eventType: 'INCIDENT_REPLAY_STARTED', agentId: req.user?.username || 'platform', action: 'REPLAY', detail: `Replay ${incidentId}`, payload: { ...result, organizationId: req.tenant.organizationId, projectId: req.tenant.projectId } });
+    res.json(result);
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
 async function bisect(req, res, next) { return workspaceController.bisect(req, res, next); }
-async function approvals(req, res) { const db = await getDatabase(); const scope = req.tenant; if (req.method === 'GET') return res.json(await db.all('SELECT * FROM platform_approvals WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC', scope.organizationId, scope.projectId)); const body = req.body || {}; const payloadJson = JSON.stringify(body); const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex'); const id = `approval-${Date.now()}-${Math.random().toString(36).slice(2,7)}`; await db.run('INSERT INTO platform_approvals (id,action,agent_id,risk,uncertainty,requested_by,organization_id,project_id,payload_json,payload_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, body.action || 'unknown', body.agentId || null, body.risk || 'high', Number(body.uncertainty || 0), req.user?.keyId || req.user?.username || 'platform', scope.organizationId, scope.projectId, payloadJson, payloadHash); res.status(201).json({ id, status: 'pending', payloadHash, ...body }); }
+async function approvals(req, res, next) {
+  try {
+    const db = await getDatabase();
+    const scope = req.tenant;
+    if (req.method === 'GET') return res.json(await db.all('SELECT * FROM platform_approvals WHERE organization_id = ? AND project_id = ? ORDER BY created_at DESC', scope.organizationId, scope.projectId));
+    const body = req.body || {};
+    const payloadJson = JSON.stringify(body);
+    const payloadHash = crypto.createHash('sha256').update(payloadJson).digest('hex');
+    const id = `approval-${Date.now()}-${Math.random().toString(36).slice(2,7)}`;
+    await db.run('INSERT INTO platform_approvals (id,action,agent_id,risk,uncertainty,requested_by,organization_id,project_id,payload_json,payload_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', id, body.action || 'unknown', body.agentId || null, body.risk || 'high', Number(body.uncertainty || 0), req.user?.keyId || req.user?.username || 'platform', scope.organizationId, scope.projectId, payloadJson, payloadHash);
+    res.status(201).json({ id, status: 'pending', payloadHash, ...body });
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
 async function decideApproval(req, res, next) {
   try {
     const db = await getDatabase();
@@ -201,5 +299,12 @@ async function decideApproval(req, res, next) {
     res.json({ success: true, id: req.params.id, status, execution });
   } catch (error) { next(error); }
 }
-async function pareto(req, res) { res.json(safety.paretoFrontier(req.body?.items || [])); }
+async function pareto(req, res, next) {
+  try {
+    res.json(safety.paretoFrontier(req.body?.items || []));
+  } catch (error) {
+    if (next) return next(error);
+    throw error;
+  }
+}
 module.exports = { providers, registerProvider, route, routingPolicies, saveRoutingPolicy, graph, telemetrySummary, audit, permissions, validateTool, replay, bisect, approvals, decideApproval, pareto, configuredProviderRows, catalogProviders };

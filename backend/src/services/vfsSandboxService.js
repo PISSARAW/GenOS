@@ -313,6 +313,10 @@ function workspaceVfs(workspaceId = 'legacy') {
   if (!state) {
     state = { files: new Map(), bytes: 0 };
     virtualFilesByWorkspace.set(key, state);
+    while (virtualFilesByWorkspace.size > 128) {
+      const oldestKey = virtualFilesByWorkspace.keys().next().value;
+      virtualFilesByWorkspace.delete(oldestKey);
+    }
   }
   return state;
 }

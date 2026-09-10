@@ -110,14 +110,16 @@ function validateDossierInfluence(report, workerIds, options = {}) {
   const missing = workerIds.filter((workerId) => !byWorker.has(workerId));
   const invalid = workerIds.filter((workerId) => {
     const entry = byWorker.get(workerId);
-    const citedClaims = claimsByWorker.get(workerId);
-    const citationsValid = !citedClaims || entry.usedClaims.every((claim) => citedClaims.has(claim));
-    return !entry
+    if (!entry
       || typeof entry.influence !== 'string'
       || !/[A-Za-z0-9]/.test(entry.influence)
       || !Array.isArray(entry.usedClaims)
-      || entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim())
-      || !citationsValid;
+      || entry.usedClaims.some((claim) => typeof claim !== 'string' || !claim.trim())) {
+      return true;
+    }
+    const citedClaims = claimsByWorker.get(workerId);
+    const citationsValid = !citedClaims || entry.usedClaims.every((claim) => citedClaims.has(claim));
+    return !citationsValid;
   });
   const unexpected = entries.filter((entry) => !workerIds.includes(entry?.workerId)).map((entry) => entry?.workerId || 'unknown');
   const duplicate = entries.map((entry) => entry?.workerId).filter((id, index, all) => id && all.indexOf(id) !== index);

@@ -6,7 +6,16 @@
 const arenaService = require('../services/arenaService');
 const telemetry = require('../services/telemetryObserver');
 
+const MAX_CACHED_TOURNAMENTS = 256;
 const tournaments = new Map();
+
+function saveTournament(key, tournament) {
+  tournaments.set(key, tournament);
+  while (tournaments.size > MAX_CACHED_TOURNAMENTS) {
+    const oldestKey = tournaments.keys().next().value;
+    tournaments.delete(oldestKey);
+  }
+}
 
 function scopeKey(req) {
   return req.tenant ? `${req.tenant.organizationId}:${req.tenant.projectId}` : 'global';
@@ -18,7 +27,7 @@ async function getTournament(req, res, next) {
     // never empty for Studio dashboards or fresh backend processes.
     const key = scopeKey(req);
     if (!tournaments.has(key)) {
-      tournaments.set(key, arenaService.runTournament(undefined, undefined, 3));
+      saveTournament(key, arenaService.runTournament(undefined, undefined, 3));
     }
     res.json(tournaments.get(key));
   } catch (err) {
@@ -30,7 +39,7 @@ async function runTournament(req, res, next) {
   try {
     const { problemSpec, solvers, rounds, agentIds = [] } = req.body || {};
     const result = arenaService.runTournament(problemSpec, solvers, rounds || 3, agentIds);
-    tournaments.set(scopeKey(req), result);
+    saveTournament(scopeKey(req), result);
     result.leaderboard.forEach((solver) => telemetry.emitEvent({
       eventType: 'ARENA_SOLVER_EVALUATED',
       agentId: solver.agentId || 'arena_orchestrator',

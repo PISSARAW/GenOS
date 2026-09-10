@@ -79,8 +79,14 @@ async function oidcDiscovery(provider) {
 async function validateIdToken(token, provider, discovery, expectedNonce) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) throw new Error('OIDC identity token is malformed.');
-  const header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
-  const claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  let header;
+  let claims;
+  try {
+    header = JSON.parse(Buffer.from(parts[0], 'base64url').toString('utf8'));
+    claims = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch (_) {
+    throw new Error('OIDC identity token is malformed.');
+  }
   const algorithms = {
     RS256: 'RSA-SHA256', RS384: 'RSA-SHA384', RS512: 'RSA-SHA512',
     PS256: 'RSA-SHA256', PS384: 'RSA-SHA384', PS512: 'RSA-SHA512',

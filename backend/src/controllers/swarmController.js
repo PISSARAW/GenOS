@@ -41,18 +41,46 @@ async function getActiveNodeCount(db, workspaceId, tenant) {
   return Number(row?.count || 0);
 }
 
-function hasReachedQuorum({yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold}) {
+function hasReachedQuorum(yesCountOrObj, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+  let yes, no, total, active, threshold;
+  if (typeof yesCountOrObj === 'object' && yesCountOrObj !== null) {
+    yes = Number(yesCountOrObj.yesCount ?? yesCountOrObj.yesVal) || 0;
+    no = Number(yesCountOrObj.noCount ?? yesCountOrObj.noVal) || 0;
+    total = Number(yesCountOrObj.totalVotes ?? yesCountOrObj.totalVal) || 0;
+    active = Number(yesCountOrObj.activeNodeCount ?? yesCountOrObj.activeCount) || 0;
+    threshold = Number(yesCountOrObj.approvalThreshold ?? yesCountOrObj.quorumThreshold) || 0.66;
+  } else {
+    yes = Number(yesCountOrObj) || 0;
+    no = Number(noCount) || 0;
+    total = Number(totalVotes) || 0;
+    active = Number(activeNodeCount) || 0;
+    threshold = Number(approvalThreshold) || 0.66;
+  }
   const participationThreshold = 0.5; // Require at least 50% participation
-  const requiredVotes = Math.max(1, Math.ceil(activeNodeCount * participationThreshold));
-  const validVotes = yesCount + noCount;
-  return totalVotes >= requiredVotes && validVotes > 0 && (yesCount / validVotes) >= approvalThreshold;
+  const requiredVotes = Math.max(1, Math.ceil(active * participationThreshold));
+  const validVotes = yes + no;
+  return total >= requiredVotes && validVotes > 0 && (yes / validVotes) >= threshold;
 }
 
-function hasBeenRejected({yesCount, noCount, totalVotes, activeNodeCount, approvalThreshold}) {
-  const remainingVotes = Math.max(0, activeNodeCount - totalVotes);
-  const maxPossibleYes = yesCount + remainingVotes;
-  const maxPossibleValid = (yesCount + noCount) + remainingVotes;
-  return maxPossibleValid > 0 && (maxPossibleYes / maxPossibleValid) < approvalThreshold;
+function hasBeenRejected(yesCountOrObj, noCount, totalVotes, activeNodeCount, approvalThreshold) {
+  let yes, no, total, active, threshold;
+  if (typeof yesCountOrObj === 'object' && yesCountOrObj !== null) {
+    yes = Number(yesCountOrObj.yesCount ?? yesCountOrObj.yesVal) || 0;
+    no = Number(yesCountOrObj.noCount ?? yesCountOrObj.noVal) || 0;
+    total = Number(yesCountOrObj.totalVotes ?? yesCountOrObj.totalVal) || 0;
+    active = Number(yesCountOrObj.activeNodeCount ?? yesCountOrObj.activeCount) || 0;
+    threshold = Number(yesCountOrObj.approvalThreshold ?? yesCountOrObj.quorumThreshold) || 0.66;
+  } else {
+    yes = Number(yesCountOrObj) || 0;
+    no = Number(noCount) || 0;
+    total = Number(totalVotes) || 0;
+    active = Number(activeNodeCount) || 0;
+    threshold = Number(approvalThreshold) || 0.66;
+  }
+  const remainingVotes = Math.max(0, active - total);
+  const maxPossibleYes = yes + remainingVotes;
+  const maxPossibleValid = (yes + no) + remainingVotes;
+  return maxPossibleValid > 0 && (maxPossibleYes / maxPossibleValid) < threshold;
 }
 
 function formatProposal(proposal, pVotes, isWeighted) {
