@@ -47,7 +47,14 @@ async function run() {
     const approvedRun = await strategyService.approveRun(db, run.id, {
       approvedBy: 'security_auditor',
       summary: 'Promotion audited and approved for production readiness.',
-      report: { outcome: 'success', claims: [{ statement: 'Promotion audited', evidence: ['security-review'] }] }
+      report: { outcome: 'success', claims: [{ statement: 'Promotion audited', evidence: ['security-review'] }] },
+      humanApprovalReceipt: {
+        approved: true,
+        approvalId: `approval-${run.id}`,
+        approverId: 'security_auditor',
+        approvedAt: new Date().toISOString(),
+        payloadHash: contractRecord.contract_hash || '0'.repeat(64)
+      }
     });
 
     assert.equal(approvedRun.status, 'completed', 'Run status should be completed after approval');
