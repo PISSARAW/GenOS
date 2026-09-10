@@ -10,7 +10,7 @@ fn resolve_backend_url() -> String {
     format!("http://127.0.0.1:{port}/api/chaos/inject")
 }
 
-fn call_backend_chaos(cmd: &InjectChaosCmd) -> Result<Value, String> {
+fn call_backend_chaos_at(url: &str, cmd: &InjectChaosCmd) -> Result<Value, String> {
     let client = Client::builder()
         .timeout(Duration::from_secs(5))
         .build()
@@ -25,8 +25,7 @@ fn call_backend_chaos(cmd: &InjectChaosCmd) -> Result<Value, String> {
         "reason": cmd.reason
     });
 
-    let url = resolve_backend_url();
-    let response = client.post(&url)
+    let response = client.post(url)
         .header("Content-Type", "application/json")
         .json(&payload)
         .send()
@@ -42,43 +41,15 @@ fn call_backend_chaos(cmd: &InjectChaosCmd) -> Result<Value, String> {
     Ok(body)
 }
 
-fn fallback_local_chaos(cmd: &InjectChaosCmd) -> Value {
-    let target_agent = cmd.target.clone().unwrap_or_else(|| "worker_simulated_77".to_string());
-    let target_pid = cmd.pid.unwrap_or(42180);
-
-    json!({
-        "success": true,
-        "operation": "inject_chaos",
-        "mode": cmd.mode,
-        "dryRun": cmd.dry_run,
-        "targetAgent": {
-            "id": target_agent,
-            "name": "Biocenose Worker 1",
-            "role": "independent_solver",
-            "status": "terminated",
-            "pid": target_pid
-        },
-        "lineage": {
-            "parentAgentId": "orchestrator_prime",
-            "relation": "fork",
-            "lineageNodesCount": 4,
-            "lineageId": format!("lineage_{target_agent}")
-        },
-        "regenerationSteward": {
-            "activated": true,
-            "strategy": "lineage_reconstruction",
-            "missionPreserved": true,
-            "details": "Regeneration Steward validated lineage continuity L_i and spawned replacement worker."
-        }
-    })
+fn call_backend_chaos(cmd: &InjectChaosCmd) -> Result<Value, String> {
+    call_backend_chaos_at(&resolve_backend_url(), cmd)
 }
 
 pub fn handle_inject_chaos(cmd: &InjectChaosCmd) -> Result<(), String> {
-    let result = match call_backend_chaos(cmd) {
-        Ok(api_result) => api_result,
-        Err(_) => fallback_local_chaos(cmd),
-    };
-
+    // A failed backend call is a real failure: never synthesize a fake
+    // "worker killed" result, otherwise the operator believes chaos was
+    // injected while nothing actually happened.
+    let result = call_backend_chaos(cmd)?;
     println!("{}", serde_json::to_string_pretty(&result).map_err(|e| e.to_string())?);
     Ok(())
 }
@@ -87,9 +58,8 @@ pub fn handle_inject_chaos(cmd: &InjectChaosCmd) -> Result<(), String> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_chaos_injection_dry_run() {
-        let cmd = InjectChaosCmd {
+    fn sample_cmd() -> InjectChaosCmd {
+        InjectChaosCmd {
             target: Some("worker-test-agent".to_string()),
             pid: Some(54321),
             mode: "kill-worker".to_string(),
@@ -97,9 +67,17 @@ mod tests {
             workspace_id: Some("ws-test".to_string()),
             fleet_id: Some("fleet-test".to_string()),
             reason: "Unit Test Verification".to_string(),
-        };
+        }
+    }
 
-        let res = handle_inject_chaos(&cmd);
-        assert!(res.is_ok());
+    #[test]
+    fn test_chaos_does_not_fabricate_success_when_backend_unreachable() {
+        // Port 0 is never a valid listener. A network failure must surface as
+        // an error instead of a fabricated "worker killed" success payload.
+        let result = call_backend_chaos_at("http://127.0.0.1:0/api/chaos/inject", &sample_cmd());
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Failed to reach GenOS chaos API"));
     }
 }
