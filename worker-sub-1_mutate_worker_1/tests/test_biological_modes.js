@@ -9,6 +9,18 @@ for (const mode of biologicalMode.listModes()) {
   assert.equal(biologicalMode.compose(mode, 'Construire un système').length, 4);
 }
 
+const rhizome = biologicalMode.analyzeMission('rhizome', 'Déployer un rhizome décentralisé.');
+assert.deepEqual(rhizome.members.map((member) => member.role), [
+  'rootless_coordinator', 'capability_offshoot', 'local_bridge', 'boundary_scout'
+]);
+
+const metapopulation = biologicalMode.analyzeMission(
+  'metapopulation',
+  'Utiliser quorum sensing, plasticité synaptique et régénération.'
+);
+assert.deepEqual(metapopulation.mechanisms, ['quorum_sensing', 'synaptic_plasticity', 'regeneration']);
+assert.equal(metapopulation.members.every((member) => member.mechanisms.join(',') === metapopulation.mechanisms.join(',')), true);
+
 assert.equal(biologicalMode.analyzeMission('biome', 'Construire un système').recommended, false);
 assert.throws(() => biologicalMode.compose('unknown', 'Mission'), (error) => error.code === 'BIOLOGICAL_MODE_UNKNOWN');
 assert.throws(() => biologicalMode.compose('biome', ''), (error) => error.code === 'BIOLOGICAL_MISSION_REQUIRED');

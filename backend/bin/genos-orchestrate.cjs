@@ -387,7 +387,10 @@ async function main() {
       });
       process.stdout.write(JSON.stringify({
         orchestratorId,
-        biologicalMode: { status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS, members: accepted }
+        biologicalMode: {
+          status: 'accepted', mode, mission, capacity: workerGarage.MAX_ACTIVE_WORKERS,
+          mechanisms: members[0]?.mechanisms || [], members: accepted
+        }
       }));
       return;
     }

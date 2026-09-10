@@ -265,11 +265,11 @@ const ALL_TOOLS = [
   },
   {
     name: "genos_biological_mode",
-    description: "Deploy a Biome, Syncytium, Holobiont, or Biocenosis collective for a mission.",
+    description: "Deploy a Biome, Syncytium, Holobiont, Biocenosis, Rhizome, or Metapopulation collective for a mission.",
     inputSchema: {
       type: "object",
       properties: {
-        mode: { type: "string", enum: ["biome", "syncytium", "holobionte", "biocenose"], description: "Biological organization mode." },
+        mode: { type: "string", enum: ["biome", "syncytium", "holobionte", "biocenose", "rhizome", "metapopulation"], description: "Biological organization mode." },
         mission: { type: "string", description: "Mission shared by the collective." },
       },
       required: ["mode", "mission"],
