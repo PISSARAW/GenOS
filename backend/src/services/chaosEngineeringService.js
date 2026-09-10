@@ -28,6 +28,15 @@ async function findEligibleWorkers(db, filter = {}) {
     query += ' AND fleet_id = ?';
     params.push(filter.fleetId);
   }
+  if (filter.organizationId) {
+    query += ' AND workspace_id IN (SELECT id FROM workspaces WHERE organization_id = ?';
+    params.push(filter.organizationId);
+    if (filter.projectId) {
+      query += ' AND project_id = ?';
+      params.push(filter.projectId);
+    }
+    query += ')';
+  }
   query += ' ORDER BY updated_at DESC LIMIT 50';
   return db.all(query, ...params);
 }
