@@ -7,6 +7,7 @@ use std::time::Duration;
 use serde_json::Value;
 
 const RECONNECT_DELAY: Duration = Duration::from_millis(1500);
+const RECONNECT_MAX_DELAY: Duration = Duration::from_millis(30_000);
 
 /// Connection lifecycle notifications surfaced to the UI thread.
 pub enum ConnectionStatus {
@@ -28,48 +29,74 @@ impl LiveMonitor {
         let (status_tx, status_rx) = channel::<ConnectionStatus>();
         let host = host.to_string();
 
-        thread::spawn(move || loop {
-            match TcpStream::connect((host.as_str(), port)) {
-                Ok(mut stream) => {
-                    let _ = status_tx.send(ConnectionStatus::Connected);
-                    let subscribe = serde_json::json!({ "subscribe": mission_id.clone().unwrap_or_else(|| "latest".to_string()) });
-                    if writeln!(stream, "{}", subscribe).is_err() {
-                        let _ = status_tx.send(ConnectionStatus::Disconnected("write failed".to_string()));
-                        thread::sleep(RECONNECT_DELAY);
-                        continue;
-                    }
-                    let reader = match stream.try_clone() {
-                        Ok(clone) => BufReader::new(clone),
-                        Err(_) => {
-                            thread::sleep(RECONNECT_DELAY);
+        thread::spawn(move || {
+            let mut backoff = RECONNECT_DELAY;
+            loop {
+                let mut received_any = false;
+                let mut dropped_lines: u64 = 0;
+                match TcpStream::connect((host.as_str(), port)) {
+                    Ok(mut stream) => {
+                        let _ = status_tx.send(ConnectionStatus::Connected);
+                        let subscribe = serde_json::json!({ "subscribe": mission_id.clone().unwrap_or_else(|| "latest".to_string()) });
+                        if writeln!(stream, "{}", subscribe).is_err() {
+                            let _ = status_tx.send(ConnectionStatus::Disconnected("write failed".to_string()));
+                            thread::sleep(backoff);
+                            backoff = (backoff * 2).min(RECONNECT_MAX_DELAY);
                             continue;
                         }
-                    };
-                    for line in reader.lines() {
-                        match line {
-                            Ok(text) => {
-                                let trimmed = text.trim();
-                                if trimmed.is_empty() {
-                                    continue;
-                                }
-                                if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
-                                    if events_tx.send(value).is_err() {
-                                        return;
+                        let reader = match stream.try_clone() {
+                            Ok(clone) => BufReader::new(clone),
+                            Err(_) => {
+                                thread::sleep(backoff);
+                                backoff = (backoff * 2).min(RECONNECT_MAX_DELAY);
+                                continue;
+                            }
+                        };
+                        for line in reader.lines() {
+                            match line {
+                                Ok(text) => {
+                                    let trimmed = text.trim();
+                                    if trimmed.is_empty() {
+                                        continue;
+                                    }
+                                    if let Ok(value) = serde_json::from_str::<Value>(trimmed) {
+                                        received_any = true;
+                                        if events_tx.send(value).is_err() {
+                                            return;
+                                        }
+                                    } else {
+                                        // Surface the first malformed line instead of
+                                        // discarding it silently.
+                                        dropped_lines += 1;
+                                        if dropped_lines == 1 {
+                                            let warning = serde_json::json!({
+                                                "type": "monitor_warning",
+                                                "message": "Ignoring non-JSON line from Trinity monitor",
+                                            });
+                                            let _ = events_tx.send(warning);
+                                        }
                                     }
                                 }
+                                Err(_) => break,
                             }
-                            Err(_) => break,
                         }
+                        let detail = if dropped_lines > 0 {
+                            format!("connection closed by monitor server ({dropped_lines} non-JSON line(s) dropped)")
+                        } else {
+                            "connection closed by monitor server".to_string()
+                        };
+                        let _ = status_tx.send(ConnectionStatus::Disconnected(detail));
                     }
-                    let _ = status_tx.send(ConnectionStatus::Disconnected(
-                        "connection closed by monitor server".to_string(),
-                    ));
+                    Err(error) => {
+                        let _ = status_tx.send(ConnectionStatus::Disconnected(error.to_string()));
+                    }
                 }
-                Err(error) => {
-                    let _ = status_tx.send(ConnectionStatus::Disconnected(error.to_string()));
+                if received_any {
+                    backoff = RECONNECT_DELAY;
                 }
+                thread::sleep(backoff);
+                backoff = (backoff * 2).min(RECONNECT_MAX_DELAY);
             }
-            thread::sleep(RECONNECT_DELAY);
         });
 
         Self { events_rx, status_rx }
