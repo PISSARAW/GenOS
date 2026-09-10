@@ -65,7 +65,7 @@ impl BiomimeticOrchestrator {
         }
         let tissue = Tissue::new(name, function_role, self.orchestrator_id);
         self.tissues.insert(name.to_string(), tissue);
-        Ok(self.tissues.get_mut(name).unwrap())
+        self.tissues.get_mut(name).ok_or_else(|| format!("Tissu '{}' introuvable après création", name))
     }
 
     /// Intègre une cellule ouvrière dans un tissu donné
@@ -115,10 +115,11 @@ impl BiomimeticOrchestrator {
     }
 
     pub fn evaluate_orchestrator(&mut self, loop_metrics: (u32, f64)) -> ConscienceState {
-        let root = self.active_cells.get_mut(&self.orchestrator_id)
-            .expect("orchestrator root cell must remain active");
-        self.conscience.evaluate_branch(&mut root.conscience, loop_metrics.0, loop_metrics.1);
-        self.conscience_state = root.conscience.clone();
+        // Never panic if the root cell was removed: keep the last known state.
+        if let Some(root) = self.active_cells.get_mut(&self.orchestrator_id) {
+            self.conscience.evaluate_branch(&mut root.conscience, loop_metrics.0, loop_metrics.1);
+            self.conscience_state = root.conscience.clone();
+        }
         self.conscience_state.clone()
     }
 
@@ -182,7 +183,7 @@ impl BiomimeticOrchestrator {
         // Extraire le symbionte après validation atomique de l'hôte.
         let symbiont = self.active_cells.remove(&symbiont_id)
             .ok_or_else(|| format!("Symbionte {} introuvable ou déjà phagocyté", symbiont_id))?;
-        let host = self.active_cells.get_mut(&host_id).unwrap();
+        let host = self.active_cells.get_mut(&host_id).ok_or_else(|| format!("Hôte {} introuvable", host_id))?;
         host.phagocytize(symbiont)?;
         
         // 4. Émettre un signal bioluminescent pour marquer l'événement
