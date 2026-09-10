@@ -107,17 +107,18 @@ async function runLocalWorker(db, mission, executionRun) {
       throw Object.assign(new Error(`Local worker prompt consumes its token budget before generation (${promptTokenEstimate} >= ${tokenBudget}).`), { code: 'BUDGET_EXHAUSTED' });
     }
     const agentName = mission.name || 'GenOS Worker';
-    const agentMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Spécialiste autonome');
-    const selfIntro = agentIdentity.formatSelfIntroduction(agentName, agentMeaning, mission.role);
+    const nameMeaning = mission.nameMeaning || (agentIdentity.findIdentityByName(agentName)?.meaning || 'Spécialiste autonome');
+    const selfIntro = agentIdentity.formatSelfIntroduction(agentName, nameMeaning, mission.role);
     const conscienceState = await agentConscience.loadConscienceState(db, mission.agentId);
     const conscienceBlock = agentConscience.formatConsciencePrompt(conscienceState);
 
+    const workerModel = mission.localModel || mission.model || 'mock-local-model';
     const result = await modelRouter.generate({
-      db, agentId: mission.agentId, model: mission.localModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
+      db, agentId: mission.agentId, model: workerModel, timeoutMs: Number(mission.executionBudget?.latencyMs || 30000),
       priority: 'bulk',
       maxTokens: tokenBudget > 0 ? tokenBudget - promptTokenEstimate : undefined,
       maxCostUsd: Number.isFinite(Number(mission.executionBudget?.costUsd)) ? Number(mission.executionBudget.costUsd) : undefined,
-      policy: mission.localRoutingPolicy || { primary: mission.localModel, preferLocal: true },
+      policy: mission.localRoutingPolicy || { primary: workerModel, preferLocal: true },
       prompt: codeWorker
         ? `${selfIntro}\n${conscienceBlock}\nYou are a bounded GenOS local code worker (${agentName}). Return only strict JSON {"format":"genos.file-replacement/v1","patches":[{"path":"relative/source/file","content":"complete replacement content"}],"tests":["cargo test --quiet"],"evidence":"brief proof"}. One or two allow-listed tests are mandatory. You may alter only source files, never tests, manifests, secrets, locks, or configuration. Your changes stay in the isolated capsule and are never merged automatically. Branch mission:\n${mission.prompt}`
         : (mission.role === 'Autonomous Orchestrator' || (mission.executionMode || mission.execution_mode) === 'orchestrator' || /orchestrator/i.test(mission.agentId))
