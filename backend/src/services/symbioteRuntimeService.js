@@ -46,7 +46,7 @@ function localEmbeddingModel() {
 // expose POST /api/embeddings with { model, prompt } returning { embedding }.
 // Try the modern shape first and fall back only on 404.
 async function requestLocalEmbedding(base, model, text) {
-  const signal = AbortSignal.timeout(4000);
+  const signal = AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined;
   const modern = await fetch(`${base}/api/embed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -67,7 +67,7 @@ async function requestLocalEmbedding(base, model, text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, prompt: text }),
     redirect: 'manual',
-    signal: AbortSignal.timeout(4000)
+    signal
   });
   if (!legacy.ok) {
     throw new Error(`Legacy local embedding endpoint returned HTTP ${legacy.status}`);
@@ -77,32 +77,66 @@ async function requestLocalEmbedding(base, model, text) {
   return Array.isArray(vector) && vector.length ? vector : null;
 }
 
+function classifyEmbeddingError(error) {
+  const message = error?.message || '';
+  if (error?.name === 'TimeoutError' || /timeout|aborted/i.test(message)) return 'LOCAL_EMBEDDING_TIMEOUT';
+  if (/loopback|Local provider|valid absolute URL|HTTP or HTTPS|credentials/i.test(message)) return 'INVALID_EMBEDDING_ENDPOINT';
+  if (/HTTP \d+/i.test(message)) return 'LOCAL_EMBEDDING_HTTP_ERROR';
+  return 'LOCAL_RUNTIME_UNAVAILABLE';
+}
+
 // Never throws: returns a structured result so callers can tell an embedding
 // failure (Ollama down / invalid endpoint) apart from an empty input.
 async function embedLocally(text) {
   const cleanText = String(text || '').trim();
-  if (!cleanText) return { embedding: null, skipped: true };
+  if (!cleanText) return { embedding: null, skipped: true, errorCode: 'EMPTY_TEXT' };
   try {
     const base = localEmbeddingBase();
     validateProviderEndpoint(base, { localOnly: true });
     const embedding = await requestLocalEmbedding(base, localEmbeddingModel(), cleanText);
     return { embedding, skipped: false };
   } catch (error) {
-    return { embedding: null, skipped: false, error: error.message };
+    return { embedding: null, skipped: false, error: error.message, errorCode: classifyEmbeddingError(error) };
   }
+}
+
+// Thundering-herd guard: identical in-flight embeddings share one promise and
+// successful results are reused briefly.
+const inflightEmbeddings = new Map();
+const embeddingCache = new Map();
+const EMBEDDING_CACHE_TTL_MS = 30000;
+
+function embeddingKey(text) {
+  return `${localEmbeddingModel()}\u0000${text}`;
+}
+
+async function embedLocallyCached(text) {
+  const key = embeddingKey(text);
+  const cached = embeddingCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const pending = inflightEmbeddings.get(key);
+  if (pending) return pending;
+  const task = embedLocally(text).then((value) => {
+    embeddingCache.set(key, { expiresAt: Date.now() + EMBEDDING_CACHE_TTL_MS, value });
+    if (embeddingCache.size > 1000) embeddingCache.delete(embeddingCache.keys().next().value);
+    return value;
+  }).finally(() => inflightEmbeddings.delete(key));
+  inflightEmbeddings.set(key, task);
+  return task;
 }
 
 /** Symbiotes embed locally in milliseconds; the Host never takes this path. */
 async function embedForSymbiote(role, text) {
   if (!isSymbioteRole(role)) return { engine: 'cloud', embedding: null };
   const startedAt = Date.now();
-  const result = await embedLocally(text);
+  const result = await embedLocallyCached(text);
   return {
     engine: 'local',
     embedding: result.embedding,
     latencyMs: Date.now() - startedAt,
     skipped: result.skipped,
-    ...(result.error ? { error: result.error } : {})
+    ...(result.error ? { error: result.error } : {}),
+    ...(result.errorCode ? { errorCode: result.errorCode } : {})
   };
 }
 
