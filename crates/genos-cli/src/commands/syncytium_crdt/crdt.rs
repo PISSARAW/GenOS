@@ -13,7 +13,6 @@ const MAX_OP_LOG: usize = 100_000;
 pub struct SyncytiumEngine {
     op_log: RwLock<Vec<CrdtOp>>,
     lamport_clock: AtomicU64,
-    step_counter: AtomicU64,
     tx: broadcast::Sender<SyncytiumWireEvent>,
 }
 
@@ -98,7 +97,6 @@ impl SyncytiumEngine {
         Arc::new(Self {
             op_log: RwLock::new(Vec::new()),
             lamport_clock: AtomicU64::new(0),
-            step_counter: AtomicU64::new(0),
             tx,
         })
     }
@@ -123,8 +121,6 @@ impl SyncytiumEngine {
         } else {
             self.observe_lamport(op.lamport);
         }
-        let step = self.step_counter.fetch_add(1, Ordering::Relaxed) + 1;
-
         let mut log = self.op_log.write().await;
         log.push(op.clone());
         if log.len() > MAX_OP_LOG {
@@ -132,7 +128,7 @@ impl SyncytiumEngine {
             log.drain(0..overflow);
             eprintln!("[Syncytium] op log exceeded {MAX_OP_LOG} entries; dropped {overflow} oldest ops");
         }
-        let snapshot = Self::build_snapshot(&log, step, None);
+        let snapshot = Self::build_snapshot(&log, None, None);
         drop(log);
 
         let event = SyncytiumWireEvent::OpApplied {
@@ -145,29 +141,46 @@ impl SyncytiumEngine {
 
     pub async fn snapshot(&self) -> SyncytiumSnapshot {
         let log = self.op_log.read().await;
-        let step = self.step_counter.load(Ordering::Relaxed);
-        Self::build_snapshot(&log, step, None)
+        Self::build_snapshot(&log, None, None)
     }
 
     pub async fn time_travel(&self, target_ms: u64) -> SyncytiumSnapshot {
         let log = self.op_log.read().await;
-        let step = self.step_counter.load(Ordering::Relaxed);
-        let snapshot = Self::build_snapshot(&log, step, Some(target_ms));
+        let snapshot = Self::build_snapshot(&log, Some(target_ms), None);
         drop(log);
+        self.broadcast_rewind(&snapshot, target_ms);
+        snapshot
+    }
 
+    /// Rewinds to the state after exactly `step` operations. This is
+    /// deterministic even when several operations share the same timestamp,
+    /// unlike resolving a step back to a millisecond cutoff.
+    pub async fn time_travel_to_step(&self, step: usize) -> SyncytiumSnapshot {
+        let log = self.op_log.read().await;
+        let snapshot = Self::build_snapshot(&log, None, Some(step));
+        drop(log);
+        let target_ms = snapshot.rewind_target_ms.unwrap_or(0);
+        self.broadcast_rewind(&snapshot, target_ms);
+        snapshot
+    }
+
+    fn broadcast_rewind(&self, snapshot: &SyncytiumSnapshot, target_ms: u64) {
         let event = SyncytiumWireEvent::TimeTravelRewound {
             snapshot: snapshot.clone(),
             target_ms,
         };
         let _ = self.tx.send(event);
-        snapshot
     }
 
     pub async fn history(&self) -> Vec<CrdtOp> {
         self.op_log.read().await.clone()
     }
 
-    fn build_snapshot(log: &[CrdtOp], step: u64, target_ms: Option<u64>) -> SyncytiumSnapshot {
+    fn build_snapshot(
+        log: &[CrdtOp],
+        target_ms: Option<u64>,
+        max_ops: Option<usize>,
+    ) -> SyncytiumSnapshot {
         let mut text = String::new();
         let mut fields = HashMap::new();
         let mut cursors_map = HashMap::new();
@@ -186,12 +199,19 @@ impl SyncytiumEngine {
                 .then(a.op_id.cmp(&b.op_id))
         });
 
+        let mut applied = 0usize;
         for op in ordered {
             if let Some(cutoff) = target_ms {
                 if op.timestamp_ms > cutoff {
                     continue;
                 }
             }
+            if let Some(limit) = max_ops {
+                if applied >= limit {
+                    break;
+                }
+            }
+            applied += 1;
             last_timestamp = last_timestamp.max(op.timestamp_ms);
             apply_kind(&mut text, &mut fields, &op.kind);
             update_cursor_entry(&mut cursors_map, op);
@@ -203,16 +223,27 @@ impl SyncytiumEngine {
         let mut invariants: Vec<InvariantStatus> = invariants_map.into_values().collect();
         invariants.sort_by(|a, b| a.name.cmp(&b.name));
 
+        let is_time_travel = target_ms.is_some() || max_ops.is_some();
+        let rewind_target_ms = if target_ms.is_some() {
+            target_ms
+        } else if max_ops.is_some() {
+            Some(last_timestamp)
+        } else {
+            None
+        };
+
         SyncytiumSnapshot {
-            step,
+            // step and total_ops both describe the replayed prefix, so a
+            // rewind never reports the global apply counter.
+            step: applied as u64,
             timestamp_ms: last_timestamp,
             text_content: text,
             shared_fields: fields,
             cursors,
             invariants,
-            total_ops: log.len(),
-            is_time_travel: target_ms.is_some(),
-            rewind_target_ms: target_ms,
+            total_ops: applied,
+            is_time_travel,
+            rewind_target_ms,
         }
     }
 }

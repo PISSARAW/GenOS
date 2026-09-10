@@ -74,7 +74,6 @@ class SyncytiumCrdt {
   constructor() {
     this.opLog = [];
     this.lamportClock = 0;
-    this.stepCounter = 0;
   }
 
   applyOp(op) {
@@ -94,37 +93,48 @@ class SyncytiumCrdt {
     const timestampMs = op.timestampMs ?? Date.now();
     const recordedOp = { ...op, lamport, timestampMs };
     this.opLog.push(recordedOp);
-    this.stepCounter += 1;
     return this.getSnapshot();
   }
 
-  getSnapshot(targetMs = null) {
+  getSnapshot(targetMs = null, maxOps = null) {
     const state = { text: '', fields: {}, cursors: {}, invariants: {} };
     let lastMs = 0;
+    let applied = 0;
 
     for (const op of orderOps(this.opLog)) {
       if (targetMs !== null && op.timestampMs > targetMs) continue;
+      if (maxOps !== null && applied >= maxOps) break;
+      applied += 1;
       lastMs = Math.max(lastMs, op.timestampMs);
       applyKind(state, op.kind);
       updateCursor(state, op);
       updateInvariant(state, op);
     }
 
+    const isTimeTravel = targetMs !== null || maxOps !== null;
+    const rewindTargetMs = targetMs !== null ? targetMs : (maxOps !== null ? lastMs : null);
+
     return {
-      step: this.stepCounter,
+      // step/totalOps describe the replayed prefix, never a global counter.
+      step: applied,
       timestampMs: lastMs,
       textContent: state.text,
       sharedFields: state.fields,
       cursors: Object.values(state.cursors).sort((a, b) => a.agentId.localeCompare(b.agentId)),
       invariants: Object.values(state.invariants).sort((a, b) => a.name.localeCompare(b.name)),
-      totalOps: this.opLog.length,
-      isTimeTravel: targetMs !== null,
-      rewindTargetMs: targetMs
+      totalOps: applied,
+      logSize: this.opLog.length,
+      isTimeTravel,
+      rewindTargetMs
     };
   }
 
   timeTravel(targetMs) {
-    return this.getSnapshot(targetMs);
+    return this.getSnapshot(targetMs, null);
+  }
+
+  timeTravelToStep(step) {
+    return this.getSnapshot(null, step);
   }
 
   getHistory() {

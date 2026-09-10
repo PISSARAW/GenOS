@@ -128,6 +128,27 @@ assert.equal(malformedSnap.textContent, '');
 assert.equal(malformedSnap.totalOps, 2);
 console.log('  ✅ Opérations sans kind ignorées sans crash validées.');
 
+console.log('\n=== TEST 7: Step Rewind Is Collision-Free ===');
+const rewindCrdt = createSyncytiumCrdt();
+rewindCrdt.applyOp({
+  opId: 'rew-1', agentId: 'a', role: 'parallel_executor', timestampMs: 100,
+  kind: { type: 'insert_text', index: 0, text: 'A' }
+});
+rewindCrdt.applyOp({
+  opId: 'rew-2', agentId: 'a', role: 'parallel_executor', timestampMs: 100,
+  kind: { type: 'insert_text', index: 0, text: 'B' }
+});
+const byStep1 = rewindCrdt.timeTravelToStep(1);
+assert.equal(byStep1.step, 1);
+assert.equal(byStep1.totalOps, 1);
+assert.equal(byStep1.rewindTargetMs, 100);
+const byStep2 = rewindCrdt.timeTravelToStep(2);
+assert.equal(byStep2.step, 2);
+assert.equal(byStep2.totalOps, 2);
+const byMs = rewindCrdt.timeTravel(100);
+assert.equal(byMs.totalOps, 2);
+console.log('  ✅ Rewind par step deterministe malgre des timestamps identiques validé.');
+
 console.log('\n=============================================================');
 console.log('TOUS LES TESTS CRDT ET SYNCHRONISATION SYNCYTIUM ONT RÉUSSI !');
 console.log('=============================================================');
